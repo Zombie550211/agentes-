@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>CRM Agente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-minimal/minimal.css">
+  <style>
+    :root {
+      --primary: #2196f3;
+      --primary-dark: #1976d2;
+      --accent: #19b6f9;
+      --background: #f3f7fa;
+      --text-main: #24334d;
+      --gray-light: #f8fbff;
+      --sidebar-bg: #fff;
+      --sidebar-shadow: 2px 0 12px #0001;
+      --border-radius: 16px;
+      --card-shadow: 0 4px 20px #0002, 0 1.5px 3px #19b6f922;
+    }
+    html, body {height:100%;margin:0;padding:0;}
+    body {
+      background: var(--background);
+      font-family:'Segoe UI', 'Roboto', 'Montserrat', Arial, sans-serif;
+      min-height:100vh;
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+    }
+    .topbar {
+      background: var(--primary);
+      color: #fff;
+      padding: 0.9em 2em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.11em;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      box-shadow: 0 2px 10px #2196f320;
+    }
+    .topbar a.logout {
+      color: #fff !important;
+      font-weight: 700;
+      text-decoration: none;
+      transition: color 0.2s;
+      border-bottom: 1.5px solid transparent;
+    }
+    .topbar a.logout:hover {
+      color: #ffe082 !important;
+      border-bottom: 1.5px solid #ffe082;
+    }
+    .container {
+      display: flex;
+      align-items: flex-start;
+      width: 100vw;
+      height: calc(100vh - 56px);
+      min-height: 0;
+      background: linear-gradient(90deg, #eaf4fb 0%, #f6fafd 100%);
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 230px;
+      background: var(--sidebar-bg);
+      height: 100%;
+      border-radius: 0 18px 18px 0;
+      box-shadow: var(--sidebar-shadow);
+      padding: 2em 0.8em 2em 2em;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-size: 1.09em;
+      font-weight: 500;
+      z-index: 3;
+      min-height: 0;
+    }
+    .sidebar h3 {
+      font-size: 1.14em;
+      margin-bottom: 1.5em;
+      font-weight: 700;
+      color: var(--primary-dark);
+      letter-spacing: 0.04em;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+      width: 100%;
+    }
+    .sidebar li {margin: 1.2em 0;}
+    .sidebar a {
+      color: var(--primary);
+      text-decoration: none;
+      display: block;
+      padding: 0.7em 1.2em;
+      border-radius: 10px;
+      transition: background 0.22s, color 0.22s, border-left 0.18s;
+      font-weight: 700;
+      width: 100%;
+      box-sizing: border-box;
+      letter-spacing: 0.03em;
+    }
+    .sidebar a.active, .sidebar a:focus {
+      background: linear-gradient(90deg, #e3f2fd 0%, #e8f5ff 100%);
+      color: var(--primary-dark);
+      border-left: 5px solid var(--accent);
+      box-shadow:0 2px 8px #2196f922;
+    }
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      padding: 0 0 0 0.6em;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .dashboard-flex-row {
+      display: flex;
+      flex-direction: row;
+      gap: 2.5em;
+      height: 100%;
+      min-height: 0;
+      align-items: flex-start;
+    }
+    /* FORMULARIO LEAD (panel scrolleable) */
+    .crm-form-section {
+      max-width: 510px;
+      width: 100%;
+      margin-left: 0.2em;
+      margin-right: 0.4em;
+      align-self: flex-start;
+      background: none;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      height: 100%;
+      max-height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+    }
+    .crm-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 10px 2px 10px 2px;
+    }
+    .crm-form-group {
+      background: #fff;
+      border-radius: var(--border-radius);
+      margin-bottom: 0;
+      padding: 22px 28px 16px 28px;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: var(--card-shadow);
+      transition: box-shadow 0.14s, border-color 0.17s;
+    }
+    .crm-form-label {
+      font-weight: 700;
+      color: #03559d;
+      font-size: 1.13em;
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+      display: block;
+    }
+    .crm-form-label .crm-form-req {
+      color: #e53935;
+      font-size: 1.1em;
+      margin-left: 2px;
+    }
+    .crm-form-input,
+    .crm-form-select {
+      background: var(--gray-light);
+      border: none;
+      border-bottom: 2px solid #c5d2e7;
+      border-radius: 0.7em 0.7em 0 0;
+      padding: 13px 6px 11px 10px;
+      font-size: 1.12em;
+      color: var(--text-main);
+      outline: none;
+      margin-bottom: 2px;
+      transition: border-color 0.17s, box-shadow 0.16s;
+      box-shadow: 0 1px 0.5px #19b6f926;
+    }
+    .crm-form-input:focus,
+    .crm-form-select:focus {
+      border-bottom: 2.5px solid var(--primary);
+      box-shadow: 0 0 0 2px #19b6f944;
+      background: #eaf6ff;
+    }
+    .crm-form-select {
+      appearance: none;
+      padding-right: 32px;
+      width: 220px;
+      min-width: 120px;
+      background: url("data:image/svg+xml,%3Csvg width='24' height='24' fill='gray' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5' stroke='%230097e6' stroke-width='1.7' fill='none'/%3E%3C/svg%3E") no-repeat right 0.7em center/1.3em;
+      cursor: pointer;
+    }
+    /* Motivo llamada grid para radios ordenados */
+    .crm-form-radio-group.radio-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 7px 20px;
+    }
+    @media (max-width: 600px) {
+      .crm-form-radio-group.radio-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .crm-form-radio-label {
+      font-weight: 500;
+      color: #222;
+      font-size: 1.07em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: color .18s;
+      padding: 2px 7px 2px 0;
+      margin-bottom: 0;
+    }
+    .crm-form-radio-input {
+      accent-color: var(--primary);
+      margin-right: 7px;
+      margin-left: 1px;
+      width: 17px;
+      height: 17px;
+      transition: accent-color .18s;
+    }
+    .crm-form-radio-input:focus-visible {
+      outline: 2px solid var(--primary);
+    }
+    .crm-form-error-msg {
+      color: #e53935;
+      font-size: 1em;
+      font-weight: 600;
+      margin-top: 6px;
+      margin-bottom: -2px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      letter-spacing: .01em;
+      background: #fff8f8;
+      border-radius: 6px;
+      padding: 3px 7px;
+    }
+    .crm-form-submit-btn {
+      background: linear-gradient(90deg,#11c7ff 0%,#009cff 100%);
+      color: #fff;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 1.17em;
+      padding: 15px 0;
+      width: 100%;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      transition: background 0.22s, box-shadow 0.19s;
+      cursor: pointer;
+      box-shadow: 0 2px 14px #19b6f933;
+      letter-spacing: .07em;
+    }
+    .crm-form-submit-btn:hover, .crm-form-submit-btn:focus {
+      background: linear-gradient(90deg,#009cff 0%,#11c7ff 100%);
+      box-shadow: 0 4px 16px #19b6f94d;
+    }
+    .charts-section {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      height: 100%;
+      min-width: 0;
+      margin-top: 0.35em;
+      min-height: 0;
+      overflow: auto;
+    }
+    .charts-filter {
+      margin-bottom: 18px;
+      padding: 13px 24px;
+      background: #f8fbff;
+      border-radius: 11px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 2px 10px #2196f911;
+    }
+    .charts-filter label { font-weight: 700; margin-bottom: 0; color: var(--primary-dark);}
+    .charts-filter input[type="date"] { padding: 8px 13px; border-radius: 8px; border: 1px solid #b4c5d4; font-size:1em;}
+    .charts-filter button { width: auto; padding: 9px 20px; margin: 0; background: var(--primary); border: none; color: white; border-radius: 7px; font-weight: 700; cursor: pointer; transition: background-color 0.3s;}
+    .charts-filter button:hover { background: var(--primary-dark); }
+    .chart-container {
+      background: #fff;
+      padding: 15px 22px 15px 22px;
+      border: 1px solid #e2e8f0;
+      border-radius: 13px;
+      box-shadow: 0 2px 10px #2196f911;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: 0;
+      height: 50%;
+      margin-bottom: 7px;
+    }
+    .chart-canvas {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100%;
+      aspect-ratio: unset;
+      display: block;
+      background: transparent;
+      min-height: 0;
+    }
+    .no-data-msg { color: #d32f2f; font-weight: bold; text-align: center; margin-top: 10px;}
+    .costumer-section {width:100%;}
+    .costumer-filters {
+      background: #f8fbff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px #2196f911;
+      padding: 15px 18px 7px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+    .costumer-filter-input {
+      padding: 8px 11px;
+      border-radius: 7px;
+      border: 1px solid #b4c5d4;
+      font-size: 0.98em;
+      background: #fafdff;
+      transition: border 0.15s;
+      color: var(--text-main);
+    }
+    .costumer-filter-input:focus {
+      outline: 2px solid var(--primary);
+      border-color: var(--primary);
+      background: #eaf6ff;
+    }
+    .costumer-filter-btn {
+      padding: 10px 20px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background 0.22s;
+    }
+    .costumer-filter-btn:hover { background: var(--primary-dark);}
+    .costumer-table-wrapper {
+      max-height: 480px;
+      overflow-y: auto;
+      margin-bottom: 2em;
+      box-shadow: 0 2px 12px #2196f911;
+      background: #fff;
+      border-radius: 15px;
+    }
+    .costumer-table {
+      border-collapse:separate;
+      border-spacing:0;
+      width:100%;
+      min-width:1350px;
+      font-size: 1.01em;
+    }
+    .costumer-table thead th {
+      background: #2196f3;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1.10em;
+      border-bottom: 2px solid #1976d2;
+      text-align: left;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 13px 9px;
+      letter-spacing: 0.03em;
+    }
+    .costumer-table tbody td {
+      background: #fff;
+      color: #2b2d36;
+      font-size: 0.98em;
+      border-bottom: 1px solid #e0e6ed;
+      vertical-align: top;
+      padding: 11px 9px;
+    }
+    .costumer-table tbody tr:hover {
+      background: #e8f5fd;
+      transition: background 0.18s;
+    }
+    .costumer-table-wrapper::-webkit-scrollbar {
+      height: 8px;
+      background: #e3f2fd;
+      border-radius: 8px;
+    }
+    .costumer-table-wrapper::-webkit-scrollbar-thumb {
+      background: #b3e0ff;
+      border-radius: 8px;
+    }
+    @media (max-width: 1200px) {
+      .dashboard-flex-row {flex-direction:column; height:auto;}
+      .crm-form-section{max-width:100%;margin-bottom:2.2em; height:auto; max-height:none; min-height:0;}
+      .charts-section{min-width:0;}
+    }
+    html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .charts-section {
+      min-height: 0 !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <i class="fas fa-user-tie" style="font-size:1.25em;color:#fff;margin-right:6px;"></i>
+      <b>CRM Agente</b>
+    </div>
+    <a href="#" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+  </div>
+  <div class="container">
+    <div class="sidebar">
+      <h3>Menú</h3>
+      <ul>
+        <li><a href="#" class="tab-btn active" data-tab="leadTab" id="tabLead"><i class="fas fa-user-plus"></i> Lead</a></li>
+        <li><a href="#" class="tab-btn" data-tab="costumerTab" id="tabCostumer"><i class="fas fa-users"></i> Costumer</a></li>
+      </ul>
+    </div>
+    <div class="main-content">
+      <div class="dashboard-flex-row" id="leadTab">
+        <!-- FORMULARIO LEAD -->
+        <section class="crm-form-section" id="form-panel">
+          <form id="crmForm" class="crm-form" autocomplete="off" novalidate>
+                        <!-- AQUÍ VAN TODOS TUS CAMPOS DE FORMULARIO, REVISA Y AMPLÍA HASTA LA LÍNEA 489 APROX. -->
+            <div class="crm-form-group required" data-field="nombre_cliente">
+              <label class="crm-form-label">Nombre cliente <span class="crm-form-req">*</span></label>
+              <input type="text" name="nombre_cliente" class="crm-form-input" placeholder="Tu respuesta" required />
+            </div>
+            <div class="crm-form-group required" data-field="telefono_principal">
+              <label class="crm-form-label">Teléfono principal <span class="crm-form-req">*</span></label>
+              <input type="text" name="telefono_principal" class="crm-form-input" placeholder="Tu respuesta" required />
+            </div>
+            <div class="crm-form-group" data-field="telefono_alterno">
+              <label class="crm-form-label">Teléfono Alterno</label>
+              <input type="text" name="telefono_alterno" class="crm-form-input" placeholder="Tu respuesta" />
+            </div>
+            <div class="crm-form-group required" data-field="numero_cuenta">
+              <label class="crm-form-label">Numero de cuenta <span class="crm-form-req">*</span></label>
+              <input type="text" name="numero_cuenta" class="crm-form-input" placeholder="Tu respuesta" required />
+            </div>
+            <div class="crm-form-group required" data-field="autopago">
+              <label class="crm-form-label">Autopago <span class="crm-form-req">*</span></label>
+              <select name="autopago" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="SI">SI</option>
+                <option value="NO">NO</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="direccion">
+              <label class="crm-form-label">Dirección <span class="crm-form-req">*</span></label>
+              <input type="text" name="direccion" class="crm-form-input" placeholder="Tu respuesta" required />
+            </div>
+            <div class="crm-form-group required" data-field="tipo_servicios">
+              <label class="crm-form-label">Tipo de servicios <span class="crm-form-req">*</span></label>
+              <select name="tipo_servicios" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="AT&T AIR">AT&T AIR</option>
+                <option value="AT&T INTERNET 1 GIGA O MAS">AT&T INTERNET 1 GIGA O MAS</option>
+                <option value="AT&T INTERNET DE 500 MBPS">AT&T INTERNET DE 500 MBPS</option>
+                <option value="AT&T INTERNET DE 300 MBPS">AT&T INTERNET DE 300 MBPS</option>
+                <option value="AT&T INTERNET DE 100 MBPS">AT&T INTERNET DE 100 MBPS</option>
+                <option value="AT&T INTERNET DE 50 Y 75 MBPS">AT&T INTERNET DE 50 Y 75 MBPS</option>
+                <option value="AT&T INTERNET MENOS DE 50">AT&T INTERNET MENOS DE 50</option>
+                <option value="FRONTIER 7 GIG">FRONTIER 7 GIG</option>
+                <option value="FRONTIER 5 GIG">FRONTIER 5 GIG</option>
+                <option value="FRONTIER 2 GIG">FRONTIER 2 GIG</option>
+                <option value="FRONTIER 1 GIG">FRONTIER 1 GIG</option>
+                <option value="FRONTIER 500 MBPS">FRONTIER 500 MBPS</option>
+                <option value="FRONTIER UNDER 500 MBPS">FRONTIER UNDER 500 MBPS</option>
+                <option value="UNLIMITED DIGITAL VOICE">UNLIMITED DIGITAL VOICE</option>
+                <option value="Centurylink/Lumen 900MBPS+">Centurylink/Lumen 900MBPS+</option>
+                <option value="Centurylink/Lumen 100-899MBPS">Centurylink/Lumen 100-899MBPS</option>
+                <option value="Centurylink/Lumen 10-99MBPS">Centurylink/Lumen 10-99MBPS</option>
+                <option value="Ziply Fiber 10GIG">Ziply Fiber 10GIG</option>
+                <option value="Ziply Fiber 5GIG">Ziply Fiber 5GIG</option>
+                <option value="Ziply Fiber 2GIG">Ziply Fiber 2GIG</option>
+                <option value="Ziply Fiber 1GIG">Ziply Fiber 1GIG</option>
+                <option value="Ziply Fiber 300/300">Ziply Fiber 300/300</option>
+                <option value="Ziply Fiber 200/200">Ziply Fiber 200/200</option>
+                <option value="SPECTRUM 2 GIGA">SPECTRUM 2 GIGA</option>
+                <option value="SPECTRUM 1 GIGA">SPECTRUM 1 GIGA</option>
+                <option value="SPECTRUM PREMIER">SPECTRUM PREMIER</option>
+                <option value="SPECTRUM ADVANTAGE">SPECTRUM ADVANTAGE</option>
+                <option value="SPECTRUM 500MBPS">SPECTRUM 500MBPS</option>
+                <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
+                <option value="WOW! 1200MBPS">WOW! 1200MBPS</option>
+                <option value="WOW! 1000MBPS">WOW! 1000MBPS</option>
+                <option value="WOW! 500MBPS">WOW! 500MBPS</option>
+                <option value="WOW! 200MBPS">WOW! 200MBPS</option>
+                <option value="OPTIMUM BROADBAND 5 GBPS">OPTIMUM BROADBAND 5 GBPS</option>
+                <option value="OPTIMUM BROADBAND 2 GBPS">OPTIMUM BROADBAND 2 GBPS</option>
+                <option value="OPTIMUM BROADBAND 1 GBPS">OPTIMUM BROADBAND 1 GBPS</option>
+                <option value="OPTIMUM BROADBAND 500 MBPS">OPTIMUM BROADBAND 500 MBPS</option>
+                <option value="VIVINT">VIVINT</option>
+                <option value="VIDEO SELECT">VIDEO SELECT</option>
+                <option value="ADDITIONAL DOUBLE PLAY">ADDITIONAL DOUBLE PLAY</option>
+                <option value="ADDITIONAL TRIPLE PLAY">ADDITIONAL TRIPLE PLAY</option>
+                <option value="INTERNET">INTERNET</option>
+                <option value="DIRECTV VIA INTERNET">DIRECTV VIA INTERNET</option>
+                <option value="DIRECTV VIA SATELITE">DIRECTV VIA SATELITE</option>
+                <!-- ...agrega los productos que falten... -->
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="sistema">
+              <label class="crm-form-label">Sistema <span class="crm-form-req">*</span></label>
+              <select name="sistema" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="sistema1">SARA </option>
+                <option value="sistema2">OPUS</option>
+                <option value="Sistema3"> B.O</option>
+                <option value="Sistema4">N.A</option>
+                <option value="Sistema5">CHUZO</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="riesgo">
+              <label class="crm-form-label">Riesgo <span class="crm-form-req">*</span></label>
+              <select name="riesgo" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH">HIGH</option>
+                <option value="N/A">N/A</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="dia_venta">
+              <label class="crm-form-label">Dia de venta <span class="crm-form-req">*</span></label>
+              <input type="date" name="dia_venta" class="crm-form-input" required />
+            </div>
+            <div class="crm-form-group required" data-field="dia_instalacion">
+              <label class="crm-form-label">Dia de instalacion <span class="crm-form-req">*</span></label>
+              <input type="date" name="dia_instalacion" class="crm-form-input" required />
+            </div>
+            <div class="crm-form-group required" data-field="status">
+              <label class="crm-form-label">Status <span class="crm-form-req">*</span></label>
+              <div class="crm-form-radio-group">
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="status" value="PENDING" required> PENDING</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="status" value="REPRO"> REPRO</label>
+              </div>
+            </div>
+            <div class="crm-form-group required" data-field="servicios">
+              <label class="crm-form-label">Servicios <span class="crm-form-req">*</span></label>
+              <select name="servicios" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="servicio1">VIDEO DIRECTV VIA INTERNET</option>
+                <option value="servicio2">VIDEO DIRECTV VIA SATELITE</option>
+                <option value="servicio3">ATT AIR</option>
+                <option value="servicio4">ATT 18-25MB</option>
+                <option value="servicio5">ATT 50-100MB</option>
+                <option value="servicio6">ATT 300-500MB</option>
+                <option value="servicio7">ATT 1G+</option>
+                <option value="servicio8">MOBILITY SPECTRUM</option>
+                <option value="servicio9">SIM SPECTRUM</option>
+                <option value="servicio10">FRONTIER 200MB</option>
+                <option value="servicio11">FRONTIER 500MB</option>
+                <option value="servicio12">FRONTIER 1G</option>
+                <option value="servicio13">FRONTIER 2G+</option>
+                <option value="servicio14">SPECTRUM 500MB - 1G</option>
+                <option value="servicio15">SPECTRUM 2G</option>
+                <option value="servicio16">INTERNET OPTIMUN</option>
+                <option value="servicio17">INTERNET WOW</option>
+                <option value="servicio18">INTERNET ALTA FIBER</option>
+                <option value="servicio19">INTERNET WINDSTREAM</option>
+                <option value="servicio20">INTERNET HUGHESNET</option>
+                <option value="servicio21">INTERNET VIASAT</option>
+                <option value="servicio22">INTERNET CONSOLIDATE</option>
+                <option value="servicio23">INTERNET CENTURILINK</option>
+                <option value="servicio24">INTERNET METRONET</option>
+                <option value="servicio25">INTERNET ZYPLYFIBER</option>
+                <option value="servicio26">INTERNET HAWAIIAN</option>
+                <option value="servicio27">VIDEO SELECT SPECTRUM</option>
+                <option value="servicio28">DOUBLE PLAY SPECTRUM</option>
+                <option value="servicio29">BRIGHTSPEED 10-100MB</option>
+                <option value="servicio30">BRIGHTSPEED 100-900MB</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="mercado">
+              <label class="crm-form-label">Mercado <span class="crm-form-req">*</span></label>
+              <select name="mercado" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="ICON">ICON</option>
+                <option value="BAMO">BAMO</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="supervisor">
+              <label class="crm-form-label">Supervisor <span class="crm-form-req">*</span></label>
+              <select name="supervisor" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="IRANIA">IRANIA</option>
+                <option value="ROBERTO">ROBERTO</option>
+                <option value="MARISOL">MARISOL</option>
+                <option value="PLEITEZ">PLEITEZ</option>
+                <option value="RANDAL">RANDAL</option>
+                <option value="JONATHAN">JONATHAN</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="comentario">
+              <label class="crm-form-label">Comentario <span class="crm-form-req">*</span></label>
+              <select name="comentario" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
+                <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
+                <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
+                <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
+              </select>
+            </div>
+            <div class="crm-form-group required" data-field="motivo_llamada">
+              <label class="crm-form-label">¿Por que llamo el cliente? <span class="crm-form-req">*</span></label>
+              <div class="crm-form-radio-group radio-grid">
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="BILL_ALTO" required> BILL ALTO</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PROBLEMAS_INTERNET"> PROBLEMAS DE INTERNET</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ADQUIRIR_SERVICIOS"> ADQUIRIR SERVICIOS</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="MUDANZA"> MUDANZA</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="CANCELAR_SERVICIOS"> CANCELAR SERVICIOS</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PAGAR_BILL"> PAGAR BILL</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ATENCION_CLIENTE"> ATENCIÓN AL CLIENTE</label>
+              </div>
+            </div>
+            <div class="crm-form-group required" data-field="zip_code">
+              <label class="crm-form-label">ZIP CODE <span class="crm-form-req">*</span></label>
+              <input type="text" name="zip_code" class="crm-form-input" placeholder="Tu respuesta" required />
+            </div>
+            <button class="crm-form-submit-btn" type="submit"><i class="fas fa-save"></i> Guardar Lead</button>
+          </form>
+        </section>
+        <!-- SECCIÓN DE GRÁFICAS -->
+        <section class="charts-section" id="charts-panel">
+          <div class="charts-filter">
+            <label for="fechaGraficas"><i class="fas fa-filter"></i> Filtrar gráficas por fecha:</label>
+            <input type="date" id="fechaGraficas" />
+            <button type="button"><i class="fas fa-chart-bar"></i> Ver gráficas</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="ventasTeamChart" class="chart-canvas"></canvas>
+            <div id="no-data-team" class="no-data-msg" style="display:none">No hay datos para esta fecha</div>
+          </div>
+          <div class="chart-container">
+            <canvas id="productosChart" class="chart-canvas"></canvas>
+            <div id="no-data-producto" class="no-data-msg" style="display:none">No hay datos para esta fecha</div>
+          </div>
+        </section>
+      </div>
+      <!-- SECCIÓN COSTUMER (INICIALMENTE OCULTA) -->
+      <div class="costumer-section" id="costumerTab" style="display: none; margin-top:2em;">
+        <div class="costumer-filters">
+          <input type="date" placeholder="Fecha desde" class="costumer-filter-input" id="costumer-fecha-desde">
+          <input type="date" placeholder="Fecha hasta" class="costumer-filter-input" id="costumer-fecha-hasta">
+          <input type="text" placeholder="Nombre cliente" class="costumer-filter-input" id="costumer-nombre">
+          <input type="text" placeholder="Teléfono principal" class="costumer-filter-input" id="costumer-telefono">
+          <input type="text" placeholder="Dirección" class="costumer-filter-input" id="costumer-direccion" style="min-width:160px;">
+          <input type="text" placeholder="Supervisor" class="costumer-filter-input" id="costumer-supervisor">
+          <input type="text" placeholder="ZIP CODE" class="costumer-filter-input" id="costumer-zip">
+          <button type="button" class="costumer-filter-btn" id="costumer-filtrar"><i class="fas fa-search"></i> Filtrar</button>
+          <button type="button" class="costumer-filter-btn" id="costumer-limpiar" style="background:#eaf4fb;color:var(--primary);border:1px solid #b4c5d4;"><i class="fas fa-redo"></i> Limpiar</button>
+        </div>
+        <div class="costumer-table-wrapper">
+          <table class="costumer-table">
+            <thead>
+              <tr>
+                <th>Nombre cliente</th>
+                <th>Teléfono principal</th>
+                <th>Teléfono alterno</th>
+                <th>Numero de cuenta</th>
+                <th>Autopago</th>
+                <th>Dirección</th>
+                <th>Tipo de servicios</th>
+                <th>Sistema</th>
+                <th>Riesgo</th>
+                <th>Día de venta</th>
+                <th>Día de instalación</th>
+                <th>Status</th>
+                <th>Servicios</th>
+                <th>Mercado</th>
+                <th>Supervisor</th>
+                <th>Comentario</th>
+                <th>Motivo llamada</th>
+                <th>ZIP CODE</th>
+                <th>Puntaje</th>
+                <th>Comentario sobre la venta</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="costumer-tbody">
+              <!-- filas se llenan dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>}
+          <div class="costumer-table-wrapper">
+          <table class="costumer-table">
+            <thead>
+              <tr>
+                <th>Nombre cliente</th>
+                <th>Teléfono principal</th>
+                <th>Teléfono alterno</th>
+                <th>Numero de cuenta</th>
+                <th>Autopago</th>
+                <th>Dirección</th>
+                <th>Tipo de servicios</th>
+                <th>Sistema</th>
+                <th>Riesgo</th>
+                <th>Día de venta</th>
+                <th>Día de instalación</th>
+                <th>Status</th>
+                <th>Servicios</th>
+                <th>Mercado</th>
+                <th>Supervisor</th>
+                <th>Comentario</th>
+                <th>Motivo llamada</th>
+                <th>ZIP CODE</th>
+                <th>Puntaje</th>
+                <th>Comentario sobre la venta</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="costumer-tbody">
+              <!-- filas se llenan dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // USUARIO DEMO (puedes cambiar esto desde backend o login)
+    const usuario_actual = {
+      nombre: "Jose",
+      rol: "agente"
+    };
+
+    // Lógica de puntaje por producto/riesgo
+    function obtenerPuntaje(producto, riesgo) {
+      // DIRECTV lógica especial
+      if (/DIRECTV/i.test(producto)) {
+        if (riesgo === "LOW") return 1.00;
+        if (riesgo === "MEDIUM") return 0.35;
+        return 0;
+      }
+      // SPECTRUM 500MBPS o 400MBPS lógica especial
+      if (/SPECTRUM\s?500\s?MBPS/i.test(producto) || /SPECTRUM\s?400\s?MBPS/i.test(producto)) {
+        return 1.00;
+      }
+      // Tabla de productos (exacto)
+      const puntajes = {
+        // AT&T
+        "AT&T AIR": 0.35,
+        "AT&T INTERNET 1 GIGA O MAS": 1.50,
+        "AT&T INTERNET DE 500 MBPS": 1.25,
+        "AT&T INTERNET DE 300 MBPS": 1.25,
+        "AT&T INTERNET DE 100 MBPS": 1.00,
+        "AT&T INTERNET DE 50 Y 75 MBPS": 0.35,
+        "AT&T INTERNET MENOS DE 50": 0.25,
+        // FRONTIER
+        "FRONTIER 7 GIG": 1.50,
+        "FRONTIER 5 GIG": 1.50,
+        "FRONTIER 2 GIG": 1.25,
+        "FRONTIER 1 GIG": 1.25,
+        "FRONTIER 500 MBPS": 1.00,
+        "FRONTIER UNDER 500 MBPS": 0.35,
+        "UNLIMITED DIGITAL VOICE": 0.35,
+        // CenturyLink/Lumen
+        "Centurylink/Lumen 900MBPS+": 1.00,
+        "Centurylink/Lumen 100-899MBPS": 0.75,
+        "Centurylink/Lumen 10-99MBPS": 0.25,
+        // Ziply Fiber
+        "Ziply Fiber 10GIG": 1.25,
+        "Ziply Fiber 5GIG": 1.25,
+        "Ziply Fiber 2GIG": 1.00,
+        "Ziply Fiber 1GIG": 1.00,
+        "Ziply Fiber 300/300": 0.35,
+        "Ziply Fiber 200/200": 0.35,
+        // SPECTRUM
+        "SPECTRUM 2 GIGA": 1.25,
+        "SPECTRUM 1 GIGA": 1.00,
+        "SPECTRUM PREMIER": 1.00,
+        "SPECTRUM ADVANTAGE": 0.35,
+        // WOW!
+        "WOW! 1200MBPS": 0.35,
+        "WOW! 1000MBPS": 0.35,
+        "WOW! 500MBPS": 0.25,
+        "WOW! 200MBPS": 0.25,
+        // OPTIMUM
+        "OPTIMUM BROADBAND 5 GBPS": 1.25,
+        "OPTIMUM BROADBAND 2 GBPS": 1.25,
+        "OPTIMUM BROADBAND 1 GBPS": 1.00,
+        "OPTIMUM BROADBAND 500 MBPS": 0.35,
+        // VIVINT & VIDEO
+        "VIVINT": 0,
+        "VIDEO SELECT": 0.35,
+        "ADDITIONAL DOUBLE PLAY": 0.25,
+        "ADDITIONAL TRIPLE PLAY": 0.35,
+        // Otros
+        "INTERNET": 1.00
+      };
+      if (puntajes[producto]) return puntajes[producto];
+
+      // Si no match exacto, intenta por contiene
+      for (let key in puntajes) {
+        if (producto.toLowerCase().includes(key.toLowerCase())) {
+          return puntajes[key];
+        }
+      }
+      return 0;
+    }
+
+    // Array global para ventas
+    const ventas = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // TAB FUNCIONALIDAD
+      document.getElementById("tabLead").addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('leadTab').style.display = '';
+        document.getElementById('costumerTab').style.display = 'none';
+        this.classList.add('active');
+        document.getElementById("tabCostumer").classList.remove('active');
+      });
+      document.getElementById("tabCostumer").addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('leadTab').style.display = 'none';
+        document.getElementById('costumerTab').style.display = '';
+        this.classList.add('active');
+        document.getElementById("tabLead").classList.remove('active');
+        renderCostumerTable();
+      });
+
+      // Guardar Lead y pasar a tabla Costumer
+      document.getElementById('crmForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let valido = true;
+        this.querySelectorAll('[required]').forEach(function(input) {
+          if ((input.type === "radio" && !document.querySelector(`[name="${input.name}"]:checked`)) || (!input.value && input.type !== "radio")) {
+            valido = false;
+          }
+        });
+        if (!valido) {
+          alert("Por favor llena todos los campos requeridos.");
+          return;
+        }
+        // Obtener datos
+        const data = {};
+        Array.from(this.elements).forEach(el => {
+          if (el.name) {
+            if (el.type === "radio") {
+              if (el.checked) data[el.name] = el.value;
+            } else {
+              data[el.name] = el.value;
+            }
+          }
+        });
+
+        // Puntaje automático (producto + riesgo)
+        let producto = data["tipo_servicios"] || "";
+        let riesgo = data["riesgo"] || "";
+        let puntaje = obtenerPuntaje(producto, riesgo);
+
+        ventas.push({
+          ...data,
+          puntaje,
+          agente: usuario_actual.nombre,
+          comentarios_venta: [] // Por ahora vacío, se llenará luego desde acciones
+        });
+        this.reset();
+        alert("Lead guardado y enviado a Costumer.");
+        renderCostumerTable();
+      });
+    });
+        // Agregar comentario sobre la venta desde la tabla (botón de edición)
+    function editarVenta(idx) {
+      // Solo deja si eres dueño o B.O.
+      const venta = ventas[idx];
+      if(usuario_actual.rol !== "bo" && venta.agente !== usuario_actual.nombre) {
+        alert("No tienes permiso para comentar esta venta.");
+        return;
+      }
+      let comentario = prompt("Agregar comentario sobre la venta (se agregará al listado):");
+      if(comentario && comentario.trim()) {
+        if(!ventas[idx].comentarios_venta) ventas[idx].comentarios_venta = [];
+        const ahora = new Date();
+        let fecha = ahora.getFullYear() + '-' +
+          String(ahora.getMonth()+1).padStart(2,'0') + '-' +
+          String(ahora.getDate()).padStart(2,'0') + ' ' +
+          String(ahora.getHours()).padStart(2,'0') + ':' +
+          String(ahora.getMinutes()).padStart(2,'0') + ':' +
+          String(ahora.getSeconds()).padStart(2,'0');
+        ventas[idx].comentarios_venta.push(`[${fecha}] --> ${comentario.trim()}`);
+        renderCostumerTable();
+      }
+    }
+    function borrarVenta(idx) {
+      if(confirm("¿Seguro que quieres borrar este registro?")) {
+        ventas.splice(idx,1);
+        renderCostumerTable();
+      }
+    }
+    window.editarVenta = editarVenta;
+    window.borrarVenta = borrarVenta;
+
+    // Renderizar la tabla de Costumer
+    function renderCostumerTable() {
+      const tbody = document.getElementById('costumer-tbody');
+      tbody.innerHTML = "";
+      ventas.forEach((venta, idx) => {
+        if(usuario_actual.rol !== 'bo' && venta.agente !== usuario_actual.nombre) return;
+        const comentariosHtml = (venta.comentarios_venta||[]).map(c => 
+          `<div style="margin-bottom:4px;">${c}</div>`).join('');
+        tbody.innerHTML += `
+          <tr>
+            <td>${venta.nombre_cliente||''}</td>
+            <td>${venta.telefono_principal||''}</td>
+            <td>${venta.telefono_alterno||''}</td>
+            <td>${venta.numero_cuenta||''}</td>
+            <td>${venta.autopago||''}</td>
+            <td>${venta.direccion||''}</td>
+            <td>${venta.tipo_servicios||''}</td>
+            <td>${venta.sistema||''}</td>
+            <td>${venta.riesgo||''}</td>
+            <td>${venta.dia_venta||''}</td>
+            <td>${venta.dia_instalacion||''}</td>
+            <td><span style="background:#a6a9e9;color:#fff;border-radius:8px;padding:3px 12px;font-weight:600;font-size:0.97em;">${venta.status||''}</span></td>
+            <td>${venta.servicios||''}</td>
+            <td>${venta.mercado||''}</td>
+            <td>${venta.supervisor||''}</td>
+            <td>${venta.comentario||''}</td>
+            <td>${venta.motivo_llamada||''}</td>
+            <td>${venta.zip_code||''}</td>
+            <td>${venta.puntaje||0}</td>
+            <td>
+              <div>${comentariosHtml}</div>
+              <button onclick="editarVenta(${idx})" style="background:#fff;border:1px solid #2196f3;color:#2196f3;border-radius:5px;padding:2px 10px;cursor:pointer;font-size:0.93em;">Agregar comentario</button>
+            </td>
+            <td>
+              <button style="background:none;border:none;cursor:pointer;color:#1976d2;" onclick="editarVenta(${idx})"><i class="fas fa-pen"></i></button>
+              <button style="background:none;border:none;cursor:pointer;color:#e53935;" onclick="borrarVenta(${idx})"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
