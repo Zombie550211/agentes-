@@ -4,13 +4,20 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ObjectId } = require('mongodb');
+const axios = require('axios');
 
 // Configuración
 const JWT_SECRET = 'tu_clave_secreta_super_segura'; // cámbiala y guarda en .env en producción
-const uri = 'mongodb+srv://Zombie550211:Zombie5502@cluster0.ywxaotz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const mongoUser = encodeURIComponent('Zombie550211');
+const mongoPass = encodeURIComponent('Zombie5502');
+const mongoCluster = 'cluster0.ywxaotz.mongodb.net';
+const uri = `mongodb+srv://${mongoUser}:${mongoPass}@${mongoCluster}/?retryWrites=true&w=majority&appName=Cluster0`;
 const dbName = 'sample_mflix'; // Cambia por tu base de datos real
 const leadsCollectionName = 'crm agente';
 const usersCollectionName = 'crm_users';
+
+const CRM_ADMIN_URL = 'http://localhost:3000/api/sync/costumer'; // Reemplaza localhost:3000 si es diferente
+const CRM_ADMIN_API_KEY = 'tu-clave-secreta-muy-larga-y-dificil-de-adivinar'; // Usa la misma clave que en el Admin
 
 const app = express();
 app.use(cors());
@@ -19,24 +26,19 @@ app.use(express.json());
 // Servir archivos estáticos (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Mostrar dashboard por defecto en "/"
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
-});
-
 let db, leads, users;
 
 // Conexión a MongoDB
-MongoClient.connect(uri, { useUnifiedTopology: true })
+MongoClient.connect(uri)
   .then(client => {
     db = client.db(dbName);
-    leads = db.collection('crm agente');
+    leads = db.collection(leadsCollectionName);
     users = db.collection(usersCollectionName);
     console.log('Conectado a MongoDB');
   })
   .catch(err => console.error('Error conectando a MongoDB:', err));
 
-// --- MIDDLEWARE AUTENTICACIÓN ---
+// Middleware de autenticación
 function auth(req, res, next) {
   const header = req.headers['authorization'];
   if (!header) return res.status(401).json({ ok: false, error: 'No token' });
@@ -49,7 +51,46 @@ function auth(req, res, next) {
   });
 }
 
-// --- ENDPOINT TEMPORAL: CREAR ADMIN POR DEFECTO (SOLO DESARROLLO) ---
+// Función para sincronizar con CRM Admin
+async function sincronizarConAdmin(leadData) {
+  const payload = {
+    fecha: leadData.fecha,
+    equipo: leadData.equipo, 
+    agente: leadData.agente,
+    telefono: leadData.telefono,
+    producto: leadData.producto,
+    puntaje: leadData.puntaje,
+    cuenta: '', 
+    direccion: leadData.direccion,
+    zip: leadData.zip,
+    estado: leadData.estado
+  };
+
+  try {
+    console.log('Sincronizando con CRM Admin:', payload);
+    await axios.post(CRM_ADMIN_URL, payload, {
+      headers: {
+        'x-api-key': CRM_ADMIN_API_KEY
+      }
+    });
+    console.log('✅ Sincronización con CRM Admin exitosa.');
+
+  } catch (error) {
+    console.error('❌ Error al sincronizar con CRM Admin:');
+    if (error.response) {
+      console.error('   - Status:', error.response.status);
+      console.error('   - Data:', error.response.data);
+    } else if (error.request) {
+      console.error('   - No se recibió respuesta del servidor Admin. ¿Está encendido?');
+    } else {
+      console.error('   - Error:', error.message);
+    }
+  }
+}
+
+// --- RUTAS DE LA API ---
+
+// ENDPOINT TEMPORAL: CREAR ADMIN POR DEFECTO (SOLO DESARROLLO)
 app.get('/api/dev/create-admin', async (req, res) => {
   try {
     const existe = await users.findOne({ email: 'admin@crm.com' });
@@ -64,7 +105,7 @@ app.get('/api/dev/create-admin', async (req, res) => {
   }
 });
 
-// --- ENDPOINT TEMPORAL: CREAR AGENTE DEMO POR DEFECTO (SOLO DESARROLLO) ---
+// ENDPOINT TEMPORAL: CREAR AGENTE DEMO POR DEFECTO (SOLO DESARROLLO)
 app.get('/api/dev/create-agente', async (req, res) => {
   try {
     const existe = await users.findOne({ email: 'agente@crm.com' });
@@ -79,7 +120,7 @@ app.get('/api/dev/create-agente', async (req, res) => {
   }
 });
 
-// --- REGISTRO DE USUARIOS (admin o agente) ---
+// REGISTRO DE USUARIOS (admin o agente)
 app.post('/api/register', async (req, res) => {
   try {
     const { nombre, email, password, rol } = req.body;
@@ -101,7 +142,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// --- LOGIN ---
+// LOGIN
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -130,7 +171,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// --- INFO DEL USUARIO AUTENTICADO ---
+// INFO DEL USUARIO AUTENTICADO
 app.get('/api/agente/info', auth, async (req, res) => {
   res.json({
     nombre: req.user.nombre,
@@ -139,77 +180,89 @@ app.get('/api/agente/info', auth, async (req, res) => {
   });
 });
 
-// --- LISTAR LEADS (solo propios si es agente, todos si es admin) ---
+// LISTAR LEADS (solo propios si es agente, todos si es admin)
 app.get('/api/leads', auth, async (req, res) => {
-  console.log('--- Nueva Petición a /api/leads ---');
   try {
-    console.log('Usuario autenticado:', req.user);
     let filtro = {};
     if (req.user.rol === 'agente') {
-      filtro = { agente: req.user.username };
-      console.log(`Rol 'agente' detectado. Aplicando filtro:`, filtro);
-    } else {
-      console.log(`Rol '${req.user.rol}' detectado. Sin filtro de agente.`);
+      filtro = { agente: req.user.nombre };
     }
-    const allLeads = await leads.find(filtro).toArray();
-    console.log(`Consulta a la DB encontró ${allLeads.length} leads.`);
-    res.json(allLeads);
+    const listaLeads = await leads.find(filtro).toArray();
+    res.json(listaLeads);
   } catch (error) {
     res.status(500).json({ ok: false, error });
   }
 });
 
-// --- CREAR LEAD (agente o admin) ---
+// CREAR LEAD (agente o admin)
 app.post('/api/leads', auth, async (req, res) => {
   try {
     const lead = req.body;
-    // Asigna el agente a la lead
     if (req.user.rol === 'agente') {
-      lead.agente = req.user.username; // Usar username, que sí existe en el token
+      lead.agente = req.user.nombre;
     } else if (req.user.rol === 'admin' && !lead.agente) {
-      lead.agente = 'admin'; // O puedes dejarlo vacío o permitir elegir
+      lead.agente = 'admin';
     }
     lead.comentarios_venta = lead.comentarios_venta || [];
     const result = await leads.insertOne(lead);
-    res.json({ ok: true, id: result.insertedId });
+    const leadInsertado = { _id: result.insertedId, ...lead };
+
+    sincronizarConAdmin(leadInsertado);
+
+    res.json({ ok: true, lead: leadInsertado });
   } catch (error) {
     res.status(500).json({ ok: false, error });
   }
 });
 
-// --- OBTENER UN LEAD POR ID (ejemplo, no usado aún) ---
+// OBTENER UN LEAD POR ID
 app.get('/api/leads/:id', auth, async (req, res) => {
   try {
-    let filtro = {};
+    const { id } = req.params;
+    let filtro = { _id: new ObjectId(id) };
     if (req.user.rol === 'agente') {
-      filtro = { agente: req.user.nombre }; // Solo las propias
+      filtro.agente = req.user.nombre;
     }
-    const allLeads = await leads.find(filtro).toArray();
-    res.json(allLeads);
+    const lead = await leads.findOne(filtro);
+    res.json(lead);
   } catch (error) {
     res.status(500).json({ ok: false, error });
   }
 });
 
-// --- AGREGAR COMENTARIO SOBRE LA VENTA ---
+// ACTUALIZAR LEAD (agente o admin)
+app.put('/api/leads/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const leadActualizado = req.body;
+    const venta = await leads.findOne({ _id: new ObjectId(id) });
+    if (!venta) return res.status(404).json({ ok: false, error: "No encontrado." });
+    if (req.user.rol !== 'admin' && venta.agente !== req.user.nombre) {
+      return res.status(403).json({ ok: false, error: "No tienes permiso para borrar esta venta." });
+    }
+    await leads.updateOne({ _id: new ObjectId(id) }, { $set: leadActualizado });
+
+    sincronizarConAdmin({ _id: id, ...leadActualizado });
+
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ ok: false, error });
+  }
+});
+
+// AGREGAR COMENTARIO SOBRE LA VENTA
 app.post('/api/leads/:id/comentarios', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { comentario } = req.body;
     if (!comentario) return res.status(400).json({ ok: false, error: "Comentario vacío." });
-    // Solo permite comentar si eres admin o dueño de la venta
     const venta = await leads.findOne({ _id: new ObjectId(id) });
     if (!venta) return res.status(404).json({ ok: false, error: "No encontrado." });
     if (req.user.rol !== 'admin' && venta.agente !== req.user.nombre) {
       return res.status(403).json({ ok: false, error: "No tienes permiso para comentar esta venta." });
     }
     const ahora = new Date();
-    const fecha = ahora.getFullYear() + '-' +
-      String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
-      String(ahora.getDate()).padStart(2, '0') + ' ' +
-      String(ahora.getHours()).padStart(2, '0') + ':' +
-      String(ahora.getMinutes()).padStart(2, '0') + ':' +
-      String(ahora.getSeconds()).padStart(2, '0');
+    const fecha = ahora.toISOString();
     const comentarioFormateado = `[${fecha}] --> ${comentario.trim()}`;
     await leads.updateOne({ _id: new ObjectId(id) }, { $push: { comentarios_venta: comentarioFormateado } });
     res.json({ ok: true });
@@ -218,7 +271,7 @@ app.post('/api/leads/:id/comentarios', auth, async (req, res) => {
   }
 });
 
-// --- BORRAR LEAD (solo admin o dueño) ---
+// BORRAR LEAD (solo admin o dueño)
 app.delete('/api/leads/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -234,11 +287,18 @@ app.delete('/api/leads/:id', auth, async (req, res) => {
   }
 });
 
-// --- LISTAR USUARIOS (solo admin, para test) ---
+// LISTAR USUARIOS (solo admin, para test)
 app.get('/api/users', auth, async (req, res) => {
   if (req.user.rol !== 'admin') return res.status(403).json({ ok: false, error: "Solo admins." });
   const lista = await users.find({}, { projection: { password: 0 } }).toArray();
   res.json(lista);
+});
+
+
+// --- RUTA FINAL PARA SERVIR LA APP DE FRONTEND ---
+// ¡¡¡IMPORTANTE!!! Esta debe ser la ÚLTIMA ruta para que no sobreescriba las de la API
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 // Puerto para la API
