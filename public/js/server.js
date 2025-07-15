@@ -9,7 +9,11 @@ const app = express();
 const PORT = 3000;
 
 // Usuarios simulados
-const usuarios = [{ username: "admin", password: "1234" }];
+const usuarios = [
+  { username: "admin", password: "1234" },
+  { username: "superadmin", password: "mipass2025", rol: "admin" },
+  { username: "admin@crm.com", password: "admin2025", rol: "admin" }
+];
 
 // Middlewares
 app.use(bodyParser.json());

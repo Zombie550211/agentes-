@@ -11,6 +11,14 @@ document.addEventListener("DOMContentLoaded", () => {
   fetch("/api/leads")
     .then(res => res.json())
     .then(data => {
+      // Obtener el usuario activo del contexto global (debe existir en el HTML principal)
+      const usuarioActivo = window.usuario_actual || { nombre: '', rol: '' };
+      // Filtrar solo los leads del usuario activo (solo agentes ven su propia info)
+      let dataFiltrada = data;
+      if (usuarioActivo.rol !== 'bo') {
+        dataFiltrada = data.filter(lead => lead.AGENTE === usuarioActivo.nombre);
+      }
+
       const ventasPorEquipo = {};
       const puntosPorEquipo = {};
       const ventasPorProducto = {};
@@ -21,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       productos.forEach(p => ventasPorProducto[p] = 0);
 
-      data.forEach(lead => {
+      dataFiltrada.forEach(lead => {
         if (!lead.TEAM || !lead.PRODUCTO) return;
         ventasPorEquipo[lead.TEAM] += 1;
         if (lead.TEAM !== "Team Lineas") {
@@ -30,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ventasPorProducto[lead.PRODUCTO] += 1;
       });
 
-      iniciarGraficas(ventasPorEquipo, puntosPorEquipo, ventasPorProducto);
+      actualizarGraficas(Object.entries(ventasPorEquipo).map(([TEAM, v]) => ({ TEAM, PUNTOS: puntosPorEquipo[TEAM], PRODUCTO: null })))
     })
     .catch(err => console.error("Error al cargar datos de las gráficas:", err));
 });

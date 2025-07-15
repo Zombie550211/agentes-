@@ -73,8 +73,8 @@ function actualizarGraficas(leads) {
     else ventasPorProducto[producto] = 1;
   });
 
-  const ctxTeam = document.getElementById("chartTeam").getContext("2d");
-  const ctxProducto = document.getElementById("chartProducto").getContext("2d");
+  const ctxTeam = document.getElementById("ventasTeamChart").getContext("2d");
+  const ctxProducto = document.getElementById("productosChart").getContext("2d");
 
   if (chartTeam) chartTeam.destroy();
   if (chartProducto) chartProducto.destroy();

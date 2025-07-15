@@ -21,7 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Mostrar dashboard por defecto en "/"
 app.get('/', (req, res) => {
- res.sendFile(path.join(__dirname, 'dashboard.html'))
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
 });
 
 let db, leads, users;
@@ -30,7 +30,7 @@ let db, leads, users;
 MongoClient.connect(uri, { useUnifiedTopology: true })
   .then(client => {
     db = client.db(dbName);
-    leads = db.collection(leadsCollectionName);
+    leads = db.collection('crm agente');
     users = db.collection(usersCollectionName);
     console.log('Conectado a MongoDB');
   })
@@ -48,6 +48,36 @@ function auth(req, res, next) {
     next();
   });
 }
+
+// --- ENDPOINT TEMPORAL: CREAR ADMIN POR DEFECTO (SOLO DESARROLLO) ---
+app.get('/api/dev/create-admin', async (req, res) => {
+  try {
+    const existe = await users.findOne({ email: 'admin@crm.com' });
+    if (existe) {
+      return res.json({ ok: false, mensaje: 'El usuario admin@crm.com ya existe.' });
+    }
+    const hashed = await bcrypt.hash('123456', 10);
+    await users.insertOne({ nombre: 'Admin', email: 'admin@crm.com', password: hashed, rol: 'admin' });
+    res.json({ ok: true, mensaje: 'Usuario administrador creado: admin@crm.com / 123456' });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: 'Error interno.' });
+  }
+});
+
+// --- ENDPOINT TEMPORAL: CREAR AGENTE DEMO POR DEFECTO (SOLO DESARROLLO) ---
+app.get('/api/dev/create-agente', async (req, res) => {
+  try {
+    const existe = await users.findOne({ email: 'agente@crm.com' });
+    if (existe) {
+      return res.json({ ok: false, mensaje: 'El usuario agente@crm.com ya existe.' });
+    }
+    const hashed = await bcrypt.hash('demo123', 10);
+    await users.insertOne({ nombre: 'Agente Demo', email: 'agente@crm.com', password: hashed, rol: 'agente' });
+    res.json({ ok: true, mensaje: 'Usuario agente creado: agente@crm.com / demo123' });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: 'Error interno.' });
+  }
+});
 
 // --- REGISTRO DE USUARIOS (admin o agente) ---
 app.post('/api/register', async (req, res) => {
@@ -109,13 +139,33 @@ app.get('/api/agente/info', auth, async (req, res) => {
   });
 });
 
+// --- LISTAR LEADS (solo propios si es agente, todos si es admin) ---
+app.get('/api/leads', auth, async (req, res) => {
+  console.log('--- Nueva Petición a /api/leads ---');
+  try {
+    console.log('Usuario autenticado:', req.user);
+    let filtro = {};
+    if (req.user.rol === 'agente') {
+      filtro = { agente: req.user.username };
+      console.log(`Rol 'agente' detectado. Aplicando filtro:`, filtro);
+    } else {
+      console.log(`Rol '${req.user.rol}' detectado. Sin filtro de agente.`);
+    }
+    const allLeads = await leads.find(filtro).toArray();
+    console.log(`Consulta a la DB encontró ${allLeads.length} leads.`);
+    res.json(allLeads);
+  } catch (error) {
+    res.status(500).json({ ok: false, error });
+  }
+});
+
 // --- CREAR LEAD (agente o admin) ---
 app.post('/api/leads', auth, async (req, res) => {
   try {
     const lead = req.body;
     // Asigna el agente a la lead
     if (req.user.rol === 'agente') {
-      lead.agente = req.user.nombre;
+      lead.agente = req.user.username; // Usar username, que sí existe en el token
     } else if (req.user.rol === 'admin' && !lead.agente) {
       lead.agente = 'admin'; // O puedes dejarlo vacío o permitir elegir
     }
@@ -127,8 +177,8 @@ app.post('/api/leads', auth, async (req, res) => {
   }
 });
 
-// --- LISTAR LEADS (solo propios si es agente, todos si es admin) ---
-app.get('/api/leads', auth, async (req, res) => {
+// --- OBTENER UN LEAD POR ID (ejemplo, no usado aún) ---
+app.get('/api/leads/:id', auth, async (req, res) => {
   try {
     let filtro = {};
     if (req.user.rol === 'agente') {

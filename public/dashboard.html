@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-minimal/minimal.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/styles.css">
+
   <style>
     :root {
       --primary: #2196f3;
@@ -57,7 +60,7 @@
       width: 100vw;
       height: calc(100vh - 56px);
       min-height: 0;
-      background: linear-gradient(90deg, #eaf4fb 0%, #f6fafd 100%);
+      background: linear-gradient(90deg, #f8fbff 0%, #f6fafd 100%);
       overflow: hidden;
     }
     .sidebar {
@@ -126,22 +129,13 @@
       min-height: 0;
       align-items: flex-start;
     }
-    /* FORMULARIO LEAD (panel scrolleable) */
     .crm-form-section {
       max-width: 510px;
       width: 100%;
-      margin-left: 0.2em;
-      margin-right: 0.4em;
       align-self: flex-start;
-      background: none;
-      border: none;
-      box-shadow: none;
       padding: 0;
       height: 100%;
-      max-height: 100%;
-      min-height: 0;
       overflow-y: auto;
-      overflow-x: hidden;
       scrollbar-width: thin;
     }
     .crm-form {
@@ -149,139 +143,85 @@
       display: flex;
       flex-direction: column;
       gap: 18px;
-      padding: 10px 2px 10px 2px;
+      padding: 10px 2px;
     }
     .crm-form-group {
       background: #fff;
       border-radius: var(--border-radius);
-      margin-bottom: 0;
       padding: 22px 28px 16px 28px;
-      border: none;
-      display: flex;
-      flex-direction: column;
-      position: relative;
       box-shadow: var(--card-shadow);
-      transition: box-shadow 0.14s, border-color 0.17s;
     }
     .crm-form-label {
       font-weight: 700;
       color: #03559d;
       font-size: 1.13em;
       margin-bottom: 6px;
-      letter-spacing: 0.01em;
-      display: block;
     }
     .crm-form-label .crm-form-req {
       color: #e53935;
-      font-size: 1.1em;
-      margin-left: 2px;
     }
-    .crm-form-input,
-    .crm-form-select {
+    .crm-form-input, .crm-form-select {
       background: var(--gray-light);
       border: none;
       border-bottom: 2px solid #c5d2e7;
       border-radius: 0.7em 0.7em 0 0;
-      padding: 13px 6px 11px 10px;
+      padding: 13px 10px;
       font-size: 1.12em;
-      color: var(--text-main);
       outline: none;
-      margin-bottom: 2px;
       transition: border-color 0.17s, box-shadow 0.16s;
-      box-shadow: 0 1px 0.5px #19b6f926;
     }
-    .crm-form-input:focus,
-    .crm-form-select:focus {
-      border-bottom: 2.5px solid var(--primary);
+    .crm-form-input:focus, .crm-form-select:focus {
+      border-bottom-color: var(--primary);
       box-shadow: 0 0 0 2px #19b6f944;
       background: #eaf6ff;
     }
-    .crm-form-select {
-      appearance: none;
-      padding-right: 32px;
-      width: 220px;
-      min-width: 120px;
-      background: url("data:image/svg+xml,%3Csvg width='24' height='24' fill='gray' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5' stroke='%230097e6' stroke-width='1.7' fill='none'/%3E%3C/svg%3E") no-repeat right 0.7em center/1.3em;
+    .crm-form-submit-btn {
+      background: linear-gradient(90deg, var(--primary) 60%, var(--accent) 100%);
+      color: #fff;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 11px;
+      font-size: 1.15em;
+      font-weight: 700;
       cursor: pointer;
+      transition: all .22s;
+      margin-top: 1em;
+      box-shadow: 0 4px 16px #2196f322;
     }
-    /* Motivo llamada grid para radios ordenados */
-    .crm-form-radio-group.radio-grid {
+    .crm-form-submit-btn:hover {
+      box-shadow: 0 6px 22px #2196f344;
+    }
+    .crm-form-radio-group {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+    }
+    .radio-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(180px, 1fr));
-      gap: 7px 20px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 15px;
     }
-    @media (max-width: 600px) {
-      .crm-form-radio-group.radio-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+
     .crm-form-radio-label {
-      font-weight: 500;
-      color: #222;
-      font-size: 1.07em;
       display: flex;
       align-items: center;
       gap: 10px;
+      font-size: 1.05em;
       cursor: pointer;
-      transition: color .18s;
-      padding: 2px 7px 2px 0;
-      margin-bottom: 0;
     }
     .crm-form-radio-input {
-      accent-color: var(--primary);
-      margin-right: 7px;
-      margin-left: 1px;
       width: 17px;
       height: 17px;
-      transition: accent-color .18s;
-    }
-    .crm-form-radio-input:focus-visible {
-      outline: 2px solid var(--primary);
-    }
-    .crm-form-error-msg {
-      color: #e53935;
-      font-size: 1em;
-      font-weight: 600;
-      margin-top: 6px;
-      margin-bottom: -2px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      letter-spacing: .01em;
-      background: #fff8f8;
-      border-radius: 6px;
-      padding: 3px 7px;
-    }
-    .crm-form-submit-btn {
-      background: linear-gradient(90deg,#11c7ff 0%,#009cff 100%);
-      color: #fff;
-      border-radius: 12px;
-      border: none;
-      font-weight: 700;
-      font-size: 1.17em;
-      padding: 15px 0;
-      width: 100%;
-      margin-top: 14px;
-      margin-bottom: 6px;
-      transition: background 0.22s, box-shadow 0.19s;
-      cursor: pointer;
-      box-shadow: 0 2px 14px #19b6f933;
-      letter-spacing: .07em;
-    }
-    .crm-form-submit-btn:hover, .crm-form-submit-btn:focus {
-      background: linear-gradient(90deg,#009cff 0%,#11c7ff 100%);
-      box-shadow: 0 4px 16px #19b6f94d;
+      accent-color: var(--primary);
     }
     .charts-section {
-      flex: 2;
+      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 22px;
+      gap: 1.5em;
       height: 100%;
-      min-width: 0;
-      margin-top: 0.35em;
-      min-height: 0;
-      overflow: auto;
     }
     .charts-filter {
       margin-bottom: 18px;
@@ -296,79 +236,175 @@
     }
     .charts-filter label { font-weight: 700; margin-bottom: 0; color: var(--primary-dark);}
     .charts-filter input[type="date"] { padding: 8px 13px; border-radius: 8px; border: 1px solid #b4c5d4; font-size:1em;}
-    .charts-filter button { width: auto; padding: 9px 20px; margin: 0; background: var(--primary); border: none; color: white; border-radius: 7px; font-weight: 700; cursor: pointer; transition: background-color 0.3s;}
+    .charts-filter button {
+      background: var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' class='feather feather-bar-chart-2'%3E%3Cline x1='18' y1='20' x2='18' y2='10'/%3E%3Cline x1='12' y1='20' x2='12' y2='4'/%3E%3Cline x1='6' y1='20' x2='6' y2='14'/%3E%3C/svg%3E") no-repeat center center;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0;
+      width: 38px;
+      height: 38px;
+      font-size: 0;
+      cursor: pointer;
+      transition: background .2s;
+    }
     .charts-filter button:hover { background: var(--primary-dark); }
     .chart-container {
       background: #fff;
-      padding: 15px 22px 15px 22px;
+      padding: 22px 28px;
       border: 1px solid #e2e8f0;
       border-radius: 13px;
       box-shadow: 0 2px 10px #2196f911;
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      min-height: 0;
-      height: 50%;
-      margin-bottom: 7px;
-    }
-    .chart-canvas {
-      width: 100% !important;
-      height: 100% !important;
-      max-width: 100%;
-      aspect-ratio: unset;
-      display: block;
-      background: transparent;
-      min-height: 0;
     }
     .no-data-msg { color: #d32f2f; font-weight: bold; text-align: center; margin-top: 10px;}
-    .costumer-section {width:100%;}
-    .costumer-filters {
+    .costumer-section { width: 100%; }
+    .costumer-filters-elegant {
       background: #f8fbff;
-      border-radius: 10px;
-      border: 1px solid #e2e8f0;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px #2196f911;
-      padding: 15px 18px 7px 18px;
+      border-radius: 14px;
+      border: 1.5px solid #e2e8f0;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px #1976d211;
+      padding: 18px 22px;
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-      align-items: center;
+      gap: 12px 20px;
     }
     .costumer-filter-input {
-      padding: 8px 11px;
-      border-radius: 7px;
-      border: 1px solid #b4c5d4;
-      font-size: 0.98em;
-      background: #fafdff;
-      transition: border 0.15s;
-      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 9px;
+      border: 1.5px solid #b4c5d4;
+      font-size: 1.02em;
     }
-    .costumer-filter-input:focus {
-      outline: 2px solid var(--primary);
-      border-color: var(--primary);
-      background: #eaf6ff;
-    }
-    .costumer-filter-btn {
-      padding: 10px 20px;
-      background: var(--primary);
+    .costumer-btn-elegant {
+      padding: 10px 22px;
+      background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
       color: #fff;
       border: none;
-      border-radius: 7px;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 1em;
-      transition: background 0.22s;
-    }
-    .costumer-filter-btn:hover { background: var(--primary-dark);}
-    .costumer-table-wrapper {
-      max-height: 480px;
-      overflow-y: auto;
-      margin-bottom: 2em;
-      box-shadow: 0 2px 12px #2196f911;
-      background: #fff;
-      border-radius: 15px;
-    }
+  font-size: 1.10em;
+  border: none;
+  border-radius: 999px !important;
+  padding: 1.1em 1.5em;
+  margin: 0 0.25em;
+  box-shadow: 0 2px 10px #1976d222, 0 1.5px 6px #2196f911;
+  letter-spacing: 0.01em;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+}
+.costumer-table-elegant thead th:hover {
+  background: linear-gradient(90deg, #bbdefb 0%, #e3f2fd 100%);
+  color: #0d47a1;
+  box-shadow: 0 4px 16px #1976d244;
+  cursor: pointer;
+}
+.costumer-table-elegant thead th {
+  background: #5b8db8;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.09em;
+  border: none;
+  padding: 1.05em 0.7em;
+  text-align: center;
+  box-shadow: 0 2px 8px #0001;
+  letter-spacing: 0.01em;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  transition: background 0.16s, color 0.16s;
+}
+.costumer-table-elegant thead th:first-child {
+  border-top-left-radius: 11px;
+}
+.costumer-table-elegant thead th:last-child {
+  border-top-right-radius: 11px;
+}
+.costumer-table-elegant thead tr {
+  display: table-row;
+}
+.costumer-table-elegant tbody tr {
+  transition: background 0.18s;
+}
+.costumer-table-elegant tbody tr:nth-child(even) {
+  background: #f2f6fa;
+}
+.costumer-table-elegant tbody tr:nth-child(odd) {
+  background: #fff;
+}
+.costumer-table-elegant tbody tr:hover {
+  background: #e3f1fd;
+  cursor: pointer;
+}
+.costumer-table-elegant td, .costumer-table-elegant th {
+  padding: 10px 12px;
+  border-radius: 7px;
+}
+.costumer-table-elegant td {
+  border-bottom: 1px solid #e3e9f3;
+  font-size: 0.99em;
+}
+.costumer-filters-elegant {
+  background: #f8fbff;
+  border-radius: 14px;
+  border: 1.5px solid #e2e8f0;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px #1976d211;
+  padding: 18px 22px 10px 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.costumer-filter-input {
+  border-radius: 7px;
+  border: 1.5px solid #b4c5d4;
+  padding: 9px 13px;
+  font-size: 1em;
+  background: #fafdff;
+  transition: border 0.15s;
+  color: var(--text-main);
+  min-width: 180px;
+}
+.costumer-filter-input:focus {
+  outline: 2px solid var(--primary);
+  border-color: var(--primary);
+  background: #eaf6ff;
+}
+.costumer-btn-elegant {
+  padding: 10px 22px;
+  background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 1.04em;
+  box-shadow: 0 2px 8px #1976d211;
+  transition: background 0.22s, box-shadow 0.18s;
+}
+.costumer-btn-elegant:hover {
+  background: #1976d2;
+  box-shadow: 0 4px 16px #1976d222;
+}
+.costumer-btn-clear {
+  background: #eaf4fb !important;
+  color: var(--primary) !important;
+  border: 1.5px solid #b4c5d4 !important;
+}
+.costumer-btn-clear:hover {
+  background: #dbefff !important;
+  color: #1976d2 !important;
+}
+@media (max-width: 1200px) {
+  .dashboard-flex-row {flex-direction:column; height:auto;}
+  .crm-form-section{max-width:100%;margin-bottom:2.2em; height:auto; max-height:none; min-height:0;}
+  .charts-section{min-width:0;}
+  .costumer-table-elegant {min-width: 900px;}
+}
+html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .charts-section {
+  min-height: 0 !important;
+}
+/* Se agregó la llave de cierre faltante */
+
     .costumer-table {
       border-collapse:separate;
       border-spacing:0;
@@ -384,23 +420,6 @@
       border-bottom: 2px solid #1976d2;
       text-align: left;
       position: sticky;
-      top: 0;
-      z-index: 2;
-      padding: 13px 9px;
-      letter-spacing: 0.03em;
-    }
-    .costumer-table tbody td {
-      background: #fff;
-      color: #2b2d36;
-      font-size: 0.98em;
-      border-bottom: 1px solid #e0e6ed;
-      vertical-align: top;
-      padding: 11px 9px;
-    }
-    .costumer-table tbody tr:hover {
-      background: #e8f5fd;
-      transition: background 0.18s;
-    }
     .costumer-table-wrapper::-webkit-scrollbar {
       height: 8px;
       background: #e3f2fd;
@@ -418,6 +437,8 @@
     html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .charts-section {
       min-height: 0 !important;
     }
+    /* Se agregó la llave de cierre faltante */
+  }
   </style>
 </head>
 <body>
@@ -432,11 +453,20 @@
     <div class="sidebar">
       <h3>Menú</h3>
       <ul>
-        <li><a href="#" class="tab-btn active" data-tab="leadTab" id="tabLead"><i class="fas fa-user-plus"></i> Lead</a></li>
+        <li><a href="#" class="tab-btn" data-tab="inicioTab" id="tabInicio"><i class="fas fa-home"></i> Inicio</a></li>
+        <li><a href="#" class="tab-btn" data-tab="leadTab" id="tabLead"><i class="fas fa-user-plus"></i> Lead</a></li>
         <li><a href="#" class="tab-btn" data-tab="costumerTab" id="tabCostumer"><i class="fas fa-users"></i> Costumer</a></li>
       </ul>
     </div>
     <div class="main-content">
+      <!-- SECCIÓN INICIO -->
+      <div class="inicio-section" id="inicioTab" style="display: flex; align-items: center; justify-content: center; height: 80vh; width: 100%;">
+        <div style="text-align:center;">
+          <i class="fas fa-tools" style="font-size:3.5em;color:#1976d2;margin-bottom:18px;"></i>
+          <h1 style="font-size:2.2em;color:#1976d2;margin-bottom:10px;">En construcción</h1>
+          <div style="font-size:1.3em;color:#888;">By Zombie</div>
+        </div>
+      </div>
       <div class="dashboard-flex-row" id="leadTab">
         <!-- FORMULARIO LEAD -->
         <section class="crm-form-section" id="form-panel">
@@ -552,9 +582,15 @@
             </div>
             <div class="crm-form-group required" data-field="status">
               <label class="crm-form-label">Status <span class="crm-form-req">*</span></label>
-              <div class="crm-form-radio-group">
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="status" value="PENDING" required> PENDING</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="status" value="REPRO"> REPRO</label>
+              <div class="crm-form-radio-group radio-grid">
+                <label class="crm-form-radio-label" for="status_pending">
+                  <input type="radio" id="status_pending" name="status" value="PENDING" class="crm-form-radio-input" checked>
+                  PENDING
+                </label>
+                <label class="crm-form-radio-label" for="status_repro">
+                  <input type="radio" id="status_repro" name="status" value="REPRO" class="crm-form-radio-input">
+                  REPRO
+                </label>
               </div>
             </div>
             <div class="crm-form-group required" data-field="servicios">
@@ -626,12 +662,11 @@
             <div class="crm-form-group required" data-field="motivo_llamada">
               <label class="crm-form-label">¿Por que llamo el cliente? <span class="crm-form-req">*</span></label>
               <div class="crm-form-radio-group radio-grid">
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="BILL_ALTO" required> BILL ALTO</label>
+                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="FACTURACION_BILL" required> FACTURACIÓN / BILL</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PROBLEMAS_INTERNET"> PROBLEMAS DE INTERNET</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ADQUIRIR_SERVICIOS"> ADQUIRIR SERVICIOS</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="MUDANZA"> MUDANZA</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="CANCELAR_SERVICIOS"> CANCELAR SERVICIOS</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PAGAR_BILL"> PAGAR BILL</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ATENCION_CLIENTE"> ATENCIÓN AL CLIENTE</label>
               </div>
             </div>
@@ -661,84 +696,58 @@
       </div>
       <!-- SECCIÓN COSTUMER (INICIALMENTE OCULTA) -->
       <div class="costumer-section" id="costumerTab" style="display: none; margin-top:2em;">
-        <div class="costumer-filters">
-          <input type="date" placeholder="Fecha desde" class="costumer-filter-input" id="costumer-fecha-desde">
-          <input type="date" placeholder="Fecha hasta" class="costumer-filter-input" id="costumer-fecha-hasta">
-          <input type="text" placeholder="Nombre cliente" class="costumer-filter-input" id="costumer-nombre">
-          <input type="text" placeholder="Teléfono principal" class="costumer-filter-input" id="costumer-telefono">
-          <input type="text" placeholder="Dirección" class="costumer-filter-input" id="costumer-direccion" style="min-width:160px;">
-          <input type="text" placeholder="Supervisor" class="costumer-filter-input" id="costumer-supervisor">
-          <input type="text" placeholder="ZIP CODE" class="costumer-filter-input" id="costumer-zip">
-          <button type="button" class="costumer-filter-btn" id="costumer-filtrar"><i class="fas fa-search"></i> Filtrar</button>
-          <button type="button" class="costumer-filter-btn" id="costumer-limpiar" style="background:#eaf4fb;color:var(--primary);border:1px solid #b4c5d4;"><i class="fas fa-redo"></i> Limpiar</button>
-        </div>
-        <div class="costumer-table-wrapper">
-          <table class="costumer-table">
-            <thead>
-              <tr>
-                <th>Nombre cliente</th>
-                <th>Teléfono principal</th>
-                <th>Teléfono alterno</th>
-                <th>Numero de cuenta</th>
-                <th>Autopago</th>
-                <th>Dirección</th>
-                <th>Tipo de servicios</th>
-                <th>Sistema</th>
-                <th>Riesgo</th>
-                <th>Día de venta</th>
-                <th>Día de instalación</th>
-                <th>Status</th>
-                <th>Servicios</th>
-                <th>Mercado</th>
-                <th>Supervisor</th>
-                <th>Comentario</th>
-                <th>Motivo llamada</th>
-                <th>ZIP CODE</th>
-                <th>Puntaje</th>
-                <th>Comentario sobre la venta</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="costumer-tbody">
-              <!-- filas se llenan dinámicamente -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>}
-          <div class="costumer-table-wrapper">
-          <table class="costumer-table">
-            <thead>
-              <tr>
-                <th>Nombre cliente</th>
-                <th>Teléfono principal</th>
-                <th>Teléfono alterno</th>
-                <th>Numero de cuenta</th>
-                <th>Autopago</th>
-                <th>Dirección</th>
-                <th>Tipo de servicios</th>
-                <th>Sistema</th>
-                <th>Riesgo</th>
-                <th>Día de venta</th>
-                <th>Día de instalación</th>
-                <th>Status</th>
-                <th>Servicios</th>
-                <th>Mercado</th>
-                <th>Supervisor</th>
-                <th>Comentario</th>
-                <th>Motivo llamada</th>
-                <th>ZIP CODE</th>
-                <th>Puntaje</th>
-                <th>Comentario sobre la venta</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="costumer-tbody">
-              <!-- filas se llenan dinámicamente -->
-            </tbody>
-          </table>
-        </div>
+  <div class="dashboard-cards-row" id="costumer-summary-cards" style="display:flex;gap:36px;margin-bottom:2.2em;flex-wrap:wrap;">
+  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
+    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas Hoy</span>
+    <span id="costumer-ventas-hoy" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
+  </div>
+  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
+    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Clientes pendientes</span>
+    <span id="costumer-clientes-pendientes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
+  </div>
+  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
+    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas Canceladas</span>
+    <span id="costumer-ventas-canceladas" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
+  </div>
+  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
+    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas (mes)</span>
+    <span id="costumer-ventas-mes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
+  </div>
+</div>
+  <div class="costumer-table-wrapper costumer-table-elegant">
+    <table class="costumer-table costumer-table-elegant">
+      <thead>
+         <tr>
+           <th>Nombre cliente</th>
+           <th>Teléfono principal</th>
+           <th>Teléfono alterno</th>
+           <th>Numero de cuenta</th>
+           <th>Autopago</th>
+           <th>Dirección</th>
+           <th>Tipo de servicios</th>
+           <th>Sistema</th>
+           <th>Riesgo</th>
+           <th>Día de venta</th>
+           <th>Día de instalación</th>
+           <th>Status</th>
+           <th>Servicios</th>
+           <th>Mercado</th>
+           <th>Supervisor</th>
+           <th>Comentario</th>
+           <th>Motivo llamada</th>
+           <th>ZIP CODE</th>
+           <th>Puntaje</th>
+           <th>Comentario sobre la venta</th>
+           <th>Acción</th>
+         </tr>
+       </thead>
+      <tbody id="costumer-tbody">
+        <!-- filas se llenan dinámicamente -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
       </div>
     </div>
   </div>
@@ -824,140 +833,211 @@
       return 0;
     }
 
-    // Array global para ventas
-    const ventas = [];
-
     document.addEventListener('DOMContentLoaded', function() {
+      // Estado inicial: solo Inicio visible
+      document.getElementById('inicioTab').style.display = 'flex';
+      document.getElementById('leadTab').style.display = 'none';
+      document.getElementById('costumerTab').style.display = 'none';
+      document.getElementById('tabInicio').classList.add('active');
+      document.getElementById('tabLead').classList.remove('active');
+      document.getElementById('tabCostumer').classList.remove('active');
       // TAB FUNCIONALIDAD
+      document.getElementById("tabInicio").addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('inicioTab').style.display = 'flex';
+        document.getElementById('leadTab').style.display = 'none';
+        document.getElementById('costumerTab').style.display = 'none';
+        this.classList.add('active');
+        document.getElementById("tabLead").classList.remove('active');
+        document.getElementById("tabCostumer").classList.remove('active');
+      });
       document.getElementById("tabLead").addEventListener('click', function(e){
         e.preventDefault();
+        document.getElementById('inicioTab').style.display = 'none';
         document.getElementById('leadTab').style.display = '';
         document.getElementById('costumerTab').style.display = 'none';
         this.classList.add('active');
+        document.getElementById("tabInicio").classList.remove('active');
         document.getElementById("tabCostumer").classList.remove('active');
       });
       document.getElementById("tabCostumer").addEventListener('click', function(e){
         e.preventDefault();
+        document.getElementById('inicioTab').style.display = 'none';
         document.getElementById('leadTab').style.display = 'none';
         document.getElementById('costumerTab').style.display = '';
         this.classList.add('active');
+        document.getElementById("tabInicio").classList.remove('active');
         document.getElementById("tabLead").classList.remove('active');
-        renderCostumerTable();
-      });
-
-      // Guardar Lead y pasar a tabla Costumer
-      document.getElementById('crmForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        let valido = true;
-        this.querySelectorAll('[required]').forEach(function(input) {
-          if ((input.type === "radio" && !document.querySelector(`[name="${input.name}"]:checked`)) || (!input.value && input.type !== "radio")) {
-            valido = false;
-          }
-        });
-        if (!valido) {
-          alert("Por favor llena todos los campos requeridos.");
-          return;
-        }
-        // Obtener datos
-        const data = {};
-        Array.from(this.elements).forEach(el => {
-          if (el.name) {
-            if (el.type === "radio") {
-              if (el.checked) data[el.name] = el.value;
-            } else {
-              data[el.name] = el.value;
-            }
-          }
-        });
-
-        // Puntaje automático (producto + riesgo)
-        let producto = data["tipo_servicios"] || "";
-        let riesgo = data["riesgo"] || "";
-        let puntaje = obtenerPuntaje(producto, riesgo);
-
-        ventas.push({
-          ...data,
-          puntaje,
-          agente: usuario_actual.nombre,
-          comentarios_venta: [] // Por ahora vacío, se llenará luego desde acciones
-        });
-        this.reset();
-        alert("Lead guardado y enviado a Costumer.");
-        renderCostumerTable();
+        fetchAndRenderLeads();
       });
     });
-        // Agregar comentario sobre la venta desde la tabla (botón de edición)
-    function editarVenta(idx) {
-      // Solo deja si eres dueño o B.O.
-      const venta = ventas[idx];
-      if(usuario_actual.rol !== "bo" && venta.agente !== usuario_actual.nombre) {
-        alert("No tienes permiso para comentar esta venta.");
-        return;
-      }
-      let comentario = prompt("Agregar comentario sobre la venta (se agregará al listado):");
-      if(comentario && comentario.trim()) {
-        if(!ventas[idx].comentarios_venta) ventas[idx].comentarios_venta = [];
-        const ahora = new Date();
-        let fecha = ahora.getFullYear() + '-' +
-          String(ahora.getMonth()+1).padStart(2,'0') + '-' +
-          String(ahora.getDate()).padStart(2,'0') + ' ' +
-          String(ahora.getHours()).padStart(2,'0') + ':' +
-          String(ahora.getMinutes()).padStart(2,'0') + ':' +
-          String(ahora.getSeconds()).padStart(2,'0');
-        ventas[idx].comentarios_venta.push(`[${fecha}] --> ${comentario.trim()}`);
-        renderCostumerTable();
-      }
-    }
-    function borrarVenta(idx) {
-      if(confirm("¿Seguro que quieres borrar este registro?")) {
-        ventas.splice(idx,1);
-        renderCostumerTable();
-      }
-    }
-    window.editarVenta = editarVenta;
-    window.borrarVenta = borrarVenta;
 
-    // Renderizar la tabla de Costumer
-    function renderCostumerTable() {
+    // Cargar y mostrar leads en la tabla de Costumer
+    async function fetchAndRenderLeads() {
       const tbody = document.getElementById('costumer-tbody');
-      tbody.innerHTML = "";
-      ventas.forEach((venta, idx) => {
-        if(usuario_actual.rol !== 'bo' && venta.agente !== usuario_actual.nombre) return;
-        const comentariosHtml = (venta.comentarios_venta||[]).map(c => 
-          `<div style="margin-bottom:4px;">${c}</div>`).join('');
-        tbody.innerHTML += `
-          <tr>
-            <td>${venta.nombre_cliente||''}</td>
-            <td>${venta.telefono_principal||''}</td>
-            <td>${venta.telefono_alterno||''}</td>
-            <td>${venta.numero_cuenta||''}</td>
-            <td>${venta.autopago||''}</td>
-            <td>${venta.direccion||''}</td>
-            <td>${venta.tipo_servicios||''}</td>
-            <td>${venta.sistema||''}</td>
-            <td>${venta.riesgo||''}</td>
-            <td>${venta.dia_venta||''}</td>
-            <td>${venta.dia_instalacion||''}</td>
-            <td><span style="background:#a6a9e9;color:#fff;border-radius:8px;padding:3px 12px;font-weight:600;font-size:0.97em;">${venta.status||''}</span></td>
-            <td>${venta.servicios||''}</td>
-            <td>${venta.mercado||''}</td>
-            <td>${venta.supervisor||''}</td>
-            <td>${venta.comentario||''}</td>
-            <td>${venta.motivo_llamada||''}</td>
-            <td>${venta.zip_code||''}</td>
-            <td>${venta.puntaje||0}</td>
-            <td>
-              <div>${comentariosHtml}</div>
-              <button onclick="editarVenta(${idx})" style="background:#fff;border:1px solid #2196f3;color:#2196f3;border-radius:5px;padding:2px 10px;cursor:pointer;font-size:0.93em;">Agregar comentario</button>
-            </td>
-            <td>
-              <button style="background:none;border:none;cursor:pointer;color:#1976d2;" onclick="editarVenta(${idx})"><i class="fas fa-pen"></i></button>
-              <button style="background:none;border:none;cursor:pointer;color:#e53935;" onclick="borrarVenta(${idx})"><i class="fas fa-trash"></i></button>
-            </td>
-          </tr>
-        `;
-      });
+      tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>`;
+      try {
+        const response = await fetch('/api/leads', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!response.ok) throw new Error('No se pudo obtener la lista de leads.');
+        const leads = await response.json();
+
+        // Actualizar panel de depuración
+        document.getElementById('debug-status').textContent = 'Estado: Petición exitosa (Código ' + response.status + ')';
+        document.getElementById('debug-data').textContent = 'Datos Recibidos: ' + JSON.stringify(leads, null, 2);
+        
+        tbody.innerHTML = ""; // Limpiar la tabla antes de renderizar
+        if (leads.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;">No hay registros para mostrar.</td></tr>`;
+          return;
+        }
+
+        leads.forEach((venta, idx) => {
+          const rowClass = idx % 2 === 0 ? 'costumer-row-striped' : '';
+          tbody.innerHTML += `
+            <tr class="${rowClass}">
+              <td>${venta.nombre_cliente || ''}</td>
+              <td>${venta.telefono_principal || ''}</td>
+              <td>${venta.telefono_alterno || ''}</td>
+              <td>${venta.numero_cuenta || ''}</td>
+              <td>${venta.autopago || ''}</td>
+              <td>${venta.direccion || ''}</td>
+              <td>${venta.tipo_servicios || ''}</td>
+              <td>${venta.sistema || ''}</td>
+              <td>${venta.riesgo || ''}</td>
+              <td>${venta.dia_venta || ''}</td>
+              <td>${venta.dia_instalacion || ''}</td>
+              <td>${venta.status || ''}</td>
+              <td>${venta.servicios || ''}</td>
+              <td>${venta.mercado || ''}</td>
+              <td>${venta.supervisor || ''}</td>
+              <td>${venta.comentario || ''}</td>
+              <td>${venta.motivo_llamada || ''}</td>
+              <td>${venta.zip_code || ''}</td>
+              <td>${venta.puntaje || 0}</td>
+              <td>${(venta.comentarios_venta || []).join('<br>')}</td>
+              <td>
+                <button class="btn-accion btn-editar" onclick="editarVenta('${venta._id}')"><i class="fas fa-comment-dots"></i></button>
+                <button class="btn-accion btn-borrar" onclick="borrarVenta('${venta._id}')"><i class="fas fa-trash-alt"></i></button>
+              </td>
+            </tr>
+          `;
+        });
+
+      } catch (error) {
+        // Actualizar panel de depuración en caso de error
+        document.getElementById('debug-status').textContent = 'Estado: Error en la petición.';
+        document.getElementById('debug-data').textContent = 'Error: ' + error.message;
+        console.error(error);
+        tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;">Error al cargar los datos.</td></tr>`;
+      }
     }
-  </script>
-</body>
-</html>
+
+    // Guardar Lead
+    document.getElementById('lead-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const boton = form.querySelector('button[type="submit"]');
+      const originalText = boton.innerHTML;
+      boton.disabled = true;
+      boton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+      const leadData = {
+        nombre_cliente: form.nombre_cliente.value,
+        telefono_principal: form.telefono_principal.value,
+        telefono_alterno: form.telefono_alterno.value,
+        numero_cuenta: form.numero_cuenta.value,
+        autopago: form.autopago.value,
+        direccion: form.direccion.value,
+        tipo_servicios: form.tipo_servicios.value,
+        sistema: form.sistema.value,
+        riesgo: form.riesgo.value,
+        dia_venta: form.dia_venta.value,
+        dia_instalacion: form.dia_instalacion.value,
+        status: form.status.value,
+        servicios: form.servicios.value,
+        mercado: form.mercado.value,
+        supervisor: form.supervisor.value,
+        comentario: form.comentario.value,
+        motivo_llamada: form.motivo_llamada.value,
+        zip_code: form.zip_code.value,
+        creadoEn: new Date().toISOString()
+      };
+
+      try {
+        const response = await fetch('/api/leads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(leadData)
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+          Swal.fire('¡Guardado!', 'El lead ha sido guardado correctamente.', 'success');
+          form.reset();
+          // Opcional: recargar la tabla de costumers si existe
+          if (typeof fetchAndRenderLeads === 'function') {
+            fetchAndRenderLeads(); // Recargamos desde la DB
+          }
+        } else {
+          throw new Error(result.error || 'Error desconocido del servidor');
+        }
+      } catch (error) {
+        Swal.fire('Error', `No se pudo guardar el lead: ${error.message}`, 'error');
+      } finally {
+        boton.disabled = false;
+        boton.innerHTML = originalText;
+      }
+    });
+
+    // CSS para filas striped y acciones minimalistas
+    (function(){
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .costumer-row-striped { background: #f8fbff; }
+        #costumer-tbody tr { transition: background 0.14s; }
+        #costumer-tbody tr:hover { background: #e3f2fd !important; }
+        .comentario-btn-minimal, .acciones-btn-minimal {
+          background: none; border: none; color: #1976d2; font-size: 1.05em; padding: 5px 7px; border-radius: 7px;
+          transition: background 0.18s, color 0.18s;
+          margin-right: 3px;
+          cursor: pointer;
+        }
+        .comentario-btn-minimal:hover, .acciones-btn-minimal:hover { background: #e3f2fd; color: #0d47a1; }
+        .acciones-btn-minimal.borrar { color: #e53935; }
+        .acciones-btn-minimal.borrar:hover { background: #ffebee; color: #b71c1c; }
+        .comentario-tooltip-minimal { margin-left:5px; color:#1976d2; cursor:pointer; position:relative; }
+        .comentario-tooltip-minimal:hover::after {
+          content: attr(data-tooltip);
+          white-space: pre-line;
+          position: absolute;
+          left: 50%;
+          top: 120%;
+          transform: translateX(-50%);
+          background: #fff;
+          color: #24334d;
+          border: 1px solid #b4c5d4;
+          border-radius: 7px;
+          padding: 10px 17px;
+          box-shadow: 0 4px 16px #1976d211;
+          font-size: 0.98em;
+          z-index: 20;
+          min-width: 180px;
+          max-width: 350px;
+          pointer-events: none;
+        }
+      `;
+      document.head.appendChild(style);
+    })();
+</script>
+   <script src="js/core/auth-check.js"></script>
+   <script src="js/core/login.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   <script src="js/core/graficas.js"></script>
+ </body>
+ </html>
