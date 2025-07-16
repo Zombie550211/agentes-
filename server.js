@@ -364,17 +364,19 @@ app.put('/api/leads/:id', auth, async (req, res) => {
 app.post('/api/leads/:id/comentarios', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { comentario } = req.body;
-    if (!comentario) return res.status(400).json({ ok: false, error: "Comentario vacío." });
+    let { autor, fecha, texto } = req.body;
+    if (!texto || !autor) return res.status(400).json({ ok: false, error: "Comentario vacío o sin autor." });
     const venta = await leads.findOne({ _id: new ObjectId(id) });
     if (!venta) return res.status(404).json({ ok: false, error: "No encontrado." });
-    if (req.user.rol !== 'admin' && venta.agente !== req.user.nombre) {
-      return res.status(403).json({ ok: false, error: "No tienes permiso para comentar esta venta." });
+    // Permitir comentar a cualquier usuario autenticado
+    if (!fecha) {
+      const ahora = new Date();
+      // Formato: Demo 16/07/2025 11:58 A-M
+      const fechaStr = ahora.toLocaleDateString('es-MX') + ' ' + ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+      fecha = fechaStr;
     }
-    const ahora = new Date();
-    const fecha = ahora.toISOString();
-    const comentarioFormateado = `[${fecha}] --> ${comentario.trim()}`;
-    await leads.updateOne({ _id: new ObjectId(id) }, { $push: { comentarios_venta: comentarioFormateado } });
+    const comentarioObj = { autor, fecha, texto };
+    await leads.updateOne({ _id: new ObjectId(id) }, { $push: { comentarios_venta: comentarioObj } });
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ ok: false, error });

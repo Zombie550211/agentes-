@@ -140,12 +140,34 @@ function renderCostumerTable(leads) {
         <td class="td-ellipsis" title="${lead.motivo_llamada || ''}">${lead.motivo_llamada || ''}</td>
         <td class="td-nowrap" title="${lead.zip_code || ''}">${lead.zip_code || ''}</td>
         <td class="td-nowrap" title="${lead.puntaje !== undefined ? lead.puntaje : 0}">${lead.puntaje !== undefined ? lead.puntaje : 0}</td>
-        <td class="td-ellipsis" title="${lead.comentarios_venta ? (Array.isArray(lead.comentarios_venta) ? lead.comentarios_venta.join(' | ') : lead.comentarios_venta) : ''}">${lead.comentarios_venta ? (Array.isArray(lead.comentarios_venta) ? lead.comentarios_venta.slice(0,1).join('') + (lead.comentarios_venta.length > 1 ? ' +' + (lead.comentarios_venta.length-1) : '') : lead.comentarios_venta) : ''}</td>
+        <td class="td-ellipsis">
+          ${Array.isArray(lead.comentarios_venta) && lead.comentarios_venta.length > 0
+            ? `<button class='comentarios-btn' onclick='toggleComentariosPanel(${idx})' title='Ver comentarios'>${lead.comentarios_venta[lead.comentarios_venta.length-1].texto.split("\n")[0].slice(0,40)}${lead.comentarios_venta[lead.comentarios_venta.length-1].texto.length>40?'...':''}</button>`
+            : `<button class='comentarios-btn' onclick='toggleComentariosPanel(${idx})'>Añadir comentario</button>`}
+        </td>
         <td class="td-nowrap">
-          <button class="btn-accion btn-editar" onclick="editarVenta('')"><i class="fas fa-comment-dots"></i></button>
-          <button class="btn-accion btn-borrar" onclick="borrarVenta('')"><i class="fas fa-trash-alt"></i></button>
+          <button class="costumer-action-btn edit" title="Editar cliente" onclick="editarClienteModal('${lead._id || ''}')" ${!window.usuario_actual || !['admin','BO'].includes(window.usuario_actual.rol) ? 'disabled' : ''}>
+            <i class="fas fa-pencil-alt"></i>
+          </button>
+          <button class="costumer-action-btn delete" title="Eliminar cliente" onclick="confirmarEliminarCliente('${lead._id || ''}')" ${!window.usuario_actual || !['admin','BO'].includes(window.usuario_actual.rol) ? 'disabled' : ''}>
+            <i class="fas fa-trash-alt"></i>
+          </button>
         </td>
       </tr>
+      <tr id="comentarios-panel-${idx}" class="comentarios-panel-row" style="display:none;"><td colspan="21" style="background:#f9fafd;padding:0;">
+        <div class="comentarios-panel" id="comentarios-panel-${idx}">
+          <div style="font-weight:600;color:#1976d2;margin-bottom:0.5em;">Comentarios</div>
+          <div>
+            ${(Array.isArray(lead.comentarios_venta) && lead.comentarios_venta.length > 0)
+              ? lead.comentarios_venta.map(com => `<div class='comentario-item'><div class='comentario-meta'>${com.autor} ${com.fecha}</div>${com.texto}</div>`).join('')
+              : '<div class="comentario-item" style="color:#888;">Sin comentarios previos.</div>'}
+          </div>
+          <form class="nuevo-comentario-form" onsubmit="event.preventDefault(); enviarNuevoComentario(${idx}, '${lead._id || ''}')">
+            <textarea id="nuevo-comentario-textarea-${idx}" maxlength="300" placeholder="Escribe un nuevo comentario..."></textarea>
+            <button type="submit">Añadir</button>
+          </form>
+        </div>
+      </td></tr>
     `;
   });
 }
