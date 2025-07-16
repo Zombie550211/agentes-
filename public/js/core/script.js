@@ -6,20 +6,83 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      // Obtener datos del formulario Lead
+      const formData = new FormData(form);
+      // Mapeo explícito de campos según el formulario y la tabla Costumer
       const lead = {
-        team: document.getElementById("team").value,
-        agent: document.getElementById("agent").value,
-        producto: document.getElementById("producto").value,
-        puntaje: parseFloat(document.getElementById("puntaje").value),
-        cuenta: document.getElementById("cuenta").value,
-        telefono: document.getElementById("telefono").value,
-        direccion: document.getElementById("direccion").value,
-        zip: document.getElementById("zip").value
+        nombre_cliente: formData.get('nombre_cliente') || '',
+        telefono_principal: formData.get('telefono_principal') || '',
+        telefono_alterno: formData.get('telefono_alterno') || '',
+        numero_cuenta: formData.get('numero_cuenta') || '',
+        autopago: formData.get('autopago') || '',
+        direccion: formData.get('direccion') || '',
+        tipo_servicios: formData.get('tipo_servicios') || '',
+        sistema: formData.get('sistema') || '',
+        riesgo: formData.get('riesgo') || '',
+        dia_venta: formData.get('dia_venta') || '',
+        dia_instalacion: formData.get('dia_instalacion') || '',
+        status: formData.get('status') || '',
+        servicios: formData.get('servicios') || '',
+        mercado: formData.get('mercado') || '',
+        supervisor: formData.get('supervisor') || '',
+        comentario: formData.get('comentario') || '',
+        motivo_llamada: formData.get('motivo_llamada') || '',
+        zip_code: formData.get('zip_code') || ''
       };
 
-      const response = await fetch("/guardar-lead", {
+      // Asignar automáticamente el TEAM según SUPERVISOR
+      const supervisor = lead.supervisor ? lead.supervisor.trim().toUpperCase() : '';
+      let team = '';
+      switch (supervisor) {
+        case 'PLEITEZ': team = 'Team Pleitez'; break;
+        case 'ROBERTO': team = 'Team Roberto'; break;
+        case 'IRANIA': team = 'Team Irania'; break;
+        case 'MARISOL': team = 'Team Marisol'; break;
+        case 'RANDAL': team = 'Team Randal'; break;
+        case 'JONATHAN': team = 'Team Lineas'; break;
+        default: team = '';
+      }
+      lead.team = team;
+
+      // El campo agente se toma del usuario autenticado (window.usuario_actual)
+      if (window.usuario_actual && window.usuario_actual.nombre) {
+        lead.agente = window.usuario_actual.nombre;
+      }
+
+      // Validar que todos los campos requeridos del formulario estén presentes
+      const camposRequeridos = [
+        'nombre_cliente', 'telefono_principal', 'telefono_alterno', 'numero_cuenta',
+        'autopago', 'direccion', 'tipo_servicios', 'sistema', 'riesgo',
+        'dia_venta', 'dia_instalacion', 'status', 'servicios', 'mercado',
+        'supervisor', 'comentario', 'motivo_llamada', 'zip_code'
+      ];
+      let camposFaltantes = [];
+      camposRequeridos.forEach(campo => {
+        if (!lead[campo] || lead[campo].toString().trim() === '') {
+          camposFaltantes.push(campo.replace(/_/g, ' '));
+        }
+      });
+      if (camposFaltantes.length > 0) {
+        alert('Faltan campos obligatorios: ' + camposFaltantes.join(', '));
+        return;
+      }
+
+      // Validar puntaje antes de enviar
+      if (team === 'Team Lineas') {
+        lead.puntaje = 'Sin Puntaje';
+      } else {
+        let puntaje = formData.get('puntaje');
+        if (!puntaje || isNaN(puntaje)) {
+          alert('El campo Puntaje es obligatorio y debe ser un número válido.');
+          return;
+        }
+        lead.puntaje = parseFloat(puntaje);
+      }
+
+      // Enviar los datos al backend
+      const response = await fetch("/api/leads", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify(lead)
       });
 
@@ -41,92 +104,48 @@ let chartTeam, chartProducto;
 async function cargarDatosDesdeServidor() {
   const res = await fetch("/api/leads");
   const leads = await res.json();
-  actualizarGraficas(leads);
+  renderCostumerTable(leads);
+  // Las gráficas ahora se renderizan solo desde graficas.js
+
 }
 
-function actualizarGraficas(leads) {
-  const teams = ["Team Irania", "Team Pleitez", "Team Roberto", "Team Lineas", "Team Randal", "Team Marisol"];
-  const productos = [...new Set(leads.map(l => l.PRODUCTO))];
-
-  const ventasPorTeam = {};
-  const puntosPorTeam = {};
-  const ventasPorProducto = {};
-
-  teams.forEach(t => {
-    ventasPorTeam[t] = 0;
-    puntosPorTeam[t] = 0;
-  });
-
-  productos.forEach(p => {
-    ventasPorProducto[p] = 0;
-  });
-
-  leads.forEach(lead => {
-    const team = lead.TEAM;
-    const producto = lead.PRODUCTO;
-    const puntos = parseFloat(lead.PUNTOS || 0);
-
-    if (ventasPorTeam[team] !== undefined) ventasPorTeam[team] += 1;
-    if (puntosPorTeam[team] !== undefined && team !== "Team Lineas") puntosPorTeam[team] += puntos;
-
-    if (ventasPorProducto[producto] !== undefined) ventasPorProducto[producto] += 1;
-    else ventasPorProducto[producto] = 1;
-  });
-
-  const ctxTeam = document.getElementById("ventasTeamChart").getContext("2d");
-  const ctxProducto = document.getElementById("productosChart").getContext("2d");
-
-  if (chartTeam) chartTeam.destroy();
-  if (chartProducto) chartProducto.destroy();
-
-  chartTeam = new Chart(ctxTeam, {
-    type: "bar",
-    data: {
-      labels: teams,
-      datasets: [
-        {
-          label: "Ventas",
-          backgroundColor: "blue",
-          data: teams.map(t => ventasPorTeam[t])
-        },
-        {
-          label: "Puntaje",
-          backgroundColor: "red",
-          data: teams.map(t => t === "Team Lineas" ? 0 : puntosPorTeam[t])
-        }
-      ]
-    },
-    options: {
-      plugins: {
-        legend: { position: "top" },
-        tooltip: { enabled: true },
-      },
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-
-  chartProducto = new Chart(ctxProducto, {
-    type: "bar",
-    data: {
-      labels: Object.keys(ventasPorProducto),
-      datasets: [{
-        label: "Ventas",
-        backgroundColor: "green",
-        data: Object.values(ventasPorProducto)
-      }]
-    },
-    options: {
-      plugins: {
-        legend: { display: false },
-        tooltip: { enabled: true }
-      },
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
+// Renderizado profesional y alineado de la tabla Costumer
+function renderCostumerTable(leads) {
+  const tbody = document.getElementById('costumer-tbody');
+  tbody.innerHTML = '';
+  if (!leads || leads.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="21" style="text-align:center;padding:2em;">No hay registros para mostrar.</td></tr>`;
+    return;
+  }
+  leads.forEach((lead, idx) => {
+    const rowClass = idx % 2 === 0 ? 'costumer-row-striped' : '';
+    tbody.innerHTML += `
+      <tr class="${rowClass}">
+        <td class="td-ellipsis" title="${lead.nombre_cliente || ''}">${lead.nombre_cliente || ''}</td>
+        <td class="td-nowrap" title="${lead.telefono_principal || ''}">${lead.telefono_principal || ''}</td>
+        <td class="td-nowrap" title="${lead.telefono_alterno || 'N/A'}">${lead.telefono_alterno || 'N/A'}</td>
+        <td class="td-nowrap" title="${lead.numero_cuenta || 'N/A'}">${lead.numero_cuenta || 'N/A'}</td>
+        <td class="td-nowrap" title="${lead.autopago || ''}">${lead.autopago || ''}</td>
+        <td class="td-ellipsis" title="${lead.direccion || ''}">${lead.direccion || ''}</td>
+        <td class="td-ellipsis" title="${lead.tipo_servicios || ''}">${lead.tipo_servicios || ''}</td>
+        <td class="td-ellipsis" title="${lead.sistema || ''}">${lead.sistema || ''}</td>
+        <td class="td-nowrap" title="${lead.riesgo || ''}">${lead.riesgo || ''}</td>
+        <td class="td-nowrap" title="${lead.dia_venta || ''}">${lead.dia_venta || ''}</td>
+        <td class="td-nowrap" title="${lead.dia_instalacion || ''}">${lead.dia_instalacion || ''}</td>
+        <td class="td-nowrap"><span class="badge-status badge-status-${(lead.status||'').toLowerCase()}">${lead.status || ''}</span></td>
+        <td class="td-ellipsis" title="${lead.servicios || ''}">${lead.servicios || ''}</td>
+        <td class="td-ellipsis" title="${lead.mercado || ''}">${lead.mercado || ''}</td>
+        <td class="td-ellipsis" title="${lead.supervisor || ''}">${lead.supervisor || ''}</td>
+        <td class="td-ellipsis" title="${lead.comentario || ''}">${lead.comentario || ''}</td>
+        <td class="td-ellipsis" title="${lead.motivo_llamada || ''}">${lead.motivo_llamada || ''}</td>
+        <td class="td-nowrap" title="${lead.zip_code || ''}">${lead.zip_code || ''}</td>
+        <td class="td-nowrap" title="${lead.puntaje !== undefined ? lead.puntaje : 0}">${lead.puntaje !== undefined ? lead.puntaje : 0}</td>
+        <td class="td-ellipsis" title="${lead.comentarios_venta ? (Array.isArray(lead.comentarios_venta) ? lead.comentarios_venta.join(' | ') : lead.comentarios_venta) : ''}">${lead.comentarios_venta ? (Array.isArray(lead.comentarios_venta) ? lead.comentarios_venta.slice(0,1).join('') + (lead.comentarios_venta.length > 1 ? ' +' + (lead.comentarios_venta.length-1) : '') : lead.comentarios_venta) : ''}</td>
+        <td class="td-nowrap">
+          <button class="btn-accion btn-editar" onclick="editarVenta('')"><i class="fas fa-comment-dots"></i></button>
+          <button class="btn-accion btn-borrar" onclick="borrarVenta('')"><i class="fas fa-trash-alt"></i></button>
+        </td>
+      </tr>
+    `;
   });
 }

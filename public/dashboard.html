@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>CRM Agente</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-minimal/minimal.css">
@@ -29,7 +30,8 @@
       min-height:100vh;
       color: var(--text-main);
       height: 100vh;
-      overflow: hidden;
+      overflow: hidden; padding-bottom: 32px;
+  margin-bottom: 20px;
     }
     .topbar {
       background: var(--primary);
@@ -61,7 +63,8 @@
       height: calc(100vh - 56px);
       min-height: 0;
       background: linear-gradient(90deg, #f8fbff 0%, #f6fafd 100%);
-      overflow: hidden;
+      overflow: hidden; padding-bottom: 32px;
+  margin-bottom: 20px;
     }
     .sidebar {
       width: 230px;
@@ -119,7 +122,8 @@
       align-items: stretch;
       justify-content: flex-start;
       min-height: 0;
-      overflow: hidden;
+      overflow: hidden; padding-bottom: 32px;
+  margin-bottom: 20px;
     }
     .dashboard-flex-row {
       display: flex;
@@ -250,6 +254,8 @@
     }
     .charts-filter button:hover { background: var(--primary-dark); }
     .chart-container {
+  min-height: 320px;
+  padding: 10px 12px;
       background: #fff;
       padding: 22px 28px;
       border: 1px solid #e2e8f0;
@@ -291,12 +297,127 @@
   transition: background 0.18s, color 0.18s, box-shadow 0.18s;
   font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
 }
-.costumer-table-elegant thead th:hover {
-  background: linear-gradient(90deg, #bbdefb 0%, #e3f2fd 100%);
-  color: #0d47a1;
-  box-shadow: 0 4px 16px #1976d244;
+.costumer-table-elegant {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px #1976d211;
+  overflow: hidden; padding-bottom: 32px;
+  margin-bottom: 20px;
+}
+.costumer-table-elegant thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(90deg, #1976d2 60%, #2196f3 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.08em;
+  letter-spacing: 0.04em;
+  border: none;
+  padding: 13px 8px;
+  text-align: left;
+}
+.costumer-table-elegant tbody tr {
+  transition: background 0.18s;
+  border: none;
+}
+.costumer-table-elegant tbody tr:nth-child(even) {
+  background: #f8fbff;
+}
+.costumer-table-elegant tbody tr:hover {
+  background: #e3f2fd !important;
+}
+.costumer-table-elegant td {
+  border: none;
+  padding: 11px 8px;
+  font-size: 1.01em;
+  color: #24334d;
+  vertical-align: middle;
+  word-break: break-word;
+  max-width: 270px;
+}
+.costumer-table-elegant td.comentario {
+  position: relative;
   cursor: pointer;
 }
+.costumer-table-elegant td.comentario:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: 120%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #24334d;
+  border: 1px solid #b4c5d4;
+  border-radius: 7px;
+  padding: 10px 17px;
+  box-shadow: 0 4px 16px #1976d211;
+  font-size: 0.98em;
+  z-index: 20;
+  min-width: 180px;
+  max-width: 350px;
+  pointer-events: none;
+  white-space: pre-line;
+}
+.costumer-table-elegant td, .costumer-table-elegant th {
+  border-radius: 0 !important;
+}
+.costumer-table-elegant thead th:first-child {
+  border-top-left-radius: 16px;
+}
+.costumer-table-elegant thead th:last-child {
+  border-top-right-radius: 16px;
+}
+.costumer-table-elegant tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 16px;
+}
+.costumer-table-elegant tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 16px;
+}
+.costumer-table-elegant .agrupador-dia {
+  background: #e3f2fd;
+  font-weight: bold;
+  color: #1976d2;
+  font-size: 1.04em;
+  letter-spacing: 0.03em;
+  border-top: 2px solid #b4c5d4;
+  border-bottom: 2px solid #b4c5d4;
+}
+
+.costumer-table-elegant .comentario-btn-minimal, .costumer-table-elegant .acciones-btn-minimal {
+  background: none; border: none; color: #1976d2; font-size: 1.05em; padding: 5px 7px; border-radius: 7px;
+  transition: background 0.18s, color 0.18s;
+  margin-right: 3px;
+  cursor: pointer;
+}
+.costumer-table-elegant .comentario-btn-minimal:hover, .costumer-table-elegant .acciones-btn-minimal:hover { background: #e3f2fd; color: #0d47a1; }
+.costumer-table-elegant .acciones-btn-minimal.borrar { color: #e53935; }
+.costumer-table-elegant .acciones-btn-minimal.borrar:hover { background: #ffebee; color: #b71c1c; }
+.costumer-table-elegant .comentario-tooltip-minimal { margin-left:5px; color:#1976d2; cursor:pointer; position:relative; }
+.costumer-table-elegant .comentario-tooltip-minimal:hover::after {
+  content: attr(data-tooltip);
+  white-space: pre-line;
+  position: absolute;
+  left: 50%;
+  top: 120%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #24334d;
+  border: 1px solid #b4c5d4;
+  border-radius: 7px;
+  padding: 10px 17px;
+  box-shadow: 0 4px 16px #1976d211;
+  font-size: 0.98em;
+  z-index: 20;
+  min-width: 180px;
+  max-width: 350px;
+  pointer-events: none;
+}
+
+
 .costumer-table-elegant thead th {
   background: #5b8db8;
   color: #fff;
@@ -439,7 +560,45 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
     }
     /* Se agregó la llave de cierre faltante */
   }
-  </style>
+  .td-ellipsis {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.td-nowrap {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.costumer-table-elegant th, .costumer-table-elegant td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 7px 9px;
+  border-bottom: 1.5px solid #d5e4f3;
+  border-right: 1px solid #e3e9f3;
+}
+.costumer-table-elegant th {
+  position: sticky;
+  top: 0;
+  background: #5b8db8;
+  z-index: 2;
+}
+.costumer-table-elegant tbody tr:nth-child(even) {
+  background: #f5f9fc;
+}
+.costumer-table-elegant tbody tr:nth-child(odd) {
+  background: #fff;
+}
+.costumer-table-elegant tbody tr:hover {
+  background: #e3f1fd;
+}
+.costumer-table-wrapper {
+  overflow-x: auto;
+  min-width: 900px;
+}
+</style>
 </head>
 <body>
   <div class="topbar">
@@ -455,6 +614,7 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
       <ul>
         <li><a href="#" class="tab-btn" data-tab="inicioTab" id="tabInicio"><i class="fas fa-home"></i> Inicio</a></li>
         <li><a href="#" class="tab-btn" data-tab="leadTab" id="tabLead"><i class="fas fa-user-plus"></i> Lead</a></li>
+
         <li><a href="#" class="tab-btn" data-tab="costumerTab" id="tabCostumer"><i class="fas fa-users"></i> Costumer</a></li>
       </ul>
     </div>
@@ -468,9 +628,10 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
         </div>
       </div>
       <div class="dashboard-flex-row" id="leadTab">
+
         <!-- FORMULARIO LEAD -->
         <section class="crm-form-section" id="form-panel">
-          <form id="crmForm" class="crm-form" autocomplete="off" novalidate>
+          <form id="lead-form" class="crm-form" autocomplete="off" novalidate>
                         <!-- AQUÍ VAN TODOS TUS CAMPOS DE FORMULARIO, REVISA Y AMPLÍA HASTA LA LÍNEA 489 APROX. -->
             <div class="crm-form-group required" data-field="nombre_cliente">
               <label class="crm-form-label">Nombre cliente <span class="crm-form-req">*</span></label>
@@ -674,8 +835,19 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
               <label class="crm-form-label">ZIP CODE <span class="crm-form-req">*</span></label>
               <input type="text" name="zip_code" class="crm-form-input" placeholder="Tu respuesta" required />
             </div>
-            <button class="crm-form-submit-btn" type="submit"><i class="fas fa-save"></i> Guardar Lead</button>
+            <div class="crm-form-group required" data-field="puntaje">
+              <label class="crm-form-label">Puntaje <span class="crm-form-req">*</span></label>
+              <select name="puntaje" class="crm-form-select" required>
+                <option value="">Elige</option>
+                <option value="0.35">0.35</option>
+                <option value="1.50">1.50</option>
+                <option value="1.0">1.0</option>
+                <option value="0.25">0.25</option>
+              </select>
+            </div>
+            <button class="crm-form-submit-btn" type="submit" style="margin-bottom:32px;"><i class="fas fa-save"></i> Guardar Lead</button>
           </form>
+          <script src="js/core/script.js"></script> <!-- Asegura que script.js se cargue después del formulario -->
         </section>
         <!-- SECCIÓN DE GRÁFICAS -->
         <section class="charts-section" id="charts-panel">
@@ -714,8 +886,8 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
     <span id="costumer-ventas-mes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
   </div>
 </div>
-  <div class="costumer-table-wrapper costumer-table-elegant">
-    <table class="costumer-table costumer-table-elegant">
+  <div class="costumer-table-wrapper costumer-table-elegant" style="overflow-x:auto; min-width:900px;">
+    <table class="costumer-table costumer-table-elegant" style="width:100%;table-layout:auto;">
       <thead>
          <tr>
            <th>Nombre cliente</th>
@@ -727,8 +899,8 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
            <th>Tipo de servicios</th>
            <th>Sistema</th>
            <th>Riesgo</th>
-           <th>Día de venta</th>
-           <th>Día de instalación</th>
+           <th>Dia de venta</th>
+           <th>Dia de instalación</th>
            <th>Status</th>
            <th>Servicios</th>
            <th>Mercado</th>
@@ -737,7 +909,7 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
            <th>Motivo llamada</th>
            <th>ZIP CODE</th>
            <th>Puntaje</th>
-           <th>Comentario sobre la venta</th>
+           <th>Comentarios sobre la venta</th>
            <th>Acción</th>
          </tr>
        </thead>
@@ -874,19 +1046,34 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
 
     // Cargar y mostrar leads en la tabla de Costumer
     async function fetchAndRenderLeads() {
+      const debugPanel = document.getElementById('debug-panel');
+      const debugStatus = document.getElementById('debug-status');
+      const debugData = document.getElementById('debug-data');
+      
+      debugPanel.style.display = 'block';
+      debugStatus.textContent = 'Estado: Realizando petición a /api/leads...';
+      debugStatus.style.color = '#eab308'; // Amarillo
+      debugData.textContent = 'Datos: N/A';
+
       const tbody = document.getElementById('costumer-tbody');
       tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>`;
       try {
         const response = await fetch('/api/leads', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-        if (!response.ok) throw new Error('No se pudo obtener la lista de leads.');
+        if (!response.ok) {
+          const errorData = await response.text();
+          debugStatus.textContent = 'Estado: Error en la respuesta del servidor (Código ' + response.status + ')';
+          debugStatus.style.color = '#ef4444'; // Rojo
+          debugData.textContent = 'Error: ' + errorData;
+          throw new Error('No se pudo obtener la lista de leads. Respuesta del servidor: ' + response.status);
+        }
         const leads = await response.json();
 
-        // Actualizar panel de depuración
-        document.getElementById('debug-status').textContent = 'Estado: Petición exitosa (Código ' + response.status + ')';
-        document.getElementById('debug-data').textContent = 'Datos Recibidos: ' + JSON.stringify(leads, null, 2);
-        
+        debugStatus.textContent = 'Estado: Éxito. Datos recibidos.';
+        debugStatus.style.color = '#22c55e'; // Verde
+        debugData.textContent = JSON.stringify(leads, null, 2);
+
         tbody.innerHTML = ""; // Limpiar la tabla antes de renderizar
         if (leads.length === 0) {
           tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;">No hay registros para mostrar.</td></tr>`;
@@ -927,10 +1114,10 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
 
       } catch (error) {
         // Actualizar panel de depuración en caso de error
-        document.getElementById('debug-status').textContent = 'Estado: Error en la petición.';
-        document.getElementById('debug-data').textContent = 'Error: ' + error.message;
-        console.error(error);
-        tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;">Error al cargar los datos.</td></tr>`;
+        debugStatus.textContent = 'Estado: Error en la petición fetch.';
+        debugStatus.style.color = '#ef4444'; // Rojo
+        debugData.textContent = 'Error: ' + error.message;
+        tbody.innerHTML = `<tr><td colspan="18" class="no-data-msg">Error al cargar los leads: ${error.message}</td></tr>`;
       }
     }
 
@@ -980,10 +1167,8 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
         if (result.ok) {
           Swal.fire('¡Guardado!', 'El lead ha sido guardado correctamente.', 'success');
           form.reset();
-          // Opcional: recargar la tabla de costumers si existe
-          if (typeof fetchAndRenderLeads === 'function') {
-            fetchAndRenderLeads(); // Recargamos desde la DB
-          }
+          // Cambiamos a la pestaña de Costumer para ver el resultado
+          document.getElementById('tabCostumer').click();
         } else {
           throw new Error(result.error || 'Error desconocido del servidor');
         }
@@ -1034,10 +1219,88 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
       `;
       document.head.appendChild(style);
     })();
+// --- Lógica para Lead Crm-Agente y Costumer ---
+async function fetchLeadsAgente() {
+  const res = await fetch('/api/leads', {
+    headers: {'Authorization': 'Bearer ' + (localStorage.getItem('token')||'')}
+  });
+  return await res.json();
+}
+
+function renderTablaLeadAgente(leads) {
+  if (!leads.length) {
+    document.getElementById('theadLeadAgente').innerHTML = '<tr><th>No hay leads almacenados</th></tr>';
+    document.getElementById('tbodyLeadAgente').innerHTML = '';
+    return;
+  }
+  // Obtener todos los encabezados únicos
+  const headers = Object.keys(leads.reduce((a, c) => Object.assign(a, c), {}));
+  document.getElementById('theadLeadAgente').innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  document.getElementById('tbodyLeadAgente').innerHTML = leads.map(lead =>
+    '<tr>' + headers.map(h => `<td>${lead[h] ?? ''}</td>`).join('') + '</tr>'
+  ).join('');
+}
+
+function renderCostumerGroupedByDate(leads) {
+  if (!leads.length) {
+    document.getElementById('costumer-tbody').innerHTML = '<tr><td colspan="99">No hay clientes registrados.</td></tr>';
+    return;
+  }
+  // Agrupar por día (asumiendo campo creadoEn o fecha)
+  const parseDate = l => (l.creadoEn||l.fecha||l.FECHA||'').slice(0,10);
+  const grupos = {};
+  leads.forEach(l => {
+    const d = parseDate(l);
+    if (!grupos[d]) grupos[d]=[];
+    grupos[d].push(l);
+  });
+  // Ordenar días descendente
+  const dias = Object.keys(grupos).sort((a,b) => b.localeCompare(a));
+  let html = '';
+  dias.forEach(dia => {
+    html += `<tr><td colspan="99" style="background:#e3f2fd;font-weight:bold;">${dia}</td></tr>`;
+    grupos[dia].forEach(l => {
+      html += '<tr>' + Object.values(l).map(v=>`<td>${v??''}</td>`).join('') + '</tr>';
+    });
+  });
+  document.getElementById('costumer-tbody').innerHTML = html;
+}
+
+// --- Cambio de pestañas y renderizado ---
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    e.preventDefault();
+    document.querySelectorAll('.dashboard-flex-row').forEach(s=>s.style.display='none');
+    const tab = btn.dataset.tab;
+    document.getElementById(tab).style.display = 'flex';
+    if(tab==='leadAgenteTab') {
+      const leads = await fetchLeadsAgente();
+      renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+    }
+    if(tab==='costumerTab') {
+      const leads = await fetchLeadsAgente();
+      renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+    }
+  });
+});
+// Al guardar un lead, refrescar ambas pestañas si están abiertas
+window.refrescarLeadsAgente = async function() {
+  const leads = await fetchLeadsAgente();
+  if(document.getElementById('leadAgenteTab').style.display!=='none')
+    renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+  if(document.getElementById('costumerTab').style.display!=='none')
+    renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+}
+// Llamar refresco inicial en costumer
+window.addEventListener('DOMContentLoaded', async ()=>{
+  const leads = await fetchLeadsAgente();
+  renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+});
 </script>
    <script src="js/core/auth-check.js"></script>
    <script src="js/core/login.js"></script>
    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
    <script src="js/core/graficas.js"></script>
  </body>
  </html>

@@ -16,7 +16,7 @@ const dbName = 'sample_mflix'; // Cambia por tu base de datos real
 const leadsCollectionName = 'crm agente';
 const usersCollectionName = 'crm_users';
 
-const CRM_ADMIN_URL = 'http://localhost:3000/api/sync/costumer'; // Reemplaza localhost:3000 si es diferente
+const CRM_ADMIN_URL = 'https://connecting-klf7.onrender.com/api/sync/costumer'; // Reemplaza localhost:3000 si es diferente
 const CRM_ADMIN_API_KEY = 'tu-clave-secreta-muy-larga-y-dificil-de-adivinar'; // Usa la misma clave que en el Admin
 
 const app = express();
@@ -53,17 +53,18 @@ function auth(req, res, next) {
 
 // Función para sincronizar con CRM Admin
 async function sincronizarConAdmin(leadData) {
+  // Mapeamos los campos del CRM Agente a los que espera el CRM Admin
   const payload = {
-    fecha: leadData.fecha,
-    equipo: leadData.equipo, 
-    agente: leadData.agente,
-    telefono: leadData.telefono,
-    producto: leadData.producto,
-    puntaje: leadData.puntaje,
-    cuenta: '', 
+    fecha: leadData.dia_venta,       // Usamos 'dia_venta' como la fecha
+    equipo: leadData.equipo || '',   // El campo 'equipo' puede no existir, así que nos aseguramos que no sea undefined
+    agente: leadData.agente,         // Este campo ya existe en el lead del Agente
+    telefono: leadData.telefono_principal, // Usamos el teléfono principal
+    producto: leadData.tipo_servicios, // Usamos 'tipo_servicios' como 'producto'
+    puntaje: leadData.puntaje || 0,
+    cuenta: '', // Como solicitaste, este campo se envía vacío
     direccion: leadData.direccion,
-    zip: leadData.zip,
-    estado: leadData.estado
+    zip: leadData.zip_code,          // Usamos 'zip_code'
+    estado: leadData.status          // Usamos 'status'
   };
 
   try {
@@ -182,15 +183,57 @@ app.get('/api/agente/info', auth, async (req, res) => {
 
 // LISTAR LEADS (solo propios si es agente, todos si es admin)
 app.get('/api/leads', auth, async (req, res) => {
+  console.log(`[LOG] Petición recibida en GET /api/leads por usuario: ${req.user.nombre} (Rol: ${req.user.rol})`);
   try {
     let filtro = {};
     if (req.user.rol === 'agente') {
       filtro = { agente: req.user.nombre };
     }
     const listaLeads = await leads.find(filtro).toArray();
-    res.json(listaLeads);
+    console.log(`[LOG] Consulta a DB exitosa. Encontrados ${listaLeads.length} leads.`);
+    // Ordenar los campos de cada lead según el formulario y la tabla
+    const orderedFields = [
+      '_id',
+      'nombre_cliente',
+      'telefono_principal',
+      'telefono_alterno',
+      'numero_cuenta',
+      'autopago',
+      'direccion',
+      'tipo_servicios',
+      'sistema',
+      'riesgo',
+      'dia_venta',
+      'dia_instalacion',
+      'status',
+      'servicios',
+      'mercado',
+      'supervisor',
+      'comentario',
+      'motivo_llamada',
+      'zip_code',
+      'puntaje',
+      'comentarios_venta',
+      'team',
+      'agente',
+      'creadoEn'
+    ];
+    const ordenarLead = (lead) => {
+      const obj = {};
+      orderedFields.forEach(k => { if (lead[k] !== undefined) obj[k] = lead[k]; });
+      // Agregar cualquier campo extra al final
+      Object.keys(lead).forEach(k => { if (!(k in obj)) obj[k] = lead[k]; });
+      return obj;
+    };
+    // Eliminar _id de cada lead antes de enviar al frontend
+    res.json(listaLeads.map(lead => {
+      const ordenado = ordenarLead(lead);
+      delete ordenado._id;
+      return ordenado;
+    }));
   } catch (error) {
-    res.status(500).json({ ok: false, error });
+    console.error('[ERROR] Fallo en la ruta GET /api/leads:', error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 
@@ -198,17 +241,84 @@ app.get('/api/leads', auth, async (req, res) => {
 app.post('/api/leads', auth, async (req, res) => {
   try {
     const lead = req.body;
-    if (req.user.rol === 'agente') {
-      lead.agente = req.user.nombre;
-    } else if (req.user.rol === 'admin' && !lead.agente) {
-      lead.agente = 'admin';
+
+    // Asignamos el agente que crea el lead desde el token de autenticación
+    lead.agente = req.user.nombre;
+
+    // Normalización y validación de puntaje y team
+    if (lead.supervisor) {
+      const supervisor = lead.supervisor.toUpperCase();
+      let team = '';
+      switch (supervisor) {
+        case 'PLEITEZ': team = 'Team Pleitez'; break;
+        case 'ROBERTO': team = 'Team Roberto'; break;
+        case 'IRANIA': team = 'Team Irania'; break;
+        case 'MARISOL': team = 'Team Marisol'; break;
+        case 'RANDAL': team = 'Team Randal'; break;
+        case 'JONATHAN': team = 'Team Lineas'; break;
+        default: team = supervisor;
+      }
+      lead.team = team;
+      if (supervisor === 'JONATHAN') {
+        lead.puntaje = 'Sin Puntaje';
+      } else {
+        if (lead.puntaje === undefined || lead.puntaje === null || lead.puntaje === '') {
+          return res.status(400).json({ ok: false, error: 'El campo puntaje es obligatorio.' });
+        }
+        // Forzar a número decimal si es string
+        if (typeof lead.puntaje === 'string') {
+          lead.puntaje = parseFloat(lead.puntaje);
+        }
+        if (isNaN(lead.puntaje)) {
+          return res.status(400).json({ ok: false, error: 'El campo puntaje debe ser un número válido.' });
+        }
+      }
+    } else {
+      return res.status(400).json({ ok: false, error: 'El campo supervisor es obligatorio.' });
     }
-    lead.comentarios_venta = lead.comentarios_venta || [];
+
+    // Insertamos el lead en la base de datos
     const result = await leads.insertOne(lead);
-    const leadInsertado = { _id: result.insertedId, ...lead };
 
-    sincronizarConAdmin(leadInsertado);
+    // Creamos un objeto del lead insertado para devolverlo y sincronizarlo
+    const orderedFields = [
+      '_id',
+      'nombre_cliente',
+      'telefono_principal',
+      'telefono_alterno',
+      'numero_cuenta',
+      'autopago',
+      'direccion',
+      'tipo_servicios',
+      'sistema',
+      'riesgo',
+      'dia_venta',
+      'dia_instalacion',
+      'status',
+      'servicios',
+      'mercado',
+      'supervisor',
+      'comentario',
+      'motivo_llamada',
+      'zip_code',
+      'puntaje',
+      'comentarios_venta',
+      'team',
+      'agente',
+      'creadoEn'
+    ];
+    const ordenarLead = (lead) => {
+      const obj = {};
+      orderedFields.forEach(k => { if (lead[k] !== undefined) obj[k] = lead[k]; });
+      Object.keys(lead).forEach(k => { if (!(k in obj)) obj[k] = lead[k]; });
+      return obj;
+    };
+    const leadInsertado = ordenarLead({ _id: result.insertedId, ...lead });
 
+    // Sincronizamos con el CRM Admin
+    await sincronizarConAdmin(leadInsertado);
+
+    // Respondemos al frontend
     res.json({ ok: true, lead: leadInsertado });
   } catch (error) {
     res.status(500).json({ ok: false, error });
