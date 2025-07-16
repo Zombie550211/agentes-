@@ -35,6 +35,10 @@ MongoClient.connect(uri)
     leads = db.collection(leadsCollectionName);
     users = db.collection(usersCollectionName);
     console.log('Conectado a MongoDB');
+    // Iniciar el servidor solo cuando la BD esté lista
+    app.listen(3002, () => {
+      console.log('API escuchando en http://localhost:3002');
+    });
   })
   .catch(err => console.error('Error conectando a MongoDB:', err));
 
@@ -411,10 +415,4 @@ app.get('/api/users', auth, async (req, res) => {
 // ¡¡¡IMPORTANTE!!! Esta debe ser la ÚLTIMA ruta para que no sobreescriba las de la API
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
-// Puerto para la API
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log('API escuchando en http://localhost:' + PORT);
 });
