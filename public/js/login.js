@@ -27,7 +27,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     passwordInput.classList.add("valid");
   }
 
-  const response = await fetch("/login", {
+  const response = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
