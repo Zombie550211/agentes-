@@ -411,5 +411,7 @@ app.get('/api/users', auth, async (req, res) => {
 // --- RUTA FINAL PARA SERVIR LA APP DE FRONTEND ---
 // ¡¡¡IMPORTANTE!!! Esta debe ser la ÚLTIMA ruta para que no sobreescriba las de la API
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  const dashboardPath = path.join(__dirname, 'public', 'dashboard.html');
+  console.log('Sirviendo dashboard desde:', dashboardPath);
+  res.sendFile(dashboardPath);
 });
