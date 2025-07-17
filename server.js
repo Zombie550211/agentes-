@@ -8,10 +8,7 @@ const axios = require('axios');
 
 // Configuración
 const JWT_SECRET = 'tu_clave_secreta_super_segura'; // cámbiala y guarda en .env en producción
-const mongoUser = encodeURIComponent('Zombie550211');
-const mongoPass = encodeURIComponent('Zombie5502');
-const mongoCluster = 'cluster0.ywxaotz.mongodb.net';
-const uri = `mongodb+srv://${mongoUser}:${mongoPass}@${mongoCluster}/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = process.env.MONGODB_URI;
 const dbName = 'sample_mflix'; // Cambia por tu base de datos real
 const leadsCollectionName = 'crm agente';
 const usersCollectionName = 'crm_users';
