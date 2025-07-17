@@ -4,3 +4,4 @@
     window.location.href = '/login.html';
   }
 })();
+// Archivo JS válido

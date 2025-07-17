@@ -27,3 +27,4 @@
     }
   });
 })();
+// Archivo JS válido
