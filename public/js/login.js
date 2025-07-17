@@ -27,7 +27,12 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     passwordInput.classList.add("valid");
   }
 
-  const response = await fetch("/api/login", {
+  const API_URL =
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:3002"
+    : "https://connecting-klf7.onrender.com";
+
+  const response = await fetch(`${API_URL}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -38,11 +43,15 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
   const result = await response.json();
 
-  if (result.success) {
+  if (result.ok && result.token) {
+    // Guarda el token y rol en localStorage
+    localStorage.setItem('token', result.token);
+    localStorage.setItem('nombre', result.user.nombre);
+    localStorage.setItem('rol', result.user.rol);
     loginError.style.color = "green";
     loginError.textContent = "¡Login exitoso! Redirigiendo...";
     loginError.style.display = "block";
-    setTimeout(() => window.location.href = "lead.html", 1000);
+    setTimeout(() => window.location.href = "dashboard.html", 1000);
   } else {
     loginError.style.color = "#e53935";
     loginError.textContent = result.error || "Credenciales incorrectas.";
