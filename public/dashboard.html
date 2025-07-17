@@ -1328,6 +1328,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       else
         mostrarMensaje('No se pudo cargar leads', 'error');
     }
+    if(tab==='charts-panel' || tab==='chartsTab') {
+      // Llama a la gráfica cuando se cambia a la pestaña de gráficas
+      if (typeof renderGraficas === 'function') renderGraficas();
+    }
   });
 });
 // Al guardar un lead, refrescar ambas pestañas si están abiertas
@@ -1343,12 +1347,15 @@ window.refrescarLeadsAgente = async function() {
   }
 }
 // Llamar refresco inicial en costumer
-window.addEventListener('DOMContentLoaded', async ()=>{
+window.addEventListener('DOMContentLoaded', async () => {
+  // Refresca la tabla Costumer
   const leads = await fetchLeadsAgente();
   if(Array.isArray(leads))
     renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
   else
     mostrarMensaje('No se pudo cargar clientes', 'error');
+  // Renderiza la gráfica principal
+  if (typeof renderGraficas === 'function') renderGraficas();
 });
 </script>
    <script src="js/core/auth-check.js"></script>

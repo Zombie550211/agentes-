@@ -72,8 +72,14 @@ document.addEventListener("DOMContentLoaded", () => {
         lead.puntaje = 'Sin Puntaje';
       } else {
         let puntaje = formData.get('puntaje');
-        if (!puntaje || isNaN(puntaje)) {
-          alert('El campo Puntaje es obligatorio y debe ser un número válido.');
+        // Asegura que el valor no sea vacío ni "Elige"
+        if (puntaje === null || puntaje === undefined || puntaje === '' || puntaje === 'Elige') {
+          alert('Debes seleccionar un puntaje válido antes de guardar el lead.');
+          return;
+        }
+        // Valida que sea un número
+        if (isNaN(Number(puntaje))) {
+          alert('El valor seleccionado en Puntaje no es válido.');
           return;
         }
         lead.puntaje = parseFloat(puntaje);
