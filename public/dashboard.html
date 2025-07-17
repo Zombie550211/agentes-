@@ -1224,11 +1224,48 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
     })();
 // --- Lógica para Lead Crm-Agente y Costumer ---
 async function fetchLeadsAgente() {
-  const res = await fetch('/api/leads', {
-    headers: {'Authorization': 'Bearer ' + (localStorage.getItem('token')||'')}
-  });
-  return await res.json();
+  try {
+    const res = await fetch('/api/leads', {
+      headers: {'Authorization': 'Bearer ' + (localStorage.getItem('token')||'')}
+    });
+    const data = await res.json();
+    if (!res.ok || !Array.isArray(data)) {
+      // Si la API responde con error o no es array, muestra mensaje y retorna array vacío
+      mostrarMensaje('Error obteniendo leads: ' + (data.message || res.statusText), 'error');
+      return [];
+    }
+    return data;
+  } catch (err) {
+    mostrarMensaje('Error de red al obtener leads', 'error');
+    return [];
+  }
 }
+
+// Muestra mensajes de éxito o error en la UI
+function mostrarMensaje(msg, tipo = 'info') {
+  let div = document.getElementById('mensaje-global');
+  if (!div) {
+    div = document.createElement('div');
+    div.id = 'mensaje-global';
+    div.style.position = 'fixed';
+    div.style.top = '18px';
+    div.style.right = '18px';
+    div.style.zIndex = '9999';
+    div.style.padding = '1em 2em';
+    div.style.borderRadius = '9px';
+    div.style.fontWeight = 'bold';
+    div.style.fontSize = '1.1em';
+    div.style.boxShadow = '0 2px 8px #0002';
+    div.style.transition = 'opacity 0.3s';
+    document.body.appendChild(div);
+  }
+  div.innerText = msg;
+  div.style.background = tipo === 'error' ? '#ffebee' : '#e3f9e5';
+  div.style.color = tipo === 'error' ? '#b71c1c' : '#1976d2';
+  div.style.opacity = 1;
+  setTimeout(()=>{ div.style.opacity = 0; }, 3500);
+}
+
 
 function renderTablaLeadAgente(leads) {
   if (!leads.length) {
@@ -1278,26 +1315,39 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById(tab).style.display = 'flex';
     if(tab==='leadAgenteTab') {
       const leads = await fetchLeadsAgente();
-      renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+      if(Array.isArray(leads))
+        renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+      else
+        mostrarMensaje('No se pudo cargar leads', 'error');
     }
     if(tab==='costumerTab') {
       const leads = await fetchLeadsAgente();
-      renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+      if(Array.isArray(leads))
+        renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+      else
+        mostrarMensaje('No se pudo cargar leads', 'error');
     }
   });
 });
 // Al guardar un lead, refrescar ambas pestañas si están abiertas
 window.refrescarLeadsAgente = async function() {
   const leads = await fetchLeadsAgente();
-  if(document.getElementById('leadAgenteTab').style.display!=='none')
-    renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-  if(document.getElementById('costumerTab').style.display!=='none')
-    renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+  if(Array.isArray(leads)) {
+    if(document.getElementById('leadAgenteTab').style.display!=='none')
+      renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+    if(document.getElementById('costumerTab').style.display!=='none')
+      renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+  } else {
+    mostrarMensaje('No se pudo refrescar leads', 'error');
+  }
 }
 // Llamar refresco inicial en costumer
 window.addEventListener('DOMContentLoaded', async ()=>{
   const leads = await fetchLeadsAgente();
-  renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+  if(Array.isArray(leads))
+    renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+  else
+    mostrarMensaje('No se pudo cargar clientes', 'error');
 });
 </script>
    <script src="js/core/auth-check.js"></script>
