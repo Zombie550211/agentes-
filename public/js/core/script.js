@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  cargarDatosDesdeServidor();
+  // cargarDatosDesdeServidor(); // Comentado para evitar ReferenceError
 
   const form = document.getElementById("lead-form");
   if (form) {
@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Validar que todos los campos requeridos del formulario estén presentes
+      // Quita 'puntaje' de la lista de campos requeridos generales, ya que se valida aparte
       const camposRequeridos = [
         'nombre_cliente', 'telefono_principal', 'telefono_alterno', 'numero_cuenta',
         'autopago', 'direccion', 'tipo_servicios', 'sistema', 'riesgo',
@@ -86,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Enviar los datos al backend
+      console.log('DEBUG LEAD ENVIADO:', lead); // LOG TEMPORAL PARA DEPURACIÓN
       // Validar que haya token antes de enviar
       const token = localStorage.getItem('token');
       if (!token) {
@@ -113,7 +115,11 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         // Mostrar mensaje de error del backend si existe
         let mensaje = (result && result.error) ? result.error : 'Hubo un error al guardar el lead.';
-        alert(mensaje);
+        if (mensaje.toLowerCase().includes('puntaje')) {
+          alert('Error de puntaje: ' + mensaje);
+        } else {
+          alert(mensaje);
+        }
         if (result) console.error(result);
       }
     });
