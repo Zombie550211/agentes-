@@ -2,21 +2,26 @@
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const usernameInput = document.getElementById("username");
+  const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
-
-  usernameInput.classList.remove("valid");
+  const loginError = document.getElementById("loginError");
+  loginError.style.display = "none";
+  emailInput.classList.remove("valid");
   passwordInput.classList.remove("valid");
 
-  if (!usernameInput.value.trim()) {
-    usernameInput.focus();
+  if (!emailInput.value.trim()) {
+    emailInput.focus();
+    loginError.textContent = "Por favor ingresa tu correo electrónico.";
+    loginError.style.display = "block";
     return;
   } else {
-    usernameInput.classList.add("valid");
+    emailInput.classList.add("valid");
   }
 
   if (!passwordInput.value.trim()) {
     passwordInput.focus();
+    loginError.textContent = "Por favor ingresa tu contraseña.";
+    loginError.style.display = "block";
     return;
   } else {
     passwordInput.classList.add("valid");
@@ -26,29 +31,29 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      username: usernameInput.value,
-      password: passwordInput.value,
-      remember: document.getElementById("remember").checked
+      email: emailInput.value,
+      password: passwordInput.value
     })
   });
 
   const result = await response.json();
-  const message = document.getElementById("message");
 
-if (result.success) {
-  message.style.color = "green";
-  message.textContent = "Login exitoso. Redirigiendo...";
-  // Guardar token o session si aplica
-  setTimeout(() => window.location.href = "lead.html", 1000);
-}
-
+  if (result.success) {
+    loginError.style.color = "green";
+    loginError.textContent = "¡Login exitoso! Redirigiendo...";
+    loginError.style.display = "block";
+    setTimeout(() => window.location.href = "lead.html", 1000);
+  } else {
+    loginError.style.color = "#e53935";
+    loginError.textContent = result.error || "Credenciales incorrectas.";
+    loginError.style.display = "block";
+  }
 });
 
 document.getElementById("togglePassword").addEventListener("click", () => {
   const passwordInput = document.getElementById("password");
-  const toggleIcon = document.getElementById("togglePassword");
+  const toggleIcon = document.querySelector("#togglePassword i");
   const isHidden = passwordInput.type === "password";
-
   passwordInput.type = isHidden ? "text" : "password";
   toggleIcon.classList.toggle("fa-eye");
   toggleIcon.classList.toggle("fa-eye-slash");
