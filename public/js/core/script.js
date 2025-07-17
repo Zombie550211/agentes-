@@ -3,6 +3,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const form = document.getElementById("lead-form");
   if (form) {
+    let enviandoLead = false; // Flag para evitar doble envío
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -97,9 +99,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let response, result;
       try {
-        response = await fetch("/api/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        response = await fetch('/api/leads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
           body: JSON.stringify(lead)
         });
         result = await response.json();
@@ -109,17 +114,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (response.ok && result.ok) {
-        alert("Lead guardado con éxito");
-        cargarDatosDesdeServidor(); // vuelve a pintar con el nuevo lead
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: 'Lead guardado con éxito',
+          confirmButtonText: 'OK',
+          customClass: { popup: 'swal2-popup' }
+        });
         form.reset();
       } else {
         // Mostrar mensaje de error del backend si existe
         let mensaje = (result && result.error) ? result.error : 'Hubo un error al guardar el lead.';
-        if (mensaje.toLowerCase().includes('puntaje')) {
-          alert('Error de puntaje: ' + mensaje);
-        } else {
-          alert(mensaje);
-        }
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: mensaje,
+          confirmButtonText: 'OK',
+          customClass: { popup: 'swal2-popup' }
+        });
         if (result) console.error(result);
       }
     });
