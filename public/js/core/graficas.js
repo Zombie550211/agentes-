@@ -1,5 +1,7 @@
 // Lógica para mostrar gráficas (ventas y productos)
 window.renderGraficas = async function() {
+  // LOG: Leads crudos recibidos para graficar
+  console.log('[Graficas] Leads recibidos:', typeof leads !== 'undefined' ? leads : 'NO DEFINIDOS');
   // Obtener los leads del agente usando la función global
   let leads = [];
   if (typeof fetchLeadsAgente === 'function') {
@@ -28,6 +30,10 @@ window.renderGraficas = async function() {
   const dias = Object.keys(diasMap).sort().slice(-7);
   const ventas = dias.map(d => diasMap[d].ventas);
   const puntajes = dias.map(d => diasMap[d].puntaje);
+  // LOG: Datos para gráfica de días
+  console.log('[Graficas] Días:', dias);
+  console.log('[Graficas] Ventas por día:', ventas);
+  console.log('[Graficas] Puntajes por día:', puntajes);
 
   // Preparar etiquetas (formato: día/mes)
   const etiquetas = dias.map(d => {
@@ -99,6 +105,9 @@ window.renderGraficas = async function() {
   });
   const productos = Object.keys(productosMap);
   const ventasPorProducto = productos.map(p => productosMap[p]);
+  // LOG: Datos para gráfica de productos
+  console.log('[Graficas] Productos:', productos);
+  console.log('[Graficas] Ventas por producto:', ventasPorProducto);
   // Colores para las barras
   const colores = productos.map((_,i) => `hsl(${(i*37)%360},70%,60%)`);
   // Destruir instancia previa si existe
