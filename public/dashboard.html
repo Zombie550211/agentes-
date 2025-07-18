@@ -11,12 +11,218 @@
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/styles.css">
 
+
   <style>
+    /* Estilo limpio y minimalista para la tabla de clientes (Costumer) */
+
+    /* Contenedor principal de la tabla */
+    .costumer-table-container {
+      width: 100%;
+      overflow-x: auto;
+      background: white;
+      padding: 0;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Tabla principal */
+    .costumer-table-elegant {
+      width: 100%;
+      border-collapse: collapse;
+      border-spacing: 0;
+      font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+      color: #333;
+      font-size: 0.95em;
+    }
+
+    /* Cabecera de la tabla */
+    .costumer-table-elegant thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      color: #555;
+      font-weight: 600;
+      padding: 15px 12px;
+      text-align: left;
+      border: none;
+      border-bottom: 1px solid #eaeaea;
+      font-size: 0.9em;
+      letter-spacing: 0.02em;
+    }
+
+    /* Filas del cuerpo de la tabla */
+    .costumer-table-elegant tbody tr {
+      border: none;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.15s ease;
+    }
+
+    /* Última fila sin borde inferior */
+    .costumer-table-elegant tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    /* Hover sutil en las filas */
+    .costumer-table-elegant tbody tr:hover {
+      background-color: #f9fbfd;
+    }
+
+    /* Celdas de la tabla */
+    .costumer-table-elegant td {
+      padding: 12px;
+      vertical-align: middle;
+      border: none;
+    }
+
+    /* Badges de estado con diseño minimalista */
+    .costumer-table-elegant .badge-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-weight: 500;
+      background: #f5f5f5;
+      color: #555;
+    }
+
+    /* Estilos específicos para cada tipo de estado */
+    .costumer-table-elegant .badge-status-activo {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .costumer-table-elegant .badge-status-pendiente {
+      background-color: #fff8e1;
+      color: #f57c00;
+    }
+
+    .costumer-table-elegant .badge-status-cancelado {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .costumer-table-elegant .badge-status-inactivo {
+      background-color: #f5f5f5;
+      color: #757575;
+    }
+
+    /* Tooltips minimalistas */
+    .costumer-table-elegant .comentario-tooltip-minimal::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      top: 130%;
+      transform: translateX(-50%);
+      background: white;
+      color: #333;
+      border: 1px solid #eaeaea;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 0.9em;
+      z-index: 20;
+      min-width: 180px;
+      max-width: 300px;
+      pointer-events: none;
+      white-space: pre-line;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .costumer-table-elegant .comentario-tooltip-minimal:hover::after {
+      opacity: 1;
+      visibility: visible;
+      top: 120%;
+    }
+
+    /* Botones de acción minimalistas */
+    .costumer-table-elegant .costumer-action-btn {
+      background: none;
+      border: none;
+      padding: 6px;
+      margin: 0 3px;
+      cursor: pointer;
+      font-size: 1em;
+      color: #777;
+      transition: color 0.15s ease;
+    }
+
+    .costumer-table-elegant .costumer-action-btn.edit:hover {
+      color: #1976d2;
+    }
+
+    .costumer-table-elegant .costumer-action-btn.delete:hover {
+      color: #e53935;
+    }
+
+    /* Panel de comentarios con estilo minimalista */
+    .costumer-table-elegant .comentarios-panel {
+      background: white;
+      border-top: 1px solid #f0f0f0;
+      padding: 15px 20px;
+      margin: 0;
+    }
+
+    .costumer-table-elegant .comentario-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 6px;
+    }
+
+    .costumer-table-elegant .comentario-item:last-child {
+      border-bottom: none;
+    }
+
+    .costumer-table-elegant .comentario-meta {
+      color: #777;
+      font-size: 0.85em;
+      margin-bottom: 3px;
+    }
+
+    /* Formulario de nuevo comentario */
+    .costumer-table-elegant .nuevo-comentario-form textarea {
+      width: 100%;
+      border: 1px solid #eaeaea;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 0.95em;
+      resize: vertical;
+      min-height: 60px;
+      transition: border-color 0.15s ease;
+    }
+
+    .costumer-table-elegant .nuevo-comentario-form textarea:focus {
+      border-color: #bbb;
+      outline: none;
+    }
+
+    .costumer-table-elegant .nuevo-comentario-form button {
+      background-color: #f5f5f5;
+      color: #555;
+      border: 1px solid #eaeaea;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 0.9em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-top: 8px;
+    }
+
+    .costumer-table-elegant .nuevo-comentario-form button:hover {
+      background-color: #e0e0e0;
+    }
+
     :root {
-      --primary: #2196f3;
-      --primary-dark: #1976d2;
-      --accent: #19b6f9;
-      --background: #f3f7fa;
+      --primary: #4a90e2;
+      --accent: #5c9ce6;
+      --light: #e8f1fa;
+      --dark: #2c5282;
+      --text-color: #4a5568;
+      --border-color: #e2e8f0;
+      --background-color: #f7fafc;
       --text-main: #24334d;
       --gray-light: #f8fbff;
       --sidebar-bg: #fff;
@@ -26,10 +232,10 @@
     }
     html, body {height:100%;margin:0;padding:0;}
     body {
-      background: var(--background);
+      background: var(--background-color);
       font-family:'Segoe UI', 'Roboto', 'Montserrat', Arial, sans-serif;
       min-height:100vh;
-      color: var(--text-main);
+      color: var(--text-color);
       height: 100vh;
       overflow: hidden; padding-bottom: 32px;
   margin-bottom: 20px;
@@ -86,7 +292,7 @@
       font-size: 1.14em;
       margin-bottom: 1.5em;
       font-weight: 700;
-      color: var(--primary-dark);
+      color: var(--primary);
       letter-spacing: 0.04em;
     }
     .sidebar ul {
@@ -109,7 +315,7 @@
     }
     .sidebar a.active, .sidebar a:focus {
       background: linear-gradient(90deg, #e3f2fd 0%, #e8f5ff 100%);
-      color: var(--primary-dark);
+      color: var(--primary);
       border-left: 5px solid var(--accent);
       box-shadow:0 2px 8px #2196f922;
     }
@@ -144,67 +350,84 @@
       scrollbar-width: thin;
     }
     .crm-form {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      padding: 10px 2px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    
+    .form-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: center;
     }
     .crm-form-group {
-      background: #fff;
-      border-radius: var(--border-radius);
-      padding: 22px 28px 16px 28px;
-      box-shadow: var(--card-shadow);
+      margin-bottom: 16px;
+      position: relative;
     }
     .crm-form-label {
-      font-weight: 700;
-      color: #03559d;
-      font-size: 1.13em;
+      display: block;
       margin-bottom: 6px;
-    }
-    .crm-form-label .crm-form-req {
-      color: #e53935;
+      font-weight: 500;
+      color: #4a5568;
+      font-size: 0.9rem;
     }
     .crm-form-input, .crm-form-select {
-      background: var(--gray-light);
-      border: none;
-      border-bottom: 2px solid #c5d2e7;
-      border-radius: 0.7em 0.7em 0 0;
-      padding: 13px 10px;
-      font-size: 1.12em;
-      outline: none;
-      transition: border-color 0.17s, box-shadow 0.16s;
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      background-color: #fff;
+      color: #4a5568;
     }
-    .crm-form-input:focus, .crm-form-select:focus {
-      border-bottom-color: var(--primary);
-      box-shadow: 0 0 0 2px #19b6f944;
-      background: #eaf6ff;
+    .crm-form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+    .crm-form-req {
+      color: #f44336;
+      margin-left: 3px;
     }
     .crm-form-submit-btn {
-      background: linear-gradient(90deg, var(--primary) 60%, var(--accent) 100%);
+      background-color: #4a90e2;
       color: #fff;
       border: none;
-      padding: 16px 24px;
-      border-radius: 11px;
-      font-size: 1.15em;
-      font-weight: 700;
+      padding: 10px 0;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: all .22s;
+      transition: all .2s;
       margin-top: 1em;
-      box-shadow: 0 4px 16px #2196f322;
+      width: 100%;
     }
     .crm-form-submit-btn:hover {
-      box-shadow: 0 6px 22px #2196f344;
+      background-color: #3a7bc8;
+    }
+    .crm-form-submit-btn:active {
+      transform: translateY(1px);
     }
     .crm-form-radio-group {
       display: flex;
-      flex-direction: row;
+      gap: 10px;
+      margin-top: 5px;
       flex-wrap: wrap;
-      gap: 8px 20px;
     }
     .radio-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
       gap: 8px 15px;
     }
 
@@ -636,38 +859,47 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
         <!-- FORMULARIO LEAD -->
         <section class="crm-form-section" id="form-panel">
           <form id="lead-form" class="crm-form" autocomplete="off" novalidate>
-                        <!-- AQUÍ VAN TODOS TUS CAMPOS DE FORMULARIO, REVISA Y AMPLÍA HASTA LA LÍNEA 489 APROX. -->
-            <div class="crm-form-group required" data-field="nombre_cliente" style="margin-bottom:12px;display:flex;flex-direction:column;gap:3px;">
-              <label class="crm-form-label" style="font-weight:600;color:#1976d2;"><i class="fas fa-user"></i> Nombre cliente <span class="crm-form-req">*</span></label>
-              <input type="text" name="nombre_cliente" class="crm-form-input" placeholder="Ej: Juan Pérez" required style="border-radius:10px;border:1.5px solid #c5d2e7;padding:13px 14px;font-size:1.09em;box-shadow:0 1.5px 6px #2196f911;" />
+            <h2 class="form-title">Formulario de Registro</h2>
+            <!-- AQUÍ VAN TODOS TUS CAMPOS DE FORMULARIO -->
+            <h3 class="form-section-title"><i class="fas fa-user-circle"></i> Información del Cliente</h3>
+            <div class="crm-form-group required" data-field="nombre_cliente">
+              <label class="crm-form-label"><i class="fas fa-user"></i> Nombre cliente <span class="crm-form-req">*</span></label>
+              <input type="text" name="nombre_cliente" class="crm-form-input" placeholder="Ej: Juan Pérez" required />
             </div>
-            <div class="crm-form-group required" data-field="telefono_principal" style="display:flex;flex-direction:column;gap:3px;">
-              <label class="crm-form-label">Teléfono principal <span class="crm-form-req">*</span></label>
-              <input type="text" name="telefono_principal" class="crm-form-input" placeholder="Tu respuesta" required style="border-radius:10px;border:1.5px solid #c5d2e7;padding:13px 14px;font-size:1.09em;box-shadow:0 1.5px 6px #2196f911;" />
+            
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="telefono_principal">
+                <label class="crm-form-label"><i class="fas fa-phone"></i> Teléfono principal <span class="crm-form-req">*</span></label>
+                <input type="text" name="telefono_principal" class="crm-form-input" placeholder="Tu respuesta" required />
+              </div>
+              <div class="crm-form-group" data-field="telefono_alterno">
+                <label class="crm-form-label"><i class="fas fa-phone-alt"></i> Teléfono Alterno</label>
+                <input type="text" name="telefono_alterno" class="crm-form-input" placeholder="Tu respuesta" />
+              </div>
             </div>
-            <div class="crm-form-group" data-field="telefono_alterno" style="display:flex;flex-direction:column;gap:3px;">
-              <label class="crm-form-label">Teléfono Alterno</label>
-              <input type="text" name="telefono_alterno" class="crm-form-input" placeholder="Tu respuesta" style="border-radius:10px;border:1.5px solid #c5d2e7;padding:13px 14px;font-size:1.09em;box-shadow:0 1.5px 6px #2196f911;" />
-              <input type="text" name="telefono_alterno" class="crm-form-input" placeholder="Tu respuesta" />
+            
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="numero_cuenta">
+                <label class="crm-form-label"><i class="fas fa-id-card"></i> Número de cuenta <span class="crm-form-req">*</span></label>
+                <input type="text" name="numero_cuenta" class="crm-form-input" placeholder="Tu respuesta" required />
+              </div>
+              <div class="crm-form-group required" data-field="autopago">
+                <label class="crm-form-label"><i class="fas fa-credit-card"></i> Autopago <span class="crm-form-req">*</span></label>
+                <select name="autopago" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="SI">SI</option>
+                  <option value="NO">NO</option>
+                </select>
+              </div>
             </div>
-            <div class="crm-form-group required" data-field="numero_cuenta" style="display:flex;flex-direction:column;gap:3px;">
-              <label class="crm-form-label">Numero de cuenta <span class="crm-form-req">*</span></label>
-              <input type="text" name="numero_cuenta" class="crm-form-input" placeholder="Tu respuesta" required />
-            </div>
-            <div class="crm-form-group required" data-field="autopago">
-              <label class="crm-form-label">Autopago <span class="crm-form-req">*</span></label>
-              <select name="autopago" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="SI">SI</option>
-                <option value="NO">NO</option>
-              </select>
-            </div>
+            
             <div class="crm-form-group required" data-field="direccion">
-              <label class="crm-form-label">Dirección <span class="crm-form-req">*</span></label>
+              <label class="crm-form-label"><i class="fas fa-map-marker-alt"></i> Dirección <span class="crm-form-req">*</span></label>
               <input type="text" name="direccion" class="crm-form-input" placeholder="Tu respuesta" required />
             </div>
+            <h3 class="form-section-title"><i class="fas fa-cogs"></i> Información del Servicio</h3>
             <div class="crm-form-group required" data-field="tipo_servicios">
-              <label class="crm-form-label">Tipo de servicios <span class="crm-form-req">*</span></label>
+              <label class="crm-form-label"><i class="fas fa-list-alt"></i> Tipo de servicios <span class="crm-form-req">*</span></label>
               <select name="tipo_servicios" class="crm-form-select" required>
                 <option value="">Elige</option>
                 <option value="AT&T AIR">AT&T AIR</option>
@@ -717,116 +949,114 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
                 <!-- ...agrega los productos que falten... -->
               </select>
             </div>
-            <div class="crm-form-group required" data-field="sistema">
-              <label class="crm-form-label">Sistema <span class="crm-form-req">*</span></label>
-              <select name="sistema" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="sistema1">SARA </option>
-                <option value="sistema2">OPUS</option>
-                <option value="Sistema3"> B.O</option>
-                <option value="Sistema4">N.A</option>
-                <option value="Sistema5">CHUZO</option>
-              </select>
-            </div>
-            <div class="crm-form-group required" data-field="riesgo">
-              <label class="crm-form-label">Riesgo <span class="crm-form-req">*</span></label>
-              <select name="riesgo" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="LOW">LOW</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="HIGH">HIGH</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-            <div class="crm-form-group required" data-field="dia_venta">
-              <label class="crm-form-label">Dia de venta <span class="crm-form-req">*</span></label>
-              <input type="date" name="dia_venta" class="crm-form-input" required />
-            </div>
-            <div class="crm-form-group required" data-field="dia_instalacion">
-              <label class="crm-form-label">Dia de instalacion <span class="crm-form-req">*</span></label>
-              <input type="date" name="dia_instalacion" class="crm-form-input" required />
-            </div>
-            <div class="crm-form-group required" data-field="status">
-              <label class="crm-form-label">Status <span class="crm-form-req">*</span></label>
-              <div class="crm-form-radio-group radio-grid">
-                <label class="crm-form-radio-label" for="status_pending">
-                  <input type="radio" id="status_pending" name="status" value="PENDING" class="crm-form-radio-input" checked>
-                  PENDING
-                </label>
-                <label class="crm-form-radio-label" for="status_repro">
-                  <input type="radio" id="status_repro" name="status" value="REPRO" class="crm-form-radio-input">
-                  REPRO
-                </label>
+            
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="sistema">
+                <label class="crm-form-label"><i class="fas fa-server"></i> Sistema <span class="crm-form-req">*</span></label>
+                <select name="sistema" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="sistema1">SARA </option>
+                  <option value="sistema2">OPUS</option>
+                  <option value="Sistema3"> B.O</option>
+                  <option value="Sistema4">N.A</option>
+                  <option value="Sistema5">CHUZO</option>
+                </select>
+              </div>
+              <div class="crm-form-group required" data-field="riesgo">
+                <label class="crm-form-label"><i class="fas fa-exclamation-triangle"></i> Riesgo <span class="crm-form-req">*</span></label>
+                <select name="riesgo" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="N/A">N/A</option>
+                </select>
               </div>
             </div>
-            <div class="crm-form-group required" data-field="servicios">
-              <label class="crm-form-label">Servicios <span class="crm-form-req">*</span></label>
-              <select name="servicios" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="servicio1">VIDEO DIRECTV VIA INTERNET</option>
-                <option value="servicio2">VIDEO DIRECTV VIA SATELITE</option>
-                <option value="servicio3">ATT AIR</option>
-                <option value="servicio4">ATT 18-25MB</option>
-                <option value="servicio5">ATT 50-100MB</option>
-                <option value="servicio6">ATT 300-500MB</option>
-                <option value="servicio7">ATT 1G+</option>
-                <option value="servicio8">MOBILITY SPECTRUM</option>
-                <option value="servicio9">SIM SPECTRUM</option>
-                <option value="servicio10">FRONTIER 200MB</option>
-                <option value="servicio11">FRONTIER 500MB</option>
-                <option value="servicio12">FRONTIER 1G</option>
-                <option value="servicio13">FRONTIER 2G+</option>
-                <option value="servicio14">SPECTRUM 500MB - 1G</option>
-                <option value="servicio15">SPECTRUM 2G</option>
-                <option value="servicio16">INTERNET OPTIMUN</option>
-                <option value="servicio17">INTERNET WOW</option>
-                <option value="servicio18">INTERNET ALTA FIBER</option>
-                <option value="servicio19">INTERNET WINDSTREAM</option>
-                <option value="servicio20">INTERNET HUGHESNET</option>
-                <option value="servicio21">INTERNET VIASAT</option>
-                <option value="servicio22">INTERNET CONSOLIDATE</option>
-                <option value="servicio23">INTERNET CENTURILINK</option>
-                <option value="servicio24">INTERNET METRONET</option>
-                <option value="servicio25">INTERNET ZYPLYFIBER</option>
-                <option value="servicio26">INTERNET HAWAIIAN</option>
-                <option value="servicio27">VIDEO SELECT SPECTRUM</option>
-                <option value="servicio28">DOUBLE PLAY SPECTRUM</option>
-                <option value="servicio29">BRIGHTSPEED 10-100MB</option>
-                <option value="servicio30">BRIGHTSPEED 100-900MB</option>
-              </select>
+            
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="dia_venta">
+                <label class="crm-form-label"><i class="fas fa-calendar-check"></i> Día de venta <span class="crm-form-req">*</span></label>
+                <input type="date" name="dia_venta" class="crm-form-input" required />
+              </div>
+              <div class="crm-form-group required" data-field="dia_instalacion">
+                <label class="crm-form-label"><i class="fas fa-tools"></i> Día de instalación <span class="crm-form-req">*</span></label>
+                <input type="date" name="dia_instalacion" class="crm-form-input" required />
+              </div>
             </div>
+            <h3 class="form-section-title"><i class="fas fa-clipboard-check"></i> Estado y Detalles</h3>
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="status">
+                <label class="crm-form-label"><i class="fas fa-tag"></i> Status <span class="crm-form-req">*</span></label>
+                <select name="status" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="VENTA">VENTA</option>
+                  <option value="INSTALADO">INSTALADO</option>
+                  <option value="CANCELADO">CANCELADO</option>
+                  <option value="NO INSTALADO">NO INSTALADO</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="REAGENDADO">REAGENDADO</option>
+                </select>
+              </div>
+              <div class="crm-form-group required" data-field="servicios">
+                <label class="crm-form-label"><i class="fas fa-concierge-bell"></i> Servicios <span class="crm-form-req">*</span></label>
+                <select name="servicios" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="INTERNET">INTERNET</option>
+                  <option value="INTERNET + TELEFONO">INTERNET + TELEFONO</option>
+                  <option value="INTERNET + TV">INTERNET + TV</option>
+                  <option value="INTERNET + TELEFONO + TV">INTERNET + TELEFONO + TV</option>
+                  <option value="TELEFONO">TELEFONO</option>
+                  <option value="TV">TV</option>
+                  <option value="TELEFONO + TV">TELEFONO + TV</option>
+                  <option value="SEGURIDAD">SEGURIDAD</option>
+                  <option value="INTERNET + SEGURIDAD">INTERNET + SEGURIDAD</option>
+                  <option value="INTERNET + TELEFONO + SEGURIDAD">INTERNET + TELEFONO + SEGURIDAD</option>
+                  <option value="INTERNET + TV + SEGURIDAD">INTERNET + TV + SEGURIDAD</option>
+                  <option value="INTERNET + TELEFONO + TV + SEGURIDAD">INTERNET + TELEFONO + TV + SEGURIDAD</option>
+                  <option value="TELEFONO + SEGURIDAD">TELEFONO + SEGURIDAD</option>
+                  <option value="TV + SEGURIDAD">TV + SEGURIDAD</option>
+                  <option value="TELEFONO + TV + SEGURIDAD">TELEFONO + TV + SEGURIDAD</option>
+                </select>
+              </div>
+            </div>
+            
             <div class="crm-form-group required" data-field="mercado">
-              <label class="crm-form-label">Mercado <span class="crm-form-req">*</span></label>
+              <label class="crm-form-label"><i class="fas fa-map"></i> Mercado <span class="crm-form-req">*</span></label>
               <select name="mercado" class="crm-form-select" required>
                 <option value="">Elige</option>
                 <option value="ICON">ICON</option>
                 <option value="BAMO">BAMO</option>
               </select>
             </div>
-            <div class="crm-form-group required" data-field="supervisor">
-              <label class="crm-form-label">Supervisor <span class="crm-form-req">*</span></label>
-              <select name="supervisor" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="IRANIA">IRANIA</option>
-                <option value="ROBERTO">ROBERTO</option>
-                <option value="MARISOL">MARISOL</option>
-                <option value="PLEITEZ">PLEITEZ</option>
-                <option value="RANDAL">RANDAL</option>
-                <option value="JONATHAN">JONATHAN</option>
-              </select>
+            <h3 class="form-section-title"><i class="fas fa-user-tie"></i> Supervisión y Seguimiento</h3>
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="supervisor">
+                <label class="crm-form-label"><i class="fas fa-user-shield"></i> Supervisor <span class="crm-form-req">*</span></label>
+                <select name="supervisor" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="IRANIA">IRANIA</option>
+                  <option value="ROBERTO">ROBERTO</option>
+                  <option value="MARISOL">MARISOL</option>
+                  <option value="PLEITEZ">PLEITEZ</option>
+                  <option value="RANDAL">RANDAL</option>
+                  <option value="JONATHAN">JONATHAN</option>
+                </select>
+              </div>
+              <div class="crm-form-group required" data-field="comentario">
+                <label class="crm-form-label"><i class="fas fa-comment-alt"></i> Comentario <span class="crm-form-req">*</span></label>
+                <select name="comentario" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
+                  <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
+                  <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
+                  <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
+                </select>
+              </div>
             </div>
-            <div class="crm-form-group required" data-field="comentario">
-              <label class="crm-form-label">Comentario <span class="crm-form-req">*</span></label>
-              <select name="comentario" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
-                <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
-                <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
-                <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
-              </select>
-            </div>
+            
             <div class="crm-form-group required" data-field="motivo_llamada">
-              <label class="crm-form-label">¿Por que llamo el cliente? <span class="crm-form-req">*</span></label>
+              <label class="crm-form-label"><i class="fas fa-phone-volume"></i> ¿Por qué llamó el cliente? <span class="crm-form-req">*</span></label>
               <div class="crm-form-radio-group radio-grid">
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="FACTURACION_BILL" required> FACTURACIÓN / BILL</label>
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PROBLEMAS_INTERNET"> PROBLEMAS DE INTERNET</label>
@@ -836,21 +1066,26 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
                 <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ATENCION_CLIENTE"> ATENCIÓN AL CLIENTE</label>
               </div>
             </div>
-            <div class="crm-form-group required" data-field="zip_code">
-              <label class="crm-form-label">ZIP CODE <span class="crm-form-req">*</span></label>
-              <input type="text" name="zip_code" class="crm-form-input" placeholder="Tu respuesta" required />
+            
+            <div class="form-row">
+              <div class="crm-form-group required" data-field="zip_code">
+                <label class="crm-form-label"><i class="fas fa-map-pin"></i> ZIP CODE <span class="crm-form-req">*</span></label>
+                <input type="text" name="zip_code" class="crm-form-input" placeholder="Tu respuesta" required />
+              </div>
+              <div class="crm-form-group required" data-field="puntaje">
+                <label class="crm-form-label"><i class="fas fa-star"></i> Puntaje <span class="crm-form-req">*</span></label>
+                <select name="puntaje" class="crm-form-select" required>
+                  <option value="">Elige</option>
+                  <option value="0.35">0.35</option>
+                  <option value="1.50">1.50</option>
+                  <option value="1.0">1.0</option>
+                  <option value="0.25">0.25</option>
+                </select>
+              </div>
             </div>
-            <div class="crm-form-group required" data-field="puntaje">
-              <label class="crm-form-label">Puntaje <span class="crm-form-req">*</span></label>
-              <select name="puntaje" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="0.35">0.35</option>
-                <option value="1.50">1.50</option>
-                <option value="1.0">1.0</option>
-                <option value="0.25">0.25</option>
-              </select>
+            <div class="form-submit-container" style="margin-top: 24px; text-align: center;">
+              <button class="crm-form-submit-btn" type="submit"><i class="fas fa-save"></i> Guardar Lead</button>
             </div>
-            <button class="crm-form-submit-btn" type="submit" style="margin-bottom:32px;"><i class="fas fa-save"></i> Guardar Lead</button>
           </form>
           <script src="js/core/script.js"></script> <!-- Asegura que script.js se cargue después del formulario -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -893,8 +1128,8 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
     <span id="costumer-ventas-mes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
   </div>
 </div>
-  <div class="costumer-table-wrapper costumer-table-elegant" style="overflow-x:auto; min-width:900px;">
-    <table class="costumer-table costumer-table-clean" style="width:100%;table-layout:auto;">
+  <div class="costumer-table-wrapper costumer-table-container" style="overflow-x:auto; min-width:900px;">
+    <table class="costumer-table costumer-table-clean costumer-table-elegant" style="width:100%;table-layout:auto;">
       <thead>
          <tr>
            <th>Nombre cliente</th>
