@@ -1,4 +1,4 @@
-// Lógica para mostrar gráficas (placeholder)
+// Lógica para mostrar gráficas (ventas y productos)
 window.renderGraficas = async function() {
   // Obtener los leads del agente usando la función global
   let leads = [];
@@ -87,4 +87,63 @@ window.renderGraficas = async function() {
     plugins: window.ChartDataLabels ? [ChartDataLabels] : []
   });
 };
+  // --- Gráfica de productos vendidos (productosChart) ---
+  // Agrupar por producto
+  const productosMap = {};
+  leads.forEach(l => {
+    // Normaliza nombre del producto
+    let prod = (l.producto || l.servicio || '').toString().trim();
+    if (!prod) return;
+    if (!productosMap[prod]) productosMap[prod] = 0;
+    productosMap[prod]++;
+  });
+  const productos = Object.keys(productosMap);
+  const ventasPorProducto = productos.map(p => productosMap[p]);
+  // Colores para las barras
+  const colores = productos.map((_,i) => `hsl(${(i*37)%360},70%,60%)`);
+  // Destruir instancia previa si existe
+  if (window.productosChartInstance) {
+    window.productosChartInstance.destroy();
+  }
+  const ctxProd = document.getElementById('productosChart').getContext('2d');
+  window.productosChartInstance = new Chart(ctxProd, {
+    type: 'bar',
+    data: {
+      labels: productos,
+      datasets: [{
+        label: 'Ventas por producto',
+        data: ventasPorProducto,
+        backgroundColor: colores,
+        borderColor: colores,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: {display: false},
+        title: {
+          display: true,
+          text: 'Ventas por Producto (todos los productos vendidos)'
+        },
+        datalabels: {
+          anchor: 'end',
+          align: 'right',
+          color: '#444',
+          font: {weight:'bold'}
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          title: {display: true, text: 'Cantidad vendida'}
+        },
+        y: {
+          title: {display: true, text: 'Producto'}
+        }
+      }
+    },
+    plugins: window.ChartDataLabels ? [ChartDataLabels] : []
+  });
 // Archivo JS válido
