@@ -5,6 +5,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (form) {
     let enviandoLead = false; // Flag para evitar doble envío
 
+    if (typeof window.renderGraficas === 'function') {
+      window.renderGraficas();
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
