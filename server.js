@@ -193,7 +193,7 @@ app.get('/api/leads', auth, async (req, res) => {
     }
     const listaLeads = await leads.find(filtro).toArray();
     console.log(`[LOG] Consulta a DB exitosa. Encontrados ${listaLeads.length} leads.`);
-    // Ordenar los campos de cada lead según el formulario y la tabla
+    
     const orderedFields = [
       '_id',
       'nombre_cliente',
@@ -223,11 +223,11 @@ app.get('/api/leads', auth, async (req, res) => {
     const ordenarLead = (lead) => {
       const obj = {};
       orderedFields.forEach(k => { if (lead[k] !== undefined) obj[k] = lead[k]; });
-      // Agregar cualquier campo extra al final
+     
       Object.keys(lead).forEach(k => { if (!(k in obj)) obj[k] = lead[k]; });
       return obj;
     };
-    // Eliminar _id de cada lead antes de enviar al frontend
+
     res.json(listaLeads.map(lead => {
       const ordenado = ordenarLead(lead);
       delete ordenado._id;

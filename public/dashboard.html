@@ -10,10 +10,257 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/crm-form-styles.css">
 
 
   <style>
-    /* Estilo limpio y minimalista para la tabla de clientes (Costumer) */
+    /* --- ESTILO FORZADO PARA TABLA DE CLIENTES --- */
+    div.costumer-table-container, .costumer-table-container {
+      width: 100% !important;
+      overflow-x: auto !important;
+      background: #fff !important;
+      padding: 0 !important;
+      margin-bottom: 24px !important;
+      border-radius: 18px 18px 0 0 !important;
+      box-shadow: 0 6px 28px #1976d220 !important;
+    }
+    table.costumer-table-elegant, .costumer-table-elegant {
+      width: 100% !important;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+      font-family: 'Segoe UI', 'Roboto', Arial, sans-serif !important;
+      color: #0a2540 !important;
+      font-size: 1.08em !important;
+      background: #fff !important;
+      border-radius: 18px 18px 0 0 !important;
+      overflow: hidden !important;
+    }
+    .costumer-table-elegant thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 10 !important;
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      font-weight: 500 !important;
+      padding: 16px 16px !important;
+      text-align: left !important;
+      border: none !important;
+      border-bottom: 2px solid #e2e8f0 !important;
+      font-size: 0.9em !important;
+      letter-spacing: 0.01em !important;
+      text-transform: uppercase !important;
+      font-size: 0.8em !important;
+      color: #64748b !important;
+    }
+    .costumer-table-elegant tbody tr {
+      border: none !important;
+      background: #fff !important;
+      transition: background 0.18s !important;
+      min-height: 28px !important;
+      height: 28px !important;
+    }
+    .costumer-table-elegant tbody tr:nth-child(even) {
+      background-color: #f8fafc !important;
+    }
+    .costumer-table-elegant tbody tr:hover {
+      background-color: #f1f5ff !important;
+    }
+    .costumer-table-elegant td {
+      padding: 0.05px 1px !important;
+      vertical-align: middle !important;
+      border: none !important;
+      font-size: 1em !important;
+      color: #0a2540 !important;
+      background: transparent !important;
+      font-weight: 300 !important;
+    }
+    .costumer-table-elegant .badge-status {
+      display: inline-block !important;
+      padding: 5px 18px !important;
+      border-radius: 16px !important;
+      font-size: 1em !important;
+      font-weight: 700 !important;
+      background: #e3eaf5 !important;
+      color: #1976d2 !important;
+      border: none !important;
+      letter-spacing: 0.04em !important;
+      box-shadow: 0 1px 2px #1976d208 !important;
+    }
+    .costumer-table-elegant .badge-status-activo {
+      background: #c8f7d8 !important;
+      color: #219653 !important;
+    }
+    .costumer-table-elegant .badge-status-pendiente {
+      background: #fff7e0 !important;
+      color: #f2994a !important;
+    }
+    .costumer-table-elegant .badge-status-cancelado {
+      background: #ffeaea !important;
+      color: #e74c3c !important;
+    }
+    .costumer-table-elegant .badge-status-inactivo {
+      background: #f3f3f3 !important;
+      color: #bdbdbd !important;
+    }
+    .costumer-table-elegant .actions-cell {
+      white-space: nowrap !important;
+      text-align: right !important;
+      padding-right: 8px !important;
+    }
+    .costumer-table-elegant .action-btn {
+      background: none !important;
+      border: 1px solid #e2e8f0 !important;
+      color: #64748b !important;
+      cursor: pointer !important;
+      padding: 6px 10px !important;
+      border-radius: 6px !important;
+      margin: 0 2px !important;
+      transition: all 0.15s ease !important;
+      font-size: 0.9em !important;
+      width: 32px !important;
+      height: 32px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .costumer-table-elegant .action-btn:hover {
+      background-color: #f1f5ff !important;
+      color: #1976d2 !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    }
+    .costumer-table-elegant .action-btn.delete-btn:hover {
+      color: #dc2626 !important;
+      background-color: #fef2f2 !important;
+      border-color: #fecaca !important;
+    }
+    .costumer-table-elegant .comentario-item {
+      padding: 10px 0 !important;
+      border-bottom: 1px solid #f0f0f0 !important;
+      margin-bottom: 7px !important;
+    }
+    .costumer-table-elegant .comentario-item:last-child {
+      border-bottom: none !important;
+    }
+    .costumer-table-elegant .comentario-meta {
+      color: #1976d2 !important;
+      font-size: 0.97em !important;
+      margin-bottom: 2px !important;
+      font-weight: 700 !important;
+    }
+    /* --- FIN ESTILO FORZADO --- */
+    .costumer-table-container {
+      width: 100%;
+      overflow-x: auto;
+      background: #fff;
+      padding: 0;
+      margin-bottom: 24px;
+      border-radius: 14px 14px 0 0;
+      box-shadow: 0 4px 24px #0001;
+    }
+    .costumer-table-elegant {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+      color: #24334d;
+      font-size: 1em;
+      background: #fff;
+      border-radius: 14px 14px 0 0;
+      overflow: hidden;
+    }
+    .costumer-table-elegant thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+      color: #1976d2;
+      font-weight: 700;
+      padding: 17px 13px 15px 13px;
+      text-align: left;
+      border: none;
+      border-bottom: 2px solid #e3eaf5;
+      font-size: 1em;
+      letter-spacing: 0.01em;
+    }
+    .costumer-table-elegant tbody tr {
+      border: none;
+      border-bottom: 1.5px solid #f0f3fa;
+      background: #fff;
+      transition: background 0.18s;
+    }
+    .costumer-table-elegant tbody tr:nth-child(even) {
+      background: #f7fafd;
+    }
+    .costumer-table-elegant tbody tr:hover {
+      background: #e3f0fd !important;
+    }
+    .costumer-table-elegant td {
+      padding: 14px 16px !important;
+      vertical-align: middle !important;
+      color: #334155 !important;
+      font-size: 0.92em !important;
+      border: none !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      line-height: 1.4 !important;
+    }
+    .costumer-table-elegant .badge-status {
+      display: inline-block;
+      padding: 3px 14px;
+      border-radius: 12px;
+      font-size: 0.87em;
+      font-weight: 600;
+      background: #e3eaf5;
+      color: #1976d2;
+      letter-spacing: 0.03em;
+      border: none;
+    }
+    .costumer-table-elegant .badge-status-activo {
+      background: #e5f9ea;
+      color: #219653;
+    }
+    .costumer-table-elegant .badge-status-pendiente {
+      background: #fff7e0;
+      color: #f2994a;
+    }
+    .costumer-table-elegant .badge-status-cancelado {
+      background: #ffeaea;
+      color: #e74c3c;
+    }
+    .costumer-table-elegant .badge-status-inactivo {
+      background: #f3f3f3;
+      color: #bdbdbd;
+    }
+    .costumer-table-elegant .costumer-action-btn {
+      background: none;
+      border: none;
+      padding: 5px;
+      margin: 0 2px;
+      cursor: pointer;
+      font-size: 1.1em;
+      color: #b0b8c1;
+      border-radius: 50%;
+      transition: background 0.18s, color 0.18s;
+    }
+    .costumer-table-elegant .costumer-action-btn:hover {
+      background: #e3eaf5;
+      color: #1976d2;
+    }
+    .costumer-table-elegant .comentario-item {
+      padding: 7px 0;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 5px;
+    }
+    .costumer-table-elegant .comentario-item:last-child {
+      border-bottom: none;
+    }
+    .costumer-table-elegant .comentario-meta {
+      color: #1976d2;
+      font-size: 0.88em;
+      margin-bottom: 2px;
+      font-weight: 500;
+    }
+    /* --- FIN ESTILO NOTORIO --- */
 
     /* Contenedor principal de la tabla */
     .costumer-table-container {
@@ -340,6 +587,7 @@
       min-height: 0;
       align-items: flex-start;
     }
+    /* Estilos del formulario movidos a crm-form-styles.css */
     .crm-form-section {
       max-width: 510px;
       width: 100%;
@@ -348,100 +596,6 @@
       height: 100%;
       overflow-y: auto;
       scrollbar-width: thin;
-    }
-    .crm-form {
-      background-color: #fff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      padding: 20px;
-      max-width: 400px;
-      margin: 0 auto;
-    }
-    
-    .form-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: #2d3748;
-      margin: 0 0 20px 0;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #e2e8f0;
-      text-align: center;
-    }
-    .crm-form-group {
-      margin-bottom: 16px;
-      position: relative;
-    }
-    .crm-form-label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #4a5568;
-      font-size: 0.9rem;
-    }
-    .crm-form-input, .crm-form-select {
-      width: 100%;
-      border-radius: 4px;
-      border: 1px solid #e2e8f0;
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-      background-color: #fff;
-      color: #4a5568;
-    }
-    .crm-form-select {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 30px;
-    }
-    .crm-form-req {
-      color: #f44336;
-      margin-left: 3px;
-    }
-    .crm-form-submit-btn {
-      background-color: #4a90e2;
-      color: #fff;
-      border: none;
-      padding: 10px 0;
-      border-radius: 4px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all .2s;
-      margin-top: 1em;
-      width: 100%;
-    }
-    .crm-form-submit-btn:hover {
-      background-color: #3a7bc8;
-    }
-    .crm-form-submit-btn:active {
-      transform: translateY(1px);
-    }
-    .crm-form-radio-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 5px;
-      flex-wrap: wrap;
-    }
-    .radio-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 8px;
-      gap: 8px 15px;
-    }
-
-    .crm-form-radio-label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 1.05em;
-      cursor: pointer;
-    }
-    .crm-form-radio-input {
-      width: 17px;
-      height: 17px;
-      accent-color: var(--primary);
     }
     .charts-section {
       flex: 1;
@@ -858,8 +1012,17 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
 
         <!-- FORMULARIO LEAD -->
         <section class="crm-form-section" id="form-panel">
-          <form id="lead-form" class="crm-form" autocomplete="off" novalidate>
-            <h2 class="form-title">Formulario de Registro</h2>
+          <!-- Cabecera del formulario -->
+          <div class="form-header">
+            <h2><i class="fas fa-user-edit"></i> Formulario de Registro</h2>
+            <button type="button" class="close-btn" id="close-form-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <!-- Contenedor del formulario -->
+          <div class="form-container">
+            <form id="lead-form" class="crm-form" autocomplete="off" novalidate>
             <!-- AQUÍ VAN TODOS TUS CAMPOS DE FORMULARIO -->
             <h3 class="form-section-title"><i class="fas fa-user-circle"></i> Información del Cliente</h3>
             <div class="crm-form-group required" data-field="nombre_cliente">
@@ -1083,13 +1246,18 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
                 </select>
               </div>
             </div>
-            <div class="form-submit-container" style="margin-top: 24px; text-align: center;">
-              <button class="crm-form-submit-btn" type="submit"><i class="fas fa-save"></i> Guardar Lead</button>
+            <div class="form-actions">
+              <button type="submit" class="crm-form-submit-btn">
+                <i class="fas fa-save"></i> Guardar Lead
+              </button>
             </div>
           </form>
-          <script src="js/core/script.js"></script> <!-- Asegura que script.js se cargue después del formulario -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-<script src="js/core/graficas.js"></script>
+          </div> <!-- Cierre de .form-container -->
+          <script src="js/core/script.js"></script>
+          <script src="js/core/form-handler.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+          <script src="js/core/graficas.js"></script>
+          <script src="js/core/dashboard-stats.js"></script>
         </section>
         <!-- SECCIÓN DE GRÁFICAS -->
         <section class="charts-section" id="charts-panel">
@@ -1108,49 +1276,205 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
           </div>
         </section>
       </div>
-      <!-- SECCIÓN COSTUMER (INICIALMENTE OCULTA) -->
+      <!-- SECCIÓN COSTUMER -->
       <div class="costumer-section" id="costumerTab" style="display: none; margin-top:2em;">
-  <div class="dashboard-cards-row" id="costumer-summary-cards" style="display:flex;gap:36px;margin-bottom:2.2em;flex-wrap:wrap;">
-  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
-    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas Hoy</span>
-    <span id="costumer-ventas-hoy" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
-  </div>
-  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
-    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Clientes pendientes</span>
-    <span id="costumer-clientes-pendientes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
-  </div>
-  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
-    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas Canceladas</span>
-    <span id="costumer-ventas-canceladas" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
-  </div>
-  <div class="dashboard-card" style="flex:1 1 220px;min-width:220px;max-width:300px;background:#fff;border-radius:18px;box-shadow:0 4px 20px #0002,0 1.5px 3px #19b6f922;padding:1.5em 1.3em 1.1em 1.3em;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;">
-    <span style="font-size:1.05em;color:#1976d2;font-weight:600;margin-bottom:0.3em;">Ventas (mes)</span>
-    <span id="costumer-ventas-mes" style="font-size:2.1em;font-weight:700;color:#24334d;">0</span>
-  </div>
-</div>
-  <div class="costumer-table-wrapper costumer-table-container" style="overflow-x:auto; min-width:900px;">
-    <table class="costumer-table costumer-table-clean costumer-table-elegant" style="width:100%;table-layout:auto;">
-      <thead>
-         <tr>
-           <th>Nombre cliente</th>
-           <th>Teléfono principal</th>
-           <th>Teléfono alterno</th>
-           <th>Numero de cuenta</th>
-           <th>Autopago</th>
-           <th>Dirección</th>
-           <th>Tipo de servicios</th>
-           <th>Sistema</th>
-           <th>Riesgo</th>
-           <th>Dia de venta</th>
-           <th>Dia de instalación</th>
-           <th>Status</th>
-           <th>Servicios</th>
-           <th>Mercado</th>
-           <th>Supervisor</th>
-           <th>Comentario</th>
-           <th>Motivo llamada</th>
-           <th>ZIP CODE</th>
-           <th>Puntaje</th>
+        <!-- ESTILOS PARA LAS TARJETAS DE RESUMEN -->
+        <style>
+          .summary-cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 2.5rem;
+            width: 100%;
+          }
+          
+          .summary-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem 1.5rem 1.8rem;
+            transition: all 0.3s ease;
+            border: 1px solid #e9edf4;
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 100%;
+          }
+          
+          .summary-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+          }
+          
+          .summary-card.sales-today::before { background: linear-gradient(135deg, #4caf50, #66bb6a); }
+          .summary-card.pending-clients::before { background: linear-gradient(135deg, #ff9800, #ffa726); }
+          .summary-card.canceled-sales::before { background: linear-gradient(135deg, #f44336, #ef5350); }
+          .summary-card.monthly-sales::before { background: linear-gradient(135deg, #2196f3, #42a5f5); }
+          
+          .card-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+          }
+          
+          .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+          }
+          
+          .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 1.5rem;
+            color: white;
+          }
+          
+          .card-title {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #5a6a85;
+            margin: 0;
+            line-height: 1.4;
+          }
+          
+          .card-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0.5rem 0 0.2rem;
+            line-height: 1.2;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+          }
+          
+          .card-footer {
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: #7f8c9a;
+            display: flex;
+            align-items: center;
+          }
+          
+          .card-footer i {
+            margin-right: 4px;
+            font-size: 0.9em;
+          }
+          
+          @media (max-width: 1200px) {
+            .summary-cards-container {
+              grid-template-columns: repeat(2, 1fr);
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .summary-cards-container {
+              grid-template-columns: 1fr;
+            }
+          }
+        </style>
+        
+        <div class="summary-cards-container">
+          <!-- Ventas Hoy -->
+          <div class="summary-card sales-today">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-icon" style="background: linear-gradient(135deg, #4caf50, #66bb6a);">
+                  <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h3 class="card-title">Ventas Hoy</h3>
+              </div>
+              <div class="card-value" id="costumer-ventas-hoy">0</div>
+              <div class="card-footer">
+                <i class="fas fa-calendar-day"></i> Actualizado ahora
+              </div>
+            </div>
+          </div>
+          
+          <!-- Clientes Pendientes -->
+          <div class="summary-card pending-clients">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-icon" style="background: linear-gradient(135deg, #ff9800, #ffa726);">
+                  <i class="fas fa-user-clock"></i>
+                </div>
+                <h3 class="card-title">Clientes Pendientes</h3>
+              </div>
+              <div class="card-value" id="costumer-clientes-pendientes">0</div>
+              <div class="card-footer">
+                <i class="fas fa-info-circle"></i> Pendientes de seguimiento
+              </div>
+            </div>
+          </div>
+          
+          <!-- Ventas Canceladas -->
+          <div class="summary-card canceled-sales">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-icon" style="background: linear-gradient(135deg, #f44336, #ef5350);">
+                  <i class="fas fa-times-circle"></i>
+                </div>
+                <h3 class="card-title">Ventas Canceladas</h3>
+              </div>
+              <div class="card-value" id="costumer-ventas-canceladas">0</div>
+              <div class="card-footer">
+                <i class="fas fa-exclamation-triangle"></i> Requieren revisión
+              </div>
+            </div>
+          </div>
+          
+          <!-- Ventas del Mes -->
+          <div class="summary-card monthly-sales">
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-icon" style="background: linear-gradient(135deg, #2196f3, #42a5f5);">
+                  <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="card-title">Ventas del Mes</h3>
+              </div>
+              <div class="card-value" id="costumer-ventas-mes">0</div>
+              <div class="card-footer">
+                <i class="fas fa-calendar-alt"></i> Mes en curso
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <button class='comentarios-btn' style='font-size:1.3em;margin-bottom:10px;'><i class="fas fa-comment-dots"></i> Prueba botón comentario</button>
+        <div class="costumer-table-wrapper costumer-table-container" style="overflow-x:auto; min-width:900px;">
+          <table class="costumer-table costumer-table-clean costumer-table-elegant" style="width:100%;table-layout:auto;">
+            <thead>
+              <tr>
+                <th>Nombre cliente</th>
+                <th>Teléfono principal</th>
+                <th>Teléfono alterno</th>
+                <th>Numero de cuenta</th>
+                <th>Autopago</th>
+                <th>Dirección</th>
+                <th>Tipo de servicios</th>
+                <th>Sistema</th>
+                <th>Riesgo</th>
+                <th>Dia de venta</th>
+                <th>Dia de instalación</th>
+                <th>Status</th>
+                <th>Servicios</th>
+                <th>Mercado</th>
+                <th>Supervisor</th>
+                <th>Comentario</th>
+                <th>Motivo llamada</th>
+                <th>ZIP CODE</th>
+                <th>Puntaje</th>
            <th style="min-width:130px;">Comentarios sobre la venta</th>
            <th style="min-width:90px;">Acción</th>
          </tr>
@@ -1322,37 +1646,53 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
           return;
         }
 
-        leads.forEach((venta, idx) => {
-          const rowClass = idx % 2 === 0 ? 'costumer-row-striped' : '';
-          tbody.innerHTML += `
-            <tr class="${rowClass}">
-              <td>${venta.nombre_cliente || ''}</td>
-              <td>${venta.telefono_principal || ''}</td>
-              <td>${venta.telefono_alterno || ''}</td>
-              <td>${venta.numero_cuenta || ''}</td>
-              <td>${venta.autopago || ''}</td>
-              <td>${venta.direccion || ''}</td>
-              <td>${venta.tipo_servicios || ''}</td>
-              <td>${venta.sistema || ''}</td>
-              <td>${venta.riesgo || ''}</td>
-              <td>${venta.dia_venta || ''}</td>
-              <td>${venta.dia_instalacion || ''}</td>
-              <td>${venta.status || ''}</td>
-              <td>${venta.servicios || ''}</td>
-              <td>${venta.mercado || ''}</td>
-              <td>${venta.supervisor || ''}</td>
-              <td>${venta.comentario || ''}</td>
-              <td>${venta.motivo_llamada || ''}</td>
-              <td>${venta.zip_code || ''}</td>
-              <td>${venta.puntaje || 0}</td>
-              <td>${(venta.comentarios_venta || []).join('<br>')}</td>
-              <td>
-                <button class="btn-accion btn-editar" onclick="editarVenta('${venta._id}')"><i class="fas fa-comment-dots"></i></button>
-                <button class="btn-accion btn-borrar" onclick="borrarVenta('${venta._id}')"><i class="fas fa-trash-alt"></i></button>
-              </td>
-            </tr>
-          `;
-        });
+        console.log('[Costumer] Leads recibidos:', leads);
+leads.forEach((venta, idx) => {
+  const rowClass = idx % 2 === 0 ? 'costumer-row-striped' : '';
+  // Preparar comentarios
+  const comentarios = Array.isArray(venta.comentarios_venta) ? venta.comentarios_venta : [];
+  const comentariosCount = comentarios.length;
+  // Botón de comentarios con contador
+  const comentariosBtn = `<button class="comentario-btn-minimal" title="Ver y gestionar comentarios" onclick="mostrarComentariosCostumer('${venta._id}')">
+    <i class="fas fa-comment-dots"></i>${comentariosCount > 0 ? `<span class='comentarios-count'>${comentariosCount}</span>` : ''}
+  </button>`;
+  // Render fila en el orden correcto (según memoria)
+  tbody.innerHTML += `
+    <tr class="${rowClass}">
+      <td>${venta.nombre_cliente || ''}</td>
+      <td>${venta.telefono_principal || ''}</td>
+      <td>${venta.telefono_alterno || ''}</td>
+      <td>${venta.numero_cuenta || ''}</td>
+      <td>${venta.autopago || ''}</td>
+      <td>${venta.direccion || ''}</td>
+      <td>${venta.tipo_servicios || ''}</td>
+      <td>${venta.sistema || ''}</td>
+      <td>${venta.riesgo || ''}</td>
+      <td>${venta.dia_venta || ''}</td>
+      <td>${venta.dia_instalacion || ''}</td>
+      <td>${venta.status || ''}</td>
+      <td>${venta.servicios || ''}</td>
+      <td>${venta.mercado || ''}</td>
+      <td>${venta.supervisor || ''}</td>
+      <td>${venta.comentario || ''}</td>
+      <td>${venta.motivo_llamada || ''}</td>
+      <td>${venta.zip_code || ''}</td>
+      <td>${venta.puntaje || 0}</td>
+      <td style="text-align:center;">${comentariosBtn}</td>
+      <td>
+        <button class="acciones-btn-minimal borrar" onclick="borrarVenta('${venta._id}')" title="Borrar venta"><i class="fas fa-trash-alt"></i></button>
+      </td>
+    </tr>
+  `;
+  console.log(`[Costumer][Fila ${idx}]`, venta);
+});
+// Estilo para contador de comentarios
+if (!document.getElementById('comentarios-count-style')) {
+  const style = document.createElement('style');
+  style.id = 'comentarios-count-style';
+  style.innerHTML = `.comentarios-count { background: #1976d2; color: #fff; border-radius: 8px; padding: 1px 7px; font-size: 0.85em; margin-left: 4px; }`;
+  document.head.appendChild(style);
+}
 
       } catch (error) {
         // Actualizar panel de depuración en caso de error
@@ -1520,30 +1860,201 @@ function renderTablaLeadAgente(leads) {
   ).join('');
 }
 
-function renderCostumerGroupedByDate(leads) {
-  if (!leads.length) {
-    document.getElementById('costumer-tbody').innerHTML = '<tr><td colspan="99">No hay clientes registrados.</td></tr>';
+/**
+ * Renderiza la tabla de clientes con un formato profesional y funcional
+ * @param {Array} leads - Lista de clientes/leads a mostrar
+ */
+function renderCostumerTable(leads) {
+  const tbody = document.getElementById('costumer-tbody');
+  if (!tbody) {
+    console.error('No se encontró el elemento con ID "costumer-tbody"');
     return;
   }
-  // Agrupar por día (asumiendo campo creadoEn o fecha)
-  const parseDate = l => (l.creadoEn||l.fecha||l.FECHA||'').slice(0,10);
-  const grupos = {};
-  leads.forEach(l => {
-    const d = parseDate(l);
-    if (!grupos[d]) grupos[d]=[];
-    grupos[d].push(l);
+
+  // Limpiar la tabla antes de agregar nuevos elementos
+  tbody.innerHTML = '';
+
+  if (!Array.isArray(leads) || !leads.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="21" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
+          No hay clientes para mostrar
+        </td>
+      </tr>`;
+    return;
+  }
+
+  // Ordenar por fecha de creación (más recientes primero)
+  const sortedLeads = [...leads].sort((a, b) => 
+    new Date(b.creadoEn || b.fecha || 0) - new Date(a.creadoEn || a.fecha || 0)
+  );
+
+  // Procesar y renderizar cada lead
+  sortedLeads.forEach(lead => {
+    const row = document.createElement('tr');
+    
+    // Función auxiliar para formatear el texto y evitar undefined/null
+    const formatText = (text) => (text || '').toString().trim() || '-';
+    
+    // Función para crear un badge de estado
+    const createStatusBadge = (status) => {
+      status = (status || '').toLowerCase();
+      let badgeClass = 'badge-status';
+      
+      if (status.includes('activo') || status.includes('completado')) {
+        badgeClass += ' badge-status-activo';
+      } else if (status.includes('pendiente') || status.includes('proceso')) {
+        badgeClass += ' badge-status-pendiente';
+      } else if (status.includes('cancelado') || status.includes('rechazado')) {
+        badgeClass += ' badge-status-cancelado';
+      } else if (status.includes('inactivo')) {
+        badgeClass += ' badge-status-inactivo';
+      }
+      
+      return `<span class="${badgeClass}">${formatText(status).toUpperCase()}</span>`;
+    };
+
+    // Función para crear un botón de acción con ícono
+    const createActionButton = (icon, title, onClick, extraClass = '') => {
+      return `<button class="action-btn ${extraClass}" title="${title}" onclick="${onClick}">
+                <i class="fas ${icon}"></i>
+              </button>`;
+    };
+
+    // Construir las celdas en el orden correcto según los encabezados
+    row.innerHTML = `
+      <td>${formatText(lead.nombre_cliente)}</td>
+      <td>${formatText(lead.telefono_principal)}</td>
+      <td>${formatText(lead.telefono_alterno)}</td>
+      <td>${formatText(lead.numero_cuenta)}</td>
+      <td>${formatText(lead.autopago)}</td>
+      <td title="${formatText(lead.direccion)}" class="truncate-text">${formatText(lead.direccion).substring(0, 20)}${lead.direccion && lead.direccion.length > 20 ? '...' : ''}</td>
+      <td>${formatText(lead.tipo_servicios)}</td>
+      <td>${formatText(lead.sistema)}</td>
+      <td>${formatText(lead.riesgo)}</td>
+      <td>${formatText(lead.dia_venta)}</td>
+      <td>${formatText(lead.dia_instalacion)}</td>
+      <td>${createStatusBadge(lead.status)}</td>
+      <td>${formatText(lead.servicios)}</td>
+      <td>${formatText(lead.mercado)}</td>
+      <td>${formatText(lead.supervisor)}</td>
+      <td title="${formatText(lead.comentario)}" class="truncate-text comentario-tooltip" data-tooltip="${formatText(lead.comentario)}">
+        ${formatText(lead.comentario).substring(0, 15)}${lead.comentario && lead.comentario.length > 15 ? '...' : ''}
+      </td>
+      <td>${formatText(lead.motivo_llamada)}</td>
+      <td>${formatText(lead.zip_code)}</td>
+      <td>${formatText(lead.puntaje)}</td>
+      <td class="comentarios-cell" style="text-align: center;">
+        <button class="comentarios-btn ${lead.comentarios_venta?.length ? 'has-comments' : ''}" 
+                onclick="mostrarComentariosCostumer('${lead._id || ''}', event)"
+                title="${lead.comentarios_venta?.length ? 'Ver y gestionar comentarios' : 'Agregar comentario'}"
+                data-comments-count="${lead.comentarios_venta?.length || '0'}">
+          <i class="fas ${lead.comentarios_venta?.length ? 'fa-comments' : 'fa-comment'}"></i>
+          <span class="comment-count">${lead.comentarios_venta?.length || '0'}</span>
+        </button>
+      </td>
+      <td class="actions-cell">
+        ${createActionButton('fa-edit', 'Editar', `editarLead('${lead._id || ''}')`, 'edit-btn')}
+        ${createActionButton('fa-trash-alt', 'Eliminar', `eliminarLead('${lead._id || ''}')`, 'delete-btn')}
+      </td>
+    `;
+
+    tbody.appendChild(row);
   });
-  // Ordenar días descendente
-  const dias = Object.keys(grupos).sort((a,b) => b.localeCompare(a));
-  let html = '';
-  dias.forEach(dia => {
-    html += `<tr><td colspan="99" style="background:#e3f2fd;font-weight:bold;">${dia}</td></tr>`;
-    grupos[dia].forEach(l => {
-      html += '<tr>' + Object.values(l).map(v=>`<td>${v??''}</td>`).join('') + '</tr>';
-    });
-  });
-  document.getElementById('costumer-tbody').innerHTML = html;
+  
+  // Actualizar contadores en las tarjetas resumen
+  updateSummaryCards(leads);
 }
+
+/**
+ * Actualiza las tarjetas de resumen con información de los leads
+ * @param {Array} leads - Lista de clientes/leads
+ */
+function updateSummaryCards(leads) {
+  if (!leads || !leads.length) return;
+  
+  const hoy = new Date().toISOString().split('T')[0];
+  const mesActual = new Date().getMonth();
+  const añoActual = new Date().getFullYear();
+  
+  // Función auxiliar para normalizar el texto (sin acentos y en minúsculas)
+  const normalizarTexto = (texto) => {
+    return (texto || '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Eliminar acentos
+  };
+  
+  // Contar ventas de hoy (fecha actual)
+  const ventasHoy = leads.filter(lead => {
+    try {
+      const fechaLead = new Date(lead.creadoEn || lead.fecha || 0);
+      if (isNaN(fechaLead.getTime())) return false; // Fecha inválida
+      return fechaLead.toISOString().split('T')[0] === hoy;
+    } catch (e) {
+      console.error('Error al procesar fecha del lead:', e);
+      return false;
+    }
+  }).length;
+  
+  // Contar clientes pendientes (PENDING o PENDIENTE)
+  const pendientes = leads.filter(lead => {
+    const status = normalizarTexto(lead.status);
+    return status === 'pending' || status === 'pendiente';
+  }).length;
+  
+  // Contar ventas canceladas (CANCELED, CANCELADAS o CANCELLED)
+  const canceladas = leads.filter(lead => {
+    const status = normalizarTexto(lead.status);
+    return status.includes('cancel') || status.includes('cancelad');
+  }).length;
+  
+  // Contar ventas del mes actual
+  const ventasMes = leads.filter(lead => {
+    try {
+      const fechaLead = new Date(lead.creadoEn || lead.fecha || 0);
+      if (isNaN(fechaLead.getTime())) return false; // Fecha inválida
+      return fechaLead.getMonth() === mesActual && 
+             fechaLead.getFullYear() === añoActual;
+    } catch (e) {
+      console.error('Error al procesar fecha del lead:', e);
+      return false;
+    }
+  }).length;
+  
+  // Actualizar los contadores en la UI
+  const ventasHoyEl = document.getElementById('costumer-ventas-hoy');
+  const pendientesEl = document.getElementById('costumer-clientes-pendientes');
+  const canceladasEl = document.getElementById('costumer-ventas-canceladas');
+  const ventasMesEl = document.getElementById('costumer-ventas-mes');
+  
+  if (ventasHoyEl) ventasHoyEl.textContent = ventasHoy;
+  if (pendientesEl) pendientesEl.textContent = pendientes;
+  if (canceladasEl) canceladasEl.textContent = canceladas;
+  if (ventasMesEl) ventasMesEl.textContent = ventasMes;
+}
+
+// Función auxiliar para mostrar comentarios (ya existente en costumer-comments.js)
+window.mostrarComentariosCostumer = window.mostrarComentariosCostumer || function(id) {
+  console.log('Mostrar comentarios para:', id);
+  // Implementación básica si no existe
+  alert(`Mostrando comentarios para el cliente con ID: ${id}`);
+};
+
+// Funciones de acción (deben ser implementadas)
+function editarLead(id) {
+  console.log('Editar lead:', id);
+  // Implementar lógica de edición
+}
+
+function eliminarLead(id) {
+  if (confirm('¿Estás seguro de que deseas eliminar este lead?')) {
+    console.log('Eliminar lead:', id);
+    // Implementar lógica de eliminación
+  }
+}
+
+
 
 // --- Cambio de pestañas y renderizado ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1561,10 +2072,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     }
     if(tab==='costumerTab') {
       const leads = await fetchLeadsAgente();
-      if(Array.isArray(leads))
-        renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-      else
+      if(Array.isArray(leads)) {
+        const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
+        renderCostumerTable(sortedLeads);
+        updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
+      } else {
         mostrarMensaje('No se pudo cargar leads', 'error');
+      }
     }
     if(tab==='charts-panel' || tab==='chartsTab') {
       // Llama a la gráfica cuando se cambia a la pestaña de gráficas
@@ -1576,10 +2090,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 window.refrescarLeadsAgente = async function() {
   const leads = await fetchLeadsAgente();
   if(Array.isArray(leads)) {
+    const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
+    
     if(document.getElementById('leadAgenteTab').style.display!=='none')
-      renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-    if(document.getElementById('costumerTab').style.display!=='none')
-      renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
+      renderTablaLeadAgente(sortedLeads);
+      
+    if(document.getElementById('costumerTab').style.display!=='none') {
+      renderCostumerTable(sortedLeads);
+      updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
+    }
   } else {
     mostrarMensaje('No se pudo refrescar leads', 'error');
   }
@@ -1588,10 +2107,13 @@ window.refrescarLeadsAgente = async function() {
 window.addEventListener('DOMContentLoaded', async () => {
   // Refresca la tabla Costumer
   const leads = await fetchLeadsAgente();
-  if(Array.isArray(leads))
-    renderCostumerGroupedByDate(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-  else
+  if(Array.isArray(leads)) {
+    const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
+    renderCostumerTable(sortedLeads);
+    updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
+  } else {
     mostrarMensaje('No se pudo cargar clientes', 'error');
+  }
   // Renderiza la gráfica principal
   if (typeof renderGraficas === 'function') renderGraficas();
 });
