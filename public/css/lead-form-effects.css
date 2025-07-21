@@ -1,0 +1,317 @@
+/* ===== EFECTOS VISUALES ADICIONALES PARA FORMULARIO LEAD ===== */
+
+/* ===== EFECTOS DE PARTÍCULAS EN EL FONDO ===== */
+.crm-form-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(79, 70, 229, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.form-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== EFECTOS DE GLASSMORPHISM ===== */
+.form-section-title {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--lead-radius-md);
+  padding: 1rem 1.5rem;
+  margin: 2.5rem -0.5rem 1.5rem -0.5rem;
+  border: 1px solid rgba(79, 70, 229, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== EFECTOS DE HOVER MEJORADOS ===== */
+.crm-form-group {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.crm-form-group:hover {
+  transform: translateY(-2px);
+}
+
+.crm-form-group:hover .crm-form-input,
+.crm-form-group:hover .crm-form-select {
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.15);
+}
+
+/* ===== EFECTOS DE FOCUS MEJORADOS ===== */
+.crm-form-input:focus,
+.crm-form-select:focus {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 
+    0 0 0 3px rgba(79, 70, 229, 0.1),
+    0 10px 25px rgba(79, 70, 229, 0.2),
+    0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== ANIMACIONES DE ENTRADA ESCALONADAS ===== */
+.crm-form-group:nth-child(1) { animation-delay: 0.1s; }
+.crm-form-group:nth-child(2) { animation-delay: 0.15s; }
+.crm-form-group:nth-child(3) { animation-delay: 0.2s; }
+.crm-form-group:nth-child(4) { animation-delay: 0.25s; }
+.crm-form-group:nth-child(5) { animation-delay: 0.3s; }
+.crm-form-group:nth-child(6) { animation-delay: 0.35s; }
+.crm-form-group:nth-child(7) { animation-delay: 0.4s; }
+.crm-form-group:nth-child(8) { animation-delay: 0.45s; }
+.crm-form-group:nth-child(9) { animation-delay: 0.5s; }
+.crm-form-group:nth-child(10) { animation-delay: 0.55s; }
+
+/* ===== EFECTOS DE TEXTO MEJORADOS ===== */
+.form-header h2 {
+  background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+}
+
+.form-header h2::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.7) 100%);
+  border-radius: 2px;
+}
+
+/* ===== EFECTOS DE LOADING MEJORADOS ===== */
+.crm-form-submit-btn.loading {
+  background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+  cursor: not-allowed;
+  position: relative;
+  overflow: hidden;
+}
+
+.crm-form-submit-btn.loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* ===== EFECTOS DE VALIDACIÓN MEJORADOS ===== */
+.crm-form-group.success .crm-form-input,
+.crm-form-group.success .crm-form-select {
+  border-color: var(--lead-success);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.02) 0%, rgba(16, 185, 129, 0.01) 100%);
+}
+
+.crm-form-group.error .crm-form-input,
+.crm-form-group.error .crm-form-select {
+  border-color: var(--lead-error);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.02) 0%, rgba(239, 68, 68, 0.01) 100%);
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ===== EFECTOS DE RADIO BUTTONS MEJORADOS ===== */
+.crm-form-radio-label {
+  position: relative;
+  overflow: hidden;
+}
+
+.crm-form-radio-label::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(79, 70, 229, 0.1) 50%, transparent 100%);
+  transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.crm-form-radio-label:hover::before {
+  left: 100%;
+}
+
+/* ===== EFECTOS DE TOOLTIPS MEJORADOS ===== */
+.form-tooltip {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.form-tooltip:hover {
+  color: var(--lead-primary);
+  transform: scale(1.1);
+}
+
+/* ===== EFECTOS DE SCROLL SUAVES ===== */
+.crm-form-section {
+  scroll-behavior: smooth;
+}
+
+.crm-form-section::-webkit-scrollbar {
+  width: 8px;
+}
+
+.crm-form-section::-webkit-scrollbar-track {
+  background: rgba(79, 70, 229, 0.1);
+  border-radius: 4px;
+}
+
+.crm-form-section::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--lead-primary) 0%, var(--lead-primary-light) 100%);
+  border-radius: 4px;
+}
+
+.crm-form-section::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--lead-primary-dark) 0%, var(--lead-primary) 100%);
+}
+
+/* ===== EFECTOS DE MICRO-INTERACCIONES ===== */
+.crm-form-label i {
+  transition: all 0.3s ease;
+}
+
+.crm-form-group:hover .crm-form-label i {
+  transform: scale(1.1) rotate(5deg);
+  color: var(--lead-primary-light);
+}
+
+.crm-form-input:focus + .crm-form-label i,
+.crm-form-select:focus + .crm-form-label i {
+  transform: scale(1.2) rotate(10deg);
+  color: var(--lead-primary);
+}
+
+/* ===== EFECTOS DE TRANSICIÓN ENTRE SECCIONES ===== */
+.form-section-title {
+  position: relative;
+}
+
+.form-section-title::before {
+  content: '';
+  position: absolute;
+  left: -2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 0;
+  background: var(--lead-bg-gradient);
+  border-radius: 2px;
+  transition: height 0.6s ease;
+}
+
+.form-section-title:hover::before {
+  height: 100%;
+}
+
+/* ===== EFECTOS DE RESPUESTA VISUAL ===== */
+.crm-form-input:valid,
+.crm-form-select:valid {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2310b981'%3e%3cpath d='M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 16px 12px;
+  padding-right: 2.5rem;
+}
+
+/* ===== EFECTOS DE ESTADO ACTIVO ===== */
+.crm-form-input:active,
+.crm-form-select:active {
+  transform: scale(0.98);
+}
+
+/* ===== EFECTOS DE GRADIENTES DINÁMICOS ===== */
+.crm-form-submit-btn {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.crm-form-submit-btn:hover {
+  animation-play-state: paused;
+}
+
+/* ===== EFECTOS DE ILUMINACIÓN ===== */
+.crm-form-section {
+  position: relative;
+}
+
+.crm-form-section::before {
+  background: linear-gradient(135deg, 
+    rgba(79, 70, 229, 0.05) 0%, 
+    rgba(99, 102, 241, 0.03) 25%, 
+    rgba(139, 92, 246, 0.02) 50%, 
+    rgba(79, 70, 229, 0.03) 75%, 
+    rgba(99, 102, 241, 0.05) 100%);
+  animation: lightPulse 4s ease-in-out infinite;
+}
+
+@keyframes lightPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ===== EFECTOS RESPONSIVE MEJORADOS ===== */
+@media (max-width: 768px) {
+  .crm-form-section::after {
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.02) 0%, transparent 70%);
+  }
+  
+  .form-section-title {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  
+  .form-section-title::before {
+    left: -1rem;
+  }
+}
+
+/* ===== EFECTOS DE ACCESIBILIDAD ===== */
+@media (prefers-reduced-motion: reduce) {
+  .crm-form-group,
+  .crm-form-input,
+  .crm-form-select,
+  .crm-form-submit-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ===== EFECTOS DE TEMA OSCURO (PREPARACIÓN) ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lead-bg-primary: #1f2937;
+    --lead-bg-secondary: #111827;
+    --lead-text-primary: #f9fafb;
+    --lead-text-secondary: #d1d5db;
+    --lead-border: #374151;
+  }
+}

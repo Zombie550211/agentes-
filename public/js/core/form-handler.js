@@ -38,7 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
 
-    // Validar todo el formulario al enviar
+    // COMENTADO: Event listener eliminado para evitar duplicación
+    // Solo script.js debe manejar el envío del formulario
+    /*
     leadForm.addEventListener('submit', function(e) {
       let isValid = true;
       
@@ -62,6 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Enviando formulario...');
       }
     });
+    */
   }
 
   // Función para validar un campo individual

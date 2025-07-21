@@ -18,8 +18,21 @@ const CRM_ADMIN_URL = 'https://connecting-klf7.onrender.com/api/sync/costumer'; 
 const CRM_ADMIN_API_KEY = 'tu-clave-secreta-muy-larga-y-dificil-de-adivinar'; // Usa la misma clave que en el Admin
 
 const app = express();
-app.use(cors());
+
+// Configuración detallada de CORS
+const corsOptions = {
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Para navegadores antiguos (IE11, varios SmartTVs)
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Manejar solicitudes OPTIONS (preflight)
+app.options('*', cors(corsOptions));
 
 // Servir archivos estáticos (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -27,18 +40,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 let db, leads, users;
 
 // Conexión a MongoDB
+console.log('[DEBUG] Intentando conectar a MongoDB con URI:', uri.replace(/:[^:]*@/, ':***@'));
 MongoClient.connect(uri)
   .then(client => {
+    console.log('[DEBUG] Conexión exitosa a MongoDB');
     db = client.db(dbName);
+    console.log(`[DEBUG] Usando base de datos: ${dbName}`);
+    
+    // Verificar colecciones
+    db.listCollections().toArray((err, collections) => {
+      if (err) {
+        console.error('[ERROR] Error al listar colecciones:', err);
+        return;
+      }
+      console.log('[DEBUG] Colecciones disponibles:', collections.map(c => c.name));
+    });
+    
     leads = db.collection(leadsCollectionName);
     users = db.collection(usersCollectionName);
+    
+    // Verificar si la colección de leads tiene documentos
+    leads.countDocuments({}, (err, count) => {
+      if (err) {
+        console.error('[ERROR] Error al contar documentos en leads:', err);
+        return;
+      }
+      console.log(`[DEBUG] Número de documentos en ${leadsCollectionName}:`, count);
+    });
+    
     console.log('Conectado a MongoDB');
     // Iniciar el servidor solo cuando la BD esté lista
     app.listen(3002, () => {
       console.log('API escuchando en http://localhost:3002');
     });
   })
-  .catch(err => console.error('Error conectando a MongoDB:', err));
+  .catch(err => {
+    console.error('[ERROR] Error conectando a MongoDB:', err);
+    console.error('[DEBUG] URI de conexión usada:', uri.replace(/:[^:]*@/, ':***@'));
+  });
 
 // Middleware de autenticación
 function auth(req, res, next) {
@@ -55,10 +94,21 @@ function auth(req, res, next) {
 
 // Función para sincronizar con CRM Admin
 async function sincronizarConAdmin(leadData) {
+  // Función auxiliar para agregar "team" solo al supervisor
+  const agregarTeamSupervisor = (supervisor) => {
+    if (!supervisor) return '';
+    const supervisorStr = String(supervisor);
+    // Si ya contiene "team" (case insensitive), no lo agregamos de nuevo
+    if (supervisorStr.toLowerCase().includes('team')) {
+      return supervisorStr;
+    }
+    return `team ${supervisorStr}`;
+  };
+
   // Mapeamos los campos del CRM Agente a los que espera el CRM Admin
   const payload = {
     fecha: leadData.dia_venta,       // Usamos 'dia_venta' como la fecha
-    equipo: leadData.equipo || '',   // El campo 'equipo' puede no existir, así que nos aseguramos que no sea undefined
+    equipo: leadData.team || '',     // Usamos el campo 'team' que tiene la lógica correcta (TEAM PLEITEZ, TEAM LINEAS, etc.)
     agente: leadData.agente,         // Este campo ya existe en el lead del Agente
     telefono: leadData.telefono_principal, // Usamos el teléfono principal
     producto: leadData.tipo_servicios, // Usamos 'tipo_servicios' como 'producto'
@@ -66,7 +116,8 @@ async function sincronizarConAdmin(leadData) {
     cuenta: '', // Como solicitaste, este campo se envía vacío
     direccion: leadData.direccion,
     zip: leadData.zip_code,          // Usamos 'zip_code'
-    estado: leadData.status          // Usamos 'status'
+    estado: leadData.status,         // Usamos 'status'
+    supervisor: agregarTeamSupervisor(leadData.supervisor) // Solo el supervisor lleva "team"
   };
 
   try {
@@ -186,13 +237,29 @@ app.get('/api/agente/info', auth, async (req, res) => {
 // LISTAR LEADS (solo propios si es agente, todos si es admin)
 app.get('/api/leads', auth, async (req, res) => {
   console.log(`[LOG] Petición recibida en GET /api/leads por usuario: ${req.user.nombre} (Rol: ${req.user.rol})`);
+  console.log('[DEBUG] Headers de la petición:', req.headers);
+  console.log('[DEBUG] Usuario autenticado:', req.user);
+  
   try {
     let filtro = {};
     if (req.user.rol === 'agente') {
       filtro = { agente: req.user.nombre };
+      console.log('[DEBUG] Aplicando filtro de agente:', filtro);
+    } else {
+      console.log('[DEBUG] Usuario es administrador, sin filtros de agente');
     }
+    console.log('[DEBUG] Ejecutando consulta con filtro:', JSON.stringify(filtro, null, 2));
+    
+    // Ejecutar la consulta
     const listaLeads = await leads.find(filtro).toArray();
+    
     console.log(`[LOG] Consulta a DB exitosa. Encontrados ${listaLeads.length} leads.`);
+    console.log('[DEBUG] Primeros 2 leads (si existen):', JSON.stringify(listaLeads.slice(0, 2), null, 2));
+    
+    // Verificar estructura de los documentos
+    if (listaLeads.length > 0) {
+      console.log('[DEBUG] Campos del primer lead:', Object.keys(listaLeads[0]));
+    }
     
     const orderedFields = [
       '_id',
@@ -252,13 +319,13 @@ app.post('/api/leads', auth, async (req, res) => {
       const supervisor = lead.supervisor.toUpperCase();
       let team = '';
       switch (supervisor) {
-        case 'PLEITEZ': team = 'Team Pleitez'; break;
-        case 'ROBERTO': team = 'Team Roberto'; break;
-        case 'IRANIA': team = 'Team Irania'; break;
-        case 'MARISOL': team = 'Team Marisol'; break;
-        case 'RANDAL': team = 'Team Randal'; break;
-        case 'JONATHAN': team = 'Team Lineas'; break;
-        default: team = supervisor;
+        case 'PLEITEZ': team = 'TEAM PLEITEZ'; break;
+        case 'ROBERTO': team = 'TEAM ROBERTO'; break;
+        case 'IRANIA': team = 'TEAM IRANIA'; break;
+        case 'MARISOL': team = 'TEAM MARISOL'; break;
+        case 'RANDAL': team = 'TEAM RANDAL'; break;
+        case 'JONATHAN': team = 'TEAM LINEAS'; break;
+        default: team = `TEAM ${supervisor}`;
       }
       lead.team = team;
       if (supervisor === 'JONATHAN') {

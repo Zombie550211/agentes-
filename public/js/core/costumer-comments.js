@@ -1,1153 +1,492 @@
-/**
- * Muestra un panel lateral para gestionar los comentarios de un cliente
- * @param {string} idCostumer - ID del cliente/lead
- * @param {Event} event - Evento de clic (opcional)
- */
-window.mostrarComentariosCostumer = function(idCostumer, event = null) {
-  // Prevenir comportamiento por defecto del evento si se proporciona
-  if (event) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
+// Variable para almacenar el lead actual
+let leadComentarioActual = null;
 
-  // Cerrar panel si ya está abierto para este cliente
-  const existingPanel = document.getElementById('comentarios-panel');
-  if (existingPanel && existingPanel.dataset.customerId === idCostumer) {
-    existingPanel.remove();
-    document.body.style.overflow = '';
-    return;
-  }
-  
-  // Cerrar cualquier otro panel abierto
-  if (existingPanel) {
-    existingPanel.remove();
-  }
-
-  // Buscar el cliente en la caché de leads
-  let leads = [];
-  try {
-    leads = JSON.parse(localStorage.getItem('leads_cache') || '[]');
-  } catch(e) {
-    console.error('Error al cargar la caché de leads:', e);
-  }
-  
-  const venta = leads.find(l => l._id === idCostumer || l.id === idCostumer);
-  if (!venta) {
-    mostrarMensaje('No se encontró la información del cliente', 'error');
-    return;
-  }
-  
-  // Inicializar comentarios si no existen
-  if (!venta.comentarios_venta || !Array.isArray(venta.comentarios_venta)) {
-    venta.comentarios_venta = [];
-  }
-
-  // Crear el panel de comentarios
-  const panel = document.createElement('div');
-  panel.id = 'comentarios-panel';
-  panel.dataset.customerId = idCostumer;
-  
-  // Estilos del panel
-  panel.style.cssText = `
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 400px;
-    height: 100vh;
-    background: #fff;
-    box-shadow: -2px 0 20px rgba(0,0,0,0.1);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.3s ease-in-out;
-    overflow: hidden;
-  `;
-  
-  // Crear el overlay
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-    pointer-events: none;
-  `;
-  
-  // Mostrar overlay cuando el panel está visible
-  setTimeout(() => {
-    overlay.style.opacity = '1';
-    overlay.style.pointerEvents = 'auto';
-  }, 10);
-  
-  // Cerrar al hacer clic fuera del panel
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      panel.style.transform = 'translateX(100%)';
-      overlay.style.opacity = '0';
-      overlay.style.pointerEvents = 'none';
-      
-      setTimeout(() => {
-        panel.remove();
-        overlay.remove();
-        document.body.style.overflow = '';
-      }, 300);
+// Función para mostrar el panel de comentarios
+window.mostrarComentariosCostumer = async function(leadId, event = null) {
+    console.log('Mostrando comentarios para el lead:', leadId);
+    
+    // Detener la propagación del evento para evitar cierres inesperados
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
     }
-  });
-  
-  // Cerrar con tecla ESC
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      panel.style.transform = 'translateX(100%)';
-      overlay.style.opacity = '0';
-      overlay.style.pointerEvents = 'none';
-      
-      setTimeout(() => {
-        panel.remove();
-        overlay.remove();
-        document.body.style.overflow = '';
-        document.removeEventListener('keydown', handleKeyDown);
-      }, 300);
+
+    // Almacenar el ID del lead actual
+    leadComentarioActual = leadId;
+
+    try {
+        // Mostrar el modal de comentarios
+        mostrarModalComentarios(leadId);
+        
+        // Cargar los comentarios existentes
+        await cargarComentarios(leadId);
+        
+    } catch (error) {
+        console.error('Error al cargar los comentarios:', error);
+        if (window.mostrarMensaje) {
+            window.mostrarMensaje('Error al cargar los comentarios: ' + (error.message || 'Error desconocido'), 'error');
+        }
     }
-  };
-  
-  document.addEventListener('keydown', handleKeyDown);
-  
-  // Agregar el overlay al body
-  document.body.appendChild(overlay);
-  document.body.style.overflow = 'hidden';
-  const header = document.createElement('div');
-  header.style.cssText = `
-    padding: 18px 24px;
-    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
-    color: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    position: relative;
-    z-index: 5;
-  `;
-  
-  // Añadir efecto sutil al header
-  header.innerHTML += `
-    <div style="
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, #4fc3f7 0%, #2979ff 50%, #651fff 100%);
-    "></div>
-  `;
-  
-  const title = document.createElement('h3');
-  title.textContent = 'Gestión de Comentarios';
-  title.style.margin = '0';
-  title.style.fontSize = '1.25em';
-  title.style.fontWeight = '500';
-  title.style.letterSpacing = '0.3px';
-  title.style.color = 'white';
-  title.style.display = 'flex';
-  title.style.alignItems = 'center';
-  title.style.gap = '10px';
-  title.innerHTML = `
-    <i class="fas fa-comments" style="font-size: 1.1em; opacity: 0.9;"></i>
-    <span>Gestión de Comentarios</span>
-  `;
-  
-  const closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-  closeBtn.style.cssText = `
-    background: rgba(255, 255, 255, 0.15);
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: white;
-    font-size: 1.1em;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 0;
-    margin: 0;
-    outline: none;
-  `;
-  
-  // Efectos hover y focus
-  closeBtn.onmouseover = () => {
-    closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-    closeBtn.style.transform = 'rotate(90deg)';
-  };
-  closeBtn.onmouseout = () => {
-    closeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
-    closeBtn.style.transform = 'rotate(0deg)';
-  };
-  
-  // Efecto al hacer clic
-  closeBtn.onmousedown = () => {
-    closeBtn.style.transform = 'scale(0.9)';
-  };
-  closeBtn.onmouseup = () => {
-    closeBtn.style.transform = 'scale(1)';
-  };
-  closeBtn.onclick = () => {
-    panel.style.transform = 'translateX(100%)';
-    setTimeout(() => panel.remove(), 300);
-    document.body.style.overflow = '';
-  };
-  
-  header.appendChild(title);
-  header.appendChild(closeBtn);
+};
 
-  // Crear el contenedor de comentarios
-  const comentariosContainer = document.createElement('div');
-  comentariosContainer.id = 'comentarios-lista';
-  comentariosContainer.style.cssText = `
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    background: #fff;
-  `;
-  
-  // Crear el formulario para nuevos comentarios
-  const contenedorFormulario = document.createElement('div');
-  contenedorFormulario.style.cssText = `
-    padding: 16px 20px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
-  `;
-  
-  const formularioComentario = document.createElement('form');
-  formularioComentario.id = 'nuevo-comentario-form';
-  formularioComentario.style.display = 'flex';
-  formularioComentario.style.gap = '10px';
-  
-  const campoTexto = document.createElement('input');
-  campoTexto.type = 'text';
-  campoTexto.placeholder = 'Escribe un comentario...';
-  campoTexto.required = true;
-  campoTexto.style.cssText = `
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 0.95em;
-    transition: all 0.2s ease;
-  `;
-  campoTexto.addEventListener('focus', () => {
-    campoTexto.style.borderColor = '#93c5fd';
-    campoTexto.style.boxShadow = '0 0 0 2px rgba(147, 197, 253, 0.5)';
-  });
-  campoTexto.addEventListener('blur', () => {
-    campoTexto.style.borderColor = '#e2e8f0';
-    campoTexto.style.boxShadow = 'none';
-  });
-  
-  // Crear botón de envío mejorado
-  const botonEnviar = document.createElement('button');
-  botonEnviar.type = 'submit';
-  botonEnviar.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
-  botonEnviar.style.cssText = `
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0 20px;
-    height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.95em;
-    letter-spacing: 0.3px;
-    gap: 8px;
-    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-  `;
-  
-  // Efecto hover
-  botonEnviar.onmouseover = () => {
-    botonEnviar.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
-    botonEnviar.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.4)';
-    botonEnviar.style.transform = 'translateY(-1px)';
-  };
-  
-  // Efecto al soltar
-  botonEnviar.onmouseout = () => {
-    botonEnviar.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-    botonEnviar.style.boxShadow = '0 2px 5px rgba(37, 99, 235, 0.3)';
-    botonEnviar.style.transform = 'translateY(0)';
-  };
-  
-  // Efecto al hacer clic
-  botonEnviar.onmousedown = () => {
-    botonEnviar.style.transform = 'translateY(1px)';
-    botonEnviar.style.boxShadow = '0 1px 2px rgba(37, 99, 235, 0.3)';
-  };
-  
-  // Efecto ripple
-  botonEnviar.addEventListener('click', function(e) {
-    const rect = this.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const ripple = document.createElement('span');
-    ripple.style.cssText = `
-      position: absolute;
-      width: 100px;
-      height: 100px;
-      background: rgba(255, 255, 255, 0.4);
-      border-radius: 50%;
-      transform: scale(0);
-      animation: ripple 0.6s linear;
-      top: ${y - 50}px;
-      left: ${x - 50}px;
-      pointer-events: none;
-    `;
-    
-    this.appendChild(ripple);
-    
-    // Eliminar el elemento después de la animación
-    setTimeout(() => {
-      ripple.remove();
-    }, 600);
-  });
-  
-  // Animación ripple
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes ripple {
-      to {
-        transform: scale(4);
-        opacity: 0;
-      }
+// Función para mostrar el modal de comentarios
+function mostrarModalComentarios(leadId) {
+    // Ocultar el encabezado de la tabla Costumer
+    const thead = document.querySelector('.costumer-table thead');
+    if (thead) {
+        thead.style.opacity = '0';
+        thead.style.height = '0';
+        thead.style.overflow = 'hidden';
+        thead.style.transition = 'all 0.3s ease';
+        thead.style.position = 'absolute';
+        thead.style.visibility = 'hidden';
     }
-  `;
-  document.head.appendChild(style);
-  
-  form.appendChild(input);
-  form.appendChild(submitBtn);
-  formContainer.appendChild(form);
-
-  // Agregar elementos al panel
-  panel.appendChild(header);
-  panel.appendChild(commentsContainer);
-  panel.appendChild(formContainer);
-
-  // Agregar el panel al body
-  document.body.appendChild(panel);
-  document.body.style.overflow = 'hidden';
-
-  // Mostrar con animación
-  setTimeout(() => panel.style.transform = 'translateX(0)', 10);
-
-  // Agregar estilos al panel si es nuevo
-  if (!document.getElementById('comentarios-panel-styles')) {
-    const style = document.createElement('style');
-    style.id = 'comentarios-panel-styles';
-    style.textContent = `
-      /* Estilos del panel de comentarios */
-      #comentarios-panel {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 400px;
-        height: 100vh;
-        background: #fff;
-        box-shadow: -2px 0 20px rgba(0,0,0,0.1);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        transform: translateX(100%);
-        transition: transform 0.3s ease-in-out;
-      }
-      
-      /* Estilos para el encabezado */
-      #comentarios-panel .panel-header {
-        padding: 16px 20px;
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      
-      #comentarios-panel .panel-title {
-        margin: 0;
-        font-size: 1.1em;
-        color: #1e293b;
-        font-weight: 600;
-      }
-      
-      #comentarios-panel .close-btn {
-        background: none;
-        border: none;
-        font-size: 1.2em;
-        cursor: pointer;
-        color: #64748b;
-        padding: 5px 10px;
-        border-radius: 4px;
-        transition: all 0.15s ease;
-      }
-      
-      #comentarios-panel .close-btn:hover {
-        color: #dc2626;
-        background: #fee2e2;
-      }
-      
-      /* Estilos para la lista de comentarios */
-      #comentarios-lista {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-        background: #fff;
-      }
-      
-      .comentario-item {
-        padding: 16px;
-        margin-bottom: 12px;
-        background: #f8fafc;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-      }
-      
-      .comentario-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-        font-size: 0.9em;
-        color: #64748b;
-      }
-      
-      .comentario-usuario {
-        font-weight: 600;
-        color: #1e40af;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      
-      .comentario-usuario i {
-        color: #3b82f6;
-      }
-      
-      .comentario-fecha {
-        font-size: 0.85em;
-        color: #94a3b8;
-      }
-      
-      .comentario-texto {
-        color: #1e293b;
-        line-height: 1.5;
-        margin-bottom: 8px;
-        white-space: pre-line;
-      }
-      
-      .comentario-acciones {
-        display: flex;
-        gap: 12px;
-        margin-top: 10px;
-        padding-top: 8px;
-        border-top: 1px dashed #e2e8f0;
-      }
-      
-      .comentario-acciones {
-        display: flex;
-        gap: 8px;
-        margin-top: 12px;
-        padding-top: 10px;
-        border-top: 1px dashed #e2e8f0;
-      }
-      
-      .comentario-acciones button {
-        background: none;
-        border: 1px solid transparent;
-        font-size: 0.8em;
-        font-weight: 500;
-        cursor: pointer;
-        padding: 6px 12px;
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        letter-spacing: 0.3px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-      }
-      
-      .comentario-acciones .editar { 
-        color: #2563eb;
-        background-color: #ffffff;
-        border-color: #dbeafe;
-      }
-      
-      .comentario-acciones .editar i { 
-        color: #3b82f6;
-        font-size: 0.9em;
-      }
-      
-      .comentario-acciones .editar:hover { 
-        background: #eff6ff;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
-      }
-      
-      .comentario-acciones .editar:active { 
-        transform: translateY(0);
-        box-shadow: none;
-      }
-      
-      .comentario-acciones .eliminar { 
-        color: #dc2626;
-        background-color: #ffffff;
-        border-color: #fee2e2;
-      }
-      
-      .comentario-acciones .eliminar i { 
-        color: #ef4444;
-        font-size: 0.9em;
-      }
-      
-      .comentario-acciones .eliminar:hover { 
-        background: #fef2f2;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
-      }
-      
-      .comentario-acciones .eliminar:active { 
-        transform: translateY(0);
-        box-shadow: none;
-      }
-      
-      .sin-comentarios {
-        color: #94a3b8;
-        text-align: center;
-        padding: 40px 0;
-        font-style: italic;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      }
-      
-      .sin-comentarios i {
-        font-size: 2em;
-        color: #cbd5e1;
-      }
-      
-      /* Estilos para el formulario */
-      #nuevo-comentario-form {
-        display: flex;
-        gap: 10px;
-        padding: 16px 20px;
-        background: #fff;
-        border-top: 1px solid #e2e8f0;
-      }
-      
-      #nuevo-comentario-form input {
-        flex: 1;
-        padding: 10px 14px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        font-size: 0.95em;
-        transition: all 0.2s ease;
-      }
-      
-      #nuevo-comentario-form input:focus {
-        outline: none;
-        border-color: #93c5fd;
-        box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.5);
-      }
-      
-      #nuevo-comentario-form button[type="submit"] {
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        width: 42px;
-        height: 42px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      
-      #nuevo-comentario-form button[type="submit"]:hover {
-        background: #2563eb;
-      }
-      
-      /* Animaciones */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      
-      .comentario-item {
-        animation: fadeIn 0.3s ease-out;
-      }
-      
-      /* Scrollbar personalizada */
-      #comentarios-lista::-webkit-scrollbar {
-        width: 6px;
-      }
-      
-      #comentarios-lista::-webkit-scrollbar-track {
-        background: #f1f5f9;
-      }
-      
-      #comentarios-lista::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-      }
-      
-      #comentarios-lista::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  // Lista de comentarios
-  const comentarios = Array.isArray(venta.comentarios_venta) ? [...venta.comentarios_venta] : [];
-  
-  // Función para renderizar la lista de comentarios
-  function renderComentarios() {
-    const listaComentarios = document.getElementById('comentarios-lista');
-    if (!listaComentarios) return;
+    // Crear el HTML del modal si no existe
+    if (!document.getElementById('modal-comentarios')) {
+        const modalHTML = `
+        <style>
+            .comentario-modal .modal-content {
+                border: none;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+                overflow: hidden;
+            }
+            .comentario-modal .modal-header {
+                background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+                color: white;
+                border-bottom: none;
+                padding: 1.2rem 1.5rem;
+                position: relative;
+            }
+            .comentario-modal .modal-title {
+                font-weight: 600;
+                font-size: 1.3rem;
+                display: flex;
+                align-items: center;
+                margin: 0;
+            }
+            .comentario-modal .modal-title i {
+                margin-right: 10px;
+                font-size: 1.5rem;
+            }
+            .comentario-modal .close {
+                color: rgba(255, 255, 255, 0.8);
+                text-shadow: none;
+                opacity: 1;
+                font-size: 1.5rem;
+                transition: all 0.2s;
+            }
+            .comentario-modal .close:hover {
+                color: white;
+                transform: scale(1.1);
+            }
+            .comentario-modal .modal-body {
+                padding: 1.5rem;
+                background-color: #f8f9fc;
+            }
+            .comentario-modal .modal-footer {
+                border-top: 1px solid #e9ecef;
+                padding: 1rem 1.5rem;
+                background-color: #fff;
+            }
+            #lista-comentarios {
+                max-height: 400px;
+                overflow-y: auto;
+                padding-right: 8px;
+                scrollbar-width: thin;
+                scrollbar-color: #c1c1c1 #f1f1f1;
+            }
+            #lista-comentarios::-webkit-scrollbar {
+                width: 6px;
+            }
+            #lista-comentarios::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            #lista-comentarios::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 10px;
+            }
+            #lista-comentarios::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+            .comentario-item {
+                background: white;
+                border: 1px solid #e9ecef;
+                border-radius: 10px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            }
+            .comentario-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            }
+            .comentario-item strong {
+                color: #3a0ca3;
+                font-weight: 600;
+            }
+            .comentario-item small {
+                color: #6c757d;
+                font-size: 0.8rem;
+            }
+            .comentario-item p {
+                margin: 0.5rem 0 0;
+                color: #495057;
+                line-height: 1.5;
+            }
+            .comentario-nuevo {
+                background: #ffffff;
+                padding: 1.5rem;
+                border-radius: 12px;
+                border: 1px solid #eef2f7;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+                margin-top: 1.5rem;
+            }
+            .comentario-nuevo .form-group {
+                margin-bottom: 0;
+            }
+            #nuevo-comentario {
+                border-radius: 10px;
+                border: 1px solid #e0e6ed;
+                resize: none;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                padding: 14px 16px;
+                font-size: 0.95rem;
+                line-height: 1.5;
+                color: #2d3748;
+                background-color: #f9fafc;
+                width: 100%;
+                min-height: 100px;
+                box-sizing: border-box;
+                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            }
+            #nuevo-comentario:focus {
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+                outline: none;
+                background-color: #ffffff;
+            }
+            #nuevo-comentario::placeholder {
+                color: #a0aec0;
+                opacity: 1;
+            }
+            .comentario-nuevo-footer {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 1rem;
+                gap: 0.75rem;
+            }
+            #btn-guardar-comentario {
+                border-radius: 8px;
+                padding: 0.6rem 1.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+                background: #4f46e5;
+                color: white;
+                border: none;
+                transition: all 0.2s ease;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
+            }
+            #btn-guardar-comentario:hover {
+                background: #4338ca;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            #btn-guardar-comentario:active {
+                transform: translateY(0);
+                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            }
+            #btn-guardar-comentario:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+            }
+            #btn-guardar-comentario .btn-icon {
+                margin-right: 8px;
+                font-size: 0.9em;
+            }
+            .empty-state {
+                background: #f8f9fc;
+                border: 2px dashed #dee2e6;
+                border-radius: 10px;
+                padding: 2rem 1rem;
+                text-align: center;
+                color: #6c757d;
+            }
+            .empty-state i {
+                font-size: 2.5rem;
+                color: #adb5bd;
+                margin-bottom: 1rem;
+                display: block;
+            }
+            @media (max-width: 768px) {
+                .comentario-modal .modal-dialog {
+                    margin: 0.5rem;
+                }
+                .comentario-modal .modal-content {
+                    border-radius: 12px 12px 0 0;
+                }
+                .comentario-modal .modal-body {
+                    padding: 1rem;
+                }
+            }
+        </style>
+        <div class="modal fade comentario-modal" id="modal-comentarios" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-comments"></i> Comentarios sobre la venta</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div class="comentarios-container">
+                            <div id="lista-comentarios" class="px-4 py-3">
+                                <div class="empty-state">
+                                    <i class="far fa-comment-dots"></i>
+                                    <h5>No hay comentarios aún</h5>
+                                    <p class="mb-0">Sé el primero en comentar sobre esta venta</p>
+                                </div>
+                            </div>
+                            <div class="comentario-nuevo">
+                                <div class="form-group">
+                                    <textarea id="nuevo-comentario" class="form-control" rows="4" 
+                                              placeholder="Escribe un comentario detallado sobre la venta..."></textarea>
+                                </div>
+                                <div class="comentario-nuevo-footer">
+                                    <small class="text-muted mr-auto" style="font-size: 0.8rem; color: #718096 !important;">
+                                        <i class="fas fa-keyboard"></i> Presiona <kbd>Enter</kbd> para enviar
+                                    </small>
+                                    <button id="btn-guardar-comentario" class="btn-primary">
+                                        <i class="fas fa-paper-plane btn-icon"></i> Enviar comentario
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border-top: 1px solid #edf2f7; padding: 1rem 1.5rem;">
+                        <button type="button" class="btn btn-outline-secondary" data-dismiss="modal" 
+                                style="border-color: #e2e8f0; color: #4a5568; padding: 0.5rem 1.25rem; border-radius: 8px; font-weight: 500; transition: all 0.2s ease;">
+                            <i class="fas fa-times mr-2"></i> Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
     
-    listaComentarios.innerHTML = '';
+        // Agregar el modal al final del body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Inicializar eventos del modal
+        inicializarEventosModal();
+        
+        // Configurar evento para cuando se cierre el modal
+        $('#modal-comentarios').on('hidden.bs.modal', function() {
+            // Mostrar nuevamente el encabezado de la tabla
+            const thead = document.querySelector('#costumerTable thead');
+            if (thead) {
+                thead.style.display = '';
+            }
+        });
+    }
     
-    if (comentarios.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'sin-comentarios';
-      emptyState.innerHTML = `
-        <i class="fas fa-comment-slash" style="font-size: 2.5em; margin-bottom: 10px; opacity: 0.5; display: block;"></i>
-        <p>No hay comentarios aún</p>
-        <p style="font-size: 0.9em; margin-top: 8px;">Sé el primero en comentar</p>
-      `;
-      listaComentarios.appendChild(emptyState);
-      return;
+    // Mostrar el modal
+    $('#modal-comentarios').modal('show');
+}
+
+// Función para cargar los comentarios de un lead
+async function cargarComentarios(leadId) {
+    try {
+        // Mostrar indicador de carga
+        const listaComentarios = document.getElementById('lista-comentarios');
+        listaComentarios.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+                <p class="mt-3 text-muted">Cargando comentarios...</p>
+            </div>`;
+        
+        // Aquí iría la llamada a la API para obtener los comentarios
+        // Por ahora simulamos una respuesta después de 500ms
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Simulamos datos de comentarios (en producción, esto vendría de la API)
+        const comentarios = [
+            {
+                id: 1,
+                texto: 'El cliente mostró interés en el paquete premium.',
+                fecha: '2023-11-15T14:30:00Z',
+                usuario: 'Agente 1'
+            },
+            {
+                id: 2,
+                texto: 'Se programó visita para el próximo lunes a las 10:00 AM.',
+                fecha: '2023-11-16T09:15:00Z',
+                usuario: 'Agente 2'
+            }
+        ];
+        
+        // Mostrar los comentarios
+        mostrarComentarios(comentarios);
+        
+    } catch (error) {
+        console.error('Error al cargar comentarios:', error);
+        throw error;
+    }
+}
+
+// Función para mostrar los comentarios en la lista
+function mostrarComentarios(comentarios) {
+    const listaComentarios = document.getElementById('lista-comentarios');
+    
+    if (!comentarios || comentarios.length === 0) {
+        listaComentarios.innerHTML = `
+            <div class="empty-state">
+                <i class="far fa-comment-dots"></i>
+                <h5>No hay comentarios aún</h5>
+                <p class="mb-0">Sé el primero en comentar sobre esta venta</p>
+            </div>`;
+        return;
     }
     
     // Ordenar comentarios por fecha (más recientes primero)
-    comentarios.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+    comentarios.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     
-    comentarios.forEach((comentario, idx) => {
-      const comentarioEl = document.createElement('div');
-      comentarioEl.className = 'comentario-item';
-      comentarioEl.style.cssText = `
-        margin-bottom: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #f0f4f8;
-        position: relative;
-      `;
-      
-      // Si es el último comentario, quitar el borde inferior
-      if (idx === comentarios.length - 1) {
-        comentarioEl.style.borderBottom = 'none';
-      }
-      
-      // Cabecera del comentario (usuario y fecha)
-      const header = document.createElement('div');
-      header.className = 'comentario-header';
-      header.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px;';
-      
-      const userInfo = document.createElement('div');
-      userInfo.className = 'comentario-usuario';
-      userInfo.style.cssText = 'display: flex; align-items: center;';
-      
-      // Avatar del usuario (iniciales o ícono)
-      const avatar = document.createElement('div');
-      avatar.style.cssText = `
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: #4299e1;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 14px;
-        margin-right: 10px;
-        flex-shrink: 0;
-      `;
-      
-      // Obtener iniciales del nombre de usuario o usar un ícono por defecto
-      const userName = comentario.usuario || 'Anónimo';
-      const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-      
-      if (userInitials) {
-        avatar.textContent = userInitials;
-      } else {
-        avatar.innerHTML = '<i class="fas fa-user"></i>';
-      }
-      
-      // Información del usuario y fecha
-      const userDetails = document.createElement('div');
-      userDetails.innerHTML = `
-        <div style="font-weight: 600; color: #2d3748;">${userName}</div>
-        <div style="font-size: 0.8em; color: #a0aec0;">
-          ${formatearFecha(comentario.fecha || new Date().toISOString())}
+    // Generar HTML de los comentarios
+    const comentariosHTML = comentarios.map(comentario => `
+        <div class="comentario-item">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex align-items-center">
+                    <div class="user-avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                         style="width: 36px; height: 36px; margin-right: 10px; font-size: 0.9rem; font-weight: 600;">
+                        ${(comentario.usuario || 'US').substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                        <strong>${comentario.usuario || 'Usuario'}</strong>
+                        <small class="d-block text-muted">${formatearFecha(comentario.fecha)}</small>
+                    </div>
+                </div>
+                <i class="fas fa-ellipsis-v text-muted" style="cursor: pointer; opacity: 0.7;"></i>
+            </div>
+            <p class="mb-0">${comentario.texto}</p>
         </div>
-      `;
-      
-      userInfo.appendChild(avatar);
-      userInfo.appendChild(userDetails);
-      
-      // Acciones del comentario (editar, eliminar)
-      const actions = document.createElement('div');
-      actions.className = 'comentario-acciones';
-      actions.style.cssText = 'display: flex; gap: 8px;';
-      
-      // Botón de editar
-      const editBtn = document.createElement('button');
-      editBtn.className = 'editar';
-      editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-      editBtn.title = 'Editar comentario';
-      editBtn.style.cssText = `
-        background: none;
-        border: none;
-        color: #718096;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: all 0.2s;
-      `;
-      editBtn.onmouseover = () => {
-        editBtn.style.background = '#edf2f7';
-        editBtn.style.color = '#4299e1';
-      };
-      editBtn.onmouseout = () => {
-        editBtn.style.background = 'none';
-        editBtn.style.color = '#718096';
-      };
-      editBtn.onclick = () => editarComentario(idx);
-      
-      // Botón de eliminar
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'eliminar';
-      deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-      deleteBtn.title = 'Eliminar comentario';
-      deleteBtn.style.cssText = `
-        background: none;
-        border: none;
-        color: #e53e3e;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: all 0.2s;
-      `;
-      deleteBtn.onmouseover = () => {
-        deleteBtn.style.background = '#fff5f5';
-      };
-      deleteBtn.onmouseout = () => {
-        deleteBtn.style.background = 'none';
-      };
-      deleteBtn.onclick = () => eliminarComentario(idx);
-      
-      actions.appendChild(editBtn);
-      actions.appendChild(deleteBtn);
-      
-      header.appendChild(userInfo);
-      header.appendChild(actions);
-      
-      // Contenido del comentario
-      const contenido = document.createElement('div');
-      contenido.style.cssText = 'color: #4a5568; line-height: 1.5; padding-left: 42px;';
-      contenido.textContent = comentario.texto || comentario;
-      
-      comentarioEl.appendChild(header);
-      comentarioEl.appendChild(contenido);
-      
-      listaComentarios.appendChild(comentarioEl);
+    `).join('');
+    
+    listaComentarios.innerHTML = comentariosHTML;
+    
+    // Hacer scroll al final de la lista de comentarios
+    listaComentarios.scrollTop = listaComentarios.scrollHeight;
+}
+
+// Función para formatear la fecha
+function formatearFecha(fechaISO) {
+    const opciones = { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+    };
+    return new Date(fechaISO).toLocaleString('es-ES', opciones);
+}
+
+// Función para inicializar los eventos del modal
+function inicializarEventosModal() {
+    // Evento para el botón de guardar comentario
+    document.getElementById('btn-guardar-comentario').addEventListener('click', guardarComentario);
+    
+    // Evento para la tecla Enter en el textarea
+    document.getElementById('nuevo-comentario').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            guardarComentario();
+        }
     });
     
-    // Desplazarse al final de la lista
-    listaComentarios.scrollTop = listaComentarios.scrollHeight;
-  }
-  
-  // Función para formatear fechas
-  function formatearFecha(fechaISO) {
-    try {
-      const opciones = {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      };
-      return new Date(fechaISO).toLocaleDateString('es-ES', opciones);
-    } catch (e) {
-      return fechaISO || 'Fecha desconocida';
-    }
-  }
-  
-  // Inicializar la lista de comentarios
-  renderComentarios();
-  
-  // Formulario para agregar/editar comentarios
-  const formContainer = document.createElement('div');
-  formContainer.style.cssText = 'padding: 16px 24px; border-top: 1px solid #eee;';
-  
-  const form = document.createElement('form');
-  form.id = 'form-comentario';
-  form.style.cssText = 'display: flex; gap: 10px;';
-  
-  const textarea = document.createElement('textarea');
-  textarea.id = 'comentario-texto';
-  textarea.placeholder = 'Escribe un comentario...';
-  textarea.required = true;
-  textarea.style.cssText = `
-    flex: 1;
-    min-height: 44px;
-    max-height: 150px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: none;
-    transition: all 0.2s;
-    outline: none;
-  `;
-  
-  textarea.addEventListener('focus', () => {
-    textarea.style.borderColor = '#4299e1';
-    textarea.style.boxShadow = '0 0 0 3px rgba(66, 153, 225, 0.2)';
-  });
-  
-  textarea.addEventListener('blur', () => {
-    textarea.style.borderColor = '#e2e8f0';
-    textarea.style.boxShadow = 'none';
-  });
-  
-  const submitBtn = document.createElement('button');
-  submitBtn.type = 'submit';
-  submitBtn.id = 'btn-enviar-comentario';
-  submitBtn.style.cssText = `
-    background: #4299e1;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0 20px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
-    white-space: nowrap;
-  `;
-  
-  // Estado del formulario (nuevo o edición)
-  let editandoIndice = null;
-  
-  function actualizarBotonEnviar() {
-    if (editandoIndice !== null) {
-      submitBtn.innerHTML = '<i class="fas fa-save"></i> Guardar';
-      submitBtn.title = 'Guardar cambios';
-    } else {
-      submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
-      submitBtn.title = 'Enviar comentario';
-    }
-  }
-  
-  actualizarBotonEnviar();
-  
-  // Función para editar un comentario
-  function editarComentario(indice) {
-    if (indice < 0 || indice >= comentarios.length) return;
-    
-    const comentario = comentarios[indice];
-    textarea.value = comentario.texto || comentario;
-    editandoIndice = indice;
-    actualizarBotonEnviar();
-    textarea.focus();
-    
-    // Desplazarse al formulario
-    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-  
-  // Función para eliminar un comentario
-  function eliminarComentario(indice) {
-    if (indice < 0 || indice >= comentarios.length) return;
-    
-    if (confirm('¿Estás seguro de que deseas eliminar este comentario? Esta acción no se puede deshacer.')) {
-      // Eliminar el comentario del array
-      comentarios.splice(indice, 1);
-      
-      // Si estábamos editando el comentario eliminado, cancelar la edición
-      if (editandoIndice === indice) {
-        editandoIndice = null;
-        textarea.value = '';
-        actualizarBotonEnviar();
-      } else if (editandoIndice > indice) {
-        // Ajustar el índice de edición si es necesario
-        editandoIndice--;
-      }
-      
-      // Guardar cambios (aquí deberías implementar la lógica para guardar en el servidor)
-      guardarComentarios();
-      
-      // Volver a renderizar la lista
-      renderComentarios();
-      
-      mostrarMensaje('Comentario eliminado correctamente', 'success');
-    }
-  }
-  
-  // Función para guardar los comentarios (debes implementar la lógica de guardado real)
-  function guardarComentarios() {
-    // Actualizar los comentarios en el objeto venta
-    venta.comentarios_venta = comentarios;
-    
-    // Aquí deberías implementar la lógica para guardar en el servidor
-    // Por ejemplo:
-    // return fetch(`/api/leads/${venta._id}/comentarios`, {
-    //   method: 'PUT',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
-    //   },
-    //   body: JSON.stringify({ comentarios_venta: comentarios })
-    // });
-    
-    // Por ahora, solo actualizamos la caché local
-    const leadsCache = JSON.parse(localStorage.getItem('leads_cache') || '[]');
-    const leadIndex = leadsCache.findIndex(l => l._id === venta._id || l.id === venta.id);
-    
-    if (leadIndex !== -1) {
-      leadsCache[leadIndex].comentarios_venta = comentarios;
-      localStorage.setItem('leads_cache', JSON.stringify(leadsCache));
-    }
-    
-    // También actualizamos la interfaz si es necesario
-    actualizarContadorComentarios(venta._id, comentarios.length);
-    
-    return Promise.resolve();
-  }
-  
-  // Función para actualizar el contador de comentarios en la interfaz
-  function actualizarContadorComentarios(leadId, cantidad) {
-    const botonComentarios = document.querySelector(`button[onclick*="${leadId}"]`);
-    if (botonComentarios) {
-      const contador = botonComentarios.querySelector('span');
-      if (contador) {
-        contador.textContent = cantidad || '0';
-      }
-      
-      // Actualizar estilos según si hay comentarios o no
-      if (cantidad > 0) {
-        botonComentarios.style.background = '#e3f2fd';
-        botonComentarios.style.borderColor = '#1976d2';
-        botonComentarios.style.color = '#1976d2';
-      } else {
-        botonComentarios.style.background = '#f5f5f5';
-        botonComentarios.style.borderColor = '#ddd';
-        botonComentarios.style.color = '#666';
-      }
-    }
-  }
-  
-  // Manejar el envío del formulario
-  form.onsubmit = async function(e) {
-    e.preventDefault();
-    
-    const texto = textarea.value.trim();
-    if (!texto) return;
-    
-    try {
-      // Mostrar estado de carga
-      const btnText = submitBtn.innerHTML;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-      
-      if (editandoIndice !== null) {
-        // Editar comentario existente
-        comentarios[editandoIndice] = {
-          ...comentarios[editandoIndice],
-          texto: texto,
-          fecha: new Date().toISOString(),
-          editado: true
-        };
-      } else {
-        // Agregar nuevo comentario
-        const nuevoComentario = {
-          id: Date.now().toString(),
-          texto: texto,
-          usuario: 'Usuario Actual', // Aquí deberías obtener el usuario autenticado
-          fecha: new Date().toISOString(),
-          editado: false
-        };
+    // Evento cuando se cierra el modal
+    $('#modal-comentarios').on('hidden.bs.modal', function() {
+        // Limpiar el textarea
+        document.getElementById('nuevo-comentario').value = '';
         
-        comentarios.unshift(nuevoComentario);
-      }
-      
-      // Guardar los cambios
-      await guardarComentarios();
-      
-      // Limpiar el formulario
-      textarea.value = '';
-      editandoIndice = null;
-      actualizarBotonEnviar();
-      
-      // Actualizar la lista de comentarios
-      renderComentarios();
-      
-      // Mostrar mensaje de éxito
-      mostrarMensaje(
-        editandoIndice !== null ? 'Comentario actualizado' : 'Comentario agregado',
-        'success'
-      );
-      
-    } catch (error) {
-      console.error('Error al guardar el comentario:', error);
-      mostrarMensaje('Error al guardar el comentario', 'error');
-    } finally {
-      // Restaurar el botón
-      submitBtn.disabled = false;
-      actualizarBotonEnviar();
-    }
-  };
-  
-  // Agregar elementos al formulario
-  formularioComentario.appendChild(campoTexto);
-  formularioComentario.appendChild(botonEnviar);
-  contenedorFormulario.appendChild(formularioComentario);
-  
-  // Agregar todo al modal
-  body.appendChild(listaComentarios);
-  
-  modal.appendChild(header);
-  modal.appendChild(body);
-  modal.appendChild(formContainer);
-  
-  // Agregar el modal al overlay
-  overlay.appendChild(modal);
-  
-  // Forzar el repintado para la animación
-  setTimeout(() => {
-    modal.style.opacity = '1';
-    modal.style.transform = 'translateY(0)';
-  }, 10);
-  
-  // Enfocar el área de texto al abrir el modal
-  textarea.focus();
-  
-  // Función para mostrar mensajes de retroalimentación
-  function mostrarMensaje(mensaje, tipo = 'info') {
-    // Eliminar mensajes anteriores
-    const mensajesAnteriores = document.querySelectorAll('.mensaje-flotante');
-    mensajesAnteriores.forEach(el => el.remove());
-    
-    const colores = {
-      success: '#48bb78',
-      error: '#f56565',
-      info: '#4299e1',
-      warning: '#ed8936'
-    };
-    
-    const mensajeEl = document.createElement('div');
-    mensajeEl.className = 'mensaje-flotante';
-    mensajeEl.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: ${colores[tipo] || colores.info};
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10001;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      opacity: 0;
-      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-    `;
-    
-    mensajeEl.innerHTML = `
-      <i class="fas ${tipo === 'success' ? 'fa-check-circle' : tipo === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-      <span>${mensaje}</span>
-    `;
-    
-    document.body.appendChild(mensajeEl);
-    
-    // Forzar repintado para la animación
-    setTimeout(() => {
-      mensajeEl.style.opacity = '1';
-      mensajeEl.style.transform = 'translateX(-50%) translateY(0)';
-    }, 10);
-    
-    // Ocultar después de 3 segundos
-    setTimeout(() => {
-      mensajeEl.style.opacity = '0';
-      mensajeEl.style.transform = 'translateX(-50%) translateY(-20px)';
-      
-      // Eliminar después de la animación
-      setTimeout(() => {
-        if (mensajeEl.parentNode) {
-          mensajeEl.parentNode.removeChild(mensajeEl);
+        // Mostrar nuevamente el encabezado de la tabla Costumer
+        const thead = document.querySelector('.costumer-table thead');
+        if (thead) {
+            thead.style.opacity = '1';
+            thead.style.height = '';
+            thead.style.overflow = '';
+            thead.style.position = '';
+            thead.style.visibility = '';
         }
-      }, 300);
-    }, 3000);
-  }
-  
-  // Retornar el modal para referencia externa si es necesario
-  return {
-    modal: overlay,
-    cerrar: cerrarModal,
-    actualizarComentarios: renderComentarios
-  };
-};
+    });
+}
 
-// Al cargar leads, cachearlos para acceso rápido a comentarios
-(function(){
-  const orig = window.fetchAndRenderLeads;
-  window.fetchAndRenderLeads = async function() {
-    await orig.apply(this, arguments);
-    // Obtener leads de la tabla y guardar en cache
-    try {
-      const tbody = document.getElementById('costumer-tbody');
-      if (!tbody) return;
-      
-      const leads = [];
-      tbody.querySelectorAll('tr').forEach(tr => {
-        const celdas = tr.querySelectorAll('td');
-        if (celdas.length < 20) return;
-        
-        // Obtener el ID del data-id si existe
-        const rowId = tr.getAttribute('data-id') || 
-                     (celdas[0].innerText + celdas[1].innerText + celdas[2].innerText);
-        
-        leads.push({
-          _id: rowId,
-          nombre_cliente: celdas[0].innerText,
-          telefono_principal: celdas[1].innerText,
-          telefono_alterno: celdas[2].innerText,
-          // Agregar más campos según sea necesario
-        });
-      });
-      
-      localStorage.setItem('leads_cache', JSON.stringify(leads));
-    } catch(e) {
-      console.error('Error al cachear leads:', e);
+// Función para guardar un nuevo comentario
+async function guardarComentario() {
+    const textarea = document.getElementById('nuevo-comentario');
+    const texto = textarea.value.trim();
+    
+    if (!texto) {
+        if (window.mostrarMensaje) {
+            window.mostrarMensaje('Por favor escribe un comentario', 'warning');
+        }
+        textarea.focus();
+        return;
     }
-  };
-})();
+    
+    try {
+        // Mostrar indicador de carga
+        const botonGuardar = document.getElementById('btn-guardar-comentario');
+        const textoOriginal = botonGuardar.innerHTML;
+        botonGuardar.disabled = true;
+        botonGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+        
+        // Aquí iría la llamada a la API para guardar el comentario
+        // Por ahora simulamos una respuesta después de 500ms
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Simulamos un nuevo comentario (en producción, esto vendría de la API)
+        const nuevoComentario = {
+            id: Date.now(),
+            texto: texto,
+            fecha: new Date().toISOString(),
+            usuario: 'Usuario Actual' // Esto debería venir del sistema de autenticación
+        };
+        
+        // Limpiar el textarea
+        textarea.value = '';
+        
+        // Mostrar mensaje de éxito
+        if (window.mostrarMensaje) {
+            window.mostrarMensaje('Comentario guardado correctamente', 'success');
+        }
+        
+        // Recargar los comentarios
+        await cargarComentarios(leadComentarioActual);
+        
+    } catch (error) {
+        console.error('Error al guardar el comentario:', error);
+        if (window.mostrarMensaje) {
+            window.mostrarMensaje('Error al guardar el comentario: ' + (error.message || 'Error desconocido'), 'error');
+        }
+    } finally {
+        // Restaurar el botón
+        const botonGuardar = document.getElementById('btn-guardar-comentario');
+        if (botonGuardar) {
+            botonGuardar.disabled = false;
+            botonGuardar.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Enviar';
+        }
+    }
+}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Módulo de comentarios cargado');
+});

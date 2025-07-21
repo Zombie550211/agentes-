@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("lead-form");
   if (form) {
     let enviandoLead = false; // Flag para evitar doble envío
+    console.log('DEBUG: Inicializando flag enviandoLead =', enviandoLead);
 
     if (typeof window.renderGraficas === 'function') {
       window.renderGraficas();
@@ -11,6 +12,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      // Prevenir doble envío
+      console.log('DEBUG: Estado del flag antes de verificar:', enviandoLead);
+      if (enviandoLead) {
+        console.log('Ya se está enviando un lead, ignorando...');
+        return;
+      }
+      console.log('DEBUG: Iniciando envío, estableciendo flag = true');
+      enviandoLead = true;
 
       // Obtener datos del formulario Lead
       const formData = new FormData(form);
@@ -40,13 +50,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const supervisor = lead.supervisor ? lead.supervisor.trim().toUpperCase() : '';
       let team = '';
       switch (supervisor) {
-        case 'PLEITEZ': team = 'Team Pleitez'; break;
-        case 'ROBERTO': team = 'Team Roberto'; break;
-        case 'IRANIA': team = 'Team Irania'; break;
-        case 'MARISOL': team = 'Team Marisol'; break;
-        case 'RANDAL': team = 'Team Randal'; break;
-        case 'JONATHAN': team = 'Team Lineas'; break;
-        default: team = '';
+        case 'PLEITEZ': team = 'TEAM PLEITEZ'; break;
+        case 'ROBERTO': team = 'TEAM ROBERTO'; break;
+        case 'IRANIA': team = 'TEAM IRANIA'; break;
+        case 'MARISOL': team = 'TEAM MARISOL'; break;
+        case 'RANDAL': team = 'TEAM RANDAL'; break;
+        case 'JONATHAN': team = 'TEAM LINEAS'; break;
+        default: team = supervisor ? `TEAM ${supervisor}` : '';
       }
       lead.team = team;
 
@@ -113,6 +123,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         result = await response.json();
       } catch (err) {
+        console.log('DEBUG: Error red - reseteando flag = false');
+        enviandoLead = false; // Resetear flag en caso de error de red
         alert('Error de red al intentar guardar el lead. Intenta de nuevo.');
         return;
       }
@@ -126,6 +138,8 @@ document.addEventListener("DOMContentLoaded", () => {
           customClass: { popup: 'swal2-popup' }
         });
         form.reset();
+        console.log('DEBUG: Éxito - reseteando flag = false');
+        enviandoLead = false; // Resetear flag después del éxito
       } else {
         // Mostrar mensaje de error del backend si existe
         let mensaje = (result && result.error) ? result.error : 'Hubo un error al guardar el lead.';
@@ -137,6 +151,8 @@ document.addEventListener("DOMContentLoaded", () => {
           customClass: { popup: 'swal2-popup' }
         });
         if (result) console.error(result);
+        console.log('DEBUG: Error backend - reseteando flag = false');
+        enviandoLead = false; // Resetear flag después del error
       }
     });
   }
