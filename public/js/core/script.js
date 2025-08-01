@@ -85,39 +85,53 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Validar puntaje antes de enviar
-      if (team === 'Team Lineas') {
+      console.log('DEBUG: === INICIO VALIDACIÓN PUNTAJE ===');
+      console.log('DEBUG: Valor de team:', team);
+      
+      // Obtener el valor del select directamente del DOM para depuración
+      const selectPuntaje = document.getElementById('puntaje');
+      const valorSelect = selectPuntaje ? selectPuntaje.value : 'No encontrado';
+      console.log('DEBUG: Valor del select (DOM):', valorSelect);
+      
+      // Obtener el valor de formData para comparar
+      const puntajeFormData = formData.get('puntaje');
+      console.log('DEBUG: Valor de formData.get(\'puntaje\'):', puntajeFormData);
+      
+      if (team === 'TEAM LINEAS') {
+        console.log('DEBUG: Es TEAM LINEAS, asignando Sin Puntaje');
         lead.puntaje = 'Sin Puntaje';
       } else {
         let puntaje = formData.get('puntaje');
+        console.log('DEBUG: Valor de puntaje (formData):', puntaje);
+        console.log('DEBUG: Tipo de dato de puntaje:', typeof puntaje);
+        
         // Asegura que el valor no sea vacío ni "Elige"
         if (puntaje === null || puntaje === undefined || puntaje === '' || puntaje === 'Elige') {
+          console.log('DEBUG: Puntaje no válido, mostrando alerta');
+          console.log('DEBUG: Razón - Valor:', puntaje, 'Tipo:', typeof puntaje);
           alert('Debes seleccionar un puntaje válido antes de guardar el lead.');
           return;
         }
         // Valida que sea un número
         if (isNaN(Number(puntaje))) {
+          console.log('DEBUG: Puntaje no es un número válido');
           alert('El valor seleccionado en Puntaje no es válido.');
           return;
         }
+        console.log('DEBUG: Puntaje válido, asignando:', parseFloat(puntaje));
         lead.puntaje = parseFloat(puntaje);
       }
+      console.log('DEBUG: === FIN VALIDACIÓN PUNTAJE ===');
 
       // Enviar los datos al backend
-      console.log('DEBUG LEAD ENVIADO:', lead); // LOG TEMPORAL PARA DEPURACIÓN
-      // Validar que haya token antes de enviar
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('No tienes sesión activa. Por favor, inicia sesión nuevamente.');
-        return;
-      }
-
+      console.log('DEBUG LEAD ENVIADO:', lead);
+      
       let response, result;
       try {
         response = await fetch('/api/leads', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(lead)
         });
@@ -140,6 +154,18 @@ document.addEventListener("DOMContentLoaded", () => {
         form.reset();
         console.log('DEBUG: Éxito - reseteando flag = false');
         enviandoLead = false; // Resetear flag después del éxito
+        
+        // Actualizar la tabla y gráficas después de guardar
+        if (typeof window.refrescarLeadsAgente === 'function') {
+          console.log('DEBUG: Llamando a refrescarLeadsAgente para actualizar la vista');
+          await window.refrescarLeadsAgente();
+          
+          // También forzar la actualización de las gráficas
+          if (typeof window.renderGraficas === 'function') {
+            console.log('DEBUG: Actualizando gráficas después de guardar');
+            window.renderGraficas();
+          }
+        }
       } else {
         // Mostrar mensaje de error del backend si existe
         let mensaje = (result && result.error) ? result.error : 'Hubo un error al guardar el lead.';

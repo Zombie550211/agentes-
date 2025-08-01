@@ -2,14 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ObjectId } = require('mongodb');
 const axios = require('axios');
 
 // Configuración
-const JWT_SECRET = 'tu_clave_secreta_super_segura'; // cámbiala y guarda en .env en producción
+const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura'; // Prioriza la clave del .env
 const uri = process.env.MONGODB_URI;
+console.log(`[DEBUG] JWT_SECRET cargada: ${process.env.JWT_SECRET ? 'Sí, desde .env' : 'No, usando valor por defecto'}`);
 const dbName = 'sample_mflix'; // Cambia por tu base de datos real
 const leadsCollectionName = 'crm agente';
 const usersCollectionName = 'crm_users';
@@ -19,9 +21,9 @@ const CRM_ADMIN_API_KEY = 'tu-clave-secreta-muy-larga-y-dificil-de-adivinar'; //
 
 const app = express();
 
-// Configuración detallada de CORS
+// Configuración de CORS
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3003'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -36,6 +38,24 @@ app.options('*', cors(corsOptions));
 
 // Servir archivos estáticos (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware de autenticación básico (comentado temporalmente para pruebas)
+/*
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Token inválido' });
+    req.user = user;
+    next();
+  });
+};
+*/
 
 let db, leads, users;
 
@@ -70,8 +90,8 @@ MongoClient.connect(uri)
     
     console.log('Conectado a MongoDB');
     // Iniciar el servidor solo cuando la BD esté lista
-    app.listen(3002, () => {
-      console.log('API escuchando en http://localhost:3002');
+    app.listen(3003, () => {
+      console.log('API escuchando en http://localhost:3003');
     });
   })
   .catch(err => {
@@ -79,18 +99,7 @@ MongoClient.connect(uri)
     console.error('[DEBUG] URI de conexión usada:', uri.replace(/:[^:]*@/, ':***@'));
   });
 
-// Middleware de autenticación
-function auth(req, res, next) {
-  const header = req.headers['authorization'];
-  if (!header) return res.status(401).json({ ok: false, error: 'No token' });
-  const token = header.split(' ')[1];
-  if (!token) return res.status(401).json({ ok: false, error: 'No token' });
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ ok: false, error: 'Token inválido' });
-    req.user = user; // { id, nombre, email, rol }
-    next();
-  });
-}
+
 
 // Función para sincronizar con CRM Admin
 async function sincronizarConAdmin(leadData) {
@@ -98,208 +107,126 @@ async function sincronizarConAdmin(leadData) {
   const agregarTeamSupervisor = (supervisor) => {
     if (!supervisor) return '';
     const supervisorStr = String(supervisor);
-    // Si ya contiene "team" (case insensitive), no lo agregamos de nuevo
-    if (supervisorStr.toLowerCase().includes('team')) {
-      return supervisorStr;
-    }
+    if (/^team\s/i.test(supervisorStr)) return supervisorStr;
     return `team ${supervisorStr}`;
   };
 
-  // Mapeamos los campos del CRM Agente a los que espera el CRM Admin
-  const payload = {
-    fecha: leadData.dia_venta,       // Usamos 'dia_venta' como la fecha
-    equipo: leadData.team || '',     // Usamos el campo 'team' que tiene la lógica correcta (TEAM PLEITEZ, TEAM LINEAS, etc.)
-    agente: leadData.agente,         // Este campo ya existe en el lead del Agente
-    telefono: leadData.telefono_principal, // Usamos el teléfono principal
-    producto: leadData.tipo_servicios, // Usamos 'tipo_servicios' como 'producto'
-    puntaje: leadData.puntaje || 0,
-    cuenta: '', // Como solicitaste, este campo se envía vacío
-    direccion: leadData.direccion,
-    zip: leadData.zip_code,          // Usamos 'zip_code'
-    estado: leadData.status,         // Usamos 'status'
-    supervisor: agregarTeamSupervisor(leadData.supervisor) // Solo el supervisor lleva "team"
-  };
+  // Clonar el objeto para no modificar el original
+  const leadPayload = { ...leadData };
+  // Solo el campo supervisor lleva el prefijo
+  leadPayload.supervisor = agregarTeamSupervisor(leadData.supervisor);
 
   try {
-    console.log('Sincronizando con CRM Admin:', payload);
-    await axios.post(CRM_ADMIN_URL, payload, {
+    await axios.post(CRM_ADMIN_URL, leadPayload, {
       headers: {
-        'x-api-key': CRM_ADMIN_API_KEY
+        'x-api-key': CRM_ADMIN_API_KEY,
+        'Content-Type': 'application/json'
       }
     });
-    console.log('✅ Sincronización con CRM Admin exitosa.');
-
-  } catch (error) {
-    console.error('❌ Error al sincronizar con CRM Admin:');
-    if (error.response) {
-      console.error('   - Status:', error.response.status);
-      console.error('   - Data:', error.response.data);
-    } else if (error.request) {
-      console.error('   - No se recibió respuesta del servidor Admin. ¿Está encendido?');
-    } else {
-      console.error('   - Error:', error.message);
-    }
+    console.log('[SYNC] Lead sincronizado con Admin:', leadPayload);
+  } catch (err) {
+    console.error('[SYNC ERROR] Error al sincronizar con Admin:', err?.response?.data || err.message);
   }
 }
 
 // --- RUTAS DE LA API ---
 
-// ENDPOINT TEMPORAL: CREAR ADMIN POR DEFECTO (SOLO DESARROLLO)
-app.get('/api/dev/create-admin', async (req, res) => {
-  try {
-    const existe = await users.findOne({ email: 'admin@crm.com' });
-    if (existe) {
-      return res.json({ ok: false, mensaje: 'El usuario admin@crm.com ya existe.' });
-    }
-    const hashed = await bcrypt.hash('123456', 10);
-    await users.insertOne({ nombre: 'Admin', email: 'admin@crm.com', password: hashed, rol: 'admin' });
-    res.json({ ok: true, mensaje: 'Usuario administrador creado: admin@crm.com / 123456' });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: 'Error interno.' });
+// Verificar token JWT
+app.get('/api/verify-token', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ ok: false, error: 'No se proporcionó token' });
   }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ ok: false, error: 'Formato de token inválido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ ok: false, error: 'Token inválido o expirado' });
+    }
+    // Token válido
+    res.json({ ok: true, user: decoded });
+  });
 });
 
-// ENDPOINT TEMPORAL: CREAR AGENTE DEMO POR DEFECTO (SOLO DESARROLLO)
-app.get('/api/dev/create-agente', async (req, res) => {
-  try {
-    const existe = await users.findOne({ email: 'agente@crm.com' });
-    if (existe) {
-      return res.json({ ok: false, mensaje: 'El usuario agente@crm.com ya existe.' });
-    }
-    const hashed = await bcrypt.hash('demo123', 10);
-    await users.insertOne({ nombre: 'Agente Demo', email: 'agente@crm.com', password: hashed, rol: 'agente' });
-    res.json({ ok: true, mensaje: 'Usuario agente creado: agente@crm.com / demo123' });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: 'Error interno.' });
-  }
-});
-
-// REGISTRO DE USUARIOS (admin o agente)
+// REGISTRO DE USUARIOS
 app.post('/api/register', async (req, res) => {
   try {
     const { nombre, email, password, rol } = req.body;
     if (!nombre || !email || !password || !rol) {
-      return res.status(400).json({ ok: false, error: "Faltan campos obligatorios." });
-    }
-    if (!['admin', 'agente'].includes(rol)) {
-      return res.status(400).json({ ok: false, error: "Rol no permitido." });
+      return res.status(400).json({ ok: false, error: 'Faltan campos obligatorios.' });
     }
     const existe = await users.findOne({ email });
-    if (existe) {
-      return res.status(400).json({ ok: false, error: "El email ya está registrado." });
-    }
+    if (existe) return res.status(400).json({ ok: false, error: 'Email ya registrado.' });
+
     const hashed = await bcrypt.hash(password, 10);
     await users.insertOne({ nombre, email, password: hashed, rol });
-    res.json({ ok: true, mensaje: "Usuario registrado correctamente." });
+    res.json({ ok: true, mensaje: 'Usuario registrado correctamente.' });
   } catch (error) {
-    res.status(500).json({ ok: false, error: "Error interno." });
+    res.status(500).json({ ok: false, error: 'Error interno.' });
   }
 });
 
 // LOGIN
 app.post('/api/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ ok: false, error: "Faltan campos." });
-    const user = await users.findOne({ email });
-    if (!user) return res.status(401).json({ ok: false, error: "Usuario o contraseña incorrectos." });
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ ok: false, error: "Usuario o contraseña incorrectos." });
-    const token = jwt.sign({
-      id: user._id,
-      nombre: user.nombre,
-      email: user.email,
-      rol: user.rol
-    }, JWT_SECRET, { expiresIn: '2d' });
-    res.json({
-      ok: true,
-      token,
-      user: {
-        nombre: user.nombre,
-        email: user.email,
-        rol: user.rol
-      }
+    const { username, password } = req.body; // Cambiado de 'email' a 'username'
+    if (!username || !password) return res.status(400).json({ ok: false, error: 'Faltan campos.' });
+    
+    const user = await users.findOne({ email: username }); // Buscamos por email usando el username
+    if (!user) return res.status(401).json({ ok: false, error: 'Credenciales incorrectas.' });
+
+    const passOk = await bcrypt.compare(password, user.password);
+    if (!passOk) return res.status(401).json({ ok: false, error: 'Credenciales incorrectas.' });
+
+    const token = jwt.sign(
+      { id: user._id, nombre: user.nombre, rol: user.rol, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '1h' } // Token expira en 1 hora
+    );
+
+    res.json({ 
+      ok: true, 
+      token, 
+      user: { nombre: user.nombre, email: user.email, rol: user.rol } 
     });
+
   } catch (error) {
-    res.status(500).json({ ok: false, error: "Error interno." });
+    res.status(500).json({ ok: false, error: 'Error interno.' });
   }
 });
 
-// INFO DEL USUARIO AUTENTICADO
-app.get('/api/agente/info', auth, async (req, res) => {
-  res.json({
-    nombre: req.user.nombre,
-    email: req.user.email,
-    rol: req.user.rol
+// LISTAR TODOS LOS LEADS (SIN AUTENTICACIÓN - TEMPORAL)
+// Ruta principal - manejo mejorado para evitar redirecciones
+app.get('/', (req, res) => {
+  // Verificar si ya está autenticado
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    // Si no hay token, redirigir al login
+    return res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  }
+  
+  // Verificar el token
+  jwt.verify(token, JWT_SECRET, (err) => {
+    if (err) {
+      // Token inválido o expirado, redirigir al login
+      return res.status(200).json({ message: 'Acceso permitido' });
+    }
+    // Token válido, redirigir al dashboard
+    res.status(200).json({ message: 'Acceso permitido' });
   });
 });
 
-// LISTAR LEADS (solo propios si es agente, todos si es admin)
-app.get('/api/leads', auth, async (req, res) => {
-  console.log(`[LOG] Petición recibida en GET /api/leads por usuario: ${req.user.nombre} (Rol: ${req.user.rol})`);
-  console.log('[DEBUG] Headers de la petición:', req.headers);
-  console.log('[DEBUG] Usuario autenticado:', req.user);
-  
+app.get('/api/leads', async (req, res) => {
   try {
-    let filtro = {};
-    if (req.user.rol === 'agente') {
-      filtro = { agente: req.user.nombre };
-      console.log('[DEBUG] Aplicando filtro de agente:', filtro);
-    } else {
-      console.log('[DEBUG] Usuario es administrador, sin filtros de agente');
-    }
-    console.log('[DEBUG] Ejecutando consulta con filtro:', JSON.stringify(filtro, null, 2));
-    
-    // Ejecutar la consulta
-    const listaLeads = await leads.find(filtro).toArray();
-    
+    console.log('[LOG] Petición recibida en GET /api/leads (sin autenticación)');
+    const listaLeads = await leads.find({}).toArray();
     console.log(`[LOG] Consulta a DB exitosa. Encontrados ${listaLeads.length} leads.`);
-    console.log('[DEBUG] Primeros 2 leads (si existen):', JSON.stringify(listaLeads.slice(0, 2), null, 2));
-    
-    // Verificar estructura de los documentos
-    if (listaLeads.length > 0) {
-      console.log('[DEBUG] Campos del primer lead:', Object.keys(listaLeads[0]));
-    }
-    
-    const orderedFields = [
-      '_id',
-      'nombre_cliente',
-      'telefono_principal',
-      'telefono_alterno',
-      'numero_cuenta',
-      'autopago',
-      'direccion',
-      'tipo_servicios',
-      'sistema',
-      'riesgo',
-      'dia_venta',
-      'dia_instalacion',
-      'status',
-      'servicios',
-      'mercado',
-      'supervisor',
-      'comentario',
-      'motivo_llamada',
-      'zip_code',
-      'puntaje',
-      'comentarios_venta',
-      'team',
-      'agente',
-      'creadoEn'
-    ];
-    const ordenarLead = (lead) => {
-      const obj = {};
-      orderedFields.forEach(k => { if (lead[k] !== undefined) obj[k] = lead[k]; });
-     
-      Object.keys(lead).forEach(k => { if (!(k in obj)) obj[k] = lead[k]; });
-      return obj;
-    };
-
-    res.json(listaLeads.map(lead => {
-      const ordenado = ordenarLead(lead);
-      delete ordenado._id;
-      return ordenado;
-    }));
+    res.json(listaLeads);
   } catch (error) {
     console.error('[ERROR] Fallo en la ruta GET /api/leads:', error);
     res.status(500).json({ ok: false, error: error.message });
@@ -307,12 +234,11 @@ app.get('/api/leads', auth, async (req, res) => {
 });
 
 // CREAR LEAD (agente o admin)
-app.post('/api/leads', auth, async (req, res) => {
+app.post('/api/leads', async (req, res) => {
   try {
     const lead = req.body;
 
-    // Asignamos el agente que crea el lead desde el token de autenticación
-    lead.agente = req.user.nombre;
+    lead.agente = 'agente_default'; // Agente por defecto
 
     // Normalización y validación de puntaje y team
     if (lead.supervisor) {
@@ -346,8 +272,43 @@ app.post('/api/leads', auth, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'El campo supervisor es obligatorio.' });
     }
 
+    // Usamos la fecha local en formato YYYY-MM-DD sin conversión de zona horaria
+    const hoy = new Date();
+    // Obtenemos la fecha local directamente sin ajustes de zona horaria
+    const fechaLocal = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    lead.creadoEn = fechaLocal;
+    
     // Insertamos el lead en la base de datos
     const result = await leads.insertOne(lead);
+
+    // Creamos y guardamos el documento en la colección 'costumer'
+    const costumerData = {
+      agente: lead.agente,
+      nombre_cliente: lead.nombre_cliente,
+      telefono: lead.telefono,
+      telefono_alterno: lead.telefono_alterno,
+      numero_de_cuenta: lead.numero_de_cuenta,
+      autopaquete: lead.autopaquete,
+      direccion: lead.direccion,
+      tipo_de_serv: lead.tipo_de_serv,
+      sistema: lead.sistema,
+      riesgo: lead.riesgo,
+      dia_venta_a_instalacion: lead.dia_venta_a_instalacion,
+      estado: "PENDIENTE", // Valor fijo según la imagen
+      servicios: lead.servicios,
+      mercado: lead.mercado,
+      supervisor: lead.supervisor,
+      comentario: lead.comentario,
+      motivo_llamada: lead.motivo_llamada,
+      zip: lead.zip,
+      puntaje: lead.puntaje,
+      fecha: lead.creadoEn,
+      equipo: lead.team,
+      producto: lead.producto,
+      cuenta: lead.cuenta
+    };
+    const costumers = db.collection('costumers');
+    await costumers.insertOne(costumerData);
 
     // Creamos un objeto del lead insertado para devolverlo y sincronizarlo
     const orderedFields = [
@@ -390,18 +351,16 @@ app.post('/api/leads', auth, async (req, res) => {
     // Respondemos al frontend
     res.json({ ok: true, lead: leadInsertado });
   } catch (error) {
-    res.status(500).json({ ok: false, error });
+    console.error('Error al guardar lead:', error);
+    res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor' });
   }
 });
 
 // OBTENER UN LEAD POR ID
-app.get('/api/leads/:id', auth, async (req, res) => {
+app.get('/api/leads/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    let filtro = { _id: new ObjectId(id) };
-    if (req.user.rol === 'agente') {
-      filtro.agente = req.user.nombre;
-    }
+    const filtro = { _id: new ObjectId(id) };
     const lead = await leads.findOne(filtro);
     res.json(lead);
   } catch (error) {
@@ -410,7 +369,7 @@ app.get('/api/leads/:id', auth, async (req, res) => {
 });
 
 // ACTUALIZAR LEAD (agente o admin)
-app.put('/api/leads/:id', auth, async (req, res) => {
+app.put('/api/leads/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const leadActualizado = req.body;
@@ -429,57 +388,148 @@ app.put('/api/leads/:id', auth, async (req, res) => {
   }
 });
 
-// AGREGAR COMENTARIO SOBRE LA VENTA
-app.post('/api/leads/:id/comentarios', auth, async (req, res) => {
+// OBTENER COMENTARIOS DE UN LEAD
+app.get('/api/leads/:id/comentarios', async (req, res) => {
   try {
     const { id } = req.params;
-    let { autor, fecha, texto } = req.body;
-    if (!texto || !autor) return res.status(400).json({ ok: false, error: "Comentario vacío o sin autor." });
-    const venta = await leads.findOne({ _id: new ObjectId(id) });
-    if (!venta) return res.status(404).json({ ok: false, error: "No encontrado." });
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false, error: 'ID de lead inválido' });
+    }
+
+    const costumers = db.collection('costumers');
+    const lead = await costumers.findOne({ _id: new ObjectId(id) });
+
+    if (!lead) {
+      return res.status(404).json({ ok: false, error: 'Lead no encontrado' });
+    }
+
+    // Devolver los comentarios o un array vacío si no existen
+    res.json(lead.comentarios_venta || []);
+
+  } catch (error) {
+    console.error('Error al obtener comentarios:', error);
+    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+});
+
+// AGREGAR UN NUEVO COMENTARIO A UN LEAD
+app.post('/api/leads/:id/comentarios', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { texto } = req.body;
+    if (!texto) {
+      return res.status(400).json({ ok: false, error: 'El texto del comentario no puede estar vacío.' });
+    }
+    const costumers = db.collection('costumers');
     // Permitir comentar a cualquier usuario autenticado
-    if (!fecha) {
-      const ahora = new Date();
-      // Formato: Demo 16/07/2025 11:58 A-M
-      const fechaStr = ahora.toLocaleDateString('es-MX') + ' ' + ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
-      fecha = fechaStr;
-    }
+    // Generar autor y fecha en el servidor para consistencia
+    const autor = 'agente_default'; // Usar un nombre de agente o req.user.nombre si la autenticación estuviera activa
+    const fecha = new Date();
     const comentarioObj = { autor, fecha, texto };
-    await leads.updateOne({ _id: new ObjectId(id) }, { $push: { comentarios_venta: comentarioObj } });
-    res.json({ ok: true });
+
+    const resultado = await costumers.updateOne(
+      { _id: new ObjectId(id) }, 
+      { $push: { comentarios_venta: comentarioObj } }
+    );
+
+    if (resultado.modifiedCount === 0) {
+        return res.status(404).json({ ok: false, error: 'No se pudo encontrar el lead para agregar el comentario.' });
+    }
+
+    res.status(201).json(comentarioObj);
   } catch (error) {
     res.status(500).json({ ok: false, error });
   }
 });
 
-// BORRAR LEAD (solo admin o dueño)
-app.delete('/api/leads/:id', auth, async (req, res) => {
+// --- RUTAS PARA COMENTARIOS DE COSTUMERS ---
+
+// OBTENER COMENTARIOS DE UN COSTUMER
+app.get('/api/costumers/:id/comentarios', async (req, res) => {
   try {
     const { id } = req.params;
-    const venta = await leads.findOne({ _id: new ObjectId(id) });
-    if (!venta) return res.status(404).json({ ok: false, error: "No encontrado." });
-    if (req.user.rol !== 'admin' && venta.agente !== req.user.nombre) {
-      return res.status(403).json({ ok: false, error: "No tienes permiso para borrar esta venta." });
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false, error: 'ID de costumer inválido' });
     }
-    await leads.deleteOne({ _id: new ObjectId(id) });
+    const costumers = db.collection('costumers');
+    const costumer = await costumers.findOne({ _id: new ObjectId(id) });
+
+    if (!costumer) {
+      return res.status(404).json({ ok: false, error: 'Costumer no encontrado' });
+    }
+
+    res.json(costumer.comentarios_venta || []);
+
+  } catch (error) {
+    console.error('Error al obtener comentarios de costumer:', error);
+    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+});
+
+// AGREGAR UN NUEVO COMENTARIO A UN COSTUMER
+app.post('/api/costumers/:id/comentarios', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { texto } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false, error: 'ID de costumer inválido' });
+    }
+    if (!texto) {
+      return res.status(400).json({ ok: false, error: 'El texto del comentario no puede estar vacío.' });
+    }
+
+    const costumers = db.collection('costumers');
+    
+    const autor = 'agente_default';
+    const fecha = new Date();
+    const comentarioObj = { autor, fecha, texto };
+
+    const resultado = await costumers.updateOne(
+      { _id: new ObjectId(id) }, 
+      { $push: { comentarios_venta: comentarioObj } }
+    );
+
+    if (resultado.modifiedCount === 0) {
+        return res.status(404).json({ ok: false, error: 'No se pudo encontrar el costumer para agregar el comentario.' });
+    }
+
+    res.status(201).json(comentarioObj);
+  } catch (error) {
+    console.error('Error al guardar comentario de costumer:', error);
+    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+});
+
+// BORRAR LEAD
+app.delete('/api/leads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await leads.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ ok: false, error: "No encontrado." });
+    }
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ ok: false, error });
   }
 });
 
-// LISTAR USUARIOS (solo admin, para test)
-app.get('/api/users', auth, async (req, res) => {
-  if (req.user.rol !== 'admin') return res.status(403).json({ ok: false, error: "Solo admins." });
-  const lista = await users.find({}, { projection: { password: 0 } }).toArray();
-  res.json(lista);
-});
+
 
 
 // --- RUTA FINAL PARA SERVIR LA APP DE FRONTEND ---
 // ¡¡¡IMPORTANTE!!! Esta debe ser la ÚLTIMA ruta para que no sobreescriba las de la API
+app.get('/register.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+// La ruta del dashboard ahora está protegida
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// Redirigir cualquier otra ruta no definida al login
 app.get('*', (req, res) => {
-  const dashboardPath = path.join(__dirname, 'public', 'dashboard.html');
-  console.log('Sirviendo dashboard desde:', dashboardPath);
-  res.sendFile(dashboardPath);
+  res.status(200).json({ message: 'Acceso permitido' });
 });

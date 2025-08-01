@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Cargar estadísticas cuando la página esté lista
     loadDashboardStats();
-    
     // Actualizar estadísticas cada 5 minutos (300000 ms)
     setInterval(loadDashboardStats, 300000);
 });

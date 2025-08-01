@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>CRM Agente</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,10 +10,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/crm-form-styles.css">
-  <link rel="stylesheet" href="css/modern-lead-form.css">
-  <link rel="stylesheet" href="css/lead-form-effects.css">
-  <link rel="stylesheet" href="css/white-vertical-form.css">
+  <link rel="stylesheet" href="css/modern-lead-form.css?v=1.1">
+  <link rel="stylesheet" href="css/modern-form-styles.css">
   <!-- jQuery y jQuery Modal -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
 
@@ -66,6 +64,8 @@
     /* --- ESTILO FORZADO PARA TABLA DE CLIENTES --- */
     div.costumer-table-container, .costumer-table-container {
       width: 100% !important;
+      flex-grow: 1; /* Permite que el contenedor de la tabla crezca */
+      overflow-y: auto !important; /* Mantiene el scroll vertical */
       overflow-x: auto !important;
       background: #fff !important;
       padding: 0 !important;
@@ -89,37 +89,35 @@
       top: 0 !important;
       z-index: 10 !important;
       background: #f8fafc !important;
-      color: #0f172a !important;
-      font-weight: 500 !important;
-      padding: 16px 16px !important;
+      color: #475569 !important; /* Tono de gris más suave */
+      font-weight: 600 !important; /* Un poco más de grosor */
+      padding: 12px 15px !important;
       text-align: left !important;
       border: none !important;
-      border-bottom: 2px solid #e2e8f0 !important;
-      font-size: 0.9em !important;
-      letter-spacing: 0.01em !important;
+      border-bottom: 1px solid #e2e8f0 !important; /* Borde más sutil */
+      font-size: 0.75em !important;
       text-transform: uppercase !important;
-      font-size: 0.8em !important;
-      color: #64748b !important;
+      letter-spacing: 0.05em !important; /* Más espaciado */
     }
     .costumer-table-elegant tbody tr {
       border: none !important;
+      border-bottom: 1px solid #f1f5f9 !important; /* Borde sutil para separar filas */
       background: #fff !important;
-      transition: background 0.18s !important;
-      min-height: 28px !important;
-      height: 28px !important;
+      transition: background-color 0.2s ease !important;
     }
+    /* Se elimina el color de fondo alterno para un look más limpio */
     .costumer-table-elegant tbody tr:nth-child(even) {
-      background-color: #f8fafc !important;
+      background-color: #fff !important;
     }
     .costumer-table-elegant tbody tr:hover {
       background-color: #f1f5ff !important;
     }
     .costumer-table-elegant td {
-      padding: 0.05px 1px !important;
+      padding: 8px 15px !important; /* Espaciado vertical reducido */
       vertical-align: middle !important;
       border: none !important;
-      font-size: 1em !important;
-      color: #0a2540 !important;
+      font-size: 0.9em !important; /* Tamaño de fuente consistente */
+      color: #334155 !important; /* Color de texto más suave */
       background: transparent !important;
       font-weight: 300 !important;
     }
@@ -198,6 +196,26 @@
       font-weight: 700 !important;
     }
     /* --- FIN ESTILO FORZADO --- */
+
+    /* --- Estilo para scroll en panel de gráficas --- */
+    #charts-panel {
+      max-height: calc(100vh - 100px); /* Ajusta 100px a la altura de tu cabecera y otros elementos */
+      overflow-y: auto;
+      padding-right: 15px; /* Espacio para la barra de scroll */
+    }
+
+    /* --- Layout para llenar espacio vertical --- */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 60px); /* Ajusta 60px a la altura de tu cabecera */
+    }
+    #costumerTab {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      overflow: hidden; /* Previene doble scroll */
+    }
     .costumer-table-container {
       width: 100%;
       overflow-x: auto;
@@ -372,7 +390,7 @@
       border: none;
     }
 
-    /* Badges de estado con diseÃ±o minimalista */
+    /* Badges de estado con diseño minimalista */
     .costumer-table-elegant .badge-status {
       display: inline-block;
       padding: 4px 10px;
@@ -383,7 +401,7 @@
       color: #555;
     }
 
-    /* Estilos especÃ­ficos para cada tipo de estado */
+    /* Estilos específicos para cada tipo de estado */
     .costumer-table-elegant .badge-status-activo {
       background-color: #e8f5e9;
       color: #2e7d32;
@@ -434,7 +452,7 @@
       top: 120%;
     }
 
-    /* Botones de acciÃ³n minimalistas */
+    /* Botones de acción minimalistas */
     .costumer-table-elegant .costumer-action-btn {
       background: none;
       border: none;
@@ -806,7 +824,7 @@
       min-height: 0;
       align-items: flex-start;
     }
-    /* Estilos del formulario movidos a crm-form-styles.css */
+
     .crm-form-section {
       max-width: 510px;
       width: 100%;
@@ -1121,7 +1139,7 @@
 html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .charts-section {
   min-height: 0 !important;
 }
-/* Se agregÃ³ la llave de cierre faltante */
+/* Se agregó la llave de cierre faltante */
 
     .costumer-table {
       border-collapse:separate;
@@ -1155,7 +1173,7 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
     html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .charts-section {
       min-height: 0 !important;
     }
-    /* Se agregÃ³ la llave de cierre faltante */
+    /* Se agregó la llave de cierre faltante */
   }
   .td-ellipsis {
   max-width: 140px;
@@ -1199,315 +1217,415 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
   <link rel="stylesheet" href="css/costumer-table-clean.css">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <link rel="stylesheet" href="css/costumer-table-comments.css">
+    
+    <link rel="stylesheet" href="./css/lead-form-effects.css">
+    <style>
+      /* Forzando el layout de la pestaña Lead */
+      .dashboard-flex-row#leadTab {
+        display: grid;
+        grid-template-columns: 44% 56%; /* Más espacio para gráficas */
+        gap: 2.5rem;
+        align-items: flex-start;
+        height: calc(100vh - 80px);
+      }
+
+      /* Asegurando el scroll en el panel del formulario */
+      .modern-form-container#form-panel {
+        height: 100%;
+        overflow-y: auto; /* Scroll vertical SOLO para el formulario */
+      }
+    </style>
 </head>
 <body>
   <div class="topbar">
+
     <div style="display:flex;align-items:center;gap:12px;">
       <i class="fas fa-user-tie" style="font-size:1.25em;color:#fff;margin-right:6px;"></i>
       <b>CRM Agente</b>
     </div>
-    <a href="#" class="logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesiÃ³n</a>
+
   </div>
   <div class="container">
     <div class="sidebar">
-      <h3>MenÃº</h3>
+      <h3>Menú</h3>
       <ul>
-        <li><a href="#" class="tab-btn" data-tab="inicioTab" id="tabInicio"><i class="fas fa-home"></i> Inicio</a></li>
-        <li><a href="#" class="tab-btn" data-tab="leadTab" id="tabLead"><i class="fas fa-user-plus"></i> Lead</a></li>
-
-        <li><a href="#" class="tab-btn" data-tab="costumerTab" id="tabCostumer"><i class="fas fa-users"></i> Costumer</a></li>
+        <li><a href="#" id="nav-inicio"><i class="fas fa-home"></i> Inicio</a></li>
+        <li><a href="#" id="nav-lead"><i class="fas fa-user-plus"></i> Lead</a></li>
+        <li><a href="#" id="nav-costumer"><i class="fas fa-users"></i> Costumer</a></li>
       </ul>
     </div>
     <div class="main-content">
-      <!-- SECCIÃ“N INICIO -->
-      <div class="inicio-section" id="inicioTab" style="display: flex; align-items: center; justify-content: center; height: 80vh; width: 100%;">
-        <div style="text-align:center;">
-          <i class="fas fa-tools" style="font-size:3.5em;color:#1976d2;margin-bottom:18px;"></i>
-          <h1 style="font-size:2.2em;color:#1976d2;margin-bottom:10px;">En construcciÃ³n</h1>
-          <div style="font-size:1.3em;color:#888;">By Zombie</div>
+
+      <!-- SECCIÓN INICIO -->
+      <div id="inicio-content" class="content-section">
+        <div class="inicio-section" style="display: flex; align-items: center; justify-content: center; height: 80vh; width: 100%;">
+          <div style="text-align:center;">
+            <i class="fas fa-tools" style="font-size:3.5em;color:#1976d2;margin-bottom:18px;"></i>
+            <h1 style="font-size:2.2em;color:#1976d2;margin-bottom:10px;">En construcción</h1>
+            <div style="font-size:1.3em;color:#888;">By Zombie</div>
+          </div>
         </div>
       </div>
-      <div class="dashboard-flex-row" id="leadTab">
 
-        <!-- FORMULARIO LEAD -->
-        <section class="crm-form-section" id="form-panel">
-          <!-- Cabecera del formulario -->
-          <div class="form-header">
-            <h2><i class="fas fa-user-edit"></i> Formulario de Registro</h2>
-            <button type="button" class="close-btn" id="close-form-btn">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          
-          <!-- Contenedor del formulario -->
-          <div class="form-container">
-            <form id="lead-form" class="crm-form" autocomplete="off" novalidate>
-            <!-- AQUÃ VAN TODOS TUS CAMPOS DE FORMULARIO -->
-            <h3 class="form-section-title"><i class="fas fa-user-circle"></i> InformaciÃ³n del Cliente</h3>
-            <div class="crm-form-group required" data-field="nombre_cliente">
-              <label class="crm-form-label"><i class="fas fa-user"></i> Nombre cliente <span class="crm-form-req">*</span></label>
-              <input type="text" name="nombre_cliente" class="crm-form-input" placeholder="Ej: Juan PÃ©rez" required />
-            </div>
-            
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="telefono_principal">
-                <label class="crm-form-label"><i class="fas fa-phone"></i> TelÃ©fono principal <span class="crm-form-req">*</span></label>
-                <input type="text" name="telefono_principal" class="crm-form-input" placeholder="Tu respuesta" required />
+      <!-- SECCIÓN LEAD -->
+      <div id="lead-content" class="content-section">
+        <div class="dashboard-flex-row" style="display: grid; grid-template-columns: auto 1fr; gap: 0; align-items: flex-start; height: calc(100vh - 80px);">
+          <section class="modern-form-container" id="form-panel">
+            <form id="lead-form" autocomplete="off">
+              <div class="form-header-modern styled-form-header">
+                <h2 class="form-title-modern styled-form-title"><i class="fas fa-user-edit"></i> Formulario de Registro</h2>
               </div>
-              <div class="crm-form-group" data-field="telefono_alterno">
-                <label class="crm-form-label"><i class="fas fa-phone-alt"></i> TelÃ©fono Alterno</label>
-                <input type="text" name="telefono_alterno" class="crm-form-input" placeholder="Tu respuesta" />
+              <div class="form-fields-unified">
+                <h3 class="form-section-title"><i class="fas fa-user-circle"></i> Información del Cliente</h3>
+                <div class="form-grid">
+                  <div class="crm-form-group required" data-field="nombre_cliente"><label for="nombre_cliente" class="crm-form-label">Nombre cliente</label><div class="input-group"><i class="fas fa-user input-icon"></i><input type="text" name="nombre_cliente" id="nombre_cliente" class="crm-form-input" placeholder="Nombre completo" required></div><div class="error-message"></div></div>
+                  <div class="crm-form-group required" data-field="telefono_principal"><label for="telefono_principal" class="crm-form-label">Teléfono principal</label><div class="input-group"><i class="fas fa-phone input-icon"></i><input type="tel" name="telefono_principal" id="telefono_principal" class="crm-form-input" placeholder="(555) 123-4567" required></div><div class="error-message"></div></div>
+                  <div class="crm-form-group" data-field="telefono_alterno"><label for="telefono_alterno" class="crm-form-label">Teléfono Alterno</label><div class="input-group"><i class="fas fa-phone-alt input-icon"></i><input type="tel" name="telefono_alterno" id="telefono_alterno" class="crm-form-input" placeholder="Opcional"></div><div class="error-message"></div></div>
+                  <div class="crm-form-group required" data-field="numero_cuenta"><label for="numero_cuenta" class="crm-form-label">Número de cuenta</label><div class="input-group"><i class="fas fa-hashtag input-icon"></i><input type="text" name="numero_cuenta" id="numero_cuenta" class="crm-form-input" placeholder="# de cuenta" required></div><div class="error-message"></div></div>
+                  <div class="crm-form-group required" data-field="autopago"><label for="autopago" class="crm-form-label">Autopago</label><div class="input-group"><i class="fas fa-credit-card input-icon"></i><select name="autopago" id="autopago" class="crm-form-select" required><option value="" disabled selected>¿Cliente en Autopago?</option><option value="SI">SI</option><option value="NO">NO</option></select></div><div class="error-message"></div></div>
+                  <div class="crm-form-group required full-width" data-field="direccion"><label for="direccion" class="crm-form-label">Dirección</label><div class="input-group"><i class="fas fa-map-marker-alt input-icon"></i><input type="text" name="direccion" id="direccion" class="crm-form-input" placeholder="Dirección completa" required></div><div class="error-message"></div></div>
+                </div>
+
+                <h3 class="form-section-title"><i class="fas fa-concierge-bell"></i> Información del Servicio</h3>
+                <div class="form-grid">
+                  <div class="crm-form-group required full-width" data-field="tipo_servicios"><label for="tipo_servicios" class="crm-form-label">Tipo de servicios</label><div class="input-group"><i class="fas fa-network-wired input-icon"></i><select name="tipo_servicios" id="tipo_servicios" class="crm-form-select" required>
+  <option value="" disabled selected>Elige un tipo de servicio</option>
+  <option value="VIDEO">VIDEO</option>
+  <option value="INTERNET">INTERNET</option>
+  <option value="AT&T AIR">AT&T AIR</option>
+  <option value="WIRELESS">WIRELESS</option>
+  <option value="SINGLE INTERNET">SINGLE INTERNET</option>
+  <option value="FRONTIER">FRONTIER</option>
+  <option value="WINDSTREAM">WINDSTREAM</option>
+  <option value="OPTIMUM">OPTIMUM</option>
+  <option value="WOW">WOW</option>
+  <option value="ALTAFIBER">ALTAFIBER</option>
+  <option value="CONSOLIDATE">CONSOLIDATE</option>
+  <option value="HUGHESNET">HUGHESNET</option>
+  <option value="VIASAT">VIASAT</option>
+  <option value="CENTURYLINK">CENTURYLINK</option>
+  <option value="METRONET">METRONET</option>
+  <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+  <option value="HAWAIIAN">HAWAIIAN</option>
+  <option value="DOUBLE PLAY">DOUBLE PLAY</option>
+  <option value="VIVINT">VIVINT</option>
+  <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+  <option value="MOBILITY">MOBILITY</option>
+  <option value="SIM MOBILITY">SIM MOBILITY</option>
+  <option value="EARTHLINK">EARTHLINK</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="sistema"><label for="sistema" class="crm-form-label">Sistema</label><div class="input-group"><i class="fas fa-server input-icon"></i><select name="sistema" id="sistema" class="crm-form-select" required>
+  <option value="" disabled selected>Elige</option>
+  <option value="SARA">SARA</option>
+  <option value="OPUS">OPUS</option>
+  <option value="B.O">B.O</option>
+  <option value="N/A">N/A</option>
+  <option value="CHUZO">CHUZO</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="riesgo"><label for="riesgo" class="crm-form-label">Riesgo</label><div class="input-group"><i class="fas fa-exclamation-triangle input-icon"></i><select name="riesgo" id="riesgo" class="crm-form-select" required>
+  <option value="" disabled selected>Elige</option>
+  <option value="LOW">LOW</option>
+  <option value="MEDIUM">MEDIUM</option>
+  <option value="HIGH">HIGH</option>
+  <option value="N/A">N/A</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="dia_venta"><label for="dia_venta" class="crm-form-label">Día de venta</label><div class="input-group"><i class="fas fa-calendar-alt input-icon"></i><input type="date" name="dia_venta" id="dia_venta" class="crm-form-input" required></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="dia_instalacion"><label for="dia_instalacion" class="crm-form-label">Día de instalación</label><div class="input-group"><i class="fas fa-calendar-check input-icon"></i><input type="date" name="dia_instalacion" id="dia_instalacion" class="crm-form-input" required></div><div class="error-message"></div></div>
               </div>
-            </div>
-            
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="numero_cuenta">
-                <label class="crm-form-label"><i class="fas fa-id-card"></i> NÃºmero de cuenta <span class="crm-form-req">*</span></label>
-                <input type="text" name="numero_cuenta" class="crm-form-input" placeholder="Tu respuesta" required />
+
+              <h3 class="form-section-title"><i class="fas fa-info-circle"></i> Estado y Detalles</h3>
+              <div class="form-grid">
+                <div class="crm-form-group required" data-field="status">
+  <label for="status" class="crm-form-label">Status</label>
+  <div class="crm-form-radio-group">
+    <label class="crm-form-radio-label">
+      <input type="radio" name="status" value="PENDING" class="crm-form-radio-input" required> PENDING
+    </label>
+    <label class="crm-form-radio-label">
+      <input type="radio" name="status" value="REPRO" class="crm-form-radio-input"> REPRO
+    </label>
+  </div>
+  <div class="error-message"></div>
+</div>
+                <div class="crm-form-group required" data-field="servicios"><label for="servicios" class="crm-form-label">Servicios</label><div class="input-group"><i class="fas fa-briefcase input-icon"></i><select name="servicios" id="servicios" class="crm-form-select" required>
+  <option value="" disabled selected>Elige un servicio</option>
+  <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
+  <option value="VIDEO DIRECTV VIA SATELITE">VIDEO DIRECTV VIA SATELITE</option>
+  <option value="ATT AIR">ATT AIR</option>
+  <option value="ATT 18 - 25 MB">ATT 18 - 25 MB</option>
+  <option value="ATT 50 - 100 MB">ATT 50 - 100 MB</option>
+  <option value="ATT 300 - 500 MB">ATT 300 - 500 MB</option>
+  <option value="ATT 1G+">ATT 1G+</option>
+  <option value="MOBILITY SPECTRUM">MOBILITY SPECTRUM</option>
+  <option value="SIM SPECTRUM">SIM SPECTRUM</option>
+  <option value="FRONTIER 200 MB">FRONTIER 200 MB</option>
+  <option value="FRONTIER 500 MB">FRONTIER 500 MB</option>
+  <option value="FRONTIER 1G">FRONTIER 1G</option>
+  <option value="FRONTIER 2G+">FRONTIER 2G+</option>
+  <option value="SPECTRUM 500">SPECTRUM 500</option>
+  <option value="SPECTRUM 1G">SPECTRUM 1G</option>
+  <option value="SPECTRUM 2G">SPECTRUM 2G</option>
+  <option value="INTERNET WOW">INTERNET WOW</option>
+  <option value="INTERNET ALTA FIBER">INTERNET ALTA FIBER</option>
+  <option value="INTERNET WINDSTREAM">INTERNET WINDSTREAM</option>
+  <option value="INTERNET HUGHESNET">INTERNET HUGHESNET</option>
+  <option value="INTERNET VIASAT">INTERNET VIASAT</option>
+  <option value="INTERNET CONSOLIDATE">INTERNET CONSOLIDATE</option>
+  <option value="INTERNET CENTURILINK">INTERNET CENTURILINK</option>
+  <option value="INTERNET METRONET">INTERNET METRONET</option>
+  <option value="INTERNET ZIPLY FIBER">INTERNET ZIPLY FIBER</option>
+  <option value="INTERNET HAWAIIAN">INTERNET HAWAIIAN</option>
+  <option value="VIDEO SELECT SPECTRUM">VIDEO SELECT SPECTRUM</option>
+  <option value="DOUBLE PLAY SPECTRUM">DOUBLE PLAY SPECTRUM</option>
+  <option value="BRIGHTSPEED 10-100MBPS">BRIGHTSPEED 10-100MBPS</option>
+  <option value="BRIGHTSPEED 100-900MBPS">BRIGHTSPEED 100-900MBPS</option>
+  <option value="INTERNET OPTIMUM">INTERNET OPTIMUM</option>
+  <option value="INTERNET EARTHLINK">INTERNET EARTHLINK</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="mercado"><label for="mercado" class="crm-form-label">Mercado</label><div class="input-group"><i class="fas fa-store input-icon"></i><select name="mercado" id="mercado" class="crm-form-select" required>
+  <option value="" disabled selected>Elige</option>
+  <option value="ICON">ICON</option>
+  <option value="BAMO">BAMO</option>
+</select></div><div class="error-message"></div></div>
               </div>
-              <div class="crm-form-group required" data-field="autopago">
-                <label class="crm-form-label"><i class="fas fa-credit-card"></i> Autopago <span class="crm-form-req">*</span></label>
-                <select name="autopago" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="SI">SI</option>
-                  <option value="NO">NO</option>
-                </select>
+
+              <h3 class="form-section-title"><i class="fas fa-user-shield"></i> Supervisión y Motivo</h3>
+              <div class="form-grid">
+                <div class="crm-form-group required" data-field="supervisor"><label for="supervisor" class="crm-form-label">Supervisor</label><div class="input-group"><i class="fas fa-user-tie input-icon"></i><select name="supervisor" id="supervisor" class="crm-form-select" required>
+  <option value="" disabled selected>Elige</option>
+  <option value="IRANIA">IRANIA</option>
+  <option value="ROBERTO">ROBERTO</option>
+  <option value="MARISOL">MARISOL</option>
+  <option value="PLEITEZ">PLEITEZ</option>
+  <option value="RANDAL">RANDAL</option>
+  <option value="JONATHAN">JONATHAN</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="comentario"><label for="comentario" class="crm-form-label">Comentario</label><div class="input-group"><i class="fas fa-comment-dots input-icon"></i><select name="comentario" id="comentario" class="crm-form-select" required>
+  <option value="" disabled selected>Elige</option>
+  <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
+  <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
+  <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
+  <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
+</select></div><div class="error-message"></div></div>
+                <div class="crm-form-group required full-width" data-field="motivo_llamada">
+                <label class="crm-form-label">¿Por qué llamó el cliente?</label>
+                <div class="crm-form-radio-group" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                  <div style="flex: 1; min-width: 200px;">
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="BILL ALTO" class="crm-form-radio-input" required> BILL ALTO</label>
+                    </div>
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="PROBLEMAS DE INTERNET" class="crm-form-radio-input"> PROBLEMAS DE INTERNET</label>
+                    </div>
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="ADQUIRIR SERVICIOS" class="crm-form-radio-input"> ADQUIRIR SERVICIOS</label>
+                    </div>
+                  </div>
+                  <div style="flex: 1; min-width: 200px;">
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="MUDANZA" class="crm-form-radio-input"> MUDANZA</label>
+                    </div>
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="CANCELAR SERVICIOS" class="crm-form-radio-input"> CANCELAR SERVICIOS</label>
+                    </div>
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="PAGAR BILL" class="crm-form-radio-input"> PAGAR BILL</label>
+                    </div>
+                    <div style="display: block; margin-bottom: 8px;">
+                      <label class="crm-form-radio-label"><input type="radio" name="motivo_llamada" value="ATENCION AL CLIENTE" class="crm-form-radio-input"> ATENCION AL CLIENTE</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="error-message"></div>
               </div>
-            </div>
-            
-            <div class="crm-form-group required" data-field="direccion">
-              <label class="crm-form-label"><i class="fas fa-map-marker-alt"></i> DirecciÃ³n <span class="crm-form-req">*</span></label>
-              <input type="text" name="direccion" class="crm-form-input" placeholder="Tu respuesta" required />
-            </div>
-            <h3 class="form-section-title"><i class="fas fa-cogs"></i> InformaciÃ³n del Servicio</h3>
-            <div class="crm-form-group required" data-field="tipo_servicios">
-              <label class="crm-form-label"><i class="fas fa-list-alt"></i> Tipo de servicios <span class="crm-form-req">*</span></label>
-              <select name="tipo_servicios" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="AT&T AIR">AT&T AIR</option>
-                <option value="AT&T INTERNET 1 GIGA O MAS">AT&T INTERNET 1 GIGA O MAS</option>
-                <option value="AT&T INTERNET DE 500 MBPS">AT&T INTERNET DE 500 MBPS</option>
-                <option value="AT&T INTERNET DE 300 MBPS">AT&T INTERNET DE 300 MBPS</option>
-                <option value="AT&T INTERNET DE 100 MBPS">AT&T INTERNET DE 100 MBPS</option>
-                <option value="AT&T INTERNET DE 50 Y 75 MBPS">AT&T INTERNET DE 50 Y 75 MBPS</option>
-                <option value="AT&T INTERNET MENOS DE 50">AT&T INTERNET MENOS DE 50</option>
-                <option value="FRONTIER 7 GIG">FRONTIER 7 GIG</option>
-                <option value="FRONTIER 5 GIG">FRONTIER 5 GIG</option>
-                <option value="FRONTIER 2 GIG">FRONTIER 2 GIG</option>
-                <option value="FRONTIER 1 GIG">FRONTIER 1 GIG</option>
-                <option value="FRONTIER 500 MBPS">FRONTIER 500 MBPS</option>
-                <option value="FRONTIER UNDER 500 MBPS">FRONTIER UNDER 500 MBPS</option>
-                <option value="UNLIMITED DIGITAL VOICE">UNLIMITED DIGITAL VOICE</option>
-                <option value="Centurylink/Lumen 900MBPS+">Centurylink/Lumen 900MBPS+</option>
-                <option value="Centurylink/Lumen 100-899MBPS">Centurylink/Lumen 100-899MBPS</option>
-                <option value="Centurylink/Lumen 10-99MBPS">Centurylink/Lumen 10-99MBPS</option>
-                <option value="Ziply Fiber 10GIG">Ziply Fiber 10GIG</option>
-                <option value="Ziply Fiber 5GIG">Ziply Fiber 5GIG</option>
-                <option value="Ziply Fiber 2GIG">Ziply Fiber 2GIG</option>
-                <option value="Ziply Fiber 1GIG">Ziply Fiber 1GIG</option>
-                <option value="Ziply Fiber 300/300">Ziply Fiber 300/300</option>
-                <option value="Ziply Fiber 200/200">Ziply Fiber 200/200</option>
-                <option value="SPECTRUM 2 GIGA">SPECTRUM 2 GIGA</option>
-                <option value="SPECTRUM 1 GIGA">SPECTRUM 1 GIGA</option>
-                <option value="SPECTRUM PREMIER">SPECTRUM PREMIER</option>
-                <option value="SPECTRUM ADVANTAGE">SPECTRUM ADVANTAGE</option>
-                <option value="SPECTRUM 500MBPS">SPECTRUM 500MBPS</option>
-                <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
-                <option value="WOW! 1200MBPS">WOW! 1200MBPS</option>
-                <option value="WOW! 1000MBPS">WOW! 1000MBPS</option>
-                <option value="WOW! 500MBPS">WOW! 500MBPS</option>
-                <option value="WOW! 200MBPS">WOW! 200MBPS</option>
-                <option value="OPTIMUM BROADBAND 5 GBPS">OPTIMUM BROADBAND 5 GBPS</option>
-                <option value="OPTIMUM BROADBAND 2 GBPS">OPTIMUM BROADBAND 2 GBPS</option>
-                <option value="OPTIMUM BROADBAND 1 GBPS">OPTIMUM BROADBAND 1 GBPS</option>
-                <option value="OPTIMUM BROADBAND 500 MBPS">OPTIMUM BROADBAND 500 MBPS</option>
-                <option value="VIVINT">VIVINT</option>
-                <option value="VIDEO SELECT">VIDEO SELECT</option>
-                <option value="ADDITIONAL DOUBLE PLAY">ADDITIONAL DOUBLE PLAY</option>
-                <option value="ADDITIONAL TRIPLE PLAY">ADDITIONAL TRIPLE PLAY</option>
-                <option value="INTERNET">INTERNET</option>
-                <option value="DIRECTV VIA INTERNET">DIRECTV VIA INTERNET</option>
-                <option value="DIRECTV VIA SATELITE">DIRECTV VIA SATELITE</option>
-                <!-- ...agrega los productos que falten... -->
-              </select>
-            </div>
-            
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="sistema">
-                <label class="crm-form-label"><i class="fas fa-server"></i> Sistema <span class="crm-form-req">*</span></label>
-                <select name="sistema" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="sistema1">SARA </option>
-                  <option value="sistema2">OPUS</option>
-                  <option value="Sistema3"> B.O</option>
-                  <option value="Sistema4">N.A</option>
-                  <option value="Sistema5">CHUZO</option>
-                </select>
               </div>
-              <div class="crm-form-group required" data-field="riesgo">
-                <label class="crm-form-label"><i class="fas fa-exclamation-triangle"></i> Riesgo <span class="crm-form-req">*</span></label>
-                <select name="riesgo" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="LOW">LOW</option>
-                  <option value="MEDIUM">MEDIUM</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="N/A">N/A</option>
-                </select>
+
+              <h3 class="form-section-title"><i class="fas fa-clipboard-check"></i> Datos Finales</h3>
+              <div class="form-grid">
+                <div class="crm-form-group required" data-field="zip_code"><label for="zip_code" class="crm-form-label">ZIP Code</label><div class="input-group"><i class="fas fa-mail-bulk input-icon"></i><input type="text" name="zip_code" id="zip_code" class="crm-form-input" placeholder="Código Postal" required></div><div class="error-message"></div></div>
+                <div class="crm-form-group required" data-field="puntaje"><label for="puntaje" class="crm-form-label">Puntaje</label><div class="input-group"><i class="fas fa-star input-icon"></i><select name="puntaje" id="puntaje" class="crm-form-select" required><option value="" disabled selected>Selecciona un puntaje</option><option value="0.25">0.25</option><option value="0.35">0.35</option><option value="1.0">1.0</option><option value="1.25">1.25</option><option value="1.50">1.50</option></select></div><div class="error-message"></div></div>
               </div>
-            </div>
-            
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="dia_venta">
-                <label class="crm-form-label"><i class="fas fa-calendar-check"></i> DÃ­a de venta <span class="crm-form-req">*</span></label>
-                <input type="date" name="dia_venta" class="crm-form-input" required />
+
+              <!-- Botón Guardar Lead -->
+              <div class="form-actions" style="margin: 25px 0 50px 0; text-align: center; width: 100%;">
+                <button type="submit" id="guardar-lead-btn" class="guardar-lead-btn" style="padding: 12px 40px; font-size: 1.1em; font-weight: 600; border-radius: 8px; background: #000000; color: white; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(30, 136, 229, 0.3);">
+                  <i class="fas fa-save" style="margin-right: 8px;"></i>Guardar Lead
+                </button>
               </div>
-              <div class="crm-form-group required" data-field="dia_instalacion">
-                <label class="crm-form-label"><i class="fas fa-tools"></i> DÃ­a de instalaciÃ³n <span class="crm-form-req">*</span></label>
-                <input type="date" name="dia_instalacion" class="crm-form-input" required />
-              </div>
-            </div>
-            <h3 class="form-section-title"><i class="fas fa-clipboard-check"></i> Estado y Detalles</h3>
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="status">
-                <label class="crm-form-label"><i class="fas fa-tag"></i> Status <span class="crm-form-req">*</span></label>
-                <select name="status" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="VENTA">VENTA</option>
-                  <option value="INSTALADO">INSTALADO</option>
-                  <option value="CANCELADO">CANCELADO</option>
-                  <option value="NO INSTALADO">NO INSTALADO</option>
-                  <option value="PENDIENTE">PENDIENTE</option>
-                  <option value="REAGENDADO">REAGENDADO</option>
-                </select>
-              </div>
-              <div class="crm-form-group required" data-field="servicios">
-                <label class="crm-form-label"><i class="fas fa-concierge-bell"></i> Servicios <span class="crm-form-req">*</span></label>
-                <select name="servicios" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="INTERNET">INTERNET</option>
-                  <option value="INTERNET + TELEFONO">INTERNET + TELEFONO</option>
-                  <option value="INTERNET + TV">INTERNET + TV</option>
-                  <option value="INTERNET + TELEFONO + TV">INTERNET + TELEFONO + TV</option>
-                  <option value="TELEFONO">TELEFONO</option>
-                  <option value="TV">TV</option>
-                  <option value="TELEFONO + TV">TELEFONO + TV</option>
-                  <option value="SEGURIDAD">SEGURIDAD</option>
-                  <option value="INTERNET + SEGURIDAD">INTERNET + SEGURIDAD</option>
-                  <option value="INTERNET + TELEFONO + SEGURIDAD">INTERNET + TELEFONO + SEGURIDAD</option>
-                  <option value="INTERNET + TV + SEGURIDAD">INTERNET + TV + SEGURIDAD</option>
-                  <option value="INTERNET + TELEFONO + TV + SEGURIDAD">INTERNET + TELEFONO + TV + SEGURIDAD</option>
-                  <option value="TELEFONO + SEGURIDAD">TELEFONO + SEGURIDAD</option>
-                  <option value="TV + SEGURIDAD">TV + SEGURIDAD</option>
-                  <option value="TELEFONO + TV + SEGURIDAD">TELEFONO + TV + SEGURIDAD</option>
-                </select>
-              </div>
-            </div>
-            
-            <div class="crm-form-group required" data-field="mercado">
-              <label class="crm-form-label"><i class="fas fa-map"></i> Mercado <span class="crm-form-req">*</span></label>
-              <select name="mercado" class="crm-form-select" required>
-                <option value="">Elige</option>
-                <option value="ICON">ICON</option>
-                <option value="BAMO">BAMO</option>
-              </select>
-            </div>
-            <h3 class="form-section-title"><i class="fas fa-user-tie"></i> SupervisiÃ³n y Seguimiento</h3>
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="supervisor">
-                <label class="crm-form-label"><i class="fas fa-user-shield"></i> Supervisor <span class="crm-form-req">*</span></label>
-                <select name="supervisor" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="IRANIA">IRANIA</option>
-                  <option value="ROBERTO">ROBERTO</option>
-                  <option value="MARISOL">MARISOL</option>
-                  <option value="PLEITEZ">PLEITEZ</option>
-                  <option value="RANDAL">RANDAL</option>
-                  <option value="JONATHAN">JONATHAN</option>
-                </select>
-              </div>
-              <div class="crm-form-group required" data-field="comentario">
-                <label class="crm-form-label"><i class="fas fa-comment-alt"></i> Comentario <span class="crm-form-req">*</span></label>
-                <select name="comentario" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
-                  <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
-                  <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
-                  <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
-                </select>
-              </div>
-            </div>
-            
-            <div class="crm-form-group required" data-field="motivo_llamada">
-              <label class="crm-form-label"><i class="fas fa-phone-volume"></i> Â¿Por quÃ© llamÃ³ el cliente? <span class="crm-form-req">*</span></label>
-              <div class="crm-form-radio-group radio-grid">
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="FACTURACION_BILL" required> FACTURACIÃ“N / BILL</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="PROBLEMAS_INTERNET"> PROBLEMAS DE INTERNET</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ADQUIRIR_SERVICIOS"> ADQUIRIR SERVICIOS</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="MUDANZA"> MUDANZA</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="CANCELAR_SERVICIOS"> CANCELAR SERVICIOS</label>
-                <label class="crm-form-radio-label"><input type="radio" class="crm-form-radio-input" name="motivo_llamada" value="ATENCION_CLIENTE"> ATENCIÃ“N AL CLIENTE</label>
-              </div>
-            </div>
-            
-            <div class="form-row">
-              <div class="crm-form-group required" data-field="zip_code">
-                <label class="crm-form-label"><i class="fas fa-map-pin"></i> ZIP CODE <span class="crm-form-req">*</span></label>
-                <input type="text" name="zip_code" class="crm-form-input" placeholder="Tu respuesta" required />
-              </div>
-              <div class="crm-form-group required" data-field="puntaje">
-                <label class="crm-form-label"><i class="fas fa-star"></i> Puntaje <span class="crm-form-req">*</span></label>
-                <select name="puntaje" class="crm-form-select" required>
-                  <option value="">Elige</option>
-                  <option value="0.35">0.35</option>
-                  <option value="1.50">1.50</option>
-                  <option value="1.0">1.0</option>
-                  <option value="0.25">0.25</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="crm-form-submit-btn">
-                <i class="fas fa-save"></i> Guardar Lead
-              </button>
-            </div>
+            </div> <!-- fin .form-fields-unified -->
           </form>
-          </div> <!-- Cierre de .form-container -->
+
           <script src="js/core/script.js"></script>
-          <!-- form-handler.js ELIMINADO para evitar event listeners duplicados -->
           <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-          <script src="js/core/costumer-comments.js"></script>
-          <script src="js/core/graficas.js"></script>
+          <script src="js/core/costumer-comments-clean.js"></script>
+          <script src="js/core/graficas_nuevo.js"></script>
           <script src="js/core/dashboard-stats.js"></script>
           <script src="js/core/modern-lead-form.js"></script>
         </section>
-        <!-- SECCIÃ“N DE GRÃFICAS -->
-        <section class="charts-section" id="charts-panel">
+        <!-- SECCIÓN DE GRÁFICAS -->
+        <div class="charts-section">
           <div class="charts-filter">
-            <label for="fechaGraficas"><i class="fas fa-filter"></i> Filtrar grÃ¡ficas por fecha:</label>
-            <input type="date" id="fechaGraficas" />
-            <button type="button"><i class="fas fa-chart-bar"></i> Ver grÃ¡ficas</button>
+            <label for="filter-date">Filtrar gráficas por fecha:</label>
+            <input type="date" id="filter-date">
+            <button id="apply-filter-btn"></button>
+          </div>
+          <div class="header-user-info">
+            <span id="userName">Cargando...</span>
+          </div>
+          <button id="logoutBtn" style="background: transparent; border: none; color: #4B5563; cursor: pointer; font-size: 1.1em; margin-left: 15px;" title="Cerrar Sesión"><i class="fas fa-sign-out-alt"></i></button>
+          <div class="chart-container">
+            <canvas id="ventasTeamChart"></canvas>
           </div>
           <div class="chart-container">
-            <canvas id="ventasTeamChart" class="chart-canvas"></canvas>
-            <div id="no-data-team" class="no-data-msg" style="display:none">No hay datos para esta fecha</div>
+            <canvas id="productosChart"></canvas>
           </div>
-          <div class="chart-container">
-            <canvas id="productosChart" class="chart-canvas"></canvas>
-            <div id="no-data-producto" class="no-data-msg" style="display:none">No hay datos para esta fecha</div>
-          </div>
+        </div>
         </section>
       </div>
-      <!-- SECCIÃ“N COSTUMER -->
-      <div class="costumer-section" id="costumerTab" style="display: none; margin-top:2em;">
-        <!-- ESTILOS PARA LAS TARJETAS DE RESUMEN -->
-        <style>
-          .summary-cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 24px;
-            margin-bottom: 2.5rem;
-            width: 100%;
-          }
+
+      <!-- SECCIÓN COSTUMER -->
+      <div id="costumer-content" class="content-section">
+        <div class="dashboard-header">
+          <h2><i class="fas fa-users"></i> Gestión de Clientes</h2>
+          <div class="header-actions">
+            <button id="refresh-costumers" class="btn-refresh" title="Actualizar lista">
+              <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-costumer" placeholder="Buscar cliente...">
+            </div>
+          </div>
+        </div>
+
+        <div class="costumer-table-wrapper">
+          <table class="costumer-table-elegant">
+            <thead>
+              <tr>
+                <th>Nombre cliente</th>
+                <th>Teléfono principal</th>
+                <th>Teléfono alterno</th>
+                <th>Número de cuenta</th>
+                <th>Autopago</th>
+                <th>Dirección</th>
+                <th>Tipo de servicios</th>
+                <th>Sistema</th>
+                <th>Riesgo</th>
+                <th>Día de venta</th>
+                <th>Día de instalación</th>
+                <th>Status</th>
+                <th>Servicios</th>
+                <th>Mercado</th>
+                <th>Supervisor</th>
+                <th>Comentario</th>
+                <th>Motivo llamada</th>
+                <th>ZIP CODE</th>
+                <th>Puntaje</th>
+                <th>Comentarios sobre la venta</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="costumer-table-body">
+              <!-- Los datos de los clientes se cargarán aquí dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Modal para comentarios -->
+        <div id="modal-comentarios" class="modal" style="display: none;">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Comentarios del Cliente</h3>
+              <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+              <div id="comentarios-lista" class="comentarios-lista">
+                <!-- Los comentarios se cargarán aquí -->
+              </div>
+              <div class="nuevo-comentario">
+                <h4>Agregar Comentario</h4>
+                <textarea id="nuevo-comentario-texto" placeholder="Escribe tu comentario aquí..."></textarea>
+                <button id="btn-guardar-comentario" class="btn-guardar">
+                  <i class="fas fa-save"></i> Guardar Comentario
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Sección de tarjetas resumen -->
+      <div class="summary-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; margin-bottom: 2.5rem; width: 100%;">
+        <!-- Tarjeta de Ventas de Hoy -->
+        <div class="summary-card sales-today">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon" style="background: linear-gradient(135deg, #4caf50, #66bb6a);">
+                <i class="fas fa-shopping-cart"></i>
+              </div>
+              <h3 class="card-title">Ventas de Hoy</h3>
+            </div>
+            <div class="card-value" id="ventas-hoy">0</div>
+            <div class="card-footer">
+              <i class="fas fa-calendar-day"></i>
+              <span>Actualizado: <span id="fecha-ventas-hoy">Hoy</span></span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tarjeta de Clientes Pendientes -->
+        <div class="summary-card pending-clients">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon" style="background: linear-gradient(135deg, #ff9800, #ffa726);">
+                <i class="fas fa-user-clock"></i>
+              </div>
+              <h3 class="card-title">Clientes Pendientes</h3>
+            </div>
+            <div class="card-value" id="clientes-pendientes">0</div>
+            <div class="card-footer">
+              <i class="fas fa-clock"></i>
+              <span>Por contactar</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tarjeta de Ventas del Mes -->
+        <div class="summary-card monthly-sales">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon" style="background: linear-gradient(135deg, #2196f3, #42a5f5);">
+                <i class="fas fa-chart-line"></i>
+              </div>
+              <h3 class="card-title">Ventas del Mes</h3>
+            </div>
+            <div class="card-value" id="ventas-mes">0</div>
+            <div class="card-footer">
+              <i class="fas fa-calendar-alt"></i>
+              <span id="mes-actual">Mes actual</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tarjeta de Ventas Canceladas -->
+        <div class="summary-card canceled-sales">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon" style="background: linear-gradient(135deg, #f44336, #ef5350);">
+                <i class="fas fa-times-circle"></i>
+              </div>
+              <h3 class="card-title">Ventas Canceladas</h3>
+            </div>
+            <div class="card-value" id="ventas-canceladas">0</div>
+            <div class="card-footer">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>Este mes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <style>
           
           .summary-card {
             background: #ffffff;
@@ -1603,860 +1721,1038 @@ html, body, .container, .main-content, .dashboard-flex-row, .crm-form-section, .
             .summary-cards-container {
               grid-template-columns: 1fr;
             }
-          }
-        </style>
-        
-        <div class="summary-cards-container">
-          <!-- Ventas Hoy -->
-          <div class="summary-card sales-today">
-            <div class="card-content">
-              <div class="card-header">
-                <div class="card-icon" style="background: linear-gradient(135deg, #4caf50, #66bb6a);">
-                  <i class="fas fa-shopping-cart"></i>
-                </div>
-                <h3 class="card-title">Ventas Hoy</h3>
-              </div>
-              <div class="card-value" id="costumer-ventas-hoy">0</div>
-              <div class="card-footer">
-                <i class="fas fa-calendar-day"></i> Actualizado ahora
-              </div>
-            </div>
-          </div>
-          
-          <!-- Clientes Pendientes -->
-          <div class="summary-card pending-clients">
-            <div class="card-content">
-              <div class="card-header">
-                <div class="card-icon" style="background: linear-gradient(135deg, #ff9800, #ffa726);">
-                  <i class="fas fa-user-clock"></i>
-                </div>
-                <h3 class="card-title">Clientes Pendientes</h3>
-              </div>
-              <div class="card-value" id="costumer-clientes-pendientes">0</div>
-              <div class="card-footer">
-                <i class="fas fa-info-circle"></i> Pendientes de seguimiento
-              </div>
-            </div>
-          </div>
-          
-          <!-- Ventas Canceladas -->
-          <div class="summary-card canceled-sales">
-            <div class="card-content">
-              <div class="card-header">
-                <div class="card-icon" style="background: linear-gradient(135deg, #f44336, #ef5350);">
-                  <i class="fas fa-times-circle"></i>
-                </div>
-                <h3 class="card-title">Ventas Canceladas</h3>
-              </div>
-              <div class="card-value" id="costumer-ventas-canceladas">0</div>
-              <div class="card-footer">
-                <i class="fas fa-exclamation-triangle"></i> Requieren revisiÃ³n
-              </div>
-            </div>
-          </div>
-          
-          <!-- Ventas del Mes -->
-          <div class="summary-card monthly-sales">
-            <div class="card-content">
-              <div class="card-header">
-                <div class="card-icon" style="background: linear-gradient(135deg, #2196f3, #42a5f5);">
-                  <i class="fas fa-chart-line"></i>
-                </div>
-                <h3 class="card-title">Ventas del Mes</h3>
-              </div>
-              <div class="card-value" id="costumer-ventas-mes">0</div>
-              <div class="card-footer">
-                <i class="fas fa-calendar-alt"></i> Mes en curso
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <button class='comentarios-btn' style='font-size:1.3em;margin-bottom:10px;'><i class="fas fa-comment-dots"></i> Prueba botÃ³n comentario</button>
-        <div class="costumer-table-wrapper costumer-table-container" style="overflow-x:auto; min-width:900px;">
-          <table class="costumer-table costumer-table-clean costumer-table-elegant" style="width:100%;table-layout:auto;">
-            <thead>
-              <tr>
-                <th>Nombre cliente</th>
-                <th>TelÃ©fono principal</th>
-                <th>TelÃ©fono alterno</th>
-                <th>Numero de cuenta</th>
-                <th>Autopago</th>
-                <th>DirecciÃ³n</th>
-                <th>Tipo de servicios</th>
-                <th>Sistema</th>
-                <th>Riesgo</th>
-                <th>Dia de venta</th>
-                <th>Dia de instalaciÃ³n</th>
-                <th>Status</th>
-                <th>Servicios</th>
-                <th>Mercado</th>
-                <th>Supervisor</th>
-                <th>Comentario</th>
-                <th>Motivo llamada</th>
-                <th>ZIP CODE</th>
-                <th>Puntaje</th>
-           <th style="min-width:130px;">Comentarios sobre la venta</th>
-           <th style="min-width:90px;">AcciÃ³n</th>
-         </tr>
-       </thead>
-      <tbody id="costumer-tbody">
-        <!-- filas se llenan dinÃ¡micamente -->
-      </tbody>
-    </table>
-  </div>
-</div>
-
-      </div>
-    </div>
-  </div>
-  <script>
-    // USUARIO DEMO (puedes cambiar esto desde backend o login)
-    const usuario_actual = {
-      nombre: "Jose",
-      rol: "agente"
-    };
-
-    // LÃ³gica de puntaje por producto/riesgo
-    function obtenerPuntaje(producto, riesgo) {
-      // DIRECTV lÃ³gica especial
-      if (/DIRECTV/i.test(producto)) {
-        if (riesgo === "LOW") return 1.00;
-        if (riesgo === "MEDIUM") return 0.35;
-        return 0;
-      }
-      // SPECTRUM 500MBPS o 400MBPS lÃ³gica especial
-      if (/SPECTRUM\s?500\s?MBPS/i.test(producto) || /SPECTRUM\s?400\s?MBPS/i.test(producto)) {
-        return 1.00;
-      }
-      // Tabla de productos (exacto)
-      const puntajes = {
-        // AT&T
-        "AT&T AIR": 0.35,
-        "AT&T INTERNET 1 GIGA O MAS": 1.50,
-        "AT&T INTERNET DE 500 MBPS": 1.25,
-        "AT&T INTERNET DE 300 MBPS": 1.25,
-        "AT&T INTERNET DE 100 MBPS": 1.00,
-        "AT&T INTERNET DE 50 Y 75 MBPS": 0.35,
-        "AT&T INTERNET MENOS DE 50": 0.25,
-        // FRONTIER
-        "FRONTIER 7 GIG": 1.50,
-        "FRONTIER 5 GIG": 1.50,
-        "FRONTIER 2 GIG": 1.25,
-        "FRONTIER 1 GIG": 1.25,
-        "FRONTIER 500 MBPS": 1.00,
-        "FRONTIER UNDER 500 MBPS": 0.35,
-        "UNLIMITED DIGITAL VOICE": 0.35,
-        // CenturyLink/Lumen
-        "Centurylink/Lumen 900MBPS+": 1.00,
-        "Centurylink/Lumen 100-899MBPS": 0.75,
-        "Centurylink/Lumen 10-99MBPS": 0.25,
-        // Ziply Fiber
-        "Ziply Fiber 10GIG": 1.25,
-        "Ziply Fiber 5GIG": 1.25,
-        "Ziply Fiber 2GIG": 1.00,
-        "Ziply Fiber 1GIG": 1.00,
-        "Ziply Fiber 300/300": 0.35,
-        "Ziply Fiber 200/200": 0.35,
-        // SPECTRUM
-        "SPECTRUM 2 GIGA": 1.25,
-        "SPECTRUM 1 GIGA": 1.00,
-        "SPECTRUM PREMIER": 1.00,
-        "SPECTRUM ADVANTAGE": 0.35,
-        // WOW!
-        "WOW! 1200MBPS": 0.35,
-        "WOW! 1000MBPS": 0.35,
-        "WOW! 500MBPS": 0.25,
-        "WOW! 200MBPS": 0.25,
-        // OPTIMUM
-        "OPTIMUM BROADBAND 5 GBPS": 1.25,
-        "OPTIMUM BROADBAND 2 GBPS": 1.25,
-        "OPTIMUM BROADBAND 1 GBPS": 1.00,
-        "OPTIMUM BROADBAND 500 MBPS": 0.35,
-        // VIVINT & VIDEO
-        "VIVINT": 0,
-        "VIDEO SELECT": 0.35,
-        "ADDITIONAL DOUBLE PLAY": 0.25,
-        "ADDITIONAL TRIPLE PLAY": 0.35,
-        // Otros
-        "INTERNET": 1.00
-      };
-      if (puntajes[producto]) return puntajes[producto];
-
-      // Si no match exacto, intenta por contiene
-      for (let key in puntajes) {
-        if (producto.toLowerCase().includes(key.toLowerCase())) {
-          return puntajes[key];
-        }
-      }
-      return 0;
     }
 
+    /* Estilos para la tabla de clientes */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 0 0.5rem;
+    }
+    
+    .dashboard-header h2 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .btn-refresh {
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-refresh:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+    
+    .search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 10px;
+        color: #7f8c8d;
+    }
+    
+    .search-box input {
+        padding: 0.5rem 1rem 0.5rem 2rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        width: 250px;
+        transition: all 0.2s ease;
+    }
+    
+    .search-box input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .costumer-table-wrapper {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        overflow-x: auto;
+    }
+    
+    .costumer-table-elegant {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    .costumer-table-elegant th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        text-align: left;
+        padding: 0.75rem 1rem;
+        white-space: nowrap;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .costumer-table-elegant td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+    
+    .costumer-table-elegant tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .costumer-table-elegant tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .badge-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .badge-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .badge-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .badge-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    
+    .status-success {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+        border: 1px solid rgba(40, 167, 69, 0.2);
+    }
+    
+    .status-warning {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+    
+    .status-danger {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.2);
+    }
+    
+    .status-secondary {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+        border: 1px solid rgba(108, 117, 125, 0.2);
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+    
+    .btn-action {
+        background: none;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-action i {
+        font-size: 1rem;
+    }
+    
+    .btn-edit {
+        color: #3498db;
+        background-color: rgba(52, 152, 219, 0.1);
+    }
+    
+    .btn-edit:hover {
+        background-color: rgba(52, 152, 219, 0.2);
+    }
+    
+    .btn-comments {
+        color: #2ecc71;
+        background-color: rgba(46, 204, 113, 0.1);
+    }
+    
+    .btn-comments:hover {
+        background-color: rgba(46, 204, 113, 0.2);
+    }
+    
+    .btn-delete {
+        color: #e74c3c;
+        background-color: rgba(231, 76, 60, 0.1);
+    }
+    
+    .btn-delete:hover {
+        background-color: rgba(231, 76, 60, 0.2);
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    /* Estilos para el modal de comentarios */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: #2c3e50;
+    }
+    
+    .close-modal {
+        font-size: 1.5rem;
+        color: #6c757d;
+        cursor: pointer;
+        background: none;
+        border: none;
+        line-height: 1;
+    }
+    
+    .close-modal:hover {
+        color: #2c3e50;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .comentarios-lista {
+        margin-bottom: 1.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .comentario-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .comentario-item:last-child {
+        border-bottom: none;
+    }
+    
+    .comentario-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .comentario-texto {
+        color: #2c3e50;
+        line-height: 1.5;
+    }
+    
+    .nuevo-comentario h4 {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+        color: #2c3e50;
+        font-size: 1rem;
+    }
+    
+    .nuevo-comentario textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        font-family: inherit;
+        resize: vertical;
+    }
+    
+    .nuevo-comentario textarea:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .btn-guardar {
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-guardar:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+    
+    /* Ocultar secciones de contenido por defecto */
+    .content-section {
+      display: none;
+    }
+  </style>
+
+  <script>
+    // Inicializar el dashboard directamente sin verificación de autenticación
     document.addEventListener('DOMContentLoaded', function() {
-      // Estado inicial: solo Inicio visible
-      document.getElementById('inicioTab').style.display = 'flex';
-      document.getElementById('leadTab').style.display = 'none';
-      document.getElementById('costumerTab').style.display = 'none';
-      document.getElementById('tabInicio').classList.add('active');
-      document.getElementById('tabLead').classList.remove('active');
-      document.getElementById('tabCostumer').classList.remove('active');
-      // TAB FUNCIONALIDAD
-      document.getElementById("tabInicio").addEventListener('click', function(e){
-        e.preventDefault();
-        document.getElementById('inicioTab').style.display = 'flex';
-        document.getElementById('leadTab').style.display = 'none';
-        document.getElementById('costumerTab').style.display = 'none';
-        this.classList.add('active');
-        document.getElementById("tabLead").classList.remove('active');
-        document.getElementById("tabCostumer").classList.remove('active');
-      });
-      document.getElementById("tabLead").addEventListener('click', function(e){
-        e.preventDefault();
-        document.getElementById('inicioTab').style.display = 'none';
-        document.getElementById('leadTab').style.display = '';
-        document.getElementById('costumerTab').style.display = 'none';
-        this.classList.add('active');
-        document.getElementById("tabInicio").classList.remove('active');
-        document.getElementById("tabCostumer").classList.remove('active');
-      });
-      document.getElementById("tabCostumer").addEventListener('click', function(e){
-        e.preventDefault();
-        document.getElementById('inicioTab').style.display = 'none';
-        document.getElementById('leadTab').style.display = 'none';
-        document.getElementById('costumerTab').style.display = '';
-        this.classList.add('active');
-        document.getElementById("tabInicio").classList.remove('active');
-        document.getElementById("tabLead").classList.remove('active');
-        fetchAndRenderLeads();
-      });
+      console.log('DOM completamente cargado');
+      initApp();
     });
 
-    // Cargar y mostrar leads en la tabla de Costumer
-    async function fetchAndRenderLeads() {
-      const debugPanel = document.getElementById('debug-panel');
-      const debugStatus = document.getElementById('debug-status');
-      const debugData = document.getElementById('debug-data');
+    function initApp() {
+      console.log('Inicializando aplicación...');
+      // Configurar usuario predeterminado
+      if (!localStorage.getItem('user')) {
+        localStorage.setItem('user', JSON.stringify({
+          nombre: 'Usuario Demo',
+          rol: 'agente',
+          email: 'demo@example.com'
+        }));
+      }
       
-      debugPanel.style.display = 'block';
-      debugStatus.textContent = 'Estado: Realizando peticiÃ³n a /api/leads...';
-      debugStatus.style.color = '#eab308'; // Amarillo
-      debugData.textContent = 'Datos: N/A';
+      // Inicializar dashboard
+      initDashboard();
+    }
 
-      const tbody = document.getElementById('costumer-tbody');
-      tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>`;
-      try {
-        const response = await fetch('/api/leads', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
+    function initDashboard() {
+      console.log('Inicializando dashboard...');
+      // Lógica de navegación del dashboard
+      const navLinks = {
+        'nav-inicio': 'inicio-content',
+        'nav-lead': 'lead-content',
+        'nav-costumer': 'costumer-content'
+      };
+
+      function showSection(sectionId) {
+        try {
+          console.log('Mostrando sección:', sectionId);
+          // Ocultar todas las secciones
+          document.querySelectorAll('.content-section').forEach(section => {
+            section.style.display = 'none';
+          });
+          
+          // Mostrar la sección activa
+          const activeSection = document.getElementById(sectionId);
+          if (activeSection) {
+            activeSection.style.display = 'block';
+            console.log('Sección mostrada correctamente');
+          } else {
+            console.error(`No se encontró la sección con ID: ${sectionId}`);
+          }
+        } catch (error) {
+          console.error('Error en showSection:', error);
+          if (window.mostrarMensaje) {
+            window.mostrarMensaje('Error al cambiar de sección', 'error');
+          }
+        }
+      }
+
+      // Configurar event listeners para la navegación
+      Object.keys(navLinks).forEach(linkId => {
+        const link = document.getElementById(linkId);
+        if (link) {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            showSection(navLinks[linkId]);
+          });
+        }
+      });
+
+      // Mostrar la sección de inicio por defecto
+      showSection('inicio-content');
+
+      // Cargar datos iniciales con manejo de errores mejorado
+      (async () => {
+        try {
+          await Promise.all([
+            refrescarLeadsAgente(),
+            cargarCostumers()
+          ]);
+        } catch (error) {
+          console.error('Error al cargar datos iniciales:', error);
+          if (window.mostrarMensaje) {
+            window.mostrarMensaje('Error al cargar los datos iniciales', 'error');
+          }
+        }
+      })();
+    }
+
+// Función para manejar la carga de clientes
+  function handleCostumerSectionLoad() {
+    console.log('Sección de costumers mostrada, cargando datos...');
+    cargarCostumers();
+  }
+
+  // Inicialización de la aplicación
+  function initApp() {
+    // Actualizar el mes actual en la tarjeta de ventas del mes
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const fecha = new Date();
+    const mesActualElement = document.getElementById('mes-actual');
+    if (mesActualElement) {
+      mesActualElement.textContent = `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
+    }
+    
+    // Formatear fecha de actualización
+    const opcionesFecha = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    const opcionesHora = { hour: '2-digit', minute: '2-digit' };
+    const ahora = new Date();
+    const fechaActualizacionElement = document.getElementById('fecha-actualizacion');
+    if (fechaActualizacionElement) {
+      fechaActualizacionElement.textContent = 
+        `Última actualización: ${ahora.toLocaleDateString('es-MX', opcionesFecha)} a las ${ahora.toLocaleTimeString('es-MX', opcionesHora)}`;
+    }
+    
+    // Inicializar eventos de la tabla de clientes
+    inicializarEventosTablaClientes();
+    
+    // Cargar datos iniciales
+    cargarDatosIniciales();
+    
+    // Configurar eventos de navegación
+    const navCostumer = document.getElementById('nav-costumer');
+    if (navCostumer) {
+      navCostumer.addEventListener('click', function() {
+        console.log('Navegación a costumers detectada');
+        // Pequeño retraso para asegurar que la transición de la pestaña se complete
+        setTimeout(handleCostumerSectionLoad, 100);
+      });
+    }
+    
+    // Verificar si la sección de costumers ya está visible
+    const costumerSection = document.getElementById('costumer-content');
+    if (costumerSection && window.getComputedStyle(costumerSection).display === 'block') {
+      console.log('La sección de costumers ya está visible al cargar la página');
+      handleCostumerSectionLoad();
+    }
+  }
+  
+  // Función para cargar los datos iniciales
+  async function cargarDatosIniciales() {
+    try {
+      await Promise.all([
+        refrescarLeadsAgente(),
+        cargarCostumers(),
+        cargarDatosResumen()
+      ]);
+    } catch (error) {
+      console.error('Error al cargar datos iniciales:', error);
+      if (window.mostrarMensaje) {
+        window.mostrarMensaje('Error al cargar los datos iniciales', 'error');
+      }
+      // Establecer valores por defecto en caso de error
+      const defaultValues = {
+        'ventas-hoy': '0',
+        'clientes-pendientes': '0',
+        'ventas-mes': '0',
+        'ventas-canceladas': '0'
+      };
+      
+      Object.entries(defaultValues).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+      });
+    }
+  }
+
+  // Inicializar la aplicación cuando el DOM esté listo
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM completamente cargado');
+      initApp();
+    });
+  } else {
+    console.log('DOM ya estaba cargado');
+    initApp();
+  }
+
+/**
+ * Obtiene los leads del agente desde la API y los renderiza en la tabla y gráficos.
+ */
+async function refrescarLeadsAgente() {
+    try {
+        console.log('Obteniendo leads del agente...');
+        const response = await fetch('/api/leads');
         if (!response.ok) {
-          const errorData = await response.text();
-          debugStatus.textContent = 'Estado: Error en la respuesta del servidor (CÃ³digo ' + response.status + ')';
-          debugStatus.style.color = '#ef4444'; // Rojo
-          debugData.textContent = 'Error: ' + errorData;
-          throw new Error('No se pudo obtener la lista de leads. Respuesta del servidor: ' + response.status);
+            throw new Error(`Error del servidor: ${response.status}`);
         }
         const leads = await response.json();
-
-        debugStatus.textContent = 'Estado: Ã‰xito. Datos recibidos.';
-        debugStatus.style.color = '#22c55e'; // Verde
-        debugData.textContent = JSON.stringify(leads, null, 2);
-
-        tbody.innerHTML = ""; // Limpiar la tabla antes de renderizar
-        if (leads.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:2em;">No hay registros para mostrar.</td></tr>`;
-          return;
+        console.log('Leads obtenidos:', leads.length);
+        
+        // Renderizar los datos en las tablas y gráficos correspondientes
+        if (typeof renderTablaLeadAgente === 'function') {
+            console.log('Llamando a renderTablaLeadAgente...');
+            renderTablaLeadAgente(leads);
+        }
+        if (typeof renderCostumerGroupedByDate === 'function') {
+            console.log('Llamando a renderCostumerGroupedByDate...');
+            renderCostumerGroupedByDate(leads);
+        }
+        if (typeof renderGraficas === 'function') {
+            console.log('Llamando a renderGraficas...');
+            renderGraficas(leads);
+        } else {
+            console.error('renderGraficas no está definido');
         }
 
-        console.log('[Costumer] Leads recibidos:', leads);
-leads.forEach((venta, idx) => {
-  const rowClass = idx % 2 === 0 ? 'costumer-row-striped' : '';
-  // Preparar comentarios
-  const comentarios = Array.isArray(venta.comentarios_venta) ? venta.comentarios_venta : [];
-  const comentariosCount = comentarios.length;
-  // BotÃ³n de comentarios con contador
-  const comentariosBtn = `<button class="comentario-btn-minimal" title="Ver y gestionar comentarios" onclick="mostrarComentariosCostumer('${venta._id}')">
-    <i class="fas fa-comment-dots"></i>${comentariosCount > 0 ? `<span class='comentarios-count'>${comentariosCount}</span>` : ''}
-  </button>`;
-  // Render fila en el orden correcto (segÃºn memoria)
-  tbody.innerHTML += `
-    <tr class="${rowClass}">
-      <td>${venta.nombre_cliente || ''}</td>
-      <td>${venta.telefono_principal || ''}</td>
-      <td>${venta.telefono_alterno || ''}</td>
-      <td>${venta.numero_cuenta || ''}</td>
-      <td>${venta.autopago || ''}</td>
-      <td>${venta.direccion || ''}</td>
-      <td>${venta.tipo_servicios || ''}</td>
-      <td>${venta.sistema || ''}</td>
-      <td>${venta.riesgo || ''}</td>
-      <td>${venta.dia_venta || ''}</td>
-      <td>${venta.dia_instalacion || ''}</td>
-      <td>${venta.status || ''}</td>
-      <td>${venta.servicios || ''}</td>
-      <td>${venta.mercado || ''}</td>
-      <td>${venta.supervisor || ''}</td>
-      <td>${venta.comentario || ''}</td>
-      <td>${venta.motivo_llamada || ''}</td>
-      <td>${venta.zip_code || ''}</td>
-      <td>${venta.puntaje || 0}</td>
-      <td style="text-align:center;">${comentariosBtn}</td>
-      <td>
-        <button class="acciones-btn-minimal borrar" onclick="borrarVenta('${venta._id}')" title="Borrar venta"><i class="fas fa-trash-alt"></i></button>
-      </td>
-    </tr>
-  `;
-  console.log(`[Costumer][Fila ${idx}]`, venta);
-});
-// Estilo para contador de comentarios
-if (!document.getElementById('comentarios-count-style')) {
-  const style = document.createElement('style');
-  style.id = 'comentarios-count-style';
-  style.innerHTML = `.comentarios-count { background: #1976d2; color: #fff; border-radius: 8px; padding: 1px 7px; font-size: 0.85em; margin-left: 4px; }`;
-  document.head.appendChild(style);
+    } catch (error) {
+        console.error('Error al obtener los leads del agente:', error);
+    }
 }
 
-      } catch (error) {
-        // Actualizar panel de depuraciÃ³n en caso de error
-        debugStatus.textContent = 'Estado: Error en la peticiÃ³n fetch.';
-        debugStatus.style.color = '#ef4444'; // Rojo
-        debugData.textContent = 'Error: ' + error.message;
-        tbody.innerHTML = `<tr><td colspan="18" class="no-data-msg">Error al cargar los leads: ${error.message}</td></tr>`;
-      }
+/**
+ * Carga los clientes desde la API y los muestra en la tabla
+ */
+async function cargarCostumers() {
+    try {
+        console.log('Cargando clientes...');
+        const response = await fetch('/api/leads');
+        if (!response.ok) {
+            throw new Error(`Error del servidor: ${response.status}`);
+        }
+        const clientes = await response.json();
+        console.log('Clientes cargados:', clientes.length);
+        
+        // Renderizar la tabla de clientes
+        renderTablaClientes(clientes);
+        
+    } catch (error) {
+        console.error('Error al cargar los clientes:', error);
+        if (window.mostrarMensaje) {
+            window.mostrarMensaje('Error al cargar los clientes: ' + error.message, 'error');
+        }
     }
+}
 
-    // EVENT LISTENER DUPLICADO ELIMINADO - Ahora solo script.js maneja el formulario
-
-    // CSS para filas striped y acciones minimalistas
-    (function(){
-      const style = document.createElement('style');
-      style.innerHTML = `
-        .costumer-row-striped { background: #f8fbff; }
-        #costumer-tbody tr { transition: background 0.14s; }
-        #costumer-tbody tr:hover { background: #e3f2fd !important; }
-        .comentario-btn-minimal, .acciones-btn-minimal {
-          background: none; border: none; color: #1976d2; font-size: 1.05em; padding: 5px 7px; border-radius: 7px;
-          transition: background 0.18s, color 0.18s;
-          margin-right: 3px;
-          cursor: pointer;
-        }
-        .comentario-btn-minimal:hover, .acciones-btn-minimal:hover { background: #e3f2fd; color: #0d47a1; }
-        .acciones-btn-minimal.borrar { color: #e53935; }
-        .acciones-btn-minimal.borrar:hover { background: #ffebee; color: #b71c1c; }
-        .comentario-tooltip-minimal { margin-left:5px; color:#1976d2; cursor:pointer; position:relative; }
-        .comentario-tooltip-minimal:hover::after {
-          content: attr(data-tooltip);
-          white-space: pre-line;
-          position: absolute;
-          left: 50%;
-          top: 120%;
-          transform: translateX(-50%);
-          background: #fff;
-          color: #24334d;
-          border: 1px solid #b4c5d4;
-          border-radius: 7px;
-          padding: 10px 17px;
-          box-shadow: 0 4px 16px #1976d211;
-          font-size: 0.98em;
-          z-index: 20;
-          min-width: 180px;
-          max-width: 350px;
-          pointer-events: none;
-        }
-      `;
-      document.head.appendChild(style);
-    })();
-// --- LÃ³gica para Lead Crm-Agente y Costumer ---
-async function fetchLeadsAgente() {
-  try {
-    console.log('[DEBUG] Iniciando fetchLeadsAgente');
-    const token = localStorage.getItem('token') || '';
-    console.log('[DEBUG] Token de autenticaciÃ³n:', token ? '***' + token.slice(-8) : 'No encontrado');
+/**
+ * Renderiza la tabla de clientes con los datos proporcionados
+ * @param {Array} clientes - Lista de clientes a mostrar
+ */
+function renderTablaClientes(clientes) {
+    const tbody = document.getElementById('costumer-table-body');
+    if (!tbody) {
+        console.error('No se encontró el elemento tbody para la tabla de clientes');
+        return;
+    }
     
-    const res = await fetch('/api/leads', {
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      }
+    // Limpiar la tabla
+    tbody.innerHTML = '';
+    
+    if (!Array.isArray(clientes) || clientes.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td colspan="21" class="text-center">
+                No se encontraron clientes registrados
+            </td>
+        `;
+        tbody.appendChild(tr);
+        return;
+    }
+    
+    // Ordenar clientes por fecha de venta (más recientes primero)
+    clientes.sort((a, b) => {
+        const fechaA = a.dia_venta ? new Date(a.dia_venta) : new Date(0);
+        const fechaB = b.dia_venta ? new Date(b.dia_venta) : new Date(0);
+        return fechaB - fechaA;
     });
     
-    console.log('[DEBUG] Respuesta del servidor - Estado:', res.status, res.statusText);
+    // Agregar cada cliente a la tabla
+    clientes.forEach(cliente => {
+        const tr = document.createElement('tr');
+        tr.dataset.id = cliente._id || '';
+        
+        // Formatear fechas
+        const fechaVenta = cliente.dia_venta ? new Date(cliente.dia_venta).toLocaleDateString('es-MX') : 'N/A';
+        const fechaInstalacion = cliente.dia_instalacion ? new Date(cliente.dia_instalacion).toLocaleDateString('es-MX') : 'N/A';
+        
+        // Determinar clase de riesgo
+        const riesgoClass = getRiesgoClass(cliente.riesgo);
+        
+        tr.innerHTML = `
+            <td>${escapeHtml(cliente.nombre_cliente || 'N/A')}</td>
+            <td>${escapeHtml(cliente.telefono_principal || 'N/A')}</td>
+            <td>${escapeHtml(cliente.telefono_alterno || 'N/A')}</td>
+            <td>${escapeHtml(cliente.numero_cuenta || 'N/A')}</td>
+            <td>${escapeHtml(cliente.autopago || 'N/A')}</td>
+            <td>${escapeHtml(cliente.direccion || 'N/A')}</td>
+            <td>${escapeHtml(cliente.tipo_servicios || 'N/A')}</td>
+            <td>${escapeHtml(cliente.sistema || 'N/A')}</td>
+            <td><span class="badge ${riesgoClass}">${escapeHtml(cliente.riesgo || 'N/A')}</span></td>
+            <td>${fechaVenta}</td>
+            <td>${fechaInstalacion}</td>
+            <td><span class="status-badge ${getStatusClass(cliente.status)}">${escapeHtml(cliente.status || 'N/A')}</span></td>
+            <td>${escapeHtml(cliente.servicios || 'N/A')}</td>
+            <td>${escapeHtml(cliente.mercado || 'N/A')}</td>
+            <td>${escapeHtml(cliente.supervisor || 'N/A')}</td>
+            <td>${escapeHtml(cliente.comentario || 'N/A')}</td>
+            <td>${escapeHtml(cliente.motivo_llamada || 'N/A')}</td>
+            <td>${escapeHtml(cliente.zip_code || 'N/A')}</td>
+            <td>${escapeHtml(cliente.puntaje || 'N/A')}</td>
+            <td>${escapeHtml(cliente.comentarios_venta || 'N/A')}</td>
+            <td class="action-buttons">
+                <button class="btn-action btn-edit" title="Editar" onclick="editarCliente('${cliente._id || ''}')">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-action btn-comments" title="Comentarios" onclick="mostrarComentariosCostumer('${cliente._id || ''}', event)">
+                    <i class="fas fa-comments"></i>
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
     
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[ERROR] Error en la respuesta del servidor:', errorText);
-      mostrarMensaje('Error obteniendo leads: ' + (res.statusText || 'Error desconocido'), 'error');
-      return [];
-    }
-    
-    const data = await res.json();
-    console.log('[DEBUG] Datos recibidos del servidor:', Array.isArray(data) ? 
-      `Array de ${data.length} elementos` : 'No es un array', data);
-    
-    if (!Array.isArray(data)) {
-      console.error('[ERROR] La respuesta no es un array:', data);
-      mostrarMensaje('Error: Formato de datos invÃ¡lido', 'error');
-      return [];
-    }
-    
-    return data;
-  } catch (err) {
-    console.error('[ERROR] Error en fetchLeadsAgente:', err);
-    mostrarMensaje('Error de red al obtener leads: ' + (err.message || 'Error desconocido'), 'error');
-    return [];
-  }
+    // Inicializar eventos de la tabla
+    inicializarEventosTablaClientes();
 }
 
-// Muestra mensajes de Ã©xito o error en la UI
-function mostrarMensaje(msg, tipo = 'info') {
-  let div = document.getElementById('mensaje-global');
-  if (!div) {
-    div = document.createElement('div');
-    div.id = 'mensaje-global';
-    div.style.position = 'fixed';
-    div.style.top = '18px';
-    div.style.right = '18px';
-    div.style.zIndex = '9999';
-    div.style.padding = '1em 2em';
-    div.style.borderRadius = '9px';
-    div.style.fontWeight = 'bold';
-    div.style.fontSize = '1.1em';
-    div.style.boxShadow = '0 2px 8px #0002';
-    div.style.transition = 'opacity 0.3s';
-    document.body.appendChild(div);
-  }
-  div.innerText = msg;
-  div.style.background = tipo === 'error' ? '#ffebee' : '#e3f9e5';
-  div.style.color = tipo === 'error' ? '#b71c1c' : '#1976d2';
-  div.style.opacity = 1;
-  setTimeout(()=>{ div.style.opacity = 0; }, 3500);
+/**
+ * Obtiene la clase CSS para el indicador de riesgo
+ */
+function getRiesgoClass(riesgo) {
+    if (!riesgo) return 'badge-secondary';
+    
+    const riesgoLower = riesgo.toLowerCase();
+    if (riesgoLower.includes('alto')) return 'badge-danger';
+    if (riesgoLower.includes('medio')) return 'badge-warning';
+    if (riesgoLower.includes('bajo')) return 'badge-success';
+    
+    return 'badge-secondary';
 }
 
+/**
+ * Obtiene la clase CSS para el estado del cliente
+ */
+function getStatusClass(status) {
+    if (!status) return 'status-secondary';
+    
+    const statusLower = status.toLowerCase();
+    if (['activo', 'completado', 'aprobado'].some(s => statusLower.includes(s))) return 'status-success';
+    if (['pendiente', 'en proceso', 'en revisión'].some(s => statusLower.includes(s))) return 'status-warning';
+    if (['cancelado', 'rechazado', 'inactivo'].some(s => statusLower.includes(s))) return 'status-danger';
+    
+    return 'status-secondary';
+}
 
+/**
+ * Inicializa los eventos de la tabla de clientes
+ */
+function inicializarEventosTablaClientes() {
+    // Evento de búsqueda
+    const searchInput = document.getElementById('search-costumer');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#costumer-table-body tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+    
+    // Evento de actualización
+    const refreshBtn = document.getElementById('refresh-costumers');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', cargarCostumers);
+    }
+}
+
+/**
+ * Función para cargar los datos del resumen
+ */
+async function cargarDatosResumen() {
+    try {
+        const response = await fetch('/api/leads/resumen');
+        if (!response.ok) {
+            throw new Error('Error al cargar los datos del resumen');
+        }
+        const data = await response.json();
+        
+        // Actualizar las tarjetas con los datos recibidos
+        if (data.ventasHoy !== undefined) {
+            document.getElementById('ventas-hoy').textContent = data.ventasHoy;
+        }
+        if (data.clientesPendientes !== undefined) {
+            document.getElementById('clientes-pendientes').textContent = data.clientesPendientes;
+        }
+        if (data.ventasMes !== undefined) {
+            document.getElementById('ventas-mes').textContent = data.ventasMes;
+        }
+        if (data.ventasCanceladas !== undefined) {
+            document.getElementById('ventas-canceladas').textContent = data.ventasCanceladas;
+        }
+    } catch (error) {
+        console.error('Error al cargar los datos del resumen:', error);
+        // Mostrar valores por defecto en caso de error
+        document.getElementById('ventas-hoy').textContent = '0';
+        document.getElementById('clientes-pendientes').textContent = '0';
+        document.getElementById('ventas-mes').textContent = '0';
+        document.getElementById('ventas-canceladas').textContent = '0';
+    }
+}
+
+/**
+ * Función auxiliar para escapar HTML
+ */
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return unsafe
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Renderiza la tabla de leads del agente
+ * @param {Array} leads - Lista de leads a mostrar
+ */
 function renderTablaLeadAgente(leads) {
-  if (!leads.length) {
-    document.getElementById('theadLeadAgente').innerHTML = '<tr><th>No hay leads almacenados</th></tr>';
-    document.getElementById('tbodyLeadAgente').innerHTML = '';
-    return;
-  }
-  // Obtener todos los encabezados Ãºnicos
-  const headers = Object.keys(leads.reduce((a, c) => Object.assign(a, c), {}));
-  document.getElementById('theadLeadAgente').innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
-  document.getElementById('tbodyLeadAgente').innerHTML = leads.map(lead =>
-    '<tr>' + headers.map(h => `<td>${lead[h] ?? ''}</td>`).join('') + '</tr>'
-  ).join('');
-}
-
-/**
- * Renderiza la tabla de clientes con un formato profesional y funcional
- * @param {Array} leads - Lista de clientes/leads a mostrar
- */
-function renderCostumerTable(leads) {
-  const tbody = document.getElementById('costumer-tbody');
-  if (!tbody) {
-    console.error('No se encontrÃ³ el elemento con ID "costumer-tbody"');
-    return;
-  }
-
-  // Limpiar la tabla antes de agregar nuevos elementos
-  tbody.innerHTML = '';
-
-  if (!Array.isArray(leads) || !leads.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="21" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
-          No hay clientes para mostrar
+    console.log('Renderizando tabla de leads:', leads);
+    const tbody = document.querySelector('#tabla-leads tbody');
+    if (!tbody) {
+      console.error('No se encontró el elemento tbody para la tabla de leads');
+      return;
+    }
+    
+    // Limpiar tabla
+    tbody.innerHTML = '';
+    
+    if (!leads || leads.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center">No hay datos disponibles</td></tr>';
+      return;
+    }
+    
+    // Crear filas para cada lead
+    leads.forEach(lead => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${lead.nombre || lead.NOMBRE || ''}</td>
+        <td>${lead.telefono || lead.TELEFONO || lead.TEL || ''}</td>
+        <td>${lead.telefono_alterno || lead.TELEFONO_ALTERNO || lead.TEL_ALTERNO || ''}</td>
+        <td>${lead.cuenta || lead.CUENTA || ''}</td>
+        <td>${lead.autopago || lead.AUTOPAGO || ''}</td>
+        <td>${lead.direccion || lead.DIRECCION || ''}</td>
+        <td>${lead.tipo_servicio || lead.TIPO_SERVICIO || lead.SERVICIO || ''}</td>
+        <td>${lead.sistema || lead.SISTEMA || ''}</td>
+        <td><span class="badge ${getRiesgoClass(lead.riesgo || lead.RIESGO)}">${lead.riesgo || lead.RIESGO || ''}</span></td>
+        <td>${lead.dia_venta || lead.DIA_VENTA || lead.FECHA || ''}</td>
+        <td>${lead.dia_instalacion || lead.DIA_INSTALACION || ''}</td>
+        <td><span class="badge ${getStatusClass(lead.status || lead.STATUS || lead.ESTADO)}">${lead.status || lead.STATUS || lead.ESTADO || ''}</span></td>
+        <td>${lead.servicios || lead.SERVICIOS || ''}</td>
+        <td>${lead.mercado || lead.MERCADO || ''}</td>
+        <td>${lead.supervisor || lead.SUPERVISOR || ''}</td>
+        <td>${lead.comentario || lead.COMENTARIO || ''}</td>
+        <td>${lead.motivo_llamada || lead.MOTIVO_LLAMADA || ''}</td>
+        <td>${lead.zip || lead.ZIP || lead.CODIGO_POSTAL || ''}</td>
+        <td>${lead.puntaje || lead.PUNTAJE || ''}</td>
+        <td>${lead.comentarios_venta || lead.COMENTARIOS_VENTA || ''}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-primary editar-lead" data-id="${lead._id || lead.ID || ''}">
+            <i class="fas fa-edit"></i>
+          </button>
         </td>
-      </tr>`;
-    return;
-  }
-
-  // Ordenar por fecha de creaciÃ³n (mÃ¡s recientes primero)
-  const sortedLeads = [...leads].sort((a, b) => 
-    new Date(b.creadoEn || b.fecha || 0) - new Date(a.creadoEn || a.fecha || 0)
-  );
-
-  // Procesar y renderizar cada lead
-  sortedLeads.forEach(lead => {
-    const row = document.createElement('tr');
+      `;
+      tbody.appendChild(tr);
+    });
     
-    // FunciÃ³n auxiliar para formatear el texto y evitar undefined/null
-    const formatText = (text) => (text || '').toString().trim() || '-';
-    
-    // FunciÃ³n para crear un badge de estado
-    const createStatusBadge = (status) => {
-      status = (status || '').toLowerCase();
-      let badgeClass = 'badge-status';
-      
-      if (status.includes('activo') || status.includes('completado')) {
-        badgeClass += ' badge-status-activo';
-      } else if (status.includes('pendiente') || status.includes('proceso')) {
-        badgeClass += ' badge-status-pendiente';
-      } else if (status.includes('cancelado') || status.includes('rechazado')) {
-        badgeClass += ' badge-status-cancelado';
-      } else if (status.includes('inactivo')) {
-        badgeClass += ' badge-status-inactivo';
-      }
-      
-      return `<span class="${badgeClass}">${formatText(status).toUpperCase()}</span>`;
-    };
-
-    // FunciÃ³n para crear un botÃ³n de acciÃ³n con Ã­cono
-    const createActionButton = (icon, title, onClick, extraClass = '') => {
-      return `<button class="action-btn ${extraClass}" title="${title}" onclick="${onClick}">
-                <i class="fas ${icon}"></i>
-              </button>`;
-    };
-
-    // Construir las celdas en el orden correcto segÃºn los encabezados
-    row.innerHTML = `
-      <td>${formatText(lead.nombre_cliente)}</td>
-      <td>${formatText(lead.telefono_principal)}</td>
-      <td>${formatText(lead.telefono_alterno)}</td>
-      <td>${formatText(lead.numero_cuenta)}</td>
-      <td>${formatText(lead.autopago)}</td>
-      <td title="${formatText(lead.direccion)}" class="truncate-text">${formatText(lead.direccion).substring(0, 20)}${lead.direccion && lead.direccion.length > 20 ? '...' : ''}</td>
-      <td>${formatText(lead.tipo_servicios)}</td>
-      <td>${formatText(lead.sistema)}</td>
-      <td>${formatText(lead.riesgo)}</td>
-      <td>${formatText(lead.dia_venta)}</td>
-      <td>${formatText(lead.dia_instalacion)}</td>
-      <td>${createStatusBadge(lead.status)}</td>
-      <td>${formatText(lead.servicios)}</td>
-      <td>${formatText(lead.mercado)}</td>
-      <td>${formatText(lead.supervisor)}</td>
-      <td title="${formatText(lead.comentario)}" class="truncate-text comentario-tooltip" data-tooltip="${formatText(lead.comentario)}">
-        ${formatText(lead.comentario).substring(0, 15)}${lead.comentario && lead.comentario.length > 15 ? '...' : ''}
-      </td>
-      <td>${formatText(lead.motivo_llamada)}</td>
-      <td>${formatText(lead.zip_code)}</td>
-      <td>${formatText(lead.puntaje)}</td>
-      <td class="comentarios-cell" style="text-align: center;">
-        <button class="comentarios-btn ${lead.comentarios_venta?.length ? 'has-comments' : ''}" 
-                onclick="mostrarComentariosCostumer('${lead._id || ''}', event)"
-                title="${lead.comentarios_venta?.length ? 'Ver y gestionar comentarios' : 'Agregar comentario'}"
-                data-comments-count="${lead.comentarios_venta?.length || '0'}">
-          <i class="fas ${lead.comentarios_venta?.length ? 'fa-comments' : 'fa-comment'}"></i>
-          <span class="comment-count">${lead.comentarios_venta?.length || '0'}</span>
-        </button>
-      </td>
-      <td class="actions-cell">
-        ${createActionButton('fa-edit', 'Editar', `editarLead('${lead._id || ''}')`, 'edit-btn')}
-        ${createActionButton('fa-trash-alt', 'Eliminar', `eliminarLead('${lead._id || ''}')`, 'delete-btn')}
-      </td>
-    `;
-
-    tbody.appendChild(row);
-  });
-  
-  // Actualizar contadores en las tarjetas resumen
-  updateSummaryCards(leads);
+    // Inicializar eventos de la tabla
+    inicializarEventosTablaClientes();
 }
 
 /**
- * Actualiza las tarjetas de resumen con informaciÃ³n de los leads
- * @param {Array} leads - Lista de clientes/leads
+ * Agrupa y muestra los clientes por fecha
+ * @param {Array} leads - Lista de leads
  */
-function updateSummaryCards(leads) {
-  if (!leads || !leads.length) return;
-  
-  const hoy = new Date().toISOString().split('T')[0];
-  const mesActual = new Date().getMonth();
-  const añoActual = new Date().getFullYear();
-  
-  // Función auxiliar para normalizar el texto (sin acentos y en minúsculas)
-  const normalizarTexto = (texto) => {
-    return (texto || '')
-      .toString()
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Eliminar acentos
-  };
-  
-  // Contar ventas de hoy (fecha actual)
-  const ventasHoy = leads.filter(lead => {
-    try {
-      const fechaLead = new Date(lead.creadoEn || lead.fecha || 0);
-      if (isNaN(fechaLead.getTime())) return false; // Fecha invÃ¡lida
-      return fechaLead.toISOString().split('T')[0] === hoy;
-    } catch (e) {
-      console.error('Error al procesar fecha del lead:', e);
-      return false;
+function renderCostumerGroupedByDate(leads) {
+    console.log('Renderizando agrupación de clientes por fecha');
+    if (!leads || leads.length === 0) {
+      console.log('No hay datos para agrupar por fecha');
+      return;
     }
-  }).length;
-  
-  // Contar clientes pendientes (PENDING o PENDIENTE)
-  const pendientes = leads.filter(lead => {
-    const status = normalizarTexto(lead.status);
-    return status === 'pending' || status === 'pendiente';
-  }).length;
-  
-  // Contar ventas canceladas (CANCELED, CANCELADAS o CANCELLED)
-  const canceladas = leads.filter(lead => {
-    const status = normalizarTexto(lead.status);
-    return status.includes('cancel') || status.includes('cancelad');
-  }).length;
-  
-  // Contar ventas del mes actual
-  const ventasMes = leads.filter(lead => {
-    try {
-      const fechaLead = new Date(lead.creadoEn || lead.fecha || 0);
-      if (isNaN(fechaLead.getTime())) return false; // Fecha invÃ¡lida
-      return fechaLead.getMonth() === mesActual && 
-             fechaLead.getFullYear() === añoActual;
-    } catch (e) {
-      console.error('Error al procesar fecha del lead:', e);
-      return false;
-    }
-  }).length;
-  
-  // Actualizar los contadores en la UI
-  const ventasHoyEl = document.getElementById('costumer-ventas-hoy');
-  const pendientesEl = document.getElementById('costumer-clientes-pendientes');
-  const canceladasEl = document.getElementById('costumer-ventas-canceladas');
-  const ventasMesEl = document.getElementById('costumer-ventas-mes');
-  
-  if (ventasHoyEl) ventasHoyEl.textContent = ventasHoy;
-  if (pendientesEl) pendientesEl.textContent = pendientes;
-  if (canceladasEl) canceladasEl.textContent = canceladas;
-  if (ventasMesEl) ventasMesEl.textContent = ventasMes;
-}
-
-// La funciÃ³n mostrarComentariosCostumer estÃ¡ definida en costumer-comments.js
-
-// Funciones de acciÃ³n (deben ser implementadas)
-function editarLead(id) {
-  console.log('Editar lead:', id);
-  // Implementar lÃ³gica de ediciÃ³n
-}
-
-function eliminarLead(id) {
-  if (confirm('Â¿EstÃ¡s seguro de que deseas eliminar este lead?')) {
-    console.log('Eliminar lead:', id);
-    // Implementar lÃ³gica de eliminaciÃ³n
-  }
-}
-
-
-
-// --- Cambio de pestaÃ±as y renderizado ---
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', async e => {
-    e.preventDefault();
-    document.querySelectorAll('.dashboard-flex-row').forEach(s=>s.style.display='none');
-    const tab = btn.dataset.tab;
-    document.getElementById(tab).style.display = 'flex';
-    if(tab==='leadAgenteTab') {
-      const leads = await fetchLeadsAgente();
-      if(Array.isArray(leads))
-        renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-      else
-        mostrarMensaje('No se pudo cargar leads', 'error');
-    }
-    if(tab==='costumerTab') {
-      const leads = await fetchLeadsAgente();
-      if(Array.isArray(leads)) {
-        const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
-        renderCostumerTable(sortedLeads);
-        updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
-      } else {
-        mostrarMensaje('No se pudo cargar leads', 'error');
-      }
-    }
-    if(tab==='charts-panel' || tab==='chartsTab') {
-      // Llama a la grÃ¡fica cuando se cambia a la pestaÃ±a de grÃ¡ficas
-      if (typeof renderGraficas === 'function') renderGraficas();
-    }
-  });
-});
-// Al guardar un lead, refrescar ambas pestaÃ±as si estÃ¡n abiertas
-window.refrescarLeadsAgente = async function() {
-  const leads = await fetchLeadsAgente();
-  if(Array.isArray(leads)) {
-    const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
     
-    if(document.getElementById('leadAgenteTab').style.display!=='none')
-      renderTablaLeadAgente(sortedLeads);
-      
-    if(document.getElementById('costumerTab').style.display!=='none') {
-      renderCostumerTable(sortedLeads);
-      updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
+    // Agrupar por fecha (usando el primer campo de fecha disponible)
+    const groupedByDate = leads.reduce((acc, lead) => {
+      const fecha = lead.dia_venta || lead.DIA_VENTA || lead.FECHA || lead.fecha_creacion || 'Sin fecha';
+      if (!acc[fecha]) {
+        acc[fecha] = 0;
+      }
+      acc[fecha]++;
+      return acc;
+    }, {});
+    
+    console.log('Clientes agrupados por fecha:', groupedByDate);
+    
+    // Actualizar la interfaz con los datos agrupados
+    const container = document.getElementById('grouped-by-date-container');
+    if (container) {
+      container.innerHTML = `
+        <h3>Clientes por Fecha</h3>
+        <div class="date-groups">
+          ${Object.entries(groupedByDate).map(([fecha, cantidad]) => `
+            <div class="date-group">
+              <span class="date">${fecha}:</span>
+              <span class="count">${cantidad} cliente${cantidad !== 1 ? 's' : ''}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
-  } else {
-    mostrarMensaje('No se pudo refrescar leads', 'error');
-  }
 }
-// Llamar refresco inicial en costumer
-window.addEventListener('DOMContentLoaded', async () => {
-  // Refresca la tabla Costumer
-  const leads = await fetchLeadsAgente();
-  if(Array.isArray(leads)) {
-    const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
-    renderCostumerTable(sortedLeads);
-    updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
-  } else {
-    mostrarMensaje('No se pudo cargar clientes', 'error');
-  }
-  // Renderiza la grÃ¡fica principal
-  if (typeof renderGraficas === 'function') renderGraficas();
-});
+
+/**
+ * Renderiza las gráficas del dashboard
+ * @param {Array} leads - Lista de leads para las gráficas
+ */
+function renderGraficas(leads) {
+    console.log('Renderizando gráficas con datos:', leads);
+    if (!leads || leads.length === 0) {
+      console.log('No hay datos para mostrar en las gráficas');
+      return;
+    }
+    
+    // Gráfica de ventas por día
+    const ctxVentas = document.getElementById('ventasChart');
+    if (ctxVentas) {
+      // Procesar datos para la gráfica
+      const ventasPorDia = {};
+      leads.forEach(lead => {
+        const fecha = lead.dia_venta || lead.DIA_VENTA || lead.FECHA || 'Sin fecha';
+        ventasPorDia[fecha] = (ventasPorDia[fecha] || 0) + 1;
+      });
+      
+      const fechas = Object.keys(ventasPorDia);
+      const cantidades = fechas.map(fecha => ventasPorDia[fecha]);
+      
+      // Destruir gráfica anterior si existe
+      if (window.ventasChart) {
+        window.ventasChart.destroy();
+      }
+      
+      // Crear nueva gráfica
+      window.ventasChart = new Chart(ctxVentas, {
+        type: 'bar',
+        data: {
+          labels: fechas,
+          datasets: [{
+            label: 'Ventas por día',
+            data: cantidades,
+            backgroundColor: 'rgba(25, 118, 210, 0.5)',
+            borderColor: 'rgba(25, 118, 210, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            title: {
+              display: true,
+              text: 'Ventas por Día',
+              font: {
+                size: 16
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Gráfica de productos/servicios
+    const ctxProductos = document.getElementById('productosChart');
+    if (ctxProductos) {
+      const productos = leads.reduce((acc, lead) => {
+        const producto = lead.tipo_servicio || lead.TIPO_SERVICIO || lead.SERVICIO || 'Sin especificar';
+        acc[producto] = (acc[producto] || 0) + 1;
+        return acc;
+      }, {});
+      
+      // Destruir gráfica anterior si existe
+      if (window.productosChart) {
+        window.productosChart.destroy();
+      }
+      
+      // Crear nueva gráfica
+      window.productosChart = new Chart(ctxProductos, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(productos),
+          datasets: [{
+            data: Object.values(productos),
+            backgroundColor: [
+              'rgba(25, 118, 210, 0.5)',
+              'rgba(76, 175, 80, 0.5)',
+              'rgba(255, 152, 0, 0.5)',
+              'rgba(233, 30, 99, 0.5)',
+              'rgba(156, 39, 176, 0.5)'
+            ],
+            borderColor: [
+              'rgba(25, 118, 210, 1)',
+              'rgba(76, 175, 80, 1)',
+              'rgba(255, 152, 0, 1)',
+              'rgba(233, 30, 99, 1)',
+              'rgba(156, 39, 176, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+            },
+            title: {
+              display: true,
+              text: 'Distribución por Servicio',
+              font: {
+                size: 16
+              }
+            }
+          }
+        }
+      });
+    }
+}
+
+/**
+ * Inicializa los eventos de la tabla de clientes
+ */
+function inicializarEventosTablaClientes() {
+    console.log('Inicializando eventos de la tabla de clientes');
+    
+    // Evento para el botón de editar
+    document.querySelectorAll('.editar-lead').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const leadId = this.getAttribute('data-id');
+        console.log('Editar lead:', leadId);
+        // Aquí puedes implementar la lógica para editar el lead
+        if (window.mostrarMensaje) {
+          window.mostrarMensaje(`Editar lead con ID: ${leadId}`, 'info');
+        }
+      });
+    });
+    
+    // Evento para el botón de eliminar (si existe)
+    document.querySelectorAll('.eliminar-lead').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const leadId = this.getAttribute('data-id');
+        console.log('Eliminar lead:', leadId);
+        // Aquí puedes implementar la lógica para eliminar el lead
+        if (window.mostrarMensaje) {
+          window.mostrarMensaje(`Eliminar lead con ID: ${leadId}`, 'warning');
+        }
+      });
+    });
+}
+
 </script>
-   <script src="js/core/auth-check.js"></script>
-   <script src="js/core/login.js"></script>
-   <!-- DUPLICADO 2 ELIMINADO: script.js -->
-   <script src="js/core/charts.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-   <script src="js/core/graficas.js"></script>
-   
-   <!-- Cargar costumer-comments.js -->
-   <script src="js/core/costumer-comments.js"></script>
-   
-   <!-- VerificaciÃ³n de carga -->
-   <script>
-     // Verificar que la funciÃ³n estÃ© disponible despuÃ©s de cargar la pÃ¡gina
-     document.addEventListener('DOMContentLoaded', function() {
-       console.log('=== VERIFICANDO CARGA DE COSTUMER-COMMENTS.JS ===');
-       
-       // FunciÃ³n para verificar la disponibilidad de la funciÃ³n
-       function verificarFuncion() {
-         if (typeof window.mostrarComentariosCostumer === 'function') {
-           console.log('âœ… mostrarComentariosCostumer estÃ¡ disponible');
-           return true;
-         } else {
-           console.error('âŒ mostrarComentariosCostumer NO estÃ¡ disponible');
-           // Mostrar mensaje de error en la interfaz
-           const errorDiv = document.createElement('div');
-           errorDiv.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#ffebee;color:#c62828;padding:15px;border-radius:5px;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.1);';
-           errorDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al cargar la funcionalidad de comentarios. Por favor, recarga la pÃ¡gina.';
-           document.body.appendChild(errorDiv);
-           return false;
-         }
-       }
-       
-       // Verificar inmediatamente
-       verificarFuncion();
-       
-       // Verificar nuevamente despuÃ©s de que se cargue todo
-       window.addEventListener('load', function() {
-         if (!verificarFuncion()) {
-           console.warn('âš ï¸ La funciÃ³n mostrarComentariosCostumer no estÃ¡ disponible despuÃ©s de cargar la pÃ¡gina');
-         }
-       });
-     });
-   </script>
-   <script src="js/core/auth-check.js"></script>
-   <script src="js/core/login.js"></script>
-   <!-- DUPLICADO 3 ELIMINADO: script.js -->
-   <script src="js/core/charts.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-   <script src="js/core/graficas.js"></script>
-   
-   <!-- Scripts adicionales se cargarÃ¡n aquÃ­ -->
-   <script src="js/core/costumer-comments.js"></script>
-   <script>
-   // InicializaciÃ³n de scripts adicionales
-   
-   // La funciÃ³n mostrarComentariosCostumer estÃ¡ definida en costumer-comments.js
-   
-   // Funciones de acciÃ³n (deben ser implementadas)
-   function editarLead(id) {
-     console.log('Editar lead:', id);
-     // Implementar lÃ³gica de ediciÃ³n
-   }
-   
-   function eliminarLead(id) {
-     if (confirm('Â¿EstÃ¡s seguro de que deseas eliminar este lead?')) {
-       console.log('Eliminar lead:', id);
-       // Implementar lÃ³gica de eliminaciÃ³n
-     }
-   }
-   
-   
-   
-   // --- Cambio de pestaÃ±as y renderizado ---
-   document.querySelectorAll('.tab-btn').forEach(btn => {
-     btn.addEventListener('click', async e => {
-       e.preventDefault();
-       document.querySelectorAll('.dashboard-flex-row').forEach(s=>s.style.display='none');
-       const tab = btn.dataset.tab;
-       document.getElementById(tab).style.display = 'flex';
-       if(tab==='leadAgenteTab') {
-         const leads = await fetchLeadsAgente();
-         if(Array.isArray(leads))
-           renderTablaLeadAgente(leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||'')));
-         else
-           mostrarMensaje('No se pudo cargar leads', 'error');
-       }
-       if(tab==='costumerTab') {
-         const leads = await fetchLeadsAgente();
-         if(Array.isArray(leads)) {
-           const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
-           renderCostumerTable(sortedLeads);
-           updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
-         } else {
-           mostrarMensaje('No se pudo cargar leads', 'error');
-         }
-       }
-       if(tab==='charts-panel' || tab==='chartsTab') {
-         // Llama a la grÃ¡fica cuando se cambia a la pestaÃ±a de grÃ¡ficas
-         if (typeof renderGraficas === 'function') renderGraficas();
-       }
-     });
-   });
-   // Al guardar un lead, refrescar ambas pestaÃ±as si estÃ¡n abiertas
-   window.refrescarLeadsAgente = async function() {
-     const leads = await fetchLeadsAgente();
-     if(Array.isArray(leads)) {
-       const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
-       
-       if(document.getElementById('leadAgenteTab').style.display!=='none')
-         renderTablaLeadAgente(sortedLeads);
-         
-       if(document.getElementById('costumerTab').style.display!=='none') {
-         renderCostumerTable(sortedLeads);
-         updateSummaryCards(sortedLeads); // Actualizar los recuadros de resumen
-       }
-     } else {
-       mostrarMensaje('No se pudo refrescar leads', 'error');
-     }
-   }
-   </script>
-   
-   <!-- Scripts del sistema -->
-   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
-   <script src="js/core/auth-check.js"></script>
-   <script src="js/core/login.js"></script>
-   <!-- DUPLICADO 4 ELIMINADO: script.js -->
-   <script src="js/core/charts.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-   <script src="js/core/graficas.js"></script>
-   <script src="js/core/costumer-comments.js"></script>
-   
-   <script>
-     // InicializaciÃ³n de scripts adicionales
-     document.addEventListener('DOMContentLoaded', function() {
-       console.log('Dashboard cargado correctamente');
-       
-       // Refrescar la tabla Costumer al cargar la pÃ¡gina
-       (async () => {
-         const leads = await fetchLeadsAgente();
-         if(Array.isArray(leads)) {
-           const sortedLeads = leads.sort((a,b)=>(b.creadoEn||b.fecha||'').localeCompare(a.creadoEn||a.fecha||''));
-           renderCostumerTable(sortedLeads);
-           updateSummaryCards(sortedLeads);
-         } else {
-           mostrarMensaje('No se pudo cargar clientes', 'error');
-         }
-         
-         // Renderizar grÃ¡ficas si la pestaÃ±a de grÃ¡ficas estÃ¡ activa
-         if (document.getElementById('charts-panel').style.display === 'flex' || 
-             document.getElementById('chartsTab').style.display === 'flex') {
-           if (typeof renderGraficas === 'function') renderGraficas();
-         }
-       })();
-     });
-   </script>
 </body>
 </html>
