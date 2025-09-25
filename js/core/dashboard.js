@@ -1,7 +1,7 @@
 const token = localStorage.getItem('token');
 const API_URL =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:3001"
+    ? "http://localhost:3003"
     : "https://connecting-klf7.onrender.com";
 
 const rol = localStorage.getItem('rol');
@@ -9,7 +9,10 @@ const rol = localStorage.getItem('rol');
 // --- Cargar y mostrar clientes ---
 async function cargarClientes() {
   const resp = await fetch(`${API_URL}/api/leads`, {
-    headers: { 'Authorization': 'Bearer ' + token }
+    credentials: 'include', // Para enviar cookies automáticamente
+    headers: { 
+      'Content-Type': 'application/json'
+    }
   });
   const clientes = await resp.json();
   mostrarClientes(clientes);
@@ -57,22 +60,25 @@ function ocultarFormularios() {
 }
 
 // --- Enviar nueva venta (agente o admin) ---
-document.getElementById('ventaForm').onsubmit = async function(e) {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(this).entries());
-  const resp = await fetch(`${API_URL}/api/leads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify(data)
-  });
-  if (resp.ok) {
-    alert('Venta enviada');
-    cargarClientes();
-    ocultarFormularios();
-  } else {
-    alert('Error al enviar venta');
-  }
-};
+const ventaForm = document.getElementById('ventaForm');
+if (ventaForm) {
+  ventaForm.onsubmit = async function(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(this).entries());
+    const resp = await fetch(`${API_URL}/api/leads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+      alert('Venta enviada');
+      cargarClientes();
+      ocultarFormularios();
+    } else {
+      alert('Error al enviar venta');
+    }
+  };
+}
 
 // --- Enviar venta para cliente existente ---
 async function enviarVentaExistente(id) {
@@ -81,7 +87,9 @@ async function enviarVentaExistente(id) {
 }
 
 // --- Agregar/editar cliente (solo admin) ---
-document.getElementById('clienteForm').onsubmit = async function(e) {
+const clienteForm = document.getElementById('clienteForm');
+if (clienteForm) {
+  clienteForm.onsubmit = async function(e) {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(this).entries());
   let url = `${API_URL}/api/leads`;
@@ -102,7 +110,8 @@ document.getElementById('clienteForm').onsubmit = async function(e) {
   } else {
     alert('Error al guardar cliente');
   }
-};
+  };
+}
 
 // --- Editar cliente (solo admin) ---
 async function editarCliente(id) {
@@ -161,7 +170,9 @@ function mostrarComentarioForm(id) {
   formSection.style.display = '';
   document.getElementById('comentarioForm').id.value = id;
 }
-document.getElementById('comentarioForm').onsubmit = async function(e) {
+const comentarioForm = document.getElementById('comentarioForm');
+if (comentarioForm) {
+  comentarioForm.onsubmit = async function(e) {
   e.preventDefault();
   const id = this.id.value;
   const comentario = this.comentario.value;
@@ -177,7 +188,8 @@ document.getElementById('comentarioForm').onsubmit = async function(e) {
   } else {
     alert('No se pudo comentar');
   }
-};
+  };
+}
 
 // --- Logout ---
 function logout() {

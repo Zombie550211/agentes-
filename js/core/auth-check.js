@@ -1,7 +1,7 @@
 // --- Configuración de usuario por defecto (sin autenticación) ---
 const API_URL =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:3001"
+    ? "http://localhost:3003"
     : "https://connecting-klf7.onrender.com"; // Cambia esta URL por la de tu backend en producción
 
 // Establecer valores por defecto si no existen
