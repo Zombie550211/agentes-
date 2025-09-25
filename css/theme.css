@@ -1,0 +1,146 @@
+/* Tema visual (solo estilos) - no altera funcionalidad
+   Ajustable vía variables para colores/espaciado/radios/sombras
+*/
+:root{
+  /* Colores base (ajustables) */
+  --color-primary: #0ea5e9;   /* azul acento */
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-bg: #f4f6f8;        /* fondo app */
+  --color-card: #ffffff;      /* tarjetas */
+  --color-text: #1f2937;      /* texto base */
+  --color-muted: #6b7280;     /* texto secundario */
+  --color-border: #e5e7eb;    /* bordes suaves */
+
+  /* Estados suaves */
+  --status-pending: #eab308;  /* amarillo */
+  --status-repro: #ef4444;    /* rojo */
+  --status-hold: #f59e0b;     /* ámbar */
+  --status-completed: #10b981;/* verde */
+
+  /* UI tokens */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-card: 0 2px 12px rgba(0,0,0,.07);
+  --shadow-hover: 0 6px 18px rgba(0,0,0,.10);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+}
+
+/* Fondo general */
+body{
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Tarjetas / contenedores */
+.card, .panel, .box, .kpi, .grafica-container{
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.card:hover, .panel:hover{
+  box-shadow: var(--shadow-hover);
+}
+
+/* Formularios */
+input[type="text"], input[type="date"], input[type="number"], input[type="tel"], input[type="email"],
+select, textarea{
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+
+input:focus, select:focus, textarea:focus{
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(14,165,233,.15);
+}
+
+label{
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+/* Botones */
+.button, .btn, button[type="submit"], .costumer-action-btn.edit, .costumer-action-btn.delete{
+  border-radius: var(--radius-sm);
+}
+.btn-primary, .button-primary, button[type="submit"], .guardar-lead-btn{
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary-600);
+  color: #fff;
+  padding: 10px 14px;
+}
+.btn-primary:hover, .button-primary:hover, button[type="submit"]:hover, .guardar-lead-btn:hover{
+  background: var(--color-primary-700);
+}
+
+/* Sidebar */
+.sidebar, .left-sidebar{
+  background: #ffffff;
+  border-right: 1px solid var(--color-border);
+}
+.sidebar .menu a.active, .left-sidebar .menu a.active{
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 999px;
+}
+
+/* Filtros superiores */
+.filters, .toolbar, .top-filters{
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-3);
+}
+
+/* Tabla */
+.table, table{
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.table thead th, table thead th{
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.table tbody tr:hover, table tbody tr:hover{
+  background: #f9fbfd;
+}
+.table td, .table th, table td, table th{
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Badges de estado */
+.badge-status{
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.badge-status-pending{ background: rgba(234,179,8,.15); color: #92400e; }
+.badge-status-repro{ background: rgba(239,68,68,.15); color: #991b1b; }
+.badge-status-hold{ background: rgba(245,158,11,.15); color: #92400e; }
+.badge-status-completed{ background: rgba(16,185,129,.15); color: #065f46; }
+
+/* Utilidades */
+.rounded-lg{ border-radius: var(--radius-lg); }
+.shadow-card{ box-shadow: var(--shadow-card); }
+.bg-card{ background: var(--color-card); }
+.text-muted{ color: var(--color-muted); }
+.border{ border: 1px solid var(--color-border); }
