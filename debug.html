@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug MongoDB Atlas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .loading { display: none; color: #666; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug MongoDB Atlas</h1>
+
+        <button onclick="checkCollections()">Verificar Colecciones</button>
+        <button onclick="checkCostumers()">Verificar Registros Costumers</button>
+
+        <div id="loading" class="loading">Cargando...</div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function makeRequest(endpoint) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+
+            try {
+                const response = await fetch(`http://localhost:10000${endpoint}`, {
+                    headers: {
+                        'Authorization': 'Bearer temp-token-dev',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    document.getElementById('result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('result').innerHTML = `<div class="error">Error: ${data.message}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('result').innerHTML = `<div class="error">Error de conexión: ${error.message}</div>`;
+            }
+        }
+
+        function checkCollections() {
+            makeRequest('/api/debug/collections');
+        }
+
+        function checkCostumers() {
+            makeRequest('/api/debug/costumers-count');
+        }
+    </script>
+</body>
+</html>

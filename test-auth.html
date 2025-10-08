@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test de Autenticación</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #2196F3;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e8f5e9;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .error {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .success {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🔐 Test de Autenticación CRM</h1>
+    
+    <div class="test-section">
+      <h3>1. Verificar Servidor</h3>
+      <button onclick="testServer()">Probar Conexión</button>
+      <div id="server-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>2. Verificar Autenticación</h3>
+      <button onclick="testAuth()">Verificar Auth</button>
+      <div id="auth-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>3. Verificar Cookies</h3>
+      <button onclick="testCookies()">Ver Cookies</button>
+      <div id="cookies-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>4. Verificar LocalStorage</h3>
+      <button onclick="testStorage()">Ver Storage</button>
+      <div id="storage-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>5. Test de Login</h3>
+      <input type="text" id="username" placeholder="Usuario" style="padding: 8px; margin: 5px;">
+      <input type="password" id="password" placeholder="Contraseña" style="padding: 8px; margin: 5px;">
+      <button onclick="testLogin()">Hacer Login</button>
+      <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>6. Ir al Dashboard</h3>
+      <button onclick="goToDashboard()">Ir a Inicio</button>
+    </div>
+  </div>
+
+  <script>
+    async function testServer() {
+      const resultDiv = document.getElementById('server-result');
+      resultDiv.textContent = 'Probando conexión...';
+      
+      try {
+        const response = await fetch('/api/auth/debug-storage', {
+          credentials: 'include'
+        });
+        const data = await response.json();
+        resultDiv.className = 'result success';
+        resultDiv.textContent = '✅ Servidor activo\n' + JSON.stringify(data, null, 2);
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ Error de conexión\n' + error.message;
+      }
+    }
+
+    async function testAuth() {
+      const resultDiv = document.getElementById('auth-result');
+      resultDiv.textContent = 'Verificando autenticación...';
+      
+      try {
+        const response = await fetch('/api/auth/verify-server', {
+          credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          resultDiv.className = 'result success';
+          resultDiv.textContent = '✅ Autenticado\n' + JSON.stringify(data, null, 2);
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ No autenticado\n' + JSON.stringify(data, null, 2);
+        }
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ Error\n' + error.message;
+      }
+    }
+
+    function testCookies() {
+      const resultDiv = document.getElementById('cookies-result');
+      const cookies = document.cookie;
+      
+      if (cookies) {
+        resultDiv.className = 'result success';
+        resultDiv.textContent = '🍪 Cookies encontradas:\n' + cookies;
+      } else {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ No hay cookies';
+      }
+    }
+
+    function testStorage() {
+      const resultDiv = document.getElementById('storage-result');
+      const localStorage_user = localStorage.getItem('user');
+      const sessionStorage_user = sessionStorage.getItem('user');
+      
+      resultDiv.className = 'result';
+      resultDiv.textContent = 
+        'LocalStorage user: ' + (localStorage_user || 'No encontrado') + '\n\n' +
+        'SessionStorage user: ' + (sessionStorage_user || 'No encontrado');
+    }
+
+    async function testLogin() {
+      const resultDiv = document.getElementById('login-result');
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      if (!username || !password) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ Ingrese usuario y contraseña';
+        return;
+      }
+      
+      resultDiv.textContent = 'Iniciando sesión...';
+      
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          resultDiv.className = 'result success';
+          resultDiv.textContent = '✅ Login exitoso\n' + JSON.stringify(data, null, 2);
+          
+          // Guardar usuario en storage
+          sessionStorage.setItem('user', JSON.stringify(data.user));
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ Login fallido\n' + JSON.stringify(data, null, 2);
+        }
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ Error\n' + error.message;
+      }
+    }
+
+    function goToDashboard() {
+      window.location.href = '/inicio.html';
+    }
+  </script>
+</body>
+</html>
