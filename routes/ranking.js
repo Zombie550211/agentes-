@@ -36,21 +36,46 @@ router.get('/', protect, async (req, res) => {
       startDate = toYMD(start);
       endDate = toYMD(now);
     }
-    const dateFilter = {
-      dia_venta: {
-        $gte: startDate,
-        $lte: endDate
-      }
-    };
     console.log('[RANGOS] Efectivo', { startDate, endDate });
 
-    console.log('[RANKING] Filtro de fecha aplicado:', dateFilter);
+    // Preparar normalización de fecha dentro del pipeline (soporta Date y String y campos alternos)
+    const dateNormStage = {
+      $addFields: {
+        _rawDate: {
+          $ifNull: [
+            "$dia_venta",
+            { $ifNull: [ "$fecha_contratacion", { $ifNull: [ "$createdAt", { $ifNull: [ "$fecha", "$creadoEn" ] } ] } ] }
+          ]
+        },
+        _date: {
+          $switch: {
+            branches: [
+              { case: { $eq: [ { $type: "$_rawDate" }, "date" ] }, then: "$_rawDate" },
+              { case: { $eq: [ { $type: "$_rawDate" }, "string" ] }, then: { $dateFromString: { dateString: "$_rawDate", onError: null, onNull: null } } }
+            ],
+            default: null
+          }
+        }
+      }
+    };
+
+    const dateMatchStage = {
+      $match: {
+        $expr: {
+          $and: [
+            { $gte: [ { $dateToString: { format: "%Y-%m-%d", date: "$_date" } }, startDate ] },
+            { $lte: [ { $dateToString: { format: "%Y-%m-%d", date: "$_date" } }, endDate ] }
+          ]
+        }
+      }
+    };
 
     // Obtener datos REALES de la base de datos usando agenteNombre y puntaje
     const hardLimit = all ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 10);
-    const pipeline = [
-      // 1) Filtrar por fecha si se especifica
-      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
+    const pipelineBase = [
+      // 1) Normalizar y filtrar por fecha del mes
+      dateNormStage,
+      dateMatchStage,
 
       // 2) Normalizar nombre del agente y asegurar campos numéricos
       {
@@ -152,10 +177,24 @@ router.get('/', protect, async (req, res) => {
       { $limit: hardLimit }
     ];
 
-    console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipeline, null, 2));
+    console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipelineBase, null, 2));
 
-    // Ejecutar consulta en la colección costumers
-    const rankingResults = await db.collection('costumers').aggregate(pipeline).toArray();
+    // Ejecutar consulta recorriendo colecciones conocidas hasta obtener datos
+    const collectionsToTry = ['costumers','Costumers','customers','leads','Leads','ventas','Lineas'];
+    let rankingResults = [];
+    for (const col of collectionsToTry) {
+      try {
+        console.log(`[RANKING] Intentando en colección: ${col}`);
+        const arr = await db.collection(col).aggregate(pipelineBase).toArray();
+        if (Array.isArray(arr) && arr.length > 0) {
+          rankingResults = arr;
+          console.log(`[RANKING] Datos encontrados en colección: ${col} (count=${arr.length})`);
+          break;
+        }
+      } catch (e) {
+        console.warn(`[RANKING] Error consultando ${col}:`, e?.message);
+      }
+    }
     
     console.log('[RANKING] Resultados de la consulta:', rankingResults);
 
@@ -179,8 +218,18 @@ router.get('/', protect, async (req, res) => {
         }
       ];
     } else {
-      // Agregar posición a los datos reales
-      rankingData = rankingResults.map((item, index) => ({ ...item, position: index + 1 }));
+      // Asegurar campos útiles y agregar posición a los datos reales
+      rankingData = rankingResults.map((item, index) => {
+        const puntosCalc = (typeof item.puntos === 'number' && item.puntos > 0)
+          ? item.puntos
+          : ((typeof item.avgPuntaje === 'number' && item.avgPuntaje > 0) ? item.avgPuntaje : (item.ventas || 0));
+        return {
+          ...item,
+          puntos: Math.round((puntosCalc + Number.EPSILON) * 10) / 10,
+          promedio: item.avgPuntaje, // alias para frontend
+          position: index + 1
+        };
+      });
     }
 
     console.log('[RANKING] Devolviendo datos:', rankingData);
