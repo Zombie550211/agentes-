@@ -52,6 +52,24 @@ async function obtenerEstadisticasEquipos(req, res) {
 
     const pipeline = [];
 
+    // Si piden SOLO el día (scope=day o fechaInicio==fechaFin), aplicar match directo por strings
+    const isDayOnly = (scope === 'day') || (fechaInicio && fechaFin && fechaInicio === fechaFin);
+    if (isDayOnly && start) {
+      try {
+        const d = new Date(start);
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const sYMD = `${y}-${m}-${dd}`;      // YYYY-MM-DD
+        const sDMY = `${dd}/${m}/${y}`;      // DD/MM/YYYY
+        const sDMYDash = `${dd}-${m}-${y}`;  // DD-MM-YYYY
+        pipeline.push({ $match: { $or: [
+          { dia_venta: { $in: [sYMD, sDMY, sDMYDash] } },
+          { fecha_contratacion: { $in: [sYMD, sDMY, sDMYDash] } }
+        ] } });
+      } catch {}
+    }
+
     // Normalización previa (fechas y puntaje desde múltiples campos)
     pipeline.push({
       $addFields: {
@@ -61,7 +79,7 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$fecha', '$creadoEn' ] } ] } ] }
           ]
         },
-        teamNorm: { $toUpper: { $ifNull: ['$team', '$equipo', ''] } },
+        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
         mercadoNorm: { $toUpper: { $ifNull: ['$mercado', ''] } },
         puntajeNum: {
           $convert: {
@@ -74,7 +92,7 @@ async function obtenerEstadisticasEquipos(req, res) {
 
     // Parseo de fecha a Date (soporta Date, yyyy-mm-dd, dd/mm/yyyy, dd-mm-yyyy)
     pipeline.push({
-      $addFields: {
+      $addFields: {   
         saleDate: {
           $switch: {
             branches: [
@@ -90,26 +108,41 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     });
 
-    // Match por rango
+    // Match por rango/día (con límites locales y soporte string)
     if (String(all).trim() !== '1' && (start || endOfDay)) {
-      const expr = { $and: [] };
-      if (start) expr.$and.push({ $gte: ['$saleDateDate', start] });
-      if (endOfDay) expr.$and.push({ $lte: ['$saleDateDate', endOfDay] });
+      const sameDay = !!(start && end && start.toDateString() === end.toDateString());
+      // Límites locales (00:00:00 a 24:00:00 del día solicitado)
+      const sLocal = start ? new Date(new Date(start).setHours(0,0,0,0)) : null;
+      const eLocal = end ? new Date(new Date(end).setHours(23,59,59,999)) : null;
+      let sYMD = null, sDMY = null, sDMYDash = null;
+      try {
+        if (start) {
+          const d = new Date(start);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          sYMD = `${y}-${m}-${dd}`;      // YYYY-MM-DD
+          sDMY = `${dd}/${m}/${y}`;      // DD/MM/YYYY
+          sDMYDash = `${dd}-${m}-${y}`;  // DD-MM-YYYY
+        }
+      } catch {}
 
-      let startStr = null;
-      try { if (start) startStr = new Date(start).toISOString().slice(0,10); } catch {}
-
-      if (start && endOfDay && startStr) {
+      if (sameDay && sLocal && eLocal) {
         pipeline.push({
           $match: {
             $or: [
-              { $expr: expr },
-              { $and: [ { $expr: { $eq: [ { $type: '$saleDateRaw' }, 'string' ] } }, { $expr: { $eq: [ '$saleDateRaw', startStr ] } } ] }
+              // Por tipo Date en rango local
+              { $expr: { $and: [ { $gte: ['$saleDateDate', sLocal] }, { $lte: ['$saleDateDate', eLocal] } ] } },
+              // Por string crudo exacto
+              { saleDateRaw: { $in: [ sYMD, sDMY, sDMYDash ] } }
             ]
           }
         });
       } else {
-        pipeline.push({ $match: { $expr: expr } });
+        const expr = { $and: [] };
+        if (sLocal) expr.$and.push({ $gte: ['$saleDateDate', sLocal] });
+        if (eLocal) expr.$and.push({ $lte: ['$saleDateDate', eLocal] });
+        if (expr.$and.length) pipeline.push({ $match: { $expr: expr } });
       }
     }
 
@@ -169,20 +202,98 @@ async function obtenerEstadisticasEquipos(req, res) {
       } catch(e){ console.warn('[EQUIPOS fallback] Error:', e?.message); }
     }
 
+    // Fallback adicional: si sigue vacío en día exacto, reintentar con rango del MES ACTUAL
+    const sameDayFinal = !!(start && end && start.toDateString() === end.toDateString());
+    if ((scope === 'day' || sameDayFinal) && (!equiposData || equiposData.length === 0)) {
+      try {
+        const now = new Date();
+        const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        const ms = monthStart;
+        const me = new Date();
+        const pipelineMonth = [
+          { $addFields: {
+              saleDateRaw: { $ifNull: ['$dia_venta', { $ifNull: ['$fecha_contratacion', { $ifNull: ['$createdAt', { $ifNull: ['$fecha', '$creadoEn'] } ] } ] } ] },
+              teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
+              mercadoNorm: { $toUpper: { $ifNull: ['$mercado', ''] } },
+              puntajeNum: { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntuacion', { $ifNull: ['$points', '$score'] } ] } ] }, to: 'double', onError: 0, onNull: 0 } },
+              saleDate: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: [ { $type: '$saleDateRaw' }, 'date' ] }, then: '$saleDateRaw' },
+                    { case: { $and: [ { $eq: [ { $type: '$saleDateRaw' }, 'string' ] }, { $regexMatch: { input: '$saleDateRaw', regex: /^\d{4}-\d{2}-\d{2}/ } } ] }, then: { $dateFromString: { dateString: '$saleDateRaw' } } },
+                    { case: { $and: [ { $eq: [ { $type: '$saleDateRaw' }, 'string' ] }, { $regexMatch: { input: '$saleDateRaw', regex: /^\d{2}[\/\-]\d{2}[\/\-]\d{4}/ } } ] }, then: { $dateFromString: { dateString: '$saleDateRaw', format: '%d/%m/%Y' } } }
+                  ],
+                  default: '$saleDateRaw'
+                }
+              },
+              saleDateDate: { $cond: [ { $eq: [ { $type: '$saleDate' }, 'date' ] }, '$saleDate', { $toDate: '$saleDate' } ] }
+          }},
+          { $match: { $expr: { $and: [ { $gte: ['$saleDateDate', ms] }, { $lte: ['$saleDateDate', me] } ] } } },
+          { $group: {
+            _id: '$teamNorm',
+            ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
+            BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
+            Total: { $sum: 1 },
+            Puntaje: { $sum: '$puntajeNum' }
+          }},
+          { $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } },
+          { $sort: { TEAM: 1 } }
+        ];
+
+        let monthData = [];
+        for (const colName of ['costumers','Costumers','customers','leads','Leads','ventas']) {
+          try {
+            const arr = await db.collection(colName).aggregate(pipelineMonth).toArray();
+            if (Array.isArray(arr) && arr.length >= 0) { monthData = arr; usedCollection = colName; break; }
+          } catch {}
+        }
+        if (monthData.length) {
+          equiposData = monthData;
+          total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
+        }
+      } catch (e) { console.warn('[EQUIPOS fallback-month] Error:', e?.message); }
+    }
+
     // LINEAS como team agregado
     const lineasCol = db.collection('Lineas');
     const lineasPipeline = [
       { $addFields: {
           saleDateRaw: { $ifNull: ['$dia_venta', '$creadoEn'] },
           saleDate: { $cond: [ { $eq: [ { $type: '$dia_venta' }, 'string' ] }, { $dateFromString: { dateString: '$dia_venta' } }, { $ifNull: ['$dia_venta', '$creadoEn'] } ] },
-          teamNorm: { $toUpper: { $ifNull: ['$team', 'TEAM LINEAS'] } },
+          teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', 'TEAM LINEAS'] } } } },
           mercadoNorm: { $toUpper: { $ifNull: ['$mercado', '' ] } },
           puntajeNum: { $convert: { input: '$puntaje', to: 'double', onError: 0, onNull: 0 } }
       } }
     ];
     if (String(all).trim() !== '1' && (start || endOfDay)) {
-      const lm = {}; if (start) lm.$gte = start; if (endOfDay) lm.$lte = endOfDay;
-      lineasPipeline.push({ $match: { saleDate: lm } });
+      const sameDay = !!(start && end && start.toDateString() === end.toDateString());
+      const sLocal = start ? new Date(new Date(start).setHours(0,0,0,0)) : null;
+      const eLocal = end ? new Date(new Date(end).setHours(23,59,59,999)) : null;
+      let sYMD = null, sDMY = null, sDMYDash = null;
+      try {
+        if (start) {
+          const d = new Date(start);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          sYMD = `${y}-${m}-${dd}`;
+          sDMY = `${dd}/${m}/${y}`;
+          sDMYDash = `${dd}-${m}-${y}`;
+        }
+      } catch {}
+      if (sameDay && sLocal && eLocal) {
+        lineasPipeline.push({
+          $match: {
+            $or: [
+              { $expr: { $and: [ { $gte: ['$saleDate', sLocal] }, { $lte: ['$saleDate', eLocal] } ] } },
+              { dia_venta: { $in: [ sYMD, sDMY, sDMYDash ] } }
+            ]
+          }
+        });
+      } else {
+        const lm = {}; if (sLocal) lm.$gte = sLocal; if (eLocal) lm.$lte = eLocal;
+        if (Object.keys(lm).length) lineasPipeline.push({ $match: { saleDate: lm } });
+      }
     }
     lineasPipeline.push({ $group: {
       _id: '$teamNorm',
@@ -215,6 +326,85 @@ async function obtenerEstadisticasEquipos(req, res) {
       equiposData = Array.from(map.values()).sort((a,b)=>a.TEAM.localeCompare(b.TEAM));
       total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
     }
+
+    // Asegurar que aparezcan todos los equipos, incluso con valores en cero
+    try {
+      // 1) Unificar equipos por nombre base (quita prefijo 'TEAM' y toma la primera palabra)
+      const baseName = (s) => {
+        try {
+          if (!s) return '';
+          let v = String(s).toUpperCase().trim();
+          if (v.startsWith('TEAM ')) v = v.slice(5).trim();
+          const first = v.split(/\s+/)[0] || '';
+          return first;
+        } catch { return ''; }
+      };
+      const merged = new Map();
+      for (const r of (equiposData || [])) {
+        const key = baseName(r.TEAM);
+        const cur = merged.get(key) || { TEAM: key, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+        cur.ICON += Number(r.ICON || 0);
+        cur.BAMO += Number(r.BAMO || 0);
+        cur.Total += Number(r.Total || 0);
+        cur.Puntaje += Number(r.Puntaje || 0);
+        merged.set(key, cur);
+      }
+      equiposData = Array.from(merged.values());
+
+      // 2) Construir lista completa de equipos conocidos desde todas las colecciones
+      const potentialCollections = ['costumers','Costumers','customers','leads','Leads','ventas'];
+      const allTeamsSet = new Set();
+
+      for (const colName of potentialCollections) {
+        try {
+          const teamAgg = await db.collection(colName).aggregate([
+            { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } } } },
+            { $group: { _id: '$teamNorm' } },
+            { $match: { _id: { $ne: '' } } }
+          ]).toArray();
+          for (const t of (teamAgg || [])) allTeamsSet.add(baseName(t._id));
+        } catch {}
+      }
+
+      // Asegurar también equipos provenientes de Lineas
+      if (Array.isArray(lineasTeams)) {
+        for (const lt of lineasTeams) allTeamsSet.add(baseName(lt.TEAM));
+      }
+
+      // 3) Lista obligatoria y orden prioritario
+      const requiredOrder = ['IRANIA','MARISOL','PLEITEZ','RANDAL','ROBERTO'];
+      requiredOrder.forEach(n => allTeamsSet.add(n));
+
+      const present = new Set((equiposData || []).map(e => baseName(e.TEAM)));
+      for (const name of allTeamsSet) {
+        if (!present.has(name)) equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+      }
+
+      // 4) Ordenar: primero requiredOrder, luego alfabético
+      const orderIndex = new Map(requiredOrder.map((n,i)=>[n,i]));
+      equiposData.sort((a,b)=>{
+        const ai = orderIndex.has(a.TEAM) ? orderIndex.get(a.TEAM) : Infinity;
+        const bi = orderIndex.has(b.TEAM) ? orderIndex.get(b.TEAM) : Infinity;
+        if (ai !== bi) return ai - bi;
+        return a.TEAM.localeCompare(b.TEAM);
+      });
+    } catch {}
+
+    // Fallback garantizado: asegurar equipos requeridos aunque falle la sección anterior
+    try {
+      const requiredOrderFinal = ['IRANIA','MARISOL','PLEITEZ','RANDAL','ROBERTO'];
+      const present = new Set((equiposData || []).map(e => String(e.TEAM || '').toUpperCase()));
+      for (const name of requiredOrderFinal) {
+        if (!present.has(name)) equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+      }
+      const orderIndex = new Map(requiredOrderFinal.map((n,i)=>[n,i]));
+      equiposData.sort((a,b)=>{
+        const ai = orderIndex.has(String(a.TEAM).toUpperCase()) ? orderIndex.get(String(a.TEAM).toUpperCase()) : Infinity;
+        const bi = orderIndex.has(String(b.TEAM).toUpperCase()) ? orderIndex.get(String(b.TEAM).toUpperCase()) : Infinity;
+        if (ai !== bi) return ai - bi;
+        return String(a.TEAM).localeCompare(String(b.TEAM));
+      });
+    } catch {}
 
     return res.json({ success: true, message: 'Estadísticas calculadas', total, data: equiposData });
   } catch (error) {
