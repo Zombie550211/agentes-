@@ -27,7 +27,8 @@ async function connectToMongoDB() {
 
     // Conectar el cliente
     await client.connect();
-    db = client.db('crmagente');
+    const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
+    db = client.db(DB_NAME);
 
     console.log('[DB] Conexión a MongoDB Atlas establecida correctamente');
 

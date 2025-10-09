@@ -495,9 +495,9 @@
         if (fechaInicio) params.append('fechaInicio', fechaInicio);
         if (fechaFin) params.append('fechaFin', fechaFin);
         
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
+        // Si no se especifica rango, usar el DÍA ACTUAL por defecto
+        if (!fechaInicio && !fechaFin) params.append('scope','day');
+        if (params.toString()) url += `?${params.toString()}`;
         
         console.log('Solicitando datos a:', url);
         
@@ -521,7 +521,7 @@
           throw new Error(`Error HTTP: ${response.status} - ${errorText}`);
         }
         
-        const data = await response.json();
+        let data = await response.json();
         console.log('Datos recibidos de la API:', {
           success: data.success,
           message: data.message,
@@ -538,8 +538,8 @@
         // Si no hay datos, mostrar mensaje de "sin datos" con tabla vacía
         let teamData = [];
         if (!data.data || data.data.length === 0) {
-          console.log('No hay datos disponibles para la fecha actual');
-          teamData = []; // Array vacío para mostrar tabla sin filas
+          console.log('No hay datos disponibles para el día actual');
+          teamData = [];
         } else {
           // Mapear datos de la API al formato esperado (mantener Puntaje como número)
           teamData = data.data.map(equipo => ({
@@ -567,15 +567,26 @@
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
 
-        // Fecha encabezado (hoy)
-        const hoy = new Date();
-        const fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+        // Encabezado según el rango solicitado (por defecto: día)
+        let fecha;
+        if (fechaInicio && fechaFin) {
+          if (fechaInicio === fechaFin) {
+            fecha = new Date(fechaInicio).toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+          } else {
+            const f1 = new Date(fechaInicio).toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+            const f2 = new Date(fechaFin).toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+            fecha = `${f1} a ${f2}`;
+          }
+        } else {
+          const hoy = new Date();
+          fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+        }
 
         // Generar HTML de la tabla de equipos
         const showLineasPanel = true;
         let html = `
           <div class="conversion-card">
-            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${fecha})</div>
+            <div class="conversion-title">${(fechaInicio && fechaFin && fechaInicio !== fechaFin) ? 'VENTAS POR MERCADO Y PUNTAJE' : 'VENTAS POR MERCADO Y PUNTAJE DEL DÍA'} (${fecha})</div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">
