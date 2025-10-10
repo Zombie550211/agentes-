@@ -1,10 +1,12 @@
 const { MongoClient } = require('mongodb');
+const mongoose = require('mongoose');
 
 // Configuración de conexión a MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Zombie550211:fDJneHzSCsiU5mdy@cluster0.ywxaotz.mongodb.net/crmagente?retryWrites=true&w=majority&appName=Cluster0';
 
 // Variable global para mantener la conexión
 let db = null;
+let __nativeClient = null;
 
 /**
  * Conecta a MongoDB Atlas y devuelve la instancia de la base de datos
@@ -12,23 +14,47 @@ let db = null;
  */
 async function connectToMongoDB() {
   try {
-    if (db && db.serverConfig && db.serverConfig.isConnected()) {
-      console.log('[DB] Reutilizando conexión existente');
+    // Reutilizar conexión nativa si ya existe
+    if (db) {
+      console.log('[DB] Reutilizando conexión nativa existente');
+      return db;
+    }
+
+    // Reutilizar conexión de Mongoose si ya está conectada
+    if (mongoose?.connection?.readyState === 1 && mongoose.connection.db) {
+      db = mongoose.connection.db;
+      console.log('[DB] Reutilizando conexión de Mongoose');
       return db;
     }
 
     console.log('[DB] Conectando a MongoDB Atlas...');
-    const client = new MongoClient(MONGODB_URI, {
+    const insecure = process.env.TLS_INSECURE === '1';
+    const baseOptions = {
       serverSelectionTimeoutMS: 10000, // 10 segundos
       socketTimeoutMS: 45000, // 45 segundos
       maxPoolSize: 5, // Máximo 5 conexiones en el pool
       minPoolSize: 1, // Mínimo 1 conexión
-    });
+      appName: process.env.APP_NAME || 'dashboard-backend',
+      family: 4, // Preferir IPv4 para evitar issues con IPv6 en algunas redes
+    };
+    const tlsOptions = insecure ? {
+      // Permitir certificados no válidos (sin combinar con tlsInsecure)
+      tls: true,
+      tlsAllowInvalidCertificates: true,
+    } : {};
+    const compatOptions = {
+      directConnection: false,
+      serverApi: { version: '1', strict: false, deprecationErrors: false },
+    };
+    const finalOptions = { ...baseOptions, ...tlsOptions, ...compatOptions };
+    try { console.log('[DB] TLS_INSECURE=', insecure, ' opciones:', JSON.stringify(finalOptions)); } catch {}
+    const client = new MongoClient(MONGODB_URI, finalOptions);
 
     // Conectar el cliente
     await client.connect();
     const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
     db = client.db(DB_NAME);
+    __nativeClient = client;
 
     console.log('[DB] Conexión a MongoDB Atlas establecida correctamente');
 
@@ -56,10 +82,15 @@ async function connectToMongoDB() {
  * @returns {Db|null} Instancia de la base de datos o null si no está conectada
  */
 function getDb() {
-  if (!db) {
-    console.warn('[DB] No hay conexión activa a la base de datos');
+  if (db) return db;
+  // Si Mongoose está conectado, reutilizar su conexión
+  if (mongoose?.connection?.readyState === 1 && mongoose.connection.db) {
+    db = mongoose.connection.db;
+    console.log('[DB] getDb() tomó la conexión desde Mongoose');
+    return db;
   }
-  return db;
+  console.warn('[DB] No hay conexión activa a la base de datos');
+  return null;
 }
 
 /**
@@ -67,8 +98,9 @@ function getDb() {
  */
 async function closeConnection() {
   try {
-    if (db) {
-      await db.client.close();
+    if (__nativeClient) {
+      await __nativeClient.close();
+      __nativeClient = null;
       db = null;
       console.log('[DB] Conexión cerrada correctamente');
     }

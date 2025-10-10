@@ -57,21 +57,18 @@ if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {
 
 // Inicializar Express app
 const app = express();
-// En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto (alineado con front).
+// En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
 const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
 const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
 
 // Variable para almacenar la referencia del servidor activo
 let activeServer = null;
 
-// Guard de acceso: multimedia.html solo para Administrador
-app.use('/multimedia.html', protect, (req, res, next) => {
-  const role = (req.user?.role || '').toString();
-  const allowed = ['Administrador', 'admin', 'administrador'];
-  if (!allowed.includes(role)) {
-    return res.status(403).send('Acceso denegado');
-  }
-  return res.sendFile(path.join(__dirname, 'multimedia.html'));
+// Health check (definido ANTES de static para evitar redirecciones del front)
+app.get('/health', (req, res) => {
+  const state = mongoose.connection.readyState; // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+  const map = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  res.json({ ok: state === 1, mongo: map[state] || String(state) });
 });
 
 // Configuración de rutas de archivos estáticos
@@ -106,11 +103,15 @@ app.use(express.static(__dirname, {
 try {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Zombie550211:fDJneHzSCsiU5mdy@cluster0.ywxaotz.mongodb.net/crmagente?retryWrites=true&w=majority&appName=Cluster0';
   mongoose.set('strictQuery', false);
-  mongoose.connect(MONGODB_URI, {
+  const insecure = process.env.TLS_INSECURE === '1';
+  const mongooseOpts = {
     serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
-    maxPoolSize: 5
-  })
+    maxPoolSize: 5,
+    tls: insecure ? true : undefined,
+    tlsInsecure: insecure ? true : undefined,
+  };
+  mongoose.connect(MONGODB_URI, mongooseOpts)
   .then(() => console.log('[Mongoose] Conectado a MongoDB Atlas'))
   .catch(err => console.error('[Mongoose] Error de conexión:', err?.message));
 } catch (e) {
