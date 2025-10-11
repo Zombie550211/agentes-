@@ -672,12 +672,13 @@
           if (resDay && resDay.ok) {
             console.log('[DIA] Respuesta recibida (status):', resDay.status, resDay.statusText);
             const dataDay = await resDay.json();
-            console.log('[DIA] Datos recibidos de la API (DIA):', {
-              success: dataDay?.success,
-              message: dataDay?.message,
-              total: dataDay?.total,
-              data: Array.isArray(dataDay?.data) ? `Array de ${dataDay.data.length} elementos` : 'No hay datos',
-              debug: dataDay?.debug || null,
+            console.log('[MES] Datos recibidos de la API (MES):', {
+              success: data?.success,
+              message: data?.message,
+              total: data?.total,
+              equipos: Array.isArray(data?.data) ? `Array de ${data.data.length} elementos` : 'No hay datos',
+              nombresEquipos: Array.isArray(data?.data) ? data.data.map(t => t._id || t.TEAM || 'SIN EQUIPO') : [],
+              debug: data?.debug || null,
             });
             const dayTeams = Array.isArray(dataDay.data) ? dataDay.data : [];
             const dayTotals = dayTeams.reduce((acc, r) => ({
@@ -884,7 +885,7 @@
       }
 
       window.ventasPorEquipoChart = new Chart(ctx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
           labels: labels,
           datasets: [{
@@ -892,8 +893,7 @@
             data: data,
             backgroundColor: colors.slice(0, data.length),
             borderColor: '#fff',
-            borderWidth: 1,
-            borderRadius: 4
+            borderWidth: 2
           }]
         },
         options: {
@@ -901,43 +901,20 @@
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
+              position: 'right'
             },
             tooltip: {
               callbacks: {
                 label: function(context) {
-                  return `Ventas: ${context.raw}`;
+                  let label = context.label || '';
+                  if (label) {
+                    label += ': ';
+                  }
+                  if (context.parsed !== null) {
+                    label += context.parsed;
+                  }
+                  return label + ' ventas';
                 }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Número de ventas',
-                font: {
-                  weight: 'bold'
-                }
-              },
-              ticks: {
-                stepSize: 1,
-                precision: 0
-              }
-            },
-            x: {
-              title: {
-                display: true,
-                text: 'Equipos',
-                font: {
-                  weight: 'bold'
-                }
-              },
-              ticks: {
-                autoSkip: false,
-                maxRotation: 45,
-                minRotation: 45
               }
             }
           }

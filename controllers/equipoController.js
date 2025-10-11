@@ -103,7 +103,7 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$fecha', '$creadoEn' ] } ] } ] }
           ]
         },
-        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } },
+        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
         mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
         puntajeNum: {
           $convert: {
@@ -248,7 +248,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         if (docs && docs.length) {
           const map = new Map();
           for (const d of docs) {
-            const teamKey = String(d.equipo || d.team || '').toUpperCase() || 'SIN EQUIPO';
+            const teamKey = String(d.team || d.equipo || '').toUpperCase() || 'SIN EQUIPO';
             const mercadoKey = String(d.mercado || '').toUpperCase();
             const punt = Number(d.puntaje || 0);
             const obj = map.get(teamKey) || { TEAM: teamKey, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
@@ -268,7 +268,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       { $addFields: {
           saleDateRaw: { $ifNull: ['$dia_venta', '$creadoEn'] },
           saleDate: { $cond: [ { $eq: [ { $type: '$dia_venta' }, 'string' ] }, { $dateFromString: { dateString: '$dia_venta' } }, { $ifNull: ['$dia_venta', '$creadoEn'] } ] },
-          teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', 'TEAM LINEAS'] } } } },
+          teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', 'TEAM LINEAS'] } } } },
           mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', '' ] } } } },
           puntajeNum: { $convert: { input: '$puntaje', to: 'double', onError: 0, onNull: 0 } }
       } }
@@ -384,7 +384,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       for (const colName of potentialCollections) {
         try {
           const teamAgg = await db.collection(colName).aggregate([
-            { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } } } },
+            { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } } } },
             { $group: { _id: '$teamNorm' } },
             { $match: { _id: { $ne: '' } } }
           ]).toArray();
@@ -445,7 +445,7 @@ async function obtenerEstadisticasEquipos(req, res) {
 
           const monthStringPipeline = [
             { $addFields: {
-                teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } },
+                teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
                 mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
                 puntajeNum: { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntuacion', { $ifNull: ['$points', '$score'] } ] } ] }, to: 'double', onError: 0, onNull: 0 } }
             }},
@@ -505,7 +505,7 @@ async function obtenerListaEquipos(req, res){
     const db = getDb();
     const col = db.collection('costumers');
     const teams = await col.aggregate([
-      { $addFields: { teamNorm: { $toUpper: { $ifNull: ['$equipo', '$team', ''] } } } },
+      { $addFields: { teamNorm: { $toUpper: { $ifNull: ['$team', '$equipo', ''] } } } },
       { $group: { _id: '$teamNorm' } },
       { $match: { _id: { $ne: '' } } },
       { $sort: { _id: 1 } }
