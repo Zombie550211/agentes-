@@ -38,6 +38,7 @@ const { protect, authorize } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const rankingRoutes = require('./routes/ranking');
+const rankingTestRoutes = require('./routes/ranking-test');
 const equipoRoutes = require('./routes/equipoRoutes');
 const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
 const facturacionRoutes = require('./routes/facturacion');
@@ -507,6 +508,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 // Montar rutas de API públicas
 app.use('/api', apiRoutes);
 app.use('/api/ranking', rankingRoutes);
+app.use('/api/ranking-test', rankingTestRoutes);
 app.use('/api/employees-of-month', employeesOfMonthRoutes);
 app.use('/api/equipos', equipoRoutes);
 app.use('/api/facturacion', facturacionRoutes);

@@ -18,8 +18,8 @@ router.get('/', protect, async (req, res) => {
       });
     }
 
-    const { fechaInicio, fechaFin, all, limit: limitParam } = req.query;
-    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam });
+    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate } = req.query;
+    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate });
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -44,7 +44,13 @@ router.get('/', protect, async (req, res) => {
         _rawDate: {
           $ifNull: [
             "$dia_venta",
-            { $ifNull: [ "$fecha_contratacion", { $ifNull: [ "$createdAt", { $ifNull: [ "$fecha", "$creadoEn" ] } ] } ] }
+            { $ifNull: [
+              "$fecha_contratacion",
+              { $ifNull: [
+                "$dia_instalacion",
+                { $ifNull: [ "$updatedAt", { $ifNull: [ "$createdAt", { $ifNull: [ "$fecha", "$creadoEn" ] } ] } ] }
+              ] }
+            ] }
           ]
         },
         _date: {
@@ -70,176 +76,171 @@ router.get('/', protect, async (req, res) => {
       }
     };
 
-    // Obtener datos REALES de la base de datos usando agenteNombre y puntaje
+    // Pipeline simplificado y optimizado para datos reales
     const hardLimit = all ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 10);
+    
+    // Pipeline simplificado que funciona con los datos reales
     const pipelineBase = [
-      // 1) Normalizar y filtrar por fecha del mes
-      dateNormStage,
-      dateMatchStage,
+      // 1) Filtrar por fecha si no es debug
+      ...(String(debug)==='1' || String(skipDate)==='1' ? [] : [{
+        $match: {
+          dia_venta: { $gte: startDate, $lte: endDate }
+        }
+      }]),
 
-      // 2) Normalizar nombre del agente y asegurar campos numéricos
+      // 2) Filtrar solo documentos con agente y puntaje válidos
       {
-        $addFields: {
-          // Preferir SOLO campos fuertes para el nombre del agente
-          _agenteRaw: {
-            $let: {
-              vars: { cands: [ "$agenteNombre", "$agentName" ] },
-              in: {
-                $let: {
-                  vars: {
-                    nonEmpty: {
-                      $filter: {
-                        input: "$$cands",
-                        as: "v",
-                        cond: { $and: [ { $ne: ["$$v", null] }, { $ne: ["$$v", ""] } ] }
-                      }
-                    }
-                  },
-                  in: { $ifNull: [ { $arrayElemAt: ["$$nonEmpty", 0] }, null ] }
-                }
-              }
-            }
-          },
-          _puntajeNum: {
-            $toDouble: {
-              $ifNull: [
-                {
-                  $ifNull: [
-                    "$puntaje",
-                    { $ifNull: [ "$puntuacion", { $ifNull: [ "$points", "$score" ] } ] }
-                  ]
-                },
-                0
-              ]
-            }
-          }
+        $match: {
+          agenteNombre: { $exists: true, $ne: null, $ne: "" },
+          puntaje: { $exists: true, $ne: null }
         }
       },
-      {
-        $addFields: {
-          agente_norm: {
-            $replaceAll: {
-              input: { $trim: { input: { $toLower: "$_agenteRaw" } } },
-              find: "  ",
-              replacement: " "
-            }
-          }
-        }
-      },
-      // Excluir documentos sin agente identificable o con nombre genérico
-      { $match: { 
-          agente_norm: { 
-            $nin: [ "", "agente", "agent", "usuario", "owner", "registrado", "created" ]
-          } 
-        } 
-      },
 
-      // 3) Agrupar por agente normalizado
+      // 3) Agrupar por agente
       {
         $group: {
-          _id: "$agente_norm",
+          _id: "$agenteNombre",
           ventas: { $sum: 1 },
-          sumPuntaje: { $sum: "$_puntajeNum" },
-          avgPuntaje: { $avg: "$_puntajeNum" },
-          // Guardar un nombre visible (primer no vacío)
-          nombreVisibles: { $addToSet: "$_agenteRaw" }
+          sumPuntaje: { $sum: "$puntaje" },
+          avgPuntaje: { $avg: "$puntaje" }
         }
       },
 
-      // 4) Elegir nombre visible y calcular puntos a usar en ranking (SUMA de puntaje)
-      {
-        $addFields: {
-          nombre: {
-            $cond: [
-              { $gt: [ { $size: "$nombreVisibles" }, 0 ] },
-              { $arrayElemAt: [ "$nombreVisibles", 0 ] },
-              "Sin nombre"
-            ]
-          },
-          puntos: { $round: [ "$sumPuntaje", 1 ] }
-        }
-      },
-
-      // 5) Proyección limpia
+      // 4) Formatear resultado
       {
         $project: {
           _id: 0,
-          nombre: 1,
+          nombre: "$_id",
           ventas: 1,
-          sumPuntaje: { $round: ["$sumPuntaje", 1] },
-          avgPuntaje: { $round: ["$avgPuntaje", 1] },
-          puntos: 1
+          sumPuntaje: { $round: ["$sumPuntaje", 2] },
+          avgPuntaje: { $round: ["$avgPuntaje", 2] },
+          puntos: { $round: ["$sumPuntaje", 2] } // Usar suma como puntos principales
         }
       },
 
-      // 6) Orden y top (por suma de puntaje)
+      // 5) Ordenar por suma de puntaje descendente
       { $sort: { puntos: -1, ventas: -1, nombre: 1 } },
       { $limit: hardLimit }
     ];
 
     console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipelineBase, null, 2));
 
-    // Ejecutar consulta recorriendo colecciones conocidas hasta obtener datos
-    const collectionsToTry = ['costumers','Costumers','customers','leads','Leads','ventas','Lineas'];
+    // Ejecutar consulta directamente en costumers (colección principal con datos reales)
     let rankingResults = [];
-    for (const col of collectionsToTry) {
-      try {
-        console.log(`[RANKING] Intentando en colección: ${col}`);
-        const arr = await db.collection(col).aggregate(pipelineBase).toArray();
-        if (Array.isArray(arr) && arr.length > 0) {
-          rankingResults = arr;
-          console.log(`[RANKING] Datos encontrados en colección: ${col} (count=${arr.length})`);
-          break;
+    let usedCollection = 'costumers';
+    const attempts = [];
+    
+    try {
+      console.log(`[RANKING] Consultando colección: costumers`);
+      rankingResults = await db.collection('costumers').aggregate(pipelineBase).toArray();
+      attempts.push({ collection: 'costumers', count: rankingResults.length });
+      console.log(`[RANKING] Datos encontrados en costumers: ${rankingResults.length} registros`);
+    } catch (e) {
+      console.error(`[RANKING] Error consultando costumers:`, e?.message);
+      attempts.push({ collection: 'costumers', error: e?.message||String(e) });
+      
+      // Fallback a otras colecciones solo si costumers falla
+      const fallbackCollections = ['Costumers','Lineas','leads'];
+      for (const col of fallbackCollections) {
+        try {
+          console.log(`[RANKING] Fallback a colección: ${col}`);
+          const arr = await db.collection(col).aggregate(pipelineBase).toArray();
+          attempts.push({ collection: col, count: Array.isArray(arr)?arr.length:0 });
+          if (Array.isArray(arr) && arr.length > 0) {
+            rankingResults = arr;
+            console.log(`[RANKING] Datos encontrados en colección: ${col} (count=${arr.length})`);
+            usedCollection = col;
+            break;
+          }
+        } catch (e2) {
+          console.warn(`[RANKING] Error consultando ${col}:`, e2?.message);
+          attempts.push({ collection: col, error: e2?.message||String(e2) });
         }
-      } catch (e) {
-        console.warn(`[RANKING] Error consultando ${col}:`, e?.message);
       }
     }
     
     console.log('[RANKING] Resultados de la consulta:', rankingResults);
 
-    // Si no hay datos reales, usar datos de ejemplo (solo dev)
-    let rankingData = rankingResults;
+    // Procesar datos reales y agregar posición
+    let rankingData = rankingResults.map((item, index) => {
+      return {
+        ...item,
+        promedio: item.avgPuntaje, // alias para frontend
+        position: index + 1
+      };
+    });
 
-    if (rankingResults.length === 0) {
-      console.log('[RANKING] No hay datos reales, usando datos de ejemplo');
-      rankingData = [
-        {
-          nombre: 'Jonathan Morales', ventas: 15, sumPuntaje: 46, avgPuntaje: 4.6, puntos: 4.6,
-          position: 1
-        },
-        {
-          nombre: 'Anderson Guzman', ventas: 12, sumPuntaje: 39.6, avgPuntaje: 3.3, puntos: 3.3,
-          position: 2
-        },
-        {
-          nombre: 'Giselle Diaz', ventas: 10, sumPuntaje: 31, avgPuntaje: 3.1, puntos: 3.1,
-          position: 3
-        }
-      ];
-    } else {
-      // Asegurar campos útiles y agregar posición a los datos reales
-      rankingData = rankingResults.map((item, index) => {
-        const puntosCalc = (typeof item.puntos === 'number' && item.puntos > 0)
-          ? item.puntos
-          : ((typeof item.avgPuntaje === 'number' && item.avgPuntaje > 0) ? item.avgPuntaje : (item.ventas || 0));
-        return {
-          ...item,
-          puntos: Math.round((puntosCalc + Number.EPSILON) * 10) / 10,
-          promedio: item.avgPuntaje, // alias para frontend
-          position: index + 1
-        };
-      });
+    // Si no hay datos, devolver array vacío con mensaje informativo
+    if (rankingData.length === 0) {
+      console.log('[RANKING] No se encontraron datos para el rango de fechas especificado');
     }
 
     console.log('[RANKING] Devolviendo datos:', rankingData);
+
+    // Si debug=1, calcular estadísticas de campos de puntaje para diagnóstico
+    let scoreFieldStats = null;
+    let sampleDocs = null;
+    if (String(debug) === '1' && usedCollection) {
+      try {
+        const debugPipeline = [
+          dateNormStage,
+          ...(String(skipDate)==='1' ? [] : [dateMatchStage]),
+          {
+            $project: {
+              _id: 0,
+              agenteNombre: 1,
+              puntaje: 1,
+              Puntaje: 1,
+              puntuacion: 1,
+              Puntuacion: 1,
+              points: 1,
+              score: 1,
+              Puntos: 1,
+              PUNTAJE: 1
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              c_puntaje: { $sum: { $cond: [{ $gt: ["$puntaje", null] }, 1, 0] } },
+              c_Puntaje: { $sum: { $cond: [{ $gt: ["$Puntaje", null] }, 1, 0] } },
+              c_puntuacion: { $sum: { $cond: [{ $gt: ["$puntuacion", null] }, 1, 0] } },
+              c_Puntuacion: { $sum: { $cond: [{ $gt: ["$Puntuacion", null] }, 1, 0] } },
+              c_points: { $sum: { $cond: [{ $gt: ["$points", null] }, 1, 0] } },
+              c_score: { $sum: { $cond: [{ $gt: ["$score", null] }, 1, 0] } },
+              c_Puntos: { $sum: { $cond: [{ $gt: ["$Puntos", null] }, 1, 0] } },
+              c_PUNTAJE: { $sum: { $cond: [{ $gt: ["$PUNTAJE", null] }, 1, 0] } }
+            }
+          }
+        ];
+        const dbg = await db.collection(usedCollection).aggregate(debugPipeline).toArray();
+        scoreFieldStats = Array.isArray(dbg) && dbg[0] ? dbg[0] : null;
+        // Muestra pequeña de documentos con posibles campos de puntaje
+        const samplePipeline = [
+          dateNormStage,
+          ...(String(skipDate)==='1' ? [] : [dateMatchStage]),
+          { $limit: 5 },
+          { $project: { _id: 0, agenteNombre: 1, puntaje: 1, Puntaje: 1, puntuacion: 1, Puntuacion: 1, points: 1, score: 1, Puntos: 1, PUNTAJE: 1 } }
+        ];
+        sampleDocs = await db.collection(usedCollection).aggregate(samplePipeline).toArray();
+      } catch (e) {
+        console.warn('[RANKING][DEBUG] No se pudieron obtener stats de puntaje:', e?.message);
+      }
+    }
 
     res.json({
       success: true,
       message: 'Datos de ranking obtenidos',
       ranking: rankingData,
-      data: {
-        ranking: rankingData
+      data: { ranking: rankingData },
+      meta: {
+        collectionUsed: usedCollection,
+        count: Array.isArray(rankingData) ? rankingData.length : 0,
+        dateRange: { startDate, endDate },
+        params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1' },
+        attempts,
+        scoreFieldStats,
+        sampleDocs
       }
     });
   } catch (error) {

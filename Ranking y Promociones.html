@@ -2236,9 +2236,9 @@
             const top3 = list[2];
 
             const getScore = (item) => {
-              // Usar PUNTOS TOTALES como métrica principal para coincidir con la lista
+              // Usar SUMA DE PUNTOS como métrica principal del ranking
+              if (typeof item?.sumPuntaje === 'number') return Math.round(item.sumPuntaje * 10) / 10;
               if (typeof item?.puntos === 'number') return Math.round(item.puntos * 10) / 10;
-              if (typeof item?.promedio === 'number') return Math.round(item.promedio * 10) / 10;
               return 0;
             };
 
@@ -2279,7 +2279,7 @@
                     </div>
                   </div>
                   <div class="agent-stats">
-                    <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
+                    <span class="points">${(typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0)).toFixed ? (typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0)).toFixed(1) : (typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0))} pts</span>
                     <span class="sales">${agent.ventas || 0} ventas</span>
                   </div>`;
                 container.appendChild(li);
@@ -2353,7 +2353,7 @@
                         </div>
                       </div>
                       <div class="agent-stats">
-                        <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
+                        <span class="points">${(typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0)).toFixed ? (typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0)).toFixed(1) : (typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0))} pts</span>
                         <span class="sales">${agent.ventas || 0} ventas</span>
                       </div>`;
                     container2.appendChild(li);
