@@ -1,0 +1,629 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FacturaciÃ³n</title>
+  <link rel="stylesheet" href="css/theme.css" />
+  <!-- Sidebar CSS -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome para iconos del sidebar compartido -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- CSS de sidebar unificado -->
+  <link rel="stylesheet" href="css/sidebar.css">
+  <link rel="stylesheet" href="css/sidebar-inicio.css">
+  <!-- Chart.js y Datalabels plugin primero -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <style>
+    :root {
+      --azul-oscuro: #1e293b;
+      --azul-acento: #28b5e8;
+      --sidebar-accent: #22b3ec;
+      --gris-bg: #f5f7fa;
+      --gris-borde: #e3e8ee;
+      --gris-titulo: #edf3fa;
+      --azul-celda: #f1f5fa;
+      --radius: 15px;
+      --sombra: 0 4px 24px 0 rgba(30,41,59,0.09);
+      --trans: 0.18s;
+      --modal-bg: rgba(30,41,59,0.22);
+    }
+    html, body { margin: 0; padding: 0; width: 100vw; min-height: 100vh; background: var(--gris-bg); font-family: 'Bebas Neue', sans-serif; color: var(--azul-oscuro);}
+    .layout { display: flex; min-height: 100vh; width: 100vw; background: var(--gris-bg);} 
+    .main-content { flex: 1; padding: 40px 50px; background: var(--gris-bg); min-height: 100vh; display: flex; flex-direction: column; gap: 24px; margin-left: 260px; /* Same as shared sidebar width */ overflow-x: hidden;}
+    .header-reportes { background: #fff; width: 100%; padding: 30px 0 10px 0; display: flex; flex-direction: column; align-items: stretch; border-bottom: 1.5px solid var(--gris-borde); box-shadow: 0 4px 12px 0 rgba(40,181,232,0.07); margin-bottom: 0; border-radius: 12px; overflow: hidden;}
+    .filtros-reportes { display: flex; align-items: center; gap: 16px; font-size: 1.09em; margin-left: 34px; margin-bottom: 2px;}
+    .filtros-reportes label { font-weight: 600; color: var(--azul-oscuro); margin-right: 3px;}
+    .filtros-reportes select { padding: 4.5px 14px; font-size: 1em; border-radius: 7px; border: 1.2px solid var(--gris-borde); background: #fafcfd; color: var(--azul-oscuro); font-family: inherit; transition: border var(--trans); font-weight: 500; box-shadow: 0 1px 3px 0 rgba(40,181,232,0.03);}
+    .filtros-reportes select:focus { outline: none; border-color: var(--azul-acento);}
+    .titulo-reportes { text-align: center; margin: 0 0 8px 0; font-weight: 700; font-size: 2.0em; color: var(--azul-oscuro); letter-spacing: .5px; font-family: inherit; text-shadow: none; box-shadow: none !important;}
+    .tabla-expand-btn { margin: 10px 32px 0 32px; text-align: right;}
+    #btnExpandirTabla { background: #22b3ec; color: #fff; border: none; border-radius: 8px; padding: 7px 22px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.18s; box-shadow: 0 2px 8px #22b3ec22;}
+    #btnExpandirTabla:hover { background: #18a0d6;}
+    .modal-bg { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100vw; height: 100vh; background: var(--modal-bg); align-items: center; justify-content: center;}
+    .modal-bg.active { display: flex;}
+    .modal-content { background: #fff; border-radius: 18px; box-shadow: 0 8px 40px #0016; padding: 24px 16px 18px 16px; max-width: 95vw; max-height: 90vh; overflow: auto; position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 400px;}
+    .modal-close-btn { position: absolute; top: 15px; right: 22px; background: #f74747; color: #fff; border: none; border-radius: 5px; font-size: 1.2em; font-weight: bold; padding: 2px 13px 4px 13px; cursor: pointer; z-index: 10; box-shadow: 0 1px 4px #0003; transition: background 0.17s;}
+    .modal-close-btn:hover { background: #ca2222;}
+    .modal-title { font-size: 1.45em; font-weight: 700; color: var(--azul-oscuro); margin: 0 0 18px 0; text-align: center;}
+    .modal-table-container { overflow-y: auto; max-height: 65vh; min-width: 100%;}
+    .tabla-excel-editable { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: 490px; overflow-y: auto; transition: box-shadow var(--trans);}
+    table { border-collapse: separate; border-spacing: 0; width: 100%; background: #fff; color: var(--azul-oscuro); font-size: 1em; table-layout: fixed; border: none;}
+    th, td { border: 1.5px solid var(--gris-borde); text-align: center; min-width: 70px; max-width: 120px; height: 32px; overflow: hidden; text-overflow: ellipsis; font-family: inherit; background: #fff; font-size: .99em; font-weight: 400; padding: 0; white-space: nowrap; transition: background var(--trans);}
+    th { background: var(--gris-titulo); font-weight: 700; font-size: 0.97em; height: 38px; white-space: pre-line; line-height: 1.12; color: #111 !important; border-bottom: 2.5px solid var(--azul-acento); position: sticky; top: 0; z-index: 3; box-shadow: 0 2px 6px rgba(40,181,232,.03);}
+    tr:nth-child(even) td { background: var(--azul-celda);}
+    tr:hover td { background: #d9f7fb; transition: background var(--trans);}
+    td[contenteditable="true"] { background: #fff; cursor: pointer; transition: background var(--trans);}
+    td:focus { outline: 2px solid var(--azul-acento);}
+    th { padding: 2px 1px; font-size: 0.98em; white-space: pre-line;}
+    .tabla-paginacion { width: 100%; display: flex; justify-content: flex-end; gap: 10px; margin: 10px 40px 0 0;}
+    .tabla-paginacion button { padding: 5px 17px; border-radius: 10px; background: var(--azul-acento); color: #fff; border: none; font-weight: 600; font-size: 1.07em; cursor: pointer; transition: background var(--trans), box-shadow var(--trans); box-shadow: 0 1px 4px rgba(40,181,232,.08);}
+    .tabla-paginacion button:active { background: #209dd5;}
+    .tabla-paginacion button:disabled { background: #b7e8f5; color: #eee; cursor: default;}
+    .fila-totales td { font-weight: bold; background: #e6f6fa !important; border-top: 2px solid #28b5e8; color: #1e293b;}
+    .grafica-reporte { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px; width: calc(100% - 56px); padding: 26px 0 18px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;}
+    .grafica-scroll-x { width: 100%; min-width: 300px; max-width: 100%; overflow-x: auto; padding-bottom: 8px; display: flex; align-items: center; justify-content: flex-start;}
+    .grafica-reporte h3 { color: var(--azul-oscuro); font-size: 1.15em; margin-bottom: 10px; text-align: left; width: 100%; font-weight: 700; letter-spacing: .3px; padding-left: 18px;}
+    .facturacion-toolbar { display: flex; justify-content: flex-end; align-items: center; margin: 18px 30px 0 0; gap: 16px;}
+    #btnGuardarFacturacion { background: #22b3ec; color: #fff; padding: 9px 35px; font-size: 1.1em; border-radius: 7px; cursor: pointer; border: none; box-shadow: 0 2px 8px rgba(30,41,59,0.10); font-weight: bold; letter-spacing: 0.03em; transition: background 0.18s;}
+    #btnGuardarFacturacion:hover { background: #1ea1d8;}
+    @media (max-width: 1300px) {
+      .tabla-excel-editable, .grafica-reporte { width: 99vw; min-width: 0; margin-left:0; margin-right:0; }
+      th, td { min-width: 54px; font-size: 0.9em;}
+      .tabla-paginacion {margin-right:10px;}
+    }
+    @media (max-width: 900px) {
+      .tabla-excel-editable, .grafica-reporte { margin-left:0; margin-right:0; width:99vw;}
+      .header-reportes, .titulo-reportes { font-size:1.1em;}
+      .tabla-expand-btn {margin-left:0;margin-right:0;}
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar compartido -->
+  <nav class="sidebar sidebar-inicio" data-active="facturacion"></nav>
+  <main class="main-content">
+    <div class="central-container">
+      <!-- Cabecera de filtros -->
+      <div class="header-reportes">
+        <div class="filtros-reportes">
+          <label for="filtroMes">Mes:</label>
+          <select id="filtroMes">
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+          <label for="filtroAno">AÃ±o:</label>
+          <select id="filtroAno"></select>
+        </div>
+        <div class="titulo-reportes">FacturaciÃ³n</div>
+      </div>
+      <div class="tabla-expand-btn">
+        <button id="btnExpandirTabla" onclick="abrirModalTabla()">Expandir tabla</button>
+      </div>
+      <div class="tabla-excel-editable">
+        <table id="tablaExcel">
+          <thead>
+            <tr>
+              <th>FECHA</th>
+              <th>ALEXIS</th>
+              <th>VENTAS<br>POR DIA</th>
+              <th>VALOR<br>DE VENTA</th>
+              <th>CUENTA ALTERNA</th>
+              <th>VENTAS<br>POR DIA</th>
+              <th>VALOR<br>DE VENTA</th>
+              <th>LINEAS</th>
+              <th>VENTAS<br>POR DIA</th>
+              <th>VALOR<br>DE VENTA</th>
+              <th>TOTAL<br>DEL DIA</th>
+              <th>TOTAL<br>VENTAS</th>
+              <th>VALOR<br>VENTA</th>
+              <th>PUNTOS</th>
+              <th>CPA<br>PUNTOS</th>
+            </tr>
+          </thead>
+          <tbody id="excelBody"></tbody>
+          <tr class="fila-totales" id="filaTotalesFacturacion" style="position:sticky;bottom:0;z-index:2;">
+            <td>TOTALES</td>
+            <td id="total-col-1"></td>
+            <td id="total-col-2"></td>
+            <td id="total-col-3"></td>
+            <td id="total-col-4"></td>
+            <td id="total-col-5"></td>
+            <td id="total-col-6"></td>
+            <td id="total-col-7"></td>
+            <td id="total-col-8"></td>
+            <td id="total-col-9"></td>
+            <td id="total-col-10"></td>
+            <td id="total-col-11"></td>
+            <td id="total-col-12"></td>
+            <td id="total-col-13"></td>
+            <td id="total-col-14"></td>
+          </tr>
+        </table>
+      </div>
+      <div class="tabla-paginacion">
+        <button onclick="prevBlock()" id="btnUp">&#8593; Arriba</button>
+        <button onclick="nextBlock()" id="btnDown">Abajo &#8595;</button>
+      </div>
+      <div class="grafica-reporte">
+        <h3>Total de gastos por mes</h3>
+        <div class="grafica-scroll-x">
+          <canvas id="graficaGastosMes" width="1200" height="260"></canvas>
+        </div>
+        <div class="facturacion-toolbar">
+          <button id="btnGuardarFacturacion">Guardar</button>
+        </div>
+      </div>
+      <div class="modal-bg" id="modalTablaCompleta">
+        <div class="modal-content">
+          <button class="modal-close-btn" onclick="cerrarModalTabla()">&times;</button>
+          <div class="modal-title">Tabla completa de facturaciÃ³n del mes</div>
+          <div class="modal-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>FECHA</th>
+                  <th>ALEXIS</th>
+                  <th>VENTAS<br>POR DIA</th>
+                  <th>VALOR<br>DE VENTA</th>
+                  <th>CUENTA ALTERNA</th>
+                  <th>VENTAS<br>POR DIA</th>
+                  <th>VALOR<br>DE VENTA</th>
+                  <th>LINEAS</th>
+                  <th>VENTAS<br>POR DIA</th>
+                  <th>VALOR<br>DE VENTA</th>
+                  <th>TOTAL<br>DEL DIA</th>
+                  <th>TOTAL<br>VENTAS</th>
+                  <th>VALOR<br>VENTA</th>
+                  <th>PUNTOS</th>
+                  <th>CPA<br>PUNTOS</th>
+                </tr>
+              </thead>
+              <tbody id="modalTablaBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<!-- Loader del sidebar y datos de usuario -->
+<script src="js/sidebar-loader.js"></script>
+<script src="/js/logout-handler.js"></script>
+<script src="js/user-info.js"></script>
+  <script>
+   (async function guardAdmin() {
+     try {
+       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+       const headers = {};
+       if (token) headers['Authorization'] = "Bearer ";
+       const res = await fetch('/api/auth/verify', { headers, credentials: 'include' });
+       if (!res.ok) throw new Error('No autenticado');
+       const data = await res.json();
+       const role = (data?.user?.role || '').toLowerCase();
+       const allowed = ['admin','administrador'];
+       if (!allowed.includes(role)) {
+         alert('Acceso denegado: solo administradores.');
+         window.location.href = '/';
+         return;
+       }
+     } catch (e) {
+       window.location.href = '/login.html';
+       return;
+     }
+   })();
+  </script>
+<script>
+if (window.ChartjsPluginDatalabels) {
+  Chart.register(window.ChartjsPluginDatalabels);
+}
+
+// Logout manejado por el botÃ³n del sidebar compartido vÃ­a sidebar-loader.js
+const filtroMes = document.getElementById("filtroMes");
+const filtroAno = document.getElementById("filtroAno");
+const excelBody = document.getElementById("excelBody");
+const btnUp = document.getElementById('btnUp');
+const btnDown = document.getElementById('btnDown');
+const btnGuardar = document.getElementById('btnGuardarFacturacion');
+
+let totalesPorMesLocales = Array(12).fill(0);
+
+(function(){
+  const yearNow = (new Date()).getFullYear();
+  let anos = '';
+  for (let y = yearNow - 2; y <= yearNow + 1; y++) {
+    anos += `<option value="${y}">${y}</option>`;
+  }
+  filtroAno.innerHTML = anos;
+  filtroMes.value = (new Date()).getMonth() + 1;
+  filtroAno.value = yearNow;
+})();
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+let currentBlock = 0;
+let currentMonth = parseInt(filtroMes.value, 10);
+let currentYear = parseInt(filtroAno.value, 10);
+let datosFacturacionMes = [];
+let datosFacturacionIndex = {};
+// Normalizador de fecha a clave dd/mm/yyyy
+function toFechaKey(fecha) {
+  try {
+    if (!fecha) return '';
+    const s = String(fecha).trim();
+    // Si ya viene dd/mm/yyyy
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    // yyyy-mm-dd o yyyy/mm/dd
+    let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    if (m) {
+      const yy = parseInt(m[1], 10), mm = parseInt(m[2], 10), dd = parseInt(m[3], 10);
+      return String(dd).padStart(2,'0') + '/' + String(mm).padStart(2,'0') + '/' + String(yy);
+    }
+    // dd/mm/yyyy o mm/dd/yyyy -> Date intent
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    }
+    // Como fallback intentar dd/m/yyyy o d/m/yyyy
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
+      return String(dd).padStart(2,'0') + '/' + String(mm).padStart(2,'0') + '/' + String(yy);
+    }
+    return s;
+  } catch { return String(fecha || ''); }
+}
+
+const columnasConSigno = [1,3,4,6,7,9,10,12];
+
+function addMoneySign(val) {
+  if (val === "" || isNaN(val)) return "";
+  let num = parseFloat(val);
+  let options = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  return "$" + num.toLocaleString('en-US', options);
+}
+function removeMoneySign(val) {
+  if (typeof val !== "string") return val;
+  return val.replace(/[^0-9.]/g, '');
+}
+
+async function fetchFacturacionMes(mes, ano) {
+  try {
+    const url = `/api/facturacion/${ano}/${String(mes).padStart(2, '0')}`;
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+    if (!res.ok) {
+      console.warn('FacturaciÃ³n: respuesta no OK', res.status, res.statusText);
+    }
+    const data = await res.json().catch(() => (null));
+    // Soportar diferentes formas de respuesta del backend: { ok, data }, array directo, o { result }
+    let arr = [];
+    if (data && data.ok && Array.isArray(data.data)) {
+      arr = data.data;
+    } else if (Array.isArray(data)) {
+      arr = data;
+    } else if (data && Array.isArray(data.result)) {
+      arr = data.result;
+    }
+    datosFacturacionMes = arr;
+    // Construir Ã­ndice por fecha normalizada
+    datosFacturacionIndex = {};
+    for (const fila of datosFacturacionMes) {
+      const key = toFechaKey(fila?.fecha);
+      if (key) datosFacturacionIndex[key] = Array.isArray(fila?.campos) ? fila.campos : [];
+    }
+  } catch (e) {
+    console.error('Error obteniendo facturaciÃ³n del mes:', e);
+    datosFacturacionMes = [];
+    datosFacturacionIndex = {};
+  }
+}
+
+function buscarCamposPorFecha(fecha) {
+  const key = toFechaKey(fecha);
+  const campos = datosFacturacionIndex[key];
+  return Array.isArray(campos) ? campos : Array(14).fill('');
+}
+
+async function renderTablaDias(mes, ano, block=0) {
+  await fetchFacturacionMes(mes, ano);
+  excelBody.innerHTML = "";
+  const numDias = daysInMonth(ano, mes);
+  const start = block * 16;
+  const end = Math.min(start + 16, numDias);
+  for (let i = start; i < end; i++) {
+    const tr = document.createElement("tr");
+    for (let c = 0; c < 15; c++) {
+      const td = document.createElement("td");
+      if (c === 0) {
+        td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        td.contentEditable = false;
+      } else {
+        const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        const campos = buscarCamposPorFecha(fecha);
+        let val = campos[c-1] ?? '';
+        if (columnasConSigno.includes(c) && val !== "") {
+          val = addMoneySign(removeMoneySign(val));
+        }
+        if (c === 11 && val !== "") {
+          val = parseInt(removeMoneySign(val), 10) || 0;
+          val = val.toLocaleString('en-US');
+        }
+        td.textContent = val;
+        td.contentEditable = true;
+      }
+      tr.appendChild(td);
+    }
+    excelBody.appendChild(tr);
+  }
+  btnUp.disabled = (block === 0);
+  btnDown.disabled = ((block + 1) * 16 >= numDias);
+  renderFilaTotalesFacturacion();
+  actualizarTotalesPorMesLocales();
+}
+
+function updateTableByFilters() {
+  currentBlock = 0;
+  currentMonth = parseInt(filtroMes.value, 10);
+  currentYear = parseInt(filtroAno.value, 10);
+  renderTablaDias(currentMonth, currentYear, currentBlock);
+  actualizarGrafica();
+}
+
+filtroMes.addEventListener('change', updateTableByFilters);
+filtroAno.addEventListener('change', updateTableByFilters);
+
+function nextBlock() {
+  const numDias = daysInMonth(currentYear, currentMonth);
+  if ((currentBlock + 1) * 16 < numDias) {
+    currentBlock++;
+    renderTablaDias(currentMonth, currentYear, currentBlock);
+    actualizarGrafica();
+  }
+}
+function prevBlock() {
+  if (currentBlock > 0) {
+    currentBlock--;
+    renderTablaDias(currentMonth, currentYear, currentBlock);
+    actualizarGrafica();
+  }
+}
+
+function recalcularFila(tr) {
+  const tds = Array.from(tr.children);
+
+  const alexis = parseFloat(tds[1].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasAlexis = parseFloat(tds[2].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[3].textContent = ventasAlexis > 0 ? (alexis / ventasAlexis).toFixed(2) : "";
+
+  const cuentaAlterna = parseFloat(tds[4].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasCA = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[6].textContent = ventasCA > 0 ? (cuentaAlterna / ventasCA).toFixed(2) : "";
+
+  const lineas = parseFloat(tds[7].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasLineas = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[9].textContent = ventasLineas > 0 ? (lineas / ventasLineas).toFixed(2) : "";
+
+  const totalDia = alexis + cuentaAlterna + lineas;
+  tds[10].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
+
+  const totalVentas = ventasAlexis + ventasCA + ventasLineas;
+  tds[11].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
+
+  tds[12].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
+
+  const puntos = parseFloat(tds[13].textContent.replace(/[^0-9.-]/g, "")) || 0;
+
+  tds[14].textContent = (totalDia > 0) ? (puntos / totalDia).toFixed(2) : "";
+}
+
+excelBody.addEventListener('input', function(e) {
+  const td = e.target;
+  const tr = td.parentElement;
+  if (td.cellIndex !== 0 && ![3,6,9,10,11,12,14].includes(td.cellIndex)) {
+    recalcularFila(tr);
+    renderFilaTotalesFacturacion();
+    actualizarTotalesPorMesLocales();
+    actualizarGrafica();
+  }
+});
+
+btnGuardar.addEventListener('click', guardarTodoFacturacion);
+
+async function guardarTodoFacturacion() {
+  const filas = Array.from(document.querySelectorAll('#excelBody tr'));
+  let guardados = 0, errores = 0;
+  for (const tr of filas) {
+    recalcularFila(tr);
+    const tds = Array.from(tr.children);
+    const fecha = tds[0].textContent.trim();
+    const campos = tds.slice(1).map((td, idx) => {
+      let txt = td.textContent.trim();
+      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
+      if (txt.includes(",")) txt = txt.replace(/,/g, "");
+      if ((txt === "" || isNaN(Number(txt))) && idx !== 12 && idx !== 13) txt = "";
+      return txt;
+    });
+    // Asegurar exactamente 14 campos (excluyendo la columna FECHA)
+    while (campos.length < 14) campos.push("");
+    if (campos.length > 14) campos.length = 14;
+    if (campos.some(val => val !== "")) {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/facturacion', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ fecha, campos })
+      });
+      let ok = false;
+      try {
+        if (res.ok) {
+          const data = await res.json();
+          ok = (data && (data.ok === true || data.success === true));
+          // Si no trae bandera, pero es 2xx, considerar como Ã©xito
+          if (ok === false && res.status >= 200 && res.status < 300) ok = true;
+        }
+      } catch (_) { /* ignorar parseo */ }
+      if (ok) guardados++; else errores++;
+    }
+  }
+  await renderTablaDias(currentMonth, currentYear, currentBlock);
+  actualizarTotalesPorMesLocales();
+  actualizarGrafica();
+  renderFilaTotalesFacturacion();
+  alert(`Guardados: ${guardados}. Errores: ${errores}`);
+}
+
+function renderFilaTotalesFacturacion() {
+  const numCols = 15;
+  const totales = Array(numCols).fill(0);
+  const filas = Array.from(excelBody.querySelectorAll('tr'));
+  filas.forEach(tr => {
+    Array.from(tr.children).forEach((td, i) => {
+      if (i === 0) return;
+      const val = parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
+      totales[i] += val;
+    });
+  });
+  for (let i = 1; i < numCols; i++) {
+    document.getElementById('total-col-' + i).textContent = totales[i].toFixed(2);
+  }
+}
+
+function actualizarTotalesPorMesLocales() {
+  const mesActual = parseInt(filtroMes.value, 10) - 1;
+  const total = parseFloat(document.getElementById('total-col-10').textContent.replace(/[^0-9.-]/g, "")) || 0;
+  totalesPorMesLocales[mesActual] = total;
+}
+
+let grafica;
+async function actualizarGrafica() {
+  try {
+    const ano = parseInt(filtroAno.value, 10);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const resp = await fetch(`/api/facturacion/anual/${ano}`, { headers, credentials: 'include' });
+    let totalesPorMes = Array(12).fill(0);
+    if (resp.ok) {
+      const data = await resp.json().catch(() => (null));
+      if (data && data.ok && Array.isArray(data.totalesPorMes)) {
+        totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
+      }
+    }
+
+    if (grafica) grafica.destroy();
+    const ctx = document.getElementById('graficaGastosMes').getContext('2d');
+    grafica = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [
+          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ],
+        datasets: [{
+          label: "",
+          data: totalesPorMes,
+          backgroundColor: "rgba(40,181,232,0.70)",
+          borderColor: "#1e293b",
+          borderWidth: 2,
+          borderRadius: 8,
+          datalabels: {
+            anchor: 'end',
+            align: 'start',
+            color: '#23485d',
+            font: { weight: 'bold', size: 16 },
+            formatter: function(value) {
+              return value === 0 ? "" : "$" + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+          }
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: false },
+          title: { display: false },
+          datalabels: { display: true }
+        },
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
+        scales: {
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { display: true, color: "#204052", font: { weight: "bold", size: 15 } }
+          },
+          y: {
+            grid: { display: false, drawBorder: false },
+            ticks: { display: false }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error actualizando grÃ¡fica anual:', e);
+  }
+}
+
+async function abrirModalTabla() {
+  await renderTablaCompleta(currentMonth, currentYear);
+  document.getElementById('modalTablaCompleta').classList.add('active');
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarModalTabla() {
+  document.getElementById('modalTablaCompleta').classList.remove('active');
+  document.body.style.overflow = "";
+}
+
+async function renderTablaCompleta(mes, ano) {
+  await fetchFacturacionMes(mes, ano);
+
+  const modalBody = document.getElementById('modalTablaBody');
+  modalBody.innerHTML = "";
+  const numDias = daysInMonth(ano, mes);
+  for (let i = 0; i < numDias; i++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < 15; c++) {
+      const td = document.createElement('td');
+      if (c === 0) {
+        td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+      } else {
+        const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        const campos = buscarCamposPorFecha(fecha);
+        td.textContent = campos[c-1] ?? '';
+      }
+      tr.appendChild(td);
+    }
+    modalBody.appendChild(tr);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await renderTablaDias(currentMonth, currentYear, currentBlock);
+  actualizarTotalesPorMesLocales();
+  actualizarGrafica();
+  renderFilaTotalesFacturacion();
+});
+</script>
+</body>
+</html>
+

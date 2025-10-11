@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-<<<<<<< HEAD
 const { getDb } = require('../config/db');
-=======
-const { connectToMongoDB } = require('../config/db');
->>>>>>> 91c5e88ddc9d503a25c594e988d748deea7ab2e4
 const { protect, authorize } = require('../middleware/auth');
 
 // Helpers
@@ -64,30 +60,22 @@ function toNumber(val) {
   return isNaN(n) ? 0 : n;
 }
 
-<<<<<<< HEAD
 let __facturacionIndexesReady = false;
-function getCollection() {
+async function getCollection() {
   const db = getDb();
   if (!db) {
     throw new Error('DB no inicializada');
   }
   const coll = db.collection('Facturacion');
   if (!__facturacionIndexesReady) {
-    coll.createIndex({ anio: 1, mes: 1, dia: 1 }, { unique: true, name: 'uniq_anio_mes_dia' })
-      .then(() => coll.createIndex({ fecha: 1 }, { name: 'idx_fecha' }))
-      .then(() => { __facturacionIndexesReady = true; })
-      .catch(() => { /* ignorar errores de índices existentes */ });
+    try {
+      await coll.createIndex({ anio: 1, mes: 1, dia: 1 }, { unique: true, name: 'uniq_anio_mes_dia' });
+      await coll.createIndex({ fecha: 1 }, { name: 'idx_fecha' });
+      __facturacionIndexesReady = true;
+    } catch (_) {
+      // ignorar errores de índices existentes
+    }
   }
-=======
-async function getCollection() {
-  const db = await connectToMongoDB();
-  const coll = db.collection('Facturacion');
-  // Crear índices una sola vez (no falla si existen)
-  try {
-    await coll.createIndex({ anio: 1, mes: 1, dia: 1 }, { unique: true, name: 'uniq_anio_mes_dia' });
-    await coll.createIndex({ fecha: 1 }, { name: 'idx_fecha' });
-  } catch (_) {}
->>>>>>> 91c5e88ddc9d503a25c594e988d748deea7ab2e4
   return coll;
 }
 
@@ -98,11 +86,7 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
     const anio = Number(req.params.anio);
     if (!anio) return res.status(400).json({ ok: false, message: 'Año inválido' });
 
-<<<<<<< HEAD
     const coll = getCollection();
-=======
-    const coll = await getCollection();
->>>>>>> 91c5e88ddc9d503a25c594e988d748deea7ab2e4
     const docs = await coll.find({ anio }).project({ _id: 0, mes: 1, campos: 1 }).toArray();
 
     const totales = Array(12).fill(0);
