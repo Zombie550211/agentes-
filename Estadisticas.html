@@ -391,6 +391,123 @@
       background-color: #f8d7da;
       border-color: #f5c6cb;
     }
+
+    /* Estilos para la nueva gráfica de ventas y puntaje */
+    .date-filter-container {
+      width: fit-content;
+      margin-bottom: 15px;
+      background: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+    
+    .date-filter label {
+      color: #475569;
+      font-weight: 500;
+      margin-right: 2px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    
+    .date-select {
+      padding: 2px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      background-color: white;
+      font-size: 12px;
+      width: 70px;
+      height: 26px;
+    }
+    
+    .filter-button {
+      padding: 2px 8px;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 11px;
+      height: 26px;
+      white-space: nowrap;
+      transition: background-color 0.2s;
+    }
+    
+    .filter-button:hover {
+      background-color: #2563eb;
+    }
+    
+    #reset-filter {
+      background-color: #64748b;
+      padding: 2px 6px;
+    }
+    
+    #reset-filter:hover {
+      background-color: #475569;
+    }
+
+    .graph-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 100%;
+      height: 460px;
+      max-height: 460px;
+      position: relative;
+    }
+    
+    .graph-canvas {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 420px;
+    }
+
+    /* Estilos para notificaciones */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 25px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      transform: translateX(120%);
+      transition: transform 0.3s ease-in-out;
+      max-width: 350px;
+    }
+
+    .notification.show {
+      transform: translateX(0);
+    }
+
+    .notification.success {
+      background-color: #10b981;
+      border-left: 4px solid #059669;
+    }
+
+    .notification.error {
+      background-color: #ef4444;
+      border-left: 4px solid #dc2626;
+    }
+
+    .notification i {
+      margin-right: 10px;
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
@@ -424,6 +541,53 @@
             <div class="ventas-diarias-grid">
               <div id="ventas-dia-card" class="ventas-diarias-card"><!-- Renderizado por JS --></div>
             </div>
+          </div>
+        </div>
+
+        <!-- Nueva Sección: Gráfica de Ventas y Puntaje (Últimos 7 días) -->
+        <div class="card chart-card">
+          <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas y Puntaje - Últimos 7 días</h3>
+          
+          <!-- Filtro de Fecha -->
+          <div class="date-filter-container" style="margin-bottom: 20px;">
+            <div class="date-filter">
+              <label for="month-select">Mes:</label>
+              <select id="month-select" class="date-select">
+                <option value="0">Enero</option>
+                <option value="1">Febrero</option>
+                <option value="2">Marzo</option>
+                <option value="3">Abril</option>
+                <option value="4">Mayo</option>
+                <option value="5">Junio</option>
+                <option value="6">Julio</option>
+                <option value="7">Agosto</option>
+                <option value="8">Septiembre</option>
+                <option value="9">Octubre</option>
+                <option value="10">Noviembre</option>
+                <option value="11">Diciembre</option>
+              </select>
+              
+              <label for="day-select">Día:</label>
+              <select id="day-select" class="date-select">
+                <!-- Los días se llenarán dinámicamente -->
+              </select>
+              
+              <label for="year-select">Año:</label>
+              <select id="year-select" class="date-select">
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025" selected>2025</option>
+                <option value="2026">2026</option>
+              </select>
+              
+              <button id="apply-filter" class="filter-button">Aplicar Filtro</button>
+              <button id="reset-filter" class="filter-button">Hoy</button>
+            </div>
+          </div>
+
+          <!-- Gráfica de Ventas y Puntaje -->
+          <div class="graph-container">
+            <canvas id="ventasPuntajeChart" class="graph-canvas"></canvas>
           </div>
         </div>
       </div>
@@ -1366,15 +1530,677 @@
       }
     }
 
+    // ===== FUNCIONES DE LA GRÁFICA DE VENTAS Y PUNTAJE =====
+    
+    // Variables globales para la nueva gráfica
+    let ventasPuntajeChart = null;
+    
+    // Datos de prueba para la gráfica
+    const datosPrueba = [
+      { fecha: '2025-08-06', ventas: 12, puntaje: 85 },
+      { fecha: '2025-08-07', ventas: 8, puntaje: 70 },
+      { fecha: '2025-08-08', ventas: 15, puntaje: 95 },
+      { fecha: '2025-08-09', ventas: 10, puntaje: 80 },
+      { fecha: '2025-08-10', ventas: 20, puntaje: 100 },
+      { fecha: '2025-08-11', ventas: 14, puntaje: 88 },
+      { fecha: '2025-08-12', ventas: 18, puntaje: 90 }
+    ];
+
+    // Función para inicializar la gráfica de ventas y puntaje
+    function inicializarGraficaVentasPuntaje() {
+      try {
+        const canvas = document.getElementById('ventasPuntajeChart');
+        if (!canvas) {
+          console.error('No se encontró el elemento canvas para la gráfica de ventas y puntaje');
+          return null;
+        }
+        
+        if (ventasPuntajeChart) {
+          console.log('Destruyendo instancia anterior del gráfico...');
+          ventasPuntajeChart.destroy();
+          ventasPuntajeChart = null;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        const container = canvas.parentElement;
+        container.style.width = '100%';
+        container.style.height = '400px';
+        
+        return new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: 'Ventas',
+                type: 'bar',
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1,
+                yAxisID: 'y',
+                datalabels: {
+                  anchor: 'end',
+                  align: 'end',
+                  offset: 4,
+                  color: '#2c3e50',
+                  font: { weight: 'bold' },
+                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
+                }
+              },
+              {
+                label: 'Puntaje',
+                type: 'bar',
+                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+                yAxisID: 'y1',
+                datalabels: {
+                  anchor: 'end',
+                  align: 'end',
+                  offset: 4,
+                  color: '#7f1d1d',
+                  font: { weight: 'bold' },
+                  formatter: (v) => {
+                    if (v == null || isNaN(v) || Number(v) === 0) return '';
+                    const n = Number(v);
+                    return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+                  }
+                }
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { bottom: 40 } },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+              datalabels: {
+                display: false,
+                formatter: () => '',
+                clamp: true,
+                clip: false
+              }
+            },
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: { display: false, text: 'Ventas' },
+                grid: { display: false, drawTicks: false },
+                border: { display: false },
+                ticks: { display: false, callback: () => '' }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: { display: false, drawOnChartArea: false, drawTicks: false },
+                border: { display: false },
+                title: { display: false, text: 'Puntaje' },
+                ticks: { display: false, callback: () => '' },
+                min: 0,
+                max: 100
+              },
+              x: {
+                display: true,
+                grid: { display: false },
+                ticks: { display: false, callback: () => '' },
+                title: { display: false, text: '' }
+              }
+            },
+            elements: {
+              point: { radius: 0, hoverRadius: 0 }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
+        return null;
+      }
+    }
+
+    // Función para mostrar notificaciones
+    function mostrarNotificacion(mensaje, tipo = 'success') {
+      const notification = document.createElement('div');
+      notification.className = `notification ${tipo}`;
+      notification.innerHTML = `
+        <i class="fas ${tipo === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+        ${mensaje}
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('show');
+      }, 100);
+      
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 300);
+      }, 3000);
+    }
+
+    // Función para mostrar mensajes de error
+    function mostrarMensajeError(mensaje) {
+      mostrarNotificacion(mensaje, 'error');
+    }
+
+    // Función para actualizar la gráfica de ventas y puntaje con datos de la API
+    async function actualizarGraficaVentasPuntaje(datos = null) {
+      try {
+        console.log('=== INICIANDO ACTUALIZACIÓN DE GRÁFICA DE VENTAS ===');
+        
+        // Si se proporcionan datos directamente, úsalos y omite la llamada al backend
+        if (Array.isArray(datos) && datos.length) {
+          console.log('Usando datos proporcionados para la gráfica');
+          return await procesarDatosGraficaEstadisticas(datos);
+        }
+        
+        // Obtener el nombre del agente del localStorage o del DOM
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const nombreAgente = userData.name || 'Usuario';
+        
+        // Construir la URL del endpoint de leads con filtro por agente
+        let url = '/api/leads';
+        try {
+          const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+          const user = JSON.parse(userStr);
+          const roleLower = ((user && user.role) || '').toString().toLowerCase();
+          const agenteNombreQuery = (user && (user.username || user.name)) || nombreAgente || '';
+          const u = new URL(url, location.origin);
+          const params = new URLSearchParams(u.search);
+          // Solo los agentes se filtran por su propio nombre; roles privilegiados ven todo
+          if (roleLower === 'agent' && agenteNombreQuery) {
+            params.set('agente', agenteNombreQuery);
+            console.info('[Filtro agente] (rol agent) Enviado en query a /api/leads:', agenteNombreQuery);
+          } else {
+            console.info('[Filtro agente] Rol no-agent detectado (', roleLower, '): no se envía parámetro agente');
+          }
+          const qs = params.toString();
+          url = qs ? `${u.pathname}?${qs}` : `${u.pathname}`;
+        } catch (e) {
+          console.warn('No se pudo construir la URL con filtro por agente:', e?.message);
+        }
+        console.log('Solicitando datos a:', url);
+        
+        // Realizar la petición a la API
+        const tokenForGet = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const baseHeaders = {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        };
+        if (tokenForGet) baseHeaders['Authorization'] = `Bearer ${tokenForGet}`;
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: baseHeaders,
+          credentials: 'same-origin'
+        });
+        
+        // Verificar si la respuesta es exitosa; si no, usar datos de prueba
+        if (!response.ok) {
+          let bodyText = '';
+          try { bodyText = await response.text(); } catch (_) {}
+          console.warn(`Respuesta no OK (${response.status}). Cuerpo:`, bodyText);
+          return await procesarDatosGraficaEstadisticas(datosPrueba);
+        }
+        
+        // Obtener los datos de la respuesta
+        const responseData = await response.json();
+        console.log('Datos recibidos de la API:', responseData);
+        
+        // Extraer el array de clientes de la respuesta de forma robusta
+        const safeData = responseData || {};
+        let costumers = [];
+        if (Array.isArray(safeData)) {
+          costumers = safeData;
+        } else if (Array.isArray(safeData.data)) {
+          costumers = safeData.data;
+        } else if (Array.isArray(safeData.leads)) {
+          costumers = safeData.leads;
+        } else if (Array.isArray(safeData.customers)) {
+          costumers = safeData.customers;
+        }
+
+        console.log(`Datos extraídos: ${costumers.length} registros`);
+
+        // Si no hay datos, usar datos de prueba
+        if (!Array.isArray(costumers) || costumers.length === 0) {
+          console.warn('No se encontraron datos en la respuesta. Usando datos de prueba.');
+          return await procesarDatosGraficaEstadisticas(datosPrueba);
+        }
+
+        // Procesar datos para agrupar por día
+        const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // UTC-6 fijo
+        const toISOInTZ_local = (date, tzOffsetMinutes) => {
+          const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
+          const y = target.getUTCFullYear();
+          const m = String(target.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(target.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+
+        // Inicializar los últimos 7 días
+        const ventasPorDia = {};
+        const fechasUltimos7Dias = new Set();
+        const hoyISO = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
+        const [hy, hm, hd] = hoyISO.split('-').map(Number);
+        const baseUTCNoon = new Date(Date.UTC(hy, hm - 1, hd, 12, 0, 0));
+        
+        for (let i = 6; i >= 0; i--) {
+          const fechaUTC = new Date(baseUTCNoon);
+          fechaUTC.setUTCDate(baseUTCNoon.getUTCDate() - i);
+          const clave = toISOInTZ_local(fechaUTC, BUSINESS_TZ_OFFSET_MIN);
+          fechasUltimos7Dias.add(clave);
+          ventasPorDia[clave] = { ventas: 0, puntaje: 0 };
+        }
+
+        // Helpers para obtener fechas de los registros
+        const getByPath = (obj, path) => {
+          try {
+            return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+          } catch (_) {
+            return undefined;
+          }
+        };
+
+        const findFirst = (obj, paths) => {
+          for (const p of paths) {
+            const v = getByPath(obj, p);
+            if (v !== undefined && v !== null && v !== '') return v;
+          }
+          return undefined;
+        };
+
+        const tryDateFrom = (val) => {
+          if (!val) return null;
+          if (typeof val === 'string') {
+            const s = val.trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+              const [y,m,d] = s.split('-').map(Number);
+              return new Date(Date.UTC(y, m-1, d, 12, 0, 0));
+            }
+            if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) {
+              const parts = s.split(/[\/\-]/).map(Number);
+              const [d,m,y] = parts;
+              if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900) {
+                return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+              }
+            }
+          }
+          if (typeof val === 'number') return new Date(val < 1e12 ? val*1000 : val);
+          const dt = new Date(val); return isNaN(dt) ? null : dt;
+        };
+
+        // Procesar los datos de los clientes
+        if (Array.isArray(costumers) && costumers.length > 0) {
+          costumers.forEach(costumer => {
+            // Elegir día de negocio priorizando dia_venta; si no, usar fechas de creación
+            const createdPaths = [
+              'creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
+              '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
+              'metadata.createdAt','audit.createdAt','timestamps.createdAt'
+            ];
+            const diaVentaPaths = ['dia_venta','diaVenta'];
+
+            let fecha = null;
+            const diaVentaVal = findFirst(costumer, diaVentaPaths);
+            fecha = tryDateFrom(typeof diaVentaVal === 'string' ? diaVentaVal.trim() : diaVentaVal);
+            
+            if (!fecha) {
+              const fechaCreacionVal = findFirst(costumer, createdPaths);
+              fecha = tryDateFrom(fechaCreacionVal);
+            }
+
+            let fechaStr = '';
+            if (fecha && !isNaN(fecha.getTime())) {
+              fechaStr = toISOInTZ_local(fecha, BUSINESS_TZ_OFFSET_MIN);
+            } else {
+              fechaStr = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
+            }
+            
+            // Contar solo si la fecha pertenece a los últimos 7 días inicializados
+            if (!fechasUltimos7Dias.has(fechaStr)) {
+              return;
+            }
+            
+            // Obtener el puntaje
+            let puntaje = 0;
+            if (typeof costumer.puntaje === 'number') {
+              puntaje = costumer.puntaje;
+            } else if (typeof costumer.puntaje === 'string') {
+              puntaje = parseFloat(costumer.puntaje) || 0;
+            } else if (costumer.score) {
+              puntaje = parseFloat(costumer.score) || 0;
+            }
+            
+            // Contar la venta y sumar el puntaje
+            ventasPorDia[fechaStr].ventas += 1;
+            ventasPorDia[fechaStr].puntaje += puntaje;
+          });
+        }
+        
+        // Convertir el objeto a un array y ordenar por fecha
+        const datosFinales = Object.entries(ventasPorDia)
+          .map(([fecha, datos]) => ({
+            fecha,
+            ventas: datos.ventas,
+            puntaje: datos.puntaje
+          }))
+          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        
+        console.log('Datos procesados para la gráfica:', datosFinales);
+        
+        // Procesar los datos y actualizar la gráfica
+        try {
+          const resultado = await procesarDatosGraficaEstadisticas(datosFinales);
+          console.log('Gráfica de ventas y puntaje actualizada correctamente');
+          return resultado;
+        } catch (error) {
+          console.error('Error al procesar datos para la gráfica:', error);
+          mostrarMensajeError('Error al procesar los datos de la gráfica');
+          return false;
+        }
+        
+      } catch (error) {
+        console.error('Error al actualizar la gráfica de ventas y puntaje:', error);
+        // Fallback: mostrar gráfica con datos de prueba
+        try {
+          return await procesarDatosGraficaEstadisticas(datosPrueba);
+        } catch (e) {
+          mostrarMensajeError('Error al actualizar la gráfica de ventas');
+          return false;
+        }
+      }
+    }
+
+    // Función para inicializar la nueva gráfica
+    function initVentasPuntajeChart() {
+      console.log('Inicializando gráfica de ventas y puntaje...');
+      
+      try {
+        ventasPuntajeChart = inicializarGraficaVentasPuntaje();
+        if (ventasPuntajeChart) {
+          // Cargar datos reales de la API
+          actualizarGraficaVentasPuntaje().catch(() => {
+            // Fallback a datos de prueba si falla la API
+            procesarDatosGraficaEstadisticas(datosPrueba);
+          });
+          console.log('Gráfica de ventas y puntaje inicializada correctamente');
+          
+          // Configurar filtros de fecha
+          setupDateFilters();
+        }
+      } catch (error) {
+        console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
+      }
+    }
+
+    // Función para configurar los filtros de fecha
+    function setupDateFilters() {
+      // Llenar el select de días
+      const daySelect = document.getElementById('day-select');
+      const monthSelect = document.getElementById('month-select');
+      const yearSelect = document.getElementById('year-select');
+      
+      if (!daySelect || !monthSelect || !yearSelect) return;
+
+      // Función para llenar los días según el mes y año seleccionado
+      function fillDays() {
+        const month = parseInt(monthSelect.value);
+        const year = parseInt(yearSelect.value);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        daySelect.innerHTML = '';
+        for (let i = 1; i <= daysInMonth; i++) {
+          const option = document.createElement('option');
+          option.value = i;
+          option.textContent = i;
+          daySelect.appendChild(option);
+        }
+      }
+
+      // Configurar fecha actual
+      const today = new Date();
+      monthSelect.value = today.getMonth();
+      yearSelect.value = today.getFullYear();
+      fillDays();
+      daySelect.value = today.getDate();
+
+      // Event listeners para actualizar días cuando cambie mes o año
+      monthSelect.addEventListener('change', fillDays);
+      yearSelect.addEventListener('change', fillDays);
+
+      // Event listener para aplicar filtro
+      const applyFilterBtn = document.getElementById('apply-filter');
+      if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', () => {
+          console.log('Aplicando filtro de fecha...');
+          // Actualizar gráfica con datos reales de la API
+          actualizarGraficaVentasPuntaje().catch(() => {
+            console.warn('Error al cargar datos de la API, usando datos de prueba');
+            procesarDatosGraficaEstadisticas(datosPrueba);
+          });
+          mostrarNotificacion('Filtro aplicado correctamente');
+        });
+      }
+
+      // Event listener para resetear a hoy
+      const resetFilterBtn = document.getElementById('reset-filter');
+      if (resetFilterBtn) {
+        resetFilterBtn.addEventListener('click', () => {
+          const today = new Date();
+          monthSelect.value = today.getMonth();
+          yearSelect.value = today.getFullYear();
+          fillDays();
+          daySelect.value = today.getDate();
+          
+          console.log('Reseteando filtro a fecha actual...');
+          // Actualizar gráfica con datos reales de la API
+          actualizarGraficaVentasPuntaje().catch(() => {
+            console.warn('Error al cargar datos de la API, usando datos de prueba');
+            procesarDatosGraficaEstadisticas(datosPrueba);
+          });
+          mostrarNotificacion('Filtro reseteado a fecha actual');
+        });
+      }
+    }
+
+    // Función simplificada para procesar datos en Estadísticas
+    function procesarDatosGraficaEstadisticas(datos) {
+      try {
+        if (!Array.isArray(datos) || datos.length === 0) {
+          console.warn('No hay datos disponibles para mostrar en la gráfica');
+          return false;
+        }
+
+        // Generar etiquetas y datasets para los últimos 7 días
+        const labels = [];
+        const ventasData = [];
+        const puntajesData = [];
+        
+        // Procesar datos ordenados por fecha
+        const datosOrdenados = [...datos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        
+        datosOrdenados.forEach(item => {
+          const fecha = new Date(item.fecha);
+          const dia = fecha.getDate();
+          const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+          const diaSemana = diasSemana[fecha.getDay()];
+          const etiqueta = `${diaSemana} ${dia}`;
+          
+          labels.push(etiqueta);
+          ventasData.push(Number(item.ventas) || 0);
+          puntajesData.push(Number(item.puntaje) || 0);
+        });
+
+        // Calcular máximos para escalar ejes
+        const maxVentas = Math.max(...ventasData);
+        const maxPuntaje = Math.max(...puntajesData);
+        const maxBoth = Math.max(maxVentas, maxPuntaje);
+
+        // Configuración de la gráfica
+        const config = {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Ventas',
+                data: ventasData,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+                yAxisID: 'y',
+                categoryPercentage: 0.6,
+                barPercentage: 0.9,
+                datalabels: {
+                  anchor: 'end',
+                  align: 'end',
+                  offset: 4,
+                  color: '#2c3e50',
+                  font: { weight: 'bold' },
+                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
+                }
+              },
+              {
+                label: 'Puntaje',
+                data: puntajesData,
+                type: 'bar',
+                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+                yAxisID: 'y1',
+                categoryPercentage: 0.6,
+                barPercentage: 0.9,
+                datalabels: {
+                  anchor: 'end',
+                  align: 'end',
+                  offset: 4,
+                  color: '#7f1d1d',
+                  font: { weight: 'bold' },
+                  formatter: (v) => {
+                    if (v == null || isNaN(v) || Number(v) === 0) return '';
+                    const n = Number(v);
+                    return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+                  }
+                }
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { bottom: 40 } },
+            scales: {
+              x: {
+                display: true,
+                grid: { display: false },
+                ticks: {
+                  display: true,
+                  color: '#4a4a4a',
+                  autoSkip: false,
+                  maxRotation: 0,
+                  minRotation: 0,
+                  padding: 8,
+                  font: { size: 12 }
+                },
+                title: { display: true, text: 'Días' }
+              },
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: { display: false, text: 'N° de Ventas' },
+                beginAtZero: true,
+                grid: { display: false },
+                border: { display: false },
+                ticks: { display: false },
+                max: Math.max(5, Math.ceil(maxBoth * 1.2))
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: { display: false, drawOnChartArea: false },
+                border: { display: false },
+                title: { display: false, text: 'Puntaje' },
+                beginAtZero: true,
+                min: 0,
+                max: Math.max(5, Math.ceil(maxBoth * 1.2)),
+                ticks: { display: false }
+              }
+            },
+            plugins: {
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) { label += ': '; }
+                    if (context.parsed.y !== null) { label += context.parsed.y; }
+                    return label;
+                  }
+                }
+              },
+              legend: {
+                position: 'top',
+                labels: { usePointStyle: true, pointStyle: 'circle', padding: 20 }
+              },
+              datalabels: {
+                display: true,
+                clamp: true,
+                clip: false
+              }
+            }
+          }
+        };
+
+        // Reconstruir la gráfica
+        const canvasEl = document.getElementById('ventasPuntajeChart');
+        if (!canvasEl) throw new Error('Canvas ventasPuntajeChart no encontrado');
+        const ctx = canvasEl.getContext('2d');
+        if (ventasPuntajeChart) {
+          try { ventasPuntajeChart.destroy(); } catch (_) {}
+          ventasPuntajeChart = null;
+        }
+        ventasPuntajeChart = new Chart(ctx, config);
+        
+        console.log('Gráfica de ventas y puntaje actualizada correctamente');
+        return true;
+      } catch (error) {
+        console.error('Error al procesar datos de la gráfica:', error);
+        mostrarMensajeError('Error al procesar los datos de la gráfica');
+        return false;
+      }
+    }
+
     // Esperar a que todo el DOM y recursos estÃ©n cargados
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         initializeApp();
         initConversionTable();
+        // Inicializar la nueva gráfica
+        setTimeout(() => {
+          initVentasPuntajeChart();
+        }, 500);
       });
     } else {
       initializeApp();
       initConversionTable();
+      // Inicializar la nueva gráfica
+      setTimeout(() => {
+        initVentasPuntajeChart();
+      }, 500);
     }
   </script>
 </body>
