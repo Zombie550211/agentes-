@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -419,46 +419,11 @@
             <h3></h3>
             <div id="conversion-table" class="conversion-grid"></div>
           </div>
-          
+
           <div class="card">
-          <div class="ventas-diarias-grid">
-            <div class="ventas-diarias-card">
-              <table class="ventas-table">
-                <thead>
-                  <tr>
-                    <th>TEAM</th>
-                    <th>CALI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>TEAM IRANIA</td>
-                    <td>0.0</td>
-                  </tr>
-                  <tr>
-                    <td>TEAM ROBERTO VELASQUEZ</td>
-                    <td>0.0</td>
-                  </tr>
-                  <tr>
-                    <td>TEAM BRYAN PLEITEZ</td>
-                    <td>0.0</td>
-                  </tr>
-                  <tr>
-                    <td>TEAM MARISOL BELTRAN</td>
-                    <td>0.0</td>
-                  </tr>
-                  <tr>
-                    <td>TEAM RANDAL MARTINEZ</td>
-                    <td>0.0</td>
-                  </tr>
-                  <tr>
-                    <td>TEAM LINEA</td>
-                    <td>0.0</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="ventas-diarias-grid">
+              <div id="ventas-dia-card" class="ventas-diarias-card"><!-- Renderizado por JS --></div>
             </div>
-          </div>
           </div>
         </div>
       </div>
@@ -559,24 +524,24 @@
           // Mapear datos de la API al formato esperado (mantener Puntaje como nÃºmero)
           teamData = data.data.map(equipo => ({
             name: equipo.TEAM || 'Sin equipo',
-            ICON: Number(equipo.ICON || 0),
-            BAMO: Number(equipo.BAMO || 0),
-            Total: Number(equipo.Total || 0),
-            Puntaje: Number(equipo.Puntaje || 0)
+            ICON: parseFloat(equipo.ICON || 0),
+            BAMO: parseFloat(equipo.BAMO || 0),
+            Total: parseFloat(equipo.Total || 0),
+            Puntaje: parseFloat(equipo.Puntaje || 0)
           }));
         }
         // Separar TEAM LINEAS a tabla aparte y mantener principal sin LINEA(S)
         const lineasData = Array.isArray(data.lineas) ? data.lineas.map(r => ({
           name: r.name || r.TEAM || 'SIN NOMBRE',
-          ICON: Number(r.ICON || 0)
+          ICON: parseFloat(r.ICON || 0)
         })) : [];
         const lineasTotalICON = typeof data.lineasTotalICON === 'number' ? data.lineasTotalICON : lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(['TEAM LINEA','TEAM LINEAS']);
-        let mainTeams = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
+        let fallbackTeamData = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
         // Fallback: si principal queda vacío y hay datos en LINEAS, mostrarlos en principal
-        if (mainTeams.length === 0 && lineasData.length > 0) {
+        if (fallbackTeamData.length === 0 && lineasData.length > 0) {
           const totalIcon = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-          mainTeams = [{ name: 'TEAM LINEAS', ICON: totalIcon, BAMO: 0, Total: totalIcon, Puntaje: 0 }];
+          fallbackTeamData = [{ name: 'TEAM LINEAS', ICON: totalIcon, BAMO: 0, Total: totalIcon, Puntaje: 0 }];
         }
         
         // Calcular totales
@@ -587,26 +552,19 @@
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
 
-        // Encabezado según el rango solicitado (por defecto: día)
-        let fecha;
-        if (fechaInicio && fechaFin) {
-          if (fechaInicio === fechaFin) {
-            fecha = toDMY(fechaInicio);
-          } else {
-            const f1 = toDMY(fechaInicio);
-            const f2 = toDMY(fechaFin);
-            fecha = `${f1} a ${f2}`;
-          }
-        } else {
-          const hoy = new Date();
-          fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
-        }
+        // Encabezado: mostrar MES (mm/yyyy) cuando es rango mensual; si no, día actual (dd/mm/yyyy)
+        const hoy = new Date();
+        const diaTexto = `${String(hoy.getDate()).padStart(2,'0')}/${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
+        const mesTexto = `${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
+        const esMes = (fechaInicio && fechaFin && fechaInicio !== fechaFin);
+        const encabezadoTitulo = esMes
+          ? `VENTAS POR MERCADO Y PUNTAJE DEL MES (${mesTexto})`
+          : `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})`;
 
         // Generar HTML de la tabla de equipos
-        const showLineasPanel = true;
         let html = `
           <div class="conversion-card">
-            <div class="conversion-title">${(fechaInicio && fechaFin && fechaInicio !== fechaFin) ? 'VENTAS POR MERCADO Y PUNTAJE' : 'VENTAS POR MERCADO Y PUNTAJE DEL DÍA'} (${fecha})</div>
+            <div class="conversion-title">${encabezadoTitulo}</div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">
@@ -620,33 +578,129 @@
                     </tr>
                   </thead>
                   <tbody>
-                    ${mainTeams.length === 0 ? `
+                    ${fallbackTeamData.length === 0 ? `
                       <tr>
                         <td colspan="5" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
                           No hay datos disponibles para la fecha seleccionada
                         </td>
                       </tr>
-                    ` : mainTeams.map(team => `
+                    ` : fallbackTeamData.map(team => `
                       <tr>
-                        <td>${team._id || 'SIN EQUIPO'}</td>
+                        <td>${team.name}</td>
                         <td>${team.ICON || 0}</td>
                         <td>${team.BAMO || 0}</td>
                         <td>${team.Total || 0}</td>
-                        <td class="score-col">${Number(team.Puntaje || 0).toFixed(2)}</td>
+                        <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
                       </tr>
                     `).join('')}
-                    ${mainTeams.length > 0 ? `
+                    ${fallbackTeamData.length > 0 ? `
                       <tr class="total-row">
                         <td>TOTAL</td>
-                        <td>${mainTeams.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
-                        <td>${mainTeams.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
-                        <td>${mainTeams.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${(mainTeams.reduce((sum, t) => sum + (Number(t.Puntaje) || 0), 0) / (mainTeams.length || 1)).toFixed(2)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
                       </tr>
                     ` : ''}
                   </tbody>
+                </table>
               </div>
-              ${showLineasPanel ? `
+              <div class="conv-right">
+                <div class="mini-card">
+                  <table class="mini-table">
+                    <thead>
+                      <tr>
+                        <th>TEAM LINEAS</th>
+                        <th>ICON</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${lineasData.map(r => `
+                        <tr>
+                          <td>${r.name}</td>
+                          <td>${r.ICON || 0}</td>
+                        </tr>
+                      `).join('')}
+                      <tr class="total">
+                        <td>TOTAL</td>
+                        <td class="total-icon">${lineasTotalICON}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Asignar el HTML generado al elemento raíz
+        root.innerHTML = html;
+
+        // Ahora, renderizar el gráfico de dona con los datos de los equipos
+        renderVentasPorEquipoChart(fallbackTeamData);
+        
+        // Filtro eliminado: no se requiere manejar eventos de filtrado
+      } catch (e) {
+        console.error('Error renderizando tabla de conversiÃ³n', e);
+        console.log('Usando datos de prueba para la tabla de conversiÃ³n...');
+        
+        // Datos de prueba cuando falla la API
+        const hoy = new Date();
+        const fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+        const fallbackTeamData = [
+          { name: 'TEAM IRANIA', ICON: 8, BAMO: 7, Total: 15, Puntaje: '8.5' },
+          { name: 'TEAM ROBERTO VELASQUEZ', ICON: 12, BAMO: 11, Total: 23, Puntaje: '9.2' },
+          { name: 'TEAM BRYAN PLEITEZ', ICON: 9, BAMO: 9, Total: 18, Puntaje: '7.8' },
+          { name: 'TEAM MARISOL BELTRAN', ICON: 6, BAMO: 6, Total: 12, Puntaje: '7.1' },
+          { name: 'TEAM RANDAL MARTINEZ', ICON: 11, BAMO: 9, Total: 20, Puntaje: '8.9' },
+          { name: 'TEAM LINEA', ICON: 4, BAMO: 4, Total: 8, Puntaje: '6.5' }
+        ];
+
+        // Generar HTML de la tabla con datos de prueba
+        let html = `
+          <div class="conversion-card">
+            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL MES</div>
+            <div class="conv-two-col">
+              <div class="conv-left">
+                <table class="sales-table">
+                  <thead>
+                    <tr>
+                      <th>EQUIPO</th>
+                      <th>ICON</th>
+                      <th>BAMO</th>
+                      <th>TOTAL</th>
+                      <th>PUNTAJE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${fallbackTeamData.length === 0 ? `
+                      <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
+                          No hay datos disponibles para la fecha seleccionada
+                        </td>
+                      </tr>
+                    ` : fallbackTeamData.map(team => `
+                      <tr>
+                        <td>${team.name}</td>
+                        <td>${team.ICON || 0}</td>
+                        <td>${team.BAMO || 0}</td>
+                        <td>${team.Total || 0}</td>
+                        <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+                      </tr>
+                    `).join('')}
+                    ${fallbackTeamData.length > 0 ? `
+                      <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                      </tr>
+                    ` : ''}
+                  </tbody>
+                </table>
+              </div>
+              ${true ? `
               <div class="conv-right">
                 <div class="mini-card">
                   <table class="mini-table">
@@ -672,37 +726,7 @@
                 </div>
               </div>
               ` : ''}
-            </div>
-          </div>
-        `;
-        
-        // Asignar el HTML generado al elemento raíz
-        root.innerHTML = html;
-
-        // Ahora, renderizar el gráfico de dona con los datos de los equipos
-        renderVentasPorEquipoChart(mainTeams);
-        
-        // Filtro eliminado: no se requiere manejar eventos de filtrado
-      } catch (e) {
-        console.error('Error renderizando tabla de conversiÃ³n', e);
-        console.log('Usando datos de prueba para la tabla de conversiÃ³n...');
-        
-        // Datos de prueba cuando falla la API
-        const hoy = new Date();
-        const fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
-        const fallbackTeamData = [
-          { name: 'TEAM IRANIA', ICON: 8, BAMO: 7, Total: 15, Puntaje: '8.5' },
-          { name: 'TEAM ROBERTO VELASQUEZ', ICON: 12, BAMO: 11, Total: 23, Puntaje: '9.2' },
-          { name: 'TEAM BRYAN PLEITEZ', ICON: 9, BAMO: 9, Total: 18, Puntaje: '7.8' },
-          { name: 'TEAM MARISOL BELTRAN', ICON: 6, BAMO: 6, Total: 12, Puntaje: '7.1' },
-          { name: 'TEAM RANDAL MARTINEZ', ICON: 11, BAMO: 9, Total: 20, Puntaje: '8.9' },
-          { name: 'TEAM LINEA', ICON: 4, BAMO: 4, Total: 8, Puntaje: '6.5' }
-        ];
-
-        // Generar HTML de la tabla con datos de prueba
-        let html = `
-          <div class="conversion-card">
-            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÃA (${fecha})</div>
+            </div>DÃA (${fecha})</div>
             <div class="alert alert-warning mb-3" style="padding: 10px; margin-bottom: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404; font-size: 0.9rem;">
               <i class="fas fa-exclamation-triangle me-2"></i>
               Mostrando datos de prueba (Error de conexiÃ³n con la base de datos)
@@ -736,7 +760,7 @@
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${(fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0) / (fallbackTeamData.length || 1)).toFixed(1)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(1)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -821,9 +845,12 @@
       if (!ctx) return;
 
       // Filtrar equipos sin ventas para no saturar el gráfico
-      const filteredData = teamData.filter(t => t.Total > 0);
-      const labels = filteredData.map(t => t.name);
-      const data = filteredData.map(t => t.Total);
+      // Filtrar equipos para fines de semana: solo mostrar si Total > 0
+      const today = new Date();
+      const isWeekend = today.getDay() === 0 || today.getDay() === 6; // 0 = domingo, 6 = sábado
+      const filteredDayTeams = isWeekend ? teamData.filter(team => team.Total > 0) : teamData;
+      const labels = filteredDayTeams.map(t => t._id || 'SIN EQUIPO');
+      const data = filteredDayTeams.map(t => t.Total);
 
       // Paleta de colores atractiva (más colores si es necesario)
       const colors = [
@@ -1104,9 +1131,9 @@
     }
 
     function initializeApp() {
-      console.log('Inicializando aplicaciÃ³n...');
+      console.log('Inicializando aplicación...');
       
-      // Verificar que Chart estÃ© disponible
+      // Verificar que Chart esté disponible
       if (typeof Chart === 'undefined') {
         console.error('Error: Chart.js no se ha cargado correctamente');
         const chartContainer = document.querySelector('.chart-wrapper');
@@ -1114,7 +1141,7 @@
           chartContainer.innerHTML = `
             <div class="alert alert-danger">
               <i class="fas fa-exclamation-triangle me-2"></i>
-              Error: No se pudo cargar la biblioteca de grÃ¡ficos. Por favor, recarga la pÃ¡gina.
+              Error: No se pudo cargar la biblioteca de gráficos. Por favor, recarga la página.
             </div>
           `;
         }
@@ -1123,17 +1150,23 @@
       
       console.log('Chart.js cargado correctamente:', Chart.version);
       
-      // Inicializar grÃ¡ficos
+      // Inicializar gráficos
       initCharts();
       
-      // Configurar botÃ³n de actualizaciÃ³n
+      // Configurar botón de actualización
       const btn = document.getElementById('btn-refresh');
       if (btn) {
         btn.addEventListener('click', () => {
-          console.log('Actualizando grÃ¡ficos...');
+          console.log('Actualizando gráficos...');
           initCharts();
         });
       }
+
+      // Inicializar tabla de conversión después de que el DOM esté listo
+      setTimeout(() => {
+        initConversionTable();
+        loadDayData();
+      }, 200); // Delay para asegurar que el DOM esté listo
     }
 
     // FunciÃ³n para inicializar la tabla de conversiÃ³n
@@ -1145,6 +1178,191 @@
         renderConversionTable(document.getElementById('conversion-table'));
       } else {
         console.error('No se encontrÃ³ el elemento con ID conversion-table');
+      }
+    }
+
+    // Función para cargar y renderizar la tabla del Día con el mismo diseño que la del Mes
+    async function loadDayData() {
+      console.log('Cargando datos del día actual...');
+      const container = document.getElementById('ventas-dia-card');
+      if (!container) {
+        console.error('No se encontró el contenedor #ventas-dia-card');
+        return;
+      }
+
+      // Encabezado de fecha del día
+      const hoy = new Date();
+      const diaTexto = `${String(hoy.getDate()).padStart(2,'0')}/${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
+
+      // Placeholder de carga
+      container.innerHTML = `
+        <div class="text-center" style="padding: 12px; color:#666;">Cargando datos del día...</div>
+      `;
+
+      try {
+        const response = await fetchWithAuth('/api/equipos/estadisticas?scope=day');
+        if (!response) return;
+
+        const data = await response.json();
+        const dayData = (data && data.success && Array.isArray(data.data))
+          ? data.data.map(equipo => ({
+              name: equipo.TEAM || 'Sin equipo',
+              ICON: parseFloat(equipo.ICON || 0),
+              BAMO: parseFloat(equipo.BAMO || 0),
+              Total: parseFloat(equipo.Total || 0),
+              Puntaje: parseFloat(equipo.Puntaje || 0)
+            }))
+          : [];
+
+        // Separar LINEAS para panel derecho y excluirlas de la tabla principal
+        const isLinea = (n) => /LINEA/i.test(String(n || ''));
+        const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
+        const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
+        const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
+        const mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+
+        // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
+        const tablaHtml = mainData.length === 0
+          ? `
+            <div class="conversion-card">
+              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div class="conv-two-col">
+                <div class="conv-left">
+                  <table class="sales-table">
+                    <thead>
+                      <tr>
+                        <th>EQUIPO</th>
+                        <th>ICON</th>
+                        <th>BAMO</th>
+                        <th>TOTAL</th>
+                        <th>PUNTAJE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">No hay datos disponibles para el día actual</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="conv-right">
+                  <div class="mini-card">
+                    <table class="mini-table">
+                      <thead>
+                        <tr>
+                          <th>TEAM LINEAS</th>
+                          <th>ICON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${(lineasData || []).map(r => `
+                          <tr>
+                            <td>${r.name}</td>
+                            <td>${r.ICON || 0}</td>
+                          </tr>
+                        `).join('')}
+                        <tr class="total">
+                          <td>TOTAL</td>
+                          <td class="total-icon">${lineasTotalICON}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+          : `
+            <div class="conversion-card">
+              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div class="conv-two-col">
+                <div class="conv-left">
+                  <table class="sales-table">
+                    <thead>
+                      <tr>
+                        <th>EQUIPO</th>
+                        <th>ICON</th>
+                        <th>BAMO</th>
+                        <th>TOTAL</th>
+                        <th>PUNTAJE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${mainData.map(team => `
+                        <tr>
+                          <td>${team.name}</td>
+                          <td>${team.ICON || 0}</td>
+                          <td>${team.BAMO || 0}</td>
+                          <td>${team.Total || 0}</td>
+                          <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+                        </tr>
+                      `).join('')}
+                      <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="conv-right">
+                  <div class="mini-card">
+                    <table class="mini-table">
+                      <thead>
+                        <tr>
+                          <th>TEAM LINEAS</th>
+                          <th>ICON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${(lineasData || []).map(r => `
+                          <tr>
+                            <td>${r.name}</td>
+                            <td>${r.ICON || 0}</td>
+                          </tr>
+                        `).join('')}
+                        <tr class="total">
+                          <td>TOTAL</td>
+                          <td class="total-icon">${lineasTotalICON}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+        container.innerHTML = tablaHtml;
+      } catch (e) {
+        console.error('Error cargando datos del día:', e);
+        container.innerHTML = `
+          <div class="conversion-card">
+            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+            <div class="conv-two-col">
+              <div class="conv-left">
+                <table class="sales-table">
+                  <thead>
+                    <tr>
+                      <th>EQUIPO</th>
+                      <th>ICON</th>
+                      <th>BAMO</th>
+                      <th>TOTAL</th>
+                      <th>PUNTAJE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">Error de conexión</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
       }
     }
 
