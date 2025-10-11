@@ -17,6 +17,7 @@ function parseDateInput(s) {
 
 async function obtenerEstadisticasEquipos(req, res) {
   try {
+    console.log('[EQUIPOS] Request params:', req.query);
     let db = getDb();
     if (!db) {
       try {
@@ -26,8 +27,11 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     }
 
+    
+
     // Rango de fechas (por defecto: MES ACTUAL)
-    let { fechaInicio, fechaFin, scope, all } = req.query || {};
+    let { fechaInicio, fechaFin, scope, all, debug } = req.query || {};
+    const isDebug = String(debug) === '1';
     if (!fechaInicio || !fechaFin) {
       const now = new Date();
       const startMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -46,14 +50,34 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     }
 
-    const start = parseDateInput(fechaInicio);
-    const end = parseDateInput(fechaFin);
-    const endOfDay = end ? new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1) : null;
+    let start = parseDateInput(fechaInicio);
+    let end = parseDateInput(fechaFin);
+    let endOfDay = end ? new Date(end.getTime() + 24 * 60 * 60 * 1000 - 1) : null;
 
     const pipeline = [];
 
     // Si piden SOLO el día (scope=day o fechaInicio==fechaFin), aplicar match directo por strings
     const isDayOnly = (scope === 'day') || (fechaInicio && fechaFin && fechaInicio === fechaFin);
+    // Regla de reinicio: 09:30 America/El_Salvador (UTC-6, sin DST)
+    let dayResetInfo = null;
+    if (isDayOnly && start) {
+      try {
+        const now = new Date();
+        const nowSV = new Date(now.getTime() - 6 * 60 * 60 * 1000); // UTC-6
+        const req = new Date(start);
+        const sameDateSV = (d1, d2) => d1.getUTCFullYear() === d2.getUTCFullYear() && (d1.getUTCMonth() === d2.getUTCMonth()) && (d1.getUTCDate() === d2.getUTCDate());
+        const cutoff = new Date(nowSV.getTime()); cutoff.setUTCHours(15, 30, 0, 0); // 09:30 SV = 15:30 UTC
+        // Si la fecha solicitada es "hoy" (en horario de SV) y aún no pasa 09:30 SV, usar ayer
+        if (sameDateSV(req, nowSV) && now < cutoff) {
+          const yesterday = new Date(req.getTime() - 24 * 60 * 60 * 1000);
+          start = yesterday; end = yesterday; endOfDay = new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1);
+          dayResetInfo = { effective: yesterday.toISOString().slice(0,10), reason: 'before_09_30_SV' };
+        } else {
+          dayResetInfo = { effective: req.toISOString().slice(0,10), reason: 'after_09_30_SV_or_not_today' };
+        }
+        console.log('[EQUIPOS] Day scope:', dayResetInfo);
+      } catch {}
+    }
     if (isDayOnly && start) {
       try {
         const d = new Date(start);
@@ -79,8 +103,8 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$fecha', '$creadoEn' ] } ] } ] }
           ]
         },
-        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
-        mercadoNorm: { $toUpper: { $ifNull: ['$mercado', ''] } },
+        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } },
+        mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
         puntajeNum: {
           $convert: {
             input: { $ifNull: [ '$puntaje', { $ifNull: [ '$puntuacion', { $ifNull: [ '$points', '$score' ] } ] } ] },
@@ -108,12 +132,14 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     });
 
-    // Match por rango/día (con límites locales y soporte string)
+    // Match por rango/día (con límites en UTC y soporte string)
+    let pipelineMatchStrategy = 'none';
+    let sUTC = null, eUTC = null;
     if (String(all).trim() !== '1' && (start || endOfDay)) {
       const sameDay = !!(start && end && start.toDateString() === end.toDateString());
-      // Límites locales (00:00:00 a 24:00:00 del día solicitado)
-      const sLocal = start ? new Date(new Date(start).setHours(0,0,0,0)) : null;
-      const eLocal = end ? new Date(new Date(end).setHours(23,59,59,999)) : null;
+      // Límites en UTC para evitar desfases por zona horaria
+      sUTC = start ? new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0, 0)) : null;
+      eUTC = end ? new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59, 999)) : null;
       let sYMD = null, sDMY = null, sDMYDash = null;
       try {
         if (start) {
@@ -127,22 +153,51 @@ async function obtenerEstadisticasEquipos(req, res) {
         }
       } catch {}
 
-      if (sameDay && sLocal && eLocal) {
+      if (sameDay && sUTC && eUTC) {
         pipeline.push({
           $match: {
             $or: [
-              // Por tipo Date en rango local
-              { $expr: { $and: [ { $gte: ['$saleDateDate', sLocal] }, { $lte: ['$saleDateDate', eLocal] } ] } },
+              // Por tipo Date en rango UTC
+              { $expr: { $and: [ { $gte: ['$saleDateDate', sUTC] }, { $lte: ['$saleDateDate', eUTC] } ] } },
               // Por string crudo exacto
               { saleDateRaw: { $in: [ sYMD, sDMY, sDMYDash ] } }
             ]
           }
         });
+        pipelineMatchStrategy = 'same-day UTC|string-exact';
+        console.log('[EQUIPOS] Match strategy:', pipelineMatchStrategy, 'sUTC:', sUTC?.toISOString(), 'eUTC:', eUTC?.toISOString());
       } else {
-        const expr = { $and: [] };
-        if (sLocal) expr.$and.push({ $gte: ['$saleDateDate', sLocal] });
-        if (eLocal) expr.$and.push({ $lte: ['$saleDateDate', eLocal] });
-        if (expr.$and.length) pipeline.push({ $match: { $expr: expr } });
+        const exprDate = { $and: [] };
+        if (sUTC) exprDate.$and.push({ $gte: ['$saleDateDate', sUTC] });
+        if (eUTC) exprDate.$and.push({ $lte: ['$saleDateDate', eUTC] });
+
+        // Comparación alternativa por string YYYY-MM-DD (más tolerante a TZ)
+        const exprStr = { $and: [] };
+        if (fechaInicio) exprStr.$and.push({ $gte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDateDate' } }, String(fechaInicio) ] });
+        if (fechaFin)    exprStr.$and.push({ $lte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDateDate' } }, String(fechaFin) ] });
+
+        const finalOr = [];
+        if (exprDate.$and.length) finalOr.push({ $and: exprDate.$and });
+        if (exprStr.$and.length)  finalOr.push({ $and: exprStr.$and });
+
+        // Si el rango es dentro del mismo mes, agregar también coincidencias por strings crudos del mes
+        try {
+          const [yyS, mmS] = String(fechaInicio || '').split('-');
+          const [yyE, mmE] = String(fechaFin || '').split('-');
+          const sameMonthRange = yyS && mmS && yyE && mmE && yyS === yyE && mmS === mmE;
+          if (sameMonthRange) {
+            const monthRegexYMD = new RegExp(`^${yyS}-${mmS}-`);
+            const monthRegexDMY = new RegExp(`\\/${mmS}\\/${yyS}$`);
+            const monthRegexDMYDash = new RegExp(`-${mmS}-${yyS}$`);
+            finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexYMD } });
+            finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexDMY } });
+            finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexDMYDash } });
+          }
+        } catch {}
+
+        if (finalOr.length) pipeline.push({ $match: { $expr: { $or: finalOr } } });
+        pipelineMatchStrategy = 'range UTC|string-ymd';
+        console.log('[EQUIPOS] Match strategy:', pipelineMatchStrategy, 'sUTC:', sUTC?.toISOString(), 'eUTC:', eUTC?.toISOString());
       }
     }
 
@@ -168,16 +223,20 @@ async function obtenerEstadisticasEquipos(req, res) {
     let usedCollection = null;
     for (const colName of collectionsToTry) {
       try {
+        const sample = await db.collection('costumers').find({}).limit(1).toArray();
+        console.log('[DEBUG] Sample document fields:', Object.keys(sample[0] || {}));
+        console.log('[DEBUG] Sample document team/equipo:', sample[0]?.team, sample[0]?.equipo);
         const arr = await db.collection(colName).aggregate(pipeline).toArray();
-        if (arr && arr.length >= 0) { // aceptamos 0 también para seguir el fallback abajo
+        if (Array.isArray(arr) && arr.length > 0) {
           equiposData = arr;
           usedCollection = colName;
-          break;
+          break; // tenemos datos reales, detenemos aquí
         }
       } catch (e) {
         // continuar
       }
     }
+    console.log('[EQUIPOS] Used collection:', usedCollection || 'none (no matches)');
 
     // Fallback por string exacto si no hubo matches
     let total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
@@ -189,7 +248,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         if (docs && docs.length) {
           const map = new Map();
           for (const d of docs) {
-            const teamKey = String(d.team || d.equipo || '').toUpperCase() || 'SIN EQUIPO';
+            const teamKey = String(d.equipo || d.team || '').toUpperCase() || 'SIN EQUIPO';
             const mercadoKey = String(d.mercado || '').toUpperCase();
             const punt = Number(d.puntaje || 0);
             const obj = map.get(teamKey) || { TEAM: teamKey, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
@@ -202,73 +261,23 @@ async function obtenerEstadisticasEquipos(req, res) {
       } catch(e){ console.warn('[EQUIPOS fallback] Error:', e?.message); }
     }
 
-    // Fallback adicional: si sigue vacío en día exacto, reintentar con rango del MES ACTUAL
-    const sameDayFinal = !!(start && end && start.toDateString() === end.toDateString());
-    if ((scope === 'day' || sameDayFinal) && (!equiposData || equiposData.length === 0)) {
-      try {
-        const now = new Date();
-        const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-        const ms = monthStart;
-        const me = new Date();
-        const pipelineMonth = [
-          { $addFields: {
-              saleDateRaw: { $ifNull: ['$dia_venta', { $ifNull: ['$fecha_contratacion', { $ifNull: ['$createdAt', { $ifNull: ['$fecha', '$creadoEn'] } ] } ] } ] },
-              teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } },
-              mercadoNorm: { $toUpper: { $ifNull: ['$mercado', ''] } },
-              puntajeNum: { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntuacion', { $ifNull: ['$points', '$score'] } ] } ] }, to: 'double', onError: 0, onNull: 0 } },
-              saleDate: {
-                $switch: {
-                  branches: [
-                    { case: { $eq: [ { $type: '$saleDateRaw' }, 'date' ] }, then: '$saleDateRaw' },
-                    { case: { $and: [ { $eq: [ { $type: '$saleDateRaw' }, 'string' ] }, { $regexMatch: { input: '$saleDateRaw', regex: /^\d{4}-\d{2}-\d{2}/ } } ] }, then: { $dateFromString: { dateString: '$saleDateRaw' } } },
-                    { case: { $and: [ { $eq: [ { $type: '$saleDateRaw' }, 'string' ] }, { $regexMatch: { input: '$saleDateRaw', regex: /^\d{2}[\/\-]\d{2}[\/\-]\d{4}/ } } ] }, then: { $dateFromString: { dateString: '$saleDateRaw', format: '%d/%m/%Y' } } }
-                  ],
-                  default: '$saleDateRaw'
-                }
-              },
-              saleDateDate: { $cond: [ { $eq: [ { $type: '$saleDate' }, 'date' ] }, '$saleDate', { $toDate: '$saleDate' } ] }
-          }},
-          { $match: { $expr: { $and: [ { $gte: ['$saleDateDate', ms] }, { $lte: ['$saleDateDate', me] } ] } } },
-          { $group: {
-            _id: '$teamNorm',
-            ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
-            BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
-            Total: { $sum: 1 },
-            Puntaje: { $sum: '$puntajeNum' }
-          }},
-          { $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } },
-          { $sort: { TEAM: 1 } }
-        ];
-
-        let monthData = [];
-        for (const colName of ['costumers','Costumers','customers','leads','Leads','ventas']) {
-          try {
-            const arr = await db.collection(colName).aggregate(pipelineMonth).toArray();
-            if (Array.isArray(arr) && arr.length >= 0) { monthData = arr; usedCollection = colName; break; }
-          } catch {}
-        }
-        if (monthData.length) {
-          equiposData = monthData;
-          total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
-        }
-      } catch (e) { console.warn('[EQUIPOS fallback-month] Error:', e?.message); }
-    }
 
     // LINEAS como team agregado
-    const lineasCol = db.collection('Lineas');
+    const lineasCollections = ['Lineas','lineas'];
     const lineasPipeline = [
       { $addFields: {
           saleDateRaw: { $ifNull: ['$dia_venta', '$creadoEn'] },
           saleDate: { $cond: [ { $eq: [ { $type: '$dia_venta' }, 'string' ] }, { $dateFromString: { dateString: '$dia_venta' } }, { $ifNull: ['$dia_venta', '$creadoEn'] } ] },
-          teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', 'TEAM LINEAS'] } } } },
-          mercadoNorm: { $toUpper: { $ifNull: ['$mercado', '' ] } },
+          teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', 'TEAM LINEAS'] } } } },
+          mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', '' ] } } } },
           puntajeNum: { $convert: { input: '$puntaje', to: 'double', onError: 0, onNull: 0 } }
       } }
     ];
     if (String(all).trim() !== '1' && (start || endOfDay)) {
       const sameDay = !!(start && end && start.toDateString() === end.toDateString());
-      const sLocal = start ? new Date(new Date(start).setHours(0,0,0,0)) : null;
-      const eLocal = end ? new Date(new Date(end).setHours(23,59,59,999)) : null;
+      // Usar límites en UTC
+      const sUTC = start ? new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0, 0)) : null;
+      const eUTC = end ? new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59, 999)) : null;
       let sYMD = null, sDMY = null, sDMYDash = null;
       try {
         if (start) {
@@ -281,18 +290,28 @@ async function obtenerEstadisticasEquipos(req, res) {
           sDMYDash = `${dd}-${m}-${y}`;
         }
       } catch {}
-      if (sameDay && sLocal && eLocal) {
+      if (sameDay && sUTC && eUTC) {
         lineasPipeline.push({
           $match: {
             $or: [
-              { $expr: { $and: [ { $gte: ['$saleDate', sLocal] }, { $lte: ['$saleDate', eLocal] } ] } },
+              { $expr: { $and: [ { $gte: ['$saleDate', sUTC] }, { $lte: ['$saleDate', eUTC] } ] } },
               { dia_venta: { $in: [ sYMD, sDMY, sDMYDash ] } }
             ]
           }
         });
       } else {
-        const lm = {}; if (sLocal) lm.$gte = sLocal; if (eLocal) lm.$lte = eLocal;
-        if (Object.keys(lm).length) lineasPipeline.push({ $match: { saleDate: lm } });
+        const orExpr = [];
+        const andDate = { $and: [] };
+        if (sUTC) andDate.$and.push({ $gte: ['$saleDate', sUTC] });
+        if (eUTC) andDate.$and.push({ $lte: ['$saleDate', eUTC] });
+        if (andDate.$and.length) orExpr.push(andDate);
+
+        const andStr = { $and: [] };
+        if (fechaInicio) andStr.$and.push({ $gte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDate' } }, String(fechaInicio) ] });
+        if (fechaFin)    andStr.$and.push({ $lte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDate' } }, String(fechaFin) ] });
+        if (andStr.$and.length) orExpr.push(andStr);
+
+        if (orExpr.length) lineasPipeline.push({ $match: { $expr: { $or: orExpr } } });
       }
     }
     lineasPipeline.push({ $group: {
@@ -305,7 +324,14 @@ async function obtenerEstadisticasEquipos(req, res) {
     lineasPipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } });
 
     let lineasTeams = [];
-    try { lineasTeams = await lineasCol.aggregate(lineasPipeline).toArray(); } catch { lineasTeams = []; }
+    for (const ln of lineasCollections) {
+      try {
+        const arr = await db.collection(ln).aggregate(lineasPipeline).toArray();
+        if (Array.isArray(arr) && arr.length) {
+          lineasTeams = lineasTeams.concat(arr);
+        }
+      } catch {}
+    }
 
     // Fusionar resultado de Lineas en equiposData (como otro team)
     if (Array.isArray(lineasTeams) && lineasTeams.length) {
@@ -358,7 +384,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       for (const colName of potentialCollections) {
         try {
           const teamAgg = await db.collection(colName).aggregate([
-            { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$team', '$equipo', ''] } } } } } },
+            { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } } } },
             { $group: { _id: '$teamNorm' } },
             { $match: { _id: { $ne: '' } } }
           ]).toArray();
@@ -406,19 +432,80 @@ async function obtenerEstadisticasEquipos(req, res) {
       });
     } catch {}
 
-    return res.json({ success: true, message: 'Estadísticas calculadas', total, data: equiposData });
+    // Fallback mensual por strings del mes (si el rango es mensual y total sigue en 0)
+    try {
+      if (total === 0 && fechaInicio && fechaFin && fechaInicio !== fechaFin) {
+        const [yyS, mmS] = String(fechaInicio).split('-');
+        const [yyE, mmE] = String(fechaFin).split('-');
+        if (yyS && mmS && yyE && mmE && yyS === yyE && mmS === mmE) {
+          const y = yyS; const m = mmS;
+          const regexYMD = new RegExp(`^${y}-${m}-`);       // 2025-10-
+          const regexDMY = new RegExp(`\\/${m}\\/${y}$`); // /10/2025
+          const regexDMYDash = new RegExp(`-${m}-${y}$`);    // -10-2025
+
+          const monthStringPipeline = [
+            { $addFields: {
+                teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$equipo', '$team', ''] } } } },
+                mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
+                puntajeNum: { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntuacion', { $ifNull: ['$points', '$score'] } ] } ] }, to: 'double', onError: 0, onNull: 0 } }
+            }},
+            { $match: { $or: [
+                { dia_venta: { $regex: regexYMD } },
+                { fecha_contratacion: { $regex: regexYMD } },
+                { dia_venta: { $regex: regexDMY } },
+                { fecha_contratacion: { $regex: regexDMY } },
+                { dia_venta: { $regex: regexDMYDash } },
+                { fecha_contratacion: { $regex: regexDMYDash } }
+            ] } },
+            { $group: {
+                _id: '$teamNorm',
+                ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
+                BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
+                Total: { $sum: 1 },
+                Puntaje: { $sum: '$puntajeNum' }
+            }},
+            { $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } },
+            { $sort: { TEAM: 1 } }
+          ];
+
+          for (const colName of ['costumers','Costumers','customers','leads','Leads','ventas']) {
+            try {
+              const arr = await db.collection(colName).aggregate(monthStringPipeline).toArray();
+              if (Array.isArray(arr) && arr.length) {
+                equiposData = arr;
+                usedCollection = colName;
+                break;
+              }
+            } catch {}
+          }
+          total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
+        }
+      }
+    } catch {}
+
+    const response = { success: true, message: 'Estadísticas calculadas', total, data: equiposData };
+    console.log('[EQUIPOS] Totales:', { total, equipos: equiposData.length });
+    if (isDebug) {
+      response.debug = {
+        usedCollection,
+        requested: { fechaInicio, fechaFin, scope: scope || null },
+        match: { strategy: pipelineMatchStrategy, sUTC: sUTC ? sUTC.toISOString() : null, eUTC: eUTC ? eUTC.toISOString() : null },
+        dayReset: dayResetInfo,
+        sizes: { equipos: equiposData.length }
+      };
+    }
+    return res.json(response);
   } catch (error) {
     console.error('[EQUIPOS obtenerEstadisticasEquipos] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
   }
 }
-
 async function obtenerListaEquipos(req, res){
   try {
     const db = getDb();
     const col = db.collection('costumers');
     const teams = await col.aggregate([
-      { $addFields: { teamNorm: { $toUpper: { $ifNull: ['$team', '$equipo', ''] } } } },
+      { $addFields: { teamNorm: { $toUpper: { $ifNull: ['$equipo', '$team', ''] } } } },
       { $group: { _id: '$teamNorm' } },
       { $match: { _id: { $ne: '' } } },
       { $sort: { _id: 1 } }
