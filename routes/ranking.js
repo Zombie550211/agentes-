@@ -18,8 +18,8 @@ router.get('/', protect, async (req, res) => {
       });
     }
 
-    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate } = req.query;
-    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate });
+    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente } = req.query;
+    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente });
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -96,7 +96,14 @@ router.get('/', protect, async (req, res) => {
         }
       },
 
-      // 3) Agrupar por agente
+      // 3) Filtrar por agente específico si se proporciona
+      ...(agente ? [{
+        $match: {
+          agenteNombre: { $regex: new RegExp(agente, 'i') } // Búsqueda case-insensitive
+        }
+      }] : []),
+
+      // 4) Agrupar por agente
       {
         $group: {
           _id: "$agenteNombre",
@@ -106,19 +113,19 @@ router.get('/', protect, async (req, res) => {
         }
       },
 
-      // 4) Formatear resultado
+      // 5) Formatear resultado
       {
         $project: {
           _id: 0,
           nombre: "$_id",
           ventas: 1,
-          sumPuntaje: { $round: ["$sumPuntaje", 2] },
-          avgPuntaje: { $round: ["$avgPuntaje", 2] },
-          puntos: { $round: ["$sumPuntaje", 2] } // Usar suma como puntos principales
+          sumPuntaje: "$sumPuntaje", // Sin redondeo - valor exacto
+          avgPuntaje: "$avgPuntaje", // Sin redondeo - valor exacto
+          puntos: "$sumPuntaje" // Usar suma como puntos principales - valor exacto
         }
       },
 
-      // 5) Ordenar por suma de puntaje descendente
+      // 6) Ordenar por suma de puntaje descendente
       { $sort: { puntos: -1, ventas: -1, nombre: 1 } },
       { $limit: hardLimit }
     ];
@@ -160,6 +167,14 @@ router.get('/', protect, async (req, res) => {
     }
     
     console.log('[RANKING] Resultados de la consulta:', rankingResults);
+    
+    // Debug: Mostrar valores exactos de puntajes
+    if (rankingResults.length > 0) {
+      console.log('[RANKING] Valores exactos de puntajes:');
+      rankingResults.forEach((item, index) => {
+        console.log(`${index + 1}. ${item.nombre}: sumPuntaje=${item.sumPuntaje} (tipo: ${typeof item.sumPuntaje}), avgPuntaje=${item.avgPuntaje} (tipo: ${typeof item.avgPuntaje}), puntos=${item.puntos} (tipo: ${typeof item.puntos})`);
+      });
+    }
 
     // Procesar datos reales y agregar posición
     let rankingData = rankingResults.map((item, index) => {
@@ -176,6 +191,14 @@ router.get('/', protect, async (req, res) => {
     }
 
     console.log('[RANKING] Devolviendo datos:', rankingData);
+    
+    // Debug: Mostrar datos finales que se envían al frontend
+    if (rankingData.length > 0) {
+      console.log('[RANKING] Datos finales enviados al frontend:');
+      rankingData.forEach((item, index) => {
+        console.log(`${index + 1}. ${item.nombre}: puntos=${item.puntos}, sumPuntaje=${item.sumPuntaje}, avgPuntaje=${item.avgPuntaje}, promedio=${item.promedio}`);
+      });
+    }
 
     // Si debug=1, calcular estadísticas de campos de puntaje para diagnóstico
     let scoreFieldStats = null;
@@ -237,7 +260,7 @@ router.get('/', protect, async (req, res) => {
         collectionUsed: usedCollection,
         count: Array.isArray(rankingData) ? rankingData.length : 0,
         dateRange: { startDate, endDate },
-        params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1' },
+        params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1', agente: agente || null },
         attempts,
         scoreFieldStats,
         sampleDocs
@@ -277,6 +300,79 @@ router.post('/', protect, authorize('Administrador', 'admin', 'administrador'), 
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
+    });
+  }
+});
+
+/**
+ * @route GET /api/ranking/debug-lucia-data
+ * @desc Debug específico para Lucia Ferman - mostrar valores exactos
+ * @access Private
+ */
+router.get('/debug-lucia-data', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error de conexión a la base de datos'
+      });
+    }
+
+    // Buscar todos los registros de Lucia Ferman
+    const luciaRecords = await db.collection('costumers').find({
+      agenteNombre: { $regex: /lucia.*ferman/i }
+    }).toArray();
+
+    console.log('[DEBUG-LUCIA] Registros encontrados:', luciaRecords.length);
+    
+    // Mostrar cada registro con su puntaje exacto
+    luciaRecords.forEach((record, index) => {
+      console.log(`[DEBUG-LUCIA] Registro ${index + 1}:`);
+      console.log(`  - ID: ${record._id}`);
+      console.log(`  - Agente: ${record.agenteNombre}`);
+      console.log(`  - Puntaje: ${record.puntaje} (tipo: ${typeof record.puntaje})`);
+      console.log(`  - Fecha: ${record.dia_venta}`);
+    });
+
+    // Calcular suma y promedio manualmente
+    const puntajes = luciaRecords
+      .filter(r => r.puntaje != null && !isNaN(r.puntaje))
+      .map(r => Number(r.puntaje));
+    
+    const suma = puntajes.reduce((acc, val) => acc + val, 0);
+    const promedio = puntajes.length > 0 ? suma / puntajes.length : 0;
+
+    console.log(`[DEBUG-LUCIA] Cálculos manuales:`);
+    console.log(`  - Total registros con puntaje: ${puntajes.length}`);
+    console.log(`  - Puntajes individuales: [${puntajes.join(', ')}]`);
+    console.log(`  - Suma total: ${suma}`);
+    console.log(`  - Promedio: ${promedio}`);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      success: true,
+      message: 'Debug de Lucia Ferman',
+      data: {
+        totalRecords: luciaRecords.length,
+        recordsWithScore: puntajes.length,
+        individualScores: puntajes,
+        sumTotal: suma,
+        average: promedio,
+        records: luciaRecords.map(r => ({
+          id: r._id,
+          agente: r.agenteNombre,
+          puntaje: r.puntaje,
+          fecha: r.dia_venta
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('[DEBUG-LUCIA] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error en debug de Lucia Ferman'
     });
   }
 });

@@ -59,6 +59,15 @@ if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {
 
 // Inicializar Express app
 const app = express();
+
+// Configurar trust proxy para servicios de hosting como Render, Heroku, etc.
+// Esto es necesario para que express-rate-limit funcione correctamente con X-Forwarded-For
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+  app.set('trust proxy', 1); // Confiar en el primer proxy (Render, Heroku, etc.)
+} else {
+  app.set('trust proxy', false); // En desarrollo local, no confiar en proxies
+}
+
 // En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
 const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
 const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
