@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -400,7 +400,7 @@
 
     <main class="main-content">
       <header class="page-header">
-        <h1 class="page-title"><i class="fas fa-chart-line" style="color:#22b3ec; margin-right:8px;"></i> </h1>
+        <h1 class="page-title"><i class="fas fa-chart-line" style="color:#22b3ec; margin-right:8px;"></i> Estadísticas</h1>
         <div class="page-actions">
           <button id="btn-refresh" class="btn-refresh" style="background:#22b3ec;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;">Actualizar</button>
         </div>
@@ -421,11 +421,44 @@
           </div>
           
           <div class="card">
-            <div class="ventas-diarias-grid">
-              <div id="ventas-dia-card" class="ventas-diarias-card">
-                <!-- Se renderiza por JS: tabla de VENTAS POR MERCADO Y PUNTAJE DEL DÍA -->
-              </div>
+          <div class="ventas-diarias-grid">
+            <div class="ventas-diarias-card">
+              <table class="ventas-table">
+                <thead>
+                  <tr>
+                    <th>TEAM</th>
+                    <th>CALI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>TEAM IRANIA</td>
+                    <td>0.0</td>
+                  </tr>
+                  <tr>
+                    <td>TEAM ROBERTO VELASQUEZ</td>
+                    <td>0.0</td>
+                  </tr>
+                  <tr>
+                    <td>TEAM BRYAN PLEITEZ</td>
+                    <td>0.0</td>
+                  </tr>
+                  <tr>
+                    <td>TEAM MARISOL BELTRAN</td>
+                    <td>0.0</td>
+                  </tr>
+                  <tr>
+                    <td>TEAM RANDAL MARTINEZ</td>
+                    <td>0.0</td>
+                  </tr>
+                  <tr>
+                    <td>TEAM LINEA</td>
+                    <td>0.0</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -467,47 +500,27 @@
           fechaFin = `${yyyyE}-${mmE}-${ddE}`;
         }
         
-        // Construir URL con parámetros
+        // Construir URL con parÃ¡metros
         let url = '/api/equipos/estadisticas';
         const params = new URLSearchParams();
         
-        // Regla: por defecto usar MES ACTUAL si no hay fechas
-        if (fechaInicio && fechaFin) {
-          params.append('fechaInicio', fechaInicio);
-          params.append('fechaFin', fechaFin);
-        } else if (!fechaInicio && !fechaFin) {
-          // Mes actual por defecto
-          const now = new Date();
-          const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-          const yyyyS = start.getUTCFullYear();
-          const mmS = String(start.getUTCMonth() + 1).padStart(2, '0');
-          const ddS = String(start.getUTCDate()).padStart(2, '0');
-          const yyyyE = now.getUTCFullYear();
-          const mmE = String(now.getUTCMonth() + 1).padStart(2, '0');
-          const ddE = String(now.getUTCDate()).padStart(2, '0');
-          params.append('fechaInicio', `${yyyyS}-${mmS}-${ddS}`);
-          params.append('fechaFin', `${yyyyE}-${mmE}-${ddE}`);
-        } else if (fechaInicio && !fechaFin) {
-          // Si solo viene inicio, usar mismo día como fin
-          params.append('fechaInicio', fechaInicio);
-          params.append('fechaFin', fechaInicio);
-        } else if (!fechaInicio && fechaFin) {
-          // Si solo viene fin, usar mismo día como inicio
-          params.append('fechaInicio', fechaFin);
-          params.append('fechaFin', fechaFin);
-        }
+        if (fechaInicio) params.append('fechaInicio', fechaInicio);
+        if (fechaFin) params.append('fechaFin', fechaFin);
+        
+        // Si no se especifica rango, usar el DÍA ACTUAL por defecto
+        if (!fechaInicio && !fechaFin) params.append('scope','day');
         if (params.toString()) url += `?${params.toString()}`;
         
         console.log('Solicitando datos a:', url);
         
         // Realizar petición a la API usando la función fetchWithAuth
         console.log('Realizando petición a la API...');
-        let response = await fetchWithAuth(url);
+        const response = await fetchWithAuth(url);
         console.log('Respuesta recibida:', response);
         
         if (!response) {
-          console.error('No se recibió respuesta de la API (posible error de autenticación)');
-          return; // Error de autenticación ya manejado
+          console.error('No se recibiÃ³ respuesta de la API (posible error de autenticaciÃ³n)');
+          return; // Error de autenticaciÃ³n ya manejado
         }
         
         if (!response.ok) {
@@ -532,18 +545,18 @@
         // Eliminado fallback all=1 para mostrar solo datos del MES ACTUAL
         
         if (!data.success) {
-          console.error('Formato de respuesta inválido:', data);
-          throw new Error('Formato de respuesta inválido');
+          console.error('Formato de respuesta invÃ¡lido:', data);
+          throw new Error('Formato de respuesta invÃ¡lido');
         }
 
         
-        // Si no hay datos, mostrar mensaje de "sin datos" con tabla vacía
+        // Si no hay datos, mostrar mensaje de "sin datos" con tabla vacÃ­a
         let teamData = [];
         if (!data.data || data.data.length === 0) {
-          console.log('No hay datos disponibles para el rango seleccionado');
+          console.log('No hay datos disponibles para el día actual');
           teamData = [];
         } else {
-          // Mapear datos de la API al formato esperado (mantener Puntaje como número)
+          // Mapear datos de la API al formato esperado (mantener Puntaje como nÃºmero)
           teamData = data.data.map(equipo => ({
             name: equipo.TEAM || 'Sin equipo',
             ICON: Number(equipo.ICON || 0),
@@ -574,14 +587,7 @@
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
 
-        // Encabezado según el rango solicitado (por defecto: día) - sin usar Date() para evitar desfases TZ
-        const toDMY = (ymd) => {
-          try {
-            const [y,m,d] = String(ymd).split('-');
-            if (y && m && d) return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
-          } catch {}
-          return String(ymd);
-        };
+        // Encabezado según el rango solicitado (por defecto: día)
         let fecha;
         if (fechaInicio && fechaFin) {
           if (fechaInicio === fechaFin) {
@@ -600,7 +606,7 @@
         const showLineasPanel = true;
         let html = `
           <div class="conversion-card">
-            <div class="conversion-title">${(fechaInicio && fechaFin && fechaInicio !== fechaFin) ? 'VENTAS POR MERCADO Y PUNTAJE DEL MES' : 'VENTAS POR MERCADO Y PUNTAJE DEL DÍA'} (${fecha})</div>
+            <div class="conversion-title">${(fechaInicio && fechaFin && fechaInicio !== fechaFin) ? 'VENTAS POR MERCADO Y PUNTAJE' : 'VENTAS POR MERCADO Y PUNTAJE DEL DÍA'} (${fecha})</div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">
@@ -640,103 +646,41 @@
                     ` : ''}
                   </tbody>
               </div>
+              ${showLineasPanel ? `
+              <div class="conv-right">
+                <div class="mini-card">
+                  <table class="mini-table">
+                    <thead>
+                      <tr>
+                        <th>TEAM LINEAS</th>
+                        <th>ICON</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${lineasData.map(r => `
+                        <tr>
+                          <td>${r.name}</td>
+                          <td>${r.ICON || 0}</td>
+                        </tr>
+                      `).join('')}
+                      <tr class="total">
+                        <td>TOTAL</td>
+                        <td class="total-icon">${lineasTotalICON}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              ` : ''}
             </div>
           </div>
         `;
         
-        // Asignar el HTML generado al elemento raíz (tabla del MES)
+        // Asignar el HTML generado al elemento raíz
         root.innerHTML = html;
 
-        // Ahora, renderizar el gráfico de dona con los datos de los equipos (MES)
+        // Ahora, renderizar el gráfico de dona con los datos de los equipos
         renderVentasPorEquipoChart(mainTeams);
-        
-        // ===== Tabla del DÍA (tarjeta derecha) =====
-        try {
-          const today = new Date();
-          const yyyy = today.getFullYear();
-          const mm = String(today.getMonth() + 1).padStart(2, '0');
-          const dd = String(today.getDate()).padStart(2, '0');
-          const ymd = `${yyyy}-${mm}-${dd}`;
-          const dmy = `${dd}/${mm}/${yyyy}`;
-
-          let urlDay = '/api/equipos/estadisticas';
-          const p = new URLSearchParams();
-          p.append('fechaInicio', ymd);
-          p.append('fechaFin', ymd);
-          p.append('scope', 'day');
-          urlDay += `?${p.toString()}`;
-
-          console.log('[DIA] Solicitando datos DÍA a:', urlDay);
-
-          const resDay = await fetchWithAuth(urlDay);
-          if (resDay && resDay.ok) {
-            console.log('[DIA] Respuesta recibida (status):', resDay.status, resDay.statusText);
-            const dataDay = await resDay.json();
-            console.log('[MES] Datos recibidos de la API (MES):', {
-              success: data?.success,
-              message: data?.message,
-              total: data?.total,
-              equipos: Array.isArray(data?.data) ? `Array de ${data.data.length} elementos` : 'No hay datos',
-              nombresEquipos: Array.isArray(data?.data) ? data.data.map(t => t._id || t.TEAM || 'SIN EQUIPO') : [],
-              debug: data?.debug || null,
-            });
-            const dayTeams = Array.isArray(dataDay.data) ? dataDay.data : [];
-            const dayTotals = dayTeams.reduce((acc, r) => ({
-              ICON: acc.ICON + (Number(r.ICON)||0),
-              BAMO: acc.BAMO + (Number(r.BAMO)||0),
-              Total: acc.Total + (Number(r.Total)||0),
-              Puntaje: acc.Puntaje + (Number(r.Puntaje)||0),
-            }), { ICON:0, BAMO:0, Total:0, Puntaje:0 });
-
-            // Filtrar equipos para fines de semana: solo mostrar si Total > 0
-            const today = new Date();
-            const isWeekend = today.getDay() === 0 || today.getDay() === 6; // 0 = domingo, 6 = sábado
-            const filteredDayTeams = isWeekend ? dayTeams.filter(team => team.Total > 0) : dayTeams;
-
-            const container = document.getElementById('ventas-dia-card');
-            console.log('[DIA] Contenedor ventas-dia-card encontrado?', !!container, container);
-            if (container) {
-              container.innerHTML = `
-                <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${dmy})</div>
-                <table class="sales-table">
-                  <thead>
-                    <tr>
-                      <th>EQUIPO</th>
-                      <th>ICON</th>
-                      <th>BAMO</th>
-                      <th>TOTAL</th>
-                      <th>PUNTAJE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${filteredDayTeams.length === 0 ? `
-                      <tr>
-                        <td colspan="5" style="text-align:center; padding:12px; color:#666">Sin datos para hoy</td>
-                      </tr>
-                    ` : filteredDayTeams.map(t => `
-                      <tr>
-                        <td>${t.TEAM || 'SIN EQUIPO'}</td>
-                        <td>${Number(t.ICON||0)}</td>
-                        <td>${Number(t.BAMO||0)}</td>
-                        <td>${Number(t.Total||0)}</td>
-                        <td class="score-col">${Number(t.Puntaje||0).toFixed(2)}</td>
-                      </tr>
-                    `).join('')}
-                    <tr class="total-row">
-                      <td>TOTAL</td>
-                      <td>${dayTotals.ICON}</td>
-                      <td>${dayTotals.BAMO}</td>
-                      <td>${dayTotals.Total}</td>
-                      <td>${dayTotals.Puntaje.toFixed(2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              `;
-            }
-          }
-        } catch (e) {
-          console.warn('No se pudo renderizar la tabla del día:', e);
-        }
         
         // Filtro eliminado: no se requiere manejar eventos de filtrado
       } catch (e) {
@@ -823,16 +767,24 @@
     // Variable para mantener la referencia al grÃ¡fico
     let ventasChart = null;
     
-    // FunciÃ³n para verificar autenticaciÃ³n
+    // Función para verificar autenticación
     function checkAuth() {
       // Verificar si hay un usuario en sessionStorage o localStorage
       const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
       if (!user) {
-        console.error('No se encontrÃ³ sesiÃ³n de usuario activa');
+        console.error('No se encontró sesión de usuario activa');
         window.location.href = '/login.html';
         return false;
       }
-      // Validar rol permitido para ver EstadÃ­sticas
+      // Validar rol permitido para ver Estadísticas
+      const allowed = ['admin','backoffice','b:o','b.o','b-o','bo'];
+      const role = String(user.role || user.rol || user.Role || '').toLowerCase();
+      if (!allowed.includes(role)) {
+        console.warn('Acceso denegado: rol no autorizado para Estadísticas ->', role);
+        // Redirigir a inicio si no tiene permisos
+        window.location.href = '/inicio.html';
+        return false;
+      }
       return true;
     }
     
@@ -868,9 +820,10 @@
       const ctx = document.getElementById('chart-ventas-dia');
       if (!ctx) return;
 
-      // Incluir todos los equipos, incluso con 0 ventas
-      const labels = teamData.map(t => t._id || 'SIN EQUIPO');
-      const data = teamData.map(t => t.Total || 0);
+      // Filtrar equipos sin ventas para no saturar el gráfico
+      const filteredData = teamData.filter(t => t.Total > 0);
+      const labels = filteredData.map(t => t.name);
+      const data = filteredData.map(t => t.Total);
 
       // Paleta de colores atractiva (más colores si es necesario)
       const colors = [
@@ -879,7 +832,7 @@
         '#f39c12', '#e67e22', '#e74c3c', '#9b59b6', '#34495e'
       ];
 
-      // Destruir el gráfico anterior si existe para evitar conflictos
+      // Destruir el grÃ¡fico anterior si existe para evitar conflictos
       if (window.ventasPorEquipoChart) {
         window.ventasPorEquipoChart.destroy();
       }
