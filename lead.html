@@ -3224,6 +3224,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return selected ? selected.value : '';
       }
 
+      /**
+       * Normaliza un número de teléfono eliminando todos los caracteres no numéricos
+       * Ejemplos:
+       *   (848) 299-7246  →  8482997246
+       *   848-299-7246    →  8482997246
+       *   848.299.7246    →  8482997246
+       *   848 299 7246    →  8482997246
+       */
+      function normalizePhone(phone) {
+        if (phone == null || phone === '') {
+          return '';
+        }
+        // Eliminar todos los caracteres que no sean dígitos
+        return String(phone).replace(/\D+/g, '');
+      }
+
       // Función para manejar el envío del formulario
       async function handleFormSubmit(e) {
         e.preventDefault();
@@ -3296,8 +3312,8 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Obtener valores una sola vez para evitar múltiples llamadas al DOM
           const nombreCliente = getFieldValue('nombre-cliente');
-          const telefonoPrincipal = getFieldValue('telefono-principal');
-          const telefonoAlterno = getFieldValue('telefono-alterno') || getFieldValue('telefono-secundario');
+          const telefonoPrincipal = normalizePhone(getFieldValue('telefono-principal'));
+          const telefonoAlterno = normalizePhone(getFieldValue('telefono-alterno') || getFieldValue('telefono-secundario'));
           const email = getFieldValue('email');
           const diaVenta = getFieldValue('dia-venta');
           const fechaInstalacionElement = document.getElementById('dia-instalacion');
@@ -3608,7 +3624,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
               const lineasData = {
                 nombre_cliente: (elNombre?.value || '').trim(),
-                telefono_principal: (elTelPrin?.value || '').trim(),
+                telefono_principal: normalizePhone((elTelPrin?.value || '').trim()),
                 numero_cuenta: (elNumCuenta?.value || '').trim(),
                 autopay: getVal(elAutopay), // si | no
                 pin_seguridad: (elPin?.value || '').trim(),
@@ -3618,11 +3634,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 dia_instalacion: getVal(elDiaInst),
                 status: (elStatus?.value || '').trim(),
                 cantidad_lineas: getVal(elCant),
-                telefono_1: (elTel1?.value || '').trim(),
-                telefono_2: (elTel2?.value || '').trim(),
-                telefono_3: (elTel3?.value || '').trim(),
-                telefono_4: (elTel4?.value || '').trim(),
-                telefono_5: (elTel5?.value || '').trim(),
+                telefono_1: normalizePhone((elTel1?.value || '').trim()),
+                telefono_2: normalizePhone((elTel2?.value || '').trim()),
+                telefono_3: normalizePhone((elTel3?.value || '').trim()),
+                telefono_4: normalizePhone((elTel4?.value || '').trim()),
+                telefono_5: normalizePhone((elTel5?.value || '').trim()),
                 id: (elID?.value || '').trim(),
                 mercado: getVal(elMercado) || getTextUpper(elMercado),
                 supervisor: (getVal(elSupervisor) || getTextUpper(elSupervisor)),
@@ -3916,6 +3932,46 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebar.classList.remove('active');
       }
     });
+  });
+  
+  // Normalizar números de teléfono automáticamente mientras el usuario escribe
+  const phoneFields = [
+    'telefono-principal',
+    'telefono-alterno',
+    'telefono-secundario',
+    'telefono_1',
+    'telefono_2',
+    'telefono_3',
+    'telefono_4',
+    'telefono_5'
+  ];
+  
+  phoneFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      // Normalizar cuando el usuario termina de escribir (pierde el foco)
+      field.addEventListener('blur', function() {
+        const normalized = this.value.replace(/\D+/g, '');
+        if (this.value !== normalized) {
+          this.value = normalized;
+          console.log(`[Teléfono normalizado] ${fieldId}: ${normalized}`);
+        }
+      });
+      
+      // También normalizar mientras escribe (opcional, más agresivo)
+      field.addEventListener('input', function() {
+        const cursorPosition = this.selectionStart;
+        const oldLength = this.value.length;
+        const normalized = this.value.replace(/\D+/g, '');
+        
+        if (this.value !== normalized) {
+          this.value = normalized;
+          // Ajustar la posición del cursor
+          const newPosition = cursorPosition - (oldLength - normalized.length);
+          this.setSelectionRange(newPosition, newPosition);
+        }
+      });
+    }
   });
 });
 </script>
