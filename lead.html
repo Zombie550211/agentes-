@@ -1,55 +1,56 @@
 <!DOCTYPE html>
-<script>
-  // Función para verificar si el usuario es de Team Líneas
-  function isTeamLineasUser() {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      const username = (userData.username || '').toLowerCase();
-      const role = (userData.role || '').toLowerCase();
-      return role === 'teamlineas' || username.startsWith('lineas-');
-    } catch (e) {
-      console.error('Error al verificar usuario de Team Líneas:', e);
-      return false;
-    }
-  }
-
-  // Redirigir a lead-lineas.html si el usuario es de Team Líneas
-  if (isTeamLineasUser() && !window.location.pathname.endsWith('lead-lineas.html')) {
-    window.location.replace('lead-lineas.html');
-  }
-  // Verificar si el usuario es de Team Líneas y redirigir si es necesario
-  (function() {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      const username = (userData.username || '').toLowerCase();
-      const role = (userData.role || '').toLowerCase();
-      
-      // Si el usuario es de Team Líneas, redirigir a lead-lineas.html
-      if (role === 'teamlineas' || username.startsWith('lineas-')) {
-        // Forzar recarga si ya estamos en lead-lineas.html pero el usuario intentó acceder a lead.html
-        if (window.location.pathname.endsWith('lead.html')) {
-          window.location.replace('lead-lineas.html');
-        }
-        // Si por alguna razón el script continúa, prevenir cualquier otra ejecución
-        throw new Error('Redirección forzada a lead-lineas.html');
-      }
-    } catch (e) {
-      if (e.message !== 'Redirección forzada a lead-lineas.html') {
-        console.error('Error al verificar redirección:', e);
-      }
-      return;
-    }
-  })();
-</script>
-<!-- Interceptor de API para manejo de permisos -->
-<script src="js/api-interceptor.js"></script>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CRM Agente - Equipo</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Scripts críticos de redirección -->
+  <script>
+    // Función para verificar si el usuario es de Team Líneas
+    function isTeamLineasUser() {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const username = (userData.username || '').toLowerCase();
+        const role = (userData.role || '').toLowerCase();
+        return role === 'teamlineas' || username.startsWith('lineas-');
+      } catch (e) {
+        console.error('Error al verificar usuario de Team Líneas:', e);
+        return false;
+      }
+    }
+
+    // Redirigir a lead-lineas.html si el usuario es de Team Líneas
+    if (isTeamLineasUser() && !window.location.pathname.endsWith('lead-lineas.html')) {
+      window.location.replace('lead-lineas.html');
+    }
+    // Verificar si el usuario es de Team Líneas y redirigir si es necesario
+    (function() {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const username = (userData.username || '').toLowerCase();
+        const role = (userData.role || '').toLowerCase();
+        
+        // Si el usuario es de Team Líneas, redirigir a lead-lineas.html
+        if (role === 'teamlineas' || username.startsWith('lineas-')) {
+          // Forzar recarga si ya estamos en lead-lineas.html pero el usuario intentó acceder a lead.html
+          if (window.location.pathname.endsWith('lead.html')) {
+            window.location.replace('lead-lineas.html');
+          }
+          // Si por alguna razón el script continúa, prevenir cualquier otra ejecución
+          throw new Error('Redirección forzada a lead-lineas.html');
+        }
+      } catch (e) {
+        if (e.message !== 'Redirección forzada a lead-lineas.html') {
+          console.error('Error al verificar redirección:', e);
+        }
+        return;
+      }
+    })();
+  </script>
+  
+  <!-- Interceptor de API para manejo de permisos -->
+  <script src="js/api-interceptor.js"></script>
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -91,9 +92,6 @@
       }
     })();
   </script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CRM Agente - Equipo</title>
   <script>
     // Versionado para romper caché (actualiza este valor cuando hagas cambios visibles)
     window.__APP_VERSION__ = '20250905-163930';
@@ -484,18 +482,17 @@
       min-height: 0;  /* Permite que se encoja si es necesario */
     }
     .form-section {
-      background: #ffffff;
+      background: #fcfafa;
       border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      padding: 56px 56px; /* laterales cómodos para respiración */
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
       width: 100%;
-      max-width: 520px;
-      margin: 20px auto;
-      border: 1px solid #eef2f7;
+      max-width: 2000px; /* más ancho pero centrado */
+      margin: 25px auto;
+      border: 1px solid #ffffff;
       position: relative;
-      height: calc(100vh - 120px); /* Tarjeta con alto fijo y scroll interno */
-      max-height: 900px;
-      overflow: hidden; /* Evita que los hijos se salgan del borde redondeado */
+      height: calc(100vh - 120px); /* se ajusta a la pantalla */
+      overflow: hidden; /* los campos scrollean dentro si es necesario */
       transition: all 0.3s ease;
     }
     
@@ -505,12 +502,12 @@
     
     .form-section h2 {
       color: #2c3e50;
-      margin: 0 0 25px 0;
-      font-size: 1.8rem;
+      margin: 0 0 14px 0;
+      font-size: 1.5rem; /* título más compacto */
       text-align: center;
       font-weight: 700;
       position: relative;
-      padding-bottom: 15px;
+      padding-bottom: 10px;
     }
     
     .form-section h2::after {
@@ -532,12 +529,55 @@
     }
     
     .form-group {
-      flex: 1 1 50%;
-      padding: 0 12px;
-      margin-bottom: 20px;
-      min-width: 200px;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 60px;
+      justify-content: flex-start;
+      background: transparent; /* sin contenedor interno */
+      border-radius: 0;
+      padding: 0; /* sin padding extra */
+      border: none; /* sin borde de caja */
+      transition: all 0.2s ease;
+      margin-bottom: 0;
     }
+    
+    .form-group-full {
+      background: transparent; /* sin contenedor interno */
+      border: none;
+      padding: 0;
+      border-radius: 0;
+      grid-column: 1 / -1; /* ocupar ambas columnas para mantener simetría */
+      position: relative;
+      z-index: auto;
+      overflow: visible;
+    }
+    /* Motivo: mantener el bloque solo en la columna izquierda y fila controlada */
+    .form-group-motivo { grid-area: motivo; grid-column: 1 / span 1 !important; z-index: auto; }
+
+    /* Mapear áreas a cada grupo */
+    .form-group[data-field="nombre_cliente"] { grid-area: nombre; }
+    .form-group[data-field="telefono_alterno"] { grid-area: telefono2; }
+    .form-group[data-field="direccion"] { grid-area: direccion; }
+    /* "Tipo de servicios" (select id="tipo-servicio") vive en data-field="servicios" en la izquierda, lo mapeamos al slot derecho de esa fila */
+    .form-group[data-field="servicios"] { grid-area: tipo_servicios; }
+    .form-group.area-servicios { grid-area: servicios; }
+    .form-group[data-field="telefono_principal"] { grid-area: telefono; }
+    .form-group[data-field="numero_cuenta"] { grid-area: numero; }
+    .form-group[data-field="autopay"] { grid-area: autopago; }
+    .form-group[data-field="sistema"] { grid-area: sistema; }
+    .form-group[data-field="status"] { grid-area: status; }
+    .form-group[data-field="riesgo"] { grid-area: riesgo; }
+    .form-group[data-field="dia_venta"] { grid-area: dia_venta; }
+    .form-group[data-field="dia_instalacion"] { grid-area: dia_instalacion; }
+    .form-group[data-field="mercado"] { grid-area: mercado; }
+    .form-group[data-field="supervisor"] { grid-area: supervisor; }
+    .form-group[data-field="comentario"] { grid-area: comentario; }
+    /* Elementos sin data-field: mapear por clase */
+    .form-group.area-zip { grid-area: zip; }
+    .form-group.area-puntaje { grid-area: puntaje; }
+    
+    .form-group:hover { background: transparent; box-shadow: none; }
     
     /* Contenedor del formulario con scroll */
     #crmForm {
@@ -550,23 +590,89 @@
     /* Contenedor de los campos del formulario con scroll */
     .form-fields-container {
       flex: 1;
-      overflow-y: auto; /* El scroll ocurre aquí */
-      padding-right: 8px; /* Espacio para la barra de desplazamiento */
-      margin-right: -8px; /* Compensar el padding para mantener el ancho */
-      padding-bottom: 72px; /* Espacio suficiente para el botón sticky sin exagerar */
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-right: -8px;
+      padding-bottom: 84px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(540px, 1fr)); /* 2 columnas un poco más anchas */
+      gap: 14px 24px; /* filas x columnas: compacto */
+      align-items: start;
+      padding-top: 6px;
+      grid-auto-flow: row; /* orden natural, evita reacomodos que pueden causar solapes visuales */
+      grid-auto-rows: auto; /* que cada fila crezca según su contenido */
+      /* Layout fijo por filas/columnas */
+      grid-template-areas:
+        "nombre telefono2"
+        "direccion tipo_servicios"
+        "servicios telefono"
+        "motivo numero"
+        "motivo autopago"
+        "motivo sistema"
+        "status riesgo"
+        "dia_venta dia_instalacion"
+        "mercado supervisor"
+        "comentario zip"
+        "puntaje .";
+    }
+    .form-group, .form-group-full, .form-group-section { height: auto; }
+    
+    /* Columnas del formulario */
+    .form-column {
+      display: contents; /* aplanar para que sus hijos participen del grid padre */
+      min-width: 0;
+    }
+    
+    .form-column-left { padding-right: 0; }
+    
+    .form-column-right { padding-left: 0; }
+    
+    /* Sección agrupada en la columna derecha */
+    .form-group-section {
+      display: contents; /* IMPORTANT: que sus hijos participen del grid principal */
+    }
+    .form-group-section .form-group { margin: 0; }
+
+    /* Distribuir opciones largas en varias columnas para reducir altura */
+    .form-group-full .radio-group {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 10px 16px !important;
+      align-items: start;
+      position: relative;
+      z-index: 6;
+    }
+    /* Forzar 2 columnas ordenadas para esta sección específica */
+    .radio-grid-2 {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important; /* exactamente dos columnas */
+      grid-auto-flow: row; /* fila por fila */
+      column-gap: 24px !important;
+      row-gap: 12px !important;
+      align-items: start;
+      justify-items: stretch; /* que cada celda use todo el ancho */
+    }
+    .radio-grid-2 .radio-label {
+      display: flex; /* conservar icono + texto alineado */
+      width: 100%;
+      margin: 0;
+      justify-content: flex-start;
     }
     /* Contenedor del botón ahora es sticky dentro del área scrolleable */
-    .form-fields-container .form-button-container {
+    .form-button-container {
       position: sticky;
       bottom: 0;
       left: 0;
       right: 0;
       background: white;
-      padding: 16px 0 8px;
+      padding: 22px 0 18px;
       border-top: 1px solid #e2e8f0;
       text-align: center;
       z-index: 5;
-      margin-top: 12px;
+      margin-top: 10px;
+      width: 100%;
+      grid-column: 1 / -1; /* que ocupe ambas columnas */
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
     }
     /* Asegurar que el último form-group tenga espacio adicional */
     .form-fields-container .form-group:last-of-type {
@@ -608,22 +714,24 @@
     .btn-submit {
       background: linear-gradient(135deg, #3498db, #2ecc71);
       color: #fff;
-      border-radius: 8px;
+      border-radius: 12px;
       border: none;
-      font-weight: 600;
-      font-size: 1.1rem;
-      padding: 14px 30px;
+      font-weight: 700;
+      font-size: 1.2rem;
+      padding: 18px 40px;
       cursor: pointer;
       transition: all 0.3s ease;
       width: 100%;
-      max-width: 320px;
-      margin: 10px auto 0;
+      max-width: 400px;
+      margin: 15px auto 0;
       display: block;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       position: relative;
       overflow: hidden;
       z-index: 1;
+      min-height: 60px;
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
     }
     
     .btn-submit::before {
@@ -654,11 +762,14 @@
     
     .form-group label {
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       font-weight: 600;
-      color: #4a5568;
-      font-size: 0.9rem;
-      transition: color 0.3s ease;
+      color: #0f172a;
+      font-size: 0.92rem;
+      transition: color 0.2s ease;
+      line-height: 1.2;
+      text-transform: none;
+      letter-spacing: 0.2px;
     }
     
     .form-group:focus-within label {
@@ -667,50 +778,59 @@
     
     .form-control {
       width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e0e6ed;
+      padding: 10px 12px;
       border-radius: 8px;
-      font-size: 0.95rem;
-      transition: all 0.3s ease;
-      background-color: #f8fafc;
-      color: #2d3748;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      font-size: 0.98rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      background-color: #ffffff;
+      color: #0f172a;
+      min-height: 44px;
+      flex: none;
+      font-weight: 500;
+      border: 1px solid #dfe3ea;
+      box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
     }
     
     .form-control:focus {
       outline: none;
-      border-color: #3498db;
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
       background-color: #fff;
     }
     
     .radio-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 5px;
+      gap: 10px;
+      margin-top: 0;
+      min-height: 40px;
+      align-items: center;
+      padding: 4px 0;
+      /* sin apilamiento especial */
     }
     
     .radio-label {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       cursor: pointer;
-      padding: 8px 12px;
-      border-radius: 6px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      transition: all 0.2s ease;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #dfe3ea;
+      transition: border-color 0.2s ease, background 0.2s ease;
+      font-weight: 600;
+      min-height: 44px;
     }
     
     .radio-label:hover {
-      background: #f0f4f8;
-      border-color: #cbd5e0;
+      background: #f8fafc;
+      border-color: #c9d2de;
     }
     
     .radio-label input[type="radio"]:checked + span {
-      color: #3498db;
-      font-weight: 600;
+      color: #0f172a;
+      font-weight: 700;
     }
     
     .radio-label input[type="radio"] {
@@ -726,7 +846,7 @@
     }
     
     .radio-label input[type="radio"]:checked {
-      border-color: #3498db;
+      border-color: #3b82f6;
       background-color: #fff;
     }
     
@@ -738,7 +858,7 @@
       transform: translate(-50%, -50%);
       width: 10px;
       height: 10px;
-      background: #3498db;
+      background: #3b82f6;
       border-radius: 50%;
     }
     
@@ -751,6 +871,28 @@
       .form-group {
         flex: 1 1 100%;
       }
+    }
+    
+    /* Responsive: Una columna en dispositivos móviles */
+    /* En pantallas medianas: 2 columnas algo más compactas */
+    @media (max-width: 1200px) {
+      .form-fields-container { grid-template-columns: repeat(2, minmax(360px, 1fr)); }
+      .form-group-section { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+      .form-group-full .radio-group { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+    }
+
+    @media (max-width: 768px) {
+      .form-fields-container {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding-top: 6px;
+      }
+      .form-group-section { grid-template-columns: 1fr; }
+      .form-group-full .radio-group { grid-template-columns: 1fr; }
+      .form-section { max-width: 100%; padding: 22px; }
+      .form-group { min-height: 78px; padding: 12px; }
+      .form-control { padding: 12px 14px; min-height: 44px; }
+      .form-group-section { padding: 14px; }
     }
     .form-section h2 {
       font-weight: 700;
@@ -1136,272 +1278,281 @@
   <main class="main-content">
     <div class="lead-content-row">
       <!-- FORMULARIO -->
-      <section class="form-section" id="form-panel" style="background: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); width: 100%; max-width: 520px; margin: 20px auto; border: 1px solid #eef2f7; position: relative; min-height: 80vh; transition: all 0.3s ease;">
+      <section class="form-section" id="form-panel" style="background: #ffffff; border-radius: 20px; padding: 50px 60px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12); width: 100%; max-width: 1600px; margin: 20px auto; border: 1px solid #e8ecf4; position: relative; min-height: 80vh; transition: all 0.3s ease;">
         <h2>Formulario de Registro</h2>
         <form id="crmForm">
           <!-- Contenedor de campos con scroll -->
           <div class="form-fields-container">
-            <!-- Nombre Cliente -->
-            <div class="form-group" data-field="nombre_cliente">
-              <label for="nombre-cliente">Nombre Cliente</label>
-              <input type="text" id="nombre-cliente" name="nombre_cliente" class="form-control" required>
+            <!-- COLUMNA IZQUIERDA -->
+            <div class="form-column form-column-left">
+              <!-- Nombre Cliente -->
+              <div class="form-group" data-field="nombre_cliente">
+                <label for="nombre-cliente">NOMBRE CLIENTE</label>
+                <input type="text" id="nombre-cliente" name="nombre_cliente" class="form-control" required>
+              </div>
+              
+              <!-- Teléfono Alterno -->
+              <div class="form-group" data-field="telefono_alterno">
+                <label for="telefono_2">TELÉFONO ALTERNO</label>
+                <input type="tel" id="telefono_2" name="telefono_2" class="form-control" required>
+              </div>
+              
+              <!-- Dirección -->
+              <div class="form-group" data-field="direccion">
+                <label for="direccion">DIRECCIÓN *</label>
+                <input type="text" id="direccion" name="direccion" class="form-control" required>
+              </div>
+              
+              <!-- Tipo de servicios -->
+              <div class="form-group" data-field="servicios">
+                <label for="tipo-servicio">TIPO DE SERVICIOS</label>
+                <select id="tipo-servicio" name="servicios" class="form-control" required>
+                  <option value="">Elige</option>
+                  <option value="video">VIDEO</option>
+                  <option value="internet">INTERNET</option>
+                  <option value="att-air">AT&T AIR</option>
+                  <option value="wireless">WIRELESS</option>
+                  <option value="single-internet">SINGLE INTERNET</option>
+                  <option value="frontier">FRONTIER</option>
+                  <option value="windstream">WINDSTREAM</option>
+                  <option value="optimum">OPTIMUM</option>
+                  <option value="wow">WOW</option>
+                  <option value="altafiber">ALTAFIBER</option>
+                  <option value="consolidate">CONSOLIDATE</option>
+                  <option value="hughesnet">HUGHESNET</option>
+                  <option value="viasat">VIASAT</option>
+                  <option value="centurylink">CENTURYLINK</option>
+                  <option value="metronet">METRONET</option>
+                  <option value="ziply-fiber">ZIPLY FIBER</option>
+                  <option value="hawaiian">HAWAIIAN</option>
+                  <option value="double-play">DOUBLE PLAY</option>
+                  <option value="vivint">VIVINT</option>
+                  <option value="brightspeed">BRIGHTSPEED</option>
+                  <option value="mobility">MOBILITY</option>
+                  <option value="sim-mobility">SIM MOBILITY</option>
+                  <option value="earthlink">EARTHLINK</option>
+                  <option value="earthlink">XFINITY</option>
+                </select>
+              </div>
+              
+              <!-- Servicios (izquierda) -->
+              <div class="form-group area-servicios">
+                <label for="servicios">SERVICIOS</label>
+                <select id="servicios" name="servicios" class="form-control" required>
+                  <option value="">Elige</option>
+                  <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
+                  <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
+                  <option value="att-air">ATT AIR</option>
+                  <option value="att-18-25-mb">ATT 18 - 25 MB</option>
+                  <option value="att-50-100-mb">ATT 50 - 100 MB</option>
+                  <option value="att-300-500-mb">ATT 300 - 500 MB</option>
+                  <option value="att-1g-plus">ATT 1G+</option>
+                  <option value="mobility-spectrum">MOBILITY SPECTRUM</option>
+                  <option value="sim-spectrum">SIM SPECTRUM</option>
+                  <option value="frontier-200-mb">FRONTIER 200 MB</option>
+                  <option value="frontier-500-mb">FRONTIER 500 MB</option>
+                  <option value="frontier-1g">FRONTIER 1G</option>
+                  <option value="frontier-2g-plus">FRONTIER 2G+</option>
+                  <option value="spectrum-500">SPECTRUM 500</option>
+                  <option value="spectrum-1g">SPECTRUM 1G</option>
+                  <option value="spectrum-2g">SPECTRUM 2G</option>
+                  <option value="internet-wow">INTERNET WOW</option>
+                  <option value="internet-altafiber">INTERNET ALTA FIBER</option>
+                  <option value="internet-windstream">INTERNET WINDSTREAM</option>
+                  <option value="internet-hughesnet">INTERNET HUGHESNET</option>
+                  <option value="internet-viasat">INTERNET VIASAT</option>
+                  <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
+                  <option value="internet-centurylink">INTERNET CENTURYLINK</option>
+                  <option value="internet-metronet">INTERNET METRONET</option>
+                  <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
+                  <option value="internet-hawaiian">INTERNET HAWAIIAN</option>
+                  <option value="video-select-spectrum">VIDEO SELECT SPECTRUM</option>
+                  <option value="double-play-spectrum">DOUBLE PLAY SPECTRUM</option>
+                  <option value="brightspeed-10-100">BRIGHTSPEED 10-100MBPS</option>
+                  <option value="brightspeed-100-900">BRIGHTSPEED 100-900MBPS</option>
+                  <option value="internet-optimum">INTERNET OPTIMUM</option>
+                  <option value="internet-earthlink">INTERNET EARTHLINK</option>
+                  <option value="xfinity-double-play">XFINITY DOUBLE PLAY</option>
+                  <option value="xfinity-100-299">XFINITY 100 - 299 MBPS</option>
+                  <option value="xfinity-300">XFINITY 300MBPS</option>
+                  <option value="xfinity-500-plus">XFINITY 500MBPS+</option>
+                  <option value="xfinity-ultimate-tv">XFINITY ULTIMATE TV</option>
+                  <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
+                </select>
+              </div>
+              
+              <!-- Motivo de la llamada -->
+              <div class="form-group form-group-full form-group-motivo">
+                <label>¿POR QUÉ LLAMÓ EL CLIENTE? *</label>
+                <div class="radio-group radio-grid-2" style="display:grid; grid-template-columns: 1fr 1fr; column-gap:24px; row-gap:12px;">
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="BILL ALTO" required />
+                    <span>BILL ALTO</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="PROBLEMAS DE INTERNET" required />
+                    <span>PROBLEMAS DE INTERNET</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="ADQUIRIR SERVICIOS" required />
+                    <span>ADQUIRIR SERVICIOS</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="MUDANZA" required />
+                    <span>MUDANZA</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="CANCELAR SERVICIOS" required />
+                    <span>CANCELAR SERVICIOS</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="PAGAR BILL" required />
+                    <span>PAGAR BILL</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="motivo-llamada" value="ATENCION AL CLIENTE" required />
+                    <span>ATENCION AL CLIENTE</span>
+                  </label>
+                </div>
+              </div>
             </div>
-          
-          <!-- Teléfono Principal -->
-          <div class="form-group" data-field="telefono_principal">
-            <label for="telefono-principal">Teléfono Principal</label>
-            <input type="tel" id="telefono-principal" name="telefono_principal" class="form-control" required>
-          </div>
-          
-          <!-- Teléfono Alterno -->
-          <div class="form-group" data-field="telefono_alterno">
-            <label for="telefono_2">Teléfono Alterno</label>
-            <input type="tel" id="telefono_2" name="telefono_2" class="form-control" required>
-          </div>
-
-          <!-- Número de cuenta -->
-          <div class="form-group" data-field="numero_cuenta">
-            <label for="numero-cuenta">Número de cuenta</label>
-            <input type="text" id="numero-cuenta" name="numero_cuenta" class="form-control" required>
-          </div>
-          
-          <!-- Dirección -->
-          <div class="form-group" data-field="direccion">
-            <label for="direccion">Dirección *</label>
-            <input type="text" id="direccion" name="direccion" class="form-control" required>
-          </div>
-          
-          <!-- Autopago -->
-          <div class="form-group" data-field="autopay">
-            <label for="autopago">Autopago</label>
-            <select id="autopago" name="autopay" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="si">SI</option>
-              <option value="no">NO</option>
-            </select>
-          </div>
-          
-          <!-- Tipo de servicios -->
-          <div class="form-group" data-field="servicios">
-            <label for="tipo-servicio">Tipo de servicios</label>
-            <select id="tipo-servicio" name="servicios" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="video">VIDEO</option>
-              <option value="internet">INTERNET</option>
-              <option value="att-air">AT&T AIR</option>
-              <option value="wireless">WIRELESS</option>
-              <option value="single-internet">SINGLE INTERNET</option>
-              <option value="frontier">FRONTIER</option>
-              <option value="windstream">WINDSTREAM</option>
-              <option value="optimum">OPTIMUM</option>
-              <option value="wow">WOW</option>
-              <option value="altafiber">ALTAFIBER</option>
-              <option value="consolidate">CONSOLIDATE</option>
-              <option value="hughesnet">HUGHESNET</option>
-              <option value="viasat">VIASAT</option>
-              <option value="centurylink">CENTURYLINK</option>
-              <option value="metronet">METRONET</option>
-              <option value="ziply-fiber">ZIPLY FIBER</option>
-              <option value="hawaiian">HAWAIIAN</option>
-              <option value="double-play">DOUBLE PLAY</option>
-              <option value="vivint">VIVINT</option>
-              <option value="brightspeed">BRIGHTSPEED</option>
-              <option value="mobility">MOBILITY</option>
-              <option value="sim-mobility">SIM MOBILITY</option>
-              <option value="earthlink">EARTHLINK</option>
-              <option value="earthlink">XFINITY</option>
-            </select>
-          </div>
-          
-          <!-- Sistema -->
-          <div class="form-group" data-field="sistema">
-            <label for="sistema">Sistema</label>
-            <select id="sistema" name="sistema" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="sara">SARA</option>
-              <option value="bo">B.O</option>
-              <option value="na">N/A</option>
-              <option value="chuzo">CHUZO</option>
-            </select>
-          </div>
-          
-          <!-- Riesgo -->
-          <div class="form-group" data-field="riesgo">
-            <label for="riesgo">Riesgo</label>
-            <select id="riesgo" name="riesgo" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="low">LOW</option>
-              <option value="medium">MEDIUM</option>
-              <option value="high">HIGH</option>
-              <option value="na">N/A</option>
-            </select>
-          </div>
-          
-          <!-- Día de venta -->
-          <div class="form-group" data-field="dia_venta">
-            <label for="dia-venta">Día de venta</label>
-            <input type="date" id="dia-venta" name="dia_venta" class="form-control" required>
-          </div>
-          
-          <!-- Día de instalación -->
-          <div class="form-group" data-field="dia_instalacion">
-            <label for="dia-instalacion">Día de instalación</label>
-            <input type="date" id="dia-instalacion" name="dia_instalacion" class="form-control" required>
-          </div>
-          
-          <!-- Status -->
-          <div class="form-group" data-field="status">
-            <label>Status</label>
-            <div class="radio-group">
-              <label class="radio-label">
-                <input type="radio" name="status" value="PENDING" required />
-                <span>PENDING</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="status" value="REPRO" />
-                <span>REPRO</span>
-              </label>
+            
+            <!-- COLUMNA DERECHA -->
+            <div class="form-column form-column-right">
+              <!-- Teléfono Principal -->
+              <div class="form-group" data-field="telefono_principal">
+                <label for="telefono-principal">TELÉFONO</label>
+                <input type="tel" id="telefono-principal" name="telefono_principal" class="form-control" required>
+              </div>
+              
+              <!-- Número de cuenta -->
+              <div class="form-group" data-field="numero_cuenta">
+                <label for="numero-cuenta">NÚMERO E</label>
+                <input type="text" id="numero-cuenta" name="numero_cuenta" class="form-control" required>
+              </div>
+              
+              <!-- Autopago -->
+              <div class="form-group" data-field="autopay">
+                <label for="autopago">AUTOPAGO</label>
+                <select id="autopago" name="autopay" class="form-control" required>
+                  <option value="">Elige</option>
+                  <option value="si">SI</option>
+                  <option value="no">NO</option>
+                </select>
+              </div>
+              
+              <!-- Sistema -->
+              <div class="form-group" data-field="sistema">
+                <label for="sistema">SISTEMA</label>
+                <select id="sistema" name="sistema" class="form-control" required>
+                  <option value="">Elige</option>
+                  <option value="sara">SARA</option>
+                  <option value="bo">B.O</option>
+                  <option value="na">N/A</option>
+                  <option value="chuzo">CHUZO</option>
+                </select>
+              </div>
+              
+              <!-- Status y campos adicionales en una sección -->
+              <div class="form-group-section">
+                <!-- Status -->
+                <div class="form-group" data-field="status">
+                  <label>STATUS</label>
+                  <div class="radio-group">
+                    <label class="radio-label">
+                      <input type="radio" name="status" value="PENDING" required />
+                      <span>PENDING</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="status" value="REPRO" />
+                      <span>REPRO</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Riesgo -->
+                <div class="form-group" data-field="riesgo">
+                  <label for="riesgo">RIESGO</label>
+                  <select id="riesgo" name="riesgo" class="form-control" required>
+                    <option value="">Elige</option>
+                    <option value="low">LOW</option>
+                    <option value="medium">MEDIUM</option>
+                    <option value="high">HIGH</option>
+                    <option value="na">N/A</option>
+                  </select>
+                </div>
+                
+                <!-- Día de venta -->
+                <div class="form-group" data-field="dia_venta">
+                  <label for="dia-venta">DÍA DE VENTA</label>
+                  <input type="date" id="dia-venta" name="dia_venta" class="form-control" required>
+                </div>
+                
+                <!-- Día de instalación -->
+                <div class="form-group" data-field="dia_instalacion">
+                  <label for="dia-instalacion">DÍA DE INSTALACIÓN</label>
+                  <input type="date" id="dia-instalacion" name="dia_instalacion" class="form-control" required>
+                </div>
+                
+                <!-- Mercado -->
+                <div class="form-group" data-field="mercado">
+                  <label for="mercado">MERCADO</label>
+                  <select id="mercado" name="mercado" class="form-control" required>
+                    <option value="">Seleccione</option>
+                    <option value="icon">ICON</option>
+                    <option value="bamo">BAMO</option>
+                  </select>
+                </div>
+                
+                <!-- Supervisor -->
+                <div class="form-group" data-field="supervisor">
+                  <label for="supervisor">SUPERVISOR</label>
+                  <select id="supervisor" name="supervisor" class="form-control" required>
+                    <option value="">Seleccione</option>
+                    <option value="IRANIA">IRANIA</option>
+                    <option value="ROBERTO">ROBERTO</option>
+                    <option value="MARISOL">MARISOL</option>
+                    <option value="PLEITEZ">PLEITEZ</option>
+                    <option value="RANDAL">RANDAL</option>
+                    <option value="JONATHAN">JONATHAN</option>
+                  </select>
+                </div>
+                
+                <!-- Comentario -->
+                <div class="form-group" data-field="comentario">
+                  <label for="comentario">COMENTARIO *</label>
+                  <select id="comentario" name="comentario" class="form-control" required>
+                    <option value="">Elige</option>
+                    <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
+                    <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
+                    <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
+                    <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
+                  </select>
+                </div>
+                
+                <!-- ZIP CODE -->
+                <div class="form-group area-zip">
+                  <label for="zip-code">ZIP CODE</label>
+                  <input type="text" id="zip-code" name="zip-code" class="form-control" required>
+                </div>
+                
+                <!-- Puntaje -->
+                <div class="form-group area-puntaje">
+                  <label for="puntaje">PUNTAJE</label>
+                  <select id="puntaje" name="puntaje" class="form-control" required>
+                    <option value="">dd/aa/c</option>
+                    <option value="0.20">0.20</option>
+                    <option value="0.25">0.25</option>
+                    <option value="0.35">0.35</option>
+                    <option value="0.70">0.70</option>
+                    <option value="0.75">0.75</option>
+                    <option value="1.00">1.00</option>
+                    <option value="1.25">1.25</option>
+                    <option value="1.50">1.50</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <!-- Servicios -->
-          <div class="form-group">
-            <label for="servicios">Servicios</label>
-            <select id="servicios" name="servicios" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
-              <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
-              <option value="att-air">ATT AIR</option>
-              <option value="att-18-25-mb">ATT 18 - 25 MB</option>
-              <option value="att-50-100-mb">ATT 50 - 100 MB</option>
-              <option value="att-300-500-mb">ATT 300 - 500 MB</option>
-              <option value="att-1g-plus">ATT 1G+</option>
-              <option value="mobility-spectrum">MOBILITY SPECTRUM</option>
-              <option value="sim-spectrum">SIM SPECTRUM</option>
-              <option value="frontier-200-mb">FRONTIER 200 MB</option>
-              <option value="frontier-500-mb">FRONTIER 500 MB</option>
-              <option value="frontier-1g">FRONTIER 1G</option>
-              <option value="frontier-2g-plus">FRONTIER 2G+</option>
-              <option value="spectrum-500">SPECTRUM 500</option>
-              <option value="spectrum-1g">SPECTRUM 1G</option>
-              <option value="spectrum-2g">SPECTRUM 2G</option>
-              <option value="internet-wow">INTERNET WOW</option>
-              <option value="internet-altafiber">INTERNET ALTA FIBER</option>
-              <option value="internet-windstream">INTERNET WINDSTREAM</option>
-              <option value="internet-hughesnet">INTERNET HUGHESNET</option>
-              <option value="internet-viasat">INTERNET VIASAT</option>
-              <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
-              <option value="internet-centurylink">INTERNET CENTURYLINK</option>
-              <option value="internet-metronet">INTERNET METRONET</option>
-              <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
-              <option value="internet-hawaiian">INTERNET HAWAIIAN</option>
-              <option value="video-select-spectrum">VIDEO SELECT SPECTRUM</option>
-              <option value="double-play-spectrum">DOUBLE PLAY SPECTRUM</option>
-              <option value="brightspeed-10-100">BRIGHTSPEED 10-100MBPS</option>
-              <option value="brightspeed-100-900">BRIGHTSPEED 100-900MBPS</option>
-              <option value="internet-optimum">INTERNET OPTIMUM</option>
-              <option value="internet-earthlink">INTERNET EARTHLINK</option>
-              <option value="xfinity-double-play">XFINITY DOUBLE PLAY</option>
-              <option value="xfinity-100-299">XFINITY 100 - 299 MBPS</option>
-              <option value="xfinity-300">XFINITY 300MBPS</option>
-              <option value="xfinity-500-plus">XFINITY 500MBPS+</option>
-              <option value="xfinity-ultimate-tv">XFINITY ULTIMATE TV</option>
-              <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
-            </select>
-          </div>
-          
-          <!-- Mercado -->
-          <div class="form-group" data-field="mercado">
-            <label for="mercado">Mercado</label>
-            <select id="mercado" name="mercado" class="form-control" required>
-              <option value="">Seleccione</option>
-              <option value="icon">ICON</option>
-              <option value="bamo">BAMO</option>
-            </select>
-          </div>
-          
-          <!-- Supervisor -->
-          <div class="form-group" data-field="supervisor">
-            <label for="supervisor">Supervisor</label>
-            <select id="supervisor" name="supervisor" class="form-control" required>
-              <option value="">Seleccione</option>
-              <option value="IRANIA">IRANIA</option>
-              <option value="ROBERTO">ROBERTO</option>
-              <option value="MARISOL">MARISOL</option>
-              <option value="PLEITEZ">PLEITEZ</option>
-              <option value="RANDAL">RANDAL</option>
-              <option value="JONATHAN">JONATHAN</option>
-            </select>
-          </div>
-          
-          <!-- Comentario -->
-          <div class="form-group" data-field="comentario">
-            <label for="comentario">Comentario *</label>
-            <select id="comentario" name="comentario" class="form-control" required>
-              <option value="">Elige</option>
-              <option value="ADQUIRIR SERVICIOS">ADQUIRIR SERVICIOS</option>
-              <option value="CANCELAR SERVICIO ANTERIOR">CANCELAR SERVICIO ANTERIOR</option>
-              <option value="QUITAR FEE $99.00">QUITAR FEE $99.00</option>
-              <option value="CREAR ORDEN DE INTERNET">CREAR ORDEN DE INTERNET</option>
-            </select>
-          </div>
-          
-          <!-- Motivo de la llamada -->
-          <div class="form-group">
-            <label>¿Por qué llamó el cliente? *</label>
-            <div class="radio-group" style="display: flex; flex-direction: column; gap: 10px;">
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="BILL ALTO" required />
-                <span>BILL ALTO</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="PROBLEMAS DE INTERNET" required />
-                <span>PROBLEMAS DE INTERNET</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="ADQUIRIR SERVICIOS" required />
-                <span>ADQUIRIR SERVICIOS</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="MUDANZA" required />
-                <span>MUDANZA</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="CANCELAR SERVICIOS" required />
-                <span>CANCELAR SERVICIOS</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="PAGAR BILL" required />
-                <span>PAGAR BILL</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="motivo-llamada" value="ATENCION AL CLIENTE" required />
-                <span>ATENCION AL CLIENTE</span>
-              </label>
-            </div>
-          </div>
-          
-          <!-- ZIP CODE -->
-          <div class="form-group">
-            <label for="zip-code">ZIP CODE</label>
-            <input type="text" id="zip-code" name="zip-code" class="form-control" required>
-          </div>
-          
-          <!-- Puntaje -->
-          <div class="form-group">
-            <label for="puntaje">Puntaje</label>
-            <select id="puntaje" name="puntaje" class="form-control" required>
-              <option value="">Seleccione un puntaje</option>
-              <option value="0.20">0.20</option>
-              <option value="0.25">0.25</option>
-              <option value="0.35">0.35</option>
-              <option value="0.70">0.70</option>
-              <option value="0.75">0.75</option>
-              <option value="1.00">1.00</option>
-              <option value="1.25">1.25</option>
-              <option value="1.50">1.50</option>
-            </select>
-          </div>
           
           <!-- Contenedor del botón dentro del área scrolleable (sticky) -->
           <div class="form-button-container">
@@ -1451,52 +1602,6 @@
           setTimeout(cleanup, 300);
         })();
       </script>
-      <!-- SECCIÓN DE GRÁFICAS -->
-      <section class="graphs-section">
-        <!-- Filtro de Fecha -->
-        <div class="date-filter-container">
-          <div class="date-filter">
-            <label for="month-select">Mes:</label>
-            <select id="month-select" class="date-select">
-              <option value="0">Enero</option>
-              <option value="1">Febrero</option>
-              <option value="2">Marzo</option>
-              <option value="3">Abril</option>
-              <option value="4">Mayo</option>
-              <option value="5">Junio</option>
-              <option value="6">Julio</option>
-              <option value="7">Agosto</option>
-              <option value="8">Septiembre</option>
-              <option value="9">Octubre</option>
-              <option value="10">Noviembre</option>
-              <option value="11">Diciembre</option>
-            </select>
-            
-            <label for="day-select">Día:</label>
-            <select id="day-select" class="date-select">
-              <!-- Los días se llenarán dinámicamente -->
-            </select>
-            
-            <label for="year-select">Año:</label>
-            <select id="year-select" class="date-select">
-              <option value="2023">2023</option>
-              <option value="2024">2024</option>
-              <option value="2025" selected>2025</option>
-              <option value="2026">2026</option>
-            </select>
-            
-            <button id="apply-filter" class="filter-button">Aplicar Filtro</button>
-            <button id="reset-filter" class="filter-button">Hoy</button>
-          </div>
-        </div>
-        <!-- Gráfica de Ventas y Puntaje -->
-        <div class="graph-container">
-          <h3>Ventas y Puntaje</h3>
-          <canvas id="ventasPuntajeChart" class="graph-canvas"></canvas>
-        </div>
-        
-
-      </section>
     </div>
   </main>
 </div>
@@ -1540,170 +1645,54 @@
     document.addEventListener('sidebar:loaded', applyConfigForCurrentUser);
   })();
   </script>
+
 <script>
-  // Variables globales para las gráficas
-  let ventasPuntajeChart = null;
-  let ventasProductoChart = null;
+// Forzar la visualización del sidebar
+document.addEventListener('DOMContentLoaded', function() {
+  // Asegurarse de que el sidebar esté visible
+  const sidebar = document.querySelector('.sidebar.sidebar-inicio');
+  if (sidebar) {
+    sidebar.style.display = 'flex';
+    sidebar.style.visibility = 'visible';
+    sidebar.style.opacity = '1';
+    sidebar.style.transform = 'translateX(0)';
   
-  // Registrar plugin de DataLabels si está disponible
-  if (window.Chart && window.ChartDataLabels) {
-    try { Chart.register(window.ChartDataLabels); } catch (_) {}
-  }
+  // Manejar el menú en dispositivos móviles
+  const menuToggle = document.getElementById('menuToggle');
   
-    
-    // Helpers de caché por usuario para la gráfica de Ventas/Puntaje
-  const VENTAS_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 horas
-  function getVentasCacheKey() {
-    try {
-      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-      const u = JSON.parse(userStr || '{}');
-      const id = (u && (u.id || u._id || u.email || u.username || u.name)) || 'anon';
-      return `ventasPuntajeCache:${id}`;
-    } catch (_) {
-      return 'ventasPuntajeCache:anon';
+  // Mostrar/ocultar menú en móviles
+  function checkScreenSize() {
+    if (window.innerWidth <= 768) {
+      menuToggle.style.display = 'block';
+      sidebar.classList.remove('active');
+    } else {
+      menuToggle.style.display = 'none';
+      sidebar.classList.add('active');
     }
   }
-  function clearVentasCache() {
-    try {
-      const key = getVentasCacheKey();
-      localStorage.removeItem(key);
-      console.log('Caché de ventas/puntaje limpiada:', key);
-    } catch (e) {
-      console.warn('No se pudo limpiar la caché de la gráfica:', e);
-    }
-  }
-
-  // Adjuntar listeners para invalidar caché ante cambios relevantes o logout
-  function attachVentasCacheInvalidators() {
-    try {
-      const ids = ['month-select','year-select','day-select','agent','team','cuenta','supervisor'];
-      ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && !el.__ventasCacheBound) {
-          el.addEventListener('change', () => {
-            clearVentasCache();
-          }, { passive: true });
-          el.__ventasCacheBound = true;
-        }
-      });
-      // Envolver logout() si existe para limpiar caché antes de salir
-      if (typeof window.logout === 'function' && !window.__wrappedLogoutForCache) {
-        const originalLogout = window.logout;
-        window.logout = function(...args) {
-          try { clearVentasCache(); } catch(_) {}
-          return originalLogout.apply(this, args);
-        };
-        window.__wrappedLogoutForCache = true;
+  
+  // Verificar tamaño de pantalla al cargar y al redimensionar
+  checkScreenSize();
+  window.addEventListener('resize', checkScreenSize);
+  
+  // Alternar menú al hacer clic en el botón
+  menuToggle.addEventListener('click', function() {
+    sidebar.classList.toggle('active');
+  });
+  
+  // Cerrar menú al hacer clic en un enlace
+  document.querySelectorAll('.sidebar .btn-sidebar').forEach(link => {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 768) {
+        sidebar.classList.remove('active');
       }
-    } catch (e) {
-      console.warn('No se pudieron adjuntar invalidadores de caché:', e);
-    }
-  }
+    });
+  });
+  } // Cierre del if (sidebar)
+});
+</script>
 
-  // Función unificada para generar datos de prueba
-  function generarDatosPrueba() {
-    // Generar etiquetas para los últimos 7 días
-    const hoy = new Date();
-    const labels = [];
-    const ventas = [];
-    const puntajes = [];
-    const productos = [
-      'Internet Fibra Óptica', 'Televisión por Cable', 'Línea Telefónica', 
-      'Paquete Triple', 'Internet Móvil', 'Servicio Técnico'
-    ];
-    
-    // Generar datos realistas para los últimos 7 días
-    for (let i = 6; i >= 0; i--) {
-      const fecha = new Date(hoy);
-      fecha.setDate(hoy.getDate() - i);
-      const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
-      labels.push(diaSemana);
-      
-      // Generar datos aleatorios para ventas (entre 5 y 20)
-      ventas.push(Math.floor(Math.random() * 16) + 5);
-      // Generar puntajes aleatorios (entre 6.5 y 10)
-      puntajes.push(parseFloat((Math.random() * 3.5 + 6.5).toFixed(1)));
-    }
-    
-    console.log('Datos de ejemplo generados:', { labels, ventas, puntajes });
-    return { labels, ventas, puntajes };
-  }
-
-  // Función para procesar los datos de leads y agruparlos por fecha
-  function procesarDatosLeads(leads) {
-    try {
-      console.log('Procesando', leads.length, 'leads...');
-      
-      // Crear un objeto para agrupar por fecha
-      const datosPorFecha = {};
-      
-      // Procesar cada lead
-      leads.forEach(lead => {
-        // Obtener la fecha del lead (usar fecha_creacion o creadoEn o la fecha actual)
-        const fechaLead = lead.fecha_creacion || lead.creadoEn || new Date().toISOString();
-        
-        // Crear fecha en UTC para evitar problemas de zona horaria
-        const fecha = new Date(fechaLead);
-        // Ajustar a mediodía UTC para evitar problemas de cambio de día
-        fecha.setUTCHours(12, 0, 0, 0);
-        
-        // Formatear la fecha como YYYY-MM-DD en UTC
-        const fechaStr = fecha.toISOString().split('T')[0];
-        
-        // Inicializar el objeto para esta fecha si no existe
-        if (!datosPorFecha[fechaStr]) {
-          datosPorFecha[fechaStr] = {
-            fecha: fechaStr,
-            ventas: 0,
-            puntaje: 0,
-            count: 0,
-            fechaObj: fecha // Guardar el objeto Date para ordenamiento
-          };
-        }
-        
-        // Sumar venta y puntaje (asumiendo que cada lead es una venta)
-        datosPorFecha[fechaStr].ventas += 1;
-        
-        // Sumar el puntaje si está disponible
-        if (lead.puntuacion !== undefined) {
-          const puntuacion = parseFloat(lead.puntuacion) || 0;
-          datosPorFecha[fechaStr].puntaje += puntuacion;
-          datosPorFecha[fechaStr].count += 1;
-        }
-      });
-      
-      // Calcular el puntaje promedio por día
-      const resultado = Object.values(datosPorFecha).map(dia => ({
-        fecha: dia.fecha,
-        ventas: dia.ventas,
-        puntaje: dia.count > 0 ? dia.puntaje / dia.count : 0
-      }));
-      
-      console.log('Datos procesados por fecha:', resultado);
-      return resultado;
-      
-    } catch (error) {
-      console.error('Error al procesar datos de leads:', error);
-      return [];
-    }
-  }
-
-  
-
-  // Función para mostrar mensajes de error
-  function mostrarMensajeError(mensaje) {
-    console.error(mensaje);
-    // Mostrar mensaje en la interfaz si es necesario
-    const contenedor = document.getElementById('error-message');
-    if (contenedor) {
-      contenedor.textContent = mensaje;
-      contenedor.style.display = 'block';
-      setTimeout(() => {
-        contenedor.style.display = 'none';
-      }, 5000);
-    }
-  }
-
+<script>
   // Datos de prueba para la gráfica
   const datosPrueba = [
     { fecha: '2025-08-06', ventas: 5, puntaje: 25 },
@@ -1714,6 +1703,33 @@
     { fecha: '2025-08-11', ventas: 10, puntaje: 50 },
     { fecha: '2025-08-12', ventas: 18, puntaje: 90 }
   ];
+  
+  // Función para mostrar mensajes de error
+  function mostrarMensajeError(mensaje) {
+    console.error(mensaje);
+    // Crear notificación visual si no existe
+    let notification = document.querySelector('.notification.error');
+    if (!notification) {
+      notification = document.createElement('div');
+      notification.className = 'notification error';
+      notification.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span></span>';
+      document.body.appendChild(notification);
+    }
+    
+    // Mostrar el mensaje
+    const span = notification.querySelector('span');
+    if (span) {
+      span.textContent = mensaje;
+    }
+    
+    // Mostrar la notificación
+    notification.classList.add('show');
+    
+    // Ocultar después de 5 segundos
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 5000);
+  }
   
   // Nota: Se mantiene una única implementación de actualizarGraficaVentasPuntaje() más abajo.
 
@@ -2523,7 +2539,10 @@
 
       // Reconstruir la gráfica para evitar errores de actualización de ejes
       const canvasEl = document.getElementById('ventasPuntajeChart');
-      if (!canvasEl) throw new Error('Canvas ventasPuntajeChart no encontrado');
+      if (!canvasEl) {
+        console.info('Canvas ventasPuntajeChart no encontrado - gráficas deshabilitadas en esta página');
+        return;
+      }
       const ctx = canvasEl.getContext('2d');
       if (ventasPuntajeChart) {
         try { ventasPuntajeChart.destroy(); } catch (_) {}
@@ -2635,9 +2654,7 @@
       const ventasPuntajeCanvas = document.getElementById('ventasPuntajeChart');
       
       if (!ventasPuntajeCanvas) {
-        const errorMsg = 'No se encontró el elemento canvas para la gráfica de ventas y puntaje';
-        console.error(errorMsg);
-        mostrarMensajeError(errorMsg);
+        console.info('Canvas para gráfica de ventas no encontrado - gráficas deshabilitadas en esta página');
         return;
       }
       
@@ -2670,6 +2687,11 @@
     const monthSelect = document.getElementById('month-select');
     const yearSelect = document.getElementById('year-select');
     
+    // Verificar que todos los elementos existan
+    if (!daySelect || !monthSelect || !yearSelect) {
+      return;
+    }
+    
     const selectedMonth = parseInt(monthSelect.value);
     const selectedYear = parseInt(yearSelect.value);
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
@@ -2699,17 +2721,40 @@
   // Función para establecer la fecha actual en los selectores
   function setCurrentDate() {
     const now = new Date();
-    document.getElementById('month-select').value = now.getMonth();
-    document.getElementById('year-select').value = now.getFullYear();
-    updateDaysDropdown();
-    document.getElementById('day-select').value = now.getDate();
+    const monthSelect = document.getElementById('month-select');
+    const yearSelect = document.getElementById('year-select');
+    const daySelect = document.getElementById('day-select');
+    
+    if (monthSelect) {
+      monthSelect.value = now.getMonth();
+    }
+    if (yearSelect) {
+      yearSelect.value = now.getFullYear();
+    }
+    if (monthSelect && yearSelect) {
+      updateDaysDropdown();
+    }
+    if (daySelect) {
+      daySelect.value = now.getDate();
+    }
   }
   
   // Función para obtener la fecha seleccionada en formato YYYY-MM-DD
   function getSelectedDate() {
-    const day = document.getElementById('day-select').value.padStart(2, '0');
-    const month = (parseInt(document.getElementById('month-select').value) + 1).toString().padStart(2, '0');
-    const year = document.getElementById('year-select').value;
+    const daySelect = document.getElementById('day-select');
+    const monthSelect = document.getElementById('month-select');
+    const yearSelect = document.getElementById('year-select');
+    
+    // Verificar que todos los elementos existan
+    if (!daySelect || !monthSelect || !yearSelect) {
+      // Retornar fecha actual si los elementos no existen
+      const now = new Date();
+      return now.toISOString().split('T')[0];
+    }
+    
+    const day = daySelect.value.padStart(2, '0');
+    const month = (parseInt(monthSelect.value) + 1).toString().padStart(2, '0');
+    const year = yearSelect.value;
     return `${year}-${month}-${day}`;
   }
   
@@ -2737,7 +2782,7 @@
       // Verificar que el contenedor del gráfico exista
       const canvas = document.getElementById('ventasPuntajeChart');
       if (!canvas) {
-        console.error('No se encontró el elemento canvas para la gráfica de ventas y puntaje');
+        console.info('Canvas para gráfica de ventas no encontrado - gráficas deshabilitadas en esta página');
         return null;
       }
       

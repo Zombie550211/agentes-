@@ -2029,7 +2029,15 @@
         const datosOrdenados = [...datos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         
         datosOrdenados.forEach(item => {
-          const fecha = new Date(item.fecha);
+          // Parsear 'YYYY-MM-DD' como fecha LOCAL para evitar desfase de un día
+          let y, m, d;
+          if (typeof item.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.fecha)) {
+            [y, m, d] = item.fecha.split('-').map(Number);
+          } else {
+            const tmp = new Date(item.fecha);
+            y = tmp.getFullYear(); m = tmp.getMonth() + 1; d = tmp.getDate();
+          }
+          const fecha = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0); // medio día local
           const dia = fecha.getDate();
           const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
           const diaSemana = diasSemana[fecha.getDay()];
