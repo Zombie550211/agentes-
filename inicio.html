@@ -1815,6 +1815,10 @@
       console.log(`🔍 KPIs configurados - Usuario: ${user.username}, Rol: ${userRole}, Admin/BO: ${isAdminOrBackoffice}`);
     }
 
+    // Variables globales para rastrear gráficos
+    let salesChartRef = null;
+    let teamsChartRefMain = null;
+
     // Función para crear gráficos
     async function createCharts(leads) {
       // Gráfico de ventas por mes
@@ -1830,6 +1834,16 @@
         console.warn('⚠️ Elemento salesChart no encontrado en el DOM, saltando creación del gráfico');
         return;
       }
+      
+      // Destruir gráfico existente si existe
+      if (salesChartRef) {
+        try {
+          salesChartRef.destroy();
+        } catch (e) {
+          console.warn('Error al destruir salesChart existente:', e);
+        }
+      }
+      
       const ctx = chartElement.getContext('2d');
       
       // Preparar datos por mes (últimos 6 meses)
@@ -1850,7 +1864,7 @@
         salesData.push(monthlySales);
       }
       
-      new Chart(ctx, {
+      salesChartRef = new Chart(ctx, {
         type: 'line',
         data: {
           labels: months,
