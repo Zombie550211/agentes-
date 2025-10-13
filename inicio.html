@@ -1532,13 +1532,13 @@
             sidebarUserSales.textContent = monthlyLeads.length;
           }
 
-          // Verificar rol del usuario para mostrar puntos
+          // TODOS los usuarios ven puntos (como admin)
           const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
           const userRole = (userData.role || '').toLowerCase();
-          const isAdminOrBackoffice = ['admin', 'administrador', 'backoffice', 'b:o', 'b.o', 'b-o', 'bo'].includes(userRole);
+          const isAdminOrBackoffice = false; // FORZAR que todos vean puntos
 
-          // Solo calcular y mostrar puntos si no es admin/backoffice
-          if (!isAdminOrBackoffice) {
+          // TODOS calculan y muestran puntos
+          if (true) {
             // Calcular puntos totales
             const totalPoints = userLeads.reduce((sum, lead) => {
               const points = parseFloat(lead.puntaje || lead.points || 0);
@@ -1732,34 +1732,26 @@
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      // Verificar rol del usuario para mostrar/ocultar KPIs específicos
+      // MOSTRAR SIEMPRE LOS MISMOS KPIs PARA TODOS (como admin)
       const userRole = (user.role || '').toLowerCase();
-      const isAdminOrBackoffice = ['admin', 'administrador', 'backoffice', 'b:o', 'b.o', 'b-o', 'bo'].includes(userRole);
+      const isAdminOrBackoffice = true; // FORZAR que todos vean como admin
       
-      // Mostrar/ocultar KPIs según el rol del usuario
+      // Mostrar TODOS los KPIs para todos los usuarios
       const pointsCard = document.getElementById('points-stat-card');
       const teamCard = document.getElementById('team-stat-card');
       const rankingCard = document.getElementById('ranking-stat-card');
       const cancelledCard = document.getElementById('cancelled-stat-card');
       const pendingCard = document.getElementById('pending-stat-card');
       
-      if (isAdminOrBackoffice) {
-        // Para Admin/Backoffice: ocultar KPIs de agente y mostrar KPIs administrativos
-        if (pointsCard) pointsCard.style.display = 'none';
-        if (teamCard) teamCard.style.display = 'none';
-        if (rankingCard) rankingCard.style.display = 'none';
-        if (cancelledCard) cancelledCard.style.display = 'flex';
-        if (pendingCard) pendingCard.style.display = 'flex';
-      } else {
-        // Para Agentes: mostrar KPIs de agente y ocultar KPIs administrativos
-        if (pointsCard) pointsCard.style.display = 'flex';
-        if (teamCard) teamCard.style.display = 'flex';
-        if (rankingCard) rankingCard.style.display = 'flex';
-        if (cancelledCard) cancelledCard.style.display = 'none';
-        if (pendingCard) pendingCard.style.display = 'none';
-      }
+      // MOSTRAR TODOS los KPIs (vista de admin para todos)
+      if (pointsCard) pointsCard.style.display = 'flex';
+      if (teamCard) teamCard.style.display = 'flex';
+      if (rankingCard) rankingCard.style.display = 'flex';
+      if (cancelledCard) cancelledCard.style.display = 'flex';
+      if (pendingCard) pendingCard.style.display = 'flex';
       
-      if (isAdminOrBackoffice) {
+      // TODOS ven métricas globales (como admin)
+      if (true) {
         // Para Admin/Backoffice: calcular métricas globales
         const allLeads = leads; // Usar todos los leads, no filtrar por usuario
         
