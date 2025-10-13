@@ -205,20 +205,20 @@ async function onStatusChange(id, newStatus) {
     const val = customer.dia_venta;
     if (!val) return null;
     
-    // Si es string en formato YYYY-MM-DD, parsear como fecha LOCAL (no UTC)
+    // Usar utilidad centralizada para parseo LOCAL (evita bug UTC)
+    if (window.DateUtils && window.DateUtils.parseLocalDate) {
+      return window.DateUtils.parseLocalDate(val);
+    }
+    
+    // Fallback si DateUtils no está disponible
     if (typeof val === 'string') {
       const match = val.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (match) {
         const [_, year, month, day] = match;
-        // Crear fecha local: new Date(year, month-1, day)
-        const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
         if (!isNaN(d.getTime()) && d.getFullYear() > 1900) return d;
       }
     }
-    
-    // Fallback para otros formatos
-    const d = new Date(val);
-    if (!isNaN(d.getTime()) && d.getFullYear() > 1900) return d;
     
     return null;
   }
