@@ -157,8 +157,9 @@
       
       // Formatear datos
       const autopago = customer.autopago === true || customer.autopago === 'Sí' || customer.autopago === 'SI' ? 'Sí' : 'No';
-      const fechaVenta = window.Utils ? window.Utils.formatDate(customer.dia_venta || customer.fecha_contratacion || customer.fecha) : (customer.dia_venta || '');
-      const fechaInstalacion = window.Utils ? window.Utils.formatDate(customer.dia_instalacion) : (customer.dia_instalacion || '');
+      // Usar fecha directamente sin conversión para evitar desfase UTC
+      const fechaVenta = customer.dia_venta || customer.fecha_contratacion || customer.fecha || '';
+      const fechaInstalacion = customer.dia_instalacion || '';
       
       row.innerHTML = `
         <td>${customer.nombre_cliente || ''}</td>

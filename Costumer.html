@@ -48,7 +48,7 @@
         if(arr.length){ const m=new Map(); arr.forEach(t=>{ const k=(t?.servicio||t?.tipo||'').toString().trim()||'SERVICIO'; m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].map(([k,v])=> v>1?`${k} x${v}`:k).join('; '); }
         return l.servicios_texto||l.tipo_servicios||l.servicios||l.producto||'';
       }
-      function normDate(v){ try{ if(!v) return ''; const s=String(v); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const d=new Date(s); if(isNaN(d)) return s; const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;}catch{return String(v||'');}}
+      function normDate(v){ try{ if(!v) return ''; const s=String(v); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const match=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(match){ return s; } const d=new Date(s); if(isNaN(d)) return s; const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;}catch{return String(v||'');}}
       function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
       function agentName(l){ return l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||''; }
       function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
@@ -1389,12 +1389,19 @@
               // PIN enmascarado
               const pin = l.pin_seguridad ? '•'.repeat(Math.min(4, String(l.pin_seguridad).length)) : '';
               
-              // Fecha normalizada
+              // Fecha normalizada (parseo local para evitar desfase UTC)
               function normDate(v) {
                 try {
                   if (!v) return '';
                   const s = String(v);
+                  // Si ya es YYYY-MM-DD, devolverlo tal cual
                   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                  // Si es otro formato, intentar parsear como local
+                  const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                  if (match) {
+                    const [_, y, m, d] = match;
+                    return `${y}-${m}-${d}`;
+                  }
                   const d = new Date(s);
                   if (isNaN(d)) return s;
                   const y = d.getFullYear();
@@ -1429,167 +1436,8 @@
             });
           }
         };
-        
-        // Asignar después de que script.js se cargue
-        setTimeout(() => {
-          console.log('[Team Líneas INTERCEPTOR] Asignando renderizador después de script.js');
-          window.renderCostumerTable = window.teamLineasRenderFunction;
-        }, 100);
       }
     })();
-  </script>
-  <script src="js/core/script.js"></script>
-  <!-- Override final para Team Líneas después de cargar script.js -->
-  <script>
-    
-    // Override final para Team Líneas que se ejecuta después de script.js
-    document.addEventListener('DOMContentLoaded', function() {
-      // Esperar a que script.js se cargue completamente
-      setTimeout(() => {
-        console.log('[Team Líneas FINAL] Iniciando override final');
-        
-        const teamLineasRenderer = function(leads) {
-          console.log('[Team Líneas FINAL] Interceptando renderCostumerTable, leads:', leads?.length || 0);
-          
-          // Función de detección Team Líneas
-          function isTeamLineasFinal() {
-            try {
-              const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-              const role = (user.role||user?.usuario?.role||'').toString().trim().toLowerCase();
-              const username = (user.username||user?.usuario?.username||'').toString().trim().toLowerCase();
-              
-              console.log('[Team Líneas FINAL] role:', role, 'username:', username);
-              
-              const isTeam = document.body.classList.contains('team-lineas') || 
-                            role==='teamlineas' || 
-                            username.startsWith('lineas-') ||
-                            username.includes('lineas') ||
-                            role.includes('lineas');
-              
-              console.log('[Team Líneas FINAL] Resultado:', isTeam);
-              return isTeam;
-            } catch(e) { 
-              console.warn('[Team Líneas FINAL] Error:', e);
-              return false; 
-            }
-          }
-          
-          if (isTeamLineasFinal()) {
-            console.log('[Team Líneas FINAL] Aplicando vista Team Líneas');
-            
-            // Aplicar encabezado Team Líneas
-            const thead = document.querySelector('.costumer-table thead');
-            if (thead) {
-              const headers = ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO'];
-              thead.innerHTML = `<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
-            }
-            
-            // Renderizar filas Team Líneas
-            const tbody = document.getElementById('costumer-tbody');
-            if (tbody) {
-              tbody.innerHTML = '';
-              const arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
-              
-              arr.forEach(l => {
-                const autop = (l.autopay ?? l.autopago);
-                const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : 
-                                (String(autop||'').toUpperCase() === 'SI' ? 'Sí' : 
-                                (String(autop||'').toUpperCase() === 'NO' ? 'No' : String(autop||'')));
-                
-                const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : 
-                            (Array.isArray(l.telefonos) ? l.telefonos.length : '');
-                
-                // Servicios resumen
-                let servicios = '';
-                const arr = Array.isArray(l.telefonos) ? l.telefonos : [];
-                if (arr.length) {
-                  const m = new Map();
-                  arr.forEach(t => {
-                    const k = (t?.servicio || t?.tipo || '').toString().trim() || 'SERVICIO';
-                    m.set(k, (m.get(k) || 0) + 1);
-                  });
-                  servicios = [...m.entries()].map(([k,v]) => v > 1 ? `${k} x${v}` : k).join('; ');
-                } else {
-                  servicios = l.servicios_texto || l.tipo_servicios || l.servicios || l.producto || '';
-                }
-                
-                // PIN enmascarado
-                const pin = l.pin_seguridad ? '•'.repeat(Math.min(4, String(l.pin_seguridad).length)) : '';
-                
-                // Fecha normalizada
-                function normDate(v) {
-                  try {
-                    if (!v) return '';
-                    const s = String(v);
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-                    const d = new Date(s);
-                    if (isNaN(d)) return s;
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth()+1).padStart(2,'0');
-                    const day = String(d.getDate()).padStart(2,'0');
-                    return `${y}-${m}-${day}`;
-                  } catch {
-                    return String(v||'');
-                  }
-                }
-                
-                const cells = [
-                  l.nombre_cliente || '',
-                  l.telefono_principal || '',
-                  l.numero_cuenta || '',
-                  autopTxt || '',
-                  pin || '',
-                  l.direccion || '',
-                  normDate(l.dia_venta || l.fecha_contratacion || l.fecha || ''),
-                  normDate(l.dia_instalacion || ''),
-                  (l.status || '').toString().toUpperCase(),
-                  cant || '',
-                  servicios || '',
-                  (l.id_cliente || l._id || l.id || ''),
-                  l.supervisor || '',
-                  l.mercado || ''
-                ];
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = cells.map(v => `<td>${v == null ? '' : v}</td>`).join('');
-                tbody.appendChild(tr);
-              });
-            }
-            
-            return;
-          }
-          
-          // Si no es Team Líneas, no hacer nada (dejar que script.js maneje)
-          console.log('[Team Líneas FINAL] No es Team Líneas, delegando a script.js');
-        };
-        
-        // Asignar renderizador Team Líneas
-        if (window.renderCostumerTable) {
-          console.log('[Team Líneas FINAL] Asignando renderizador Team Líneas');
-          window.renderCostumerTable = teamLineasRenderer;
-        } else {
-          console.log('[Team Líneas FINAL] Definiendo renderizador Team Líneas por primera vez');
-          window.renderCostumerTable = teamLineasRenderer;
-        }
-        
-        // Si ya hay datos cargados, re-renderizar
-        if (window.ultimaListaLeads && window.ultimaListaLeads.length > 0) {
-          console.log('[Team Líneas FINAL] Re-renderizando con datos existentes');
-          teamLineasRenderer(window.ultimaListaLeads);
-        }
-      }, 1000); // Esperar 1000ms para que script.js termine de cargar
-      
-      // Override adicional más fuerte después de más tiempo
-      setTimeout(() => {
-        if (document.body.classList.contains('team-lineas') || 
-            (localStorage.getItem('user')||sessionStorage.getItem('user')||'{}').includes('lineas')) {
-          console.log('[Team Líneas OVERRIDE] Aplicando override final');
-          if (typeof teamLineasRenderer === 'function') {
-            window.renderCostumerTable = teamLineasRenderer;
-          }
-        }
-      }, 2000);
-    });
   </script>
   <!-- Eliminada la referencia a costumer-comments.js que no existe -->
   <script>
@@ -2264,28 +2112,38 @@
       }
     }
 
-    // Helper: obtener fecha YYYY-MM-DD de un lead (usando TZ de negocio)
+    // Helper: obtener fecha YYYY-MM-DD de un lead (sin conversión de zona horaria)
     function getDateFromLead(lead) {
       try {
         if (!lead) return '';
         const raw = lead.dia_venta || lead.FECHA || lead.fecha_venta || lead.fecha || null;
         if (!raw) return '';
+        
+        // Si ya es string en formato YYYY-MM-DD, devolverlo tal cual (sin parseo)
+        if (typeof raw === 'string') {
+          const trimmed = raw.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            return trimmed; // Devolver sin conversión para evitar desfase UTC
+          }
+        }
+        
+        // Para otros formatos, intentar parsear
         let d;
         if (raw instanceof Date) {
           d = new Date(raw.getTime());
         } else if (typeof raw === 'string') {
-          // Si viene en formato YYYY-MM-DD, crear como fecha LOCAL y luego convertir a TZ negocio
-          if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-            const [y, m, day] = raw.split('-').map(Number);
-            d = new Date(y, m - 1, day);
-          } else {
-            d = new Date(raw);
-          }
+          d = new Date(raw);
         } else {
           d = new Date(String(raw));
         }
+        
         if (isNaN(d)) return '';
-        return toISOInTZ(d, BUSINESS_TZ_OFFSET_MIN);
+        
+        // Usar fecha local, no UTC
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
       } catch {
         return '';
       }
@@ -2656,7 +2514,7 @@
       });
     });
 
-    // Funci¨®n para formatear fechas con el formato 'd¨ªa_de_la_semana n¨²mero_del_d¨ªa' (ej: 'mi¨¦ 13')
+    // Función para formatear fechas con el formato 'día_de_la_semana número_del_día' (ej: 'mié 13')
     function formatearFechaSinDesfase(fechaStr) {
       try {
         // Si no es string, devolver valor por defecto
@@ -2668,7 +2526,7 @@
         // Limpiar la cadena de espacios en blanco
         const fechaLimpia = fechaStr.trim();
         
-        // Extraer d¨ªa, mes y a?o directamente del string
+        // Extraer día, mes y año directamente del string
         let day, month, year;
         
         // Intentar con formato YYYY-MM-DD
@@ -2680,43 +2538,43 @@
         else if ((match = fechaLimpia.match(/^(\d{2})\/(\d{2})\/(\d{4})/))) {
           [_, day, month, year] = match;
         }
-        // Si no coincide con ning¨²n formato conocido
+        // Si no coincide con ningún formato conocido
         else {
           console.warn('Formato de fecha no reconocido (se espera YYYY-MM-DD o DD/MM/YYYY):', fechaLimpia);
           return 'N/A';
         }
         
-        // Convertir a n¨²meros
+        // Convertir a números
         year = parseInt(year);
         month = parseInt(month) - 1; // Los meses en JavaScript van de 0 a 11
         day = parseInt(day);
         
-        // Crear fecha sin conversi¨®n de zona horaria
-        const fecha = new Date(Date.UTC(year, month, day, 12, 0, 0));
+        // CORREGIDO: Crear fecha LOCAL (no UTC) para evitar desfase de zona horaria
+        const fecha = new Date(year, month, day);
         
-        // Verificar si la fecha es v¨¢lida
+        // Verificar si la fecha es válida
         if (isNaN(fecha.getTime())) {
-          console.warn('Fecha inv¨¢lida (no v¨¢lida):', fechaLimpia);
+          console.warn('Fecha inválida (no válida):', fechaLimpia);
           return 'N/A';
         }
         
-        // D¨ªas de la semana en espa?ol
-        const diasSemana = ['dom', 'lun', 'mar', 'mi¨¦', 'jue', 'vie', 's¨¢b'];
+        // Días de la semana en español
+        const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
         
-        // Obtener d¨ªa de la semana (0 = domingo, 1 = lunes, etc.)
-        const diaSemana = diasSemana[fecha.getUTCDay()];
+        // CORREGIDO: Usar getDay() en lugar de getUTCDay() para zona local
+        const diaSemana = diasSemana[fecha.getDay()];
         
-        // Obtener d¨ªa del mes
-        const diaMes = fecha.getUTCDate();
+        // CORREGIDO: Usar getDate() en lugar de getUTCDate() para zona local
+        const diaMes = fecha.getDate();
         
-        // Mostrar la fecha en la consola para depuraci¨®n
+        // Mostrar la fecha en la consola para depuración
         console.log(`Formateando fecha: ${fechaLimpia} -> ${diaSemana} ${diaMes}`);
         
         return `${diaSemana} ${diaMes}`;
         
       } catch (error) {
         console.error('Error al formatear fecha:', error, 'Valor:', fechaStr);
-        return 'Fecha inv¨¢lida';
+        return 'Fecha inválida';
       }
     }
     
@@ -4556,7 +4414,8 @@
   <script src="js/monthly-cutoff.js"></script>
   
   <!-- Scripts de Costumer -->
-  <script src="js/costumer-actions.js"></script>
-  <script src="js/costumer-init.js"></script>`n  <script src="js/costumer-calendar.js"></script>
+  <script src="js/costumer-actions.js?v=3"></script>
+  <script src="js/costumer-init.js?v=3"></script>
+  <script src="js/costumer-calendar.js?v=3"></script>
 </body>
 </html>

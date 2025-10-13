@@ -205,7 +205,18 @@ async function onStatusChange(id, newStatus) {
     const val = customer.dia_venta;
     if (!val) return null;
     
-    // Parsear la fecha directamente
+    // Si es string en formato YYYY-MM-DD, parsear como fecha LOCAL (no UTC)
+    if (typeof val === 'string') {
+      const match = val.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [_, year, month, day] = match;
+        // Crear fecha local: new Date(year, month-1, day)
+        const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        if (!isNaN(d.getTime()) && d.getFullYear() > 1900) return d;
+      }
+    }
+    
+    // Fallback para otros formatos
     const d = new Date(val);
     if (!isNaN(d.getTime()) && d.getFullYear() > 1900) return d;
     
@@ -378,8 +389,9 @@ async function onStatusChange(id, newStatus) {
         const row = document.createElement('tr');
         
         const autopago = customer.autopago === true || customer.autopago === 'Sí' || customer.autopago === 'SI' ? 'Sí' : 'No';
-        const fechaVenta = window.Utils ? window.Utils.formatDate(customer.dia_venta || customer.fecha_contratacion || customer.fecha) : (customer.dia_venta || '');
-        const fechaInstalacion = window.Utils ? window.Utils.formatDate(customer.dia_instalacion) : (customer.dia_instalacion || '');
+        // Usar fecha directamente sin conversión para evitar desfase UTC
+        const fechaVenta = customer.dia_venta || customer.fecha_contratacion || customer.fecha || '';
+        const fechaInstalacion = customer.dia_instalacion || '';
         
         row.innerHTML = `
           <td>${customer.nombre_cliente || ''}</td>
