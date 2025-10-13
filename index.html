@@ -1608,27 +1608,33 @@
       
       // Filtrar leads del mes actual
       const monthlyLeads = leads.filter(lead => {
-        const leadDate = new Date(lead.fecha_contratacion || lead.createdAt || lead.fecha);
-        return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+        const d = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
-      
-      // Calcular métricas
-      const totalLeads = leads.length;
-      const totalSales = leads.filter(lead => lead.status === 'vendido' || lead.status === 'cerrado').length;
-      const conversionRate = totalLeads > 0 ? ((totalSales / totalLeads) * 100).toFixed(1) : 0;
-      const totalRevenue = leads.reduce((sum, lead) => sum + (parseFloat(lead.valor || lead.revenue || 0)), 0);
-      
-      // Actualizar elementos del DOM
-      document.getElementById('total-leads').textContent = totalLeads;
-      document.getElementById('total-sales').textContent = totalSales;
-      document.getElementById('conversion-rate').textContent = conversionRate + '%';
-      document.getElementById('total-revenue').textContent = '$' + totalRevenue.toLocaleString();
-      
-      // Calcular cambios (simulados por ahora)
-      document.getElementById('leads-change').textContent = '+12%';
-      document.getElementById('sales-change').textContent = '+8%';
-      document.getElementById('conversion-change').textContent = '+5%';
-      document.getElementById('revenue-change').textContent = '+15%';
+
+      const SOLD_STATUSES = new Set(['vendido','cerrado','aprobado','approved','sold','closed']);
+      const monthlySalesLeads = monthlyLeads.filter(lead => SOLD_STATUSES.has(String(lead.status || '').toLowerCase()));
+
+      // Ventas totales del mes (conteo de ventas)
+      const ventasMes = monthlySalesLeads.length;
+      // Puntos totales del mes
+      const puntosMes = monthlyLeads.reduce((sum, l) => sum + (parseFloat(l.puntaje || l.points || 0) || 0), 0);
+
+      // Mejor team del mes (por ventas)
+      const teamCounts = {};
+      monthlySalesLeads.forEach(l => { const t = l.team || l.TEAM || 'Sin equipo'; teamCounts[t] = (teamCounts[t]||0)+1; });
+      const bestTeam = Object.entries(teamCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+
+      // Mejor vendedor del mes (por ventas)
+      const sellerCounts = {};
+      monthlySalesLeads.forEach(l => { const a = l.agenteNombre || l.agente || l.createdBy || l.ownerId || 'Desconocido'; sellerCounts[a] = (sellerCounts[a]||0)+1; });
+      const bestSeller = Object.entries(sellerCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+
+      // Actualizar DOM KPIs
+      const elSales = document.getElementById('month-sales-count'); if (elSales) elSales.textContent = ventasMes;
+      const elPts = document.getElementById('month-points-total'); if (elPts) elPts.textContent = puntosMes.toFixed(2).replace(/\.00$/,'');
+      const elTeam = document.getElementById('best-team-name'); if (elTeam) elTeam.textContent = bestTeam;
+      const elSeller = document.getElementById('best-seller-name'); if (elSeller) elSeller.textContent = bestSeller;
     }
 
     // Función para actualizar estadísticas del usuario
@@ -1667,68 +1673,63 @@
 
     // Función para crear gráficos
     async function createCharts(leads) {
-      // Gráfico de ventas por mes
-      createSalesChart(leads);
-      
-      // Gráfico de distribución por teams
+      // Gráfico de productos vendidos en el mes
+      createProductsChart(leads);
+      // Gráfico de distribución por teams (opcional mantener)
       createTeamsChart(leads);
     }
 
-    function createSalesChart(leads) {
-      const ctx = document.getElementById('salesChart').getContext('2d');
-      
-      // Preparar datos por mes (últimos 6 meses)
-      const months = [];
-      const salesData = [];
-      const currentDate = new Date();
-      
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        const monthName = date.toLocaleDateString('es-ES', { month: 'short' });
-        months.push(monthName);
-        
-        const monthlySales = leads.filter(lead => {
-          const leadDate = new Date(lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          return leadDate.getMonth() === date.getMonth() && leadDate.getFullYear() === date.getFullYear();
-        }).length;
-        
-        salesData.push(monthlySales);
-      }
-      
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: months,
-          datasets: [{
-            label: 'Ventas',
-            data: salesData,
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4
-          }]
-        },
+    function createProductsChart(leads) {
+      const canvas = document.getElementById('productsChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const now = new Date();
+      const m = now.getMonth();
+      const y = now.getFullYear();
+      const SOLD_STATUSES = new Set(['vendido','cerrado','aprobado','approved','sold','closed']);
+
+      // Filtrar ventas del mes
+      const monthSales = leads.filter(l => {
+        const d = new Date(l.dia_venta || l.fecha_contratacion || l.createdAt || l.fecha);
+        return d.getMonth() === m && d.getFullYear() === y && SOLD_STATUSES.has(String(l.status || '').toLowerCase());
+      });
+
+      // Tomar nombre del producto
+      const getProd = (l) => {
+        const v = l.servicios || l.producto || l.product || l.service || l.servicio || '';
+        if (!v) return 'SIN PRODUCTO';
+        return String(v).replace(/[-_]/g,' ').toUpperCase();
+      };
+
+      const counts = {};
+      monthSales.forEach(l => { const key = getProd(l); counts[key] = (counts[key]||0)+1; });
+
+      // Ordenar por cantidad desc
+      const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      const labels = entries.map(e=>e[0]);
+      const data = entries.map(e=>e[1]);
+
+      // Destruir gráfico previo si existe
+      if (window.productsChartRef) { try { window.productsChartRef.destroy(); } catch(_){} }
+
+      window.productsChartRef = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{
+          label: 'Cantidad',
+          data,
+          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+          borderRadius: 4
+        }]},
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            }
-          },
+          plugins: { legend: { display: false } },
           scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                color: 'rgba(0,0,0,0.1)'
-              }
-            },
-            x: {
-              grid: {
-                display: false
-              }
-            }
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
           }
         }
       });
@@ -1848,9 +1849,9 @@
               <i class="fas fa-user-plus"></i>
             </div>
             <div class="metric-info">
-              <div class="metric-number" id="total-leads">0</div>
-              <div class="metric-label">Total Leads</div>
-              <div class="metric-change positive" id="leads-change">+0%</div>
+              <div class="metric-number" id="month-sales-count">0</div>
+              <div class="metric-label">Ventas totales del mes</div>
+              <div class="metric-change positive" id="kpi1-change" style="display:none">+0%</div>
             </div>
           </div>
           
@@ -1859,9 +1860,9 @@
               <i class="fas fa-handshake"></i>
             </div>
             <div class="metric-info">
-              <div class="metric-number" id="total-sales">0</div>
-              <div class="metric-label">Ventas Cerradas</div>
-              <div class="metric-change positive" id="sales-change">+0%</div>
+              <div class="metric-number" id="month-points-total">0</div>
+              <div class="metric-label">Puntos totales</div>
+              <div class="metric-change positive" id="kpi2-change" style="display:none">+0%</div>
             </div>
           </div>
           
@@ -1870,9 +1871,9 @@
               <i class="fas fa-percentage"></i>
             </div>
             <div class="metric-info">
-              <div class="metric-number" id="conversion-rate">0%</div>
-              <div class="metric-label">Tasa Conversión</div>
-              <div class="metric-change positive" id="conversion-change">+0%</div>
+              <div class="metric-number" id="best-team-name">-</div>
+              <div class="metric-label">Mejor Team del mes</div>
+              <div class="metric-change positive" id="kpi3-change" style="display:none">+0%</div>
             </div>
           </div>
           
@@ -1881,9 +1882,9 @@
               <i class="fas fa-dollar-sign"></i>
             </div>
             <div class="metric-info">
-              <div class="metric-number" id="total-revenue">$0</div>
-              <div class="metric-label">Ingresos</div>
-              <div class="metric-change positive" id="revenue-change">+0%</div>
+              <div class="metric-number" id="best-seller-name">-</div>
+              <div class="metric-label">Mejor vendedor del mes</div>
+              <div class="metric-change positive" id="kpi4-change" style="display:none">+0%</div>
             </div>
           </div>
         </div>
@@ -1894,16 +1895,11 @@
         <div class="charts-grid">
           <div class="chart-card">
             <div class="chart-header">
-              <h3>Ventas por Mes</h3>
-              <div class="chart-controls">
-                <select id="sales-period">
-                  <option value="6">Últimos 6 meses</option>
-                  <option value="12">Último año</option>
-                </select>
-              </div>
+              <h3>Productos vendidos en el mes</h3>
+              <div class="chart-controls" style="display:none"></div>
             </div>
             <div class="chart-container">
-              <canvas id="salesChart"></canvas>
+              <canvas id="productsChart"></canvas>
             </div>
           </div>
           
