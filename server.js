@@ -234,9 +234,15 @@ const corsOptions = {
     // Permitir solicitudes sin origen (navegación directa)
     if (!origin) return callback(null, true);
 
-    // Permitir localhost y 127.0.0.1 en cualquier puerto (incluye 3001)
-    const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?$/i;
-    if (localhostRegex.test(origin)) return callback(null, true);
+    // En desarrollo, permitir todos los orígenes localhost y 127.0.0.1
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    if (isDevelopment) {
+      const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+      if (localhostRegex.test(origin)) {
+        console.log(`[CORS] Origen localhost permitido: ${origin}`);
+        return callback(null, true);
+      }
+    }
 
     // Permitir el mismo host del servidor (mismo origen)
     try {
@@ -546,10 +552,22 @@ app.get('/api/protected', protect, (req, res) => {
 
 // Endpoint para verificar autenticación desde el servidor (sin protección)
 app.get('/api/auth/verify-server', (req, res) => {
-  // Verificar si hay token en cookies
-  const token = req.cookies?.token;
+  // Verificar si hay token en cookies o en Authorization header
+  let token = req.cookies?.token;
+  
+  // Si no hay token en cookies, verificar en Authorization header
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7); // Remover 'Bearer ' del inicio
+      console.log('[VERIFY-SERVER] Token encontrado en Authorization header');
+    }
+  } else {
+    console.log('[VERIFY-SERVER] Token encontrado en cookies');
+  }
 
   if (!token) {
+    console.log('[VERIFY-SERVER] No se encontró token en cookies ni en Authorization header');
     return res.json({
       success: false,
       message: 'No se encontró token',
@@ -564,6 +582,7 @@ app.get('/api/auth/verify-server', (req, res) => {
     const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    console.log('[VERIFY-SERVER] Token válido para usuario:', decoded.username);
     res.json({
       success: true,
       message: 'Token válido',
@@ -576,6 +595,7 @@ app.get('/api/auth/verify-server', (req, res) => {
       }
     });
   } catch (error) {
+    console.log('[VERIFY-SERVER] Token inválido:', error.message);
     res.json({
       success: false,
       message: 'Token inválido',
