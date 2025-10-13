@@ -1120,6 +1120,151 @@
       }
     }
 
+    /* Protecciones Section Styles */
+    .protecciones-section {
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 40px;
+    }
+
+    .protecciones-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .protecciones-header h3 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .protecciones-header p {
+      font-size: 1.1rem;
+      color: #64748b;
+      margin: 0;
+    }
+
+    .protecciones-card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(220, 38, 38, 0.1);
+      border: 1px solid rgba(220, 38, 38, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .protecciones-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #dc2626, #ef4444);
+    }
+
+    .protecciones-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 30px rgba(220, 38, 38, 0.15);
+    }
+
+    .protecciones-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: white;
+      font-size: 1.5rem;
+    }
+
+    .protecciones-content h4 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .protecciones-content h4 i {
+      color: #dc2626;
+    }
+
+    .protecciones-rule {
+      background: #fef2f2;
+      border-left: 4px solid #dc2626;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .protecciones-rule p {
+      margin: 0;
+      color: #374151;
+      font-size: 1rem;
+      line-height: 1.6;
+      font-weight: 500;
+    }
+
+    .protecciones-warning {
+      background: #fffbeb;
+      border: 1px solid #f59e0b;
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-top: 15px;
+    }
+
+    .protecciones-warning i {
+      color: #f59e0b;
+      font-size: 1.2rem;
+      margin-top: 2px;
+    }
+
+    .protecciones-warning p {
+      margin: 0;
+      color: #92400e;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* Responsive para protecciones */
+    @media (max-width: 768px) {
+      .protecciones-section {
+        margin-bottom: 30px;
+      }
+
+      .protecciones-header h3 {
+        font-size: 1.6rem;
+      }
+
+      .protecciones-card {
+        padding: 20px;
+      }
+
+      .protecciones-content h4 {
+        font-size: 1.1rem;
+      }
+
+      .protecciones-rule {
+        padding: 15px;
+      }
+    }
+
     /* Dashboard Metrics Styles */
     .dashboard-metrics {
       width: 100%;
@@ -1909,6 +2054,16 @@
         console.warn('⚠️ Elemento teamsChart no encontrado en el DOM, saltando creación del gráfico');
         return;
       }
+      
+      // Destruir gráfico existente si existe
+      if (teamsChartRefMain) {
+        try {
+          teamsChartRefMain.destroy();
+        } catch (e) {
+          console.warn('Error al destruir teamsChart existente:', e);
+        }
+      }
+      
       const ctx = chartElement.getContext('2d');
       
       // Contar leads por team
@@ -1925,7 +2080,7 @@
         '#fa709a', '#feb47b', '#a8edea', '#d299c2'
       ];
       
-      new Chart(ctx, {
+      teamsChartRefMain = new Chart(ctx, {
         type: 'doughnut',
         data: {
           labels: teams,
@@ -2159,8 +2314,6 @@
           </a>
         </div>
       </div>
-    </div>
-  </div>
 
   <!-- Scripts al final del body para mejor rendimiento -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
