@@ -86,7 +86,7 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
     const anio = Number(req.params.anio);
     if (!anio) return res.status(400).json({ ok: false, message: 'Año inválido' });
 
-    const coll = getCollection();
+    const coll = await getCollection();
     const docs = await coll.find({ anio }).project({ _id: 0, mes: 1, campos: 1 }).toArray();
 
     const totales = Array(12).fill(0);
@@ -100,8 +100,8 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
 
     return res.json({ ok: true, totalesPorMes: totales });
   } catch (e) {
-    console.error('[FACT] GET anual error:', e);
-    res.status(500).json({ ok: false, message: 'Error interno' });
+    console.error('[FACT] GET anual error detallado:', e.message, e.stack);
+    res.status(500).json({ ok: false, message: 'Error interno', details: e.message });
   }
 });
 

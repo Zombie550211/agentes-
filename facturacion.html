@@ -48,7 +48,7 @@
     .modal-close-btn:hover { background: #ca2222;}
     .modal-title { font-size: 1.45em; font-weight: 700; color: var(--azul-oscuro); margin: 0 0 18px 0; text-align: center;}
     .modal-table-container { overflow-y: auto; max-height: 65vh; min-width: 100%;}
-    .tabla-excel-editable { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: 490px; overflow-y: auto; transition: box-shadow var(--trans);}
+    .tabla-excel-editable { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: 600px; overflow-y: auto; transition: box-shadow var(--trans);}
     table { border-collapse: separate; border-spacing: 0; width: 100%; background: #fff; color: var(--azul-oscuro); font-size: 1em; table-layout: fixed; border: none;}
     th, td { border: 1.5px solid var(--gris-borde); text-align: center; min-width: 70px; max-width: 120px; height: 32px; overflow: hidden; text-overflow: ellipsis; font-family: inherit; background: #fff; font-size: .99em; font-weight: 400; padding: 0; white-space: nowrap; transition: background var(--trans);}
     th { background: var(--gris-titulo); font-weight: 700; font-size: 0.97em; height: 38px; white-space: pre-line; line-height: 1.12; color: #111 !important; border-bottom: 2.5px solid var(--azul-acento); position: sticky; top: 0; z-index: 3; box-shadow: 0 2px 6px rgba(40,181,232,.03);}
@@ -61,7 +61,8 @@
     .tabla-paginacion button { padding: 5px 17px; border-radius: 10px; background: var(--azul-acento); color: #fff; border: none; font-weight: 600; font-size: 1.07em; cursor: pointer; transition: background var(--trans), box-shadow var(--trans); box-shadow: 0 1px 4px rgba(40,181,232,.08);}
     .tabla-paginacion button:active { background: #209dd5;}
     .tabla-paginacion button:disabled { background: #b7e8f5; color: #eee; cursor: default;}
-    .fila-totales td { font-weight: bold; background: #e6f6fa !important; border-top: 2px solid #28b5e8; color: #1e293b;}
+    .fila-totales-fija { display: flex; background: #e6f6fa; border-top: 2px solid #28b5e8; color: #1e293b; font-weight: bold; position: sticky; bottom: 0; z-index: 3; }
+    .fila-totales-fija div { flex: 1; text-align: center; padding: 8px; border: 1.5px solid var(--gris-borde); min-width: 70px; }
     .grafica-reporte { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px; width: calc(100% - 56px); padding: 26px 0 18px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;}
     .grafica-scroll-x { width: 100%; min-width: 300px; max-width: 100%; overflow-x: auto; padding-bottom: 8px; display: flex; align-items: center; justify-content: flex-start;}
     .grafica-reporte h3 { color: var(--azul-oscuro); font-size: 1.15em; margin-bottom: 10px; text-align: left; width: 100%; font-weight: 700; letter-spacing: .3px; padding-left: 18px;}
@@ -109,7 +110,7 @@
         </div>
         <div class="titulo-reportes">Facturación</div>
       </div>
-      <div class="tabla-expand-btn">
+      <div class="tabla-expand-btn" style="display: none;">
         <button id="btnExpandirTabla" onclick="abrirModalTabla()">Expandir tabla</button>
       </div>
       <div class="tabla-excel-editable">
@@ -134,26 +135,26 @@
             </tr>
           </thead>
           <tbody id="excelBody"></tbody>
-          <tr class="fila-totales" id="filaTotalesFacturacion" style="position:sticky;bottom:0;z-index:2;">
-            <td>TOTALES</td>
-            <td id="total-col-1"></td>
-            <td id="total-col-2"></td>
-            <td id="total-col-3"></td>
-            <td id="total-col-4"></td>
-            <td id="total-col-5"></td>
-            <td id="total-col-6"></td>
-            <td id="total-col-7"></td>
-            <td id="total-col-8"></td>
-            <td id="total-col-9"></td>
-            <td id="total-col-10"></td>
-            <td id="total-col-11"></td>
-            <td id="total-col-12"></td>
-            <td id="total-col-13"></td>
-            <td id="total-col-14"></td>
-          </tr>
         </table>
+        <div class="fila-totales-fija" id="filaTotalesFacturacion">
+          <div>TOTALES</div>
+          <div id="total-col-1"></div>
+          <div id="total-col-2"></div>
+          <div id="total-col-3"></div>
+          <div id="total-col-4"></div>
+          <div id="total-col-5"></div>
+          <div id="total-col-6"></div>
+          <div id="total-col-7"></div>
+          <div id="total-col-8"></div>
+          <div id="total-col-9"></div>
+          <div id="total-col-10"></div>
+          <div id="total-col-11"></div>
+          <div id="total-col-12"></div>
+          <div id="total-col-13"></div>
+          <div id="total-col-14"></div>
+        </div>
       </div>
-      <div class="tabla-paginacion">
+      <div class="tabla-paginacion" style="display: none;">
         <button onclick="prevBlock()" id="btnUp">&#8593; Arriba</button>
         <button onclick="nextBlock()" id="btnDown">Abajo &#8595;</button>
       </div>
@@ -253,7 +254,6 @@ function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
 }
 
-let currentBlock = 0;
 let currentMonth = parseInt(filtroMes.value, 10);
 let currentYear = parseInt(filtroAno.value, 10);
 let datosFacturacionMes = [];
@@ -339,13 +339,11 @@ function buscarCamposPorFecha(fecha) {
   return Array.isArray(campos) ? campos : Array(14).fill('');
 }
 
-async function renderTablaDias(mes, ano, block=0) {
+async function renderTablaDias(mes, ano) {
   await fetchFacturacionMes(mes, ano);
   excelBody.innerHTML = "";
   const numDias = daysInMonth(ano, mes);
-  const start = block * 16;
-  const end = Math.min(start + 16, numDias);
-  for (let i = start; i < end; i++) {
+  for (let i = 0; i < numDias; i++) {
     const tr = document.createElement("tr");
     for (let c = 0; c < 15; c++) {
       const td = document.createElement("td");
@@ -370,17 +368,17 @@ async function renderTablaDias(mes, ano, block=0) {
     }
     excelBody.appendChild(tr);
   }
-  btnUp.disabled = (block === 0);
-  btnDown.disabled = ((block + 1) * 16 >= numDias);
+  // Ocultar botones de paginación ya que mostramos todo el mes
+  btnUp.style.display = 'none';
+  btnDown.style.display = 'none';
   renderFilaTotalesFacturacion();
   actualizarTotalesPorMesLocales();
 }
 
 function updateTableByFilters() {
-  currentBlock = 0;
   currentMonth = parseInt(filtroMes.value, 10);
   currentYear = parseInt(filtroAno.value, 10);
-  renderTablaDias(currentMonth, currentYear, currentBlock);
+  renderTablaDias(currentMonth, currentYear);
   actualizarGrafica();
 }
 
@@ -526,6 +524,10 @@ async function actualizarGrafica() {
       if (data && data.ok && Array.isArray(data.totalesPorMes)) {
         totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
       }
+    } else {
+      console.error('Error al obtener datos anuales:', resp.status, resp.statusText);
+      // Mostrar mensaje al usuario o usar datos por defecto
+      alert('Error cargando gráfica: verifica la conexión o permisos.');
     }
 
     if (grafica) grafica.destroy();
@@ -608,7 +610,7 @@ async function renderTablaCompleta(mes, ano) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  await renderTablaDias(currentMonth, currentYear, currentBlock);
+  await renderTablaDias(currentMonth, currentYear);
   actualizarTotalesPorMesLocales();
   actualizarGrafica();
   renderFilaTotalesFacturacion();

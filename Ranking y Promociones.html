@@ -1203,19 +1203,19 @@
     /* Posicionamiento específico - astronautas parados ENCIMA de los cilindros */
     .second-pos {
       left: 20% !important;
-      top: 35% !important; /* Astronauta parado encima del cilindro izquierdo */
+      top: 15% !important; /* Astronauta parado sobre el cilindro izquierdo */
       transform: translateX(-50%) !important;
     }
     
     .first-pos {
       left: 50% !important;
-      top: 20% !important; /* Astronauta parado encima del cilindro central (más alto) - bajado un poco más */
+      top: 3% !important; /* Astronauta parado sobre el cilindro central (más alto) */
       transform: translateX(-50%) !important;
     }
     
     .third-pos {
       left: 80% !important;
-      top: 35% !important; /* Restaurado para no mover el nombre ni la info */
+      top: 22% !important; /* Astronauta parado sobre el cilindro derecho (más bajo) */
       transform: translateX(-50%) !important;
     }
     
@@ -1254,8 +1254,7 @@
       width: 320px !important;
       height: 320px !important;
       justify-content: center !important;
-      align-items: flex-end !important; /* anclar abajo para que "pise" */
-      transform: translateY(30px) !important; /* bajar SOLO el astronauta (no el texto) */
+      align-items: center !important; /* anclar abajo para que "pise" */
     }
     .third-pos .astronaut-image {
       width: 88% !important;
@@ -1899,13 +1898,13 @@
 
       // Usar la función segura para actualizar elementos del DOM
       setText('user-sales-count', userSales);
-      setText('user-points-total', userPoints);
+      setText('user-points-total', userPoints.toFixed(1));
       setText('user-team-name', user.team || 'Sin equipo');
       setText('user-ranking', userRanking);
 
       // También actualizar el sidebar si los elementos existen
       setText('sidebar-user-sales', userSales);
-      setText('sidebar-user-points', userPoints);
+      setText('sidebar-user-points', userPoints.toFixed(1));
 
       console.log('[USER-STATS] Actualizadas estadísticas desde el ranking:', {
         sales: userSales,
@@ -2091,7 +2090,7 @@
             <div class="ranking-content">
               <!-- Podio con imagen ranking.png -->
               <div class="ranking-podium-final">
-                <img src="images/podio.png" alt="Podio Ranking" class="ranking-base-image">
+                <img src="images/podioazul.png" alt="Podio Ranking" class="ranking-base-image">
                 
                 <!-- Astronautas posicionados sobre la imagen -->
                 <div class="astronauts-overlay">
@@ -2236,9 +2235,9 @@
             const top3 = list[2];
 
             const getScore = (item) => {
-              // Usar SUMA DE PUNTOS como métrica principal del ranking - SIN REDONDEO
-              if (typeof item?.sumPuntaje === 'number') return item.sumPuntaje;
-              if (typeof item?.puntos === 'number') return item.puntos;
+              // Usar PUNTOS TOTALES como métrica principal para coincidir con la lista
+              if (typeof item?.puntos === 'number') return Math.round(item.puntos * 10) / 10;
+              if (typeof item?.promedio === 'number') return Math.round(item.promedio * 10) / 10;
               return 0;
             };
 
@@ -2279,7 +2278,7 @@
                     </div>
                   </div>
                   <div class="agent-stats">
-                    <span class="points">${(typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0))} pts</span>
+                    <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
                     <span class="sales">${agent.ventas || 0} ventas</span>
                   </div>`;
                 container.appendChild(li);
@@ -2299,7 +2298,7 @@
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
                 `;
                 tbody.appendChild(tr);
               });
@@ -2353,7 +2352,7 @@
                         </div>
                       </div>
                       <div class="agent-stats">
-                        <span class="points">${(typeof agent.sumPuntaje === 'number' ? agent.sumPuntaje : (typeof agent.puntos === 'number' ? agent.puntos : 0))} pts</span>
+                        <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
                         <span class="sales">${agent.ventas || 0} ventas</span>
                       </div>`;
                     container2.appendChild(li);
@@ -2371,7 +2370,7 @@
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
                     `;
                     tbody2.appendChild(tr);
                   });
@@ -2405,7 +2404,7 @@
                         <td style="padding:10px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                         <td style="padding:10px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                         <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                        <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                        <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
                       `;
                       tbody.appendChild(tr);
                     });
