@@ -89,6 +89,11 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
     const coll = await getCollection();
     const docs = await coll.find({ anio }).project({ _id: 0, mes: 1, campos: 1 }).toArray();
 
+    console.log(`[FACT] Año solicitado: ${anio}, Documentos encontrados: ${docs.length}`);
+    if (docs.length > 0) {
+      console.log('[FACT] Ejemplo de documento:', docs[0]);
+    }
+
     const totales = Array(12).fill(0);
     for (const d of docs) {
       const mesIdx = (Number(d.mes) || 0) - 1;
