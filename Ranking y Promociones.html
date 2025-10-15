@@ -2251,9 +2251,9 @@
             const top3 = list[2];
 
             const getScore = (item) => {
-              // Usar PUNTOS TOTALES como métrica principal para coincidir con la lista
-              if (typeof item?.puntos === 'number') return Math.round(item.puntos * 10) / 10;
-              if (typeof item?.promedio === 'number') return Math.round(item.promedio * 10) / 10;
+              // Usar los valores EXACTOS sin redondeo
+              if (typeof item?.puntos === 'number') return item.puntos;
+              if (typeof item?.promedio === 'number') return item.promedio;
               return 0;
             };
 
@@ -2314,7 +2314,7 @@
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
                 `;
                 tbody.appendChild(tr);
               });
@@ -2386,7 +2386,7 @@
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
                     `;
                     tbody2.appendChild(tr);
                   });
