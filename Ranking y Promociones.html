@@ -19,7 +19,7 @@
   
   <!-- Scripts -->
   <script src="js/fetch-interceptor.js"></script>
-  <script src="agentes/js/auth-check.js"></script>
+  <script src="agentes-clean/agentes/js/auth-check.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="/js/logout-handler.js"></script>
@@ -1153,14 +1153,21 @@
   </style>
   <style>
     /* Overrides: ocultar título y subtítulo del ranking */
-    .ranking-title, .ranking-subtitle { display: none !important; }
-    .ranking-header { padding-top: 8px !important; padding-bottom: 8px !important; }
-    
-    /* Ocultar las líneas decorativas superiores ya que usamos imagen de fondo */
-    .podium-line { display: none !important; }
-    
-    /* Podio con imagen ranking.png */
-    .ranking-podium-final {
+  .ranking-title, .ranking-subtitle { display: none !important; }
+  .ranking-header { padding-top: 8px !important; padding-bottom: 8px !important; }
+  
+  /* Ocultar las líneas decorativas superiores ya que usamos imagen de fondo */
+  .podium-line { display: none !important; }
+  
+  /* Podio con imagen ranking.png */
+  .primerlugar-image { margin-top: -40px; }
+  .second-pos .astronaut-wrapper {
+    margin-top: -40px;
+  }
+  .second-pos .astronaut-image {
+    margin-top: -40px;
+  }
+  .ranking-podium-final {
       position: relative !important;
       display: flex !important;
       justify-content: center !important;
@@ -1202,19 +1209,19 @@
     
     /* Posicionamiento específico - astronautas parados ENCIMA de los cilindros */
     .second-pos {
-      left: 20% !important;
+      left: 25% !important;
       top: 15% !important; /* Astronauta parado sobre el cilindro izquierdo */
       transform: translateX(-50%) !important;
     }
     
     .first-pos {
       left: 50% !important;
-      top: 3% !important; /* Astronauta parado sobre el cilindro central (más alto) */
+      top: -20% !important; /* Astronauta del primer lugar más arriba aún */
       transform: translateX(-50%) !important;
     }
     
     .third-pos {
-      left: 80% !important;
+      left: 75% !important; /* un poco más a la izquierda */
       top: 22% !important; /* Astronauta parado sobre el cilindro derecho (más bajo) */
       transform: translateX(-50%) !important;
     }
@@ -1310,13 +1317,17 @@
     
     /* Ajustar posicionamiento específico por lugar - en la cara frontal de cada cilindro */
     .first-pos .astronaut-info { 
-      bottom: -290px !important; /* Primer lugar: cara frontal del cilindro más alto - bajado aún más */
+      bottom: -230px !important; /* subir aún más en la base central */
+      width: 180px !important;
     }
     .second-pos .astronaut-info { 
-      bottom: -190px !important; /* Segundo lugar: cara frontal del cilindro medio */
+      bottom: -110px !important; /* subir aún más en la base izquierda */
+      width: 170px !important;
     }
     .third-pos .astronaut-info { 
-      bottom: -200px !important; /* Tercer lugar: cara frontal del cilindro más bajo */
+      bottom: -85px !important; /* subir aún más en la base derecha */
+      transform: translateX(-66%) !important;
+      width: 170px !important;
     }
     
     .astronaut-name {
@@ -1344,6 +1355,11 @@
         0 0 14px rgba(255,224,106,.45),
         0 0 2px rgba(0,0,0,.6) !important;
     }
+
+    /* Elevar solo el número (puntaje) sin mover el nombre */
+    .first-pos .astronaut-score { margin-top: -34px !important; }
+    .second-pos .astronaut-score { margin-top: -26px !important; }
+    .third-pos  .astronaut-score { margin-top: -26px !important; }
     
     .astronaut-score.winner {
       font-size: 3.2rem !important;
@@ -2286,7 +2302,7 @@
             }
 
             // Renderizar TABLA de puntajes con todos los agentes del ranking
-            const table = document.getElementById('rank-table');
+            const table = document.getElementById('full-rank-table');
             if (table) {
               const tbody = table.querySelector('tbody');
               tbody.innerHTML = '';
@@ -2305,7 +2321,7 @@
             }
 
             // Configurar botón 'Ver todos' (refetch con all=1 al expandir)
-            const btn = document.getElementById('btn-view-all');
+            const btn = document.getElementById('btn-open-full-ranking');
             if (btn) {
               btn.onclick = async () => {
                 window.__rankViewAll = !window.__rankViewAll;
@@ -2359,7 +2375,7 @@
                   });
                 }
                 // Render tabla
-                const table2 = document.getElementById('rank-table');
+                const table2 = document.getElementById('full-rank-table');
                 if (table2) {
                   const tbody2 = table2.querySelector('tbody');
                   tbody2.innerHTML = '';
@@ -2375,54 +2391,7 @@
                     tbody2.appendChild(tr);
                   });
                 }
-              };
-            }
-
-            // Botón abrir modal "Ver todos"
-            const openBtn = document.getElementById('btn-open-full-ranking');
-            if (openBtn) {
-              openBtn.onclick = async () => {
-                try {
-                  const modal = document.getElementById('fullRankingModal');
-                  const tbody = document.querySelector('#full-rank-table tbody');
-                  if (tbody) tbody.innerHTML = '';
-                  // Rango del mes actual
-                  const now = new Date();
-                  const y = now.getFullYear();
-                  const m = String(now.getMonth() + 1).padStart(2, '0');
-                  const d = String(now.getDate()).padStart(2, '0');
-                  const fechaInicio = `${y}-${m}-01`;
-                  const fechaFin = `${y}-${m}-${d}`;
-                  // Pedir lista completa (mismo mes, límite alto)
-                  const res = await fetch(`/api/ranking?all=1&limit=500&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`, { credentials: 'include' });
-                  const data = res.ok ? await res.json() : { ranking: [] };
-                  const full = Array.isArray(data?.ranking) ? data.ranking : [];
-                  if (tbody) {
-                    full.forEach((agent, idx) => {
-                      const tr = document.createElement('tr');
-                      tr.innerHTML = `
-                        <td style="padding:10px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
-                        <td style="padding:10px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
-                        <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                        <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0).toFixed ? (agent.sumPuntaje ?? agent.puntos ?? 0).toFixed(1) : (agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
-                      `;
-                      tbody.appendChild(tr);
-                    });
-                  }
-                  if (modal) modal.style.display = 'flex';
-                } catch(e) {
-                  console.error('[RANKING] No se pudo abrir el ranking completo:', e);
-                  alert('No se pudo cargar el ranking completo.');
-                }
-              };
-            }
-
-            // Cerrar modal
-            const closeBtn = document.getElementById('btn-close-full-ranking');
-            const modalEl = document.getElementById('fullRankingModal');
-            if (closeBtn && modalEl) {
-              closeBtn.onclick = () => { modalEl.style.display = 'none'; };
-              modalEl.addEventListener('click', (ev) => { if (ev.target === modalEl) modalEl.style.display = 'none'; });
+              }
             }
 
             console.log('[RANKING] ✅ Podio actualizado desde BD');
