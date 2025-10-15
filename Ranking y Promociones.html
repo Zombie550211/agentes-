@@ -2257,13 +2257,26 @@
               return 0;
             };
 
+            // Formatear evitando artefactos binarios (2.6999999999999997 -> 2.7)
+            function formatScore(n){
+              if (typeof n !== 'number' || !isFinite(n)) return '0';
+              // Si es prácticamente un número con 2 decimales exactos, normalizar a 2 decimales
+              const r2 = Math.round((n + Number.EPSILON) * 100) / 100;
+              if (Math.abs(n - r2) < 1e-9) n = r2;
+              let s = n.toString();
+              if (s.includes('e') || s.includes('E')) s = n.toFixed(12);
+              // Quitar ceros finales y punto si queda al final
+              s = s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+              return s;
+            }
+
             const setSlot = (selectorBase, item) => {
               if (!item) return;
               const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
               const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
-              if (scoreEl) scoreEl.textContent = getScore(item);
+              if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
               // Si en el futuro llega imageUrl
               if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
             };
@@ -2294,7 +2307,7 @@
                     </div>
                   </div>
                   <div class="agent-stats">
-                    <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
+                    <span class="points">${formatScore((typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0)))} pts</span>
                     <span class="sales">${agent.ventas || 0} ventas</span>
                   </div>`;
                 container.appendChild(li);
@@ -2314,7 +2327,7 @@
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
                 `;
                 tbody.appendChild(tr);
               });
@@ -2368,7 +2381,7 @@
                         </div>
                       </div>
                       <div class="agent-stats">
-                        <span class="points">${(typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0))} pts</span>
+                        <span class="points">${formatScore((typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0)))} pts</span>
                         <span class="sales">${agent.ventas || 0} ventas</span>
                       </div>`;
                     container2.appendChild(li);
@@ -2386,7 +2399,7 @@
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${(agent.sumPuntaje ?? agent.puntos ?? 0)}</td>
+                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
                     `;
                     tbody2.appendChild(tr);
                   });
