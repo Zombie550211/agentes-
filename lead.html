@@ -20,33 +20,10 @@
       }
     }
 
-    // Redirigir a lead-lineas.html si el usuario es de Team Líneas
+    // Redirigir SOLO a Team Líneas
     if (isTeamLineasUser() && !window.location.pathname.endsWith('lead-lineas.html')) {
-      window.location.replace('lead-lineas.html');
+      window.location.replace('/lead-lineas.html');
     }
-    // Verificar si el usuario es de Team Líneas y redirigir si es necesario
-    (function() {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const username = (userData.username || '').toLowerCase();
-        const role = (userData.role || '').toLowerCase();
-        
-        // Si el usuario es de Team Líneas, redirigir a lead-lineas.html
-        if (role === 'teamlineas' || username.startsWith('lineas-')) {
-          // Forzar recarga si ya estamos en lead-lineas.html pero el usuario intentó acceder a lead.html
-          if (window.location.pathname.endsWith('lead.html')) {
-            window.location.replace('lead-lineas.html');
-          }
-          // Si por alguna razón el script continúa, prevenir cualquier otra ejecución
-          throw new Error('Redirección forzada a lead-lineas.html');
-        }
-      } catch (e) {
-        if (e.message !== 'Redirección forzada a lead-lineas.html') {
-          console.error('Error al verificar redirección:', e);
-        }
-        return;
-      }
-    })();
   </script>
   
   <!-- Interceptor de API para manejo de permisos -->
@@ -60,13 +37,12 @@
   
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/css/theme.css?v=20250905-163930">
-  <link rel="stylesheet" href="/css/sidebar.css?v=20250905-163930">
-  <link rel="stylesheet" href="/css/sidebar-inicio.css?v=20250905-163930">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20250905-163930">
   <link rel="stylesheet" href="/css/form-styles.css?v=20250916">
   
   <!-- Scripts -->
   <script src="js/fetch-interceptor.js"></script>
-  <script src="/agentes/js/auth-check.js"></script>
+  <script src="/agentes-clean/agentes/js/auth-check.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <!-- Sistema de Inactividad -->
@@ -74,24 +50,7 @@
   <script src="js/inactivity-manager.js"></script>
   <script src="js/crm-init.js"></script>
   <script src="/js/sidebar-loader.js"></script>
-  <script>
-    // Verificar si el usuario es de Team Líneas y redirigir si es necesario
-    (function() {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const username = (userData.username || '').toLowerCase();
-        const role = (userData.role || '').toLowerCase();
-        
-        // Si el usuario es de Team Líneas y está en lead.html, redirigir a lead-lineas.html
-        if ((role === 'teamlineas' || username.startsWith('lineas-')) && 
-            window.location.pathname.endsWith('lead.html')) {
-          window.location.href = 'lead-lineas.html';
-        }
-      } catch (e) {
-        console.error('Error al verificar redirección:', e);
-      }
-    })();
-  </script>
+  <!-- Redirección ya aplicada arriba; bloque redundante eliminado para evitar parpadeo -->
   <script>
     // Versionado para romper caché (actualiza este valor cuando hagas cambios visibles)
     window.__APP_VERSION__ = '20250905-163930';
@@ -124,12 +83,11 @@
       }
     })();
   </script>
-  <script src="agentes/js/auth-check.js?v=20250905-163930"></script>
+  <script src="agentes-clean/agentes/js/auth-check.js?v=20250905-163930"></script>
   <script src="/js/logout-handler.js?v=20250905-163930"></script>
   <script src="/js/user-info.js?v=20250905-163930"></script>
   <script src="/js/form-config.js?v=20250905-163930"></script>
   <script src="/utils/teams.js?v=20250905-163930"></script>
-  <script src="js/sidebar-loader.js?v=20250905-163930"></script>
   <script>
     // Marcar body como team-lineas lo antes posible para aplicar CSS de ocultamiento
     (function(){
@@ -154,123 +112,7 @@
   <!-- Estilos específicos del formulario -->
   <!-- Script para cargar la información del usuario en el sidebar -->
   <style>
-    /* Estilos para el sidebar */
-    .sidebar.sidebar-inicio {
-      display: flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      transform: translateX(0) !important;
-      width: 260px !important;
-      min-width: 260px !important;
-      height: 100vh !important;
-      position: fixed !important;
-      left: 0 !important;
-      top: 0 !important;
-      background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%) !important;
-      border-right: 1px solid #e5e7eb !important;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.06) !important;
-      padding: 18px 0 24px !important;
-      z-index: 1000 !important;
-      flex-direction: column !important;
-      overflow: hidden !important;
-    }
-
-    .sidebar .user-info {
-      display: flex;
-      align-items: center;
-      padding: 16px 20px;
-      margin-bottom: 16px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    .sidebar .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #e6f7fb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 12px;
-      color: #0ea5b3;
-      font-size: 20px;
-    }
-
-    .sidebar .user-details {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar .user-name {
-      font-weight: 600;
-      color: #1e293b;
-      font-size: 15px;
-      line-height: 1.3;
-    }
-
-    .sidebar .user-role {
-      font-size: 13px;
-      color: #64748b;
-      text-transform: capitalize;
-    }
-
-    .sidebar .menu {
-      list-style: none;
-      margin: 0;
-      padding: 0 12px;
-      flex: 1;
-      overflow-y: auto;
-    }
-
-    .sidebar .btn-sidebar {
-      display: flex;
-      align-items: center;
-      padding: 10px 16px;
-      margin-bottom: 4px;
-      color: #475569;
-      text-decoration: none;
-      border-radius: 8px;
-      transition: all 0.2s ease;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .sidebar .btn-sidebar:hover {
-      background-color: #e2e8f0;
-      color: #1e40af;
-    }
-
-    .sidebar .btn-sidebar.active {
-      background-color: #dbeafe;
-      color: #1e40af;
-      font-weight: 600;
-    }
-
-    .sidebar .btn-sidebar i {
-      margin-right: 12px;
-      width: 20px;
-      text-align: center;
-    }
-
-    .sidebar .btn-logout {
-      color: #dc2626;
-    }
-
-    .sidebar .btn-logout:hover {
-      background-color: #fee2e2;
-    }
-
-    .sidebar-footer-quote {
-      padding: 16px 24px 0;
-      margin-top: auto;
-      font-size: 12px;
-      color: #94a3b8;
-      font-style: italic;
-      text-align: center;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 16px;
-      margin-top: 16px;
-    }
+    /* Estilos del sidebar se toman de css/sidebar-shared.css */
 
     /* Estilos para el contenedor de la gráfica */
     .graph-container {
@@ -353,90 +195,11 @@
     }
     /* Asegurar capas correctas */
     .main-content { position: relative; z-index: 1; }
-    /* Sidebar estilizado de forma unificada en css/sidebar.css */
-    /* Estilos para la información del usuario en la barra lateral */
-    .user-info {
-      padding: 20px;
-      text-align: center;
-      border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 10px;
-    }
-    
-    .user-info .avatar {
-      width: 60px;
-      height: 60px;
-      margin: 0 auto 10px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-      color: #4a5568;
-    }
-    
-    .user-info {
-      padding: 20px;
-      text-align: center;
-      border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 15px;
-    }
-    
-    .user-avatar {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 15px;
-      background: #f0f4f8;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-      color: #4a5568;
-    }
-    
-    .user-details {
-      margin-top: 10px;
-    }
-    
-    .user-name {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #2d3748;
-      font-size: 1.1em;
-    }
-    
-    .user-role {
-      display: inline-block;
-      font-size: 0.8em;
-      color: white;
-      background: #4a5568;
-      padding: 3px 12px;
-      border-radius: 12px;
-      margin-top: 5px;
-      font-weight: 500;
-    }
-    /* Los estilos del menú de navegación ahora están en css/sidebar.css */
-    .sidebar-nav button:hover {
-      background: var(--sidebar-accent);
-      color: var(--sidebar-text);
-    }
-    .sidebar-lema {
-      color: var(--sidebar-accent);
-      font-style: italic;
-      font-size: 0.99em;
-      opacity: 0.6;
-      margin-top: auto;
-      padding: 12px 10px 18px 10px;
-      text-align: center;
-      font-weight: 600;
-    }
 
     /* MAIN CONTENT */
     .main-content {
       flex: 1;
       padding: 20px;
-      margin-left: 260px; /* Ajustar según el ancho del sidebar */
       transition: margin 0.3s ease;
       min-height: calc(100vh - 40px); /* Altura mínima para que ocupe toda la pantalla */
       background-color: #f8fafc; /* Fondo para el área de contenido */
@@ -1253,32 +1016,8 @@
   <i class="fas fa-bars"></i>
 </button>
 <div class="layout">
-  <!-- SIDEBAR (contenido estático) -->
-  <nav class="sidebar sidebar-inicio" data-active="lead">
-    <!-- Usuario -->
-    <div class="user-info">
-      <div class="avatar"><i class="fas fa-user-circle"></i></div>
-      <div class="user-details">
-        <span id="user-name" class="user-name">Usuario</span>
-        <span id="user-role" class="user-role">Rol</span>
-      </div>
-    </div>
-
-    <!-- Menú principal (botones propios) -->
-    <ul class="menu">
-      <li><a href="inicio.html" class="btn btn-sidebar">Inicio</a></li>
-      <li><a href="lead.html" class="btn btn-sidebar active">Lead</a></li>
-      <li><a href="Costumer.html" class="btn btn-sidebar">Costumer</a></li>
-      <li><a href="facturacion.html" class="btn btn-sidebar">Facturación</a></li>
-      <!-- Visible solo para ADMIN vía JS -->
-      <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar">Crear cuenta</a></li>
-      <li><a href="Estadisticas.html" class="btn btn-sidebar">Estadísticas</a></li>
-      <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout">Cerrar sesión</a></li>
-    </ul>
-
-    <!-- Frase al pie -->
-    <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
-  </nav>
+  <!-- Sidebar compartido -->
+  <nav class="sidebar sidebar-inicio" data-active="lead"></nav>
   <main class="main-content">
     <div class="lead-content-row">
       <!-- FORMULARIO -->

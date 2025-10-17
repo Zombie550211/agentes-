@@ -7,8 +7,7 @@
 
   <!-- Estilos base y sidebar -->
   <link rel="stylesheet" href="css/theme.css">
-  <link rel="stylesheet" href="css/sidebar.css">
-  <link rel="stylesheet" href="css/sidebar-inicio.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css">
 
   <!-- LibrerÃ­as -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -52,8 +51,6 @@
     .main-content {
       flex: 1;
       padding: 20px;
-      margin-left: 260px; /* Ancho del sidebar-inicio */
-      width: calc(100vw - 260px);
       display: flex;
       flex-direction: column;
       gap: 18px;
@@ -613,23 +610,31 @@
         // Mostrar indicador de carga
         root.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-2">Cargando datos de equipos...</p></div>';
         
-        // Forzar SIEMPRE el mes actual
+        // Rango del DÍA efectivo usando corte local a las 09:30 del día siguiente
+        // Si la hora local es < 09:30, usamos el día anterior como fecha efectiva.
         let fechaInicio = '';
         let fechaFin = '';
         {
-          const now = new Date();
-          const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-          const yyyyS = start.getUTCFullYear();
-          const mmS = String(start.getUTCMonth() + 1).padStart(2, '0');
-          const ddS = String(start.getUTCDate()).padStart(2, '0');
-          const yyyyE = now.getUTCFullYear();
-          const mmE = String(now.getUTCMonth() + 1).padStart(2, '0');
-          const ddE = String(now.getUTCDate()).padStart(2, '0');
-          fechaInicio = `${yyyyS}-${mmS}-${ddS}`;
-          fechaFin = `${yyyyE}-${mmE}-${ddE}`;
+          const nowLocal = new Date();
+          const cutoffHour = 9;
+          const cutoffMinute = 30;
+          const isBeforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
+          const effective = new Date(nowLocal);
+          if (isBeforeCutoff) {
+            // Retroceder un día (24h) para que los datos del día anterior sigan visibles
+            effective.setDate(effective.getDate() - 1);
+          }
+
+          // Día efectivo (00:00) y fin exclusivo (siguiente día 09:30 -> pero la API recibe fecha yyyy-mm-dd, usamos siguiente día 00:00)
+          const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
+          const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0);
+          const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          fechaInicio = fmt(startLocal);
+          fechaFin = fmt(endExclusive);
+          console.log('[ESTADISTICAS] Rango día efectivo:', { fechaInicio, fechaFin, effective: effective.toString() });
         }
         
-        // Construir URL con parÃ¡metros
+        // Construir URL con parámetros
         let url = '/api/equipos/estadisticas';
         const params = new URLSearchParams();
         
@@ -679,15 +684,14 @@
         }
 
         
-        // Si no hay datos, mostrar mensaje de "sin datos" con tabla vacÃ­a
+        // Si no hay datos, intentaremos fallback con /api/leads para el DÍA efectivo
         let teamData = [];
         if (!data.data || data.data.length === 0) {
-          console.log('No hay datos disponibles para el día actual');
-          teamData = [];
+          console.log('No hay datos disponibles para el día actual desde /api/equipos/estadisticas. Intentando fallback con /api/leads...');
         } else {
-          // Mapear datos de la API al formato esperado (mantener Puntaje como nÃºmero)
+          // Mapear datos de la API al formato esperado (mantener Puntaje como número)
           teamData = data.data.map(equipo => ({
-            name: equipo.TEAM || 'Sin equipo',
+            name: equipo.TEAM || equipo.team || 'Sin equipo',
             ICON: parseFloat(equipo.ICON || 0),
             BAMO: parseFloat(equipo.BAMO || 0),
             Total: parseFloat(equipo.Total || 0),
@@ -702,10 +706,105 @@
         const lineasTotalICON = typeof data.lineasTotalICON === 'number' ? data.lineasTotalICON : lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(['TEAM LINEA','TEAM LINEAS']);
         let fallbackTeamData = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
-        // Fallback: si principal queda vacío y hay datos en LINEAS, mostrarlos en principal
-        if (fallbackTeamData.length === 0 && lineasData.length > 0) {
-          const totalIcon = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-          fallbackTeamData = [{ name: 'TEAM LINEAS', ICON: totalIcon, BAMO: 0, Total: totalIcon, Puntaje: 0 }];
+        // Fallback: si principal queda vacío, intentar construirlo desde /api/leads con rango del DÍA efectivo
+        if (fallbackTeamData.length === 0) {
+          try {
+            console.warn('fallbackTeamData vacío. Construyendo desde /api/leads para el día efectivo...');
+            // Helpers locales
+            const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // ajustar si tu TZ cambia
+            const toISOInTZLocal = (date, tzOffsetMinutes) => {
+              const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
+              const y = target.getUTCFullYear();
+              const m = String(target.getUTCMonth() + 1).padStart(2, '0');
+              const d = String(target.getUTCDate()).padStart(2, '0');
+              return `${y}-${m}-${d}`;
+            };
+            const getByPath = (obj, path) => {
+              try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; }
+            };
+            const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+            const tryDateFrom = (val) => {
+              if (!val) return null; if (typeof val === 'string') { const s = val.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y,m,d] = s.split('-').map(Number); return new Date(Date.UTC(y, m-1, d, 12, 0, 0)); }
+                if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const parts = s.split(/[\/\-]/).map(Number); const [d,m,y] = parts; return new Date(Date.UTC(y, m-1, d, 12, 0, 0)); }
+              }
+              if (typeof val === 'number') return new Date(val < 1e12 ? val*1000 : val);
+              const dt = new Date(val); return isNaN(dt) ? null : dt;
+            };
+
+            // Rango día efectivo (mismo criterio que arriba)
+            const nowLocal = new Date();
+            const cutoffHour = 9, cutoffMinute = 30;
+            const isBeforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
+            const effective = new Date(nowLocal);
+            if (isBeforeCutoff) effective.setDate(effective.getDate() - 1);
+            const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
+            // Si el día efectivo es HOY, mostrar acumulado hasta ahora; si es AYER, cortar a 09:30 de hoy
+            const sameDay = effective.getFullYear() === nowLocal.getFullYear() && effective.getMonth() === nowLocal.getMonth() && effective.getDate() === nowLocal.getDate();
+            const endExclusive = sameDay
+              ? new Date(nowLocal) // acumulado en tiempo real
+              : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+            const dayKey = toISOInTZLocal(effective, BUSINESS_TZ_OFFSET_MIN);
+
+            // Obtener leads
+            const leadsResp = await fetchWithAuth('/api/leads');
+            if (leadsResp && leadsResp.ok) {
+              const leadsJson = await leadsResp.json();
+              let leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+              console.log(`[FALLBACK LEADS] Recibidos ${leads.length} registros`);
+
+              // Filtrar por día efectivo
+              const createdPaths = [
+                'dia_venta','diaVenta','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
+                '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
+                'metadata.createdAt','audit.createdAt','timestamps.createdAt'
+              ];
+
+              const inDay = leads.filter(l => {
+                const v = findFirst(l, createdPaths);
+                const dt = tryDateFrom(v);
+                const d = dt && new Date(dt);
+                return d && d >= startLocal && d < endExclusive;
+              });
+
+              // Agrupar por equipo e inferir métricas
+              const teamMap = new Map();
+              const teamNameOf = (lead) => {
+                const t = findFirst(lead, ['TEAM','team','equipo','grupo','department','team_name','Team']);
+                const s = (t || '').toString().trim();
+                return s || 'Sin equipo';
+              };
+              const isICON = (lead) => {
+                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                return v.includes('ICON');
+              };
+              const isBAMO = (lead) => {
+                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                return v.includes('BAMO');
+              };
+              const getPuntaje = (lead) => {
+                const p = findFirst(lead, ['puntaje','score','puntos']);
+                const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n;
+              };
+
+              inDay.forEach(l => {
+                const name = teamNameOf(l);
+                if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+                const agg = teamMap.get(name);
+                agg.Total += 1;
+                if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
+                agg.Puntaje += getPuntaje(l);
+              });
+
+              fallbackTeamData = Array.from(teamMap.values()).filter(t => !excludeNames.has((t.name || '').toUpperCase()));
+              teamData = fallbackTeamData; // usar fallback también para totales
+              console.log('[FALLBACK LEADS] Construido fallbackTeamData y aplicado a teamData:', fallbackTeamData);
+            } else {
+              console.warn('No se pudo obtener /api/leads para fallback.');
+            }
+          } catch (fe) {
+            console.error('Error en fallback por leads:', fe);
+          }
         }
         
         // Calcular totales

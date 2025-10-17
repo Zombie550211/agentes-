@@ -11,11 +11,11 @@
   background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
   border-right: 1px solid #e5e7eb;
   box-shadow: 2px 0 10px rgba(0,0,0,0.06);
-  padding: 18px 0 24px;
+  padding: 12px 0 18px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Evita que las sombras/elementos internos se salgan */
+  overflow-y: visible; /* Sin scroll interno */
 }
 
 /* Marca superior (opcional) */
@@ -28,14 +28,17 @@
 }
 .sidebar.sidebar-inicio .brand-name { color:#22b3ec; font-weight:800; font-size:1.05rem; }
 
+/* Encabezado del menú */
+.sidebar.sidebar-inicio h3 { margin:0 16px 8px; padding-bottom:6px; font-size:0.8rem; }
+
 /* Lista base */
-.sidebar.sidebar-inicio ul.menu { list-style:none; margin:0; padding:14px 22px; overflow:hidden; }
-.sidebar.sidebar-inicio li { margin:10px 0; }
+.sidebar.sidebar-inicio ul.menu { list-style:none; margin:0; padding:8px 16px; overflow:visible; }
+.sidebar.sidebar-inicio li { margin:6px 0; }
 
 /* Botones */
 .sidebar.sidebar-inicio .btn.btn-sidebar {
-  display:block; width:100%; text-align:left; padding:12px 16px; border-radius:999px;
-  background:transparent; color:#111827; font-weight:700;
+  display:block; width:100%; text-align:left; padding:10px 14px; border-radius:999px;
+  background:transparent; color:#111827; font-weight:700; font-size:0.9rem;
   transition: background .18s ease, color .18s ease, transform .12s ease; box-sizing:border-box; margin:0;
 }
 .sidebar.sidebar-inicio .btn.btn-sidebar:hover { background:#e9f6ff; color:#0f172a; transform:none; }
@@ -47,11 +50,48 @@
 .sidebar.sidebar-inicio a.btn-logout[data-logout-button] { color:#111827; }
 
 /* Usuario */
-.sidebar.sidebar-inicio .user-info { padding:18px 20px 16px; text-align:center; border-bottom:1px solid #e5e7eb; margin-bottom:8px; }
+.sidebar.sidebar-inicio .user-info {
+  padding: 28px 16px 18px;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0;
+  background: linear-gradient(180deg, #f1f8ff 0%, #eef6ff 100%);
+}
 .sidebar.sidebar-inicio .user-details { display:flex; flex-direction:column; align-items:center; gap:6px; }
-.sidebar.sidebar-inicio .avatar { width:72px; height:72px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; background:#f0f4f8; color:#64748b; font-size:2rem; }
-.sidebar.sidebar-inicio .user-name { font-weight:700; color:#1f2937; font-size:0.95rem; }
-.sidebar.sidebar-inicio .user-role { display:inline-block; margin-top:2px; font-size:.78rem; color:#fff; background:#64748b; padding:3px 10px; border-radius:999px; }
+.sidebar.sidebar-inicio .avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.4rem;
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.35);
+}
+.sidebar.sidebar-inicio .avatar .user-avatar {
+  background: transparent !important;
+  color: inherit !important;
+  width: auto !important;
+  height: auto !important;
+  display: inline !important;
+  line-height: 1 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-inicio .user-name { font-weight:800; color:#1f2937; font-size:1rem; }
+.sidebar.sidebar-inicio .user-role { display:block; margin-top:2px; font-size:.82rem; color:#94a3b8; background:transparent; padding:0; border-radius:0; }
+
+/* Stats bajo el header (Ventas, Puntos, Equipo) */
+.sidebar.sidebar-inicio .user-stats { padding: 14px 16px; background:#ffffff; border-bottom:1px solid #e5e7eb; }
+.sidebar.sidebar-inicio .stat-item { display:flex; align-items:center; padding:8px 0; color:#0f172a; }
+.sidebar.sidebar-inicio .stat-item i { width:22px; text-align:center; margin-right:10px; color:#22d3ee; font-size:1rem; }
+.sidebar.sidebar-inicio .stat-content { display:flex; flex-direction:column; line-height:1.1; }
+.sidebar.sidebar-inicio .stat-value { font-weight:800; color:#0f172a; font-size:.95rem; }
+.sidebar.sidebar-inicio .stat-label { font-size:.78rem; color:#94a3b8; }
 
 /* Frase inferior */
 .sidebar.sidebar-inicio .sidebar-footer-quote { margin-top:auto; padding:18px 16px 6px; color:#7dd3fc; font-style:italic; text-align:center; font-size:0.86rem; }

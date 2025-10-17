@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script>
+    (function immediateRedirect(){
+      try{ window.location.replace('/Estadisticas.html'); }catch(e){}
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estadísticas - Team Líneas</title>
+  <script>
+    (function guard(){
+      try{
+        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+        const role = String(user.role||'').toLowerCase();
+        const username = String(user.username||'').toLowerCase();
+        const ok = role==='teamlineas' || username.startsWith('lineas-');
+        if(!ok){ window.location.replace('/inicio.html'); }
+      }catch(e){ window.location.replace('/inicio.html'); }
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/sidebar.css" />
+  <link rel="stylesheet" href="/css/sidebar-inicio.css" />
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="estadisticas"></nav>
+    <main class="main-content">
+      <h1 style="margin:16px 0;">Estadísticas - Team Líneas</h1>
+      <p>Página base para Team Líneas.</p>
+    </main>
+  </div>
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
+</body>
+</html>

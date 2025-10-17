@@ -13,9 +13,41 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/sidebar.css">
-  <link rel="stylesheet" href="css/sidebar-inicio.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
+  <!-- Overrides específicos para Ranking: sin scroll interno en sidebar -->
+  <style>
+    .sidebar.sidebar-inicio { overflow-y: visible !important; }
+    .sidebar.sidebar-inicio .user-stats { display: none !important; }
+    .sidebar.sidebar-inicio .user-info { padding: 10px 14px 10px !important; margin-bottom: 6px !important; }
+    .sidebar.sidebar-inicio .user-name { font-size: 0.95rem !important; }
+    .sidebar.sidebar-inicio .user-role { font-size: 0.78rem !important; }
+    .sidebar.sidebar-inicio ul.menu { padding: 8px 14px !important; }
+    .sidebar.sidebar-inicio li { margin: 4px 0 !important; }
+    .sidebar.sidebar-inicio a { padding: 10px 14px !important; font-size: 0.9rem !important; }
+    .sidebar.sidebar-inicio .avatar { width: 56px !important; height: 56px !important; font-size: 1.6rem !important; margin-bottom: 8px !important; }
+    .sidebar.sidebar-inicio h3 { margin: 0 14px 10px !important; padding-bottom: 6px !important; font-size: 0.85rem !important; }
+    .sidebar.sidebar-inicio a i { width: 18px !important; margin-right: 10px !important; font-size: 1rem !important; }
+    .sidebar.sidebar-inicio .sidebar-footer-quote { display: none !important; }
+  </style>
+  <!-- Override global de overflow para esta página -->
+  <style>
+    html, body { overflow-x: hidden !important; overflow-y: auto !important; }
+    .layout { overflow-x: hidden !important; }
+    /* Asegurar que el menú del sidebar se muestre completo y sin recortes */
+    .sidebar.sidebar-inicio ul.menu { display: block !important; visibility: visible !important; overflow: visible !important; max-height: none !important; }
+    .sidebar.sidebar-inicio ul.menu, 
+    .sidebar.sidebar-inicio ul.menu li, 
+    .sidebar.sidebar-inicio ul.menu a { position: relative !important; left: 0 !important; right: auto !important; }
+    .sidebar.sidebar-inicio * { max-width: 100% !important; }
+    /* Fijar ancho del sidebar y corregir ancho del contenido para evitar scroll lateral */
+    .sidebar.sidebar-inicio { width: 260px !important; min-width: 260px !important; overflow-x: hidden !important; display: block !important; }
+    .main-content { margin-left: 260px !important; width: calc(100% - 260px) !important; overflow-x: hidden !important; }
+    /* Forzar apilado vertical del menú */
+    .sidebar.sidebar-inicio .menu { margin: 0 !important; }
+    .sidebar.sidebar-inicio .menu * { float: none !important; white-space: normal !important; }
+    .sidebar.sidebar-inicio .menu a { display: flex !important; width: 100% !important; box-sizing: border-box !important; }
+  </style>
   
   <!-- Scripts -->
   <script src="js/fetch-interceptor.js"></script>
@@ -51,7 +83,6 @@
       flex: 1;
       height: 100vh;
       overflow-y: auto;
-      margin-left: 240px;
       padding: 20px;
       display: flex;
       flex-direction: column;
@@ -141,8 +172,6 @@
     .main-content {
       flex: 1;
       padding: 20px;
-      margin-left: 260px; /* Ancho del sidebar-inicio */
-      width: calc(100vw - 260px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -2074,7 +2103,7 @@
 <body>
   <div class="layout">
     <!-- SIDEBAR (cargado dinámicamente) -->
-    <nav class="sidebar sidebar-inicio" data-active="ranking"></nav>
+    <nav class="sidebar sidebar-inicio" data-active="ranking" style="overflow-y: visible;"></nav>
     <main class="main-content">
 
           <!-- Hero Promocional (imagen / video / gif) -->

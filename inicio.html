@@ -12,8 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/sidebar.css">
-  <link rel="stylesheet" href="css/sidebar-inicio.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <!-- Scripts críticos que deben cargar primero -->
   <script src="js/crm-config.js"></script>
@@ -42,7 +41,6 @@
       flex: 1;
       height: 100vh;
       overflow-y: auto;
-      margin-left: 240px;
       padding: 20px;
       display: flex;
       flex-direction: column;
@@ -132,8 +130,6 @@
     .main-content {
       flex: 1;
       padding: 20px;
-      margin-left: 260px; /* Ancho del sidebar-inicio */
-      width: calc(100vw - 260px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1727,7 +1723,7 @@
           // ÚNICA FUNCIÓN para actualizar el mejor vendedor
           setTimeout(() => {
             console.log('🎯 EJECUTANDO ÚNICA FUNCIÓN DE MEJOR VENDEDOR...');
-            updateBestSeller(leads);
+            updateBestSeller();
           }, 1000);
           
           // Actualizar estadísticas del usuario
@@ -1746,129 +1742,29 @@
     }
 
     // Función para actualizar el mejor vendedor
-    function updateBestSeller(leads) {
+    async function updateBestSeller() {
       try {
-        // Función local para obtener nombre del agente
-        function getAgentNameLocal(l) {
-          const candidates = [
-            l.agenteNombre, l.agente, l.AGENTE, l.vendedor, l.VENDEDOR,
-            l.createdBy, l.ownerId, l.username, l.user, l.name, l.NOMBRE
-          ];
-          const value = candidates.find(v => typeof v === 'string' && v.trim().length > 0) || null;
-          return value ? String(value).trim() : 'DESCONOCIDO';
-        }
-        
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        
-        console.log('🔍 Procesando leads para mejor vendedor...');
-        console.log('📅 Mes actual:', currentMonth, 'Año:', currentYear);
-        console.log('📊 Total de leads recibidos:', leads.length);
-        
-        // Validar que leads sea un array
-        if (!Array.isArray(leads)) {
-          console.error('❌ leads no es un array:', typeof leads);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        // Usar el endpoint de ranking para garantizar el mismo primer lugar que ven los administradores
+        const res = await fetch('/api/ranking?limit=1', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+        if (!res.ok) {
+          console.warn('[KPI][BestSeller] ranking no OK', res.status, res.statusText);
           return;
         }
-        
-        // Filtrar leads del mes actual
-        const monthly = leads.filter(l => {
-          if (!l) return false;
-          const date = new Date(l.dia_venta || l.fecha_contratacion || l.createdAt || l.fecha);
-          const isValidDate = !isNaN(date.getTime());
-          if (!isValidDate) return false;
-          return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-        });
-        
-        console.log('🔍 Leads del mes actual:', monthly.length);
-        
-        if (monthly.length === 0) {
-          console.log('⚠️ No hay leads del mes actual');
-          return;
-        }
-        
-        // Agrupar por agente y calcular puntos
-        const sellerAgg = {};
-        monthly.forEach(l => {
-          const agentName = getAgentNameLocal(l);
-          const points = parseFloat(l.puntaje || l.points || l.Puntos || 0) || 0;
-          
-          if (!sellerAgg[agentName]) {
-            sellerAgg[agentName] = { puntos: 0, ventas: 0 };
-          }
-          sellerAgg[agentName].puntos += points;
-          sellerAgg[agentName].ventas += 1;
-        });
-        
-        console.log('📊 Agregación de vendedores:', sellerAgg);
-        
-        // IMPORTANTE: Usar EXACTAMENTE la misma lógica que el ranking
-        // Encontrar el mejor vendedor (excluir DESCONOCIDO y "Agente" genérico)
-        const invalidNames = ['DESCONOCIDO', 'Agente', 'agente', 'AGENTE', 'Sin asignar', 'N/A', '', null, undefined];
-        const validSellers = Object.entries(sellerAgg).filter(([name]) => 
-          name && !invalidNames.includes(name) && name.trim().length > 0
-        );
-        
-        console.log('👥 Vendedores válidos encontrados:', validSellers.length);
-        console.log('🚫 Vendedores filtrados:', Object.keys(sellerAgg).filter(name => invalidNames.includes(name)));
-        
-        if (validSellers.length === 0) {
-          console.log('⚠️ No hay vendedores válidos después del filtrado');
-          return;
-        }
-        
-        // ORDENAR EXACTAMENTE IGUAL QUE EL RANKING: Por puntos descendente, luego por ventas
-        const sortedSellers = validSellers.sort(([,A],[,B]) => {
-          // Primero por puntos (descendente)
-          if (B.puntos !== A.puntos) {
-            return B.puntos - A.puntos;
-          }
-          // Si tienen los mismos puntos, por ventas (descendente)
-          return B.ventas - A.ventas;
-        });
-        
-        // FORZAR QUE SEA JULIO CHAVEZ (primer lugar del ranking)
-        let bestSeller = 'Julio Chavez';
-        
-        // Verificar si Julio está en los datos
-        const julioData = sellerAgg['Julio Chavez'];
-        if (!julioData) {
-          // Si no está Julio, tomar el primero de la lista ordenada
-          bestSeller = sortedSellers[0][0];
-          console.log('⚠️ Julio Chavez no encontrado, usando:', bestSeller);
-        } else {
-          console.log('✅ FORZANDO JULIO CHAVEZ con:', julioData.puntos.toFixed(2), 'puntos');
-        }
-        
-        console.log('🥇 Top 3 vendedores (mismo orden que el ranking):');
-        sortedSellers.slice(0, 3).forEach(([name, data], index) => {
-          const position = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-          console.log(`${position} ${index + 1}. ${name}: ${data.puntos.toFixed(2)} puntos, ${data.ventas} ventas`);
-        });
-        
-        console.log('🏆 PRIMER LUGAR DEL RANKING:', bestSeller, 'con', sortedSellers[0][1].puntos.toFixed(2), 'puntos');
-        console.log('📋 Este nombre se colocará en el KPI "Mejor vendedor del mes"');
-        
-        // Actualizar el DOM de forma agresiva
-        const element = document.getElementById('best-seller-name');
-        if (element) {
-          // Limpiar y actualizar
-          element.innerHTML = '';
-          element.textContent = bestSeller;
-          
-          // Forzar actualización visual
-          element.style.fontWeight = 'bold';
-          element.style.color = '#1f2937';
-          
-          console.log('✅ ELEMENTO ACTUALIZADO FORZADAMENTE CON:', bestSeller);
-          console.log('🔍 Contenido actual del elemento:', element.textContent);
-        } else {
-          console.error('❌ No se encontró el elemento best-seller-name');
-        }
-        
-      } catch (error) {
-        console.error('Error en updateBestSeller:', error.message || error);
-        console.error('Stack trace:', error.stack);
+        const data = await res.json().catch(() => ({}));
+        // Soportar diferentes formatos: {ranking:[]}, {data:{ranking:[]}}, o array directo
+        let arr = [];
+        if (Array.isArray(data)) arr = data;
+        else if (Array.isArray(data.ranking)) arr = data.ranking;
+        else if (data && data.data && Array.isArray(data.data.ranking)) arr = data.data.ranking;
+
+        const top = Array.isArray(arr) && arr.length ? (arr[0].nombre || arr[0].name || '-') : '-';
+        const el = document.getElementById('best-seller-name');
+        if (el) el.textContent = top || '-';
+      } catch (e) {
+        console.error('[KPI][BestSeller] Error obteniendo ranking:', e);
       }
     }
 
