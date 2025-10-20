@@ -357,7 +357,7 @@ async function onStatusChange(id, newStatus) {
     if (customers.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="21" style="text-align: center; padding: 40px; color: #64748b;">
+          <td colspan="20" style="text-align: center; padding: 40px; color: #64748b;">
             <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
             <p style="font-size: 18px;">No hay clientes para mostrar</p>
           </td>
@@ -377,7 +377,7 @@ async function onStatusChange(id, newStatus) {
       const headerRow = document.createElement('tr');
       headerRow.className = 'month-group-header';
       headerRow.innerHTML = `
-        <td colspan="21">
+        <td colspan="20">
           <i class="fas fa-calendar-alt"></i>
           ${group.month} (${group.customers.length} registros)
         </td>
@@ -413,11 +413,6 @@ async function onStatusChange(id, newStatus) {
           <td>${customer.motivo_llamada || ''}</td>
           <td>${customer.zip_code || ''}</td>
           <td>${customer.puntaje || ''}</td>
-          <td class="comment-cell">
-            <button class="action-btn action-btn-view" onclick="verComentarios('${customer._id || customer.id}')">
-              <i class="fas fa-comment"></i>
-            </button>
-          </td>
           <td class="actions-cell">
             <div class="table-actions">
               <button class="action-btn action-btn-edit" onclick="editarCliente('${customer._id || customer.id}')">
@@ -531,7 +526,7 @@ async function onStatusChange(id, newStatus) {
   }
 
   /**
-   * Filtrar clientes por mes actual
+    * Filtrar clientes por mes actual
    */
   function filterByMonth() {
     if (!window.ultimaListaLeads) {

@@ -102,7 +102,7 @@
         if (tbody) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="21" style="text-align: center; padding: 40px; color: #64748b;">
+              <td colspan="20" style="text-align: center; padding: 40px; color: #64748b;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
                 <p style="font-size: 18px; margin-bottom: 8px;">No se pudieron cargar los clientes</p>
                 <p style="font-size: 14px;">Error: ${error.message}</p>
@@ -142,7 +142,7 @@
     if (customers.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="21" style="text-align: center; padding: 40px; color: #64748b;">
+          <td colspan="20" style="text-align: center; padding: 40px; color: #64748b;">
             <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
             <p style="font-size: 18px;">No hay clientes para mostrar</p>
           </td>

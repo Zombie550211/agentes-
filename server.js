@@ -282,6 +282,85 @@ app.use(express.urlencoded({ extended: true }));
 if (cookieParser) {
   app.use(cookieParser());
 }
+
+// Notas por lead (GET/POST)
+app.get('/api/leads/:id/notas', protect, async (req, res) => {
+  try {
+    if (!db) db = await connectToMongoDB();
+    const { id } = req.params;
+    let leadObjectId = null;
+    try { leadObjectId = new ObjectId(id); } catch {}
+    const coll = db.collection('Vcomments');
+    const q = leadObjectId ? { leadId: leadObjectId } : { $or: [{ leadId: id }, { leadIdStr: id }] };
+    const list = await coll.find(q).sort({ createdAt: 1 }).toArray();
+    const notas = list.map(c => ({
+      texto: c.texto || c.text || '',
+      usuario: c.autor || c.author || 'Usuario',
+      fecha: (c.createdAt ? new Date(c.createdAt) : new Date()).toISOString()
+    }));
+    return res.json({ ok: true, notas });
+  } catch (e) {
+    return res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+app.post('/api/leads/:id/notas', protect, async (req, res) => {
+  try {
+    if (!db) db = await connectToMongoDB();
+    const { id } = req.params;
+    const { texto, usuario, fecha } = req.body || {};
+    if (!texto || !String(texto).trim()) return res.status(400).json({ message: 'texto es requerido' });
+    let leadObjectId = null;
+    try { leadObjectId = new ObjectId(id); } catch {}
+    const coll = db.collection('Vcomments');
+    const doc = {
+      leadId: leadObjectId || id,
+      texto: String(texto).slice(0, 2000),
+      autor: usuario || req.user?.username || 'Usuario',
+      createdAt: fecha ? new Date(fecha) : new Date(),
+      updatedAt: new Date()
+    };
+    await coll.insertOne(doc);
+    return res.json({ ok: true, message: 'Nota agregada', nota: { texto: doc.texto, usuario: doc.autor, fecha: doc.createdAt.toISOString() } });
+  } catch (e) {
+    return res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+app.put('/api/leads/:id', protect, async (req, res) => {
+  try {
+    if (!db) db = await connectToMongoDB();
+    const { id } = req.params;
+    const body = req.body || {};
+    const updates = {};
+    for (const k in body) {
+      const v = body[k];
+      if (v === '' || v == null) continue;
+      updates[k] = v;
+    }
+    updates.actualizadoEn = new Date();
+    let leadObjectId = null;
+    try { leadObjectId = new ObjectId(id); } catch {}
+    const coll = db.collection('costumers');
+    let result = null;
+    if (leadObjectId) {
+      result = await coll.findOneAndUpdate({ _id: leadObjectId }, { $set: updates }, { returnDocument: 'after' });
+    }
+    if (!result || !result.value) {
+      result = await coll.findOneAndUpdate({ _id: id }, { $set: updates }, { returnDocument: 'after' });
+    }
+    if (!result || !result.value) {
+      result = await coll.findOneAndUpdate({ id: id }, { $set: updates }, { returnDocument: 'after' });
+    }
+    if (!result || !result.value) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+    return res.json({ success: true, message: 'Lead actualizado', data: { id, updated: updates } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar el lead', error: e.message });
+  }
+});
+
 // Helmet (si disponible)
 if (helmet) {
   app.use(helmet({
@@ -1465,38 +1544,6 @@ app.get('/api/leads/:id/comentarios', protect, (req, res, next) => {
   } catch (err) {
     console.error('GET comentarios error:', err);
     return res.status(500).json({ success: false, message: 'Error al obtener comentarios', error: err.message });
-  }
-});
-
-// Crear comentario
-app.post('/api/leads/:id/comentarios', protect, async (req, res) => {
-  try {
-    const leadId = req.params.id;
-    const { texto, comentario, autor: autorBody } = req.body || {};
-    if (!db) await connectToMongoDB();
-    let leadObjectId;
-    try { 
-      leadObjectId = new ObjectId(leadId); 
-    } catch { 
-      return res.status(400).json({ success: false, message: 'leadId inválido' }); 
-    }
-    const now = new Date();
-    const doc = {
-      leadId: leadObjectId,
-      texto: (texto ?? comentario ?? '').toString().slice(0, 1000),
-      autor: autorBody || req.user?.username || 'Sistema',
-      createdAt: now,
-      updatedAt: now
-    };
-    const result = await db.collection('Vcomments').insertOne(doc);
-    return res.status(201).json({
-      success: true,
-      message: 'Comentario creado',
-      data: { _id: result.insertedId.toString(), ...doc }
-    });
-  } catch (err) {
-    console.error('POST comentario error:', err);
-    return res.status(500).json({ success: false, message: 'Error al crear comentario', error: err.message });
   }
 });
 
