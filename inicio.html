@@ -6,17 +6,20 @@
   <link rel="stylesheet" href="css/theme.css">
   
   <!-- Font Awesome -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   
   <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/sidebar-shared.css">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
-  <!-- Scripts críticos que deben cargar primero -->
-  <script src="js/crm-config.js"></script>
-  <script src="js/fetch-interceptor.js"></script>
+  <!-- Scripts críticos que deben cargar primero (defer para no bloquear parseo) -->
+  <script src="js/crm-config.js" defer></script>
+  <script src="js/fetch-interceptor.js" defer></script>
   <style>
     /* Estilos globales para eliminar scroll */
     * {
@@ -1699,7 +1702,13 @@
     }
 
     // Función para cargar datos del dashboard
+    // Evitar cargas duplicadas desde otros módulos
+    window.__dashboardLoading = window.__dashboardLoading || false;
+    window.__dashboardLoaded = window.__dashboardLoaded || false;
+
     async function loadDashboardData(user) {
+      if (window.__dashboardLoading || window.__dashboardLoaded) { return; }
+      window.__dashboardLoading = true;
       try {
         console.log('🔄 Cargando datos del dashboard...');
         
@@ -1729,12 +1738,15 @@
           // Actualizar estadísticas del usuario
           await updateUserStats(leads, user);
           
-          // Crear gráficos
-          await createCharts(leads);
+          // Crear gráficos de forma diferida para no bloquear el primer render
+          const deferCharts = () => { try { createCharts(leads); } catch(_){} };
+          if ('requestIdleCallback' in window) { requestIdleCallback(deferCharts, { timeout: 1200 }); }
+          else { setTimeout(deferCharts, 300); }
           
         } else {
           console.error('Error cargando datos:', response.status);
         }
+        window.__dashboardLoaded = true;
       } catch (error) {
         console.error('Error en loadDashboardData:', error.message || error);
         console.error('Stack trace:', error.stack);
@@ -1905,6 +1917,7 @@
         salesData.push(monthlySales);
       }
       
+      // Instanciar chart fuera del hilo crítico
       salesChartRef = new Chart(ctx, {
         type: 'line',
         data: {
@@ -2212,18 +2225,18 @@
       </div>
 
   <!-- Scripts al final del body para mejor rendimiento -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="js/inactivity-manager.js"></script>
-  <script src="agentes/js/auth-check.js"></script>
-  <script src="js/crm-init.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
+  <script src="js/inactivity-manager.js" defer></script>
+  <script src="agentes/js/auth-check.js" defer></script>
+  <script src="js/crm-init.js" defer></script>
 </main>
   </div>
 
   <!-- Sidebar unified scripts -->
-  <script src="js/auth-logout.js"></script>
-  <script src="js/user-info-updater.js"></script>
-  <script src="js/sidebar-loader.js"></script>
+  <script src="js/auth-logout.js" defer></script>
+  <script src="js/user-info-updater.js" defer></script>
+  <script src="js/sidebar-loader.js" defer></script>
   <script>
     // KPIs y Gráfica: Productos vendidos en el mes
     (function(){
@@ -2386,7 +2399,9 @@
         });
       }
 
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadLeads); else loadLeads();
+      // Evitar doble carga si otro módulo ya inició
+      const startLoad = () => { if (!window.__dashboardLoading && !window.__dashboardLoaded) loadLeads(); };
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startLoad); else startLoad();
     })();
   </script>
 </body>
