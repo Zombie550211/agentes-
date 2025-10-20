@@ -530,11 +530,17 @@ function renderFilaTotalesFacturacion() {
   } else {
     totales[9] = 0;
   }
+  // TOTAL GENERAL: cols 10 (total del día), 11 (total ventas) -> 12 (valor venta total)
+  if (totales[11] > 0) {
+    totales[12] = totales[10] / totales[11];
+  } else {
+    totales[12] = 0;
+  }
   for (let i = 1; i < numCols; i++) {
     const el = document.getElementById('total-col-' + i);
     if (!el) continue;
-    // Para las columnas VALOR DE VENTA (3,6,9) usar truncado exacto
-    if (i === 3 || i === 6 || i === 9) {
+    // Para las columnas VALOR DE VENTA (3,6,9,12) usar truncado exacto
+    if (i === 3 || i === 6 || i === 9 || i === 12) {
       el.textContent = formatMoneyTrunc(totales[i]);
       continue;
     }
