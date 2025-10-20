@@ -301,6 +301,16 @@ function removeMoneySign(val) {
   return val.replace(/[^0-9.]/g, '');
 }
 
+// Truncado exacto a 2 decimales (sin redondeo) y formato moneda
+function truncateTo2(n) {
+  if (!isFinite(n)) return 0;
+  return Math.trunc(n * 100) / 100;
+}
+function formatMoneyTrunc(n) {
+  const t = truncateTo2(Number(n) || 0);
+  return "$" + t.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 async function fetchFacturacionMes(mes, ano) {
   try {
     const url = `/api/facturacion/${ano}/${String(mes).padStart(2, '0')}`;
@@ -501,11 +511,37 @@ function renderFilaTotalesFacturacion() {
       totales[i] += val;
     });
   });
+  // Recalcular totales de VALOR DE VENTA como (Total Monto)/(Total Ventas)
+  // ALEXIS: cols 1 (monto), 2 (ventas) -> 3 (valor de venta)
+  if (totales[2] > 0) {
+    totales[3] = totales[1] / totales[2];
+  } else {
+    totales[3] = 0;
+  }
+  // CUENTA ALTERNA: cols 4 (monto), 5 (ventas) -> 6 (valor de venta)
+  if (totales[5] > 0) {
+    totales[6] = totales[4] / totales[5];
+  } else {
+    totales[6] = 0;
+  }
+  // LINEAS: cols 7 (monto), 8 (ventas) -> 9 (valor de venta)
+  if (totales[8] > 0) {
+    totales[9] = totales[7] / totales[8];
+  } else {
+    totales[9] = 0;
+  }
   for (let i = 1; i < numCols; i++) {
+    const el = document.getElementById('total-col-' + i);
+    if (!el) continue;
+    // Para las columnas VALOR DE VENTA (3,6,9) usar truncado exacto
+    if (i === 3 || i === 6 || i === 9) {
+      el.textContent = formatMoneyTrunc(totales[i]);
+      continue;
+    }
     if (columnasConSigno.includes(i)) {
-      document.getElementById('total-col-' + i).textContent = addMoneySign(totales[i]);
+      el.textContent = addMoneySign(totales[i]);
     } else {
-      document.getElementById('total-col-' + i).textContent = totales[i].toFixed(2);
+      el.textContent = (Number.isFinite(totales[i]) ? totales[i] : 0).toFixed(2);
     }
   }
 }
