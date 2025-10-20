@@ -25,6 +25,7 @@
    */
   window.editarCliente = function(clienteId) {
     console.log('[COSTUMER] Editar cliente:', clienteId);
+    // Permitir abrir modal a todos los roles; el bloqueo se aplica a campos/acción guardar
     
     // Buscar el cliente en los datos
     const customers = window.ultimaListaLeads || [];
@@ -109,12 +110,34 @@
       setFieldValue('edit-apellidos', apellidos);
     })();
     setFieldValue('edit-direccion', customer.direccion);
-    setFieldValue('edit-zip-code', customer.zip_code);
+    (function(){
+      const candidates = [
+        customer.zip_code,
+        customer.zip,
+        customer.zipcode,
+        customer.zipCode,
+        customer.postal_code,
+        customer.postalCode,
+        customer.codigo_postal,
+        customer.Codigo_postal,
+        customer.cp,
+        customer.CP
+      ];
+      let zipVal = '';
+      for (const z of candidates) {
+        if (z !== undefined && z !== null && String(z).trim() !== '') { zipVal = String(z).trim(); break; }
+      }
+      setFieldValue('edit-zip-code', zipVal);
+    })();
     setFieldValue('edit-tipo-servicios', customer.tipo_servicios || customer.servicios);
     setFieldValue('edit-numero-cuenta', customer.numero_cuenta);
     setFieldValue('edit-dia-venta', normalizarFecha(customer.dia_venta || customer.fecha_contratacion || customer.fecha));
     setFieldValue('edit-dia-instalacion', normalizarFecha(customer.dia_instalacion));
-    setFieldValue('edit-supervisor', customer.supervisor);
+    (function(){
+      const supRaw = (customer.supervisor || '').toString().trim();
+      const supNorm = supRaw.toUpperCase();
+      setFieldValue('edit-supervisor', supNorm === 'RANDAL' ? 'JOHANA' : supRaw);
+    })();
     setFieldValue('edit-mercado', customer.mercado);
     setFieldValue('edit-email', customer.email);
     setFieldValue('edit-documento', customer.documento || customer.identificacion);
@@ -137,6 +160,20 @@
         autopagoField.checked = autopago;
       }
     }
+    // Bloquear campos y botón guardar para roles no permitidos (solo admin/backoffice pueden editar)
+    try {
+      const role = (window.getCurrentUserRole ? String(window.getCurrentUserRole()).toLowerCase() : '');
+      const canEditLead = role.includes('admin') || role.includes('backoffice') || role === 'bo';
+      const fieldIds = [
+        'edit-telefono','edit-telefono-alt','edit-nombres','edit-apellidos','edit-direccion','edit-zip-code',
+        'edit-tipo-servicios','edit-tv1','edit-tv2','edit-tv3','edit-tv4','edit-autopago','edit-mercado',
+        'edit-representante','edit-supervisor','edit-dia-venta','edit-dia-instalacion','edit-numero-cuenta',
+        'edit-email','edit-documento','edit-idioma'
+      ];
+      fieldIds.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !canEditLead; });
+      const saveBtn = document.querySelector('button[onclick="guardarCambiosLead()"]');
+      if (saveBtn) { saveBtn.disabled = !canEditLead; saveBtn.style.opacity = canEditLead ? '' : '0.6'; saveBtn.style.cursor = canEditLead ? 'pointer' : 'not-allowed'; }
+    } catch {}
     
     // Cargar notas/historial del cliente
     cargarNotasCliente(clienteId);
@@ -400,6 +437,15 @@
       alert('No hay cliente seleccionado');
       return;
     }
+    // Verificar permisos antes de guardar
+    try {
+      const role = (window.getCurrentUserRole ? String(window.getCurrentUserRole()).toLowerCase() : '');
+      const allowed = role.includes('admin') || role.includes('backoffice') || role === 'bo';
+      if (!allowed) {
+        alert('No autorizado: solo Admin y Backoffice pueden guardar cambios');
+        return;
+      }
+    } catch {}
 
     // Helper para obtener valor de campo
     const getFieldValue = (id) => {
@@ -427,6 +473,12 @@
       idioma: getFieldValue('edit-idioma'),
       representante: getFieldValue('edit-representante')
     };
+
+    // Normalizar cambio de supervisor RANDAL -> JOHANA
+    if (typeof datosActualizados.supervisor === 'string') {
+      const sup = datosActualizados.supervisor.trim();
+      if (sup.toUpperCase() === 'RANDAL') datosActualizados.supervisor = 'JOHANA';
+    }
 
     // Campos TV
     const tv1 = getFieldValue('edit-tv1');

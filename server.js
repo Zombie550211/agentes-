@@ -81,7 +81,6 @@ app.get('/health', (req, res) => {
   const map = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   res.json({ ok: state === 1, mongo: map[state] || String(state) });
 });
-
 // Configuración de rutas de archivos estáticos
 app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
   setHeaders: (res, path) => {
@@ -332,6 +331,13 @@ app.put('/api/leads/:id', protect, async (req, res) => {
     if (!db) db = await connectToMongoDB();
     const { id } = req.params;
     const body = req.body || {};
+    // Autorización: solo admin/backoffice
+    try {
+      const role = (req.user?.role || '').toLowerCase();
+      const allowed = ['admin','administrador','backoffice','bo'];
+      const ok = allowed.some(r => role.includes(r));
+      if (!ok) return res.status(403).json({ success: false, message: 'No autorizado' });
+    } catch {}
     const updates = {};
     for (const k in body) {
       const v = body[k];
@@ -342,22 +348,77 @@ app.put('/api/leads/:id', protect, async (req, res) => {
     let leadObjectId = null;
     try { leadObjectId = new ObjectId(id); } catch {}
     const coll = db.collection('costumers');
-    let result = null;
-    if (leadObjectId) {
-      result = await coll.findOneAndUpdate({ _id: leadObjectId }, { $set: updates }, { returnDocument: 'after' });
-    }
-    if (!result || !result.value) {
-      result = await coll.findOneAndUpdate({ _id: id }, { $set: updates }, { returnDocument: 'after' });
-    }
-    if (!result || !result.value) {
-      result = await coll.findOneAndUpdate({ id: id }, { $set: updates }, { returnDocument: 'after' });
-    }
-    if (!result || !result.value) {
+    const orConds = [
+      { _id: id },
+      { id: id },
+      { ID: id },
+      { id_cliente: id },
+      { leadId: id },
+      { lead_id: id }
+    ];
+    if (leadObjectId) orConds.unshift({ _id: leadObjectId });
+    const filter = { $or: orConds };
+    const result = await coll.updateOne(filter, { $set: updates });
+    if (!result || result.matchedCount === 0) {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
-    return res.json({ success: true, message: 'Lead actualizado', data: { id, updated: updates } });
+    return res.json({ success: true, message: 'Lead actualizado', data: { id, updated: updates }, modified: result.modifiedCount });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Error al actualizar el lead', error: e.message });
+  }
+});
+
+// Bulk update: cambiar supervisor RANDAL -> JOHANA para leads enviados HOY
+app.post('/api/leads/bulk-update-supervisor', protect, async (req, res) => {
+  try {
+    const role = (req.user?.role || '').toLowerCase();
+    const allowed = ['admin','administrador','backoffice','supervisor'];
+    if (!allowed.some(r => role.includes(r))) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    if (!db) db = await connectToMongoDB();
+    const coll = db.collection('costumers');
+
+    const {
+      fromSupervisor = 'RANDAL',
+      fromTeam = 'RANDAL', // si deseas filtrar por team también
+      setSupervisor = 'JOHANA',
+      setTeam // opcional: si también quieres cambiar el team
+    } = req.body || {};
+
+    // Rango de fechas de HOY (local)
+    const start = new Date(); start.setHours(0,0,0,0);
+    const end = new Date(start); end.setDate(end.getDate()+1);
+    const yyyy = start.getFullYear();
+    const mm = String(start.getMonth()+1).padStart(2,'0');
+    const dd = String(start.getDate()).padStart(2,'0');
+    const dateStr = `${yyyy}-${mm}-${dd}`; // para campos string tipo 'YYYY-MM-DD'
+
+    const andConds = [
+      { supervisor: { $regex: new RegExp(`^${fromSupervisor}$`, 'i') } }
+    ];
+    if (fromTeam) andConds.push({ team: { $regex: new RegExp(fromTeam, 'i') } });
+
+    // Coincidir documentos creados hoy por distintos campos de fecha
+    const dateOr = {
+      $or: [
+        { createdAt: { $gte: start, $lt: end } },
+        { creadoEn: { $gte: start, $lt: end } },
+        { dia_venta: { $regex: new RegExp(`^${dateStr}`) } },
+        { fecha_contratacion: { $regex: new RegExp(`^${dateStr}`) } },
+        { fecha: { $regex: new RegExp(`^${dateStr}`) } }
+      ]
+    };
+
+    const filter = { $and: [ ...andConds, dateOr ] };
+    const update = { $set: { supervisor: setSupervisor, actualizadoEn: new Date() } };
+    if (setTeam) update.$set.team = setTeam;
+
+    const result = await coll.updateMany(filter, update);
+    return res.json({ success: true, matched: result.matchedCount, modified: result.modifiedCount });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error en bulk update', error: e.message });
   }
 });
 

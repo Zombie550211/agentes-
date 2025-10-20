@@ -392,7 +392,50 @@ async function onStatusChange(id, newStatus) {
         // Usar fecha directamente sin conversión para evitar desfase UTC
         const fechaVenta = customer.dia_venta || customer.fecha_contratacion || customer.fecha || '';
         const fechaInstalacion = customer.dia_instalacion || '';
-        
+        // Sistema/Riesgo/Tipo: normalizar para evitar celdas vacías
+        const sistemaTexto = (customer.sistema_texto || '').toString().trim();
+        const sistemaCode = (customer.sistema || '').toString().trim();
+        let displaySistema = '';
+        if (sistemaTexto) {
+          displaySistema = sistemaTexto;
+        } else if (sistemaCode) {
+          const code = sistemaCode.toLowerCase();
+          if (code === 'na' || code === 'n/a') displaySistema = 'N/A';
+          else if (code === 'bo' || code === 'b.o' || code === 'b-o') displaySistema = 'B.O';
+          else displaySistema = code.toUpperCase();
+        }
+        const riesgoRaw = (customer.riesgo || '').toString().trim();
+        let displayRiesgo = '';
+        if (riesgoRaw) {
+          const rcode = riesgoRaw.toLowerCase();
+          displayRiesgo = (rcode === 'na' || rcode === 'n/a') ? 'N/A' : riesgoRaw.toUpperCase();
+        }
+        const tipoServicios = (customer.tipo_servicios || '').toString().trim();
+        const tipoServicio = (customer.tipo_servicio || '').toString().trim();
+        const serviciosTexto = (customer.servicios_texto || '').toString().trim();
+        let displayTipo = tipoServicios || tipoServicio || serviciosTexto;
+        if (!displayTipo) {
+          const code = (customer.servicios || '').toString().trim();
+          displayTipo = code ? code.replace(/[-_]/g, ' ').toUpperCase() : '';
+        }
+        // ZIP CODE: fallback across common field names
+        const zipCandidates = [
+          customer.zip_code,
+          customer.zip,
+          customer.zipcode,
+          customer.zipCode,
+          customer.postal_code,
+          customer.postalCode,
+          customer.codigo_postal,
+          customer.Codigo_postal,
+          customer.cp,
+          customer.CP
+        ];
+        let displayZip = '';
+        for (const z of zipCandidates) {
+          if (z !== undefined && z !== null && String(z).trim() !== '') { displayZip = String(z).trim(); break; }
+        }
+
         row.innerHTML = `
           <td>${customer.nombre_cliente || ''}</td>
           <td>${customer.telefono_principal || ''}</td>
@@ -400,9 +443,9 @@ async function onStatusChange(id, newStatus) {
           <td>${customer.numero_cuenta || ''}</td>
           <td>${autopago}</td>
           <td>${customer.direccion || ''}</td>
-          <td>${customer.tipo_servicios || ''}</td>
-          <td>${customer.sistema || ''}</td>
-          <td>${customer.riesgo || ''}</td>
+          <td>${displayTipo}</td>
+          <td>${displaySistema}</td>
+          <td>${displayRiesgo}</td>
           <td>${fechaVenta}</td>
           <td>${fechaInstalacion}</td>
           ${renderStatusCell(customer)}
@@ -411,7 +454,7 @@ async function onStatusChange(id, newStatus) {
           <td>${customer.supervisor || ''}</td>
           <td>${customer.comentario || ''}</td>
           <td>${customer.motivo_llamada || ''}</td>
-          <td>${customer.zip_code || ''}</td>
+          <td>${displayZip}</td>
           <td>${customer.puntaje || ''}</td>
           <td class="actions-cell">
             <div class="table-actions">
