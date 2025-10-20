@@ -536,11 +536,17 @@ function renderFilaTotalesFacturacion() {
   } else {
     totales[12] = 0;
   }
+  // CPA PUNTOS: cols 10 (total del día), 13 (puntos) -> 14 (CPA puntos)
+  if (totales[13] > 0) {
+    totales[14] = totales[10] / totales[13];
+  } else {
+    totales[14] = 0;
+  }
   for (let i = 1; i < numCols; i++) {
     const el = document.getElementById('total-col-' + i);
     if (!el) continue;
-    // Para las columnas VALOR DE VENTA (3,6,9,12) usar truncado exacto
-    if (i === 3 || i === 6 || i === 9 || i === 12) {
+    // Para las columnas VALOR DE VENTA y CPA PUNTOS (3,6,9,12,14) usar truncado exacto
+    if (i === 3 || i === 6 || i === 9 || i === 12 || i === 14) {
       el.textContent = formatMoneyTrunc(totales[i]);
       continue;
     }
