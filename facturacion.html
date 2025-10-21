@@ -47,15 +47,21 @@
     .modal-close-btn:hover { background: #ca2222;}
     .modal-title { font-size: 1.45em; font-weight: 700; color: var(--azul-oscuro); margin: 0 0 18px 0; text-align: center;}
     .modal-table-container { overflow-y: auto; max-height: 65vh; min-width: 100%;}
-    .tabla-excel-editable { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: 600px; overflow-y: auto; transition: box-shadow var(--trans);}
+    .tabla-excel-editable { background: #fff; border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: auto; max-height: none; overflow-y: visible; transition: box-shadow var(--trans);}
     table { border-collapse: separate; border-spacing: 0; width: 100%; background: #fff; color: var(--azul-oscuro); font-size: 1em; table-layout: fixed; border: none;}
     th, td { border: 1.5px solid var(--gris-borde); text-align: center; min-width: 70px; max-width: 120px; height: 32px; overflow: hidden; text-overflow: ellipsis; font-family: inherit; background: #fff; font-size: .99em; font-weight: 400; padding: 0; white-space: nowrap; transition: background var(--trans);}
     th { background: var(--gris-titulo); font-weight: 700; font-size: 0.97em; height: 38px; white-space: pre-line; line-height: 1.12; color: #111 !important; border-bottom: 2.5px solid var(--azul-acento); position: sticky; top: 0; z-index: 3; box-shadow: 0 2px 6px rgba(40,181,232,.03);}
     tr:nth-child(even) td { background: var(--azul-celda);}
     tr:hover td { background: #d9f7fb; transition: background var(--trans);}
-    td[contenteditable="true"] { background: #fff; cursor: pointer; transition: background var(--trans);}
-    td:focus { outline: 2px solid var(--azul-acento);}
+    td[contenteditable="true"] { background: #fff; cursor: pointer; transition: background var(--trans);}    
+    td:focus { outline: 2px solid var(--azul-acento);}    
     th { padding: 2px 1px; font-size: 0.98em; white-space: pre-line;}
+    #tablaExcel th:nth-child(4), #tablaExcel td:nth-child(4),
+    #tablaExcel th:nth-child(7), #tablaExcel td:nth-child(7),
+    #tablaExcel th:nth-child(10), #tablaExcel td:nth-child(10) { border-right: 3px solid var(--azul-acento); }
+    .fila-totales-fija div:nth-child(4),
+    .fila-totales-fija div:nth-child(7),
+    .fila-totales-fija div:nth-child(10) { border-right: 3px solid var(--azul-acento); }
     .tabla-paginacion { width: 100%; display: flex; justify-content: flex-end; gap: 10px; margin: 10px 40px 0 0;}
     .tabla-paginacion button { padding: 5px 17px; border-radius: 10px; background: var(--azul-acento); color: #fff; border: none; font-weight: 600; font-size: 1.07em; cursor: pointer; transition: background var(--trans), box-shadow var(--trans); box-shadow: 0 1px 4px rgba(40,181,232,.08);}
     .tabla-paginacion button:active { background: #209dd5;}
@@ -563,6 +569,9 @@ function actualizarTotalesPorMesLocales() {
   const total = parseFloat(document.getElementById('total-col-10').textContent.replace(/[^0-9.-]/g, "")) || 0;
   totalesPorMesLocales[mesActual] = total;
 }
+
+// Agrega una línea divisora al final de cada grupo de cuenta
+
 
 let grafica;
 async function actualizarGrafica() {
