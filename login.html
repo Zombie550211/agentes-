@@ -20,7 +20,7 @@
             justify-content: center;
             overflow: hidden;
             position: relative;
-            background: #000;
+            background: url('images/nocheestrellada.jpg') center/cover no-repeat fixed, #000;
         }
 
         /* Video de fondo */
@@ -346,13 +346,7 @@
     </style>
 </head>
 <body>
-    <!-- Video de fondo -->
-    <video id="video-background" autoplay muted loop playsinline>
-        <source src="images/flotarenelespacio.mp4" type="video/mp4">
-        <source src="images/flotarenelespacio.webm" type="video/webm">
-        <!-- Fallback a imagen si el video no carga -->
-        Tu navegador no soporta video HTML5.
-    </video>
+    <!-- Fondo estático: imagen "nocheestrellada" -->
 
     <div class="login-container">
         <!-- Sección izquierda con logo y texto -->
@@ -420,26 +414,22 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('loginForm').addEventListener('submit', handleLogin);
             
-            // Configurar el video de fondo
-            const video = document.getElementById('video-background');
-            if (video) {
-                video.muted = true;
-                video.playsInline = true;
-                
-                // Intentar reproducir el video
-                video.play().catch(e => {
-                    console.log('Error al reproducir video:', e);
-                    // Si falla, usar imagen de fallback
-                    document.body.style.background = "url('images/Constelaciones .png') center/cover no-repeat";
-                });
-                
-                // Manejar errores de carga del video
-                video.addEventListener('error', () => {
-                    console.log('Error al cargar el video, usando imagen de fallback');
-                    video.style.display = 'none';
-                    document.body.style.background = "url('images/Constelaciones .png') center/cover no-repeat";
-                });
-            }
+            // Configurar imagen de fondo con fallbacks
+            const setBg = (url) => {
+                document.body.style.background = `url('${url}') center/cover no-repeat fixed`;
+            };
+            const candidates = [
+                'images/nocheestrellada.jpg',
+                'images/nocheestrellada.png',
+                'images/podioazul.png'
+            ];
+            (function tryLoad(i = 0) {
+                if (i >= candidates.length) return;
+                const img = new Image();
+                img.onload = () => setBg(candidates[i]);
+                img.onerror = () => tryLoad(i + 1);
+                img.src = candidates[i];
+            })();
         });
 
         function getUrlParameter(name) {
