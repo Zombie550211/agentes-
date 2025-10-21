@@ -20,6 +20,62 @@
     }
   };
 
+  // Editar nota del cliente
+  window.editarNotaCliente = async function(notaId, oldText) {
+    try {
+      const clienteId = window.currentEditClienteId;
+      if (!clienteId) return alert('No hay cliente seleccionado');
+      if (notaId == null) return alert('No fue posible identificar la nota a editar');
+      const nuevo = prompt('Editar nota:', oldText || '');
+      if (nuevo == null) return; // cancelado
+      const body = { texto: String(nuevo).trim() };
+      if (!body.texto) return alert('El texto no puede estar vacío');
+      const res = await fetch(`/api/leads/${clienteId}/notas/${encodeURIComponent(notaId)}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        await cargarNotasCliente(clienteId);
+      } else if (res.status === 404) {
+        alert('El endpoint de edición de notas no está disponible en el servidor.\nImplementa: PUT /api/leads/{id}/notas/{notaId}');
+      } else {
+        const msg = await res.text().catch(()=>'Error desconocido');
+        alert('Error al editar nota: ' + msg);
+      }
+    } catch (e) {
+      console.error('[COSTUMER] Error editando nota:', e);
+      alert('No se pudo editar la nota');
+    }
+  };
+
+  // Eliminar nota del cliente
+  window.eliminarNotaCliente = async function(notaId) {
+    try {
+      const clienteId = window.currentEditClienteId;
+      if (!clienteId) return alert('No hay cliente seleccionado');
+      if (notaId == null) return alert('No fue posible identificar la nota a eliminar');
+      if (!confirm('¿Eliminar esta nota?')) return;
+      const res = await fetch(`/api/leads/${clienteId}/notas/${encodeURIComponent(notaId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        await cargarNotasCliente(clienteId);
+      } else if (res.status === 404) {
+        alert('El endpoint de eliminación de notas no está disponible en el servidor.\nImplementa: DELETE /api/leads/{id}/notas/{notaId}');
+      } else {
+        const msg = await res.text().catch(()=>'Error desconocido');
+        alert('Error al eliminar nota: ' + msg);
+      }
+    } catch (e) {
+      console.error('[COSTUMER] Error eliminando nota:', e);
+      alert('No se pudo eliminar la nota');
+    }
+  };
+
   /**
    * Editar cliente
    */
@@ -49,7 +105,21 @@
     // Actualizar título del modal con ID del lead
     const leadIdDisplay = document.getElementById('edit-lead-id-display');
     if (leadIdDisplay) {
-      leadIdDisplay.textContent = String(clienteId);
+      const toShortLeadId = (val) => {
+        try {
+          const s = String(val || '').replace(/[^a-zA-Z0-9]/g, '');
+          let nums = '';
+          let lets = '';
+          for (const ch of s) {
+            if (nums.length < 2 && /[0-9]/.test(ch)) { nums += ch; continue; }
+            if (lets.length < 2 && /[a-zA-Z]/.test(ch)) { lets += ch.toUpperCase(); }
+            if (nums.length === 2 && lets.length === 2) break;
+          }
+          const out = (nums + lets) || s.slice(0,4);
+          return String(out).toUpperCase();
+        } catch { return String(val || '').toUpperCase().slice(0,4); }
+      };
+      leadIdDisplay.textContent = toShortLeadId(clienteId);
     }
     
     // Helper para normalizar fechas a formato yyyy-MM-dd (sin conversión UTC)
@@ -637,7 +707,7 @@
     // Renderizar cada nota con formato: Usuario DD/MM/YYYY HH:MM:SS
     notas.forEach((nota, index) => {
       const notaWrapper = document.createElement('div');
-      notaWrapper.style.cssText = 'margin-bottom: 15px;';
+      notaWrapper.className = 'note-card';
       
       // Formatear fecha y hora completa
       let fechaHoraStr = '';
@@ -654,18 +724,44 @@
         fechaHoraStr = `${dia}/${mes}/${anio} ${horas}:${minutos}:${segundos}`;
       }
       
-      // Título de la nota con usuario y fecha/hora
-      const titulo = document.createElement('h4');
-      titulo.style.cssText = 'margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #111;';
-      titulo.textContent = `${usuario} ${fechaHoraStr}`;
-      
+      // Header con meta y acciones
+      const header = document.createElement('div');
+      header.className = 'note-header';
+      const meta = document.createElement('div');
+      meta.className = 'note-meta';
+      meta.textContent = `${usuario} ${fechaHoraStr}`;
+      const actions = document.createElement('div');
+      actions.className = 'note-actions';
+
       // Contenido de la nota
       const contenido = document.createElement('div');
-      contenido.style.cssText = 'background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; font-size: 12px; line-height: 1.6; color: #374151; white-space: pre-wrap;';
+      contenido.className = 'note-content';
       const texto = nota.texto || nota.comentario || nota.contenido || '';
       contenido.textContent = texto;
       
-      notaWrapper.appendChild(titulo);
+      // Acciones (editar / eliminar)
+      const mkBtn = (klass, icon, title) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.title = title;
+        b.className = `note-btn ${klass}`;
+        const i = document.createElement('i');
+        i.className = icon;
+        i.style.cssText = 'font-size:14px;';
+        b.appendChild(i);
+        return b;
+      };
+      const notaId = nota._id || nota.id || nota.notaId || nota.uid || index;
+      const editBtn = mkBtn('edit', 'fas fa-pen', 'Editar nota');
+      const delBtn  = mkBtn('delete', 'fas fa-trash', 'Eliminar nota');
+      editBtn.addEventListener('click', () => window.editarNotaCliente && window.editarNotaCliente(notaId, texto));
+      delBtn.addEventListener('click', () => window.eliminarNotaCliente && window.eliminarNotaCliente(notaId));
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      
+      header.appendChild(meta);
+      header.appendChild(actions);
+      notaWrapper.appendChild(header);
       notaWrapper.appendChild(contenido);
       notasContainer.appendChild(notaWrapper);
     });

@@ -293,6 +293,7 @@ app.get('/api/leads/:id/notas', protect, async (req, res) => {
     const q = leadObjectId ? { leadId: leadObjectId } : { $or: [{ leadId: id }, { leadIdStr: id }] };
     const list = await coll.find(q).sort({ createdAt: 1 }).toArray();
     const notas = list.map(c => ({
+      id: String(c._id || ''),
       texto: c.texto || c.text || '',
       usuario: c.autor || c.author || 'Usuario',
       fecha: (c.createdAt ? new Date(c.createdAt) : new Date()).toISOString()
@@ -321,6 +322,60 @@ app.post('/api/leads/:id/notas', protect, async (req, res) => {
     };
     await coll.insertOne(doc);
     return res.json({ ok: true, message: 'Nota agregada', nota: { texto: doc.texto, usuario: doc.autor, fecha: doc.createdAt.toISOString() } });
+  } catch (e) {
+    return res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+// Editar nota
+app.put('/api/leads/:id/notas/:notaId', protect, async (req, res) => {
+  try {
+    if (!db) db = await connectToMongoDB();
+    const { id, notaId } = req.params;
+    const { texto } = req.body || {};
+    if (!texto || !String(texto).trim()) return res.status(400).json({ message: 'texto es requerido' });
+    let noteObjectId = null; let leadObjectId = null;
+    try { noteObjectId = new ObjectId(notaId); } catch {}
+    try { leadObjectId = new ObjectId(id); } catch {}
+    const coll = db.collection('Vcomments');
+    const filter = noteObjectId ? { _id: noteObjectId } : { _id: notaId };
+    const doc = await coll.findOne(filter);
+    if (!doc) return res.status(404).json({ message: 'Nota no encontrada' });
+    // Autorización: autor o admin/backoffice/supervisor
+    const role = (req.user?.role || '').toLowerCase();
+    const username = req.user?.username || '';
+    const allowed = ['admin','administrador','backoffice','bo','supervisor'];
+    const isAuthor = (doc.autor || doc.author || '') === username;
+    if (!isAuthor && !allowed.some(r => role.includes(r))) return res.status(403).json({ message: 'No autorizado' });
+    // (Opcional) validar pertenencia al lead
+    // Actualizar
+    const upd = { $set: { texto: String(texto).slice(0,2000), updatedAt: new Date() } };
+    await coll.updateOne(filter, upd);
+    return res.json({ ok: true, message: 'Nota actualizada' });
+  } catch (e) {
+    return res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+// Eliminar nota
+app.delete('/api/leads/:id/notas/:notaId', protect, async (req, res) => {
+  try {
+    if (!db) db = await connectToMongoDB();
+    const { id, notaId } = req.params;
+    let noteObjectId = null;
+    try { noteObjectId = new ObjectId(notaId); } catch {}
+    const coll = db.collection('Vcomments');
+    const filter = noteObjectId ? { _id: noteObjectId } : { _id: notaId };
+    const doc = await coll.findOne(filter);
+    if (!doc) return res.status(404).json({ message: 'Nota no encontrada' });
+    // Autorización: autor o admin/backoffice/supervisor
+    const role = (req.user?.role || '').toLowerCase();
+    const username = req.user?.username || '';
+    const allowed = ['admin','administrador','backoffice','bo','supervisor'];
+    const isAuthor = (doc.autor || doc.author || '') === username;
+    if (!isAuthor && !allowed.some(r => role.includes(r))) return res.status(403).json({ message: 'No autorizado' });
+    await coll.deleteOne(filter);
+    return res.json({ ok: true, message: 'Nota eliminada' });
   } catch (e) {
     return res.status(500).json({ message: 'Error interno' });
   }

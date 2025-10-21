@@ -581,6 +581,53 @@
     .emoji-grid { display:grid; grid-template-columns: repeat(8, 1fr); gap:6px; font-size:18px; }
     .emoji-item { border:none; background:none; cursor:pointer; line-height:1; padding:4px; border-radius:6px; }
     .emoji-item:hover { background:#f3f4f6; }
+
+    /* Edit Modal Enhancements */
+    #editarModal .edit-modal-card { background:#fff; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+    #editarModal .edit-grid { display:grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap:12px 16px; align-items:start; }
+    #editarModal .edit-section-title { font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; margin:0 0 10px; }
+    #editarModal label { display:block; margin:6px 0 4px; color:#111; font-weight:600; }
+    #editarModal input, #editarModal select, #editarModal textarea { width:100% !important; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:#f9fafb; }
+    #editarModal input:focus, #editarModal select:focus, #editarModal textarea:focus { outline:none; border-color:#93c5fd; box-shadow:0 0 0 2px rgba(59,130,246,.15); background:#fff; }
+    #editarModal .edit-actions { display:flex; justify-content:flex-end; gap:10px; margin-top: 12px; }
+    #editarModal .btn-primary { background:#0ea5e9; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer; }
+    #editarModal .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+    #editarModal .tv-grid { display:grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap:8px 10px; }
+    #editarModal .tv-field label { margin:0 0 6px; font-weight:600; }
+    /* Agemni-like theme tokens */
+    :root {
+      --agemni-primary: #0ea5e9;
+      --agemni-primary-600: #0284c7;
+      --agemni-bg: #f8fafc;
+      --agemni-surface: #ffffff;
+      --agemni-border: #e5e7eb;
+      --agemni-text: #0f172a;
+      --agemni-muted: #64748b;
+      --agemni-radius: 12px;
+    }
+    /* Apply tokens */
+    .costumer-table-container { border-color: var(--agemni-border); border-radius: var(--agemni-radius); }
+    .costumer-table th { background: #f7fafc; color: var(--agemni-text); }
+    .costumer-table th + th { box-shadow: inset 1px 0 0 var(--agemni-border); }
+    .costumer-table td { color: #334155; }
+    .action-btn.toggle, .action-btn { border-color: var(--agemni-border); }
+    #editarModal .btn-primary { background: var(--agemni-primary); }
+    #editarModal .btn-primary:hover { background: var(--agemni-primary-600); }
+    #editarModal input[disabled], #editarModal select[disabled], #editarModal textarea[disabled] { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
+    /* Notes (comentarios) cards */
+    #editarModal .note-card { background: var(--agemni-surface); border:1px solid var(--agemni-border); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(2,8,20,.06); }
+    #editarModal .note-card + .note-card { margin-top: 10px; }
+    #editarModal .note-card:hover { box-shadow: 0 2px 8px rgba(2,8,20,.08); border-color: #dbe2ea; }
+    #editarModal .note-header { display:flex; align-items:center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    #editarModal .note-meta { font-size: 13px; font-weight: 700; color: var(--agemni-text); }
+    #editarModal .note-actions { display:flex; gap:8px; }
+    #editarModal .note-btn { width: 32px; height: 32px; border: none; border-radius: 16px; color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 1px 2px rgba(0,0,0,.12); transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; }
+    #editarModal .note-btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(14,165,233,.25); }
+    #editarModal .note-btn.edit { background: var(--agemni-primary); }
+    #editarModal .note-btn.edit:hover { background: var(--agemni-primary-600); transform: translateY(-1px); }
+    #editarModal .note-btn.delete { background: #ef4444; }
+    #editarModal .note-btn.delete:hover { background: #dc2626; transform: translateY(-1px); }
+    #editarModal .note-content { background:#f9fafb; border:1px solid var(--agemni-border); border-radius: 10px; padding: 12px; font-size: 12px; color:#374151; line-height: 1.6; white-space: pre-wrap; }
   </style>
 <body>
   <div class="layout">
@@ -776,10 +823,10 @@
   </div>
 
   <!-- Modal para Editar Lead -->
-  <div id="editarModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto; padding: 30px;">
-    <div style="position: relative; margin: 0; width: 100%; background: linear-gradient(135deg, #a8d8ea 0%, #88c0d0 100%); border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <div id="editarModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto; padding: 24px;">
+    <div style="position: relative; margin: 0 auto; width: 100%; max-width: 1200px; background: linear-gradient(135deg, #a8d8ea 0%, #88c0d0 100%); border-radius: 20px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
       <!-- Contenedor blanco interno con formulario -->
-      <div style="background: white; border-radius: 15px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+      <div class="edit-modal-card" style="background: white; border-radius: 15px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
         <!-- Header con ID del lead -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
           <h3 id="edit-lead-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #111;">
@@ -791,8 +838,9 @@
         <input type="hidden" id="edit-id">
         
         <!-- Grid compacto 3 columnas -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px 20px; font-size: 13px; align-items: start;">
+        <div class="edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px 20px; font-size: 13px; align-items: start;">
           <div>
+            <div class="edit-section-title">Datos del cliente</div>
             <label style="display: block; margin-bottom: 4px; color: #111; font-weight: 600;">Teléfono</label>
             <input type="tel" id="edit-telefono" style="width: 280px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
             <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Teléfono Alterno</label>
@@ -811,30 +859,25 @@
             <input type="email" id="edit-email" style="width: 420px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
           </div>
           <div>
-            <label style="display: block; margin-bottom: 6px; color: #111; font-weight: 700; text-align:center;">Idioma</label>
-            <select id="edit-idioma" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 auto;">
-              <option value="">Seleccionar...</option>
-              <option value="Español">Español</option>
-              <option value="English">English</option>
-            </select>
-            <label style="display: block; margin: 16px 0 6px; color: #111; font-weight: 700; text-align:center;">Servicios</label>
-            <input type="text" id="edit-tipo-servicios" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 auto 8px;">
-            <label style="display: block; margin: 8px 0 4px; color: #111; font-weight: 600;">TV</label>
-            <input type="text" id="edit-tv1" placeholder="TV 1" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; margin-bottom: 6px;">
-            <label style="display: block; margin: 8px 0 4px; color: #111; font-weight: 600;">TV</label>
-            <input type="text" id="edit-tv2" placeholder="TV 2" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; margin-bottom: 6px;">
-            <label style="display: block; margin: 8px 0 4px; color: #111; font-weight: 600;">TV</label>
-            <input type="text" id="edit-tv3" placeholder="TV 3" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; margin-bottom: 6px;">
-            <label style="display: block; margin: 8px 0 4px; color: #111; font-weight: 600;">TV</label>
-            <input type="text" id="edit-tv4" placeholder="TV 4" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 14px 0 4px; color: #111; font-weight: 600;">Autopay</label>
+            <div class="edit-section-title">Servicios</div>
+            <label>Servicios</label>
+            <input type="text" id="edit-tipo-servicios" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 0 8px;">
+            
+            <label style="margin-top:12px;">Autopago</label>
             <select id="edit-autopago" style="width: 180px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
               <option value="">Seleccionar...</option>
               <option value="Sí">Sí</option>
               <option value="No">No</option>
             </select>
+            <label style="margin-top:12px;">Idioma</label>
+            <select id="edit-idioma" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
+              <option value="">Seleccionar...</option>
+              <option value="Español">Español</option>
+              <option value="English">English</option>
+            </select>
           </div>
           <div>
+            <div class="edit-section-title">Administrativo</div>
             <label style="display: block; margin-bottom: 4px; color: #111; font-weight: 600;">Mercado</label>
             <input type="text" id="edit-mercado" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
             <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Representante</label>
@@ -849,26 +892,23 @@
             <input type="text" id="edit-numero-cuenta" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
           </div>
         </div>
-        
-        <!-- Botón Agregar en la esquina -->
-        <button onclick="guardarCambiosLead()" style="position: absolute; bottom: 40px; right: 40px; background: #94a3b8; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-          AGREGAR
-        </button>
+        <div class="edit-actions">
+          <button onclick="guardarCambiosLead()" class="btn-primary">AGREGAR</button>
+        </div>
       </div>
       
       <!-- Sección de Notas / Historial -->
       <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Contenedor de notas que se llenará dinámicamente -->
-        <div id="edit-notas-container" style="margin-bottom: 15px;">
-          <!-- Las notas se cargarán aquí dinámicamente -->
-        </div>
-        
-        <!-- Input para nueva nota -->
-        <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <!-- Input para nueva nota (arriba fijo en la sección) -->
+        <div style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 15px;">
           <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; min-height: 80px; resize: vertical; background: #f9fafb; font-family: inherit;"></textarea>
           <button onclick="agregarNotaCliente()" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
             <i class="fas fa-plus"></i> Agregar Nota
           </button>
+        </div>
+        <!-- Contenedor de notas que se llenará dinámicamente debajo (scroll interno) -->
+        <div id="edit-notas-container" style="margin-bottom: 15px; max-height: 360px; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 10px;">
+          <!-- Las notas se cargarán aquí dinámicamente -->
         </div>
       </div>
     </div>
