@@ -92,7 +92,8 @@ router.get('/', protect, async (req, res) => {
       {
         $match: {
           agenteNombre: { $exists: true, $ne: null, $ne: "" },
-          puntaje: { $exists: true, $ne: null }
+          puntaje: { $exists: true, $ne: null },
+          excluirDeReporte: { $ne: true } // Excluir ventas marcadas para no contar
         }
       },
 
