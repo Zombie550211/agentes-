@@ -20,14 +20,16 @@
       
       console.log('[COSTUMER] Usuario:', username, 'Rol:', role);
       
-      // Determinar endpoint según el rol
-      let endpoint = '/api/leads?limit=10000'; // Solicitar hasta 10000 registros
+      // Determinar endpoint según el rol - agregar parámetros para evitar filtros
+      let endpoint = '/api/leads?limit=10000&debug=1&all=1&skipDate=1'; // Solicitar todos los registros sin filtros de fecha
       
       // Si es Team Líneas, usar endpoint específico
       if (role.includes('lineas') || username.includes('lineas')) {
         endpoint = '/api/lineas?limit=10000';
         console.log('[COSTUMER] Usuario Team Líneas detectado');
       }
+      
+      console.log('[COSTUMER] Endpoint a usar:', endpoint);
       
       // Hacer la petición
       const response = await fetch(endpoint, {
@@ -72,9 +74,17 @@
       console.log('[COSTUMER] Clientes cargados:', customers.length);
       
       // Si no hay datos, usar mock
-      if (customers.length === 0 && window.MockData) {
-        console.warn('[COSTUMER] No hay datos, usando mock data...');
-        customers = window.MockData.getMockCustomers();
+      if (customers.length === 0) {
+        console.warn('[COSTUMER] No hay datos en la respuesta del servidor');
+        console.warn('[COSTUMER] Estructura completa de respuesta:', JSON.stringify(data, null, 2));
+        console.warn('[COSTUMER] Tipo de data:', typeof data);
+        console.warn('[COSTUMER] Keys de data:', Object.keys(data || {}));
+        if (window.MockData) {
+          console.warn('[COSTUMER] Usando mock data como fallback...');
+          customers = window.MockData.getMockCustomers();
+        }
+      } else {
+        console.log('[COSTUMER] Datos reales cargados exitosamente:', customers.length, 'registros');
       }
       
       // Renderizar tabla

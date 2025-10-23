@@ -365,6 +365,7 @@ async function obtenerEstadisticasEquipos(req, res) {
           return first;
         } catch { return ''; }
       };
+      const EXCLUDED_TEAMS = new Set([]);
       const merged = new Map();
       for (const r of (equiposData || [])) {
         const key = baseName(r.TEAM);
@@ -375,7 +376,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         cur.Puntaje += Number(r.Puntaje || 0);
         merged.set(key, cur);
       }
-      equiposData = Array.from(merged.values());
+      equiposData = Array.from(merged.values()).filter(e => !EXCLUDED_TEAMS.has(baseName(e.TEAM)));
 
       // 2) Construir lista completa de equipos conocidos desde todas las colecciones
       const potentialCollections = ['costumers','Costumers','customers','leads','Leads','ventas'];
@@ -388,22 +389,30 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $group: { _id: '$teamNorm' } },
             { $match: { _id: { $ne: '' } } }
           ]).toArray();
-          for (const t of (teamAgg || [])) allTeamsSet.add(baseName(t._id));
+          for (const t of (teamAgg || [])) {
+            const name = baseName(t._id);
+            if (name && !EXCLUDED_TEAMS.has(name)) allTeamsSet.add(name);
+          }
         } catch {}
       }
 
       // Asegurar también equipos provenientes de Lineas
       if (Array.isArray(lineasTeams)) {
-        for (const lt of lineasTeams) allTeamsSet.add(baseName(lt.TEAM));
+        for (const lt of lineasTeams) {
+          const name = baseName(lt.TEAM);
+          if (name && !EXCLUDED_TEAMS.has(name)) allTeamsSet.add(name);
+        }
       }
 
       // 3) Lista obligatoria y orden prioritario
-      const requiredOrder = ['IRANIA','MARISOL','PLEITEZ','RANDAL','ROBERTO'];
+      const requiredOrder = ['IRANIA','MARISOL','PLEITEZ','ROBERTO'];
       requiredOrder.forEach(n => allTeamsSet.add(n));
 
       const present = new Set((equiposData || []).map(e => baseName(e.TEAM)));
       for (const name of allTeamsSet) {
-        if (!present.has(name)) equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+        if (!present.has(name) && !EXCLUDED_TEAMS.has(name)) {
+          equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+        }
       }
 
       // 4) Ordenar: primero requiredOrder, luego alfabético
@@ -418,10 +427,13 @@ async function obtenerEstadisticasEquipos(req, res) {
 
     // Fallback garantizado: asegurar equipos requeridos aunque falle la sección anterior
     try {
-      const requiredOrderFinal = ['IRANIA','MARISOL','PLEITEZ','RANDAL','ROBERTO'];
+      const EXCLUDED_TEAMS = new Set([]);
+      const requiredOrderFinal = ['IRANIA','MARISOL','PLEITEZ','ROBERTO'];
       const present = new Set((equiposData || []).map(e => String(e.TEAM || '').toUpperCase()));
       for (const name of requiredOrderFinal) {
-        if (!present.has(name)) equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+        if (!present.has(name) && !EXCLUDED_TEAMS.has(name)) {
+          equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+        }
       }
       const orderIndex = new Map(requiredOrderFinal.map((n,i)=>[n,i]));
       equiposData.sort((a,b)=>{

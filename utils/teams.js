@@ -36,10 +36,10 @@
       color: '#4facfe',
       agents: []
     },
-    'TEAM RANDAL MARTINEZ': {
-      name: 'TEAM RANDAL MARTINEZ',
-      supervisor: 'randal.martinez',
-      supervisorName: 'Randal Martínez',
+    'TEAM JOHANA': {
+      name: 'TEAM JOHANA',
+      supervisor: 'johana.supervisor',
+      supervisorName: 'Johana',
       color: '#00f2fe',
       agents: []
     },

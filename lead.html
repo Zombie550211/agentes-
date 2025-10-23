@@ -1256,7 +1256,7 @@
                     <option value="ROBERTO">ROBERTO</option>
                     <option value="MARISOL">MARISOL</option>
                     <option value="PLEITEZ">PLEITEZ</option>
-                    <option value="RANDAL">RANDAL</option>
+                    <option value="JOHANA">JOHANA</option>
                     <option value="JONATHAN">JONATHAN</option>
                   </select>
                 </div>
@@ -3712,6 +3712,37 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+});
+
+// SCRIPT PARA FORZAR ACTUALIZACIÓN DEL DROPDOWN SUPERVISOR
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    const supervisorSelect = document.getElementById('supervisor');
+    if (supervisorSelect) {
+      // Limpiar opciones existentes
+      supervisorSelect.innerHTML = '';
+      
+      // Recrear opciones sin RANDAL
+      const opciones = [
+        { value: '', text: 'Seleccione' },
+        { value: 'IRANIA', text: 'IRANIA' },
+        { value: 'ROBERTO', text: 'ROBERTO' },
+        { value: 'MARISOL', text: 'MARISOL' },
+        { value: 'PLEITEZ', text: 'PLEITEZ' },
+        { value: 'JOHANA', text: 'JOHANA' },
+        { value: 'JONATHAN', text: 'JONATHAN' }
+      ];
+      
+      opciones.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
+        supervisorSelect.appendChild(option);
+      });
+      
+      console.log('✅ Dropdown supervisor actualizado - RANDAL eliminado');
+    }
+  }, 500); // Esperar 500ms para que cargue todo
 });
 </script>
 </body>

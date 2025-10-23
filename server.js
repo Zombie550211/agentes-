@@ -849,10 +849,10 @@ app.get('/api/teams', protect, authorize('Administrador', 'admin', 'administrado
         supervisorName: 'Roberto Velásquez'
       },
       {
-        value: 'TEAM RANDAL MARTINEZ', 
-        label: 'TEAM RANDAL MARTINEZ',
-        supervisor: 'randal.martinez',
-        supervisorName: 'Randal Martínez'
+        value: 'TEAM JOHANA', 
+        label: 'TEAM JOHANA',
+        supervisor: 'johana.supervisor',
+        supervisorName: 'Johana'
       },
       {
         value: 'TEAM LINEAS',
