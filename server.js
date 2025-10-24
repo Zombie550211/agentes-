@@ -311,7 +311,7 @@ app.post('/api/leads/:id/notas', protect, async (req, res) => {
     const { texto, usuario, fecha } = req.body || {};
     if (!texto || !String(texto).trim()) return res.status(400).json({ message: 'texto es requerido' });
     let leadObjectId = null;
-    try { leadObjectId = new ObjectId(id); } catch {}
+    try { leadObjectId = new ObjectId(id); } catch {}  
     const coll = db.collection('Vcomments');
     const doc = {
       leadId: leadObjectId || id,
@@ -849,10 +849,10 @@ app.get('/api/teams', protect, authorize('Administrador', 'admin', 'administrado
         supervisorName: 'Roberto Velásquez'
       },
       {
-        value: 'TEAM JOHANA', 
-        label: 'TEAM JOHANA',
-        supervisor: 'johana.supervisor',
-        supervisorName: 'Johana'
+        value: 'TEAM RANDAL MARTINEZ', 
+        label: 'TEAM RANDAL MARTINEZ',
+        supervisor: 'randal.martinez',
+        supervisorName: 'Randal Martínez'
       },
       {
         value: 'TEAM LINEAS',

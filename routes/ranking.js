@@ -18,8 +18,8 @@ router.get('/', protect, async (req, res) => {
       });
     }
 
-    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente } = req.query;
-    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente });
+    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
+    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -38,29 +38,42 @@ router.get('/', protect, async (req, res) => {
     }
     console.log('[RANGOS] Efectivo', { startDate, endDate });
 
+    // Construir filtro de fecha usando el campo especificado
+    const dateField = field === 'dia_venta' ? '$_date' : '$createdAt';
+
     // Preparar normalización de fecha dentro del pipeline (soporta Date y String y campos alternos)
     const dateNormStage = {
       $addFields: {
-        _rawDate: {
-          $ifNull: [
-            "$dia_venta",
-            { $ifNull: [
-              "$fecha_contratacion",
-              { $ifNull: [
-                "$dia_instalacion",
-                { $ifNull: [ "$updatedAt", { $ifNull: [ "$createdAt", { $ifNull: [ "$fecha", "$creadoEn" ] } ] } ] }
-              ] }
-            ] }
-          ]
-        },
+        _rawDate: "$dia_venta",
         _date: {
-          $switch: {
-            branches: [
-              { case: { $eq: [ { $type: "$_rawDate" }, "date" ] }, then: "$_rawDate" },
-              { case: { $eq: [ { $type: "$_rawDate" }, "string" ] }, then: { $dateFromString: { dateString: "$_rawDate", onError: null, onNull: null } } }
-            ],
-            default: null
-          }
+          $cond: [
+            { $eq: [{ $type: "$dia_venta" }, "string"] },
+            {
+              $let: {
+                vars: {
+                  formats: ["%m/%d/%Y", "%d/%m/%Y", "%Y-%m-%d"]
+                },
+                in: {
+                  $reduce: {
+                    input: "$$formats",
+                    initialValue: null,
+                    in: {
+                      $ifNull: [
+                        {
+                          $dateFromString: {
+                            dateString: "$dia_venta",
+                            format: "$$this"
+                          }
+                        },
+                        "$$value"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "$dia_venta"
+          ]
         }
       }
     };
@@ -69,8 +82,8 @@ router.get('/', protect, async (req, res) => {
       $match: {
         $expr: {
           $and: [
-            { $gte: [ { $dateToString: { format: "%Y-%m-%d", date: "$_date" } }, startDate ] },
-            { $lte: [ { $dateToString: { format: "%Y-%m-%d", date: "$_date" } }, endDate ] }
+            { $gte: [ { $dateToString: { format: "%Y-%m-%d", date: dateField } }, startDate ] },
+            { $lte: [ { $dateToString: { format: "%Y-%m-%d", date: dateField } }, endDate ] }
           ]
         }
       }
@@ -81,14 +94,29 @@ router.get('/', protect, async (req, res) => {
     
     // Pipeline simplificado que funciona con los datos reales
     const pipelineBase = [
-      // 1) Filtrar por fecha si no es debug
-      ...(String(debug)==='1' || String(skipDate)==='1' ? [] : [{
+      // 1) Filtrar por rango de fechas principal
+      {
         $match: {
-          dia_venta: { $gte: startDate, $lte: endDate }
+          $expr: {
+            $and: [
+              { $gte: [dateField, new Date(startDate)] },
+              { $lte: [dateField, new Date(endDate)] }
+            ]
+          }
         }
-      }]),
-
-      // 2) Filtrar solo documentos con agente y puntaje válidos
+      },
+      
+      // 2) Filtrar por agente (si aplica)
+      ...(agente ? [{
+        $match: {
+          $or: [
+            { agenteNombre: { $regex: new RegExp(agente, 'i') } },
+            { agente: { $regex: new RegExp(agente, 'i') } }
+          ]
+        }
+      }] : []),
+      
+      // 3) Filtrar solo documentos con agente y puntaje válidos
       {
         $match: {
           agenteNombre: { $exists: true, $ne: null, $ne: "" },
@@ -96,13 +124,6 @@ router.get('/', protect, async (req, res) => {
           excluirDeReporte: { $ne: true } // Excluir ventas marcadas para no contar
         }
       },
-
-      // 3) Filtrar por agente específico si se proporciona
-      ...(agente ? [{
-        $match: {
-          agenteNombre: { $regex: new RegExp(agente, 'i') } // Búsqueda case-insensitive
-        }
-      }] : []),
 
       // 4) Agrupar por agente
       {
@@ -261,7 +282,7 @@ router.get('/', protect, async (req, res) => {
         collectionUsed: usedCollection,
         count: Array.isArray(rankingData) ? rankingData.length : 0,
         dateRange: { startDate, endDate },
-        params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1', agente: agente || null },
+        params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1', agente: agente || null, field },
         attempts,
         scoreFieldStats,
         sampleDocs

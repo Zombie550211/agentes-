@@ -223,126 +223,73 @@ async function onStatusChange(id, newStatus) {
     return null;
   }
 
-  function calculateExtendedStats(customers, allCustomers = null) {
-    // Si no se pasa allCustomers, usar customers para todo
-    const todosLosClientes = allCustomers || customers;
-
-    if (!Array.isArray(customers)) return {};
-
+  function calculateExtendedStats(customers) {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-
-    const stats = {
-      ventasHoy: 0,
-      ventasMes: 0,
-      ventasTotales: 0,
-      pendientes: 0,
-      cancelados: 0,
-      activos: 0
+    
+    const currentMonthSales = customers.filter(customer => {
+      try {
+        const saleDate = window.TeamsAPI.normalizeSaleDate(customer.dia_venta);
+        return saleDate && 
+               saleDate.getMonth() === currentMonth && 
+               saleDate.getFullYear() === currentYear;
+      } catch (e) {
+        console.error('Error procesando fecha:', customer.dia_venta, e);
+        return false;
+      }
+    });
+    
+    console.log('[DEBUG] Ventas este mes:', currentMonthSales.length, 'de', customers.length);
+    
+    return {
+      ventasHoy: calculateSalesToday(customers),
+      ventasMes: currentMonthSales.length,
+      ventasTotales: customers.length,
+      pendientes: customers.filter(c => c.status?.toLowerCase() === 'pending').length,
+      cancelados: customers.filter(c => c.status?.toLowerCase() === 'cancel').length,
+      activos: customers.filter(c => c.status?.toLowerCase() === 'active').length
     };
+  }
 
-    // VENTAS TOTALES: Contar TODOS los clientes del CRM
-    stats.ventasTotales = todosLosClientes.length;
-
-    // VENTAS DEL MES: Contar por prefijo de string YYYY-MM en dia_venta (sin parsear fechas)
-    const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    let ventasDelMes = 0;
-    todosLosClientes.forEach(customer => {
-      const val = (customer.dia_venta || '').trim();
-      if (val.length >= 7 && val.slice(0, 7) === monthKey) ventasDelMes++;
-    });
-    stats.ventasMes = ventasDelMes;
-
-    // Recorrer TODOS los clientes para: Ventas Hoy, Pendientes, Cancelados, Activos
-    todosLosClientes.forEach(customer => {
+  function calculateSalesToday(customers) {
+    const today = new Date().toISOString().split('T')[0];
+    return customers.filter(customer => {
       const diaVenta = customer.dia_venta;
-      const status = (customer.status || '').toLowerCase().trim();
-
-      // VENTAS HOY: Solo ventas de hoy usando dia_venta
-      if (diaVenta && diaVenta.startsWith(today)) {
-        stats.ventasHoy++;
-      }
-
-      // PENDIENTES: Todos con status pendiente (sin filtrar por mes)
-      if (status === 'pendiente' || status === 'pending') {
-        stats.pendientes++;
-      }
-
-      // CANCELADOS: Todos con status cancelado (sin filtrar por mes)
-      if (status === 'cancelado' || status === 'cancelled' || status === 'canceled') {
-        stats.cancelados++;
-      }
-
-      // ACTIVOS: Todos con status activo (sin filtrar por mes)
-      if (status === 'activo' || status === 'active' || status === 'completado' || status === 'completed') {
-        stats.activos++;
-      }
-    });
-
-    console.log('[COSTUMER CALENDAR] Estadísticas calculadas:', {
-      ventasHoy: stats.ventasHoy,
-      ventasMes: `${stats.ventasMes} (mes actual: ${now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })} )`,
-      ventasTotales: `${stats.ventasTotales} (total CRM)`,
-      pendientes: stats.pendientes,
-      cancelados: stats.cancelados,
-      activos: stats.activos
-    });
-
-    return stats;
+      return diaVenta && diaVenta.startsWith(today);
+    }).length;
   }
 
   /**
-   * Agrupar clientes por mes
+   * Agrupar clientes por día del mes
    */
   function groupCustomersByMonth(customers) {
-    const groups = {};
-    
-    customers.forEach(customer => {
-      // Probar múltiples campos de fecha en orden de prioridad
-      const saleDate = getSaleDate(customer);
-
-      if (saleDate) {
-        const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
-
-        if (!groups[monthKey]) {
-          const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                             'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-          const monthName = monthNames[saleDate.getMonth()];
-
-          groups[monthKey] = {
-            month: `${monthName.toUpperCase()} DE ${saleDate.getFullYear()}`,
-            customers: [],
-            year: saleDate.getFullYear(),
-            monthNum: saleDate.getMonth()
-          };
-        }
-        groups[monthKey].customers.push(customer);
-      } else {
-        // Si no tiene fecha, agrupar en "Sin fecha"
-        if (!groups['no-date']) {
-          groups['no-date'] = {
-            month: 'SIN FECHA',
-            customers: [],
-            year: null,
-            monthNum: -1
-          };
-        }
-        groups['no-date'].customers.push(customer);
+    // Agrupar por día del mes usando dia_venta
+    const groups = customers.reduce((acc, customer) => {
+      const saleDate = window.TeamsAPI.normalizeSaleDate(customer.dia_venta);
+      
+      if (!saleDate) {
+        acc['no-date'] = (acc['no-date'] || 0) + 1;
+        return acc;
       }
-    });
+      
+      const day = saleDate.getDate();
+      acc[`day-${day}`] = (acc[`day-${day}`] || 0) + 1;
+      return acc;
+    }, {});
     
-    console.log('[COSTUMER CALENDAR] Grupos por mes:', Object.keys(groups).map(k => `${k}: ${groups[k].customers.length}`));
+    // Solo mostrar días del mes actual con ventas
+    const monthGroups = Object.keys(groups)
+      .filter(key => key.startsWith('day-'))
+      .map(key => `${key.replace('day-', '')}: ${groups[key]}`);
     
-    // Reordenar grupos por mes (ascendente)
-    const sortedKeys = Object.keys(groups).sort((a, b) => {
-      const dateA = new Date(groups[a].year, groups[a].monthNum);
-      const dateB = new Date(groups[b].year, groups[b].monthNum);
-      return dateA - dateB;
-    });
-
-    return groups;
+    if (groups['no-date']) {
+      monthGroups.push(`no-date: ${groups['no-date']}`);
+    }
+    
+    console.log('[COSTUMER CALENDAR] Grupos por mes:', monthGroups);
+    
+    return monthGroups;
   }
 
   /**
@@ -366,110 +313,147 @@ async function onStatusChange(id, newStatus) {
       return;
     }
     
-    // Agrupar por mes
-    const groups = groupCustomersByMonth(customers);
-    const sortedKeys = Object.keys(groups).sort().reverse();
+    // Mostrar todas las ventas del mes en una sola sección
+    const currentMonth = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' });
     
-    sortedKeys.forEach(key => {
-      const group = groups[key];
+    // Filtrar solo ventas del mes actual
+    const currentMonthSales = customers.filter(customer => {
+      const saleDate = window.TeamsAPI.normalizeSaleDate(customer.dia_venta);
+      return saleDate && saleDate.getMonth() === new Date().getMonth() && 
+             saleDate.getFullYear() === new Date().getFullYear();
+    });
+    
+    // Ordenar por fecha de venta (más recientes primero)
+    currentMonthSales.sort((a, b) => {
+      const dateA = window.TeamsAPI.normalizeSaleDate(a.dia_venta);
+      const dateB = window.TeamsAPI.normalizeSaleDate(b.dia_venta);
+      return dateB - dateA;
+    });
+    
+    // Renderizar todas juntas bajo un solo encabezado de mes
+    renderMonthGroup(currentMonth, currentMonthSales);
+  }
+
+  function renderMonthGroup(month, customers) {
+    const tbody = document.getElementById('costumer-tbody');
+    if (!tbody) return;
+    
+    // Header del grupo
+    const headerRow = document.createElement('tr');
+    headerRow.className = 'month-group-header';
+    headerRow.innerHTML = `
+      <td colspan="20">
+        <i class="fas fa-calendar-alt"></i>
+        ${month}
+      </td>
+    `;
+    tbody.appendChild(headerRow);
+    
+    // Clientes del grupo
+    customers.forEach(customer => {
+      const row = document.createElement('tr');
       
-      // Header del grupo
-      const headerRow = document.createElement('tr');
-      headerRow.className = 'month-group-header';
-      headerRow.innerHTML = `
-        <td colspan="20">
-          <i class="fas fa-calendar-alt"></i>
-          ${group.month} (${group.customers.length} registros)
+      const autopago = customer.autopago === true || customer.autopago === 'Sí' || customer.autopago === 'SI' ? 'Sí' : 'No';
+      
+      // Función para formatear fecha a DD/MM/YYYY
+      const formatDate = (dateValue) => {
+        if (!dateValue) return '';
+        try {
+          // Si ya es string en formato DD/MM/YYYY, devolverlo tal cual
+          if (typeof dateValue === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(dateValue)) {
+            return dateValue;
+          }
+          // Si es Date object o ISO string, convertir a DD/MM/YYYY
+          const date = new Date(dateValue);
+          if (isNaN(date.getTime())) return dateValue; // Si no es fecha válida, devolver original
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        } catch (e) {
+          return dateValue; // En caso de error, devolver original
+        }
+      };
+      
+      const fechaVenta = formatDate(customer.dia_venta || customer.fecha_contratacion || customer.fecha);
+      const fechaInstalacion = formatDate(customer.dia_instalacion);
+      // Sistema/Riesgo/Tipo: normalizar para evitar celdas vacías
+      const sistemaTexto = (customer.sistema_texto || '').toString().trim();
+      const sistemaCode = (customer.sistema || '').toString().trim();
+      let displaySistema = '';
+      if (sistemaTexto) {
+        displaySistema = sistemaTexto;
+      } else if (sistemaCode) {
+        const code = sistemaCode.toLowerCase();
+        if (code === 'na' || code === 'n/a') displaySistema = 'N/A';
+        else if (code === 'bo' || code === 'b.o' || code === 'b-o') displaySistema = 'B.O';
+        else displaySistema = code.toUpperCase();
+      }
+      const riesgoRaw = (customer.riesgo || '').toString().trim();
+      let displayRiesgo = '';
+      if (riesgoRaw) {
+        const rcode = riesgoRaw.toLowerCase();
+        displayRiesgo = (rcode === 'na' || rcode === 'n/a') ? 'N/A' : riesgoRaw.toUpperCase();
+      }
+      const tipoServicios = (customer.tipo_servicios || '').toString().trim();
+      const tipoServicio = (customer.tipo_servicio || '').toString().trim();
+      const serviciosTexto = (customer.servicios_texto || '').toString().trim();
+      let displayTipo = tipoServicios || tipoServicio || serviciosTexto;
+      if (!displayTipo) {
+        const code = (customer.servicios || '').toString().trim();
+        displayTipo = code ? code.replace(/[-_]/g, ' ').toUpperCase() : '';
+      }
+      // ZIP CODE: fallback across common field names
+      const zipCandidates = [
+        customer.zip_code,
+        customer.zip,
+        customer.zipcode,
+        customer.zipCode,
+        customer.postal_code,
+        customer.postalCode,
+        customer.codigo_postal,
+        customer.Codigo_postal,
+        customer.cp,
+        customer.CP
+      ];
+      let displayZip = '';
+      for (const z of zipCandidates) {
+        if (z !== undefined && z !== null && String(z).trim() !== '') { displayZip = String(z).trim(); break; }
+      }
+
+      row.innerHTML = `
+        <td>${customer.nombre_cliente || ''}</td>
+        <td>${customer.telefono_principal || ''}</td>
+        <td>${customer.telefono_alterno || ''}</td>
+        <td>${customer.numero_cuenta || ''}</td>
+        <td>${autopago}</td>
+        <td>${customer.direccion || ''}</td>
+        <td>${displayTipo}</td>
+        <td>${displaySistema}</td>
+        <td>${displayRiesgo}</td>
+        <td>${fechaVenta}</td>
+        <td>${fechaInstalacion}</td>
+        ${renderStatusCell(customer)}
+        <td>${customer.servicios || ''}</td>
+        <td>${customer.mercado || ''}</td>
+        <td>${customer.supervisor || ''}</td>
+        <td>${customer.comentario || ''}</td>
+        <td>${customer.motivo_llamada || ''}</td>
+        <td>${displayZip}</td>
+        <td>${customer.puntaje || ''}</td>
+        <td class="actions-cell">
+          <div class="table-actions">
+            <button class="action-btn action-btn-edit" onclick="editarCliente('${customer._id || customer.id}')">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-btn action-btn-delete" onclick="eliminarCliente('${customer._id || customer.id}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </td>
       `;
-      tbody.appendChild(headerRow);
       
-      // Clientes del grupo
-      group.customers.forEach(customer => {
-        const row = document.createElement('tr');
-        
-        const autopago = customer.autopago === true || customer.autopago === 'Sí' || customer.autopago === 'SI' ? 'Sí' : 'No';
-        // Usar fecha directamente sin conversión para evitar desfase UTC
-        const fechaVenta = customer.dia_venta || customer.fecha_contratacion || customer.fecha || '';
-        const fechaInstalacion = customer.dia_instalacion || '';
-        // Sistema/Riesgo/Tipo: normalizar para evitar celdas vacías
-        const sistemaTexto = (customer.sistema_texto || '').toString().trim();
-        const sistemaCode = (customer.sistema || '').toString().trim();
-        let displaySistema = '';
-        if (sistemaTexto) {
-          displaySistema = sistemaTexto;
-        } else if (sistemaCode) {
-          const code = sistemaCode.toLowerCase();
-          if (code === 'na' || code === 'n/a') displaySistema = 'N/A';
-          else if (code === 'bo' || code === 'b.o' || code === 'b-o') displaySistema = 'B.O';
-          else displaySistema = code.toUpperCase();
-        }
-        const riesgoRaw = (customer.riesgo || '').toString().trim();
-        let displayRiesgo = '';
-        if (riesgoRaw) {
-          const rcode = riesgoRaw.toLowerCase();
-          displayRiesgo = (rcode === 'na' || rcode === 'n/a') ? 'N/A' : riesgoRaw.toUpperCase();
-        }
-        const tipoServicios = (customer.tipo_servicios || '').toString().trim();
-        const tipoServicio = (customer.tipo_servicio || '').toString().trim();
-        const serviciosTexto = (customer.servicios_texto || '').toString().trim();
-        let displayTipo = tipoServicios || tipoServicio || serviciosTexto;
-        if (!displayTipo) {
-          const code = (customer.servicios || '').toString().trim();
-          displayTipo = code ? code.replace(/[-_]/g, ' ').toUpperCase() : '';
-        }
-        // ZIP CODE: fallback across common field names
-        const zipCandidates = [
-          customer.zip_code,
-          customer.zip,
-          customer.zipcode,
-          customer.zipCode,
-          customer.postal_code,
-          customer.postalCode,
-          customer.codigo_postal,
-          customer.Codigo_postal,
-          customer.cp,
-          customer.CP
-        ];
-        let displayZip = '';
-        for (const z of zipCandidates) {
-          if (z !== undefined && z !== null && String(z).trim() !== '') { displayZip = String(z).trim(); break; }
-        }
-
-        row.innerHTML = `
-          <td>${customer.nombre_cliente || ''}</td>
-          <td>${customer.telefono_principal || ''}</td>
-          <td>${customer.telefono_alterno || ''}</td>
-          <td>${customer.numero_cuenta || ''}</td>
-          <td>${autopago}</td>
-          <td>${customer.direccion || ''}</td>
-          <td>${displayTipo}</td>
-          <td>${displaySistema}</td>
-          <td>${displayRiesgo}</td>
-          <td>${fechaVenta}</td>
-          <td>${fechaInstalacion}</td>
-          ${renderStatusCell(customer)}
-          <td>${customer.servicios || ''}</td>
-          <td>${customer.mercado || ''}</td>
-          <td>${customer.supervisor || ''}</td>
-          <td>${customer.comentario || ''}</td>
-          <td>${customer.motivo_llamada || ''}</td>
-          <td>${displayZip}</td>
-          <td>${customer.puntaje || ''}</td>
-          <td class="actions-cell">
-            <div class="table-actions">
-              <button class="action-btn action-btn-edit" onclick="editarCliente('${customer._id || customer.id}')">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="action-btn action-btn-delete" onclick="eliminarCliente('${customer._id || customer.id}')">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </td>
-        `;
-        
-        tbody.appendChild(row);
-      });
+      tbody.appendChild(row);
     });
   }
 

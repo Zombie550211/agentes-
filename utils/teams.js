@@ -195,6 +195,94 @@
     };
   }
 
+  /**
+   * Obtener todos los agentes de un equipo (incluyendo supervisor)
+   */
+  function getAgentsByTeam(teamName) {
+    const team = TEAMS[teamName];
+    return team ? [...team.agents, team.supervisor].filter(Boolean) : [];
+  }
+
+  /**
+   * Validar si una venta pertenece al mes actual
+   */
+  function isCurrentMonthSale(sale) {
+    if (!sale.dia_venta) return false;
+    
+    const saleDate = new Date(sale.dia_venta);
+    const now = new Date();
+    
+    return saleDate.getMonth() === now.getMonth() && 
+           saleDate.getFullYear() === now.getFullYear();
+  }
+
+  /**
+   * Validar y normalizar formato de fecha
+   */
+  function normalizeSaleDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Intentar parsear como Date directamente
+    if (typeof dateStr === 'string' && dateStr.match(/\d{4}-\d{2}-\d{2}/)) {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) return date;
+    }
+    
+    // Formato DD/MM/YYYY
+    if (typeof dateStr === 'string' && dateStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
+      const [day, month, year] = dateStr.split('/');
+      const date = new Date(`${year}-${month}-${day}`);
+      if (!isNaN(date.getTime())) return date;
+    }
+    
+    // Formato MM/DD/YYYY
+    if (typeof dateStr === 'string' && dateStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
+      const [month, day, year] = dateStr.split('/');
+      const date = new Date(`${year}-${month}-${day}`);
+      if (!isNaN(date.getTime())) return date;
+    }
+    
+    console.warn('Formato de fecha no reconocido:', dateStr);
+    return null;
+  }
+
+  /**
+   * Validar consistencia entre fechas de venta y creación
+   */
+  function validateSaleDates(sale) {
+    if (!sale.dia_venta || !sale.createdAt) return false;
+    
+    const saleDate = normalizeSaleDate(sale.dia_venta);
+    const createDate = new Date(sale.createdAt);
+    
+    // Máxima diferencia permitida: 30 días
+    const diffTime = Math.abs(createDate - saleDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays <= 30;
+  }
+
+  /**
+   * Limpiar datos históricos inconsistentes
+   */
+  function cleanHistoricalData(sales) {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    return sales.map(sale => {
+      const saleDate = normalizeSaleDate(sale.dia_venta);
+      
+      // Corregir mes si es histórico
+      if (saleDate && (saleDate.getMonth() !== currentMonth || saleDate.getFullYear() !== currentYear)) {
+        return {
+          ...sale,
+          dia_venta: new Date(currentYear, currentMonth, saleDate.getDate()).toISOString()
+        };
+      }
+      return sale;
+    });
+  }
+
   // Exponer API globalmente
   window.TeamsAPI = {
     TEAMS,
@@ -209,7 +297,12 @@
     getTeamColor,
     addAgentToTeam,
     removeAgentFromTeam,
-    getTeamStats
+    getTeamStats,
+    getAgentsByTeam,
+    isCurrentMonthSale,
+    normalizeSaleDate,
+    validateSaleDates,
+    cleanHistoricalData
   };
 
   console.log('[TEAMS] Sistema inicializado correctamente');

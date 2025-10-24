@@ -88,6 +88,8 @@
   <script src="/js/user-info.js?v=20250905-163930"></script>
   <script src="/js/form-config.js?v=20250905-163930"></script>
   <script src="/utils/teams.js?v=20250905-163930"></script>
+  <!-- Sistema de Puntación Automática -->
+  <script src="/js/scoring-system.js"></script>
   <script>
     // Marcar body como team-lineas lo antes posible para aplicar CSS de ocultamiento
     (function(){
@@ -1279,20 +1281,23 @@
                   <input type="text" id="zip-code" name="zip-code" class="form-control" required>
                 </div>
                 
-                <!-- Puntaje -->
+                <!-- Puntaje (Auto-calculado) -->
                 <div class="form-group area-puntaje">
-                  <label for="puntaje">PUNTAJE</label>
-                  <select id="puntaje" name="puntaje" class="form-control" required>
-                    <option value="">dd/aa/c</option>
-                    <option value="0.20">0.20</option>
-                    <option value="0.25">0.25</option>
-                    <option value="0.35">0.35</option>
-                    <option value="0.70">0.70</option>
-                    <option value="0.75">0.75</option>
-                    <option value="1.00">1.00</option>
-                    <option value="1.25">1.25</option>
-                    <option value="1.50">1.50</option>
-                  </select>
+                  <label for="puntaje">
+                    PUNTAJE 
+                    <span style="font-size: 0.75em; color: #22b3ec; font-weight: normal;">(Auto)</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    id="puntaje" 
+                    name="puntaje" 
+                    class="form-control" 
+                    readonly 
+                    required
+                    style="background-color: #f0f9ff; cursor: not-allowed; font-weight: 600; color: #0369a1;"
+                    placeholder="Selecciona servicio y riesgo"
+                  />
+                  <input type="hidden" id="puntaje-value" name="puntaje-value" />
                 </div>
               </div>
             </div>
@@ -3712,6 +3717,104 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+  
+  // ========== SISTEMA DE PUNTACIÓN AUTOMÁTICA ==========
+  console.log('[PUNTAJE] Inicializando sistema de puntación automática');
+  
+  const serviciosSelect = document.getElementById('servicios');
+  const riesgoSelect = document.getElementById('riesgo');
+  const puntajeInput = document.getElementById('puntaje');
+  const puntajeHidden = document.getElementById('puntaje-value');
+  
+  /**
+   * Calcula y actualiza el puntaje basándose en el servicio y riesgo seleccionados
+   */
+  function actualizarPuntajeAutomatico() {
+    if (!serviciosSelect || !riesgoSelect || !puntajeInput) {
+      console.warn('[PUNTAJE] Elementos del formulario no encontrados');
+      return;
+    }
+    
+    const servicioSeleccionado = serviciosSelect.value;
+    const riesgoSeleccionado = riesgoSelect.value;
+    
+    // Si no hay servicio seleccionado, limpiar el puntaje
+    if (!servicioSeleccionado) {
+      puntajeInput.value = '';
+      if (puntajeHidden) puntajeHidden.value = '';
+      console.log('[PUNTAJE] Servicio no seleccionado, puntaje limpiado');
+      return;
+    }
+    
+    // Si no hay riesgo seleccionado, mostrar mensaje
+    if (!riesgoSeleccionado) {
+      puntajeInput.value = 'Selecciona riesgo';
+      if (puntajeHidden) puntajeHidden.value = '';
+      console.log('[PUNTAJE] Riesgo no seleccionado');
+      return;
+    }
+    
+    // Verificar que el sistema de scoring esté disponible
+    if (!window.ScoringSystem || typeof window.ScoringSystem.calculateScore !== 'function') {
+      console.error('[PUNTAJE] Sistema de scoring no disponible');
+      puntajeInput.value = 'Error: Sistema no disponible';
+      return;
+    }
+    
+    // Calcular el puntaje
+    const puntaje = window.ScoringSystem.calculateScore(servicioSeleccionado, riesgoSeleccionado);
+    const scoreInfo = window.ScoringSystem.getScoreInfo(servicioSeleccionado, riesgoSeleccionado);
+    
+    // Actualizar el campo visible
+    puntajeInput.value = puntaje.toFixed(2);
+    
+    // Actualizar el campo oculto (para envío del formulario)
+    if (puntajeHidden) {
+      puntajeHidden.value = puntaje;
+    }
+    
+    // Log detallado
+    console.log('[PUNTAJE] Calculado:', {
+      servicio: servicioSeleccionado,
+      riesgo: riesgoSeleccionado,
+      puntaje: puntaje,
+      dependeDeRiesgo: scoreInfo.dependsOnRisk
+    });
+    
+    // Indicador visual si el servicio depende del riesgo
+    if (scoreInfo.dependsOnRisk) {
+      puntajeInput.style.borderLeft = '4px solid #f59e0b'; // Naranja
+      puntajeInput.title = 'Este servicio tiene puntajes diferentes según el riesgo';
+    } else {
+      puntajeInput.style.borderLeft = '4px solid #10b981'; // Verde
+      puntajeInput.title = 'Este servicio tiene puntaje fijo';
+    }
+  }
+  
+  // Escuchar cambios en el select de servicios
+  if (serviciosSelect) {
+    serviciosSelect.addEventListener('change', function() {
+      console.log('[PUNTAJE] Servicio cambiado:', this.value);
+      actualizarPuntajeAutomatico();
+    });
+  }
+  
+  // Escuchar cambios en el select de riesgo
+  if (riesgoSelect) {
+    riesgoSelect.addEventListener('change', function() {
+      console.log('[PUNTAJE] Riesgo cambiado:', this.value);
+      actualizarPuntajeAutomatico();
+    });
+  }
+  
+  // Calcular puntaje inicial si ya hay valores seleccionados
+  setTimeout(() => {
+    if (serviciosSelect?.value && riesgoSelect?.value) {
+      actualizarPuntajeAutomatico();
+    }
+  }, 500);
+  
+  console.log('[PUNTAJE] Sistema de puntación automática inicializado correctamente');
 });
 
 // SCRIPT PARA FORZAR ACTUALIZACIÓN DEL DROPDOWN SUPERVISOR

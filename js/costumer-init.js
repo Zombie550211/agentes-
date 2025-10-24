@@ -13,15 +13,26 @@
     try {
       console.log('[COSTUMER] Cargando clientes desde el servidor...');
       
-      // Obtener usuario actual
-      const user = window.getCurrentUser ? window.getCurrentUser() : null;
+      // Obtener usuario actual con fallback robusto
+      const user = window.getCurrentUser ? window.getCurrentUser() : {
+        username: document.getElementById('user-name')?.innerText || 'default',
+        role: document.getElementById('user-role')?.innerText || 'agent'
+      };
       const role = user?.role?.toLowerCase() || '';
       const username = user?.username || '';
       
       console.log('[COSTUMER] Usuario:', username, 'Rol:', role);
       
-      // Determinar endpoint según el rol - agregar parámetros para evitar filtros
-      let endpoint = '/api/leads?limit=10000&debug=1&all=1&skipDate=1'; // Solicitar todos los registros sin filtros de fecha
+      // Obtener fechas del mes actual en formato Date
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      // Usar mismo formato que en backend
+      const formatDate = (date) => date.toISOString();
+      
+      // Endpoint unificado
+      let endpoint = `/api/leads?fechaInicio=${formatDate(firstDay)}&fechaFin=${formatDate(lastDay)}&limit=10000&field=dia_venta${role.includes('admin') ? '' : `&agente=${encodeURIComponent(username)}`}`;
       
       // Si es Team Líneas, usar endpoint específico
       if (role.includes('lineas') || username.includes('lineas')) {
@@ -72,6 +83,16 @@
       }
       
       console.log('[COSTUMER] Clientes cargados:', customers.length);
+      
+      // Verificar consistencia de fechas
+      customers.forEach(customer => {
+        if (customer.dia_venta && !window.TeamsAPI.normalizeSaleDate(customer.dia_venta)) {
+          console.warn('Fecha inválida:', customer.dia_venta, 'en registro:', customer._id);
+        }
+      });
+      
+      console.log('[DEBUG] Total ventas con fecha válida:', 
+        customers.filter(c => window.TeamsAPI.normalizeSaleDate(c.dia_venta)).length);
       
       // Si no hay datos, usar mock
       if (customers.length === 0) {
@@ -167,9 +188,11 @@
       
       // Formatear datos
       const autopago = customer.autopago === true || customer.autopago === 'Sí' || customer.autopago === 'SI' ? 'Sí' : 'No';
-      // Usar fecha directamente sin conversión para evitar desfase UTC
-      const fechaVenta = customer.dia_venta || customer.fecha_contratacion || customer.fecha || '';
-      const fechaInstalacion = customer.dia_instalacion || '';
+      
+      // Usar función de normalización de fechas
+      const fechaVenta = window.TeamsAPI?.normalizeSaleDate(customer.dia_venta)?.toLocaleDateString('es-MX') || 'SIN FECHA';
+      const fechaInstalacion = window.TeamsAPI?.normalizeSaleDate(customer.dia_instalacion)?.toLocaleDateString('es-MX') || '';
+      
       // Sistema y Riesgo: preferir texto visible; mapear códigos a etiquetas
       const sistemaTexto = (customer.sistema_texto || '').toString().trim();
       const sistemaCode = (customer.sistema || '').toString().trim();

@@ -96,6 +96,15 @@ router.get('/leads', protect, async (req, res) => {
 
     console.log(`[API LEADS] Usuario: ${user?.username}, Rol: ${role}`);
 
+    // Validar que el usuario tenga username
+    if (!user || !user.username) {
+      console.error('[API LEADS] Error: Usuario sin username válido');
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado correctamente'
+      });
+    }
+
     // Si es agente, solo ver sus propios leads
     if (role === 'agente' || role === 'agent') {
       filter = {
@@ -126,23 +135,66 @@ router.get('/leads', protect, async (req, res) => {
 
     // Obtener la colección de la base de datos
     const collection = db.collection('costumers');
-
-    // Crear filtro más flexible para fechas
-    let dateFilter = {};
-
-    // Si hay filtros de fecha en la query, usarlos
-    if (req.query.fechaInicio || req.query.fechaFin) {
-      dateFilter.createdAt = {};
-      if (req.query.fechaInicio) {
-        dateFilter.createdAt.$gte = new Date(req.query.fechaInicio);
+ 
+    // Crear filtro de fecha - POR DEFECTO MES ACTUAL
+    let dateCondition = null;
+    
+    // Si se envía skipDate=1, no aplicar filtro de fecha
+    if (req.query.skipDate !== '1') {
+      // Si hay filtros de fecha en la query, usarlos
+      if (req.query.fechaInicio || req.query.fechaFin) {
+        dateCondition = {};
+        if (req.query.fechaInicio) {
+          dateCondition.$gte = new Date(req.query.fechaInicio);
+        }
+        if (req.query.fechaFin) {
+          dateCondition.$lte = new Date(req.query.fechaFin);
+        }
+      } else {
+        // POR DEFECTO: Filtrar por mes actual
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        
+        dateCondition = {
+          $gte: startOfMonth,
+          $lte: endOfMonth
+        };
+        
+        console.log(`[API LEADS] Aplicando filtro de mes actual: ${startOfMonth.toISOString()} a ${endOfMonth.toISOString()}`);
       }
-      if (req.query.fechaFin) {
-        dateFilter.createdAt.$lte = new Date(req.query.fechaFin);
-      }
+    } else {
+      console.log('[API LEADS] Filtro de fecha deshabilitado (skipDate=1)');
     }
 
     // Combinar filtros de usuario y fecha
-    const combinedFilter = { ...filter, ...dateFilter };
+    let combinedFilter = {};
+    
+    if (Object.keys(filter).length > 0 && dateCondition) {
+      // Ambos filtros: usuario + fecha
+      combinedFilter = {
+        $and: [
+          filter,
+          {
+            $or: [
+              { createdAt: dateCondition },
+              { dia_venta: dateCondition }
+            ]
+          }
+        ]
+      };
+    } else if (Object.keys(filter).length > 0) {
+      // Solo filtro de usuario
+      combinedFilter = filter;
+    } else if (dateCondition) {
+      // Solo filtro de fecha
+      combinedFilter = {
+        $or: [
+          { createdAt: dateCondition },
+          { dia_venta: dateCondition }
+        ]
+      };
+    }
 
     console.log(`[API LEADS] Filtro aplicado:`, JSON.stringify(combinedFilter, null, 2));
     const total = await collection.countDocuments(combinedFilter);
@@ -172,11 +224,13 @@ router.get('/leads', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[API LEADS] Error:', error);
+    console.error('[API LEADS] Error completo:', error);
+    console.error('[API LEADS] Stack trace:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
