@@ -107,14 +107,48 @@ router.get('/leads', protect, async (req, res) => {
 
     // Si es agente, solo ver sus propios leads
     if (role === 'agente' || role === 'agent') {
-      filter = {
-        $or: [
-          { agenteNombre: user.username },
-          { agente: user.username },
-          { usuario: user.username }
-        ]
+      const unameRaw = (user?.username || '').toString().trim();
+      const nameRaw = (user?.name || user?.fullName || user?.usuario?.name || '').toString().trim();
+      const norm = (s) => (s || '').toString().trim();
+      const expand = (s) => {
+        const a = norm(s);
+        if (!a) return [];
+        const b = a.replace(/[._]+/g, ' ');
+        return Array.from(new Set([a, b]));
       };
-      console.log('[API LEADS] Filtro aplicado para agente:', user.username);
+      const variants = Array.from(new Set([
+        ...expand(unameRaw),
+        ...expand(nameRaw)
+      ].filter(Boolean)));
+      const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const exactConds = [];
+      variants.forEach(v => {
+        exactConds.push({ agenteNombre: v }, { agente: v }, { usuario: v });
+      });
+      const regexConds = variants.flatMap(v => ([
+        { agenteNombre: { $regex: `^${esc(v)}$`, $options: 'i' } },
+        { agente: { $regex: `^${esc(v)}$`, $options: 'i' } },
+        { usuario: { $regex: `^${esc(v)}$`, $options: 'i' } }
+      ]));
+      // ID-based matches
+      const idRaw = (user?.id || user?._id || user?.usuario?._id || '').toString().trim();
+      const { ObjectId } = require('mongodb');
+      const idConds = [];
+      if (idRaw) {
+        const tryObj = (() => { try { return new ObjectId(idRaw); } catch { return null; } })();
+        const idFields = [
+          'ownerId','agentId','registeredById','createdBy','agenteId','creadoPor',
+          '_raw.ownerId','_raw.agentId','_raw.registeredById','_raw.createdBy','_raw.agenteId','_raw.creadoPor'
+        ];
+        idFields.forEach(f => {
+          const path = f.split('.');
+          const mk = (val) => ({ [path.length === 2 ? `${path[0]}.${path[1]}` : path[0]]: val });
+          idConds.push(mk(idRaw));
+          if (tryObj) idConds.push(mk(tryObj));
+        });
+      }
+      filter = { $or: [...exactConds, ...regexConds, ...idConds] };
+      console.log('[API LEADS] Filtro aplicado para agente (variantes/IDs):', { variants, id: idRaw });
     }
     // Si es supervisor, ver leads de su equipo
     else if (role === 'supervisor') {
@@ -131,98 +165,83 @@ router.get('/leads', protect, async (req, res) => {
       console.log('[API LEADS] Usuario admin/backoffice - sin filtros');
     }
 
+    // Filtros explícitos por query (permiten reforzar búsqueda cuando el frontend pasa agente/agenteId)
+    const extraAnd = [];
+    try {
+      const q = req.query || {};
+      const esc = (x) => String(x||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const { ObjectId } = require('mongodb');
+      if (q.agenteId) {
+        const s = String(q.agenteId).trim();
+        const oid = (()=>{ try { return new ObjectId(s);} catch { return null; } })();
+        const idFields = [
+          'ownerId','agentId','registeredById','createdBy','agenteId','creadoPor',
+          '_raw.ownerId','_raw.agentId','_raw.registeredById','_raw.createdBy','_raw.agenteId','_raw.creadoPor'
+        ];
+        const or = [];
+        idFields.forEach(f => {
+          const path = f.includes('.') ? f : f;
+          or.push({ [path]: s });
+          if (oid) or.push({ [path]: oid });
+        });
+        if (or.length) extraAnd.push({ $or: or });
+      }
+      const nameParam = q.agente || q.usuario || '';
+      if (nameParam) {
+        const p = String(nameParam).trim();
+        const or = [
+          { agenteNombre: { $regex: `^${esc(p)}$`, $options: 'i' } },
+          { agente: { $regex: `^${esc(p)}$`, $options: 'i' } },
+          { usuario: { $regex: `^${esc(p)}$`, $options: 'i' } }
+        ];
+        extraAnd.push({ $or: or });
+      }
+    } catch(e) { console.warn('[API LEADS] extra query filters error:', e.message); }
+
     console.log(`[API LEADS] Consultando colección 'costumers'...`);
 
     // Obtener la colección de la base de datos
     const collection = db.collection('costumers');
  
-    // Crear filtro de fecha - POR DEFECTO MES ACTUAL
+    // Crear filtro de fecha usando SOLO dia_venta - POR DEFECTO MES ACTUAL
     let dateFilter = null;
-    
-    // Si se envía skipDate=1, no aplicar filtro de fecha
     if (req.query.skipDate !== '1') {
       let startDate, endDate;
-      
-      // Si hay filtros de fecha en la query, usarlos
       if (req.query.fechaInicio || req.query.fechaFin) {
-        if (req.query.fechaInicio) {
-          startDate = new Date(req.query.fechaInicio);
-        }
-        if (req.query.fechaFin) {
-          endDate = new Date(req.query.fechaFin);
-          endDate.setHours(23, 59, 59, 999);
-        }
+        if (req.query.fechaInicio) startDate = new Date(req.query.fechaInicio);
+        if (req.query.fechaFin) { endDate = new Date(req.query.fechaFin); endDate.setHours(23,59,59,999); }
       } else {
-        // POR DEFECTO: Filtrar por mes actual
         const now = new Date();
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        
-        console.log(`[API LEADS] Aplicando filtro de mes actual: ${startDate.toISOString()} a ${endDate.toISOString()}`);
+        console.log(`[API LEADS] Aplicando filtro (solo dia_venta) mes actual: ${startDate.toISOString()} a ${endDate.toISOString()}`);
       }
-      
-      // Crear strings de fecha en diferentes formatos para comparar con dia_venta
-      const formatYMD = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
-      
-      const formatDMY = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${day}/${m}/${y}`;
-      };
-      
-      // Generar todos los días del rango en formato string
+
+      const formatYMD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const formatDMY = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+
       const daysInRange = [];
-      
       if (startDate && endDate) {
         const current = new Date(startDate);
         while (current <= endDate) {
-          // Formatos estándar
           daysInRange.push(formatYMD(current));
           daysInRange.push(formatDMY(current));
           current.setDate(current.getDate() + 1);
         }
       }
-      
-      // Crear filtro simplificado
-      const orConditions = [];
-      
-      // Para campos tipo Date (createdAt, creadoEn)
-      if (startDate && endDate) {
-        orConditions.push(
-          { createdAt: { $gte: startDate, $lte: endDate } },
-          { creadoEn: { $gte: startDate, $lte: endDate } },
-          { fecha_creacion: { $gte: startDate, $lte: endDate } }
-        );
-      }
-      
-      // Para campos tipo String (dia_venta) - formatos YYYY-MM-DD y DD/MM/YYYY
-      if (daysInRange.length > 0) {
-        orConditions.push(
+
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const monthName = monthNames[startDate.getMonth()];
+      const year = startDate.getFullYear();
+      const monthYearPattern = `${monthName} \\d{1,2} ${year}`;
+
+      // Solo dia_venta, en cualquiera de los formatos
+      dateFilter = {
+        $or: [
           { dia_venta: { $in: daysInRange } },
-          { fecha_contratacion: { $in: daysInRange } }
-        );
-      }
-      
-      // Para Date objects convertidos a string - usar regex simple del mes/año
-      if (startDate) {
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const monthName = monthNames[startDate.getMonth()];
-        const year = startDate.getFullYear();
-        const monthYearPattern = `${monthName} \\d{1,2} ${year}`;
-        
-        orConditions.push(
-          { dia_venta: { $regex: monthYearPattern, $options: 'i' } },
-          { fecha_contratacion: { $regex: monthYearPattern, $options: 'i' } }
-        );
-      }
-      
-      dateFilter = { $or: orConditions };
+          { dia_venta: { $regex: monthYearPattern, $options: 'i' } }
+        ]
+      };
     } else {
       console.log('[API LEADS] Filtro de fecha deshabilitado (skipDate=1)');
     }
@@ -230,17 +249,16 @@ router.get('/leads', protect, async (req, res) => {
     // Combinar filtros de usuario y fecha
     let combinedFilter = {};
     
-    if (Object.keys(filter).length > 0 && dateFilter) {
+    let withUserAnd = (Object.keys(filter).length > 0) ? [filter] : [];
+    if (extraAnd.length) withUserAnd = withUserAnd.concat(extraAnd);
+    if (withUserAnd.length && dateFilter) {
       // Ambos filtros: usuario + fecha
       combinedFilter = {
-        $and: [
-          filter,
-          dateFilter
-        ]
+        $and: [ ...withUserAnd, dateFilter ]
       };
-    } else if (Object.keys(filter).length > 0) {
+    } else if (withUserAnd.length) {
       // Solo filtro de usuario
-      combinedFilter = filter;
+      combinedFilter = withUserAnd.length === 1 ? withUserAnd[0] : { $and: withUserAnd };
     } else if (dateFilter) {
       // Solo filtro de fecha
       combinedFilter = dateFilter;

@@ -16,6 +16,31 @@
   <link rel="stylesheet" href="css/sidebar-shared.css">
   <!-- Guard temporal ANTES de cargar scripts: bloquear redirecciones a inicio -->
   <script>
+    // Sincronizar barra espejo con la tabla
+    (function(){
+      function initMirror(){
+        const wrap = document.querySelector('.table-responsive');
+        const table = document.querySelector('.costumer-table');
+        const mirror = document.getElementById('scrollbarMirror');
+        const inner = document.getElementById('scrollbarMirrorInner');
+        if(!wrap || !table || !mirror || !inner) return;
+        const updateWidth = () => {
+          const scrollW = Math.max(table.scrollWidth, 1);
+          inner.style.width = scrollW + 'px';
+          mirror.scrollLeft = wrap.scrollLeft;
+        };
+        const sync = (src, dst) => () => { dst.scrollLeft = src.scrollLeft; };
+        wrap.addEventListener('scroll', sync(wrap, mirror));
+        mirror.addEventListener('scroll', sync(mirror, wrap));
+        window.addEventListener('resize', updateWidth);
+        const ro = window.ResizeObserver ? new ResizeObserver(updateWidth) : null;
+        if (ro) ro.observe(table);
+        updateWidth();
+      }
+      window.addEventListener('DOMContentLoaded', initMirror);
+    })();
+  </script>
+  <script>
     // Renderizador con soporte Team Líneas
     (function(){
       function isTeamLineas(){
@@ -171,6 +196,8 @@
       min-height: 100vh;
       position: relative;
       overflow-x: hidden;
+      /* Reservar espacio para la barra espejo fija */
+      padding-bottom: 24px;
     }
 
     .container {
@@ -347,7 +374,8 @@
       background: #ffffff;
       border-radius: 14px;
       box-shadow: 0 6px 18px rgba(2, 8, 20, 0.06);
-      overflow: hidden;
+      /* No ocultar overflow para no cortar la barra de scroll horizontal del contenedor interno */
+      overflow: visible;
       margin-top: 24px;
       border: 1px solid #e6eef5;
       max-width: 100%;
@@ -360,13 +388,42 @@
     
     .table-responsive {
       width: 100%;
-      overflow-x: auto;
+      /* Scroll horizontal y vertical dentro del contenedor de tabla */
+      overflow-x: scroll; /* fuerza a mostrar barra horizontal */
       -webkit-overflow-scrolling: touch;
       /* Permitir scroll vertical SOLO dentro del listado */
       overflow-y: auto;
       flex: 1 1 auto;
       position: relative;
+      /* Reservar espacio para que la barra sea visible en Windows/macOS */
+      padding-bottom: 10px;
+      scrollbar-gutter: stable both-edges;
+      /* Forzar que el scrollbar sea visible (Firefox/Edge/Chromium) */
+      scrollbar-width: auto; /* Firefox */
     }
+
+    /* Estilos de scrollbar (WebKit/Blink) */
+    .table-responsive::-webkit-scrollbar { height: 10px; }
+    .table-responsive::-webkit-scrollbar-track { background: #eef2f7; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+    .table-responsive::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Barra espejo fija bajo la tabla */
+    .scrollbar-mirror {
+      height: 18px;
+      overflow-x: scroll;
+      overflow-y: hidden;
+      background: #e5e7eb;
+      border-top: 1px solid #cbd5e1;
+      position: fixed; /* fija al fondo de la ventana */
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+    }
+    .scrollbar-mirror::-webkit-scrollbar { height: 12px; }
+    .scrollbar-mirror::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+    .scrollbar-mirror::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     
     .costumer-table-header {
       display: flex;
@@ -404,11 +461,12 @@
     }
     
     .costumer-table {
-      width: 100%;
+      /* Permite crecer al ancho del contenido para forzar overflow horizontal */
+      width: max-content;
       border-collapse: separate;
       border-spacing: 0;
       table-layout: auto;
-      min-width: 2600px; /* Ancho mínimo para 21 columnas (21 × 120px = 2520px + margen) */
+      min-width: 3600px; /* Aumentado para forzar overflow en pantallas anchas */
       background: #fff;
     }
     
@@ -419,7 +477,7 @@
       border-bottom: 1px solid #eef2f7;
       white-space: normal;
       word-wrap: break-word;
-      min-width: 120px;
+      min-width: 160px; /* ampliar base de columna para provocar overflow */
       max-width: 360px;
       vertical-align: middle;
       font-size: 14px;
@@ -467,6 +525,10 @@
       border-bottom: 1px solid #eef2f7;
       color: #334155;
       background-color: #fff;
+      /* Evita que el contenido se parta en varias líneas y fuerza overflow horizontal */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* Zebra striping */
@@ -759,6 +821,7 @@
             </tbody>
           </table>
         </div>
+        <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
       </div>
     </div>
   </div>
@@ -1041,153 +1104,8 @@
   <script>
     // Función para crear toolbar de supervisor
     window.createSupervisorToolbar = function(leads) {
-      console.log('🔧 [createSupervisorToolbar] Iniciando creación de toolbar...');
-      
-      try {
-        // Detectar si el usuario es supervisor
-        const userObj = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const rawRole = (userObj.role || userObj?.usuario?.role || '').toString().toLowerCase();
-        const roleIsSupervisor = rawRole === 'supervisor';
-        
-        console.log('[createSupervisorToolbar] Usuario:', userObj.username);
-        console.log('[createSupervisorToolbar] Rol:', rawRole);
-        console.log('[createSupervisorToolbar] Es supervisor:', roleIsSupervisor);
-        
-        if (!roleIsSupervisor) {
-          console.log('[createSupervisorToolbar] Usuario no es supervisor, abortando');
-          return;
-        }
-        
-        // Obtener agentes del equipo usando Teams API
-        const teamsApi = window.Teams;
-        if (!teamsApi) {
-          console.warn('[createSupervisorToolbar] Teams API no disponible');
-          return;
-        }
-        
-        const supervisorName = userObj.username || '';
-        const teamAgents = teamsApi.getAgentsBySupervisor(supervisorName) || [];
-        
-        console.log('[createSupervisorToolbar] Supervisor:', supervisorName);
-        console.log('[createSupervisorToolbar] Agentes del equipo:', teamAgents);
-        
-        if (teamAgents.length === 0) {
-          console.warn('[createSupervisorToolbar] No se encontraron agentes para el supervisor');
-          return;
-        }
-        
-        // Buscar el elemento tbody
-        const tbodyEl = document.getElementById('costumer-tbody');
-        if (!tbodyEl) {
-          console.error('[createSupervisorToolbar] No se encontró costumer-tbody');
-          return;
-        }
-        
-        const tableEl = tbodyEl.closest('table');
-        const tableResponsive = tableEl ? tableEl.closest('.table-responsive') : null;
-        
-        // Crear o reutilizar la barra de filtros
-        let bar = document.getElementById('supervisor-agent-filter');
-        if (!bar) {
-          bar = document.createElement('div');
-          bar.id = 'supervisor-agent-filter';
-          bar.style.cssText = `
-            margin: 15px 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            position: relative;
-            z-index: 10;
-            background: #f8fafc;
-            padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          `;
-          
-          // Insertar antes de la tabla
-          if (tableResponsive) {
-            tableResponsive.parentElement.insertBefore(bar, tableResponsive);
-          } else if (tableEl) {
-            tableEl.parentElement.insertBefore(bar, tableEl);
-          }
-          
-          console.log('[createSupervisorToolbar] ✅ Toolbar creada e insertada');
-        }
-        
-        // Limpiar contenido
-        bar.innerHTML = '';
-        
-        // Agregar título
-        const titleSpan = document.createElement('span');
-        titleSpan.textContent = 'Filtrar por agente:';
-        titleSpan.style.cssText = 'font-weight: 600; font-size: 14px; color: #334155; margin-right: 12px;';
-        bar.appendChild(titleSpan);
-        
-        // Función para crear botones
-        const createButton = (label, value) => {
-          const btn = document.createElement('button');
-          btn.textContent = label;
-          btn.type = 'button';
-          btn.style.cssText = `
-            padding: 6px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 999px;
-            background: #ffffff;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-          `;
-          
-          const isActive = (window.supervisorAgentFilter || null) === value;
-          if (isActive) {
-            btn.style.background = '#1d4ed8';
-            btn.style.color = '#ffffff';
-            btn.style.borderColor = '#1d4ed8';
-          }
-          
-          btn.addEventListener('click', () => {
-            window.supervisorAgentFilter = value;
-            console.log('[createSupervisorToolbar] Filtro seleccionado:', value || 'Todos');
-            
-            // Re-renderizar tabla
-            if (typeof window.renderCostumerTable === 'function' && window.ultimaListaLeads) {
-              window.renderCostumerTable(window.ultimaListaLeads);
-              window.createSupervisorToolbar(window.ultimaListaLeads);
-            }
-          });
-          
-          btn.addEventListener('mouseenter', () => {
-            if (!isActive) {
-              btn.style.background = '#f1f5f9';
-            }
-          });
-          
-          btn.addEventListener('mouseleave', () => {
-            if (!isActive) {
-              btn.style.background = '#ffffff';
-            }
-          });
-          
-          return btn;
-        };
-        
-        // Agregar botón "Todos"
-        bar.appendChild(createButton('Todos', null));
-        
-        // Agregar botón por cada agente
-        teamAgents.forEach(agentCanonical => {
-          const displayName = teamsApi.getDisplayName(agentCanonical) || 
-                             agentCanonical.replace(/\b\w/g, c => c.toUpperCase());
-          bar.appendChild(createButton(displayName, agentCanonical));
-        });
-        
-        console.log('[createSupervisorToolbar] ✅ Toolbar completada con', teamAgents.length + 1, 'botones');
-        
-      } catch (error) {
-        console.error('[createSupervisorToolbar] Error:', error);
-      }
+      // Deshabilitado temporalmente: no renderizar barra de filtros por agente para supervisores
+      return;
     };
   </script>
   <script>
@@ -2041,52 +1959,34 @@
       }
     }
 
-    // Helper: obtener fecha YYYY-MM-DD de un lead (sin conversión de zona horaria)
+    // Helper: obtener fecha YYYY-MM-DD desde SOLO dia_venta
     function getDateFromLead(lead) {
       try {
         if (!lead) return '';
-        const raw = lead.dia_venta || lead.FECHA || lead.fecha_venta || lead.fecha || null;
+        const raw = lead.dia_venta;
         if (!raw) return '';
-        
-        // Si ya es string en formato YYYY-MM-DD, devolverlo tal cual (sin parseo)
+        const toYMD = (d) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
         if (typeof raw === 'string') {
-          const trimmed = raw.trim();
-          if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-            return trimmed; // Devolver sin conversión para evitar desfase UTC
+          const s = raw.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+            const [d, m, y] = s.split('/').map(n => parseInt(n, 10));
+            const dt = new Date(y, m - 1, d);
+            return isNaN(dt) ? '' : toYMD(dt);
           }
+          const dt = new Date(s);
+          return isNaN(dt) ? '' : toYMD(dt);
         }
-        
-        // Usar utilidad centralizada para parseo y formateo
-        if (window.DateUtils && window.DateUtils.formatLocalDate) {
-          return window.DateUtils.formatLocalDate(raw);
-        }
-        
-        // Fallback: parsear manualmente como local
-        let d;
         if (raw instanceof Date) {
-          d = raw;
-        } else if (typeof raw === 'string') {
-          const match = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-          if (match) {
-            const [_, y, m, day] = match;
-            d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
-          } else {
-            d = new Date(raw);
-          }
-        } else {
-          d = new Date(String(raw));
+          return toYMD(raw);
         }
-        
-        if (isNaN(d)) return '';
-        
-        // Usar fecha local, no UTC
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      } catch {
         return '';
-      }
+      } catch { return ''; }
     }
 
     // Cargar leads del agente desde backend y actualizar UI
@@ -2224,6 +2124,20 @@
         console.log('[fetchLeadsAgente] leadsRaw.length =', (leadsRaw && leadsRaw.length) || 0);
         let normalizedLeads = normalizeLeads(leadsRaw);
         console.log('[fetchLeadsAgente] normalizedLeads.length =', (normalizedLeads && normalizedLeads.length) || 0);
+
+        // Filtro de seguridad por mes actual (Octubre 2025 en este momento)
+        try {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const prefix = `${year}-${month}-`;
+          const before = normalizedLeads.length;
+          normalizedLeads = normalizedLeads.filter(l => {
+            const ymd = getDateFromLead(l);
+            return ymd && ymd.startsWith(prefix);
+          });
+          console.log(`[Filtro mes actual frontend] ${before} -> ${normalizedLeads.length} (prefijo ${prefix})`);
+        } catch(e){ console.warn('[Filtro mes actual frontend] error', e?.message); }
 
     // Filtrar por agente si el usuario es role 'agent' SOLO si no se filtr¨® ya en el backend
     if (!alreadyFilteredByAgent && !forceAll) {
@@ -2980,7 +2894,12 @@
           <td>${lead.telefono_principal || 'N/A'}</td>
           <td>${lead.telefono_alterno || 'N/A'}</td>
           <td>${lead.numero_cuenta || 'N/A'}</td>
-          <td>${lead.autopago || 'N/A'}</td>
+          <td>${(() => {
+            const autop = lead.autopay ?? lead.autopago;
+            return typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : 
+                   (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : 
+                   (String(autop || '').toUpperCase() === 'NO' ? 'No' : (autop || 'N/A')));
+          })()}</td>
           <td>${lead.direccion || 'N/A'}</td>
           <td>${lead.tipo_servicios || 'N/A'}</td>
           <td>${lead.sistema || 'N/A'}</td>
@@ -3375,38 +3294,10 @@
               const host = tableResponsive || tableEl || tbodyEl;
               console.log('[Toolbar Supervisor] host para insertar toolbar:', host?.className || host?.tagName);
               
+              // Deshabilitado temporalmente: eliminar toolbar duplicada y salir
               let bar = document.getElementById('irania-agent-filter');
-              if (!bar) {
-                console.log('[Toolbar Supervisor] Creando nuevo elemento de toolbar...');
-                bar = document.createElement('div');
-                bar.id = 'irania-agent-filter';
-                bar.style.margin = '15px 0';
-                bar.style.display = 'flex';
-                bar.style.flexWrap = 'wrap';
-                bar.style.gap = '8px';
-                bar.style.alignItems = 'center';
-                bar.style.position = 'relative';
-                bar.style.zIndex = '10';
-                bar.style.background = '#f8fafc';
-                bar.style.padding = '12px 16px';
-                bar.style.borderRadius = '8px';
-                bar.style.border = '1px solid #e2e8f0';
-                bar.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                
-                // Insertar ANTES de la tabla
-                if (tableResponsive) {
-                  tableResponsive.parentElement.insertBefore(bar, tableResponsive);
-                } else if (tableEl) {
-                  tableEl.parentElement.insertBefore(bar, tableEl);
-                } else {
-                  tbodyEl.parentElement.insertBefore(bar, tbodyEl);
-                }
-                console.log('[Toolbar Supervisor] Toolbar insertada en el DOM');
-              } else {
-                console.log('[Toolbar Supervisor] Reutilizando toolbar existente');
-              }
-              // Limpiar y reconstruir botones
-              bar.innerHTML = '';
+              try { if (bar) { bar.remove(); } } catch(_) {}
+              return;
               
               // Agregar título/etiqueta
               const titleSpan = document.createElement('span');
