@@ -94,15 +94,22 @@ router.get('/', protect, async (req, res) => {
     
     // Pipeline simplificado que funciona con los datos reales
     const pipelineBase = [
-      // 1) Filtrar por rango de fechas principal
+      // 1) Filtrar por rango de fechas usando strings (más compatible)
       {
         $match: {
-          $expr: {
-            $and: [
-              { $gte: [dateField, new Date(startDate)] },
-              { $lte: [dateField, new Date(endDate)] }
-            ]
-          }
+          $or: [
+            // Formato YYYY-MM-DD
+            { dia_venta: { $regex: /^2025-10-/ } },
+            // Formato DD/MM/YYYY
+            { dia_venta: { $regex: /\/10\/2025$/ } },
+            // Fecha como Date object
+            { 
+              dia_venta: { 
+                $gte: new Date(startDate), 
+                $lte: new Date(endDate + 'T23:59:59.999Z') 
+              } 
+            }
+          ]
         }
       },
       

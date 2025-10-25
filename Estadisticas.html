@@ -610,28 +610,16 @@
         // Mostrar indicador de carga
         root.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-2">Cargando datos de equipos...</p></div>';
         
-        // Rango del DÍA efectivo usando corte local a las 09:30 del día siguiente
-        // Si la hora local es < 09:30, usamos el día anterior como fecha efectiva.
+        // Rango del MES COMPLETO (desde día 1 hasta hoy)
         let fechaInicio = '';
         let fechaFin = '';
         {
-          const nowLocal = new Date();
-          const cutoffHour = 9;
-          const cutoffMinute = 30;
-          const isBeforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-          const effective = new Date(nowLocal);
-          if (isBeforeCutoff) {
-            // Retroceder un día (24h) para que los datos del día anterior sigan visibles
-            effective.setDate(effective.getDate() - 1);
-          }
-
-          // Día efectivo: enviar la MISMA fecha en inicio y fin para activar modo isDayOnly en backend
-          // El backend manejará el corte a las 9:30 AM del día siguiente
-          const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
+          const hoy = new Date();
+          const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
           const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          fechaInicio = fmt(startLocal);
-          fechaFin = fmt(startLocal); // MISMA fecha para activar isDayOnly
-          console.log('[ESTADISTICAS] Rango día efectivo:', { fechaInicio, fechaFin, effective: effective.toString() });
+          fechaInicio = fmt(primerDiaMes);  // Primer día del mes
+          fechaFin = fmt(hoy);                // Día actual
+          console.log('[ESTADISTICAS] Rango mes completo:', { fechaInicio, fechaFin });
         }
         
         // Construir URL con parámetros
@@ -813,14 +801,10 @@
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
 
-        // Encabezado: mostrar MES (mm/yyyy) cuando es rango mensual; si no, día actual (dd/mm/yyyy)
+        // Encabezado: siempre mostrar MES (mm/yyyy) para esta tabla
         const hoy = new Date();
-        const diaTexto = `${String(hoy.getDate()).padStart(2,'0')}/${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
         const mesTexto = `${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
-        const esMes = (fechaInicio && fechaFin && fechaInicio !== fechaFin);
-        const encabezadoTitulo = esMes
-          ? `VENTAS POR MERCADO Y PUNTAJE DEL MES (${mesTexto})`
-          : `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})`;
+        const encabezadoTitulo = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${mesTexto})`;
 
         // Generar HTML de la tabla de equipos
         let html = `

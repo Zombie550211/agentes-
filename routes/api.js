@@ -178,7 +178,6 @@ router.get('/leads', protect, async (req, res) => {
       
       // Generar todos los días del rango en formato string
       const daysInRange = [];
-      const daysRegex = []; // Para buscar Date objects convertidos a string
       
       if (startDate && endDate) {
         const current = new Date(startDate);
@@ -186,24 +185,11 @@ router.get('/leads', protect, async (req, res) => {
           // Formatos estándar
           daysInRange.push(formatYMD(current));
           daysInRange.push(formatDMY(current));
-          
-          // Regex para capturar Date objects como string (ej: "Thu Oct 24 2025")
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          const dayName = dayNames[current.getDay()];
-          const monthName = monthNames[current.getMonth()];
-          const day = current.getDate();
-          const year = current.getFullYear();
-          
-          // Patrón: "Thu Oct 24 2025" (sin importar la hora)
-          daysRegex.push(new RegExp(`^${dayName} ${monthName} ${String(day).padStart(2, '0')} ${year}`, 'i'));
-          daysRegex.push(new RegExp(`^${dayName} ${monthName} ${day} ${year}`, 'i')); // Sin padding
-          
           current.setDate(current.getDate() + 1);
         }
       }
       
-      // Crear filtro que funcione tanto para Date objects como para strings
+      // Crear filtro simplificado
       const orConditions = [];
       
       // Para campos tipo Date (createdAt, creadoEn)
@@ -223,14 +209,17 @@ router.get('/leads', protect, async (req, res) => {
         );
       }
       
-      // Para Date objects convertidos a string (ej: "Thu Oct 24 2025 00:00:00 GMT-0600")
-      if (daysRegex.length > 0) {
-        daysRegex.forEach(regex => {
-          orConditions.push(
-            { dia_venta: { $regex: regex } },
-            { fecha_contratacion: { $regex: regex } }
-          );
-        });
+      // Para Date objects convertidos a string - usar regex simple del mes/año
+      if (startDate) {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthName = monthNames[startDate.getMonth()];
+        const year = startDate.getFullYear();
+        const monthYearPattern = `${monthName} \\d{1,2} ${year}`;
+        
+        orConditions.push(
+          { dia_venta: { $regex: monthYearPattern, $options: 'i' } },
+          { fecha_contratacion: { $regex: monthYearPattern, $options: 'i' } }
+        );
       }
       
       dateFilter = { $or: orConditions };
