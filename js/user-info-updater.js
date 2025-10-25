@@ -1,37 +1,51 @@
-// Minimal user-info-updater to prevent 404 and optionally update username placeholders
-(function(){
-  // Simple cache for current user across pages
-  let cachedUser = null;
+/**
+ * User Info Updater - Actualiza información del usuario periódicamente
+ */
 
-  // Public: setter to update user globally
-  window.setCurrentUser = function(user) {
+(function() {
+  'use strict';
+
+  // Intervalo de actualización (5 minutos)
+  const UPDATE_INTERVAL = 5 * 60 * 1000;
+  let updateTimer = null;
+
+  // Función para actualizar información del usuario
+  async function updateUserInfo() {
     try {
-      cachedUser = user || null;
-      if (user) {
-        sessionStorage.setItem('user', JSON.stringify(user));
+      // Si existe la función loadUserStats, llamarla
+      if (typeof window.loadUserStats === 'function') {
+        await window.loadUserStats();
       }
-    } catch (_) {}
-  };
-
-  // Public: getter used by sidebar-loader.js
-  window.getCurrentUser = function() {
-    if (cachedUser) return cachedUser;
-    try {
-      const stored = sessionStorage.getItem('user') || localStorage.getItem('user');
-      if (stored) {
-        cachedUser = JSON.parse(stored);
-        return cachedUser;
-      }
-    } catch (_) {}
-    return null;
-  };
-
-  // Optional: update any inline placeholders if available
-  try {
-    const user = window.getCurrentUser();
-    const name = user?.username || user?.name || '';
-    if (name) {
-      document.querySelectorAll('[data-user-name]').forEach(el => { el.textContent = name; });
+    } catch (error) {
+      console.error('Error actualizando información del usuario:', error);
     }
-  } catch (_) {}
+  }
+
+  // Iniciar actualizaciones periódicas
+  function startPeriodicUpdates() {
+    // Actualizar inmediatamente
+    updateUserInfo();
+    
+    // Configurar actualizaciones periódicas
+    updateTimer = setInterval(updateUserInfo, UPDATE_INTERVAL);
+    
+    console.log('✅ Actualizaciones periódicas de usuario iniciadas');
+  }
+
+  // Detener actualizaciones
+  function stopPeriodicUpdates() {
+    if (updateTimer) {
+      clearInterval(updateTimer);
+      updateTimer = null;
+    }
+  }
+
+  // Inicializar cuando el sidebar se cargue
+  document.addEventListener('sidebar:loaded', () => {
+    setTimeout(startPeriodicUpdates, 1000);
+  });
+
+  // Limpiar al salir de la página
+  window.addEventListener('beforeunload', stopPeriodicUpdates);
+
 })();

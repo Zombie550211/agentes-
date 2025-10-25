@@ -137,32 +137,103 @@ router.get('/leads', protect, async (req, res) => {
     const collection = db.collection('costumers');
  
     // Crear filtro de fecha - POR DEFECTO MES ACTUAL
-    let dateCondition = null;
+    let dateFilter = null;
     
     // Si se envía skipDate=1, no aplicar filtro de fecha
     if (req.query.skipDate !== '1') {
+      let startDate, endDate;
+      
       // Si hay filtros de fecha en la query, usarlos
       if (req.query.fechaInicio || req.query.fechaFin) {
-        dateCondition = {};
         if (req.query.fechaInicio) {
-          dateCondition.$gte = new Date(req.query.fechaInicio);
+          startDate = new Date(req.query.fechaInicio);
         }
         if (req.query.fechaFin) {
-          dateCondition.$lte = new Date(req.query.fechaFin);
+          endDate = new Date(req.query.fechaFin);
+          endDate.setHours(23, 59, 59, 999);
         }
       } else {
         // POR DEFECTO: Filtrar por mes actual
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         
-        dateCondition = {
-          $gte: startOfMonth,
-          $lte: endOfMonth
-        };
-        
-        console.log(`[API LEADS] Aplicando filtro de mes actual: ${startOfMonth.toISOString()} a ${endOfMonth.toISOString()}`);
+        console.log(`[API LEADS] Aplicando filtro de mes actual: ${startDate.toISOString()} a ${endDate.toISOString()}`);
       }
+      
+      // Crear strings de fecha en diferentes formatos para comparar con dia_venta
+      const formatYMD = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      
+      const formatDMY = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${day}/${m}/${y}`;
+      };
+      
+      // Generar todos los días del rango en formato string
+      const daysInRange = [];
+      const daysRegex = []; // Para buscar Date objects convertidos a string
+      
+      if (startDate && endDate) {
+        const current = new Date(startDate);
+        while (current <= endDate) {
+          // Formatos estándar
+          daysInRange.push(formatYMD(current));
+          daysInRange.push(formatDMY(current));
+          
+          // Regex para capturar Date objects como string (ej: "Thu Oct 24 2025")
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const dayName = dayNames[current.getDay()];
+          const monthName = monthNames[current.getMonth()];
+          const day = current.getDate();
+          const year = current.getFullYear();
+          
+          // Patrón: "Thu Oct 24 2025" (sin importar la hora)
+          daysRegex.push(new RegExp(`^${dayName} ${monthName} ${String(day).padStart(2, '0')} ${year}`, 'i'));
+          daysRegex.push(new RegExp(`^${dayName} ${monthName} ${day} ${year}`, 'i')); // Sin padding
+          
+          current.setDate(current.getDate() + 1);
+        }
+      }
+      
+      // Crear filtro que funcione tanto para Date objects como para strings
+      const orConditions = [];
+      
+      // Para campos tipo Date (createdAt, creadoEn)
+      if (startDate && endDate) {
+        orConditions.push(
+          { createdAt: { $gte: startDate, $lte: endDate } },
+          { creadoEn: { $gte: startDate, $lte: endDate } },
+          { fecha_creacion: { $gte: startDate, $lte: endDate } }
+        );
+      }
+      
+      // Para campos tipo String (dia_venta) - formatos YYYY-MM-DD y DD/MM/YYYY
+      if (daysInRange.length > 0) {
+        orConditions.push(
+          { dia_venta: { $in: daysInRange } },
+          { fecha_contratacion: { $in: daysInRange } }
+        );
+      }
+      
+      // Para Date objects convertidos a string (ej: "Thu Oct 24 2025 00:00:00 GMT-0600")
+      if (daysRegex.length > 0) {
+        daysRegex.forEach(regex => {
+          orConditions.push(
+            { dia_venta: { $regex: regex } },
+            { fecha_contratacion: { $regex: regex } }
+          );
+        });
+      }
+      
+      dateFilter = { $or: orConditions };
     } else {
       console.log('[API LEADS] Filtro de fecha deshabilitado (skipDate=1)');
     }
@@ -170,30 +241,20 @@ router.get('/leads', protect, async (req, res) => {
     // Combinar filtros de usuario y fecha
     let combinedFilter = {};
     
-    if (Object.keys(filter).length > 0 && dateCondition) {
+    if (Object.keys(filter).length > 0 && dateFilter) {
       // Ambos filtros: usuario + fecha
       combinedFilter = {
         $and: [
           filter,
-          {
-            $or: [
-              { createdAt: dateCondition },
-              { dia_venta: dateCondition }
-            ]
-          }
+          dateFilter
         ]
       };
     } else if (Object.keys(filter).length > 0) {
       // Solo filtro de usuario
       combinedFilter = filter;
-    } else if (dateCondition) {
+    } else if (dateFilter) {
       // Solo filtro de fecha
-      combinedFilter = {
-        $or: [
-          { createdAt: dateCondition },
-          { dia_venta: dateCondition }
-        ]
-      };
+      combinedFilter = dateFilter;
     }
 
     console.log(`[API LEADS] Filtro aplicado:`, JSON.stringify(combinedFilter, null, 2));

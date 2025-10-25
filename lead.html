@@ -42,7 +42,7 @@
   
   <!-- Scripts -->
   <script src="js/fetch-interceptor.js"></script>
-  <script src="/agentes-clean/agentes/js/auth-check.js"></script>
+  <!-- <script src="/agentes-clean/agentes/js/auth-check.js"></script> -->
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <!-- Sistema de Inactividad -->
@@ -83,13 +83,13 @@
       }
     })();
   </script>
-  <script src="agentes-clean/agentes/js/auth-check.js?v=20250905-163930"></script>
+  <!-- <script src="agentes-clean/agentes/js/auth-check.js?v=20250905-163930"></script> -->
   <script src="/js/logout-handler.js?v=20250905-163930"></script>
   <script src="/js/user-info.js?v=20250905-163930"></script>
   <script src="/js/form-config.js?v=20250905-163930"></script>
   <script src="/utils/teams.js?v=20250905-163930"></script>
   <!-- Sistema de Puntación Automática -->
-  <script src="/js/scoring-system.js"></script>
+  <!-- <script src="/js/scoring-system.js"></script> -->
   <script>
     // Marcar body como team-lineas lo antes posible para aplicar CSS de ocultamiento
     (function(){
@@ -2984,6 +2984,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return String(phone).replace(/\D+/g, '');
       }
 
+      /**
+       * Obtiene la fecha actual en formato YYYY-MM-DD en la zona horaria local
+       * Evita problemas de conversión UTC que causan que la fecha sea un día anterior
+       */
+      function getTodayLocalDate() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
       // Función para manejar el envío del formulario
       async function handleFormSubmit(e) {
         e.preventDefault();
@@ -3158,7 +3170,7 @@ document.addEventListener('DOMContentLoaded', function() {
             email: email || '',
             
             // Información de la venta
-            dia_venta: diaVenta || new Date().toISOString().split('T')[0],
+            dia_venta: diaVenta || getTodayLocalDate(),
             dia_instalacion: fechaInstalacion || '',
             // Mantener compatibilidad con campos antiguos
             fecha_instalacion: fechaInstalacion || '',
@@ -3225,7 +3237,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autopago: autopagoBool,
             
             // Información de la venta
-            dia_venta: diaVenta || new Date().toISOString().split('T')[0],
+            dia_venta: diaVenta || getTodayLocalDate(),
             team: supervisorText || 'TEAM IRANIA',
             supervisor: supervisorText || 'TEAM IRANIA',
             agente: 'Agente', // Debería obtenerse del usuario logueado
@@ -3237,7 +3249,7 @@ document.addEventListener('DOMContentLoaded', function() {
             creadoEn: new Date().toISOString(),
             actualizadoEn: new Date().toISOString(),
             producto_contratado: serviciosText || tipoServicioText || tipoServicio || 'INTERNET',
-            fecha_contratacion: diaVenta || new Date().toISOString().split('T')[0],
+            fecha_contratacion: diaVenta || getTodayLocalDate(),
             equipo: supervisorText || supervisor || 'TEAM IRANIA',
             fecha_creacion: new Date().toISOString(),
             status: status === 'PENDING' ? 'pendiente' : 'activo',
@@ -3720,6 +3732,58 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // ========== SISTEMA DE PUNTACIÓN AUTOMÁTICA ==========
   console.log('[PUNTAJE] Inicializando sistema de puntación automática');
+  
+  // Definir el sistema de scoring si no existe
+  if (!window.ScoringSystem) {
+    window.ScoringSystem = {
+      calculateScore: function(serviceKey, riskLevel) {
+        const SCORING_TABLE = {
+          'video-directv-internet': { byRisk: { low: 1.0, medium: 0.35, high: 0.35, na: 1.0 } },
+          'video-directv-satelite': { base: 1.0 },
+          'video-select-spectrum': { base: 1.0 },
+          'att-air': { base: 0.35 },
+          'att-18-25-mb': { base: 0.25 },
+          'att-50-100-mb': { base: 0.70 },
+          'att-300-500-mb': { base: 1.25 },
+          'att-1g-plus': { base: 1.5 },
+          'xfinity-100-299': { base: 0.35 },
+          'xfinity-300': { base: 0.35 },
+          'xfinity-500-plus': { base: 0.75 },
+          'xfinity-double-play': { base: 0.75 },
+          'xfinity-ultimate-tv': { base: 0.75 },
+          'xfinity-unlimited-voip': { base: 0.75 },
+          'frontier-200-mb': { base: 1.0 },
+          'frontier-500-mb': { base: 1.0 },
+          'frontier-1g': { base: 1.25 },
+          'frontier-2g-plus': { base: 1.5 },
+          'internet-earthlink': { base: 1.0 },
+          'internet-ziply-fiber': { base: 0.35 },
+          'internet-windstream': { base: 1.25 },
+          'brightspeed-10-100': { base: 0.35 },
+          'brightspeed-100-900': { base: 1.0 },
+          'spectrum-500': { base: 0.75 },
+          'spectrum-1g': { base: 1.0 },
+          'spectrum-2g': { base: 1.25 },
+          'double-play-spectrum': { base: 1.0 },
+          'mobility-spectrum': { base: 0.5 },
+          'sim-spectrum': { base: 0.5 }
+        };
+        
+        if (!serviceKey) return 0;
+        const normalizedRisk = (riskLevel || 'na').toLowerCase();
+        const serviceConfig = SCORING_TABLE[serviceKey];
+        if (!serviceConfig) return 0;
+        if (serviceConfig.base !== undefined) return serviceConfig.base;
+        if (serviceConfig.byRisk) return serviceConfig.byRisk[normalizedRisk] || serviceConfig.byRisk.low || 0;
+        return 0;
+      },
+      getScoreInfo: function(serviceKey, riskLevel) {
+        const score = this.calculateScore(serviceKey, riskLevel);
+        return { score: score, serviceKey: serviceKey, riskLevel: riskLevel };
+      }
+    };
+    console.log('[PUNTAJE] Sistema de scoring inicializado');
+  }
   
   const serviciosSelect = document.getElementById('servicios');
   const riesgoSelect = document.getElementById('riesgo');

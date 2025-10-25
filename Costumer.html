@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>CRM Agente - Costumer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="css/theme.css" />
@@ -47,7 +50,7 @@
         if(arr.length){ const m=new Map(); arr.forEach(t=>{ const k=(t?.servicio||t?.tipo||'').toString().trim()||'SERVICIO'; m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].map(([k,v])=> v>1?`${k} x${v}`:k).join('; '); }
         return l.servicios_texto||l.tipo_servicios||l.servicios||l.producto||'';
       }
-      function normDate(v){ try{ if(!v) return ''; const s=String(v); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const match=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(match){ return s; } const d=new Date(s); if(isNaN(d)) return s; const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;}catch{return String(v||'');}}
+      // normDate ahora se carga desde js/date-formatter.js
       function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
       function agentName(l){ return l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||''; }
       function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
@@ -125,9 +128,12 @@
 
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="js/sidebar-loader.js"></script>`n  <script src="js/monthly-cutoff.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+  <!-- <script src="js/monthly-cutoff.js"></script> -->
+  <!-- Date Formatter - DEBE CARGARSE ANTES DE TEAMS.JS -->
+  <!-- <script src="js/date-formatter.js?v=20251024"></script> -->
   <!-- Teams API: definición de equipos, supervisores y agentes -->
-  <script src="utils/teams.js?v=20250904"></script>
+  <script src="utils/teams.js?v=20251024b"></script>
   <style>
     /* Estilos del sidebar unificados en css/sidebar-shared.css */
     /* Nota: Estilos del bloque de usuario del sidebar se definen en css/sidebar-inicio.css
@@ -931,8 +937,7 @@
           console.debug('[fetchLeadsByAgentId] usando cache para', agentId, 'items=', cached.length);
           return cached.slice();
         }
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const fetchOpts = { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } };
         // Solo las claves robustas que el backend soporta de forma directa
         const qParams = [
           ['agenteId', agentId],
@@ -950,7 +955,7 @@
         // Intentar primero agenteId, si no hay datos probar agentId inmediatamente despu¨¦s
         const tryOnce = async ([key, val]) => {
           const url = `/api/customers?page=1&limit=200&${key}=${encodeURIComponent(val)}`;
-          const res = await fetch(url, { headers, signal });
+          const res = await fetch(url, { ...fetchOpts, signal });
           if (!res.ok) { console.warn('[fetchLeadsByAgentId] HTTP', res.status, 'para', key); return []; }
           const data = await res.json();
           const leads = Array.isArray(data) ? data : (Array.isArray(data?.leads) ? data.leads : []);
@@ -972,8 +977,7 @@
     async function fetchLeadsByAgentName(agentName) {
       try {
         if (!agentName) return [];
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const fetchOpts = { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } };
         const strip = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu,'');
         const collapsed = strip(agentName).replace(/\s+/g,'');
         // Insertar un espacio entre nombre y apellido si viene colapsado tipo "EduardoRivas"
@@ -997,7 +1001,7 @@
           for (const val of nameVariants) {
             try {
               const url = `/api/customers?page=1&limit=200&${key}=${encodeURIComponent(val)}`;
-              const res = await fetch(url, { headers });
+              const res = await fetch(url, fetchOpts);
               if (!res.ok) { console.warn('[fetchLeadsByAgentName] HTTP', res.status, 'para', key, 'val', val); continue; }
               const data = await res.json();
               const leads = Array.isArray(data) ? data : (Array.isArray(data?.leads) ? data.leads : []);
@@ -1259,7 +1263,6 @@
       checkUserRole();
     });
   </script>
-  <script src="js/core/script.js"></script>
   <!-- Override DESPUÉS de script.js para Team Líneas -->
   <script>
     // Override para Team Líneas después de cargar script.js
@@ -1441,13 +1444,13 @@
       try { window.adminTeamFilter = null; } catch(_) {}
 
       // Cargar datos iniciales
-      if (typeof cargarDatosIniciales === 'function') {
-        console.log('[LEGACY init] Llamando a cargarDatosIniciales (que ahora debería estar vacío o usar monthly-cutoff)');
-        // NOTA: La carga real ahora es manejada por monthly-cutoff.js
-        // cargarDatosIniciales(); // Deshabilitado para evitar doble carga
+      console.log('[INIT] Cargando datos desde el servidor...');
+      if (typeof fetchLeadsAgente === 'function') {
+        fetchLeadsAgente().catch(err => {
+          console.error('[INIT] Error cargando datos:', err);
+        });
       } else {
-        console.log('[LEGACY init] No se encontró cargarDatosIniciales.');
-        // fetchLeadsAgente(); // Deshabilitado
+        console.error('[INIT] fetchLeadsAgente no está disponible');
       }
     });
   </script>
@@ -2086,14 +2089,18 @@
       }
     }
 
-    // Cargar leads del agente desde backend y actualizar UI - DESHABILITADA
+    // Cargar leads del agente desde backend y actualizar UI
     async function fetchLeadsAgente() {
-      console.log('[LEGACY fetch] fetchLeadsAgente deshabilitado para prevenir conflicto con monthly-cutoff.js');
-      return; // Salir para no ejecutar lógica antigua
+      console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        // Nota: /api/leads requiere autenticación; si no hay token, se omite el header
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        // Usar cookies para autenticación (método actual del sistema)
+        const fetchOptions = {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
 
         // Detectar si es usuario Team Líneas
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
@@ -2135,7 +2142,7 @@
 
         if (forceAll) console.warn('[fetchLeadsAgente] forceAll=1 activo: NO se aplica filtrado por agente (backend ni frontend)');
         console.log('[fetchLeadsAgente] URL solicitada:', url, 'alreadyFilteredByAgent=', alreadyFilteredByAgent, 'forceAll=', forceAll);
-        const response = await fetch(url, { headers });
+        const response = await fetch(url, fetchOptions);
         console.log(`[fetchLeadsAgente] Response status: ${response.status}, headers:`, response.headers);
         
         if (!response.ok) {
@@ -2182,7 +2189,7 @@
               baseParams.set('page', String(p));
               const pageUrl = `${u.pathname}?${baseParams.toString()}`;
               try {
-                const r = await fetch(pageUrl, { headers });
+                const r = await fetch(pageUrl, fetchOptions);
                 if (!r.ok) {
                   let errTxt = '';
                   try { errTxt = await r.text(); } catch (_) {}
@@ -2207,18 +2214,11 @@
           console.warn('[fetchLeadsAgente] Error manejando paginación:', e?.message);
         }
 
-        // Fallback a mocks si no hay datos o la solicitud fall¨®
-        if ((!Array.isArray(leadsRaw) || leadsRaw.length === 0) && typeof fetchCustomersData === 'function') {
-          try {
-            console.warn('[fetchLeadsAgente] Sin datos desde API. Intentando fallback a datos de prueba...');
-            const mock = await fetchCustomersData();
-            if (mock && mock.success && Array.isArray(mock.leads) && mock.leads.length > 0) {
-              leadsRaw = mock.leads;
-              console.log('[fetchLeadsAgente] Fallback a datos de prueba exitoso. Cantidad:', leadsRaw.length);
-            }
-          } catch (e) {
-            console.warn('[fetchLeadsAgente] Fallback a datos de prueba fall¨®:', e?.message);
-          }
+        // FALLBACK DESHABILITADO: Ya no se usan datos de prueba
+        // Solo se muestran datos reales de la base de datos
+        if (!Array.isArray(leadsRaw) || leadsRaw.length === 0) {
+          console.log('[fetchLeadsAgente] No se encontraron datos reales en la API');
+          leadsRaw = [];
         }
 
         console.log('[fetchLeadsAgente] leadsRaw.length =', (leadsRaw && leadsRaw.length) || 0);
@@ -2254,8 +2254,10 @@
             const raw = (
               l?.agenteId || l?._raw?.agenteId || l?.agente_id || l?._raw?.agente_id ||
               l?.idAgente || l?._raw?.idAgente || l?.agentId || l?._raw?.agentId ||
-              l?.createdBy || l?.ownerId || l?.assignedId ||
-              l?._raw?.createdBy || l?._raw?.ownerId || l?._raw?.assignedId || ''
+              l?.creadoPor || l?._raw?.creadoPor || l?.creado_por || l?._raw?.creado_por ||
+              l?.createdBy || l?._raw?.createdBy || l?.ownerId || l?._raw?.ownerId ||
+              l?.registeredById || l?._raw?.registeredById ||
+              l?.assignedId || l?._raw?.assignedId || ''
             );
             try {
               if (raw && typeof raw === 'object') {
@@ -2263,7 +2265,9 @@
                 return String(maybe || '').trim();
               }
               return String(raw || '').trim();
-            } catch { return String(raw || '').trim(); }
+            } catch(_) {
+              return String(raw || '').trim();
+            }
           };
           const getName = (l) => {
             if (typeof getAgentName === 'function') return getAgentName(l);
@@ -2640,7 +2644,7 @@
         const canonical = (name) => {
           try { return teamsApi && typeof teamsApi.canonicalFromName==='function' ? teamsApi.canonicalFromName(name) : String(name||'').toLowerCase().trim(); } catch { return String(name||'').toLowerCase().trim(); }
         };
-        const norm = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+        const norm = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');
         const extractIds = (l) => {
           const ids = [];
           const candidates = [
@@ -3336,7 +3340,7 @@
                   const titleCase = s => String(s||'').split(' ').map(w => w? (w[0].toUpperCase()+w.slice(1).toLowerCase()):'').join(' ');
                   const norm = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');
                   const canonFrom = name => {
-                    try { return (teamsApi && typeof teamsApi.canonicalFromName==='function') ? teamsApi.canonicalFromName(name) : norm(name); } catch { return norm(name); }
+                    try { return teamsApi && typeof teamsApi.canonicalFromName==='function' ? teamsApi.canonicalFromName(name) : norm(name); } catch { return norm(name); }
                   };
                   window.ultimaListaLeads.forEach(l => {
                     const cand = l?.agenteNombre || l?.nombreAgente || l?.agente || l?._raw?.agenteNombre || l?._raw?.nombreAgente || l?._raw?.agente || '';
@@ -3469,7 +3473,7 @@
               const set = new Set();
               const norm = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');
               const canonFrom = name => {
-                try { return (teamsApi2 && typeof teamsApi2.canonicalFromName==='function') ? teamsApi2.canonicalFromName(name) : norm(name); } catch { return norm(name); }
+                try { return teamsApi2 && typeof teamsApi2.canonicalFromName==='function' ? teamsApi2.canonicalFromName(name) : norm(name); } catch { return norm(name); }
               };
               window.ultimaListaLeads.forEach(l => {
                 const cand = l?.agenteNombre || l?.nombreAgente || l?.agente || l?._raw?.agenteNombre || l?._raw?.nombreAgente || l?._raw?.agente || '';
@@ -4147,7 +4151,7 @@
     };
   </script>
   <!-- Cargar primero el m¨®dulo de datos de clientes -->
-  <script src="js/data/costumer-mock-data.js"></script>
+  <!-- <script src="js/data/costumer-mock-data.js"></script> -->
   <script>
     // Funci¨®n para mostrar mensajes de depuraci¨®n
     function debugLog(message, data) {
@@ -4339,14 +4343,14 @@
   
   <!-- Script de cierre de sesión unificado -->
   <script src="js/auth-logout.js"></script>
-  <script src="js/monthly-cutoff.js"></script>
+  <!-- <script src="js/monthly-cutoff.js"></script> -->
   
   <!-- Utilidades de fecha (IMPORTANTE: cargar primero para evitar bug UTC) -->
-  <script src="js/date-utils.js?v=1"></script>
+  <!-- <script src="js/date-utils.js?v=1"></script> -->
   
   <!-- Scripts de Costumer -->
-  <script src="js/costumer-actions.js?v=5"></script>
-  <script src="js/costumer-init.js?v=5"></script>
-  <script src="js/costumer-calendar.js?v=5"></script>
+  <!-- <script src="js/costumer-actions.js?v=5"></script> -->
+  <!-- <script src="js/costumer-init.js?v=5"></script> -->
+  <!-- <script src="js/costumer-calendar.js?v=5"></script> -->
 </body>
 </html>

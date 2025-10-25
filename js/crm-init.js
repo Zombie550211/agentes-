@@ -1,62 +1,67 @@
 /**
- * Inicializador del CRM
- * Se ejecuta cuando el DOM está completamente cargado
+ * CRM Init - Inicialización global del sistema CRM
  */
 
 (function() {
-  console.log('[CRM INIT] Iniciando aplicación CRM...');
-  
-  // Verificar si estamos en una página pública
-  const currentPath = window.location.pathname;
-  const publicPages = window.CRM_CONFIG?.PUBLIC_PAGES || ['/login.html', '/register.html', '/reset-password.html'];
-  const isPublicPage = publicPages.some(page => currentPath.endsWith(page));
-  
-  if (isPublicPage) {
-    console.log('[CRM INIT] Página pública, omitiendo inicialización completa');
-    return;
-  }
-  
-  /**
-   * Inicializa la aplicación
-   */
-  function initializeApp() {
-    console.log('[CRM INIT] Inicializando componentes...');
+  'use strict';
+
+  // Verificar autenticación
+  async function checkAuth() {
+    const currentPage = window.location.pathname.split('/').pop();
     
-    // Verificar que el usuario esté autenticado
-    if (!window.isAuthenticated || !window.isAuthenticated()) {
-      console.warn('[CRM INIT] Usuario no autenticado');
+    // Páginas públicas que no requieren autenticación
+    const publicPages = ['index.html', 'register.html', 'reset-password.html', ''];
+    
+    if (publicPages.includes(currentPage)) {
+      return true;
+    }
+    
+    // Verificar autenticación usando cookies (método actual del sistema)
+    try {
+      const response = await fetch('/api/auth/verify-server', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        console.warn('No autenticado. Redirigiendo al login...');
+        window.location.href = 'index.html';
+        return false;
+      }
+      
+      const data = await response.json();
+      if (!data.authenticated) {
+        console.warn('No autenticado. Redirigiendo al login...');
+        window.location.href = 'index.html';
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error verificando autenticación:', error);
+      // No redirigir en caso de error de red, permitir que la página cargue
+      return true;
+    }
+  }
+
+  // Inicializar sistema
+  async function init() {
+    console.log('🚀 Inicializando CRM...');
+    
+    // Verificar autenticación
+    const isAuth = await checkAuth();
+    if (!isAuth) {
       return;
     }
-    
-    // Actualizar información de usuario en el DOM
-    if (window.updateUserInfoInDOM) {
-      window.updateUserInfoInDOM();
-    }
-    
-    // Cargar sidebar si es necesario
-    if (window.loadSidebar) {
-      window.loadSidebar();
-    }
-    
-    // Configurar botones de logout
-    const logoutButtons = document.querySelectorAll('[data-action="logout"], .logout-btn, #logoutBtn');
-    logoutButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (window.logout) {
-          window.logout();
-        }
-      });
-    });
-    
-    console.log('[CRM INIT] Aplicación inicializada correctamente');
+
+    console.log('✅ CRM inicializado correctamente');
   }
-  
-  // Esperar a que el DOM esté listo
+
+  // Ejecutar cuando el DOM esté listo
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initializeApp();
+    init();
   }
-  
+
 })();

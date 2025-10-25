@@ -1530,6 +1530,11 @@
         console.log('👤 Usuario extraído:', JSON.stringify(user, null, 2));
         console.log('✅ Usuario autenticado correctamente:', user.username);
 
+        // Emitir evento de autenticación para que el sidebar se recargue con el rol correcto
+        console.log('📢 Emitiendo evento user:authenticated con usuario:', user);
+        document.dispatchEvent(new CustomEvent('user:authenticated', { detail: user }));
+        console.log('✅ Evento user:authenticated emitido');
+
         // Mostrar nombre de usuario en el sidebar
         const welcomeMessage = document.getElementById('welcome-message');
         if (welcomeMessage) {

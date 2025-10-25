@@ -1,27 +1,25 @@
 /**
- * Configuración global del CRM
+ * CRM Config - Configuración global del sistema
  */
 
 window.CRM_CONFIG = {
-  // Tiempo de inactividad antes de cerrar sesión (en milisegundos)
-  // 30 minutos = 30 * 60 * 1000
+  // Tiempo de inactividad en milisegundos (30 minutos)
   INACTIVITY_TIMEOUT: 30 * 60 * 1000,
   
-  // Tiempo de advertencia antes de cerrar sesión (en milisegundos)
-  // 5 minutos = 5 * 60 * 1000
-  WARNING_TIME: 5 * 60 * 1000,
+  // Tiempo de advertencia antes del logout (5 minutos antes)
+  WARNING_TIMEOUT: 25 * 60 * 1000,
   
-  // API Base URL
-  API_BASE_URL: window.location.origin,
+  // Habilitar sistema de inactividad
+  ENABLE_INACTIVITY: true,
   
-  // Páginas públicas (no requieren autenticación)
-  PUBLIC_PAGES: ['/login.html', '/register.html', '/reset-password.html'],
+  // API endpoints
+  API_BASE_URL: '',
   
-  // Configuración de cookies
-  COOKIE_CONFIG: {
-    sameSite: 'lax',
-    secure: window.location.protocol === 'https:'
+  // Configuración de autenticación
+  AUTH: {
+    TOKEN_KEY: 'token',
+    USER_KEY: 'user'
   }
 };
 
-console.log('[CRM CONFIG] Configuración cargada:', window.CRM_CONFIG);
+console.log('✅ CRM Config cargado');

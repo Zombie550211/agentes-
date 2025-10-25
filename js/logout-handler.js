@@ -1,45 +1,43 @@
 /**
- * Manejador de cierre de sesión
+ * Logout Handler - Maneja el cierre de sesión
  */
 
-async function logout() {
-  try {
-    console.log('[LOGOUT] Cerrando sesión...');
+(function() {
+  'use strict';
+
+  // Función para manejar el logout
+  function handleLogout(event) {
+    event.preventDefault();
     
-    // Llamar al endpoint de logout
-    const response = await fetch('/api/auth/logout', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+    // Confirmar logout
+    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+      // Limpiar localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('username');
+      localStorage.removeItem('role');
+      
+      // Redirigir al login
+      window.location.href = 'index.html';
+    }
+  }
+
+  // Agregar event listener cuando el DOM esté listo
+  function initLogoutHandler() {
+    // Buscar todos los botones de logout
+    const logoutButtons = document.querySelectorAll('[data-logout-button], .btn-logout');
+    
+    logoutButtons.forEach(button => {
+      button.addEventListener('click', handleLogout);
     });
     
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      console.log('[LOGOUT] Sesión cerrada correctamente');
-    } else {
-      console.warn('[LOGOUT] Error al cerrar sesión:', data.message);
-    }
-  } catch (error) {
-    console.error('[LOGOUT] Error:', error);
-  } finally {
-    // Limpiar datos locales independientemente del resultado
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-    
-    console.log('[LOGOUT] Datos locales limpiados, redirigiendo a login');
-    
-    // Redirigir al login
-    window.location.replace('/login.html?message=Sesión cerrada correctamente');
+    console.log('✅ Logout handler inicializado');
   }
-}
 
-// Exponer función globalmente
-window.logout = logout;
+  // Inicializar cuando el sidebar se cargue
+  document.addEventListener('sidebar:loaded', initLogoutHandler);
+  
+  // También intentar inicializar después de un delay por si el sidebar ya está cargado
+  setTimeout(initLogoutHandler, 1000);
 
-console.log('[LOGOUT HANDLER] Inicializado correctamente');
+})();

@@ -1,126 +1,84 @@
 /**
- * Utilidades para obtener información del usuario actual
+ * User Info - Actualiza la información del usuario en el sidebar
  */
 
-/**
- * Obtiene la información del usuario desde el storage
- * @returns {Object|null} Información del usuario o null si no está autenticado
- */
-function getCurrentUser() {
-  try {
-    // Intentar obtener desde sessionStorage primero (más seguro)
-    let userStr = sessionStorage.getItem('user');
-    
-    // Si no está en sessionStorage, intentar localStorage
-    if (!userStr) {
-      userStr = localStorage.getItem('user');
+(function() {
+  'use strict';
+
+  // Función para cargar estadísticas del usuario
+  async function loadUserStats() {
+    try {
+      // Obtener información del usuario usando cookies (mismo método que sidebar)
+      const userResponse = await fetch('/api/auth/verify-server', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!userResponse.ok) {
+        throw new Error('Error obteniendo información del usuario');
+      }
+
+      const userData = await userResponse.json();
+      const user = userData.user || userData;
+
+      // Obtener ventas del mes actual
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      
+      const leadsResponse = await fetch(`/api/leads?month=${month}&year=${year}`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (leadsResponse.ok) {
+        const leadsData = await leadsResponse.json();
+        // Manejar diferentes estructuras de respuesta
+        let leads = [];
+        if (Array.isArray(leadsData)) {
+          leads = leadsData;
+        } else if (Array.isArray(leadsData.leads)) {
+          leads = leadsData.leads;
+        } else if (Array.isArray(leadsData.data)) {
+          leads = leadsData.data;
+        }
+
+        // Filtrar ventas del usuario actual
+        const userLeads = leads.filter(lead => 
+          lead.agenteNombre === user.username || lead.agente === user.username
+        );
+
+        // Calcular puntos totales
+        const totalPoints = userLeads.reduce((sum, lead) => {
+          const points = parseFloat(lead.puntaje || lead.puntos || 0);
+          return sum + points;
+        }, 0);
+
+        // Actualizar elementos del DOM
+        const salesElement = document.getElementById('sidebar-user-sales');
+        const pointsElement = document.getElementById('sidebar-user-points');
+
+        if (salesElement) {
+          salesElement.textContent = userLeads.length;
+        }
+
+        if (pointsElement) {
+          pointsElement.textContent = totalPoints.toFixed(1);
+        }
+
+        console.log(`✅ Estadísticas actualizadas: ${userLeads.length} ventas, ${totalPoints.toFixed(1)} puntos`);
+      }
+    } catch (error) {
+      console.error('Error cargando estadísticas del usuario:', error);
     }
-    
-    if (!userStr) {
-      console.warn('[USER INFO] No se encontró información de usuario en storage');
-      return null;
-    }
-    
-    const user = JSON.parse(userStr);
-    return user;
-  } catch (error) {
-    console.error('[USER INFO] Error al obtener usuario:', error);
-    return null;
   }
-}
 
-/**
- * Obtiene el rol del usuario actual
- * @returns {string} El rol del usuario o 'guest' si no está autenticado
- */
-function getCurrentUserRole() {
-  const user = getCurrentUser();
-  return user?.role || 'guest';
-}
-
-/**
- * Obtiene el nombre de usuario actual
- * @returns {string} El nombre de usuario o 'Usuario' si no está autenticado
- */
-function getCurrentUsername() {
-  const user = getCurrentUser();
-  return user?.username || user?.name || 'Usuario';
-}
-
-/**
- * Verifica si el usuario tiene un rol específico
- * @param {...string} roles - Los roles a verificar
- * @returns {boolean} True si el usuario tiene alguno de los roles especificados
- */
-function hasRole(...roles) {
-  const userRole = getCurrentUserRole();
-  return roles.includes(userRole);
-}
-
-/**
- * Verifica si el usuario es administrador
- * @returns {boolean} True si es administrador
- */
-function isAdmin() {
-  return hasRole('Administrador', 'admin', 'administrador');
-}
-
-/**
- * Verifica si el usuario está autenticado
- * @returns {boolean} True si hay información de usuario en storage
- */
-function isAuthenticated() {
-  return getCurrentUser() !== null;
-}
-
-/**
- * Actualiza la información del usuario en el DOM
- */
-function updateUserInfoInDOM() {
-  const user = getCurrentUser();
-  
-  if (!user) {
-    console.warn('[USER INFO] No hay usuario para actualizar en DOM');
-    return;
-  }
-  
-  // Actualizar nombre de usuario en elementos con clase 'user-name'
-  const userNameElements = document.querySelectorAll('.user-name');
-  userNameElements.forEach(el => {
-    el.textContent = user.name || user.username || 'Usuario';
+  // Inicializar cuando el sidebar se cargue
+  document.addEventListener('sidebar:loaded', () => {
+    setTimeout(loadUserStats, 500);
   });
-  
-  // Actualizar rol en elementos con clase 'user-role'
-  const userRoleElements = document.querySelectorAll('.user-role');
-  userRoleElements.forEach(el => {
-    el.textContent = user.role || 'Usuario';
-  });
-  
-  // Actualizar avatar con iniciales
-  const avatarElements = document.querySelectorAll('.user-avatar');
-  avatarElements.forEach(el => {
-    const name = user.name || user.username || 'U';
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    el.textContent = initials;
-  });
-  
-  console.log('[USER INFO] Información de usuario actualizada en DOM');
-}
 
-// Exponer funciones globalmente
-window.getCurrentUser = getCurrentUser;
-window.getCurrentUserRole = getCurrentUserRole;
-window.getCurrentUsername = getCurrentUsername;
-window.hasRole = hasRole;
-window.isAdmin = isAdmin;
-window.isAuthenticated = isAuthenticated;
-window.updateUserInfoInDOM = updateUserInfoInDOM;
+  // Exportar función para uso externo
+  window.loadUserStats = loadUserStats;
 
-// Actualizar info cuando el DOM esté listo
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', updateUserInfoInDOM);
-} else {
-  updateUserInfoInDOM();
-}
-
-console.log('[USER INFO] Inicializado correctamente');
+})();

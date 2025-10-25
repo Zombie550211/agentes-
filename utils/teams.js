@@ -218,28 +218,55 @@
 
   /**
    * Validar y normalizar formato de fecha
+   * ACTUALIZADO 24-OCT-2025: Fix zona horaria UTC
    */
   function normalizeSaleDate(dateStr) {
     if (!dateStr) return null;
     
-    // Intentar parsear como Date directamente
-    if (typeof dateStr === 'string' && dateStr.match(/\d{4}-\d{2}-\d{2}/)) {
-      const date = new Date(dateStr);
+    // Si ya es un Date object
+    if (dateStr instanceof Date) {
+      return isNaN(dateStr.getTime()) ? null : dateStr;
+    }
+    
+    // Convertir a string si no lo es
+    const str = String(dateStr).trim();
+    
+    // Formato YYYY-MM-DD (con o sin padding) - USAR UTC PARA EVITAR ZONA HORARIA
+    if (str.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+      const [year, month, day] = str.split('-').map(Number);
+      // Usar Date.UTC para crear fecha a mediodía UTC, evitando problemas de zona horaria
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       if (!isNaN(date.getTime())) return date;
     }
     
-    // Formato DD/MM/YYYY
-    if (typeof dateStr === 'string' && dateStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
-      const [day, month, year] = dateStr.split('/');
-      const date = new Date(`${year}-${month}-${day}`);
+    // Formato D/M/YYYY o DD/MM/YYYY (día/mes/año) - USAR UTC
+    if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+      const [day, month, year] = str.split('/').map(Number);
+      // Usar Date.UTC para crear fecha a mediodía UTC
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       if (!isNaN(date.getTime())) return date;
     }
     
-    // Formato MM/DD/YYYY
-    if (typeof dateStr === 'string' && dateStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
-      const [month, day, year] = dateStr.split('/');
-      const date = new Date(`${year}-${month}-${day}`);
+    // Formato M/D/YYYY o MM/DD/YYYY (mes/día/año - formato US) - USAR UTC
+    if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && str.split('/')[0] <= 12) {
+      const [month, day, year] = str.split('/').map(Number);
+      // Usar Date.UTC para crear fecha a mediodía UTC
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       if (!isNaN(date.getTime())) return date;
+    }
+    
+    // Formato Date object como string (ej: "Fri Oct 24 2025 00:00:00 GMT-0600")
+    if (str.match(/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{4}/i)) {
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) return date;
+    }
+    
+    // Último intento: dejar que Date lo parsee
+    try {
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) return date;
+    } catch (e) {
+      // Ignorar error
     }
     
     console.warn('Formato de fecha no reconocido:', dateStr);

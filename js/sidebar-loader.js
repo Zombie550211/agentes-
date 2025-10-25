@@ -1,70 +1,104 @@
 /**
- * Cargador de sidebar dinámico
+ * Sidebar Loader - Carga dinámica del sidebar en todas las páginas
  */
 
 (function() {
-  console.log('[SIDEBAR LOADER] Inicializando...');
+  'use strict';
 
-  function loadSidebar() {
+  // Función principal para cargar el sidebar
+  window.loadSidebar = async function(forceReload = false) {
     const sidebarElement = document.querySelector('.sidebar');
-    
     if (!sidebarElement) {
-      console.warn('[SIDEBAR LOADER] No se encontró elemento .sidebar');
+      console.warn('No se encontró elemento .sidebar en la página');
       return;
     }
 
-    // Obtener información del usuario (con fallback a storage)
-    function getUserFromStorage(){
-      try{
-        const s = sessionStorage.getItem('user') || localStorage.getItem('user') || '{}';
-        return JSON.parse(s);
-      }catch(e){ return null; }
+    try {
+      // Obtener información del usuario
+      const user = await getUserInfo();
+      
+      // Obtener página activa desde data-active
+      const activePage = sidebarElement.getAttribute('data-active') || 'inicio';
+      
+      // Generar HTML del sidebar
+      const sidebarHTML = generateSidebarHTML(user, activePage);
+      
+      // Insertar HTML
+      sidebarElement.innerHTML = sidebarHTML;
+      
+      // Emitir evento de sidebar cargado
+      document.dispatchEvent(new Event('sidebar:loaded'));
+      
+      console.log('✅ Sidebar cargado correctamente para rol:', user.role);
+    } catch (error) {
+      console.error('❌ Error cargando sidebar:', error);
+      // Mostrar sidebar básico en caso de error
+      sidebarElement.innerHTML = generateFallbackSidebar();
     }
-    const user = (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) || getUserFromStorage() || null;
-    const username = user?.username || user?.name || 'Usuario';
-    const role = user?.role || 'Usuario';
-    // Detectar Team Líneas (rol o prefijo de username)
-    const toLower = (s)=>String(s||'').toLowerCase();
-    const isTeamLineas = toLower(role)==='teamlineas' || toLower(username).startsWith('lineas-');
-    const isAdmin = (toLower(role) === 'admin' || toLower(role) === 'administrador');
-    const team = user?.team || 'Sin equipo';
-    
-    // Obtener iniciales para el avatar
-    const initials = username.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    
-    // Obtener página activa
-    const activePage = sidebarElement.getAttribute('data-active') || 'inicio';
-    
-    // Precompute HREFs según el rol (Team Líneas vs normal)
-    // Política: solo Lead cambia para Team Líneas; el resto usa páginas base
-    const homeHref = '/inicio.html';
-    const leadHref = isTeamLineas ? '/TEAM LINEAS/LEAD-LINEAS.html' : '/lead.html';
-    const costumerHref = '/Costumer.html';
-    const statsHref = '/Estadisticas.html';
-    const rankingHref = '/Ranking y Promociones.html';
-    const empleadoHref = '/empleado-del-mes.html';
-    const reglasHref = '/Reglas.html';
+  };
 
-    // Generar HTML del sidebar (stats deshabilitados globalmente)
-    const showStats = false;
-    const sidebarHTML = `
-      <!-- Información del Usuario -->
+  // Obtener información del usuario desde localStorage o API
+  async function getUserInfo() {
+    try {
+      // Intentar obtener del servidor usando cookies (método actual del sistema)
+      const response = await fetch('/api/auth/verify-server', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Error obteniendo información del usuario');
+      }
+
+      const data = await response.json();
+      
+      if (!data.authenticated || !data.user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      const user = data.user;
+      console.log('👤 Usuario cargado en sidebar:', user);
+      return user;
+    } catch (error) {
+      console.error('Error obteniendo usuario:', error);
+      // Retornar usuario por defecto
+      const fallbackUser = {
+        username: 'Usuario',
+        role: 'agente',
+        team: 'Sin equipo'
+      };
+      console.warn('⚠️ Usando usuario por defecto:', fallbackUser);
+      return fallbackUser;
+    }
+  }
+
+  // Generar HTML del sidebar
+  function generateSidebarHTML(user, activePage) {
+    const initials = getInitials(user.username || 'U');
+    const roleName = getRoleName(user.role);
+    
+    // Determinar menú según rol
+    const menuItems = getMenuItems(user.role, activePage);
+
+    return `
+      <!-- Usuario -->
       <div class="user-info">
-        <div class="avatar">
-          <span class="user-avatar">${initials}</span>
+        <div class="user-details">
+          <div class="avatar">
+            <span class="user-avatar">${initials}</span>
+          </div>
+          <span class="user-name" id="user-name">${user.username || 'Usuario'}</span>
+          <span class="user-role" id="user-role">${roleName}</span>
         </div>
-        <span class="user-name" id="user-name">${username}</span>
-        <span class="user-role" id="user-role">${role}</span>
       </div>
 
-      ${showStats ? `
-      <!-- Estadísticas del Usuario -->
+      <!-- Estadísticas del usuario -->
       <div class="user-stats">
         <div class="stat-item">
-          <i class="fas fa-chart-line"></i>
+          <i class="fas fa-shopping-cart"></i>
           <div class="stat-content">
             <span class="stat-value" id="sidebar-user-sales">0</span>
-            <span class="stat-label">Ventas</span>
+            <span class="stat-label">Ventas del mes</span>
           </div>
         </div>
         <div class="stat-item">
@@ -77,84 +111,126 @@
         <div class="stat-item">
           <i class="fas fa-users"></i>
           <div class="stat-content">
-            <span class="stat-value" id="sidebar-user-team">${team}</span>
+            <span class="stat-value" id="sidebar-user-team">${user.team || 'Sin equipo'}</span>
             <span class="stat-label">Equipo</span>
           </div>
         </div>
-      </div>` : ''}
+      </div>
 
-      <!-- Menú de Navegación -->
-      <h3>Menú</h3>
+      <!-- Menú de navegación -->
+      <h3>Navegación</h3>
       <ul class="menu">
-        <li><a href="${homeHref}" class="btn btn-sidebar ${activePage === 'inicio' ? 'is-active' : ''}"><i class="fas fa-home"></i> Inicio</a></li>
-        <li><a href="${leadHref}" class="btn btn-sidebar ${activePage === 'lead' ? 'is-active' : ''}"><i class="fas fa-user-plus"></i> Nuevo Lead</a></li>
-        <li><a href="${costumerHref}" class="btn btn-sidebar ${activePage === 'costumer' ? 'is-active' : ''}"><i class="fas fa-users"></i> Clientes</a></li>
-        <li><a href="${statsHref}" class="btn btn-sidebar ${activePage === 'estadisticas' ? 'is-active' : ''}"><i class="fas fa-chart-bar"></i> Estadísticas</a></li>
-        <li><a href="${rankingHref}" class="btn btn-sidebar ${activePage === 'ranking' ? 'is-active' : ''}"><i class="fas fa-trophy"></i> Rankings</a></li>
-        <li><a href="${empleadoHref}" class="btn btn-sidebar ${activePage === 'empleado' ? 'is-active' : ''}"><i class="fas fa-award"></i> Empleado del Mes</a></li>
-        <li><a href="${reglasHref}" class="btn btn-sidebar ${activePage === 'reglas' ? 'is-active' : ''}"><i class="fas fa-clipboard-list"></i> Reglas</a></li>
-        <li style="display: ${isAdmin ? 'block' : 'none'};"><a href="/facturacion.html" class="btn btn-sidebar ${activePage === 'facturacion' ? 'is-active' : ''}"><i class="fas fa-file-invoice-dollar"></i> Facturación</a></li>
-        <li id="menu-create-account" style="display: ${role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrador' ? 'block' : 'none'};">
-          <a href="/register.html" class="btn btn-sidebar ${activePage === 'register' ? 'is-active' : ''}"><i class="fas fa-user-plus"></i> Crear Cuenta</a>
+        ${menuItems}
+      </ul>
+
+      <!-- Logout -->
+      <ul class="menu">
+        <li>
+          <a href="#" class="btn btn-sidebar btn-logout" data-logout-button>
+            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+          </a>
         </li>
-        <li><a href="#" onclick="window.logout(); return false;" class="btn btn-sidebar btn-logout"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+      </ul>
+
+      <!-- Frase motivacional -->
+      <div class="sidebar-footer-quote">
+        "El éxito es la suma de pequeños esfuerzos repetidos día tras día"
+      </div>
+    `;
+  }
+
+  // Obtener iniciales del nombre
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  }
+
+  // Obtener nombre del rol
+  function getRoleName(role) {
+    const roles = {
+      'admin': 'Administrador',
+      'supervisor': 'Supervisor',
+      'agente': 'Agente',
+      'backoffice': 'Back Office'
+    };
+    return roles[role] || 'Usuario';
+  }
+
+  // Obtener items del menú según rol
+  function getMenuItems(role, activePage) {
+    console.log('🔍 Generando menú para rol:', role);
+    
+    const allMenuItems = {
+      inicio: { icon: 'fa-home', text: 'Inicio', href: 'inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      lead: { icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: ['admin', 'supervisor', 'agente'] },
+      costumer: { icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      ranking: { icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente'] },
+      estadisticas: { icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor'] },
+      facturacion: { icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
+      empleado: { icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin'] },
+      multimedia: { icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
+      reglas: { icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] }
+    };
+
+    let menuHTML = '';
+    const visibleItems = [];
+    
+    for (const [key, item] of Object.entries(allMenuItems)) {
+      // Verificar si el rol tiene acceso a este item
+      if (item.roles.includes(role)) {
+        visibleItems.push(item.text);
+        const isActive = key === activePage ? 'is-active' : '';
+        menuHTML += `
+          <li>
+            <a href="${item.href}" class="btn btn-sidebar ${isActive}">
+              <i class="fas ${item.icon}"></i> ${item.text}
+            </a>
+          </li>
+        `;
+      }
+    }
+
+    console.log('✅ Items visibles para este rol:', visibleItems);
+    return menuHTML;
+  }
+
+  // Generar sidebar de respaldo en caso de error
+  function generateFallbackSidebar() {
+    return `
+      <div class="user-info">
+        <div class="user-details">
+          <div class="avatar">
+            <span class="user-avatar">U</span>
+          </div>
+          <span class="user-name">Usuario</span>
+          <span class="user-role">Cargando...</span>
+        </div>
+      </div>
+      <h3>Navegación</h3>
+      <ul class="menu">
+        <li><a href="inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i> Inicio</a></li>
+        <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
       </ul>
     `;
-    
-    sidebarElement.innerHTML = sidebarHTML;
-
-    // Asegurar que el menú sea visible
-    const menuEl = sidebarElement.querySelector('ul.menu');
-    if (menuEl) {
-      menuEl.style.display = 'block';
-      menuEl.style.visibility = 'visible';
-      menuEl.style.overflow = 'visible';
-      menuEl.style.maxWidth = '100%';
-      menuEl.style.width = '100%';
-      const links = menuEl.querySelectorAll('a');
-      links.forEach(a => { a.style.width = '100%'; a.style.boxSizing = 'border-box'; });
-      console.log('[SIDEBAR LOADER] Items de menú:', menuEl.querySelectorAll('li').length);
-    }
-
-    // Mostrar el sidebar en desktop, ocultar en móvil
-    function applySidebarResponsive(){
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
-        sidebarElement.classList.remove('active');
-      } else {
-        sidebarElement.classList.add('active');
-      }
-      // Forzar visibilidad/estilos mínimos para evitar que quede oculto por transform/opacity
-      sidebarElement.style.display = 'flex';
-      sidebarElement.style.visibility = 'visible';
-      sidebarElement.style.opacity = '1';
-      sidebarElement.style.transform = sidebarElement.classList.contains('active') ? 'translateX(0)' : '';
-
-      // Ajustar margen del contenido principal
-      const main = document.querySelector('.main-content');
-      if (main) {
-        main.style.marginLeft = sidebarElement.classList.contains('active') ? '260px' : '0px';
-        main.style.overflowX = 'hidden';
-      }
-    }
-    applySidebarResponsive();
-    window.addEventListener('resize', applySidebarResponsive);
-
-    console.log('[SIDEBAR LOADER] Sidebar cargado correctamente');
-    
-    // Disparar evento personalizado
-    document.dispatchEvent(new Event('sidebar:loaded'));
   }
 
-  // Cargar sidebar cuando el DOM esté listo
+  // Cargar sidebar inmediatamente
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadSidebar);
+    document.addEventListener('DOMContentLoaded', window.loadSidebar);
   } else {
-    loadSidebar();
+    window.loadSidebar();
   }
 
-  // Exponer función globalmente
-  window.loadSidebar = loadSidebar;
+  // Recargar sidebar cuando el usuario se autentique (para actualizar el rol)
+  document.addEventListener('user:authenticated', function(event) {
+    console.log('🔄 Evento user:authenticated recibido, recargando sidebar...');
+    setTimeout(() => {
+      window.loadSidebar(true);
+    }, 100);
+  });
 
-  console.log('[SIDEBAR LOADER] Inicializado correctamente');
 })();

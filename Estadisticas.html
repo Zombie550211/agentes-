@@ -625,12 +625,12 @@
             effective.setDate(effective.getDate() - 1);
           }
 
-          // Día efectivo (00:00) y fin exclusivo (siguiente día 09:30 -> pero la API recibe fecha yyyy-mm-dd, usamos siguiente día 00:00)
+          // Día efectivo: enviar la MISMA fecha en inicio y fin para activar modo isDayOnly en backend
+          // El backend manejará el corte a las 9:30 AM del día siguiente
           const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-          const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0);
           const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           fechaInicio = fmt(startLocal);
-          fechaFin = fmt(endExclusive);
+          fechaFin = fmt(startLocal); // MISMA fecha para activar isDayOnly
           console.log('[ESTADISTICAS] Rango día efectivo:', { fechaInicio, fechaFin, effective: effective.toString() });
         }
         
@@ -739,11 +739,9 @@
             const effective = new Date(nowLocal);
             if (isBeforeCutoff) effective.setDate(effective.getDate() - 1);
             const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-            // Si el día efectivo es HOY, mostrar acumulado hasta ahora; si es AYER, cortar a 09:30 de hoy
-            const sameDay = effective.getFullYear() === nowLocal.getFullYear() && effective.getMonth() === nowLocal.getMonth() && effective.getDate() === nowLocal.getDate();
-            const endExclusive = sameDay
-              ? new Date(nowLocal) // acumulado en tiempo real
-              : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+            // SIEMPRE mostrar datos hasta las 9:30 AM del día siguiente (no cortar a la hora actual)
+            // Esto permite que los datos se mantengan visibles todo el día hasta el siguiente corte
+            const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
             const dayKey = toISOInTZLocal(effective, BUSINESS_TZ_OFFSET_MIN);
 
             // Obtener leads
