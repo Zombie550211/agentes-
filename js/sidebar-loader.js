@@ -126,9 +126,9 @@
       <!-- Logout -->
       <ul class="menu">
         <li>
-          <a href="#" class="btn btn-sidebar btn-logout" data-logout-button>
+          <button type="button" class="btn btn-sidebar btn-logout" data-logout-button>
             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-          </a>
+          </button>
         </li>
       </ul>
 
@@ -155,6 +155,7 @@
       'admin': 'Administrador',
       'supervisor': 'Supervisor',
       'agente': 'Agente',
+      'agent': 'Agente',  // Soporte para inglés
       'backoffice': 'Back Office'
     };
     return roles[role] || 'Usuario';
@@ -163,6 +164,9 @@
   // Obtener items del menú según rol
   function getMenuItems(role, activePage) {
     console.log('🔍 Generando menú para rol:', role);
+    
+    // Normalizar el rol (agent -> agente, etc.)
+    const normalizedRole = normalizeRole(role);
     
     const allMenuItems = {
       inicio: { icon: 'fa-home', text: 'Inicio', href: 'inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
@@ -180,8 +184,8 @@
     const visibleItems = [];
     
     for (const [key, item] of Object.entries(allMenuItems)) {
-      // Verificar si el rol tiene acceso a este item
-      if (item.roles.includes(role)) {
+      // Verificar si el rol tiene acceso a este item (usar rol normalizado)
+      if (item.roles.includes(normalizedRole)) {
         visibleItems.push(item.text);
         const isActive = key === activePage ? 'is-active' : '';
         menuHTML += `
@@ -196,6 +200,17 @@
 
     console.log('✅ Items visibles para este rol:', visibleItems);
     return menuHTML;
+  }
+  
+  // Normalizar roles (inglés -> español)
+  function normalizeRole(role) {
+    const roleMap = {
+      'agent': 'agente',
+      'admin': 'admin',
+      'supervisor': 'supervisor',
+      'backoffice': 'backoffice'
+    };
+    return roleMap[role] || role;
   }
 
   // Generar sidebar de respaldo en caso de error
