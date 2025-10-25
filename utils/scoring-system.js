@@ -35,7 +35,7 @@ const SCORING_TABLE = {
     base: 0.25
   },
   'att-50-100-mb': {
-    base: 0.70
+    base: 0.35
   },
   'att-300-500-mb': {
     base: 1.25
@@ -55,7 +55,7 @@ const SCORING_TABLE = {
     base: 0.75
   },
   'xfinity-double-play': {
-    base: 0.75
+    base: 0.95
   },
   'xfinity-ultimate-tv': {
     base: 0.75
