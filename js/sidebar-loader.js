@@ -25,6 +25,32 @@
       
       // Insertar HTML
       sidebarElement.innerHTML = sidebarHTML;
+
+      // Fallback post-render: si el primer <ul.menu> no tiene items, inyectar menú de agente
+      try {
+        const firstMenu = sidebarElement.querySelector('ul.menu');
+        if (firstMenu && firstMenu.querySelectorAll('li').length === 0) {
+          console.warn('⚠️ Sidebar sin items tras render. Inyectando menú de agente por fallback.');
+          const items = [
+            { icon:'fa-home', text:'Inicio', href:'inicio.html' },
+            { icon:'fa-user-plus', text:'Nuevo Lead', href:'lead.html' },
+            { icon:'fa-users', text:'Lista de Clientes', href:'Costumer.html' },
+            { icon:'fa-trophy', text:'Ranking y Promociones', href:'Ranking y Promociones.html' },
+            { icon:'fa-chart-bar', text:'Estadísticas', href:'Estadisticas.html' }
+          ];
+          firstMenu.innerHTML = items.map(it => `
+            <li>
+              <a href="${it.href}" class="btn btn-sidebar">
+                <i class="fas ${it.icon}"></i> ${it.text}
+              </a>
+            </li>
+          `).join('');
+          const roleSpan = sidebarElement.querySelector('#user-role');
+          if (roleSpan) roleSpan.textContent = 'Agente';
+        }
+      } catch (e) {
+        console.warn('Sidebar fallback post-render error:', e?.message);
+      }
       
       // Emitir evento de sidebar cargado
       document.dispatchEvent(new Event('sidebar:loaded'));
@@ -75,10 +101,11 @@
   // Generar HTML del sidebar
   function generateSidebarHTML(user, activePage) {
     const initials = getInitials(user.username || 'U');
-    const roleName = getRoleName(user.role);
+    const normalizedRole = normalizeRole(user.role);
+    const roleName = getRoleName(normalizedRole);
     
     // Determinar menú según rol
-    const menuItems = getMenuItems(user.role, activePage);
+    const menuItems = getMenuItems(normalizedRole, activePage);
 
     return `
       <!-- Usuario -->
@@ -163,10 +190,8 @@
 
   // Obtener items del menú según rol
   function getMenuItems(role, activePage) {
-    console.log('🔍 Generando menú para rol:', role);
-    
-    // Normalizar el rol (agent -> agente, etc.)
     const normalizedRole = normalizeRole(role);
+    console.log('🔍 Generando menú para rol bruto/normalizado:', role, '->', normalizedRole);
     
     const allMenuItems = {
       inicio: { icon: 'fa-home', text: 'Inicio', href: 'inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
@@ -198,19 +223,41 @@
       }
     }
 
+    // Fallback de seguridad: si no hay items visibles, tratar como 'agente'
+    if (visibleItems.length === 0) {
+      console.warn('⚠️ Ningún item visible para rol:', normalizedRole, '— aplicando fallback AGENTE');
+      const agentKeys = ['inicio','lead','costumer','ranking','estadisticas'];
+      for (const key of agentKeys) {
+        const item = allMenuItems[key];
+        const isActive = key === activePage ? 'is-active' : '';
+        menuHTML += `
+          <li>
+            <a href="${item.href}" class="btn btn-sidebar ${isActive}">
+              <i class="fas ${item.icon}"></i> ${item.text}
+            </a>
+          </li>
+        `;
+      }
+      visibleItems.push(...agentKeys.map(k=>allMenuItems[k].text));
+    }
+
     console.log('✅ Items visibles para este rol:', visibleItems);
     return menuHTML;
   }
   
   // Normalizar roles (inglés -> español)
   function normalizeRole(role) {
-    const roleMap = {
-      'agent': 'agente',
-      'admin': 'admin',
-      'supervisor': 'supervisor',
-      'backoffice': 'backoffice'
-    };
-    return roleMap[role] || role;
+    const r = (role == null ? '' : String(role)).trim().toLowerCase();
+    if (!r) return 'agente';
+    // equivalentes de agente
+    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+    // equivalentes de supervisor
+    if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+    // equivalentes de admin
+    if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+    // equivalentes de backoffice
+    if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+    return r;
   }
 
   // Generar sidebar de respaldo en caso de error

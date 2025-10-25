@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+v   <html lang="es">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -2004,7 +2004,15 @@
 
         // Detectar si es usuario Team Líneas
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const role = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+        const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+        const role = (function normalizeRole(r){
+          if (!r) return 'agente';
+          if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+          if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+          if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+          if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+          return r;
+        })(roleRaw);
         const username = (userData.username || userData?.usuario?.username || '').toString().trim().toLowerCase();
         const isTeamLineasUser = role === 'teamlineas' || username.startsWith('lineas-') || username.includes('lineas');
 
@@ -2021,7 +2029,7 @@
 
         // Para usuarios no Team Líneas, aplicar filtro por agente si es necesario
         if (!isTeamLineasUser) {
-          if (role === 'agent' && !forceAll) {
+          if ((role === 'agent' || role === 'agente') && !forceAll) {
             const idCandidates = [userData._id, userData.id, userData.userId, userData.uid, userData?.usuario?._id, userData?.usuario?.id].map(v => v && String(v).trim()).filter(Boolean);
             const nameCandidates = [userData.username, userData.name, userData.nombre, userData?.usuario?.username, userData?.usuario?.name, userData?.usuario?.nombre].map(v => v && String(v).trim()).filter(Boolean);
             if (idCandidates.length) {
@@ -2143,10 +2151,23 @@
     if (!alreadyFilteredByAgent && !forceAll) {
       try {
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const role = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
-        if (role === 'agent') {
+        const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+        const role = (function normalizeRole(r){
+          if (!r) return 'agente';
+          if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+          if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+          if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+          if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+          return r;
+        })(roleRaw);
+        if (role === 'agente') {
           const norm = (s) => {
-            try { return String(s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim(); } catch { return String(s || '').toLowerCase().trim(); }
+            try {
+              const x = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+              return x.replace(/[^a-z0-9]+/g,''); // quitar espacios y no alfanuméricos
+            } catch {
+              return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
+            }
           };
           const str = (v) => (v == null ? '' : String(v));
           // Candidatos de ID del usuario actual
