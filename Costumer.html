@@ -32,6 +32,32 @@ v   <html lang="es">
         const sync = (src, dst) => () => { dst.scrollLeft = src.scrollLeft; };
         wrap.addEventListener('scroll', sync(wrap, mirror));
         mirror.addEventListener('scroll', sync(mirror, wrap));
+        // Botones de desplazamiento
+        const btnL = document.getElementById('scroll-left');
+        const btnR = document.getElementById('scroll-right');
+        const step = 400; // px por clic
+        if (btnL) btnL.addEventListener('click', ()=>{ wrap.scrollLeft = Math.max(0, wrap.scrollLeft - step); });
+        if (btnR) btnR.addEventListener('click', ()=>{ wrap.scrollLeft = Math.min(wrap.scrollWidth, wrap.scrollLeft + step); });
+        // Rueda del mouse/trackpad: forzar desplazamiento horizontal
+        wrap.addEventListener('wheel', (e) => {
+          try {
+            const horiz = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+            if (horiz || e.shiftKey) {
+              e.preventDefault();
+              wrap.scrollLeft += (horiz ? e.deltaX : e.deltaY);
+            }
+          } catch {}
+        }, { passive: false });
+        // Drag to scroll (click y arrastrar)
+        let isDown = false, startX = 0, startLeft = 0;
+        wrap.addEventListener('mousedown', (e) => {
+          isDown = true; startX = e.pageX; startLeft = wrap.scrollLeft; wrap.classList.add('grabbing');
+        });
+        window.addEventListener('mouseup', () => { isDown = false; wrap.classList.remove('grabbing'); });
+        window.addEventListener('mousemove', (e) => {
+          if (!isDown) return; e.preventDefault();
+          const dx = e.pageX - startX; wrap.scrollLeft = startLeft - dx;
+        });
         window.addEventListener('resize', updateWidth);
         const ro = window.ResizeObserver ? new ResizeObserver(updateWidth) : null;
         if (ro) ro.observe(table);
@@ -196,8 +222,6 @@ v   <html lang="es">
       min-height: 100vh;
       position: relative;
       overflow-x: hidden;
-      /* Reservar espacio para la barra espejo fija */
-      padding-bottom: 24px;
     }
 
     .container {
@@ -408,18 +432,17 @@ v   <html lang="es">
     .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
     .table-responsive::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    /* Barra espejo fija bajo la tabla */
+    /* Barra espejo dentro del contenedor de la tabla */
     .scrollbar-mirror {
       height: 18px;
       overflow-x: scroll;
       overflow-y: hidden;
       background: #e5e7eb;
       border-top: 1px solid #cbd5e1;
-      position: fixed; /* fija al fondo de la ventana */
-      left: 0;
-      right: 0;
+      position: sticky; /* pegada al borde inferior del card */
       bottom: 0;
-      z-index: 1000;
+      z-index: 11;
+      margin-top: 6px;
     }
     .scrollbar-mirror::-webkit-scrollbar { height: 12px; }
     .scrollbar-mirror::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
@@ -461,12 +484,12 @@ v   <html lang="es">
     }
     
     .costumer-table {
-      /* Permite crecer al ancho del contenido para forzar overflow horizontal */
-      width: max-content;
+      /* Forzar overflow horizontal en todos los casos */
+      width: 6000px !important;
+      min-width: 6000px !important;
       border-collapse: separate;
       border-spacing: 0;
       table-layout: auto;
-      min-width: 3600px; /* Aumentado para forzar overflow en pantallas anchas */
       background: #fff;
     }
     
@@ -477,7 +500,7 @@ v   <html lang="es">
       border-bottom: 1px solid #eef2f7;
       white-space: normal;
       word-wrap: break-word;
-      min-width: 160px; /* ampliar base de columna para provocar overflow */
+      min-width: 240px; /* ampliar base por columna para provocar overflow */
       max-width: 360px;
       vertical-align: middle;
       font-size: 14px;
@@ -777,6 +800,12 @@ v   <html lang="es">
           <h2 class="costumer-table-title">Lista de Clientes</h2>
           <div class="costumer-table-actions">
             <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
+            <button id="scroll-left" class="action-btn" title="Desplazar a la izquierda">
+              <i class="fas fa-angle-double-left"></i>
+            </button>
+            <button id="scroll-right" class="action-btn" title="Desplazar a la derecha">
+              <i class="fas fa-angle-double-right"></i>
+            </button>
             <button id="toggle-compact" class="action-btn toggle" title="Alternar modo compacto">
               <i class="fas fa-compress-alt"></i>
             </button>
