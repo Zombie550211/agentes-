@@ -363,28 +363,14 @@ router.put('/leads/:id/status', protect, async (req, res) => {
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+    }
+
+    return res.json({ success: true, message: 'Status actualizado', data: { id, status } });
+  } catch (error) {
+    console.error('[API UPDATE STATUS] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
-
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const monthName = monthNames[startDate.getMonth()];
-  const year = startDate.getFullYear();
-  const monthYearPattern = `${monthName} \\d{1,2} ${year}`;
-
-  // Solo dia_venta, en cualquiera de los formatos
-  dateFilter = {
-    $or: [
-      { dia_venta: { $in: daysInRange } },
-      { dia_venta: { $regex: monthYearPattern, $options: 'i' } }
-    ]
-  };
-} else {
-  console.log('[API LEADS] Filtro de fecha deshabilitado (skipDate=1)');
-}
-
-// Combinar filtros de usuario y fecha
-let combinedFilter = {};
-// ...
-// ...
+});
 
 // ============================
 // Actualización de cliente/lead

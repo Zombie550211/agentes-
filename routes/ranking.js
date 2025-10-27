@@ -132,13 +132,33 @@ router.get('/', protect, async (req, res) => {
         }
       },
 
-      // 4) Agrupar por agente
+      // 3.1) Normalizar nombre de agente para evitar duplicados por espacios/case
+      {
+        $addFields: {
+          _agenteFuente: { $ifNull: ["$agenteNombre", "$agente"] }
+        }
+      },
+      {
+        $addFields: {
+          _nameNoSpaces: {
+            $replaceAll: { input: { $replaceAll: { input: { $replaceAll: { input: "$_agenteFuente", find: "_", replacement: "" } }, find: ".", replacement: "" } }, find: " ", replacement: "" }
+          },
+          _nameNormLower: {
+            $toLower: {
+              $replaceAll: { input: { $replaceAll: { input: { $replaceAll: { input: "$_agenteFuente", find: "_", replacement: "" } }, find: ".", replacement: "" } }, find: " ", replacement: "" }
+            }
+          }
+        }
+      },
+
+      // 4) Agrupar por agente normalizado (sin espacios, case-insensitive)
       {
         $group: {
-          _id: "$agenteNombre",
+          _id: "$_nameNormLower",
           ventas: { $sum: 1 },
           sumPuntaje: { $sum: "$puntaje" },
-          avgPuntaje: { $avg: "$puntaje" }
+          avgPuntaje: { $avg: "$puntaje" },
+          anyName: { $first: "$_nameNoSpaces" }
         }
       },
 
@@ -146,7 +166,7 @@ router.get('/', protect, async (req, res) => {
       {
         $project: {
           _id: 0,
-          nombre: "$_id",
+          nombre: "$anyName",
           ventas: 1,
           sumPuntaje: "$sumPuntaje", // Sin redondeo - valor exacto
           avgPuntaje: "$avgPuntaje", // Sin redondeo - valor exacto
