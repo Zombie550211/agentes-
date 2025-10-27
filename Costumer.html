@@ -2278,12 +2278,11 @@ v   <html lang="es">
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       try {
         // Usar cookies para autenticación (método actual del sistema)
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const fetchOptions = {
           method: 'GET',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { 'Authorization': `Bearer ${token}` } : {})
         };
 
         // Detectar si es usuario Team Líneas
@@ -2303,7 +2302,7 @@ v   <html lang="es">
         // Construir URL según el tipo de usuario
         // IMPORTANTE: no enviar agenteId/agente al backend para evitar mismatch (ObjectId vs string)
         // Traemos un lote más grande y filtramos en frontend
-        let url = isTeamLineasUser ? '/api/lineas' : '/api/customers?page=1&limit=1000';
+        let url = isTeamLineasUser ? '/api/lineas' : '/api/leads?page=1&limit=1000';
         let alreadyFilteredByAgent = isTeamLineasUser; // Team Líneas ya filtra automáticamente por agente
         
         console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
@@ -2320,7 +2319,8 @@ v   <html lang="es">
 
         if (forceAll) console.warn('[fetchLeadsAgente] forceAll=1 activo: NO se aplica filtrado por agente (backend ni frontend)');
         console.log('[fetchLeadsAgente] URL solicitada:', url, 'alreadyFilteredByAgent=', alreadyFilteredByAgent, 'forceAll=', forceAll);
-        const response = await fetch(url, fetchOptions);
+        let response = await fetch(url, fetchOptions);
+        if (response.status === 429) { await new Promise(r=>setTimeout(r, 600)); response = await fetch(url, fetchOptions); }
         console.log(`[fetchLeadsAgente] Response status: ${response.status}, headers:`, response.headers);
         
         if (!response.ok) {
@@ -2331,12 +2331,16 @@ v   <html lang="es">
         
         let data = null;
         try {
-          const responseText = await response.text();
-          console.log('[fetchLeadsAgente] Response text (first 200 chars):', responseText.substring(0, 200));
-          data = JSON.parse(responseText);
+          const ct = (response.headers.get('content-type')||'').toLowerCase();
+          if (ct.includes('application/json')) {
+            data = await response.json();
+          } else {
+            const responseText = await response.text();
+            console.log('[fetchLeadsAgente] Response text (first 200 chars):', responseText.substring(0, 200));
+            data = JSON.parse(responseText);
+          }
         } catch (e) {
           console.warn('[fetchLeadsAgente] No se pudo parsear JSON de respuesta:', e?.message);
-          console.warn('[fetchLeadsAgente] Response was not JSON, probably HTML error page');
         }
         console.log('[fetchLeadsAgente] Datos recibidos (resumen):', {
           tipo: Array.isArray(data) ? 'array' : typeof data,
@@ -2356,8 +2360,8 @@ v   <html lang="es">
           leadsRaw = extractArray(data);
         }
 
-        // Unificar fuentes: siempre intentar también /api/leads y combinar
-        if (!isTeamLineasUser) {
+        // Unificar fuentes: intentar endpoints alternos solo si no llegaron datos
+        if (!isTeamLineasUser && (!Array.isArray(leadsRaw) || leadsRaw.length === 0)) {
           try {
             const altUrls = [
               '/api/leads?page=1&limit=1000',
@@ -2522,24 +2526,8 @@ v   <html lang="es">
           }
         }
 
-        // Filtro de seguridad por mes actual (solo si hace sentido)
-        try {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, '0');
-          const prefix = `${year}-${month}-`;
-          const before = normalizedLeads.length;
-          const filtered = normalizedLeads.filter(l => {
-            const ymd = getDateFromLead(l);
-            return ymd && ymd.startsWith(prefix);
-          });
-          if (filtered.length > 0 || before === 0) {
-            normalizedLeads = filtered;
-          } else {
-            console.warn('[Filtro mes actual frontend] Ignorado porque eliminaba todos los registros (backend ya filtra por mes).');
-          }
-          console.log(`[Filtro mes actual frontend] ${before} -> ${normalizedLeads.length} (prefijo ${prefix})`);
-        } catch(e){ console.warn('[Filtro mes actual frontend] error', e?.message); }
+        // Filtro por mes en frontend desactivado (el backend ya aplica filtro robusto)
+        try { console.log('[Filtro mes actual frontend] desactivado; manteniendo', normalizedLeads.length, 'registros'); } catch(_){ }
 
     // Filtrar por agente si el usuario es role 'agent' SOLO si no se filtr¨® ya en el backend
     if (!alreadyFilteredByAgent && !forceAll) {

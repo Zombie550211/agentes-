@@ -6,19 +6,38 @@
   'use strict';
 
   // Función para cargar estadísticas del usuario
+  let __userCache = { at: 0, data: null };
+  let __userPending = null;
+
+  function authHeaders(){
+    const h = { 'Accept': 'application/json' };
+    const t = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if(t) h['Authorization'] = `Bearer ${t}`;
+    return h;
+  }
+
+  async function getUserCached(){
+    const now = Date.now();
+    if(__userCache.data && (now - __userCache.at) < 60000){
+      return __userCache.data;
+    }
+    if(__userPending) return __userPending;
+    __userPending = (async ()=>{
+      let r = await fetch('/api/auth/verify-server', { method:'GET', credentials: 'include', headers: authHeaders() });
+      if(r.status === 429){ await new Promise(rs=>setTimeout(rs, 600)); r = await fetch('/api/auth/verify-server', { method:'GET', credentials:'include', headers: authHeaders() }); }
+      if(!r.ok) throw new Error('Error obteniendo información del usuario');
+      const j = await r.json();
+      __userCache = { at: Date.now(), data: j };
+      __userPending = null;
+      return j;
+    })();
+    try { return await __userPending; } finally { __userPending = null; }
+  }
+
   async function loadUserStats() {
     try {
       // Obtener información del usuario usando cookies (mismo método que sidebar)
-      const userResponse = await fetch('/api/auth/verify-server', {
-        method: 'GET',
-        credentials: 'include'
-      });
-
-      if (!userResponse.ok) {
-        throw new Error('Error obteniendo información del usuario');
-      }
-
-      const userData = await userResponse.json();
+      const userData = await getUserCached();
       const user = userData.user || userData;
 
       // Obtener ventas del mes actual
@@ -26,10 +45,7 @@
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
       
-      const leadsResponse = await fetch(`/api/leads?month=${month}&year=${year}`, {
-        method: 'GET',
-        credentials: 'include'
-      });
+      const leadsResponse = await fetch(`/api/leads?month=${month}&year=${year}`, { method: 'GET', credentials: 'include', headers: authHeaders() });
 
       if (leadsResponse.ok) {
         const leadsData = await leadsResponse.json();

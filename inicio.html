@@ -1790,10 +1790,9 @@
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      // MOSTRAR SIEMPRE LOS MISMOS KPIs PARA TODOS (como admin)
       const userRole = (user.role || '').toLowerCase();
-      const isAdminOrBackoffice = true; // FORZAR que todos vean como admin
-      
+      const isAdminOrBackoffice = ['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(r=>userRole.includes(r));
+
       // Mostrar TODOS los KPIs para todos los usuarios
       const pointsCard = document.getElementById('points-stat-card');
       const teamCard = document.getElementById('team-stat-card');
@@ -1801,15 +1800,14 @@
       const cancelledCard = document.getElementById('cancelled-stat-card');
       const pendingCard = document.getElementById('pending-stat-card');
       
-      // MOSTRAR TODOS los KPIs (vista de admin para todos)
+      // Mostrar tarjetas según rol
       if (pointsCard) pointsCard.style.display = 'flex';
       if (teamCard) teamCard.style.display = 'flex';
       if (rankingCard) rankingCard.style.display = 'flex';
-      if (cancelledCard) cancelledCard.style.display = 'flex';
-      if (pendingCard) pendingCard.style.display = 'flex';
+      if (cancelledCard) cancelledCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
+      if (pendingCard) pendingCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
       
-      // TODOS ven métricas globales (como admin)
-      if (true) {
+      if (isAdminOrBackoffice) {
         // Para Admin/Backoffice: calcular métricas globales
         const allLeads = leads; // Usar todos los leads, no filtrar por usuario
         
@@ -1842,12 +1840,13 @@
         
       } else {
         // Para Agentes: calcular métricas personales
-        const userLeads = leads.filter(lead => 
-          lead.agenteNombre === user.username || 
-          lead.agente === user.username ||
-          lead.createdBy === user.username ||
-          lead.ownerId === user.username
-        );
+        const uname = (user.username||'').toString().trim().toLowerCase();
+        const userLeads = leads.filter(lead => {
+          const a = (lead.agenteNombre||'').toString().trim().toLowerCase();
+          const b = (lead.agente||'').toString().trim().toLowerCase();
+          const c = (lead.usuario||'').toString().trim().toLowerCase();
+          return a===uname || b===uname || c===uname;
+        });
         
         // Ventas del mes del agente - usando campos de costumers
         const userMonthlySales = userLeads.filter(lead => {
@@ -1860,8 +1859,8 @@
         }, 0);
         
         // Actualizar KPIs de agente
-        document.getElementById('user-sales-count').textContent = userMonthlySales;
-        document.getElementById('user-points-total').textContent = userTotalPoints.toFixed(1);
+        const el1=document.getElementById('user-sales-count'); if(el1) el1.textContent = userMonthlySales;
+        const el2=document.getElementById('user-points-total'); if(el2) el2.textContent = userTotalPoints.toFixed(2).replace(/\.00$/,'');
         document.getElementById('user-team-name').textContent = user.team || 'Sin equipo';
         
         // Calcular ranking (simulado)
@@ -1983,7 +1982,7 @@
       // Contar leads por team
       const teamCounts = {};
       leads.forEach(lead => {
-        const team = lead.team || 'Sin equipo';
+        const team = lead.team || lead.TEAM || 'Sin equipo';
         teamCounts[team] = (teamCounts[team] || 0) + 1;
       });
       
@@ -2288,7 +2287,7 @@
         if (monthSales.length === 0) {
           monthSales = leads.filter(l=>{ const d=pickDate(l); return d.getMonth()===M && d.getFullYear()===Y;});
         }
-        const getProd=(l)=>{ const v=l.servicios||l.producto||l.product||l.service||l.servicio||''; return v?String(v).replace(/[-_]/g,' ').toUpperCase():'SIN PRODUCTO'; };
+        const getProd=(l)=>{ const v=l.servicios_texto||l.tipo_servicios||l.tipo_servicio||l.servicios||l.producto||l.product||l.service||l.servicio||''; return v?String(v).replace(/[-_]/g,' ').toUpperCase():'SIN PRODUCTO'; };
         const counts={}; monthSales.forEach(l=>{ const k=getProd(l); counts[k]=(counts[k]||0)+1; });
         const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
         const labels=entries.map(e=>e[0]); const data=entries.map(e=>e[1]);
@@ -2327,20 +2326,24 @@
           const res=await fetch('/api/leads',{ method:'GET', credentials:'include', headers });
           if(!res.ok){ console.warn('API /api/leads no OK', res.status); return; }
           const json=await res.json(); const leads=json?.data||json?.leads||json||[];
-          // Cargar tabla mensual por equipo para KPIs exactos
-          const equipos = await loadMonthlyTeamStats();
-          if (Array.isArray(equipos) && equipos.length){
-            // Total ventas (sum Total) y puntos (sum Puntaje)
-            const totalVentas = equipos.reduce((s,e)=> s + (parseFloat(e.Total)||0), 0);
-            const totalPuntos = equipos.reduce((s,e)=> s + (parseFloat(e.Puntaje)||0), 0);
-            const k1 = document.getElementById('month-sales-count'); if (k1) k1.textContent = totalVentas;
-            const k2 = document.getElementById('month-points-total'); if (k2) k2.textContent = totalPuntos.toFixed(2).replace(/\.00$/,'');
-            // Mejor team por Total
-            const best = [...equipos].sort((a,b)=> (parseFloat(b.Total||0))-(parseFloat(a.Total||0)))[0];
-            const teamName = formatTeam(best?.TEAM || best?.name || '-');
-            const elTeam = document.getElementById('best-team-name'); if (elTeam) elTeam.textContent = teamName;
+          // Calcular KPIs: si es admin/BO/supervisor usar estadística por equipos; si es agente usar solo sus leads (backend ya filtra)
+          let isAdminOrBO = false;
+          try { const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); const r=(u.role||'').toLowerCase(); isAdminOrBO=['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(x=>r.includes(x)); } catch{}
+          if (isAdminOrBO){
+            const equipos = await loadMonthlyTeamStats();
+            if (Array.isArray(equipos) && equipos.length){
+              const totalVentas = equipos.reduce((s,e)=> s + (parseFloat(e.Total)||0), 0);
+              const totalPuntos = equipos.reduce((s,e)=> s + (parseFloat(e.Puntaje)||0), 0);
+              const k1 = document.getElementById('month-sales-count'); if (k1) k1.textContent = totalVentas;
+              const k2 = document.getElementById('month-points-total'); if (k2) k2.textContent = totalPuntos.toFixed(2).replace(/\.00$/,'');
+              const best = [...equipos].sort((a,b)=> (parseFloat(b.Total||0))-(parseFloat(a.Total||0)))[0];
+              const teamName = formatTeam(best?.TEAM || best?.name || '-');
+              const elTeam = document.getElementById('best-team-name'); if (elTeam) elTeam.textContent = teamName;
+            } else {
+              updateKPIs(leads);
+            }
           } else {
-            // Fallback con leads
+            // Agente: usar directamente leads (ya filtrados por backend al agente)
             updateKPIs(leads);
           }
           
@@ -2389,7 +2392,7 @@
         const monthly = leads.filter(l => { const d = pickDate(l); return d.getMonth()===M && d.getFullYear()===Y; });
         if (!monthly.length) return;
         const counts = {};
-        monthly.forEach(l=>{ const t = l.team || l.TEAM || 'Sin equipo'; counts[t] = (counts[t]||0)+1; });
+        monthly.forEach(l=>{ const t = l.team || l.TEAM || l.supervisor || 'Sin equipo'; counts[t] = (counts[t]||0)+1; });
         const labels = Object.keys(counts);
         const data = Object.values(counts);
         const canvas = document.getElementById('teamsChart');
