@@ -29,6 +29,44 @@ v   <html lang="es">
           inner.style.width = scrollW + 'px';
           mirror.scrollLeft = wrap.scrollLeft;
         };
+        // Sticky header builder
+        function rebuildStickyHead(){
+          try{
+            const container = document.querySelector('.costumer-table-container');
+            if(!container || !table) return;
+            // remove previous
+            const prev = container.querySelector('.sticky-head-wrapper');
+            if(prev) prev.remove();
+            // create wrapper and cloned head
+            const head = table.querySelector('thead');
+            if(!head) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'sticky-head-wrapper';
+            const headTable = document.createElement('table');
+            headTable.className = 'costumer-table';
+            const clonedHead = head.cloneNode(true);
+            headTable.appendChild(clonedHead);
+            wrapper.appendChild(headTable);
+            // insert before scrollable wrap
+            container.insertBefore(wrapper, wrap);
+            // match column widths
+            const origTh = Array.from(head.querySelectorAll('th'));
+            const cloneTh = Array.from(clonedHead.querySelectorAll('th'));
+            const widths = origTh.map(th => th.getBoundingClientRect().width);
+            cloneTh.forEach((th,i)=>{ const w = widths[i]||160; th.style.minWidth = w+'px'; th.style.maxWidth = w+'px'; th.style.width = w+'px'; });
+            // ajustar ancho visible del wrapper al del contenedor con scroll
+            const adjustWrapper = ()=>{ wrapper.style.width = wrap.clientWidth + 'px'; };
+            adjustWrapper();
+            // sync horizontal scroll con transform para evitar saltos
+            const sync = ()=>{ headTable.style.transform = 'translateX(' + (-wrap.scrollLeft) + 'px)'; };
+            sync();
+            wrap.removeEventListener('scroll', sync); // prevent duplicates
+            wrap.addEventListener('scroll', sync, { passive:true });
+            window.addEventListener('resize', adjustWrapper, { passive:true });
+          }catch(e){ console.warn('[StickyHead] error:', e?.message); }
+        }
+        // expose globally to re-run after rendering
+        window.rebuildStickyHead = rebuildStickyHead;
 
     // Edición por clave local cuando el lead no tiene _id/id (por ejemplo, datos inyectados temporalmente)
     window.editarLeadKey = function(key) {
@@ -76,6 +114,8 @@ v   <html lang="es">
         const ro = window.ResizeObserver ? new ResizeObserver(updateWidth) : null;
         if (ro) ro.observe(table);
         updateWidth();
+        // build once
+        rebuildStickyHead();
       }
       window.addEventListener('DOMContentLoaded', initMirror);
     })();
@@ -560,6 +600,9 @@ v   <html lang="es">
     .scrollbar-mirror::-webkit-scrollbar { height: 12px; }
     .scrollbar-mirror::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
     .scrollbar-mirror::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    /* Sticky header wrapper (deshabilitado) */
+    .sticky-head-wrapper { display: none; }
+    .sticky-head-wrapper table { border-collapse: separate; border-spacing: 0; width: max-content; background: #fff; }
     
     .costumer-table-header {
       display: flex;
@@ -727,20 +770,27 @@ v   <html lang="es">
       font-size: 13px;      /* más compacto */
     }
     
+    /* Encabezado: sticky solo en las celdas th */
+    .costumer-table thead { position: static; }
+    .costumer-table thead tr { position: static; }
     .costumer-table th {
       background: linear-gradient(180deg, #f9fbff 0%, #f3f6fb 100%);
       font-weight: 600;
       color: #1f2937;
-      position: sticky;
+      position: sticky !important;
       top: 0;
-      z-index: 10;
+      z-index: 50; /* por encima de separadores y filas */
       text-transform: uppercase;
       font-size: 12px;
       letter-spacing: 0.04em;
       border-bottom: 1px solid #e6eef5;
-      /* remover blur para evitar líneas finas entre celdas y mejorar rendimiento */
       background-clip: padding-box;
+      background: #f7fafc;
     }
+    /* Evitar que separadores tapen el header */
+    .costumer-table tr.costumer-month-separator td { position: relative; z-index: 1; }
+
+    /* removed sticky-head-wrapper override: se usa solo thead sticky nativo */
 
     /* Acomodar últimas columnas para evitar cortes de palabra en encabezados */
     /* Orden final esperado: ... | ZIP CODE | PUNTAJE | COMENTARIOS | ACCIÓN */
@@ -1079,6 +1129,12 @@ v   <html lang="es">
           </table>
         </div>
         <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
+        <!-- Controles de paginación -->
+        <div id="paginationControls" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; padding:8px 12px;">
+          <button id="pagePrev" class="action-btn" title="Página anterior"><i class="fas fa-chevron-left"></i></button>
+          <span id="pageInfo" style="font-size:12px; color:#475569; min-width:120px; text-align:center;">Página 1</span>
+          <button id="pageNext" class="action-btn" title="Página siguiente"><i class="fas fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -2189,7 +2245,7 @@ v   <html lang="es">
         agente: agente || '',
         comentario: lead.comentario || lead.COMENTARIO || '',
         motivo_llamada: lead.motivo_llamada || lead.MOTIVO || '',
-        zip_code: lead.zip_code || lead.ZIP || lead.cp || '',
+        zip_code: lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || '',
         puntaje: Number(puntaje) || 0,
         comentarios_venta: lead.comentarios_venta || lead.COMENTARIOS || lead.comentarios || '',
         // Identificadores
@@ -2274,7 +2330,10 @@ v   <html lang="es">
     }
 
     // Cargar leads del agente desde backend y actualizar UI
-    async function fetchLeadsAgente() {
+    let __page = 1;
+    const __limit = 100;
+    let __hasMore = true;
+    async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       try {
         // Usar cookies para autenticación (método actual del sistema)
@@ -2302,8 +2361,10 @@ v   <html lang="es">
         // Construir URL según el tipo de usuario
         // IMPORTANTE: no enviar agenteId/agente al backend para evitar mismatch (ObjectId vs string)
         // Traemos un lote más grande y filtramos en frontend
-        let url = isTeamLineasUser ? '/api/lineas' : '/api/leads?page=1&limit=1000';
-        let alreadyFilteredByAgent = isTeamLineasUser; // Team Líneas ya filtra automáticamente por agente
+        // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
+        __page = Math.max(1, Number(page)||1);
+        let url = `/api/leads?page=${__page}&limit=${__limit}`;
+        let alreadyFilteredByAgent = false;
         
         console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
         console.log(`[fetchLeadsAgente] URL: ${url}`);
@@ -2937,6 +2998,10 @@ v   <html lang="es">
       }
     }
 
+    // Paginación por defecto
+    if (typeof window.__limit === 'undefined') window.__limit = 100;
+    if (typeof window.__page === 'undefined') window.__page = 1;
+
     // Función principal para renderizar la tabla de clientes
     window.renderCostumerTable = function(leads) {
       console.log('renderCostumerTable llamada con leads:', leads);
@@ -2949,6 +3014,30 @@ v   <html lang="es">
           : [];
       // Guardar la ¨²ltima lista para re-renderizados por filtros/toolbar
       try { window.ultimaListaLeads = leadsArray.slice(); } catch(_) {}
+      // Paginación en cliente
+      try {
+        const total = leadsArray.length;
+        const limit = Number(window.__limit) || 100;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        if (typeof window.__page !== 'number' || window.__page < 1) window.__page = 1;
+        if (window.__page > totalPages) window.__page = totalPages;
+        const start = (window.__page - 1) * limit;
+        const end = start + limit;
+        leadsArray = leadsArray.slice(start, end);
+        // Actualizar controles UI
+        const info = document.getElementById('pageInfo');
+        const prevBtn = document.getElementById('pagePrev');
+        const nextBtn = document.getElementById('pageNext');
+        if (info) info.textContent = `Página ${window.__page} de ${totalPages} — ${total} clientes`;
+        if (prevBtn) prevBtn.disabled = (window.__page <= 1);
+        if (nextBtn) nextBtn.disabled = (window.__page >= totalPages);
+        // Enlazar eventos una sola vez
+        if (!window.__pagingBound) {
+          if (prevBtn) prevBtn.addEventListener('click', function(){ if (window.__page > 1) { window.__page--; window.renderCostumerTable(window.ultimaListaLeads||[]); } });
+          if (nextBtn) nextBtn.addEventListener('click', function(){ const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||100))); if (window.__page < tp) { window.__page++; window.renderCostumerTable(window.ultimaListaLeads||[]); } });
+          window.__pagingBound = true;
+        }
+      } catch(_) {}
       // Migraci¨®n de compatibilidad: renombrar filtro legado a nombre neutral
       try {
         if (window.iraniaAgentFilter != null && window.supervisorAgentFilter == null) {
@@ -3346,36 +3435,17 @@ v   <html lang="es">
           <td>${lead.supervisor || 'N/A'}</td>
           <td>${lead.comentario || 'N/A'}</td>
           <td>${lead.motivo_llamada || 'N/A'}</td>
-          <td>${lead.zip_code || 'N/A'}</td>
+          <td>${lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || 'N/A'}</td>
           <td>${lead.puntaje || 'N/A'}</td>
           <td>
-            <div style="display: flex; flex-direction: column; align-items: flex-start;">
-              ${fullComment 
-                ? `
-                  <div style="display: flex; align-items: center; gap: 5px;">
-                    <span class="new-comment-dot" style="display: inline-block; width: 8px; height: 8px; background-color: #3498db; border-radius: 50%;"></span>
-                    <span title="${titleAttr}">${displayComment}</span>
-                  </div>
-                `
-                : ''
-              }
-              <button 
-                onclick="event.stopPropagation(); abrirComentarios('${getLeadId(lead)}')" 
-                class="action-btn" 
-                title="${lead.comentarios_venta ? 'Gestionar comentarios' : 'Agregar comentario'}"
-                style="margin-top: 5px; padding: 2px 6px; font-size: 11px; align-self: flex-start;"
-              >
-                <i class="fas fa-comment"></i>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button class="action-btn" title="Editar" onclick="${__id ? `editarLead('${__id}')` : `editarLeadKey('${__key}')`}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="action-btn" title="Eliminar" onclick="eliminarLead('${getLeadId(lead)}')">
+                <i class="fas fa-trash"></i>
               </button>
             </div>
-          </td>
-          <td>
-            <button class="action-btn" title="Editar" onclick="${__id ? `editarLead('${__id}')` : `editarLeadKey('${__key}')`}">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="action-btn" title="Eliminar" onclick="eliminarLead('${getLeadId(lead)}')">
-              <i class="fas fa-trash"></i>
-            </button>
           </td>
         `;
         // Obtener tbody localmente (evitar ReferenceError si no existe en el scope)
@@ -3385,6 +3455,7 @@ v   <html lang="es">
           return;
         }
         tbody.appendChild(tr);
+        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
       }
 
       // Helper: render con separadores mensuales usando getDateFromLead
@@ -3419,6 +3490,7 @@ v   <html lang="es">
           }
           appendLeadRow(item);
         });
+        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
       }
 
       // Helper: obtener agente can¨®nico desde m¨²ltiples campos y escaneo amplio
@@ -4021,6 +4093,7 @@ v   <html lang="es">
             console.debug('[Supervisor] sample after filter =', sample);
           } catch(_) {}
           renderWithMonthlySeparators(list);
+          try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
           return; // retorno temprano para no pasar por otras agrupaciones
         }
       } catch (e) {
@@ -4136,20 +4209,18 @@ v   <html lang="es">
 
           // Render con separadores mensuales
           renderWithMonthlySeparators(list);
+          try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
           return; // evitar ramas siguientes
         } catch (e) { console.warn('Error en vista admin por TEAM:', e); }
       } else {
         // Render por defecto con separadores mensuales
         renderWithMonthlySeparators(leadsArray);
+        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
       }
     }
 
     // Funci¨®n para actualizar las tarjetas de resumen
     function updateSummaryCards(leads) {
-      // SISTEMA DESHABILITADO - Usar monthly-cutoff.js en su lugar
-      console.log('[LEGACY KPIs] Sistema original deshabilitado - usando monthly-cutoff.js');
-      return;
-      
       // Obtener referencias a los elementos del DOM primero
       const ventasHoyElement = document.getElementById('costumer-ventas-hoy');
       const ventasMesElement = document.getElementById('costumer-ventas-mes');
@@ -4422,7 +4493,7 @@ v   <html lang="es">
       document.getElementById('edit-supervisor').value = lead.supervisor || '';
       document.getElementById('edit-comentario').value = lead.comentario || '';
       document.getElementById('edit-motivo-llamada').value = lead.motivo_llamada || '';
-      document.getElementById('edit-zip-code').value = lead.zip_code || '';
+      document.getElementById('edit-zip-code').value = (lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || '');
       document.getElementById('edit-puntaje').value = lead.puntaje || '';
 
       // Poblar notas existentes
@@ -4562,6 +4633,7 @@ v   <html lang="es">
         comentario: document.getElementById('edit-comentario').value,
         motivo_llamada: document.getElementById('edit-motivo-llamada').value,
         zip_code: document.getElementById('edit-zip-code').value,
+        zip: document.getElementById('edit-zip-code').value,
         puntaje: parseFloat(document.getElementById('edit-puntaje').value) || 0
       };
 

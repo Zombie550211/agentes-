@@ -26,8 +26,10 @@
     try{
       const user = await getCurrentUser();
       const uname = (user?.username||'').toString().trim();
+      const role = (user?.role||'').toString().trim().toLowerCase();
       // 1) intento base
-      const r = await fetch('/api/leads' + (uname?`?agente=${encodeURIComponent(uname)}`:''), { credentials: 'include', headers: authHeaders() });
+      const useAgentParam = ['agente','agent'].includes(role);
+      const r = await fetch('/api/leads' + (useAgentParam && uname?`?agente=${encodeURIComponent(uname)}`:''), { credentials: 'include', headers: authHeaders() });
       if(!r.ok) throw new Error('leads fetch error');
       const j = await r.json();
       const arr = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : (Array.isArray(j?.leads) ? j.leads : []));
@@ -125,23 +127,18 @@
     __loading = true;
     try{
       const [user, leads, ranking] = await Promise.all([ getCurrentUser(), fetchMonthLeads(), fetchRankingTop() ]);
+      const role = (user?.role||'').toString().trim().toLowerCase();
+      const isAgent = ['agente','agent'].includes(role);
 
-      // Ventas totales del mes (el endpoint ya devuelve solo las del usuario si es agente)
-      updateText('month-sales-count', String(leads.length));
-
-      // Puntos totales del usuario
-      const totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
-      updateText('month-points-total', totalPoints.toFixed(2));
-
-      // Mejor Team del mes (global si hay ranking; si no, a partir de leads)
-      const bestTeam = pickBestTeam(leads);
-      updateText('best-team-name', bestTeam || '-');
-
-      // Mejor vendedor del mes (de ranking global)
-      updateText('best-seller-name', pickBestSellerFromRanking(ranking));
-
-      // Graficas
-      drawCharts(leads);
+      // Solo agentes: actualizar KPIs propios. Para admins/BO/supervisor, Inicio maneja los totales.
+      if (isAgent) {
+        updateText('month-sales-count', String(leads.length));
+        const totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
+        updateText('month-points-total', totalPoints.toFixed(2));
+        const bestTeam = pickBestTeam(leads);
+        updateText('best-team-name', bestTeam || '-');
+        updateText('best-seller-name', pickBestSellerFromRanking(ranking));
+      }
 
       console.log('[dashboard] KPIs cargados:', { ventas: leads.length, puntos: totalPoints });
     }catch(e){ console.error('[dashboard] Error cargando KPIs:', e); }
