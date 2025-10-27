@@ -363,13 +363,164 @@ router.put('/leads/:id/status', protect, async (req, res) => {
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+  }
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthName = monthNames[startDate.getMonth()];
+  const year = startDate.getFullYear();
+  const monthYearPattern = `${monthName} \\d{1,2} ${year}`;
+
+  // Solo dia_venta, en cualquiera de los formatos
+  dateFilter = {
+    $or: [
+      { dia_venta: { $in: daysInRange } },
+      { dia_venta: { $regex: monthYearPattern, $options: 'i' } }
+    ]
+  };
+} else {
+  console.log('[API LEADS] Filtro de fecha deshabilitado (skipDate=1)');
+}
+
+// Combinar filtros de usuario y fecha
+let combinedFilter = {};
+// ...
+// ...
+
+// ============================
+// Actualización de cliente/lead
+// ============================
+async function getCostumerById(db, id) {
+  const { ObjectId } = require('mongodb');
+  const collection = db.collection('costumers');
+  let objId = null;
+  try { objId = new ObjectId(id); } catch { objId = null; }
+  const byObj = objId ? await collection.findOne({ _id: objId }) : null;
+  if (byObj) return byObj;
+  // fallback si se guardó como string
+  return await collection.findOne({ _id: id });
+}
+
+function buildOwnershipCheck(userIdStr, doc) {
+  try {
+    const valEq = (v) => {
+      if (!v) return false;
+      if (typeof v === 'object') {
+        const s = v.$oid || v._id || v.id || v.value || (v.toString ? v.toString() : '');
+        return String(s) === userIdStr;
+      }
+      return String(v) === userIdStr;
+    };
+    const fields = [
+      'agenteId','agentId','createdBy','ownerId','registeredById','creadoPor',
+      '_raw.agenteId','_raw.agentId','_raw.createdBy','_raw.ownerId','_raw.registeredById','_raw.creadoPor'
+    ];
+    for (const f of fields) {
+      const [a,b] = f.split('.');
+      const v = b ? (doc?.[a]?.[b]) : doc?.[a];
+      if (valEq(v)) return true;
+    }
+    return false;
+  } catch { return false; }
+}
+
+function sanitizePayload(body) {
+  const allowed = new Set([
+    'nombre_cliente','telefono_principal','telefono_alterno','numero_cuenta','autopago','direccion','zip_code',
+    'tipo_servicio','tipo_servicios','sistema','riesgo','dia_venta','dia_instalacion','status','servicios_texto',
+    'mercado','supervisor','comentario','motivo_llamada','puntaje','agenteNombre','nombreAgente','agente','agenteId',
+  ]);
+  const set = {};
+  Object.keys(body || {}).forEach(k => { if (allowed.has(k)) set[k] = body[k]; });
+  // normalizaciones
+  if (!set.tipo_servicio && set.tipo_servicios) set.tipo_servicio = set.tipo_servicios;
+  if (!set.tipo_servicios && set.tipo_servicio) set.tipo_servicios = set.tipo_servicio;
+  if (set.autopago != null) set.autopago = String(set.autopago).toUpperCase();
+  if (set.puntaje != null) set.puntaje = Number(set.puntaje) || 0;
+  return set;
+}
+
+async function commonUpdateHandler(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success:false, message:'DB no disponible' });
+
+    const { id } = req.params;
+    const doc = await getCostumerById(db, id);
+    if (!doc) return res.status(404).json({ success:false, message:'Registro no encontrado' });
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const userIdStr = String(req.user?.id || req.user?._id || '').trim();
+    const privileged = ['admin','supervisor','backoffice','bo'].some(r => role.includes(r));
+    const owns = userIdStr && buildOwnershipCheck(userIdStr, doc);
+    if (!privileged && !owns) {
+      return res.status(403).json({ success:false, message:'No autorizado' });
     }
 
-    res.json({ success: true, message: 'Status actualizado', data: { id, status } });
-  } catch (error) {
-    console.error('[API UPDATE STATUS] Error:', error);
-    res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+    const $set = sanitizePayload(req.body || {});
+    if (!Object.keys($set).length) {
+      return res.status(400).json({ success:false, message:'Faltan campos requeridos o son inválidos' });
+    }
+
+    const { ObjectId } = require('mongodb');
+    const collection = db.collection('costumers');
+    let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: id };
+    const result = await collection.updateOne(filter, { $set });
+    if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo actualizar (no encontrado)' });
+    return res.json({ success:true, message:'Registro actualizado', data:{ id, updated: Object.keys($set) } });
+  } catch (e) {
+    console.error('[API UPDATE LEAD] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error:e.message });
   }
-});
+}
+
+// PUT /api/customers/:id
+router.put('/customers/:id', protect, commonUpdateHandler);
+// Alias compatible
+router.put('/leads/:id', protect, commonUpdateHandler);
+
+// ============================
+// Notas: agregar a un lead/cliente
+// ============================
+async function commonAddNote(req, res) {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success:false, message:'DB no disponible' });
+    const { id } = req.params;
+    const { text } = req.body || {};
+    if (!text || !String(text).trim()) return res.status(400).json({ success:false, message:'Texto de nota requerido' });
+
+    const doc = await getCostumerById(db, id);
+    if (!doc) return res.status(404).json({ success:false, message:'Registro no encontrado' });
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const userIdStr = String(req.user?.id || req.user?._id || '').trim();
+    const privileged = ['admin','supervisor','backoffice','bo'].some(r => role.includes(r));
+    const owns = userIdStr && buildOwnershipCheck(userIdStr, doc);
+    if (!privileged && !owns) {
+      return res.status(403).json({ success:false, message:'No autorizado' });
+    }
+
+    const note = {
+      text: String(text).trim(),
+      author: req.user?.username || req.user?.name || 'Usuario',
+      at: new Date().toISOString()
+    };
+
+    const { ObjectId } = require('mongodb');
+    const collection = db.collection('costumers');
+    let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: id };
+    const result = await collection.updateOne(filter, { $push: { notas: note } });
+    if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo agregar la nota (no encontrado)' });
+    return res.json({ success:true, message:'Nota agregada', data: note });
+  } catch (e) {
+    console.error('[API ADD NOTE] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error:e.message });
+  }
+}
+
+router.post('/customers/:id/notes', protect, commonAddNote);
+router.post('/leads/:id/notes', protect, commonAddNote);
 
 module.exports = router;
