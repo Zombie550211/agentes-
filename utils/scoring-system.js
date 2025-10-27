@@ -37,6 +37,9 @@ const SCORING_TABLE = {
   'att-50-100-mb': {
     base: 0.35
   },
+  'att-100-fibra': {
+    base: 0.70
+  },
   'att-300-500-mb': {
     base: 1.25
   },
