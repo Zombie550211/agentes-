@@ -56,6 +56,9 @@
       document.dispatchEvent(new Event('sidebar:loaded'));
       
       console.log('✅ Sidebar cargado correctamente para rol:', user.role);
+
+      // Configurar auto-ocultamiento del sidebar de manera GLOBAL (todas las páginas)
+      try { setupGlobalAutoHideSidebar(); } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
     } catch (error) {
       console.error('❌ Error cargando sidebar:', error);
       // Mostrar sidebar básico en caso de error
@@ -278,6 +281,57 @@
         <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
       </ul>
     `;
+  }
+
+  // ===== Auto-hide Sidebar (GLOBAL) =====
+  function setupGlobalAutoHideSidebar() {
+    const DOC = document;
+    const BODY = DOC.body;
+    const sidebar = DOC.querySelector('.sidebar');
+    if (!sidebar || !BODY) return;
+
+    // Inyectar CSS una sola vez
+    const STYLE_ID = 'global-auto-hide-sidebar-styles';
+    if (!DOC.getElementById(STYLE_ID)) {
+      const css = `
+        :root { --sidebar-width: 240px; --sidebar-peek: 12px; }
+        /* Sidebar sobrepuesto (overlay) para evitar relayout del contenido */
+        .sidebar { position: sticky; left: 0; top: 0; backface-visibility: hidden; transform: translate3d(0,0,0); will-change: transform; }
+        body.auto-hide-sidebar .sidebar { transform: translate3d(calc(var(--sidebar-width) * -1 + var(--sidebar-peek)), 0, 0); transition: transform .12s ease-out; }
+        body.auto-hide-sidebar.show-sidebar .sidebar { transform: translate3d(0,0,0); }
+        /* Contenido: margen fijo pequeño siempre, SIN transiciones */
+        .main-content { margin-left: calc(var(--sidebar-peek) + 8px) !important; }
+        /* Zona de hover para mostrar sidebar */
+        .sidebar-hover-zone { position: fixed; left: 0; top: 0; width: var(--sidebar-peek); height: 100vh; z-index: 150; pointer-events: auto; }
+        @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { transform: translate3d(0,0,0); } .sidebar-hover-zone { display: none; } }
+        @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar { transition: none; } }
+      `;
+      const styleEl = DOC.createElement('style');
+      styleEl.id = STYLE_ID;
+      styleEl.textContent = css;
+      DOC.head.appendChild(styleEl);
+    }
+
+    // Crear zona de hover si no existe
+    let zone = DOC.querySelector('.sidebar-hover-zone');
+    if (!zone) {
+      zone = DOC.createElement('div');
+      zone.className = 'sidebar-hover-zone';
+      DOC.body.appendChild(zone);
+    }
+
+    // Activar modo auto-hide globalmente
+    BODY.classList.add('auto-hide-sidebar');
+
+    // Mostrar/Ocultar con un pequeño debounce para fluidez
+    let hideTO = null;
+    const show = () => { cancelAnimationFrame(hideTO); BODY.classList.add('show-sidebar'); };
+    const scheduleHide = () => { hideTO = requestAnimationFrame(() => BODY.classList.remove('show-sidebar')); };
+
+    zone.addEventListener('mouseenter', show, { passive: true });
+    zone.addEventListener('mouseleave', scheduleHide, { passive: true });
+    sidebar.addEventListener('mouseenter', show, { passive: true });
+    sidebar.addEventListener('mouseleave', scheduleHide, { passive: true });
   }
 
   // Cargar sidebar inmediatamente
