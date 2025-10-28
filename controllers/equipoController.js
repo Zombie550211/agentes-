@@ -78,21 +78,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         console.log('[EQUIPOS] Day scope:', dayResetInfo);
       } catch {}
     }
-    if (isDayOnly && start) {
-      try {
-        const d = new Date(start);
-        const y = d.getUTCFullYear();
-        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(d.getUTCDate()).padStart(2, '0');
-        const sYMD = `${y}-${m}-${dd}`;      // YYYY-MM-DD
-        const sDMY = `${dd}/${m}/${y}`;      // DD/MM/YYYY
-        const sDMYDash = `${dd}-${m}-${y}`;  // DD-MM-YYYY
-        pipeline.push({ $match: { $or: [
-          { dia_venta: { $in: [sYMD, sDMY, sDMYDash] } },
-          { fecha_contratacion: { $in: [sYMD, sDMY, sDMYDash] } }
-        ] } });
-      } catch {}
-    }
+    
 
     // Normalización previa (fechas y puntaje desde múltiples campos)
     pipeline.push({
@@ -160,7 +146,9 @@ async function obtenerEstadisticasEquipos(req, res) {
               // Por tipo Date en rango UTC
               { $expr: { $and: [ { $gte: ['$saleDateDate', sUTC] }, { $lte: ['$saleDateDate', eUTC] } ] } },
               // Por string crudo exacto
-              { saleDateRaw: { $in: [ sYMD, sDMY, sDMYDash ] } }
+              { saleDateRaw: { $in: [ sYMD, sDMY, sDMYDash ] } },
+              // Por string inglés estilo "Mon Oct 27 2025 ..."
+              { saleDateRaw: { $regex: new RegExp(`^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\\s+${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date(start).getUTCMonth()]}\\s+${new Date(start).getUTCDate()}\\s+${new Date(start).getUTCFullYear()}`, 'i') } }
             ]
           }
         });
@@ -189,9 +177,14 @@ async function obtenerEstadisticasEquipos(req, res) {
             const monthRegexYMD = new RegExp(`^${yyS}-${mmS}-`);
             const monthRegexDMY = new RegExp(`\\/${mmS}\\/${yyS}$`);
             const monthRegexDMYDash = new RegExp(`-${mmS}-${yyS}$`);
+            // Regex para strings en inglés con mes abreviado dentro del mes/año: "Oct <dia> 2025"
+            const monthIdx = Number(mmS) - 1;
+            const monthAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][monthIdx];
+            const monthRegexENG = new RegExp(`(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\\s+${monthAbbr}\\s+\\d{1,2}\\s+${yyS}`, 'i');
             finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexYMD } });
             finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexDMY } });
             finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexDMYDash } });
+            finalOr.push({ $regexMatch: { input: '$saleDateRaw', regex: monthRegexENG } });
           }
         } catch {}
 

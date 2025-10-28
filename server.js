@@ -101,10 +101,12 @@ app.use(express.static(__dirname, {
   extensions: ['html', 'htm'],
   index: false,
   setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
+    if (path.endsWith('.html') || path.endsWith('.htm')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    } else if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
     } else if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     }
   }
 }));
@@ -695,10 +697,12 @@ app.use(express.static(__dirname, {
   extensions: ['html', 'htm'],
   index: false,  // Evitar que se sirva index.html automáticamente
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
+    if (filePath.endsWith('.html') || filePath.endsWith('.htm')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
     } else if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     }
   }
 }));
