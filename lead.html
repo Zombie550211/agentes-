@@ -3768,7 +3768,8 @@ document.addEventListener('DOMContentLoaded', function() {
           'spectrum-2g': { base: 1.25 },
           'double-play-spectrum': { base: 1.0 },
           'mobility-spectrum': { base: 0.5 },
-          'sim-spectrum': { base: 0.5 }
+          'sim-spectrum': { base: 0.5 },
+          'internet-consolidate': { base: 1.25 }
         };
         
         if (!serviceKey) return 0;
@@ -3827,9 +3828,12 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
+    // Normalizar el servicio a clave kebab-case si viene como texto visible
+    const toKey = (s) => String(s||'').trim().toLowerCase().replace(/\s+/g,'-');
+    const serviceKey = toKey(servicioSeleccionado);
     // Calcular el puntaje
-    const puntaje = window.ScoringSystem.calculateScore(servicioSeleccionado, riesgoSeleccionado);
-    const scoreInfo = window.ScoringSystem.getScoreInfo(servicioSeleccionado, riesgoSeleccionado);
+    const puntaje = window.ScoringSystem.calculateScore(serviceKey, riesgoSeleccionado);
+    const scoreInfo = window.ScoringSystem.getScoreInfo(serviceKey, riesgoSeleccionado);
     
     // Actualizar el campo visible
     puntajeInput.value = puntaje.toFixed(2);

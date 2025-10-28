@@ -2357,6 +2357,28 @@ v   <html lang="es">
       } catch { return ''; }
     }
 
+    // Helpers globales para normalizar nombres de agente (disponibles fuera de IIFE)
+    if (typeof window.__normStrAgent !== 'function') {
+      window.__normStrAgent = function __normStrAgent(s){
+        try { return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,''); }
+        catch { return String(s||'').toLowerCase().replace(/\s+/g,'').replace(/\./g,''); }
+      };
+    }
+    if (typeof window.agentCanonicalName !== 'function') {
+      window.agentCanonicalName = function agentCanonicalName(name){
+        const n = window.__normStrAgent(name);
+        const map = {
+          'eduardor': 'Eduardo Rivas',
+          'eduardorivas': 'Eduardo Rivas',
+          'eduardorrivas': 'Eduardo Rivas',
+          'alexanderhernandez': 'Riquelmi Torres',
+          'juliomejia': 'Julio Chavez',
+          'juliom': 'Julio Chavez'
+        };
+        return map[n] || (name || '');
+      };
+    }
+
     // Cargar leads del agente desde backend y actualizar UI
     let __page = 1;
     const __limit = 100;
@@ -2447,6 +2469,36 @@ v   <html lang="es">
         } else {
           // /api/customers o /api/leads pueden responder en data, leads o array directo
           leadsRaw = extractArray(data);
+        }
+
+        // NUEVO: también cargar /api/customers y unificar con leadsRaw
+        try {
+          const custRes = await fetch('/api/customers?page=1&limit=1000', fetchOptions);
+          if (custRes.ok) {
+            const custJson = await custRes.json();
+            const customers = extractArray(custJson);
+            if (Array.isArray(customers) && customers.length) {
+              const seen = new Set();
+              const normId = (v) => {
+                try { if (!v) return ''; if (typeof v === 'object') return String(v.$oid||v._id||v.id||v.value||''); return String(v); } catch { return String(v||''); }
+              };
+              const out = [];
+              for (const a of (leadsRaw||[])) {
+                const key = normId(a._id)||normId(a.id)||JSON.stringify(a).length;
+                if (!seen.has(key)) { seen.add(key); out.push(a); }
+              }
+              for (const b of customers) {
+                const key = normId(b._id)||normId(b.id)||JSON.stringify(b).length;
+                if (!seen.has(key)) { seen.add(key); out.push(b); }
+              }
+              leadsRaw = out;
+              console.log('[unify customers] Unificados leads+customers ->', leadsRaw.length);
+            }
+          } else {
+            console.warn('[unify customers] /api/customers no OK:', custRes.status);
+          }
+        } catch (e) {
+          console.warn('[unify customers] error:', e?.message);
         }
 
         // Unificar fuentes: intentar endpoints alternos solo si no llegaron datos

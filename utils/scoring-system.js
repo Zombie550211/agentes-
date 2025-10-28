@@ -140,7 +140,7 @@ const SCORING_TABLE = {
     base: 0.75
   },
   'internet-consolidate': {
-    base: 1.0
+    base: 1.25
   },
   'internet-centurylink': {
     base: 1.0
