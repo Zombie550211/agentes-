@@ -221,7 +221,7 @@
     }
     .sales-table .total-row { 
       background: #0b5ed7; 
-      color: #fff;
+      color: #fff; 
       font-weight: 800; 
       font-size: 0.9rem;
     }
@@ -505,6 +505,17 @@
       margin-right: 10px;
       font-size: 20px;
     }
+    
+    /* Estilos para el modal de detalle del día */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000}
+    .modal{background:#fff;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-width:960px;width:92%;max-height:80vh;overflow:auto}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;font-weight:800}
+    .modal-body{padding:12px 16px}
+    .close-btn{border:none;background:#e11d48;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
+    .table-compact{width:100%;border-collapse:collapse;font-size:.9rem}
+    .table-compact th,.table-compact td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+    .table-compact th{background:#1f3b63;color:#fff}
+    .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   </style>
 </head>
 <body>
@@ -590,6 +601,38 @@
       </div>
       </section>
     </main>
+  </div>
+
+  <!-- Modal de detalle del día -->
+  <div id="day-detail-modal" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
+      <div class="modal-header">
+        <div id="dayDetailTitle">Detalle de Ventas del Día</div>
+        <button class="close-btn" id="day-detail-close">Cerrar</button>
+      </div>
+      <div class="modal-body">
+        <div class="toolbar">
+          <label for="filter-team-select" style="font-weight:600">Equipo:</label>
+          <select id="filter-team-select"></select>
+          <span id="day-detail-subtitle" style="margin-left:auto;color:#475569"></span>
+        </div>
+        <div style="overflow:auto">
+          <table class="table-compact" id="day-detail-table">
+            <thead>
+              <tr>
+                <th>Equipo</th>
+                <th>Agente</th>
+                <th>Servicio</th>
+                <th>Mercado</th>
+                <th>Puntaje</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1404,6 +1447,110 @@
       }, 200); // Delay para asegurar que el DOM esté listo
     }
 
+    // ====== MODAL DETALLE DÍA ======
+    // Estilos básicos del modal (inline para no depender de CSS externo)
+    (function ensureModalStyles(){
+      const css = `
+      .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000}
+      .modal{background:#fff;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-width:960px;width:92%;max-height:80vh;overflow:auto}
+      .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;font-weight:800}
+      .close-btn{border:none;background:#e11d48;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
+      .table-compact{width:100%;border-collapse:collapse;font-size:.9rem}
+      .table-compact th,.table-compact td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+      .table-compact th{background:#1f3b63;color:#fff}
+      .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+      `;
+      const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+    })();
+
+    // Contenedor del modal
+    (function ensureModalContainer(){
+      let overlay = document.getElementById('day-detail-modal');
+      if (!overlay){
+        overlay = document.createElement('div');
+        overlay.id = 'day-detail-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
+            <div class="modal-header">
+              <div id="dayDetailTitle">Detalle de Ventas del Día</div>
+              <button class="close-btn" id="day-detail-close">Cerrar</button>
+            </div>
+            <div class="modal-body">
+              <div class="toolbar">
+                <label for="filter-team-select" style="font-weight:600">Equipo:</label>
+                <select id="filter-team-select"></select>
+                <span id="day-detail-subtitle" style="margin-left:auto;color:#475569"></span>
+              </div>
+              <div style="overflow:auto">
+                <table class="table-compact" id="day-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Equipo</th>
+                      <th>Agente</th>
+                      <th>Servicio</th>
+                      <th>Mercado</th>
+                      <th>Puntaje</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+      }
+      // Conectar listeners (siempre)
+      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideDayDetailModal(); });
+      const closeBtn = document.getElementById('day-detail-close');
+      if (closeBtn) closeBtn.onclick = hideDayDetailModal;
+      // Cerrar con ESC
+      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideDayDetailModal(); });
+    })();
+
+    function hideDayDetailModal(){
+      const el = document.getElementById('day-detail-modal');
+      if (el) el.style.display = 'none';
+    }
+
+    function showDayDetailModal(){
+      try{
+        const store = window.DayDetailRows || { fecha:'', rows:[] };
+        const rows = Array.isArray(store.rows) ? store.rows : [];
+        const overlay = document.getElementById('day-detail-modal');
+        if (!overlay) return;
+        const tbody = overlay.querySelector('#day-detail-table tbody');
+        const sel = overlay.querySelector('#filter-team-select');
+        const subtitle = overlay.querySelector('#day-detail-subtitle');
+
+        subtitle.textContent = `Fecha: ${store.fecha}`;
+
+        // Poblar select de equipos
+        const teams = Array.from(new Set(rows.map(r => (r.team||'').toString().trim()).filter(Boolean))).sort();
+        sel.innerHTML = `<option value="">Todos</option>` + teams.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+        function render(filterTeam){
+          const data = rows.filter(r => !filterTeam || String(r.team).trim() === filterTeam);
+          tbody.innerHTML = data.map(r => `
+            <tr>
+              <td>${r.team || ''}</td>
+              <td>${r.agente || ''}</td>
+              <td>${r.servicio || ''}</td>
+              <td>${r.mercado || ''}</td>
+              <td>${Number(r.puntaje||0).toFixed(2)}</td>
+              <td>${typeof r.fecha==='string' ? r.fecha : (r.fecha instanceof Date ? r.fecha.toISOString() : (r.fecha||''))}</td>
+            </tr>
+          `).join('');
+        }
+
+        render('');
+        sel.onchange = () => render(sel.value);
+
+        overlay.style.display = 'flex';
+      } catch(e){ console.error('Error abriendo detalle del día', e); }
+    }
+
     // FunciÃ³n para inicializar la tabla de conversiÃ³n
     function initConversionTable() {
       console.log('Inicializando tabla de conversiÃ³n...');
@@ -1452,11 +1599,33 @@
         if (!leadsResp) return;
         const leadsJson = await leadsResp.json();
         const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
         const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
         const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
         const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
         const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
+        // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
+        const normalizeServicio = (lead) => {
+          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
+          if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
+          return (raw ? String(raw) : '').trim();
+        };
+        const normalizeAgente = (lead) => {
+          const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
+          return (raw ? String(raw) : '').trim();
+        };
+        const detailRows = inDay.map(l => {
+          const team = (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']) || '').toString().trim();
+          const servicio = normalizeServicio(l);
+          const mercado = (findFirst(l, ['mercado','market','producto','servicio','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+          const pRaw = findFirst(l, ['puntaje','score','puntos']);
+          const puntaje = typeof pRaw === 'number' ? pRaw : parseFloat(pRaw) || 0;
+          const agente = normalizeAgente(l);
+          const fechaFuente = findFirst(l, createdPaths);
+          return { team, agente, servicio, mercado, puntaje: Number(puntaje || 0), fecha: fechaFuente };
+        });
+        window.DayDetailRows = { fecha: `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`, rows: detailRows };
+
         const teamMap = new Map();
         const teamNameOf = (lead) => {
           const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
@@ -1479,6 +1648,9 @@
           ? `
             <div class="conversion-card">
               <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
+              </div>
               <div class="conv-two-col">
                 <div class="conv-left">
                   <table class="sales-table">
@@ -1528,6 +1700,9 @@
           : `
             <div class="conversion-card">
               <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
+              </div>
               <div class="conv-two-col">
                 <div class="conv-left">
                   <table class="sales-table">
@@ -1589,6 +1764,362 @@
           `;
 
         container.innerHTML = tablaHtml;
+        // Hook botón detalle
+        const btnDet = document.getElementById('btn-detalle-dia');
+        if (btnDet) {
+          btnDet.addEventListener('click', () => {
+            try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
+          });
+        }
+      } catch (e) {
+        console.error('Error cargando datos del día:', e);
+        container.innerHTML = `
+          <div class="conversion-card">
+            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+            <div class="conv-two-col">
+              <div class="conv-left">
+                <table class="sales-table">
+                  <thead>
+                    <tr>
+                      <th>EQUIPO</th>
+                      <th>ICON</th>
+                      <th>BAMO</th>
+                      <th>TOTAL</th>
+                      <th>PUNTAJE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">Error de conexión</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // ====== MODAL DETALLE DÍA ======
+    // Estilos básicos del modal (inline para no depender de CSS externo)
+    (function ensureModalStyles(){
+      const css = `
+      .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000}
+      .modal{background:#fff;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-width:960px;width:92%;max-height:80vh;overflow:auto}
+      .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;font-weight:800}
+      .close-btn{border:none;background:#e11d48;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
+      .table-compact{width:100%;border-collapse:collapse;font-size:.9rem}
+      .table-compact th,.table-compact td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
+      .table-compact th{background:#1f3b63;color:#fff}
+      .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+      `;
+      const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+    })();
+
+    // Contenedor del modal
+    (function ensureModalContainer(){
+      if (!document.getElementById('day-detail-modal')){
+        const overlay = document.createElement('div');
+        overlay.id = 'day-detail-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
+            <div class="modal-header">
+              <div id="dayDetailTitle">Detalle de Ventas del Día</div>
+              <button class="close-btn" id="day-detail-close">Cerrar</button>
+            </div>
+            <div class="modal-body">
+              <div class="toolbar">
+                <label for="filter-team-select" style="font-weight:600">Equipo:</label>
+                <select id="filter-team-select"></select>
+                <span id="day-detail-subtitle" style="margin-left:auto;color:#475569"></span>
+              </div>
+              <div style="overflow:auto">
+                <table class="table-compact" id="day-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Equipo</th>
+                      <th>Agente</th>
+                      <th>Servicio</th>
+                      <th>Mercado</th>
+                      <th>Puntaje</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideDayDetailModal(); });
+        document.getElementById('day-detail-close').addEventListener('click', hideDayDetailModal);
+      }
+    })();
+
+    function hideDayDetailModal(){
+      const el = document.getElementById('day-detail-modal');
+      if (el) el.style.display = 'none';
+    }
+
+    function showDayDetailModal(){
+      try{
+        const store = window.DayDetailRows || { fecha:'', rows:[] };
+        const rows = Array.isArray(store.rows) ? store.rows : [];
+        const overlay = document.getElementById('day-detail-modal');
+        if (!overlay) return;
+        const tbody = overlay.querySelector('#day-detail-table tbody');
+        const sel = overlay.querySelector('#filter-team-select');
+        const subtitle = overlay.querySelector('#day-detail-subtitle');
+
+        subtitle.textContent = `Fecha: ${store.fecha}`;
+
+        // Poblar select de equipos
+        const teams = Array.from(new Set(rows.map(r => (r.team||'').toString().trim()).filter(Boolean))).sort();
+        sel.innerHTML = `<option value="">Todos</option>` + teams.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+        function render(filterTeam){
+          const data = rows.filter(r => !filterTeam || String(r.team).trim() === filterTeam);
+          tbody.innerHTML = data.map(r => `
+            <tr>
+              <td>${r.team || ''}</td>
+              <td>${r.agente || ''}</td>
+              <td>${r.servicio || ''}</td>
+              <td>${r.mercado || ''}</td>
+              <td>${Number(r.puntaje||0).toFixed(2)}</td>
+              <td>${typeof r.fecha==='string' ? r.fecha : (r.fecha instanceof Date ? r.fecha.toISOString() : (r.fecha||''))}</td>
+            </tr>
+          `).join('');
+        }
+
+        render('');
+        sel.onchange = () => render(sel.value);
+
+        overlay.style.display = 'flex';
+      } catch(e){ console.error('Error abriendo detalle del día', e); }
+    }
+
+    // FunciÃ³n para inicializar la tabla de conversiÃ³n
+    function initConversionTable() {
+      console.log('Inicializando tabla de conversiÃ³n...');
+      const convRoot = document.getElementById('conversion-table');
+      if (convRoot) {
+        console.log('Elemento conversion-table encontrado, renderizando...');
+        renderConversionTable(document.getElementById('conversion-table'));
+      } else {
+        console.error('No se encontrÃ³ el elemento con ID conversion-table');
+      }
+    }
+
+    // Función para cargar y renderizar la tabla del Día con el mismo diseño que la del Mes
+    async function loadDayData() {
+      console.log('Cargando datos del día actual...');
+      const container = document.getElementById('ventas-dia-card');
+      if (!container) {
+        console.error('No se encontró el contenedor #ventas-dia-card');
+        return;
+      }
+
+      // Día efectivo con corte 09:30 local
+      const nowLocal = new Date();
+      const cutoffHour = 9, cutoffMinute = 30;
+      const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
+      const effective = new Date(nowLocal);
+      if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+      const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
+
+      // Placeholder de carga
+      container.innerHTML = `
+        <div class="text-center" style="padding: 12px; color:#666;">Cargando datos del día...</div>
+      `;
+
+      try {
+        // 1) Intentar primero el endpoint de equipos con fecha efectiva
+        const y = effective.getFullYear();
+        const m = String(effective.getMonth()+1).padStart(2,'0');
+        const d = String(effective.getDate()).padStart(2,'0');
+        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
+        // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
+        let dayData = [];
+        const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
+        const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+        const leadsResp = await fetchWithAuth('/api/leads');
+        if (!leadsResp) return;
+        const leadsJson = await leadsResp.json();
+        const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
+        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+        const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
+        const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
+        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
+        // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
+        const normalizeServicio = (lead) => {
+          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
+          if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
+          return (raw ? String(raw) : '').trim();
+        };
+        const normalizeAgente = (lead) => {
+          const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
+          return (raw ? String(raw) : '').trim();
+        };
+        const detailRows = inDay.map(l => {
+          const team = (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']) || '').toString().trim();
+          const servicio = normalizeServicio(l);
+          const mercado = (findFirst(l, ['mercado','market','producto','servicio','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+          const pRaw = findFirst(l, ['puntaje','score','puntos']);
+          const puntaje = typeof pRaw === 'number' ? pRaw : parseFloat(pRaw) || 0;
+          const agente = normalizeAgente(l);
+          const fechaFuente = findFirst(l, createdPaths);
+          return { team, agente, servicio, mercado, puntaje: Number(puntaje || 0), fecha: fechaFuente };
+        });
+        window.DayDetailRows = { fecha: `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`, rows: detailRows };
+
+        const teamMap = new Map();
+        const teamNameOf = (lead) => {
+          const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+          const s = (t || '').toString().trim(); return s || 'Sin equipo';
+        };
+        const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
+        const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
+        inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
+        dayData = Array.from(teamMap.values());
+
+        // Separar LINEAS para panel derecho y excluirlas de la tabla principal
+        const isLinea = (n) => /LINEA/i.test(String(n || ''));
+        const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
+        const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
+        const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
+        const mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+
+        // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
+        const tablaHtml = mainData.length === 0
+          ? `
+            <div class="conversion-card">
+              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
+              </div>
+              <div class="conv-two-col">
+                <div class="conv-left">
+                  <table class="sales-table">
+                    <thead>
+                      <tr>
+                        <th>EQUIPO</th>
+                        <th>ICON</th>
+                        <th>BAMO</th>
+                        <th>TOTAL</th>
+                        <th>PUNTAJE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">No hay datos disponibles para el día actual</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="conv-right">
+                  <div class="mini-card">
+                    <table class="mini-table">
+                      <thead>
+                        <tr>
+                          <th>TEAM LINEAS</th>
+                          <th>ICON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${(lineasData || []).map(r => `
+                          <tr>
+                            <td>${r.name}</td>
+                            <td>${r.ICON || 0}</td>
+                          </tr>
+                        `).join('')}
+                        <tr class="total">
+                          <td>TOTAL</td>
+                          <td class="total-icon">${lineasTotalICON}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+          : `
+            <div class="conversion-card">
+              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
+              </div>
+              <div class="conv-two-col">
+                <div class="conv-left">
+                  <table class="sales-table">
+                    <thead>
+                      <tr>
+                        <th>EQUIPO</th>
+                        <th>ICON</th>
+                        <th>BAMO</th>
+                        <th>TOTAL</th>
+                        <th>PUNTAJE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${mainData.map(team => `
+                        <tr>
+                          <td>${team.name}</td>
+                          <td>${team.ICON || 0}</td>
+                          <td>${team.BAMO || 0}</td>
+                          <td>${team.Total || 0}</td>
+                          <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+                        </tr>
+                      `).join('')}
+                      <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
+                        <td>${mainData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="conv-right">
+                  <div class="mini-card">
+                    <table class="mini-table">
+                      <thead>
+                        <tr>
+                          <th>TEAM LINEAS</th>
+                          <th>ICON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${(lineasData || []).map(r => `
+                          <tr>
+                            <td>${r.name}</td>
+                            <td>${r.ICON || 0}</td>
+                          </tr>
+                        `).join('')}
+                        <tr class="total">
+                          <td>TOTAL</td>
+                          <td class="total-icon">${lineasTotalICON}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+        container.innerHTML = tablaHtml;
+        // Hook botón detalle
+        const btnDet = document.getElementById('btn-detalle-dia');
+        if (btnDet) {
+          btnDet.addEventListener('click', () => {
+            try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
+          });
+        }
       } catch (e) {
         console.error('Error cargando datos del día:', e);
         container.innerHTML = `
@@ -1704,8 +2235,23 @@
             maintainAspectRatio: false,
             layout: { padding: { bottom: 40 } },
             plugins: {
-              legend: { display: false },
-              tooltip: { enabled: false },
+              legend: {
+                position: 'right'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                      label += ': ';
+                    }
+                    if (context.parsed !== null) {
+                      label += context.parsed;
+                    }
+                    return label;
+                  }
+                }
+              },
               datalabels: {
                 display: false,
                 formatter: () => '',
