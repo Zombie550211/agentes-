@@ -26,8 +26,19 @@
     }
   </script>
   
-  <!-- Interceptor de API para manejo de permisos -->
-  <script src="js/api-interceptor.js"></script>
+  <!-- Interceptor de API para manejo de permisos (desactivado en dev: usa fallback no-op) -->
+  <script>
+    (function(){
+      try {
+        var ENABLE_REMOTE=false; // activar solo en prod cuando exista /js/api-interceptor.js
+        if (ENABLE_REMOTE) {
+          // espacio reservado; actualmente desactivado
+        } else {
+          window.__API_INTERCEPTOR_LOADED__ = false; // no-op seguro
+        }
+      } catch(_){}
+    })();
+  </script>
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -86,7 +97,22 @@
   <!-- <script src="agentes-clean/agentes/js/auth-check.js?v=20250905-163930"></script> -->
   <script src="/js/logout-handler.js?v=20250905-163930"></script>
   <script src="/js/user-info.js?v=20250905-163930"></script>
-  <script src="/js/form-config.js?v=20250905-163930"></script>
+  <!-- Config del formulario (desactivado en dev: usar fallback local sin solicitar archivo) -->
+  <script>
+    (function(){
+      try {
+        var ENABLE_REMOTE=false; // activar solo en prod cuando exista /js/form-config.js
+        if (ENABLE_REMOTE) {
+          // espacio reservado; actualmente desactivado
+        } else {
+          window.FORM_CONFIG = window.FORM_CONFIG || {};
+          window.FORM_CONFIG.endpoints = window.FORM_CONFIG.endpoints || {};
+          window.FORM_CONFIG.features = window.FORM_CONFIG.features || {};
+          window.__FORM_CONFIG_OK__ = false;
+        }
+      } catch(_){}
+    })();
+  </script>
   <script src="/utils/teams.js?v=20250905-163930"></script>
   <!-- Sistema de Puntación Automática -->
   <!-- <script src="/js/scoring-system.js"></script> -->
