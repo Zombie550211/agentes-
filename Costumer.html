@@ -3867,10 +3867,27 @@ v   <html lang="es">
               const host = tableResponsive || tableEl || tbodyEl;
               console.log('[Toolbar Supervisor] host para insertar toolbar:', host?.className || host?.tagName);
               
-              // Deshabilitado temporalmente: eliminar toolbar duplicada y salir
-              let bar = document.getElementById('irania-agent-filter');
-              try { if (bar) { bar.remove(); } } catch(_) {}
-              return;
+              // Crear/asegurar toolbar para filtro por agente del supervisor
+              let bar = document.getElementById('supervisor-agent-filter');
+              if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'supervisor-agent-filter';
+                bar.style.margin = '10px 0';
+                bar.style.display = 'flex';
+                bar.style.flexWrap = 'wrap';
+                bar.style.gap = '8px';
+                // Insertar la barra antes del host (tabla contenedora)
+                host.parentElement.insertBefore(bar, host);
+                // sticky respecto al viewport principal
+                bar.style.position = 'sticky';
+                bar.style.top = '0';
+                bar.style.zIndex = '10';
+                bar.style.background = '#ffffff';
+                bar.style.padding = '8px 0';
+              } else {
+                // Limpiar contenido antes de reconstruir
+                try { bar.innerHTML = ''; } catch(_) {}
+              }
               
               // Agregar título/etiqueta
               const titleSpan = document.createElement('span');
@@ -4338,9 +4355,11 @@ v   <html lang="es">
           try {
             // Verificar si el lead tiene status (normalizado)
             const status = normalizarTexto(lead.status || '');
+            const isCancel = /cancel/.test(status);
+            const isPending = /pendient/.test(status) || /pending/.test(status);
 
             // Contar pendientes
-            if (status.includes('pendiente') || status.includes('pending')) {
+            if (isPending) {
               pendientes++;
             }
 
@@ -4356,11 +4375,11 @@ v   <html lang="es">
             // Usar la misma extracci¨®n de fecha que el gr¨¢fico
             const leadISO = getDateFromLead(lead); // YYYY-MM-DD en TZ de negocio
             if (leadISO) {
-              // Ventas hoy
-              if (leadISO === todayISO) ventasHoy++;
-              // Ventas del mes
+              // Ventas hoy (solo efectivas: excluir canceladas)
+              if (leadISO === todayISO && !isCancel) ventasHoy++;
+              // Ventas del mes (solo efectivas)
               const [yL, mL] = leadISO.split('-').map(Number);
-              if (yL === yNow && mL === mNow) ventasMes++;
+              if (yL === yNow && mL === mNow && !isCancel) ventasMes++;
             }
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
@@ -4441,7 +4460,9 @@ v   <html lang="es">
       // Puntaje total por d¨ªa (no promedio)
       const puntajesPorDia = ultimos7Dias.map(fechaISO => {
         return leads.reduce((sum, lead) => {
-          if (getDateFromLead(lead) === fechaISO) {
+          const status = normalizarTexto(lead.status || '');
+          const isCancel = /cancel/.test(status);
+          if (!isCancel && getDateFromLead(lead) === fechaISO) {
             return sum + (parseFloat(lead.puntaje) || 0);
           }
           return sum;

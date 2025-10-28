@@ -1108,6 +1108,10 @@
                   <option value="internet-hughesnet">INTERNET HUGHESNET</option>
                   <option value="internet-viasat">INTERNET VIASAT</option>
                   <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
+                  <option value="internet-consolidate-2g">INTERNET CONSOLIDATE 2G</option>
+                  <option value="internet-consolidate-1g">INTERNET CONSOLIDATE 1G</option>
+                  <option value="internet-consolidate-300m">INTERNET CONSOLIDATE 300M</option>
+                  <option value="internet-consolidate-100m">INTERNET CONSOLIDATE 100M</option>
                   <option value="internet-centurylink">INTERNET CENTURYLINK</option>
                   <option value="internet-metronet">INTERNET METRONET</option>
                   <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
@@ -3769,7 +3773,13 @@ document.addEventListener('DOMContentLoaded', function() {
           'double-play-spectrum': { base: 1.0 },
           'mobility-spectrum': { base: 0.5 },
           'sim-spectrum': { base: 0.5 },
-          'internet-consolidate': { base: 1.25 }
+          // Consolidated/Fidium por velocidad
+          'internet-consolidate-2g': { base: 1.25 },
+          'internet-consolidate-1g': { base: 1.25 },
+          'internet-consolidate-300m': { base: 0.35 },
+          'internet-consolidate-100m': { base: 0.35 },
+          // Fallback genérico si no se detecta velocidad
+          'internet-consolidate': { base: 0.35 }
         };
         
         if (!serviceKey) return 0;
@@ -3830,7 +3840,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Normalizar el servicio a clave kebab-case si viene como texto visible
     const toKey = (s) => String(s||'').trim().toLowerCase().replace(/\s+/g,'-');
-    const serviceKey = toKey(servicioSeleccionado);
+    let serviceKey = toKey(servicioSeleccionado);
+    // Mapear Consolidated/Fidium según velocidad si está presente en el texto del select
+    if (serviceKey.includes('consolidate') || serviceKey.includes('fidium')) {
+      const text = (document.getElementById('servicios')?.options[document.getElementById('servicios')?.selectedIndex]?.text || '').toLowerCase();
+      if (/2\s*g|2g/.test(text)) serviceKey = 'internet-consolidate-2g';
+      else if (/1\s*g|1g/.test(text)) serviceKey = 'internet-consolidate-1g';
+      else if (/300\s*m|300m/.test(text)) serviceKey = 'internet-consolidate-300m';
+      else if (/100\s*m|100m/.test(text)) serviceKey = 'internet-consolidate-100m';
+      else serviceKey = 'internet-consolidate';
+    }
     // Calcular el puntaje
     const puntaje = window.ScoringSystem.calculateScore(serviceKey, riesgoSeleccionado);
     const scoreInfo = window.ScoringSystem.getScoreInfo(serviceKey, riesgoSeleccionado);

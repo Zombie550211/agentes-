@@ -132,12 +132,40 @@ router.get('/', protect, async (req, res) => {
         }
       },
 
-      // 3.1) Normalizar nombre de agente para evitar duplicados por espacios/case
+      // 3.1) Normalizar estado y nombre de agente
       {
         $addFields: {
+          _statusStr: { $toUpper: { $trim: { input: { $ifNull: ["$status", ""] } } } },
           _agenteFuente: { $ifNull: ["$agenteNombre", "$agente"] }
         }
       },
+      {
+        $addFields: {
+          _statusNorm: {
+            $cond: [
+              { $regexMatch: { input: "$_statusStr", regex: /CANCEL/ } },
+              "CANCEL",
+              {
+                $cond: [
+                  { $regexMatch: { input: "$_statusStr", regex: /PENDIENT/ } },
+                  "PENDING",
+                  "$_statusStr"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      // 3.2) marcar canceladas y puntaje efectivo (0 si cancel)
+      {
+        $addFields: {
+          isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
+          puntajeEfectivo: {
+            $cond: [ { $eq: ["$_statusNorm", "CANCEL"] }, 0, { $toDouble: "$puntaje" } ]
+          }
+        }
+      },
+
       {
         $addFields: {
           _nameNoSpaces: {
@@ -155,8 +183,10 @@ router.get('/', protect, async (req, res) => {
       {
         $group: {
           _id: "$_nameNormLower",
-          ventas: { $sum: 1 },
-          sumPuntaje: { $sum: "$puntaje" },
+          // Ventas efectivas: excluir canceladas
+          ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+          // Suma de puntaje efectivo: 0 si cancelado
+          sumPuntaje: { $sum: "$puntajeEfectivo" },
           avgPuntaje: { $avg: "$puntaje" },
           anyName: { $first: "$_nameNoSpaces" }
         }

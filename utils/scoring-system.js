@@ -139,9 +139,13 @@ const SCORING_TABLE = {
   'internet-viasat': {
     base: 0.75
   },
-  'internet-consolidate': {
-    base: 1.25
-  },
+  // Consolidated Communications / Fidium (por velocidad)
+  'internet-consolidate-2g': { base: 1.25 },
+  'internet-consolidate-1g': { base: 1.25 },
+  'internet-consolidate-300m': { base: 0.35 },
+  'internet-consolidate-100m': { base: 0.35 },
+  // Compatibilidad genérica si no se detecta velocidad
+  'internet-consolidate': { base: 0.35 },
   'internet-centurylink': {
     base: 1.0
   },
