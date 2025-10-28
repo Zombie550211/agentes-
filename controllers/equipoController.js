@@ -210,34 +210,48 @@ async function obtenerEstadisticasEquipos(req, res) {
     pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
     pipeline.push({ $sort: { TEAM: 1 } });
 
-    // Intentar múltiples colecciones posibles
+    // Intentar múltiples colecciones posibles y UNIFICAR resultados
     const collectionsToTry = ['costumers','Costumers','customers','leads','Leads','ventas'];
     let equiposData = [];
-    let usedCollection = null;
+    let usedCollections = [];
+    const mergeMap = new Map();
     for (const colName of collectionsToTry) {
       try {
-        const sample = await db.collection('costumers').find({}).limit(1).toArray();
-        console.log('[DEBUG] Sample document fields:', Object.keys(sample[0] || {}));
-        console.log('[DEBUG] Sample document team/equipo:', sample[0]?.team, sample[0]?.equipo);
         const arr = await db.collection(colName).aggregate(pipeline).toArray();
         if (Array.isArray(arr) && arr.length > 0) {
-          equiposData = arr;
-          usedCollection = colName;
-          break; // tenemos datos reales, detenemos aquí
+          usedCollections.push(colName);
+          for (const r of arr) {
+            const key = String(r.TEAM || '').toUpperCase();
+            const cur = mergeMap.get(key) || { TEAM: key, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, PuntajeICON: 0, PuntajeBAMO: 0 };
+            cur.ICON += Number(r.ICON || 0);
+            cur.BAMO += Number(r.BAMO || 0);
+            cur.Total += Number(r.Total || 0);
+            cur.Puntaje += Number(r.Puntaje || 0);
+            cur.PuntajeICON += Number(r.PuntajeICON || 0);
+            cur.PuntajeBAMO += Number(r.PuntajeBAMO || 0);
+            mergeMap.set(key, cur);
+          }
         }
       } catch (e) {
         // continuar
       }
     }
-    console.log('[EQUIPOS] Used collection:', usedCollection || 'none (no matches)');
+    equiposData = Array.from(mergeMap.values()).sort((a,b)=>a.TEAM.localeCompare(b.TEAM));
+    console.log('[EQUIPOS] Used collections:', usedCollections.length ? usedCollections : 'none (no matches)');
 
     // Fallback por string exacto si no hubo matches
     let total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
     if ((!equiposData || equiposData.length === 0) && start && endOfDay && (start.toDateString() === end.toDateString())) {
       try {
         const startStr = new Date(start).toISOString().slice(0,10);
-        const col = usedCollection ? db.collection(usedCollection) : db.collection('costumers');
-        const docs = await col.find({ $or: [ { dia_venta: startStr }, { fecha_contratacion: startStr } ] }).toArray();
+        const unionDocs = [];
+        for (const colName of collectionsToTry) {
+          try {
+            const docs = await db.collection(colName).find({ $or: [ { dia_venta: startStr }, { fecha_contratacion: startStr } ] }).toArray();
+            if (docs && docs.length) unionDocs.push(...docs);
+          } catch {}
+        }
+        const docs = unionDocs;
         if (docs && docs.length) {
           const map = new Map();
           for (const d of docs) {

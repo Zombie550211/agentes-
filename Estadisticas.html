@@ -1439,58 +1439,33 @@
       `;
 
       try {
-        // Consultar día efectivo explícito
+        // 1) Intentar primero el endpoint de equipos con fecha efectiva
         const y = effective.getFullYear();
         const m = String(effective.getMonth()+1).padStart(2,'0');
         const d = String(effective.getDate()).padStart(2,'0');
         const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
-        const response = await fetchWithAuth(`/api/equipos/estadisticas?${qs}`);
-        if (!response) return;
-
-        const data = await response.json();
-        let dayData = (data && data.success && Array.isArray(data.data))
-          ? data.data.map(equipo => ({
-              name: equipo.TEAM || 'Sin equipo',
-              ICON: parseFloat(equipo.ICON || 0),
-              BAMO: parseFloat(equipo.BAMO || 0),
-              Total: parseFloat(equipo.Total || 0),
-              Puntaje: parseFloat(equipo.Puntaje || 0)
-            }))
-          : [];
-
-        // Si viene vacío o todo en cero, fallback por /api/leads con ventana [00:00, +1 día 09:30]
-        const allZero = dayData.length > 0 && dayData.every(t => Number(t.Total||0) === 0 && Number(t.ICON||0) === 0 && Number(t.BAMO||0) === 0 && Number(t.Puntaje||0) === 0);
-        if (dayData.length === 0 || allZero) {
-          try {
-            const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-            const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-            const leadsResp = await fetchWithAuth('/api/leads');
-            if (leadsResp && leadsResp.ok) {
-              const leadsJson = await leadsResp.json();
-              const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-              const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
-              const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
-              const tryDateFrom = (val) => {
-                if (!val) return null; if (typeof val === 'string') { const s = val.trim();
-                  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); }
-                  if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); }
-                }
-                const dt = new Date(val); return isNaN(dt) ? null : dt;
-              };
-              const createdPaths = ['dia_venta','diaVenta','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
-              const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
-              const teamMap = new Map();
-              const teamNameOf = (lead) => {
-                const t = findFirst(lead, ['TEAM','team','equipo','grupo','department','team_name','Team']);
-                const s = (t || '').toString().trim(); return s || 'Sin equipo';
-              };
-              const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
-              const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
-              inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
-              dayData = Array.from(teamMap.values());
-            }
-          } catch (fe) { console.warn('Fallback día via /api/leads falló:', fe); }
-        }
+        // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
+        let dayData = [];
+        const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
+        const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+        const leadsResp = await fetchWithAuth('/api/leads');
+        if (!leadsResp) return;
+        const leadsJson = await leadsResp.json();
+        const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
+        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+        const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
+        const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
+        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
+        const teamMap = new Map();
+        const teamNameOf = (lead) => {
+          const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+          const s = (t || '').toString().trim(); return s || 'Sin equipo';
+        };
+        const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
+        const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
+        inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
+        dayData = Array.from(teamMap.values());
 
         // Separar LINEAS para panel derecho y excluirlas de la tabla principal
         const isLinea = (n) => /LINEA/i.test(String(n || ''));
