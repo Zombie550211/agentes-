@@ -111,7 +111,14 @@ v   <html lang="es">
           const dx = e.pageX - startX; wrap.scrollLeft = startLeft - dx;
         });
         window.addEventListener('resize', updateWidth);
-        const ro = window.ResizeObserver ? new ResizeObserver(updateWidth) : null;
+        // Evitar 'ResizeObserver loop' usando requestAnimationFrame y un flag de pendiente
+        let __roPending = false;
+        const roSafeCallback = () => {
+          if (__roPending) return;
+          __roPending = true;
+          requestAnimationFrame(() => { try { updateWidth(); } finally { __roPending = false; } });
+        };
+        const ro = window.ResizeObserver ? new ResizeObserver(roSafeCallback) : null;
         if (ro) ro.observe(table);
         updateWidth();
         // build once
@@ -208,7 +215,28 @@ v   <html lang="es">
       }
       // normDate ahora se carga desde js/date-formatter.js
       function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
-      function agentName(l){ return l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||''; }
+      // Normalización de nombres de agente (alias -> canónico)
+      function __normStrAgent(s){
+        try {
+          return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,'');
+        } catch { return String(s||'').toLowerCase().replace(/\s+/g,'').replace(/\./g,''); }
+      }
+      function agentCanonicalName(name){
+        const n = __normStrAgent(name);
+        const map = {
+          'eduardor': 'Eduardo Rivas',
+          'eduardorivas': 'Eduardo Rivas',
+          'eduardorrivas': 'Eduardo Rivas',
+          'alexanderhernandez': 'Riquelmi Torres',
+          'julioMejia': 'Julio Chavez',
+          'juliomejia': 'Julio Chavez'
+        };
+        return map[n] || (name || '');
+      }
+      function agentName(l){
+        const raw = l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||'';
+        return agentCanonicalName(raw);
+      }
       function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
       function renderRows(list){ const tbody=document.getElementById('costumer-tbody'); if(!tbody) return; tbody.innerHTML=''; (list||[]).forEach(l=>{ const autop=(l.autopay??l.autopago); const autopTxt=typeof autop==='boolean'?(autop?'Sí':'No'):(String(autop||'').toUpperCase()==='SI'?'Sí':(String(autop||'').toUpperCase()==='NO'?'No':String(autop||''))); const cant=(l.cantidad_lineas!=null)?l.cantidad_lineas:(Array.isArray(l.telefonos)?l.telefonos.length:''); const cells=[ l.nombre_cliente||'', l.telefono_principal||'', l.numero_cuenta||'', autopTxt||'', maskPin(l.pin_seguridad)||'', l.direccion||'', normDate(l.dia_venta||l.fecha_contratacion||l.fecha||''), normDate(l.dia_instalacion||''), (l.status||'').toString().toUpperCase(), cant||'', serviciosResumen(l)||'', (l.id_cliente||l._id||l.id||''), l.supervisor||'', l.mercado||'' ]; const tr=document.createElement('tr'); tr.innerHTML=cells.map(v=>`<td>${v==null?'':v}</td>`).join(''); tbody.appendChild(tr); }); }
       // Guardar referencia al renderizador anterior
@@ -2654,11 +2682,14 @@ v   <html lang="es">
               l?._raw?.agenteNombre, l?._raw?.nombreAgente, l?._raw?.agente, l?._raw?.agent
             ];
             const v = cand.find(x => x && String(x).trim().length);
-            return v ? String(v).trim() : '';
+            const raw = v ? String(v).trim() : '';
+            return agentCanonicalName(raw);
           };
 
           const myIdsNorm = new Set(myIds.map(x => norm(x)));
-          const myNamesNorm = new Set(myNames.map(x => norm(x)));
+          // Incluir variantes canónicas del usuario en el conjunto de comparación
+          const myNamesCanon = myNames.map(n => agentCanonicalName(n));
+          const myNamesNorm = new Set([...myNames, ...myNamesCanon].map(x => norm(x)));
 
           const beforeCount = normalizedLeads.length;
           normalizedLeads = normalizedLeads.filter(l => {
