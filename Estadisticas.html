@@ -1444,6 +1444,9 @@
       setTimeout(() => {
         initConversionTable();
         loadDayData();
+        try { prepareMonthDetails(); } catch(_){ }
+        // Inyectar el botón dentro del contenedor mensual cuando esté renderizado
+        try { injectMonthlyDetailButton(); } catch(_){}
       }, 200); // Delay para asegurar que el DOM esté listo
     }
 
@@ -1549,6 +1552,178 @@
 
         overlay.style.display = 'flex';
       } catch(e){ console.error('Error abriendo detalle del día', e); }
+    }
+
+    // ====== DETALLE MENSUAL ======
+
+    (function ensureMonthModal(){
+      if (!document.getElementById('month-detail-modal')){
+        const overlay = document.createElement('div');
+        overlay.id = 'month-detail-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="monthDetailTitle">
+            <div class="modal-header">
+              <div id="monthDetailTitle">Detalle Mensual</div>
+              <button class="close-btn" id="month-detail-close">Cerrar</button>
+            </div>
+            <div class="modal-body">
+              <div class="toolbar">
+                <label for="month-filter-team" style="font-weight:600">Equipo:</label>
+                <select id="month-filter-team" style="min-width:200px"></select>
+                <label for="month-filter-agent" style="font-weight:600; margin-left:8px;">Agente:</label>
+                <select id="month-filter-agent" style="min-width:220px"></select>
+                <span id="month-detail-subtitle" style="margin-left:auto;color:#475569"></span>
+              </div>
+              <div style="overflow:auto">
+                <table class="table-compact" id="month-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Equipo</th>
+                      <th>Agente</th>
+                      <th>Servicio</th>
+                      <th>Mercado</th>
+                      <th>Puntaje</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideMonthDetailModal(); });
+        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideMonthDetailModal(); });
+        const closeBtn = overlay.querySelector('#month-detail-close');
+        if (closeBtn) closeBtn.addEventListener('click', hideMonthDetailModal);
+      }
+    })();
+
+    async function prepareMonthDetails(){
+      try{
+        const hoy = new Date();
+        const start = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0, 0);
+        const end = new Date(hoy.getFullYear(), hoy.getMonth()+1, 1, 0, 0, 0, 0);
+        const leadsResp = await fetchWithAuth('/api/leads');
+        if (!leadsResp) return;
+        const leadsJson = await leadsResp.json();
+        const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
+        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+        const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
+        const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
+        const normalizeServicio = (lead) => {
+          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre','tipo_servicio']);
+          if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
+          return (raw ? String(raw) : '').trim();
+        };
+        const normalizeAgente = (lead) => {
+          const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
+          const val = (raw ? String(raw) : '').trim();
+          return agentCanonical(val);
+        };
+        const inMonth = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= start && dt < end; });
+        const rows = inMonth.map(l => ({
+          team: (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team'])||'').toString().trim(),
+          agente: normalizeAgente(l),
+          servicio: normalizeServicio(l),
+          mercado: (findFirst(l, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toString().toUpperCase(),
+          puntaje: Number((() => { const p = findFirst(l, ['puntaje','score','puntos']); return typeof p==='number'?p:parseFloat(p)||0; })()),
+          fecha: findFirst(l, createdPaths)
+        }));
+        window.MonthDetailRows = {
+          rango: `${String(start.getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()} - ${String(new Date(end-1).getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()}`,
+          rows
+        };
+      } catch(e){ console.error('Error preparando detalle mensual', e); }
+    }
+
+    function hideMonthDetailModal(){ const el = document.getElementById('month-detail-modal'); if (el) el.style.display = 'none'; }
+    function normStr(s){
+      return (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,'');
+    }
+    function agentCanonical(name){
+      const n = normStr(name);
+      const aliases = {
+        // Eduardo Rivas
+        'eduardor': 'Eduardo Rivas',
+        'eduardorivas': 'Eduardo Rivas',
+        'eduardor.': 'Eduardo Rivas',
+        'eduardorrivas': 'Eduardo Rivas'
+      };
+      return aliases[n] || (name || '');
+    }
+
+    function showMonthDetailModal(){
+      try{
+        const store = window.MonthDetailRows || { rango:'', rows:[] };
+        const rows = Array.isArray(store.rows) ? store.rows : [];
+        const overlay = document.getElementById('month-detail-modal'); if (!overlay) return;
+        const tbody = overlay.querySelector('#month-detail-table tbody');
+        const selTeam = overlay.querySelector('#month-filter-team');
+        const selAgent = overlay.querySelector('#month-filter-agent');
+        const subtitle = overlay.querySelector('#month-detail-subtitle');
+        subtitle.textContent = `Rango: ${store.rango}`;
+        const teams = Array.from(new Set(rows.map(r => (r.team||'').toString().trim()).filter(Boolean))).sort();
+        selTeam.innerHTML = `<option value="">Todos</option>` + teams.map(t=>`<option value="${t}">${t}</option>`).join('');
+        function refreshAgents(){
+          const team = selTeam.value;
+          const agents = Array.from(new Set(rows
+            .filter(r => !team || r.team === team)
+            .map(r => (r.agente||'').toString().trim())
+            .filter(Boolean)))
+            .sort();
+          selAgent.innerHTML = `<option value="">Todos</option>` + agents.map(a=>`<option value="${a}">${a}</option>`).join('');
+        }
+        function render(){
+          const team = selTeam.value; const agent = selAgent.value;
+          const agentNorm = normStr(agent);
+          const data = rows.filter(r => {
+            const okTeam = (!team || r.team === team);
+            if (!okTeam) return false;
+            if (!agent) return true;
+            return normStr(r.agente) === agentNorm;
+          });
+          tbody.innerHTML = data.map(r => `
+            <tr>
+              <td>${r.team || ''}</td>
+              <td>${r.agente || ''}</td>
+              <td>${r.servicio || ''}</td>
+              <td>${r.mercado || ''}</td>
+              <td>${Number(r.puntaje||0).toFixed(2)}</td>
+              <td>${typeof r.fecha==='string' ? r.fecha : (r.fecha instanceof Date ? r.fecha.toISOString() : (r.fecha||''))}</td>
+            </tr>
+          `).join('');
+        }
+        refreshAgents();
+        render();
+        selTeam.onchange = () => { refreshAgents(); render(); };
+        selAgent.onchange = () => { render(); };
+        overlay.style.display = 'flex';
+      } catch(e){ console.error('Error abriendo detalle mensual', e); }
+    }
+
+    // Inserta el botón dentro de la tarjeta mensual cuando exista en el DOM
+    function injectMonthlyDetailButton(attempt = 0){
+      const root = document.getElementById('conversion-table');
+      const card = root ? root.querySelector('.conversion-card') : null;
+      if (!card) {
+        if (attempt < 20) return setTimeout(() => injectMonthlyDetailButton(attempt + 1), 300);
+        return;
+      }
+      if (card.querySelector('#btn-detalle-mensual')) return;
+      const toolbar = document.createElement('div');
+      toolbar.style.cssText = 'display:flex; justify-content:flex-end; margin:8px 0 6px;';
+      const btn = document.createElement('button');
+      btn.id = 'btn-detalle-mensual';
+      btn.className = 'filter-button';
+      btn.style.height = '28px';
+      btn.textContent = 'Ver detalle mensual';
+      btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
+      toolbar.appendChild(btn);
+      const convTwoCol = card.querySelector('.conv-two-col');
+      if (convTwoCol) card.insertBefore(toolbar, convTwoCol); else card.appendChild(toolbar);
     }
 
     // FunciÃ³n para inicializar la tabla de conversiÃ³n
