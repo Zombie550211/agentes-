@@ -1242,7 +1242,7 @@
       const today = new Date();
       const isWeekend = today.getDay() === 0 || today.getDay() === 6; // 0 = domingo, 6 = sábado
       const filteredDayTeams = isWeekend ? teamData.filter(team => team.Total > 0) : teamData;
-      const labels = filteredDayTeams.map(t => t._id || 'SIN EQUIPO');
+      const labels = filteredDayTeams.map(t => (t.name || t._id || 'SIN EQUIPO'));
       const data = filteredDayTeams.map(t => t.Total);
 
       // Paleta de colores atractiva (más colores si es necesario)
