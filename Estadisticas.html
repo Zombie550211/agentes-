@@ -671,6 +671,12 @@
         
         if (fechaInicio) params.append('fechaInicio', fechaInicio);
         if (fechaFin) params.append('fechaFin', fechaFin);
+        // Si el rol es agente, forzar que el backend devuelva TODOS los equipos
+        try {
+          const u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+          const role = (u?.role || '').toString().trim().toLowerCase();
+          if (role === 'agent' || role === 'agente') params.append('forceAll', '1');
+        } catch(_){ }
         if (params.toString()) url += `?${params.toString()}`;
         
         console.log('Solicitando datos a:', url);
@@ -712,15 +718,13 @@
         }
 
         
-        // Si no hay datos, intentaremos fallback con /api/leads para el DÍA efectivo
+        // Si no hay datos (o según rol), podremos forzar fallback con /api/leads
         let teamData = [];
         // Determinar si el payload está vacío o si trae solo equipos en cero
         const payloadEmpty = !data.data || data.data.length === 0;
         const payloadZero = Array.isArray(data.data) && data.data.length > 0 && data.data.every(e => (Number(e.Total||0) === 0) && (Number(e.ICON||0) === 0) && (Number(e.BAMO||0) === 0) && (Number(e.Puntaje||0) === 0));
 
-        if (payloadEmpty || payloadZero) {
-          console.log('No hay datos disponibles para el día actual desde /api/equipos/estadisticas. Intentando fallback con /api/leads...');
-        } else {
+        if (!(payloadEmpty || payloadZero)) {
           // Mapear datos de la API al formato esperado (mantener Puntaje como número)
           teamData = data.data.map(equipo => ({
             name: equipo.TEAM || equipo.team || 'Sin equipo',
@@ -729,6 +733,50 @@
             Total: parseFloat(equipo.Total || 0),
             Puntaje: parseFloat(equipo.Puntaje || 0)
           }));
+        }
+
+        // Solo fallback si la respuesta viene vacía/cero
+        if (payloadEmpty || payloadZero) {
+          try {
+            console.log('[ESTADISTICAS][MES] Construyendo datos desde /api/leads (fallback por rol o vacío)');
+            const leadsResp = await fetchWithAuth('/api/leads'); // ya filtra por el mes actual
+            if (leadsResp && leadsResp.ok) {
+              const leadsJson = await leadsResp.json();
+              const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+              const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
+              const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+              const teamMap = new Map();
+              const teamNameOf = (lead) => {
+                const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+                const s = (t || '').toString().trim();
+                return s || 'Sin equipo';
+              };
+              const isICON = (lead) => {
+                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                return v.includes('ICON');
+              };
+              const isBAMO = (lead) => {
+                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                return v.includes('BAMO');
+              };
+              const getPuntaje = (lead) => {
+                const p = findFirst(lead, ['puntaje','score','puntos']);
+                const n = typeof p === 'number' ? p : parseFloat(p);
+                return isNaN(n) ? 0 : n;
+              };
+              leads.forEach(l => {
+                const name = teamNameOf(l);
+                if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+                const agg = teamMap.get(name);
+                agg.Total += 1;
+                if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
+                agg.Puntaje += getPuntaje(l);
+              });
+              teamData = Array.from(teamMap.values());
+            }
+          } catch (fe) {
+            console.warn('[ESTADISTICAS][MES] Fallback por rol/empty falló:', fe);
+          }
         }
         // Separar TEAM LINEAS a tabla aparte y mantener principal sin LINEA(S)
         const lineasData = Array.isArray(data.lineas) ? data.lineas.map(r => ({
@@ -842,6 +890,15 @@
         (function applyWeekendVisibility(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const teamCanon = (name)=>{
+              const n = norm(name).replace(/^team\s+/, '');
+              if (n.includes('pleitez')) return 'Pleitez';
+              if (n.includes('roberto')) return 'Roberto';
+              if (n.includes('marisol')) return 'Marisol';
+              if (n.includes('johana') || n.includes('johanna')) return 'Johana';
+              if (n.includes('irania')) return 'Irania';
+              return name || 'Sin equipo';
+            };
             const groupA = new Set(['johana','irania']);
             const groupB = new Set(['pleitez','roberto','marisol']);
             const today = new Date();
@@ -914,6 +971,15 @@
         (function applyFinalOrdering(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const teamCanon = (name)=>{
+              const n = norm(name).replace(/^team\s+/, '');
+              if (n.includes('pleitez')) return 'Pleitez';
+              if (n.includes('roberto')) return 'Roberto';
+              if (n.includes('marisol')) return 'Marisol';
+              if (n.includes('johana') || n.includes('johanna')) return 'Johana';
+              if (n.includes('irania')) return 'Irania';
+              return name || 'Sin equipo';
+            };
             const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
             const ORDER_A = ['Johana','Irania'];
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
@@ -926,7 +992,8 @@
               const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
               order = showA ? ORDER_A : ORDER_B;
             }
-            const map = new Map((fallbackTeamData||[]).map(t=>[norm(t?.name), t]));
+            const canonRows = (fallbackTeamData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
+            const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             const ordered = order.map(ensureRow);
             const displayRows = ordered;
@@ -1720,10 +1787,33 @@
         const hoy = new Date();
         const start = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0, 0);
         const end = new Date(hoy.getFullYear(), hoy.getMonth()+1, 1, 0, 0, 0, 0);
-        const leadsResp = await fetchWithAuth('/api/leads');
-        if (!leadsResp) return;
-        const leadsJson = await leadsResp.json();
-        const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+        // Intentar SIEMPRE el agregado del DÍA con forceAll=1 (todos los equipos)
+        let leads = [];
+        let usedEquiposAggreg = false;
+        try {
+          let u = `/api/equipos/estadisticas?${qs}&forceAll=1`;
+          const resp = await fetchWithAuth(u);
+          if (resp && resp.ok) {
+            const dj = await resp.json();
+            if (dj && dj.success && Array.isArray(dj.data) && dj.data.length) {
+              dayData = dj.data.map(equipo => ({
+                name: equipo.TEAM || equipo.team || 'Sin equipo',
+                ICON: parseFloat(equipo.ICON || 0),
+                BAMO: parseFloat(equipo.BAMO || 0),
+                Total: parseFloat(equipo.Total || 0),
+                Puntaje: parseFloat(equipo.Puntaje || 0)
+              }));
+              usedEquiposAggreg = true;
+            }
+          }
+        } catch(_){ /* ignorar y caer al fallback por leads */ }
+        if (!usedEquiposAggreg) {
+          // Construir desde /api/leads con ventana [00:00, +1 día 09:30]
+          const leadsResp = await fetchWithAuth('/api/leads');
+          if (!leadsResp) return;
+          const leadsJson = await leadsResp.json();
+          leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+        }
         const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
         const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
         const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
@@ -1876,12 +1966,11 @@
       `;
 
       try {
-        // 1) Intentar primero el endpoint de equipos con fecha efectiva
+        // 1) Construir SIEMPRE desde /api/leads (global, sin filtrar por agente)
         const y = effective.getFullYear();
         const m = String(effective.getMonth()+1).padStart(2,'0');
         const d = String(effective.getDate()).padStart(2,'0');
         const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
-        // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
         let dayData = [];
         const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
         const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
@@ -1916,6 +2005,24 @@
         });
         window.DayDetailRows = { fecha: `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`, rows: detailRows };
 
+        // Intentar agregado del día desde backend (global)
+        let preTeamData = null;
+        try {
+          const aggResp = await fetchWithAuth(`/api/equipos/estadisticas?${qs}&scope=day&forceAll=1`);
+          if (aggResp && aggResp.ok) {
+            const dj = await aggResp.json();
+            if (dj && dj.success && Array.isArray(dj.data) && dj.data.length) {
+              preTeamData = dj.data.map(equipo => ({
+                name: equipo.TEAM || equipo.team || 'Sin equipo',
+                ICON: parseFloat(equipo.ICON || 0),
+                BAMO: parseFloat(equipo.BAMO || 0),
+                Total: parseFloat(equipo.Total || 0),
+                Puntaje: parseFloat(equipo.Puntaje || 0)
+              }));
+            }
+          }
+        } catch(_) {}
+
         const teamMap = new Map();
         const teamNameOf = (lead) => {
           const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
@@ -1923,8 +2030,12 @@
         };
         const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
         const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
-        inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
-        dayData = Array.from(teamMap.values());
+        if (preTeamData) {
+          dayData = preTeamData;
+        } else {
+          inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
+          dayData = Array.from(teamMap.values());
+        }
 
         // Separar LINEAS para panel derecho y excluirlas de la tabla principal
         const isLinea = (n) => /LINEA/i.test(String(n || ''));
@@ -1937,6 +2048,15 @@
         (function ensureDayRows(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const teamCanon = (name)=>{
+              const n = norm(name).replace(/^team\s+/, '');
+              if (n.includes('pleitez')) return 'Pleitez';
+              if (n.includes('roberto')) return 'Roberto';
+              if (n.includes('marisol')) return 'Marisol';
+              if (n.includes('johana') || n.includes('johanna')) return 'Johana';
+              if (n.includes('irania')) return 'Irania';
+              return name || 'Sin equipo';
+            };
             const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
             const ORDER_A = ['Johana','Irania'];
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
@@ -1948,7 +2068,8 @@
               const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
               order = showA ? ORDER_A : ORDER_B;
             }
-            const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
+            const canonRows = (mainData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
+            const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             const ordered = order.map(ensureRow);
             mainData = ordered;

@@ -24,9 +24,10 @@
       fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
-      }).finally(() => {
-        // Redirigir al login
-        window.location.href = 'index.html';
+      }).catch(()=>{}).finally(() => {
+        try { window.history.replaceState({}, document.title, '/'); } catch(_) {}
+        // Redirigir al login (ruta estándar del proyecto)
+        window.location.replace('/login.html');
       });
     }
     
@@ -55,6 +56,13 @@
 
   // Inicializar cuando el sidebar se cargue
   document.addEventListener('sidebar:loaded', initLogoutHandler);
+  // Delegación global (seguro contra re-render del sidebar)
+  document.addEventListener('click', function(e){
+    try {
+      const btn = e.target && e.target.closest && e.target.closest('[data-logout-button], .btn-logout');
+      if (btn) return handleLogout(e);
+    } catch(_) {}
+  }, true);
   
   // También intentar inicializar después de un delay por si el sidebar ya está cargado
   setTimeout(initLogoutHandler, 1000);

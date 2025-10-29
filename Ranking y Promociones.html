@@ -2584,22 +2584,16 @@
         const promoFileInput = document.getElementById('promo-file');
         const promoHero = document.querySelector('.promo-hero');
 
-        // Mostrar/ocultar toda la sección de multimedia según el rol del usuario
-        if(user && isAdmin(user.role)){
-          // Usuario administrador: mostrar sección completa
-          if(promoHero) promoHero.style.display = 'flex';
-          if(promoActions) promoActions.style.display = 'flex';
-          
-          // Cargar multimedia solo para administradores
-          await loadLatestMedia();
-          console.log('[PROMO] ✅ Sección multimedia habilitada para administrador:', user.role);
-        } else {
-          // Usuario no administrador: ocultar sección completa
-          if(promoHero) promoHero.style.display = 'none';
-          console.log('[PROMO] ❌ Sección multimedia oculta para usuario:', user?.role || 'sin rol');
-        }
+        // Mostrar SIEMPRE la sección de promociones para todos los roles
+        if (promoHero) promoHero.style.display = 'flex';
+        // Cargar multimedia para todos los usuarios (solo lectura si no es admin)
+        try { await loadLatestMedia(); } catch(_) {}
+        // Mostrar el botón de subir SOLO si es admin/supervisor/backoffice
+        const allowUpload = user && isAdmin(user.role);
+        if (promoActions) promoActions.style.display = allowUpload ? 'flex' : 'none';
+        if (allowUpload && promoFileInput) promoFileInput.addEventListener('change', handleUpload);
+        console.log(`[PROMO] Estado multimedia — role=${user?.role||'N/A'}, uploadAllowed=${allowUpload}`);
 
-        if(promoFileInput) promoFileInput.addEventListener('change', handleUpload);
         console.log('[PROMO] ✅ Carga inicial completada');
 
         // Cargar ranking siempre (independiente del rol)
