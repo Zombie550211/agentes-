@@ -838,13 +838,111 @@
           }
         }
         
-        // Calcular totales
-        const totals = teamData.reduce((acc, r) => ({
+        // Reglas de visibilidad por día y rotación semanal (fin de semana)
+        (function applyWeekendVisibility(){
+          try {
+            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const groupA = new Set(['johana','irania']);
+            const groupB = new Set(['pleitez','roberto','marisol']);
+            const today = new Date();
+            const getISOWeek = (d)=>{
+              const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+              const dayNum = date.getUTCDay() || 7;
+              date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+              const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+              return Math.floor((((date - yearStart) / 86400000) + 1)/7);
+            };
+            const dow = today.getDay(); // 0=Domingo, 6=Sábado
+            // L-V: no filtrar; Sáb/Dom: aplicar grupos con rotación semanal
+            if (dow === 6 || dow === 0) {
+              const parity = getISOWeek(today) % 2; // 0/1
+              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
+              const allowed = showA ? groupA : groupB;
+              if (Array.isArray(fallbackTeamData) && fallbackTeamData.length) {
+                fallbackTeamData = fallbackTeamData.filter(t => allowed.has(norm(t?.name)));
+                teamData = teamData.filter(t => allowed.has(norm(t?.name)));
+              }
+            }
+
+            // Asegurar presencia de filas en 0 para equipos faltantes
+            const allTeams = (()=>{
+              try {
+                if (window.Teams && typeof window.Teams.getAllTeams === 'function') {
+                  const arr = window.Teams.getAllTeams(); // devuelve nombres
+                  return Array.isArray(arr) ? arr : [];
+                }
+              } catch(_){ }
+              // fallback estático
+              return ['Pleitez','Roberto','Marisol','Johana','Irania'];
+            })();
+            const isWeekend = (dow === 6 || dow === 0);
+            let targetSet;
+            if (!isWeekend) {
+              targetSet = new Set(allTeams.map(x=>norm(x)));
+            } else {
+              const parity = getISOWeek(today) % 2; // 0/1
+              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
+              targetSet = showA ? groupA : groupB;
+            }
+            const ensureRows = (arr)=>{
+              try {
+                const have = new Set((arr||[]).map(t=>norm(t?.name)));
+                const out = Array.isArray(arr) ? arr.slice() : [];
+                for (const t of targetSet) {
+                  if (!have.has(t)) {
+                    // no incluir TEAM LINEAS aquí (va aparte)
+                    out.push({ name: t.charAt(0).toUpperCase()+t.slice(1), ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+                  }
+                }
+                return out;
+              } catch(_) { return arr; }
+            };
+            fallbackTeamData = ensureRows(fallbackTeamData);
+            teamData = ensureRows(teamData);
+          } catch(e) { console.warn('[ESTADISTICAS] Weekend visibility filter error:', e); }
+        })();
+
+        // Calcular totales preliminares (serán recalculados tras el orden final)
+        let totals = teamData.reduce((acc, r) => ({
           ICON: acc.ICON + (r.ICON || 0),
           BAMO: acc.BAMO + (r.BAMO || 0),
           Total: acc.Total + (r.Total || 0),
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+
+        // Orden fijo y completado final según día (L–V todos; fin de semana por grupo)
+        (function applyFinalOrdering(){
+          try {
+            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+            const ORDER_A = ['Johana','Irania'];
+            const ORDER_B = ['Pleitez','Roberto','Marisol'];
+            const today = new Date();
+            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
+            const dow = today.getDay();
+            let order = ORDER_ALL;
+            if (dow === 6 || dow === 0) {
+              const parity = getISOWeek(today) % 2;
+              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
+              order = showA ? ORDER_A : ORDER_B;
+            }
+            const map = new Map((fallbackTeamData||[]).map(t=>[norm(t?.name), t]));
+            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+            const ordered = order.map(ensureRow);
+            const displayRows = ordered;
+            fallbackTeamData = displayRows;
+            // mantener teamData en sincronía para totales
+            teamData = displayRows.slice();
+            // recalcular totales definitivos con displayRows
+            totals = (displayRows||[]).reduce((acc, r) => ({
+              ICON: acc.ICON + (r.ICON || 0),
+              BAMO: acc.BAMO + (r.BAMO || 0),
+              Total: acc.Total + (r.Total || 0),
+              Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
+            }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+            try { window.__statsDisplayRows = displayRows.slice(); } catch(_) {}
+          } catch(e) { console.warn('[ESTADISTICAS] Final ordering error:', e); }
+        })();
 
         // Encabezado: siempre mostrar MES (mm/yyyy) para esta tabla (izquierda)
         const hoy = new Date();
@@ -855,6 +953,9 @@
         let html = `
           <div class="conversion-card">
             <div class="conversion-title">${encabezadoTitulo}</div>
+            <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+              <button id="btn-detalle-mensual" class="filter-button" style="height:28px;">Ver detalle</button>
+            </div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">
@@ -868,13 +969,13 @@
                     </tr>
                   </thead>
                   <tbody>
-                    ${fallbackTeamData.length === 0 ? `
+                    ${(!fallbackTeamData || fallbackTeamData.length === 0) ? `
                       <tr>
                         <td colspan="5" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
                           No hay datos disponibles para la fecha seleccionada
                         </td>
                       </tr>
-                    ` : fallbackTeamData.map(team => `
+                    ` : (fallbackTeamData || []).map(team => `
                       <tr>
                         <td>${team.name}</td>
                         <td>${team.ICON || 0}</td>
@@ -883,13 +984,13 @@
                         <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
                       </tr>
                     `).join('')}
-                    ${fallbackTeamData.length > 0 ? `
+                    ${ (fallbackTeamData && fallbackTeamData.length > 0) ? `
                       <tr class="total-row">
                         <td>TOTAL</td>
-                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
-                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
-                        <td>${fallbackTeamData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                        <td>${totals.ICON}</td>
+                        <td>${totals.BAMO}</td>
+                        <td>${totals.Total}</td>
+                        <td>${Number(totals.Puntaje).toFixed(2)}</td>
                       </tr>
                     ` : ''}
                   </tbody>
@@ -925,6 +1026,20 @@
         
         // Asignar el HTML generado al elemento raíz
         root.innerHTML = html;
+        try {
+          const btn = document.getElementById('btn-detalle-mensual');
+          if (btn) {
+            // Control de roles: solo Supervisores, Admin y Backoffice
+            const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+            const role = (user?.role || '').toString().trim().toLowerCase();
+            const allowed = new Set(['admin','administrador','supervisor','backoffice','back office','b.o','bo']);
+            if (!allowed.has(role)) {
+              btn.style.display = 'none';
+            } else {
+              btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
+            }
+          }
+        } catch(_) {}
 
         // Ahora, renderizar el gráfico de dona con los datos de los equipos
         renderVentasPorEquipoChart(fallbackTeamData);
@@ -1816,63 +1931,34 @@
         const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
-        const mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+        let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+
+        // Asegurar presencia de equipos aunque no vendan (orden fijo y rotación fin de semana)
+        (function ensureDayRows(){
+          try {
+            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+            const ORDER_A = ['Johana','Irania'];
+            const ORDER_B = ['Pleitez','Roberto','Marisol'];
+            const dow = effective.getDay(); // 0=Dom, 6=Sáb
+            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
+            let order = ORDER_ALL;
+            if (dow === 6 || dow === 0) {
+              const parity = getISOWeek(effective) % 2;
+              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
+              order = showA ? ORDER_A : ORDER_B;
+            }
+            const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
+            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+            const ordered = order.map(ensureRow);
+            mainData = ordered;
+            try { window.DayDisplayRows = ordered.slice(); } catch(_) {}
+          } catch(e) { console.warn('[ESTADISTICAS][DAY] ensure rows error:', e); }
+        })();
 
         // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
-        const tablaHtml = mainData.length === 0
-          ? `
-            <div class="conversion-card">
-              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
-              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
-              </div>
-              <div class="conv-two-col">
-                <div class="conv-left">
-                  <table class="sales-table">
-                    <thead>
-                      <tr>
-                        <th>EQUIPO</th>
-                        <th>ICON</th>
-                        <th>BAMO</th>
-                        <th>TOTAL</th>
-                        <th>PUNTAJE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">No hay datos disponibles para el día actual</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="conv-right">
-                  <div class="mini-card">
-                    <table class="mini-table">
-                      <thead>
-                        <tr>
-                          <th>TEAM LINEAS</th>
-                          <th>ICON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${(lineasData || []).map(r => `
-                          <tr>
-                            <td>${r.name}</td>
-                            <td>${r.ICON || 0}</td>
-                          </tr>
-                        `).join('')}
-                        <tr class="total">
-                          <td>TOTAL</td>
-                          <td class="total-icon">${lineasTotalICON}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `
-          : `
+        // Siempre renderizar filas (aunque sean 0)
+        const tablaHtml = `
             <div class="conversion-card">
               <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
               <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
@@ -2165,63 +2251,32 @@
         const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
-        const mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+        let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+
+        // Completar equipos y fijar orden (L–V: todos; FDS: grupo rotativo)
+        (function ensureDayRows(){
+          try {
+            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
+            const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+            const ORDER_A = ['Johana','Irania'];
+            const ORDER_B = ['Pleitez','Roberto','Marisol'];
+            const dow = effective.getDay();
+            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
+            let order = ORDER_ALL;
+            if (dow === 6 || dow === 0) {
+              const parity = getISOWeek(effective) % 2;
+              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
+              order = showA ? ORDER_A : ORDER_B;
+            }
+            const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
+            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+            mainData = order.map(ensureRow);
+            try { window.DayDisplayRows = mainData.slice(); } catch(_) {}
+          } catch(e) { console.warn('[ESTADISTICAS][DAY-2] ensure rows error:', e); }
+        })();
 
         // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
-        const tablaHtml = mainData.length === 0
-          ? `
-            <div class="conversion-card">
-              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
-              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
-              </div>
-              <div class="conv-two-col">
-                <div class="conv-left">
-                  <table class="sales-table">
-                    <thead>
-                      <tr>
-                        <th>EQUIPO</th>
-                        <th>ICON</th>
-                        <th>BAMO</th>
-                        <th>TOTAL</th>
-                        <th>PUNTAJE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">No hay datos disponibles para el día actual</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="conv-right">
-                  <div class="mini-card">
-                    <table class="mini-table">
-                      <thead>
-                        <tr>
-                          <th>TEAM LINEAS</th>
-                          <th>ICON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${(lineasData || []).map(r => `
-                          <tr>
-                            <td>${r.name}</td>
-                            <td>${r.ICON || 0}</td>
-                          </tr>
-                        `).join('')}
-                        <tr class="total">
-                          <td>TOTAL</td>
-                          <td class="total-icon">${lineasTotalICON}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `
-          : `
+        const tablaHtml = `
             <div class="conversion-card">
               <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
               <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
