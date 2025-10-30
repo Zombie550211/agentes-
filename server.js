@@ -520,6 +520,22 @@ app.get('/api/lineas', protect, async (req, res) => {
       console.log(`[GET /api/lineas] Usuario privilegiado ${username}, sin filtros`);
     }
 
+    // Filtro adicional por usuario/agente vía query (?user= o ?agente=)
+    try {
+      const qUser = (req.query.user || req.query.agente || '').toString().trim();
+      if (qUser) {
+        const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rx = new RegExp(`^${esc(qUser)}$`, 'i');
+        const extra = { $or: [
+          { agente: rx },
+          { agenteNombre: rx },
+          { createdBy: rx },
+          { registeredBy: rx },
+        ] };
+        filter = Object.keys(filter || {}).length ? { $and: [filter, extra] } : extra;
+      }
+    } catch {}
+
     // Consultar registros
     const registros = await db.collection('Lineas').find(filter).sort({ creadoEn: -1 }).toArray();
     
@@ -543,7 +559,8 @@ app.get('/api/lineas', protect, async (req, res) => {
   }
 });
 
-app.post('/api/lineas', protect, async (req, res) => {
+// LEGACY: mantenido para compatibilidad, renombrado para no interferir con Team Líneas
+app.post('/api/lineas-legacy', protect, async (req, res) => {
   try {
     // Asegurar conexión BD
     if (!db) db = await connectToMongoDB();
@@ -595,8 +612,19 @@ app.post('/api/lineas', protect, async (req, res) => {
     const mercadoArr = Array.isArray(body.mercado) ? body.mercado : [body.mercado];
     const mercado = mercadoArr.map(String);
     if (mercado.length !== 1 || !['bamo','icon'].includes(mercado[0].toLowerCase())) errors.push('mercado debe ser uno: bamo | icon');
-    const supervisorVal = String(body.supervisor || '').toLowerCase();
-    if (!['jonathan','diego'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN, DIEGO)');
+    const supervisorVal = String(body.supervisor || '').toLowerCase().trim();
+    const supOk = (
+      supervisorVal === 'jonathan' ||
+      supervisorVal === 'diego' ||
+      supervisorVal === 'luis' ||
+      supervisorVal === 'jonathan f' ||
+      supervisorVal === 'luis g' ||
+      supervisorVal === 'gutierrez' ||
+      /^jonathan\b/i.test(supervisorVal) ||
+      /^luis\b/i.test(supervisorVal) ||
+      /^gutierrez\b/i.test(supervisorVal)
+    );
+    if (!supOk) errors.push('supervisor inválido (permitidos: JONATHAN, LUIS, DIEGO, GUTIERREZ)');
     if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser entre 1 y 5');
     if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
     if (errors.length) {

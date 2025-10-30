@@ -3994,22 +3994,8 @@ v   <html lang="es">
                   const t = normTxt(st||'');
                   return t.includes('cancel') || t.includes('anulad') || t.includes('no instalado');
                 };
-                // Aplicar filtro Mes/Año (si existe)
-                const sel = window.supervisorMonthFilter || null;
-                let baseArr = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads.slice() : [];
-                if (sel && sel.month && sel.year && typeof getDateFromLead === 'function') {
-                  const M = Number(sel.month), Y = Number(sel.year);
-                  baseArr = baseArr.filter(l => {
-                    try {
-                      const iso = getDateFromLead(l);
-                      if (!iso) return false;
-                      const [y,m] = iso.split('-').map(Number);
-                      return y===Y && m===M;
-                    } catch { return false; }
-                  });
-                }
                 // Conteo total efectivo dentro del team
-                const totalEfectivasTeam = baseArr.reduce((acc,l)=>{
+                const totalEfectivasTeam = (Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : []).reduce((acc,l)=>{
                   try {
                     const c = getAgentCanonUniversal(l);
                     const inTeam = teamAgents.includes(c) || teamAgents.includes(normTxt(l?.agenteNombre||l?.nombreAgente||l?.agente||l?._raw?.agenteNombre||l?._raw?.nombreAgente||l?._raw?.agente||''));
@@ -4036,21 +4022,7 @@ v   <html lang="es">
                     const t = normTxt(st||'');
                     return t.includes('cancel') || t.includes('anulad') || t.includes('no instalado');
                   };
-                  // Aplicar filtro Mes/Año (si existe)
-                  const sel = window.supervisorMonthFilter || null;
-                  let baseArr = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads.slice() : [];
-                  if (sel && sel.month && sel.year && typeof getDateFromLead === 'function') {
-                    const M = Number(sel.month), Y = Number(sel.year);
-                    baseArr = baseArr.filter(l => {
-                      try {
-                        const iso = getDateFromLead(l);
-                        if (!iso) return false;
-                        const [y,m] = iso.split('-').map(Number);
-                        return y===Y && m===M;
-                      } catch { return false; }
-                    });
-                  }
-                  count = baseArr.reduce((acc,l)=>{
+                  count = (Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : []).reduce((acc,l)=>{
                     try {
                       const c = getAgentCanonUniversal(l);
                       if (c !== a) return acc;

@@ -94,6 +94,22 @@ function getDb() {
 }
 
 /**
+ * Obtiene una instancia de otra base de datos reutilizando el cliente nativo actual
+ * @param {string} dbName
+ * @returns {import('mongodb').Db|null}
+ */
+function getDbFor(dbName) {
+  try {
+    if (__nativeClient) return __nativeClient.db(dbName);
+    if (db && db.s && db.s.client) return db.s.client.db(dbName);
+    return null;
+  } catch (e) {
+    console.warn('[DB] getDbFor error:', e?.message);
+    return null;
+  }
+}
+
+/**
  * Cierra la conexión a la base de datos
  */
 async function closeConnection() {
@@ -125,5 +141,6 @@ process.on('SIGTERM', async () => {
 module.exports = {
   connectToMongoDB,
   getDb,
+  getDbFor,
   closeConnection
 };

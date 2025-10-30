@@ -106,9 +106,10 @@
     const initials = getInitials(user.username || 'U');
     const normalizedRole = normalizeRole(user.role);
     const roleName = getRoleName(normalizedRole);
+    const isLineas = /lineas/i.test(String(user.team || ''));
     
     // Determinar menú según rol
-    const menuItems = getMenuItems(normalizedRole, activePage);
+    const menuItems = getMenuItems(normalizedRole, activePage, { isLineas });
 
     return `
       <!-- Usuario -->
@@ -192,12 +193,13 @@
   }
 
   // Obtener items del menú según rol
-  function getMenuItems(role, activePage) {
+  function getMenuItems(role, activePage, ctx = {}) {
     const normalizedRole = normalizeRole(role);
     console.log('🔍 Generando menú para rol bruto/normalizado:', role, '->', normalizedRole);
     
     const allMenuItems = {
-      inicio: { icon: 'fa-home', text: 'Inicio', href: 'inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      // Use absolute path for Inicio to avoid resolving under subfolders like TEAM LINEAS/
+      inicio: { icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       lead: { icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: ['admin', 'supervisor', 'agente'] },
       costumer: { icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       ranking: { icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
@@ -208,6 +210,15 @@
       reglas: { icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       crearcuenta: { icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: ['admin'] }
     };
+
+    // Redirigir a páginas específicas de Team Líneas si corresponde
+    if (ctx && ctx.isLineas) {
+      // Mantener Inicio general
+      allMenuItems.lead.href = '/TEAM LINEAS/LEAD-LINEAS.html';
+      allMenuItems.costumer.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
+      allMenuItems.ranking.href = '/TEAM LINEAS/RANKING-LINEAS.html';
+      allMenuItems.estadisticas.href = '/TEAM LINEAS/ESTADISTICAS-LINEAS.html';
+    }
 
     let menuHTML = '';
     const visibleItems = [];
@@ -278,7 +289,7 @@
       </div>
       <h3>Navegación</h3>
       <ul class="menu">
-        <li><a href="inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i> Inicio</a></li>
+        <li><a href="/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i> Inicio</a></li>
         <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
       </ul>
     `;

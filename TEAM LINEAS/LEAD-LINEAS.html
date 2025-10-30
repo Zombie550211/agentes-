@@ -9,8 +9,8 @@
       try{
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const role = String(user.role||'').toLowerCase();
-        const username = String(user.username||'').toLowerCase();
-        const ok = role==='teamlineas' || username.startsWith('lineas-');
+        const team = String(user.team||'').toLowerCase();
+        const ok = /lineas/.test(team) || /lineas/.test(role) || role.includes('supervisor');
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();
@@ -25,8 +25,114 @@
   <div class="layout">
     <nav class="sidebar sidebar-inicio" data-active="lead"></nav>
     <main class="main-content">
-      <h1 style="margin:16px 0;">Lead - Team Líneas</h1>
-      <p>Esta página no tiene formulario aún. Próximamente se agregará el nuevo formulario.</p>
+      <div style="max-width:900px; margin:16px auto;">
+      <h1 style="margin:0 0 12px;">Nuevo Lead - Team Líneas</h1>
+      <form id="lineasForm" style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:16px;">
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Datos del cliente</h3>
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between;">
+            <div>
+              <label>Nombre cliente <span style="color:#6b7280; font-weight:400;">(en mayúsculas)</span> *</label>
+              <input type="text" id="nombre_cliente" required class="form-control" placeholder="Tu respuesta" style="text-transform:uppercase;" />
+            </div>
+            <div>
+              <label>Teléfono principal <span style="color:#6b7280; font-weight:400;">(sin espacios, sin signos de puntuación)</span> *</label>
+              <input type="tel" id="telefono_principal" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Número de cuenta <span style="color:#6b7280; font-weight:400;">(De la orden)</span> *</label>
+              <input type="text" id="numero_cuenta" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Autopay *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="autopay" value="si" checked /> SI</label>
+                <label><input type="radio" name="autopay" value="no" /> NO</label>
+              </div>
+            </div>
+            <div>
+              <label>Pin de seguridad <span style="color:#6b7280; font-weight:400;">(De la orden)</span> *</label>
+              <input type="text" id="pin_seguridad" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Dirección *</label>
+              <input type="text" id="direccion" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>ID *</label>
+              <input type="text" id="id_field" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Día de venta *</label>
+              <input type="date" id="dia_venta" required class="form-control" />
+            </div>
+          </div>
+        </section>
+
+        
+
+        
+
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Estado y Líneas</h3>
+          <div id="estadoGrid" style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between; align-items:start;">
+            <div>
+              <label>STATUS *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="status" value="pending" checked /> PENDING</label>
+                <label><input type="radio" name="status" value="repro" /> REPRO</label>
+              </div>
+            </div>
+            <div>
+              <label>Cantidad de líneas *</label>
+              <div id="cantChecks" style="display:grid; grid-template-columns: repeat(5, 40px); gap:8px; padding:8px 0;">
+                <label><input type="checkbox" name="cantidad_lineas" value="1" /> 1</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="2" /> 2</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="3" /> 3</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="4" /> 4</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="5" /> 5</label>
+              </div>
+            </div>
+            <div style="grid-column: 1 / 2;">
+              <label>Día de instalación *</label>
+              <input type="date" id="dia_instalacion" required class="form-control" />
+            </div>
+          </div>
+        </section>
+
+
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Registro</h3>
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between;">
+            <div>
+              <label>Mercado *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="checkbox" name="mercado" value="BAMO" /> BAMO</label>
+                <label><input type="checkbox" name="mercado" value="ICON" /> ICON</label>
+              </div>
+            </div>
+            <div id="assignWrap" style="display:none;">
+              <label>Asignar a agente (solo supervisores)</label>
+              <select id="agentAssign" class="form-control">
+                <option value="">Selecciona agente</option>
+              </select>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label>SUPERVISOR *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="supervisor" value="JONATHAN" checked /> JONATHAN</label>
+                <label><input type="radio" name="supervisor" value="GUTIERREZ" /> GUTIERREZ</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div style="display:flex; gap:10px;">
+          <button type="submit" style="padding:10px 14px; border:0; border-radius:10px; background:#22b3ec; color:#0f172a; font-weight:700;">Enviar</button>
+          <div id="msg" style="align-self:center; font-size:14px; color:#6b7280;"></div>
+        </div>
+      </form>
+      </div>
     </main>
   </div>
   <script src="/js/fetch-interceptor.js"></script>
@@ -36,6 +142,167 @@
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
+      const f = document.getElementById('lineasForm');
+      const estadoGrid = document.getElementById('estadoGrid');
+      const cantChecks = Array.from(document.querySelectorAll('input[name="cantidad_lineas"]'));
+      const msg = document.getElementById('msg');
+      const diaVenta = document.getElementById('dia_venta');
+      const assignWrap = document.getElementById('assignWrap');
+      const agentAssign = document.getElementById('agentAssign');
+
+      function todayLocal() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth()+1).padStart(2,'0');
+        const d = String(now.getDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+      }
+      diaVenta.value = todayLocal();
+      // Seleccionar por defecto 1 línea y renderizar
+      if (cantChecks[0]) { cantChecks[0].checked = true; }
+
+      function getCantidadLineas() {
+        // permitir solo una selección; si hay múltiples, tomar la primera marcada
+        const sel = cantChecks.filter(c => c.checked).map(c => parseInt(c.value, 10));
+        return sel.length ? sel[0] : 1;
+      }
+
+      function enforceSingleCantidad(e) {
+        // comportamiento de checkbox como radio (solo uno activo)
+        cantChecks.forEach(ch => { if (ch !== e.target) ch.checked = false; });
+        renderTelefonos();
+      attachPhoneNormalizers();
+        attachPhoneNormalizers();
+      }
+
+      function attachPhoneNormalizers() {
+        const main = document.getElementById('telefono_principal');
+        const handler = (e) => { const t = e.target; const start=t.selectionStart; const raw = t.value; t.value = raw.replace(/\D+/g,''); try{ t.setSelectionRange(start,start);}catch{} };
+        if (main && !main._normalized) { ['input','paste','change','blur'].forEach(ev=>main.addEventListener(ev,handler)); main._normalized=true; }
+        const n = getCantidadLineas();
+        for (let i=1;i<=n;i++) {
+          const tel = document.getElementById(`tel_${i}`);
+          if (tel && !tel._normalized) { ['input','paste','change','blur'].forEach(ev=>tel.addEventListener(ev,handler)); tel._normalized=true; }
+        }
+      }
+
+      cantChecks.forEach(ch => ch.addEventListener('change', enforceSingleCantidad));
+
+      // Mostrar selector de agente solo a supervisores y poblar lista
+      (function initAgentAssign(){
+        try{
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const roleLc = String(user.role||'').toLowerCase();
+          const isSupervisor = roleLc.includes('supervisor');
+          if (!isSupervisor || !assignWrap || !agentAssign) return;
+          const uname = String(user.username||user.name||'').toUpperCase();
+          const agentsMap = {
+            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA'],
+            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
+          };
+          const list = agentsMap[uname] || [];
+          if (!list.length) return;
+          assignWrap.style.display = 'block';
+          agentAssign.innerHTML = '<option value="">Selecciona agente</option>' + list.map(a=>`<option value="${a}">${a}</option>`).join('');
+        }catch{}
+      })();
+
+      function renderTelefonos() {
+        const n = getCantidadLineas();
+        // Eliminar bloques anteriores de líneas
+        Array.from(estadoGrid.querySelectorAll('.line-block')).forEach(el => el.remove());
+        for (let i=1; i<=n; i++) {
+          const div = document.createElement('div');33
+          div.className = 'line-block';
+          div.style.display = 'block';
+          div.style.padding = '8px 0';
+          div.style.borderBottom = '1px solid #eef2f7';
+          // Ubicación: i=1 -> fila 2 col 2; i=2 -> fila 3 col1; i=3 -> fila3 col2; i=4 -> fila4 col1; i=5 -> fila4 col2
+          const row = (i === 1) ? 2 : (Math.floor((i - 2) / 2) + 3);
+          const col = (i === 1) ? 2 : (i % 2 === 0 ? 1 : 2);
+          div.style.gridRow = String(row);
+          div.style.gridColumn = String(col);
+          div.innerHTML = `
+            <div style=\"font-size:12px; font-weight:700; color:#334155; background:#e2e8f0; padding:4px 8px; border-radius:999px; display:inline-block; margin-bottom:6px;\">Línea ${i}</div>
+            <div style=\"display:grid; grid-template-columns: 1fr 1fr; gap:12px;\">
+              <div>
+                <label>Número de teléfono *</label>
+                <input type=\"tel\" id=\"tel_${i}\" class=\"form-control\" required placeholder=\"Tu respuesta\" />
+              </div>
+              <div>
+                <label>Servicio *</label>
+                <select id=\"svc_${i}\" class=\"form-control\" required>
+                  <option value=\"WIRELESS\">WIRELESS</option>
+                  <option value=\"SIM WIRELES\">SIM WIRELES</option>
+                </select>
+              </div>
+            </div>`;
+          estadoGrid.appendChild(div);
+        }
+      }
+      renderTelefonos();
+
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.textContent = 'Enviando...';
+        const n = getCantidadLineas();
+        const telefonos = [];
+        const servicios = [];
+        const lines = [];
+        for (let i=1;i<=n;i++) {
+          const v = (document.getElementById(`tel_${i}`).value||'').replace(/\D+/g,'');
+          const s = (document.getElementById(`svc_${i}`)||{}).value || 'WIRELESS';
+          telefonos.push(v);
+          servicios.push(s);
+          lines.push({ telefono: v, servicio: s, estado: 'ACTIVE' });
+        }
+        const autopay = (document.querySelector('input[name="autopay"]:checked')||{}).value || 'si';
+        const status = (document.querySelector('input[name="status"]:checked')||{}).value || 'pending';
+        const mercadoSel = Array.from(document.querySelectorAll('input[name="mercado"]:checked')).map(i=>i.value);
+        const supervisor = (document.querySelector('input[name="supervisor"]:checked')||{}).value || 'JONATHAN';
+        // Normalizar: server espera un único mercado
+        const mercado = mercadoSel[0] || 'BAMO';
+        const payload = {
+          nombre_cliente: document.getElementById('nombre_cliente').value,
+          telefono_principal: (document.getElementById('telefono_principal').value||'').replace(/\D+/g,''),
+          numero_cuenta: document.getElementById('numero_cuenta').value,
+          autopay,
+          pin_seguridad: document.getElementById('pin_seguridad').value,
+          direccion: document.getElementById('direccion').value,
+          servicios,
+          lines,
+          dia_venta: document.getElementById('dia_venta').value,
+          dia_instalacion: document.getElementById('dia_instalacion').value,
+          status,
+          cantidad_lineas: n,
+          telefonos,
+          id: document.getElementById('id_field').value,
+          mercado,
+          supervisor,
+          agenteAsignado: (agentAssign && assignWrap && assignWrap.style.display !== 'none' ? String(agentAssign.value||'').trim() : '')
+        };
+
+        try {
+          const resp = await fetch('/api/lineas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          const data = await resp.json();
+          if (!resp.ok || data.success === false) throw new Error(data.message || (data.errors||[]).join(', '));
+          msg.style.color = '#065f46';
+          msg.textContent = 'Creado correctamente';
+          f.reset();
+          if (cantChecks[0]) cantChecks[0].checked = true;
+          renderTelefonos();
+          attachPhoneNormalizers();
+          diaVenta.value = todayLocal();
+        } catch (err) {
+          msg.style.color = '#b91c1c';
+          msg.textContent = err.message || 'Error al crear';
+        }
+      });
     });
   </script>
 </body>

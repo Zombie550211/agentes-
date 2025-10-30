@@ -1,37 +1,94 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script>
-    (function immediateRedirect(){
-      try{ window.location.replace('/inicio.html'); }catch(e){}
-    })();
-  </script>
+  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Inicio - Team Líneas</title>
   <script>
+    // Página deprecada: redirigir siempre al inicio general
+    try { window.location.replace('/inicio.html'); } catch(e) {}
+  </script>
+  <script>
     (function guard(){
+      function allow(){ /* no-op: body remains visible */ }
+      function toInicio(){ window.location.replace('/inicio.html'); }
+      function toLogin(){ window.location.replace('/login.html'); }
       try{
-        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-        const role = String(user.role||'').toLowerCase();
-        const username = String(user.username||'').toLowerCase();
-        const ok = role==='teamlineas' || username.startsWith('lineas-');
-        if(!ok){ window.location.replace('/inicio.html'); }
-      }catch(e){ window.location.replace('/inicio.html'); }
+        let user = null;
+        try { user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'null'); } catch {}
+        const role = String(user && user.role || '').toLowerCase();
+        const team = String(user && user.team || '').toLowerCase();
+        const okLocal = !!user && (role.includes('lineas') || team.includes('lineas') || role.includes('supervisor'));
+        if (okLocal) { allow(); return; }
+
+        // No info local: verificar con servidor
+        fetch('/api/auth/verify-server', { credentials:'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (!d || !d.authenticated || !d.user) { toLogin(); return; }
+            const r = String(d.user.role||'').toLowerCase();
+            const t = String(d.user.team||'').toLowerCase();
+            const ok = r.includes('lineas') || t.includes('lineas') || r.includes('supervisor');
+            if (ok) {
+              try { localStorage.setItem('user', JSON.stringify(d.user)); } catch {}
+              allow();
+            } else {
+              toInicio();
+            }
+          })
+          .catch(() => { toLogin(); });
+      }catch{ toInicio(); }
     })();
   </script>
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/sidebar.css" />
   <link rel="stylesheet" href="/css/sidebar-inicio.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css" />
+  <link rel="stylesheet" href="/css/costumer-table-clean.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 <body>
   <div class="layout">
     <nav class="sidebar sidebar-inicio" data-active="inicio"></nav>
     <main class="main-content">
-      <h1 style="margin:16px 0;">Inicio - Team Líneas</h1>
-      <p>Placeholder de Inicio para Team Líneas.</p>
+      <div style="max-width:100%; margin:16px auto 0;">
+        <h1 style="margin:0 0 12px;">Inicio</h1>
+
+        <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px; display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input id="q" class="form-control" placeholder="Buscar (nombre, agente, supervisor, mercado, status, fechas)" style="min-width:320px;" />
+            <button id="refreshBtn" class="btn">Buscar</button>
+          </div>
+          <div id="meta" style="font-size:13px; color:#6b7280;"></div>
+        </div>
+
+        <section style="margin-top:8px;">
+          <div class="costumer-table-container">
+            <div class="costumer-table-header">
+              <h2 class="costumer-table-title">Registros</h2>
+              <div class="costumer-table-actions"></div>
+            </div>
+            <div class="table-responsive">
+              <table class="costumer-table" id="tbl">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Agente</th>
+                    <th>Supervisor</th>
+                    <th>Mercado</th>
+                    <th>Status</th>
+                    <th>Día venta</th>
+                    <th>Día instalación</th>
+                    <th>Creado</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
   <script src="/js/fetch-interceptor.js"></script>
@@ -41,6 +98,69 @@
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
+      const btn = document.getElementById('refreshBtn');
+      const meta = document.getElementById('meta');
+      const tbody = document.getElementById('tbody');
+      const q = document.getElementById('q');
+      let allRows = [];
+
+      async function fetchData() {
+        tbody.innerHTML = '<tr><td colspan="8" style="padding:12px; color:#6b7280;">Cargando...</td></tr>';
+        try {
+          const url = '/api/lineas';
+          const resp = await fetch(url, { credentials: 'include' });
+          const data = await resp.json();
+          if (!resp.ok || data.success === false) throw new Error(data.message || 'Error');
+          allRows = data.data || [];
+          renderRows(applyFilter(allRows));
+          meta.textContent = `Registros: ${allRows.length}`;
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="8" style="padding:12px; color:#b91c1c;">${e.message || 'Error al cargar'}</td></tr>`;
+        }
+      }
+
+      function applyFilter(rows){
+        const term = (q?.value || '').trim().toUpperCase();
+        if (!term) return rows;
+        const norm = (v) => String(v||'').toUpperCase();
+        return rows.filter(r => {
+          const blob = [
+            norm(r.nombre_cliente),
+            norm(r.agente||r.agenteNombre),
+            norm(r.supervisor),
+            norm(r.mercado),
+            norm(r.status),
+            norm(r.dia_venta),
+            norm(r.dia_instalacion),
+            norm(r.creadoEn)
+          ].join(' | ');
+          return blob.includes(term);
+        });
+      }
+
+      function fmt(d) {
+        try { if (!d) return ''; const dt = new Date(d); if (isNaN(dt)) return String(d); return dt.toLocaleDateString(); } catch { return String(d||''); }
+      }
+
+      function renderRows(rows) {
+        if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="padding:12px; color:#6b7280;">Sin datos</td></tr>'; return; }
+        tbody.innerHTML = rows.map(r => `
+          <tr>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.nombre_cliente||'').toString()}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.agente||r.agenteNombre||'')}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.supervisor||'')}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.mercado||'')}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.status||'')}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.dia_venta)}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.dia_instalacion)}</td>
+            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.creadoEn)}</td>
+          </tr>
+        `).join('');
+      }
+
+      btn.addEventListener('click', fetchData);
+      if (q) q.addEventListener('input', ()=> renderRows(applyFilter(allRows)) );
+      fetchData();
     });
   </script>
 </body>

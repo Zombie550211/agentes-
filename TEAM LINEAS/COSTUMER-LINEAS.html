@@ -1,11 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script>
-    (function immediateRedirect(){
-      try{ window.location.replace('/Costumer.html'); }catch(e){}
-    })();
-  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Customer - Team Líneas</title>
@@ -14,8 +9,8 @@
       try{
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const role = String(user.role||'').toLowerCase();
-        const username = String(user.username||'').toLowerCase();
-        const ok = role==='teamlineas' || username.startsWith('lineas-');
+        const team = String(user.team||'').toLowerCase();
+        const ok = /lineas/.test(team) || /lineas/.test(role) || role.includes('supervisor');
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();
@@ -24,14 +19,71 @@
   <link rel="stylesheet" href="/css/sidebar.css" />
   <link rel="stylesheet" href="/css/sidebar-inicio.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css" />
+  <link rel="stylesheet" href="/css/costumer-table-clean.css" />
+  <link rel="stylesheet" href="/css/costumer-table-actions.css" />
+  <link rel="stylesheet" href="/css/costumer-table-comments.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <style>
+    .filters { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; }
+    .grid-2 { display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  </style>
 </head>
 <body>
   <div class="layout">
-    <nav class="sidebar sidebar-inicio" data-active="customer"></nav>
+    <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
     <main class="main-content">
-      <h1 style="margin:16px 0;">Customer - Team Líneas</h1>
-      <p>Página base para Team Líneas.</p>
+      <div style="max-width:100%; margin:16px auto 0;">
+        <h1 style="margin:0 0 12px;">Customer - Team Líneas</h1>
+
+        <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input id="q" class="form-control" placeholder="Buscar (nombre, teléfono, cuenta, dirección, ID)" style="min-width:320px;" />
+            <select id="qs" class="form-control" style="min-width:140px;">
+              <option value="">STATUS: Todos</option>
+              <option value="pending">PENDING</option>
+              <option value="repro">REPRO</option>
+            </select>
+            <select id="agentSelect" class="form-control" style="min-width:220px; display:none;">
+              <option value="">Seleccione agente</option>
+            </select>
+          </div>
+          
+        </div>
+
+        <!-- Sin formularios: solo barra rápida arriba y tabla debajo -->
+
+        <section style="margin-top:16px;">
+          <div class="costumer-table-container">
+            <div class="costumer-table-header">
+              <h2 class="costumer-table-title">Lista de Clientes</h2>
+              <div class="costumer-table-actions"></div>
+            </div>
+            <div class="table-responsive">
+              <table class="costumer-table">
+                <thead id="costumer-thead">
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Cuenta</th>
+                    <th>Cant. líneas</th>
+                    <th>Líneas</th>
+                    <th>STATUS</th>
+                    <th>Día venta</th>
+                    <th>Día instalación</th>
+                    <th>ID</th>
+                    <th>Mercado</th>
+                    <th>Supervisor</th>
+                    <th>ACCIÓN</th>
+                  </tr>
+                </thead>
+                <tbody id="costumer-tbody"></tbody>
+              </table>
+            </div>
+            <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="height:1px;"></div></div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
   <script src="/js/fetch-interceptor.js"></script>
@@ -41,6 +93,252 @@
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
+
+      const $ = (s) => document.querySelector(s);
+      const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+      function normalizeDigits(v){ return String(v||'').replace(/\D+/g,''); }
+
+      async function fetchData(){
+        // Requerir ?agente= si es supervisor
+        let isSupervisorTL = false;
+        let supUsername = '';
+        try {
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const roleLc = String(user.role||'').toLowerCase();
+          isSupervisorTL = roleLc.includes('supervisor');
+          supUsername = String(user.username||user.name||'').toUpperCase();
+        } catch {}
+
+        let url = '/api/lineas-team';
+        if (isSupervisorTL) {
+          const sel = document.getElementById('agentSelect');
+          const agente = sel ? String(sel.value||'').trim() : '';
+          if (!agente) {
+            return [];
+          }
+          url += `?agente=${encodeURIComponent(agente)}`;
+        }
+
+        const resp = await fetch(url,{ credentials:'include' });
+        const j = await resp.json();
+        return Array.isArray(j?.data) ? j.data : [];
+      }
+
+      function buildHeaders(){
+        const thead = document.getElementById('costumer-thead');
+        if (!thead) return;
+        thead.innerHTML = `
+          <tr>
+            <th style="width:28px;"></th>
+            <th>Cliente</th>
+            <th>Teléfono</th>
+            <th>Cuenta</th>
+            <th>Cant. líneas</th>
+            <th>Líneas</th>
+            <th>STATUS</th>
+            <th>Día venta</th>
+            <th>Día instalación</th>
+            <th>ID</th>
+            <th>Mercado</th>
+            <th>Supervisor</th>
+            <th>ACCIÓN</th>
+          </tr>`;
+      }
+
+      function applyFilters(items){
+        const query = ($('#q')?.value || '').trim().toUpperCase();
+        const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
+        const nombre = '';
+        const tel = '';
+        const cuenta = '';
+        const autopay = '';
+        const pin = '';
+        const dir = '';
+        const servs = [];
+        let status = '';
+        if (qstatus) status = qstatus;
+        const dventa = '';
+        const dinst = '';
+        const cant = '';
+        const idv = '';
+        const mercado = [];
+        let sup = '';
+
+        return items.filter(it=>{
+          if (query) {
+            const blob = [
+              String(it.nombre_cliente||'').toUpperCase(),
+              normalizeDigits(it.telefono_principal),
+              String(it.numero_cuenta||'').toUpperCase(),
+              String(it.direccion||'').toUpperCase(),
+              String(it.id||'').toUpperCase()
+            ].join(' | ');
+            if (!blob.includes(query)) return false;
+          }
+          if (nombre && !(String(it.nombre_cliente||'').toUpperCase().includes(nombre))) return false;
+          if (tel && !(normalizeDigits(it.telefono_principal).includes(tel))) return false;
+          if (cuenta && !(String(it.numero_cuenta||'').includes(cuenta))) return false;
+          if (autopay && String(it.autopay||'').toLowerCase()!==autopay) return false;
+          if (pin && !(String(it.pin_seguridad||'').includes(pin))) return false;
+          if (dir && !(String(it.direccion||'').toUpperCase().includes(dir))) return false;
+          if (servs.length && !servs.some(s=> (it.servicios||[]).includes(s))) return false;
+          if (status && String(it.status||'').toLowerCase()!==status) return false;
+          if (dventa && String(it.dia_venta||'')!==dventa) return false;
+          if (dinst && String(it.dia_instalacion||'')!==dinst) return false;
+          if (cant && Number(it.cantidad_lineas||0)!== Number(cant)) return false;
+          if (idv && !(String(it.id||'').includes(idv))) return false;
+          if (mercado.length && !mercado.includes(String(it.mercado||''))) return false;
+          if (sup && String(it.supervisor||'')!==sup) return false;
+          return true;
+        });
+      }
+
+      function renderTable(items){
+        buildHeaders();
+        const tb = document.getElementById('costumer-tbody');
+        let rowIndex = 0;
+        tb.innerHTML = items.map(it=>{
+          const servArr = Array.isArray(it.servicios) ? it.servicios : (typeof it.servicios_texto==='string' ? it.servicios_texto.split(/[,;]+/).map(s=>s.trim()).filter(Boolean) : []);
+          const tels = Array.isArray(it.telefonos) ? it.telefonos : [];
+          const maxLen = Math.max(servArr.length, tels.length);
+          const pairs = Array.from({length: maxLen}).map((_,i)=>{
+            const s = servArr[i] || '';
+            const t = tels[i] || '';
+            return (s||t) ? `${s}${s&&t?': ':''}${t}` : '';
+          }).filter(Boolean);
+          const firstLine = pairs[0] || '';
+          const rest = pairs.slice(1);
+          const cant = (it.cantidad_lineas!=null) ? it.cantidad_lineas : (Array.isArray(it.telefonos) ? it.telefonos.length : '');
+          const rid = `r${rowIndex++}`;
+          const hasChildren = rest.length > 0;
+          const main = `<tr class="main-row" data-rid="${rid}" data-has-children="${hasChildren? '1':'0'}" style="cursor:pointer;">
+            <td class="expander" title="Expandir/colapsar">${hasChildren? '<span class="chev">&#9654;</span>' : ''}</td>
+            <td>${it.nombre_cliente||''}</td>
+            <td>${it.telefono_principal||''}</td>
+            <td>${it.numero_cuenta||''}</td>
+            <td>${1}/${cant || pairs.length || 1}</td>
+            <td>${firstLine}</td>
+            <td>${(it.status||'').toUpperCase()}</td>
+            <td>${it.dia_venta||''}</td>
+            <td>${it.dia_instalacion||''}</td>
+            <td>${it.id||''}</td>
+            <td>${it.mercado||''}</td>
+            <td>${it.supervisor||''}</td>
+            <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="event.stopPropagation(); alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
+          </tr>`;
+          const children = rest.map((line, idx) => `
+            <tr class="child-row" data-parent="${rid}" style="display:none; background:#f8fafc;">
+              <td class="expander"></td>
+              <td>${it.nombre_cliente||''}</td>
+              <td>${it.telefono_principal||''}</td>
+              <td>${it.numero_cuenta||''}</td>
+              <td>${(idx+2)}/${cant || pairs.length || (idx+2)}</td>
+              <td>${line}</td>
+              <td>${(it.status||'').toUpperCase()}</td>
+              <td>${it.dia_venta||''}</td>
+              <td>${it.dia_instalacion||''}</td>
+              <td>${it.id||''}</td>
+              <td>${it.mercado||''}</td>
+              <td>${it.supervisor||''}</td>
+              <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="event.stopPropagation(); alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
+            </tr>
+          `).join('');
+          const separator = `
+            <tr class="sep-row" data-parent="${rid}" style="display:none;">
+              <td colspan="13" style="height:12px; border-top: 2px solid #e5e7eb; background: #ffffff;"></td>
+            </tr>
+          `;
+          return main + children + separator;
+        }).join('');
+        // No handlers here; a single global delegated handler is attached once on DOMContentLoaded
+        if (window.rebuildStickyHead) try{ window.rebuildStickyHead(); }catch{}
+      }
+
+      let allItems = [];
+      async function load(){
+        allItems = await fetchData();
+        renderTable(applyFilters(allItems));
+      }
+
+      const btnBuscar = document.getElementById('btnBuscar');
+      if (btnBuscar) btnBuscar.addEventListener('click', ()=>{ renderTable(applyFilters(allItems)); });
+      const btnReset = document.getElementById('btnReset');
+      if (btnReset) btnReset.addEventListener('click', ()=>{
+        if ($('#q')) $('#q').value = '';
+        if ($('#qs')) $('#qs').value = '';
+        renderTable(allItems);
+      });
+
+      // No hay campos de formulario adicionales
+
+      // Live filtering from quick controls
+      const q = $('#q');
+      const qs = $('#qs');
+      if (q) q.addEventListener('input', ()=> renderTable(applyFilters(allItems)) );
+      if (qs) qs.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+
+      // Preparar selector de agentes si el usuario es supervisor
+      try {
+        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+        const roleLc = String(user.role||'').toLowerCase();
+        const isSupervisorTL = roleLc.includes('supervisor');
+        if (isSupervisorTL) {
+          const username = String(user.username||user.name||'').toUpperCase();
+          const agentsMap = {
+            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA'],
+            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
+          };
+          const list = [username, ...((agentsMap[username] || []))];
+          const sel = document.getElementById('agentSelect');
+          if (sel) {
+            sel.style.display = 'block';
+            sel.innerHTML = '<option value="">Seleccione agente</option>' + list.map((a,i)=>`<option value="${a}">${i===0? a+' (Supervisor)': a}</option>`).join('');
+            sel.addEventListener('change', async ()=>{ allItems = await fetchData(); renderTable(applyFilters(allItems)); });
+            // Preseleccionar al supervisor para cargar sus ventas propias
+            sel.value = username;
+            sel.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch {}
+
+      // Toggle filters panel
+      // No hay panel de filtros
+      buildHeaders();
+
+      // Attach single delegated handler for expand/collapse
+      try {
+        const tbOnce = document.getElementById('costumer-tbody');
+        if (tbOnce && !tbOnce._boundExpand) {
+          tbOnce.addEventListener('click', function(e){
+            const tr = e.target.closest('tr.main-row');
+            if (!tr) return;
+            if (tr.getAttribute('data-has-children') !== '1') return;
+            const rid = tr.getAttribute('data-rid');
+            const childs = Array.from(tbOnce.querySelectorAll(`tr.child-row[data-parent="${rid}"]`));
+            const sep = tbOnce.querySelector(`tr.sep-row[data-parent="${rid}"]`);
+            const anyHidden = childs.some(c => c.style.display === 'none') || (sep && sep.style.display === 'none');
+            childs.forEach(c => { c.style.display = anyHidden ? 'table-row' : 'none'; });
+            if (sep) sep.style.display = anyHidden ? 'table-row' : 'none';
+            const chev = tr.querySelector('.chev');
+            if (chev) chev.innerHTML = anyHidden ? '&#9660;' : '&#9654;';
+          });
+          tbOnce._boundExpand = true;
+        }
+      } catch {}
+
+      // Si es supervisor y no ha elegido agente, esperar; si no, cargar
+      (async () => {
+        try {
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const isSupTL = String(user.role||'').toLowerCase().includes('supervisor');
+          if (isSupTL) {
+            const sel = document.getElementById('agentSelect');
+            if (sel && !sel.value) { renderTable([]); return; }
+          }
+        } catch {}
+        load();
+      })();
     });
   </script>
 </body>

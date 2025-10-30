@@ -4,10 +4,148 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../config/db');
 const { protect, authorize } = require('../middleware/auth');
+const nodemailer = require('nodemailer');
 
 // Configuración JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
 const JWT_EXPIRES_IN = '24h';
+
+// ===== Password reset helpers =====
+function buildTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 0);
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  if (host && port) {
+    return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  }
+  // Fallback a Gmail u otros proveedores por 'service'
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass }
+  });
+}
+
+function normalizeEmail(e) { return String(e || '').trim().toLowerCase(); }
+function genCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+
+async function saveResetCode(db, email, code, ip) {
+  const coll = db.collection('password_resets');
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+  const doc = { email, code, expiresAt, used: false, createdAt: new Date(), ip };
+  await coll.insertOne(doc);
+  return doc;
+}
+
+async function validateResetCode(db, email, code) {
+  const coll = db.collection('password_resets');
+  const now = new Date();
+  const rec = await coll.findOne({ email, code, used: false, expiresAt: { $gt: now } });
+  return !!rec;
+}
+
+async function markCodeUsed(db, email, code) {
+  const coll = db.collection('password_resets');
+  await coll.updateOne({ email, code, used: false }, { $set: { used: true, usedAt: new Date() } });
+}
+
+// ===== Endpoints: Password Reset via Email =====
+/**
+ * POST /api/auth/forgot-password
+ * body: { email }
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    const emailRaw = req.body?.email;
+    const email = normalizeEmail(emailRaw);
+    if (!email) return res.status(400).json({ success: false, message: 'Email requerido' });
+
+    const user = await db.collection('users').findOne({ email });
+    if (!user) {
+      // Responder éxito genérico para no filtrar existencia de emails
+      return res.json({ success: true, message: 'Si el correo existe, enviaremos un código' });
+    }
+
+    const code = genCode();
+    await saveResetCode(db, email, code, req.ip);
+
+    // Enviar email
+    const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    const transporter = buildTransporter();
+    const info = await transporter.sendMail({
+      from,
+      to: email,
+      subject: 'Código de verificación - Restablecer contraseña',
+      html: `
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+          <h2>Restablecer contraseña</h2>
+          <p>Tu código de verificación es:</p>
+          <p style="font-size:28px;font-weight:800;letter-spacing:4px">${code}</p>
+          <p>El código expira en 10 minutos.</p>
+        </div>
+      `
+    });
+    console.log('[FORGOT-PASSWORD] Email enviado:', info?.messageId || 'ok');
+
+    return res.json({ success: true, message: 'Código enviado si el correo existe' });
+  } catch (e) {
+    console.error('[FORGOT-PASSWORD] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error enviando el código' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-reset-code
+ * body: { email, code }
+ */
+router.post('/verify-reset-code', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    const email = normalizeEmail(req.body?.email);
+    const code = String(req.body?.code || '').trim();
+    if (!email || !code) return res.status(400).json({ success: false, message: 'Email y código requeridos' });
+    const ok = await validateResetCode(db, email, code);
+    if (!ok) return res.status(400).json({ success: false, message: 'Código inválido o expirado' });
+    return res.json({ success: true, message: 'Código válido' });
+  } catch (e) {
+    console.error('[VERIFY-RESET-CODE] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error verificando código' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password-by-email
+ * body: { email, code, newPassword }
+ */
+router.post('/reset-password-by-email', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    const email = normalizeEmail(req.body?.email);
+    const code = String(req.body?.code || '').trim();
+    const newPassword = String(req.body?.newPassword || '');
+    if (!email || !code || !newPassword) return res.status(400).json({ success: false, message: 'Campos requeridos: email, code, newPassword' });
+    if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+
+    const valid = await validateResetCode(db, email, code);
+    if (!valid) return res.status(400).json({ success: false, message: 'Código inválido o expirado' });
+
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+    await db.collection('users').updateOne({ _id: user._id }, { $set: { password: hashed, updatedAt: new Date() } });
+    await markCodeUsed(db, email, code);
+    return res.json({ success: true, message: 'Contraseña actualizada' });
+  } catch (e) {
+    console.error('[RESET-PASSWORD-BY-EMAIL] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error al restablecer contraseña' });
+  }
+});
 
 /**
  * @route POST /api/auth/login

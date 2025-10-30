@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { getDb, getDbFor } = require('../config/db');
+
 const { protect, authorize } = require('../middleware/auth');
 
 /**
@@ -67,12 +68,123 @@ router.get('/stats', protect, async (req, res) => {
   }
 });
 
+// GET /api/lineas-team -> lista registros desde TEAM_LINEAS.<USUARIO>
+router.get('/lineas-team', protect, async (req, res) => {
+  try {
+    const dbTL = getDbFor('TEAM_LINEAS');
+    if (!dbTL) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
+
+    const roleLc = String(req.user?.role||'').toLowerCase();
+    let targetName = (req.user?.name || req.user?.username || 'USUARIO');
+
+    // Opción A: si es supervisor, exigir ?agente y validar pertenencia
+    if (roleLc.includes('supervisor')) {
+      const agenteParam = String(req.query.agente || '').trim();
+      if (!agenteParam) {
+        return res.status(400).json({ success:false, message:'Parámetro "agente" es requerido para supervisores' });
+      }
+      // Validar que el agente pertenezca al supervisor
+      try {
+        const db = getDb();
+        const usersCol = db.collection('users');
+        const agentDoc = await usersCol.findOne({ username: agenteParam });
+        const supUser = String(req.user?.username || '').toUpperCase();
+        const agentSup = String(agentDoc?.supervisor || '').toUpperCase();
+        if (!agentDoc || agentSup !== supUser) {
+          return res.status(403).json({ success:false, message:'No autorizado para consultar este agente' });
+        }
+        targetName = agenteParam;
+      } catch (e) {
+        return res.status(500).json({ success:false, message:'Error validando agente', error: e.message });
+      }
+    }
+    // Si NO es supervisor, ignorar cualquier intento de pasar ?agente
+
+    const colName = __normName(targetName);
+    const col = dbTL.collection(colName);
+
+    const list = await col.find({}).sort({ createdAt: -1, creadoEn: -1, updatedAt: -1, actualizadoEn: -1 }).toArray();
+    return res.json({ success:true, data:list, collection: colName, count: list.length });
+  } catch (e) {
+    console.error('[API LINEAS TEAM GET] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error:e.message });
+  }
+});
+
+// Crear cliente/lead para Team Líneas (escribe SOLO en TEAM_LINEAS.<USUARIO>)
+router.post('/lineas', protect, async (req, res) => {
+  try {
+    const roleLc = String(req.user?.role||'').toLowerCase();
+    const allow = __isTeamLineas(req) || roleLc.includes('supervisor');
+    if (!allow) return res.status(403).json({ success:false, message:'Solo disponible para Team Líneas/Supervisor' });
+
+    const dbTL = getDbFor('TEAM_LINEAS');
+    if (!dbTL) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
+
+    const body = req.body || {};
+    const base = sanitizePayload(body);
+    const now = new Date();
+    const ownerName = req.user?.name || req.user?.username || 'USUARIO';
+    const ownerId = req.user?.id || req.user?._id || null;
+    // Determinar el dueño/colección destino
+    let targetName = ownerName;
+    if (roleLc.includes('supervisor') && body.agenteAsignado) {
+      try {
+        const db = getDb();
+        const usersCol = db.collection('users');
+        const agenteSel = String(body.agenteAsignado).trim();
+        const agentDoc = await usersCol.findOne({ username: agenteSel });
+        const supUser = String(req.user?.username || '').toUpperCase();
+        const agentSup = String(agentDoc?.supervisor || '').toUpperCase();
+        if (!agentDoc || agentSup !== supUser) {
+          return res.status(403).json({ success:false, message:'No autorizado para asignar a este agente' });
+        }
+        targetName = agenteSel;
+      } catch (e) {
+        return res.status(500).json({ success:false, message:'Error validando agente asignado', error: e.message });
+      }
+    }
+
+    // Derivar arrays de servicios/telefonos y cantidad de líneas exactamente como llegan del form
+    const asArray = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
+    const servicios = asArray(base.servicios).map(String);
+    const telefonos = asArray(base.telefonos).map(v => String(v).replace(/\D+/g,''));
+    let cantidad_lineas = Number(asArray(base.cantidad_lineas)[0] || telefonos.length || 0);
+    if (!cantidad_lineas && servicios.length) cantidad_lineas = servicios.length;
+
+    const doc = {
+      ...base,
+      agenteNombre: base.agenteNombre || targetName,
+      agente: base.agente || targetName,
+      ownerId: ownerId,
+      supervisor: base.supervisor || (req.user?.username || req.user?.supervisor || ''),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      team: req.user?.team || 'team lineas',
+      servicios,
+      telefonos,
+      cantidad_lineas,
+      ID: base.ID || base.id || base.Id || undefined
+    };
+
+    const colName = __normName(targetName);
+    const tcol = dbTL.collection(colName);
+    console.log('[API LINEAS CREATE] Colección destino:', tcol.collectionName);
+    const ins = await tcol.insertOne(doc);
+    return res.json({ success:true, message:'Creado en TEAM_LINEAS', data:{ id: ins.insertedId } });
+  } catch (e) {
+    console.error('[API LINEAS CREATE] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error:e.message });
+  }
+});
+
 /**
  * @route GET /api/leads
  * @desc Obtener leads/clientes desde MongoDB
  * @access Private
  */
 router.get('/leads', protect, async (req, res) => {
+
   try {
     console.log('[API LEADS] Solicitud recibida');
     console.log('[API LEADS] Usuario:', req.user?.username, 'Rol:', req.user?.role);
@@ -375,6 +487,32 @@ router.put('/leads/:id/status', protect, async (req, res) => {
 // ============================
 // Actualización de cliente/lead
 // ============================
+function __isTeamLineas(req){
+  try{
+    const t = String(req.user?.team||'').toLowerCase();
+    const r = String(req.user?.role||'').toLowerCase();
+    const u = String(req.user?.username||'').toLowerCase();
+    return t.includes('lineas') || r.includes('teamlineas') || u.startsWith('lineas-');
+  }catch{ return false; }
+}
+function __normName(s){
+  try { return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toUpperCase().replace(/\s+/g,'_').replace(/[^A-Z0-9_]/g,'_') || 'UNKNOWN'; }
+  catch { return String(s||'').toUpperCase().replace(/\s+/g,'_') || 'UNKNOWN'; }
+}
+function __getTeamLineasCollection(req){
+  const dbTL = getDbFor('TEAM_LINEAS');
+  if (!dbTL) return null;
+  const ownerName = req.user?.name || req.user?.username || 'UNKNOWN';
+  const colName = __normName(ownerName);
+  return dbTL.collection(colName);
+}
+async function __findByIdGeneric(col, id){
+  const { ObjectId } = require('mongodb');
+  let objId = null; try { objId = new ObjectId(String(id)); } catch { objId = null; }
+  const byObj = objId ? await col.findOne({ _id: objId }) : null;
+  if (byObj) return byObj;
+  return await col.findOne({ _id: String(id) }) || await col.findOne({ id: String(id) });
+}
 async function getCostumerById(db, id) {
   const { ObjectId } = require('mongodb');
   const collection = db.collection('costumers');
@@ -414,6 +552,8 @@ function sanitizePayload(body) {
     'nombre_cliente','telefono_principal','telefono_alterno','numero_cuenta','autopago','direccion','zip_code',
     'tipo_servicio','tipo_servicios','sistema','riesgo','dia_venta','dia_instalacion','status','servicios_texto',
     'mercado','supervisor','comentario','motivo_llamada','puntaje','agenteNombre','nombreAgente','agente','agenteId',
+    // Team Líneas específicos
+    'servicios','telefonos','cantidad_lineas','id','ID'
   ]);
   const set = {};
   Object.keys(body || {}).forEach(k => { if (allowed.has(k)) set[k] = body[k]; });
@@ -447,13 +587,27 @@ async function commonUpdateHandler(req, res) {
       return res.status(400).json({ success:false, message:'Faltan campos requeridos o son inválidos' });
     }
 
-    const { ObjectId } = require('mongodb');
-    const collection = db.collection('costumers');
-    let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
-    const filter = objId ? { _id: objId } : { _id: id };
-    const result = await collection.updateOne(filter, { $set });
-    if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo actualizar (no encontrado)' });
-    return res.json({ success:true, message:'Registro actualizado', data:{ id, updated: Object.keys($set) } });
+    // Si es Team Líneas: escribir SOLO en TEAM_LINEAS.<USUARIO>
+    if (__isTeamLineas(req)) {
+      const tcol = __getTeamLineasCollection(req);
+      if (!tcol) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
+      const { ObjectId } = require('mongodb');
+      let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+      const filter = objId ? { _id: objId } : ({ $or: [{ _id: id }, { id: id }] });
+      const result = await tcol.updateOne(filter, { $set }, { upsert: false });
+      if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo actualizar (no encontrado en TEAM_LINEAS)' });
+      return res.json({ success:true, message:'Registro actualizado (TEAM_LINEAS)', data:{ id, updated: Object.keys($set) } });
+    }
+    // Caso general (no Team Líneas): colección costumers
+    else {
+      const { ObjectId } = require('mongodb');
+      const collection = db.collection('costumers');
+      let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+      const filter = objId ? { _id: objId } : { _id: id };
+      const result = await collection.updateOne(filter, { $set });
+      if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo actualizar (no encontrado)' });
+      return res.json({ success:true, message:'Registro actualizado', data:{ id, updated: Object.keys($set) } });
+    }
   } catch (e) {
     console.error('[API UPDATE LEAD] Error:', e);
     return res.status(500).json({ success:false, message:'Error interno', error:e.message });
@@ -493,13 +647,24 @@ async function commonAddNote(req, res) {
       at: new Date().toISOString()
     };
 
-    const { ObjectId } = require('mongodb');
-    const collection = db.collection('costumers');
-    let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
-    const filter = objId ? { _id: objId } : { _id: id };
-    const result = await collection.updateOne(filter, { $push: { notas: note } });
-    if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo agregar la nota (no encontrado)' });
-    return res.json({ success:true, message:'Nota agregada', data: note });
+    if (__isTeamLineas(req)) {
+      const tcol = __getTeamLineasCollection(req);
+      if (!tcol) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
+      const { ObjectId } = require('mongodb');
+      let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+      const filter = objId ? { _id: objId } : ({ $or: [{ _id: id }, { id: id }] });
+      const result = await tcol.updateOne(filter, { $push: { notas: note } });
+      if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo agregar la nota (no encontrado en TEAM_LINEAS)' });
+      return res.json({ success:true, message:'Nota agregada (TEAM_LINEAS)', data: note });
+    } else {
+      const { ObjectId } = require('mongodb');
+      const collection = db.collection('costumers');
+      let objId = null; try { objId = new ObjectId(id); } catch { objId = null; }
+      const filter = objId ? { _id: objId } : { _id: id };
+      const result = await collection.updateOne(filter, { $push: { notas: note } });
+      if (result.matchedCount === 0) return res.status(404).json({ success:false, message:'No se pudo agregar la nota (no encontrado)' });
+      return res.json({ success:true, message:'Nota agregada', data: note });
+    }
   } catch (e) {
     console.error('[API ADD NOTE] Error:', e);
     return res.status(500).json({ success:false, message:'Error interno', error:e.message });
