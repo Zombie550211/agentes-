@@ -93,7 +93,7 @@ const SCORING_TABLE = {
 
   // ========== WINDSTREAM ==========
   'internet-windstream': {
-    base: 1.25
+    base: 1.0
   },
 
   // ========== BRIGHTSPEED ==========

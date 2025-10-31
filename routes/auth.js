@@ -173,8 +173,21 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Buscar usuario en la base de datos
-    const user = await db.collection('users').findOne({ username: username });
+    // Buscar usuario en la base de datos permitiendo variantes comunes (espacios vs puntos) y comparando también contra 'name'
+    const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const uname = String(username || '').trim();
+    const variants = Array.from(new Set([
+      uname,
+      uname.replace(/[\s]+/g, '.'),
+      uname.replace(/[.]+/g, ' '),
+      uname.replace(/[.\s]+/g, ' '),
+      uname.replace(/[.\s]+/g, '.')
+    ].filter(Boolean)));
+    const ors = variants.flatMap(v => {
+      const rx = new RegExp(`^${esc(v)}$`, 'i');
+      return [ { username: rx }, { name: rx } ];
+    });
+    const user = await db.collection('users').findOne({ $or: ors });
 
     if (!user) {
       return res.status(401).json({
