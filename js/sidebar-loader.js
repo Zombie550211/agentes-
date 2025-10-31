@@ -13,6 +13,7 @@
       return;
     }
 
+    let loadedOk = false;
     try {
       // Obtener información del usuario
       const user = await getUserInfo();
@@ -21,7 +22,7 @@
       const activePage = sidebarElement.getAttribute('data-active') || 'inicio';
       
       // Generar HTML del sidebar
-      const sidebarHTML = generateSidebarHTML(user, activePage);
+      const sidebarHTML = generateSidebarHTML(user, activePage);w
       
       // Insertar HTML
       sidebarElement.innerHTML = sidebarHTML;
@@ -54,16 +55,22 @@
       
       // Emitir evento de sidebar cargado
       document.dispatchEvent(new Event('sidebar:loaded'));
-      
+      loadedOk = true;
       console.log('✅ Sidebar cargado correctamente para rol:', user.role);
-
-      // Configurar auto-ocultamiento del sidebar de manera GLOBAL (todas las páginas)
-      try { setupGlobalAutoHideSidebar(); } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
     } catch (error) {
       console.error('❌ Error cargando sidebar:', error);
       // Mostrar sidebar básico en caso de error
       sidebarElement.innerHTML = generateFallbackSidebar();
+      // Emitir evento incluso en error para que otros listeners continúen
+      try { document.dispatchEvent(new Event('sidebar:loaded')); } catch {}
     }
+
+    // Configurar auto-ocultamiento del sidebar SIEMPRE (éxito o error)
+    try {
+      setupGlobalAutoHideSidebar();
+      // Forzar estado inicial oculto
+      document.body.classList.remove('show-sidebar');
+    } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
   };
 
   // Obtener información del usuario desde localStorage o API
@@ -307,16 +314,16 @@
     if (!DOC.getElementById(STYLE_ID)) {
       const css = `
         :root { --sidebar-width: 240px; --sidebar-peek: 12px; }
-        /* Sidebar sobrepuesto (overlay) para evitar relayout del contenido */
-        .sidebar { position: sticky; left: 0; top: 0; backface-visibility: hidden; transform: translate3d(0,0,0); will-change: transform; }
-        body.auto-hide-sidebar .sidebar { transform: translate3d(calc(var(--sidebar-width) * -1 + var(--sidebar-peek)), 0, 0); transition: transform .12s ease-out; }
-        body.auto-hide-sidebar.show-sidebar .sidebar { transform: translate3d(0,0,0); }
+        /* Sidebar overlay fijo: no reserva espacio en el layout */
+        .sidebar { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-width) !important; height: 100vh !important; backface-visibility: hidden; transform: translate3d(0,0,0) !important; will-change: transform; z-index: 140 !important; }
+        body.auto-hide-sidebar .sidebar { transform: translate3d(calc(var(--sidebar-width) * -1 + var(--sidebar-peek)), 0, 0) !important; transition: transform .12s ease-out; }
+        body.auto-hide-sidebar.show-sidebar .sidebar { transform: translate3d(0,0,0) !important; }
         /* Contenido: margen fijo pequeño siempre, SIN transiciones */
         .main-content { margin-left: calc(var(--sidebar-peek) + 8px) !important; }
         /* Zona de hover para mostrar sidebar */
-        .sidebar-hover-zone { position: fixed; left: 0; top: 0; width: var(--sidebar-peek); height: 100vh; z-index: 150; pointer-events: auto; }
-        @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { transform: translate3d(0,0,0); } .sidebar-hover-zone { display: none; } }
-        @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar { transition: none; } }
+        .sidebar-hover-zone { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-peek) !important; height: 100vh !important; z-index: 150 !important; pointer-events: auto; }
+        @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { transform: translate3d(0,0,0) !important; } .sidebar-hover-zone { display: none !important; } }
+        @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar { transition: none !important; } }
       `;
       const styleEl = DOC.createElement('style');
       styleEl.id = STYLE_ID;
