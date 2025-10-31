@@ -22,7 +22,7 @@
       const activePage = sidebarElement.getAttribute('data-active') || 'inicio';
       
       // Generar HTML del sidebar
-      const sidebarHTML = generateSidebarHTML(user, activePage);w
+      const sidebarHTML = generateSidebarHTML(user, activePage);
       
       // Insertar HTML
       sidebarElement.innerHTML = sidebarHTML;
@@ -33,11 +33,11 @@
         if (firstMenu && firstMenu.querySelectorAll('li').length === 0) {
           console.warn('⚠️ Sidebar sin items tras render. Inyectando menú de agente por fallback.');
           const items = [
-            { icon:'fa-home', text:'Inicio', href:'inicio.html' },
-            { icon:'fa-user-plus', text:'Nuevo Lead', href:'lead.html' },
-            { icon:'fa-users', text:'Lista de Clientes', href:'Costumer.html' },
-            { icon:'fa-trophy', text:'Ranking y Promociones', href:'Ranking y Promociones.html' },
-            { icon:'fa-chart-bar', text:'Estadísticas', href:'Estadisticas.html' }
+            { icon:'fa-home', text:'Inicio', href:'\/inicio.html' },
+            { icon:'fa-user-plus', text:'Nuevo Lead', href:'\/lead.html' },
+            { icon:'fa-users', text:'Lista de Clientes', href:'\/Costumer.html' },
+            { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/Ranking y Promociones.html' },
+            { icon:'fa-chart-bar', text:'Estadísticas', href:'\/Estadisticas.html' }
           ];
           firstMenu.innerHTML = items.map(it => `
             <li>
