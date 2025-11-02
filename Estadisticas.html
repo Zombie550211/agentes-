@@ -886,8 +886,8 @@
           }
         }
         
-        // Reglas de visibilidad por día y rotación semanal (fin de semana)
-        (function applyWeekendVisibility(){
+        // Visibilidad (MES): no filtrar por fin de semana; siempre considerar todos los equipos
+        (function applyMonthVisibility(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
             const teamCanon = (name)=>{
@@ -902,27 +902,10 @@
             const groupA = new Set(['johana','irania']);
             const groupB = new Set(['pleitez','roberto','marisol']);
             const today = new Date();
-            const getISOWeek = (d)=>{
-              const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-              const dayNum = date.getUTCDay() || 7;
-              date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-              const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-              return Math.floor((((date - yearStart) / 86400000) + 1)/7);
-            };
-            const dow = today.getDay(); // 0=Domingo, 6=Sábado
-            // L-V: no filtrar; Sáb/Dom: aplicar grupos con rotación semanal
-            if (dow === 6 || dow === 0) {
-              const parity = getISOWeek(today) % 2; // 0/1
-              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
-              const allowed = showA ? groupA : groupB;
-              if (Array.isArray(fallbackTeamData) && fallbackTeamData.length) {
-                fallbackTeamData = fallbackTeamData.filter(t => allowed.has(norm(t?.name)));
-                teamData = teamData.filter(t => allowed.has(norm(t?.name)));
-              }
-            }
+            // No filtrar por día: mantener todos los equipos del mes
 
             // Asegurar presencia de filas en 0 para equipos faltantes
-            const allTeams = (()=>{
+            const allTeams = (function(){
               try {
                 if (window.Teams && typeof window.Teams.getAllTeams === 'function') {
                   const arr = window.Teams.getAllTeams(); // devuelve nombres
@@ -932,15 +915,7 @@
               // fallback estático
               return ['Pleitez','Roberto','Marisol','Johana','Irania'];
             })();
-            const isWeekend = (dow === 6 || dow === 0);
-            let targetSet;
-            if (!isWeekend) {
-              targetSet = new Set(allTeams.map(x=>norm(x)));
-            } else {
-              const parity = getISOWeek(today) % 2; // 0/1
-              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
-              targetSet = showA ? groupA : groupB;
-            }
+            const targetSet = new Set(allTeams.map(x=>norm(x)));
             const ensureRows = (arr)=>{
               try {
                 const have = new Set((arr||[]).map(t=>norm(t?.name)));
@@ -967,7 +942,7 @@
           Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
         }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
 
-        // Orden fijo y completado final según día (L–V todos; fin de semana por grupo)
+        // Orden fijo MES: siempre mostrar todos los equipos en ORDER_ALL
         (function applyFinalOrdering(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
@@ -983,15 +958,7 @@
             const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
             const ORDER_A = ['Johana','Irania'];
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
-            const today = new Date();
-            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
-            const dow = today.getDay();
             let order = ORDER_ALL;
-            if (dow === 6 || dow === 0) {
-              const parity = getISOWeek(today) % 2;
-              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
-              order = showA ? ORDER_A : ORDER_B;
-            }
             const canonRows = (fallbackTeamData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
             const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
@@ -2060,14 +2027,43 @@
             const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
             const ORDER_A = ['Johana','Irania'];
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
-            const dow = effective.getDay(); // 0=Dom, 6=Sáb
-            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
+            // Rotación anclada al PRIMER SÁBADO DEL MES actual (alterna cada fin de semana dentro del mes)
+            const today = new Date();
+            const dow = today.getDay(); // 0=Dom, 6=Sáb
+            const normMid = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            const offsetToSat = (6 - monthStart.getDay() + 7) % 7; // 0..6
+            const FIRST_SAT = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 + offsetToSat);
+            const startOfWeekend = (dow === 6) ? normMid(today) : (dow === 0 ? new Date(normMid(today).getTime() - 86400000) : null);
+            const weekendsPassed = startOfWeekend ? Math.floor((normMid(startOfWeekend) - normMid(FIRST_SAT)) / (7 * 86400000)) : 0;
+            const weekendParity = ((weekendsPassed % 2) + 2) % 2; // 0 ó 1
             let order = ORDER_ALL;
-            if (dow === 6 || dow === 0) {
-              const parity = getISOWeek(effective) % 2;
-              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
-              order = showA ? ORDER_A : ORDER_B;
+            if (dow === 6) { // Sábado
+              // En fin de semana base: Sábado -> ORDER_A; siguiente fin de semana alterna
+              order = weekendParity === 0 ? ORDER_A : ORDER_B;
+            } else if (dow === 0) { // Domingo
+              // En fin de semana base: Domingo -> ORDER_B; siguiente fin de semana alterna
+              order = weekendParity === 0 ? ORDER_B : ORDER_A;
             }
+            // Regla estable: los DOMINGOS siempre muestran el grupo B por defecto
+            try {
+              if (dow === 0) {
+                order = ORDER_B;
+                console.log('[ESTADISTICAS][DAY] Sunday rule: forcing ORDER_B');
+              }
+            } catch(_) {}
+            // Override manual: ?group=A|B, localStorage('stats_force_group'), window.__forceWeekendGroup
+            try {
+              const params = new URLSearchParams(location.search);
+              const gParam = (params.get('group')||'').toUpperCase();
+              const gStore = (localStorage.getItem('stats_force_group')||'').toUpperCase();
+              const gWin = (window.__forceWeekendGroup||'').toUpperCase();
+              const forced = gParam || gStore || gWin;
+              if (forced === 'A') order = ORDER_A; else if (forced === 'B') order = ORDER_B;
+              if (forced) console.log('[ESTADISTICAS][DAY] Forced group:', forced, 'order=', order);
+            } catch(_) {}
+            // Debug opcional
+            try { console.log('[ESTADISTICAS][DAY] weekendParity=', weekendParity, 'dow=', dow, 'order=', order); } catch(_) {}
             const canonRows = (mainData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
             const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
@@ -2146,6 +2142,43 @@
           `;
 
         container.innerHTML = tablaHtml;
+        // Safety enforcement: on Sundays, force display order to GROUP B in the DOM
+        try {
+          const dowToday = (new Date()).getDay(); // 0=Sun
+          if (dowToday === 0) {
+            const ORDER_B = ['Pleitez','Roberto','Marisol'];
+            const card = container.querySelector('.conversion-card');
+            const tbody = card && card.querySelector('.sales-table tbody');
+            if (tbody) {
+              const totalRow = tbody.querySelector('.total-row');
+              const totalHTML = totalRow ? totalRow.outerHTML : '';
+              const buildRow = (name)=>`<tr><td>${name}</td><td>0</td><td>0</td><td>0</td><td class="score-col">0.00</td></tr>`;
+              tbody.innerHTML = ORDER_B.map(buildRow).join('') + totalHTML;
+              console.log('[ESTADISTICAS][DAY][DOM] Enforced Sunday GROUP B');
+            }
+            // Also set a MutationObserver to re-apply if the section re-renders later
+            if (!window.__statsDayObserverB) {
+              const apply = () => {
+                const c = document.querySelector('#ventas-dia-card .conversion-card');
+                const tb = c && c.querySelector('.sales-table tbody');
+                if (!tb) return false;
+                const totalRow = tb.querySelector('.total-row');
+                const totalHTML = totalRow ? totalRow.outerHTML : '';
+                const buildRow = (name)=>`<tr><td>${name}</td><td>0</td><td>0</td><td>0</td><td class="score-col">0.00</td></tr>`;
+                tb.innerHTML = ORDER_B.map(buildRow).join('') + totalHTML;
+                console.log('[ESTADISTICAS][DAY][DOM] Observer re-applied GROUP B');
+                return true;
+              };
+              // Try now; if not, observe until it appears or timeout
+              if (!apply()) {
+                const mo = new MutationObserver(() => { if (apply()) { try { mo.disconnect(); } catch(_) {} window.__statsDayObserverB = null; } });
+                mo.observe(document.body, { childList: true, subtree: true });
+                window.__statsDayObserverB = mo;
+                setTimeout(() => { try { mo.disconnect(); } catch(_) {} window.__statsDayObserverB = null; }, 15000);
+              }
+            }
+          }
+        } catch(_) {}
         // Hook botón detalle
         const btnDet = document.getElementById('btn-detalle-dia');
         if (btnDet) {
@@ -2382,13 +2415,8 @@
             const ORDER_A = ['Johana','Irania'];
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
             const dow = effective.getDay();
-            const getISOWeek = (d)=>{ const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((((date - yearStart) / 86400000) + 1)/7); };
             let order = ORDER_ALL;
-            if (dow === 6 || dow === 0) {
-              const parity = getISOWeek(effective) % 2;
-              const showA = (dow === 6 && parity === 0) || (dow === 0 && parity === 1);
-              order = showA ? ORDER_A : ORDER_B;
-            }
+            if (dow === 6) order = ORDER_A; else if (dow === 0) order = ORDER_B;
             const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             mainData = order.map(ensureRow);
