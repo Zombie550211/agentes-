@@ -92,23 +92,126 @@ router.get('/', protect, async (req, res) => {
     // Pipeline simplificado y optimizado para datos reales
     const hardLimit = all ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 10);
     
+    // Preparar patrones y listas dinámicas por MES para strings de fecha
+    // Importante: NO usar new Date('YYYY-MM-DD') porque interpreta en UTC y puede retroceder un mes en TZ -06:00.
+    const [sY, sM] = String(startDate).split('-');
+    const targetYear = parseInt(sY, 10);
+    const targetMonthIndex = parseInt(sM, 10) - 1; // 0=Ene, 10=Nov
+    const targetMonthPadded = String(targetMonthIndex + 1).padStart(2, '0');
+    const targetMonthNoPad = String(targetMonthIndex + 1);
+    const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthAbbr = MONTH_ABBR[targetMonthIndex];
+    const prevMonthIdx = (targetMonthIndex + 11) % 12;
+    const nextMonthIdx = (targetMonthIndex + 1) % 12;
+    const prevYear = targetMonthIndex === 0 ? (targetYear - 1) : targetYear;
+    const nextYear = targetMonthIndex === 11 ? (targetYear + 1) : targetYear;
+    const prevMonthPadded = String(prevMonthIdx + 1).padStart(2, '0');
+    const nextMonthPadded = String(nextMonthIdx + 1).padStart(2, '0');
+    const prevAbbr = MONTH_ABBR[prevMonthIdx];
+    const nextAbbr = MONTH_ABBR[nextMonthIdx];
+    // Generar todos los días del mes: YYYY-MM-DD y variantes D/M/YYYY
+    const allowedYMD = [];
+    const allowedDMY = [];        // d/m/yyyy (sin padding)
+    const allowedDMY_DDMM = [];   // dd/mm/yyyy (ambos con padding)
+    const allowedDMY_DDM = [];    // dd/m/yyyy (día padded, mes sin padding)
+    const allowedDMY_DMM = [];    // d/mm/yyyy (día sin padding, mes padded)
+    const regexMonthNames = [];
+    {
+      const firstDay = new Date(targetYear, targetMonthIndex, 1);
+      const lastDay = new Date(targetYear, targetMonthIndex + 1, 0);
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const mNoPad = String(d.getMonth() + 1);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dNoPad = String(d.getDate());
+        allowedYMD.push(`${y}-${m}-${dd}`);
+        // Variantes D/M/YYYY
+        allowedDMY.push(`${dNoPad}/${mNoPad}/${y}`); // d/m/yyyy
+        allowedDMY_DDMM.push(`${dd}/${m}/${y}`);     // dd/mm/yyyy
+        allowedDMY_DDM.push(`${dd}/${mNoPad}/${y}`); // dd/m/yyyy
+        allowedDMY_DMM.push(`${dNoPad}/${m}/${y}`);  // d/mm/yyyy
+        // Regex para cadenas tipo Date: ^.*\bMonAbbr\b\s+DD\s+YYYY
+        const dayRegex = new RegExp(`^.*\\b${monthAbbr}\\b\\s+${d.getDate()}\\s+${y}`, 'i');
+        regexMonthNames.push(dayRegex);
+      }
+    }
+    // Regex amplios por mes (fallback por si hay variantes de espaciado)
+    const regexYMD = new RegExp(`^${targetYear}-${targetMonthPadded}-`);
+    const regexDMYPad = new RegExp(`\\/${targetMonthPadded}\\/${targetYear}$`);
+    const regexDMYNoPad = new RegExp(`\\/${targetMonthNoPad}\\/${targetYear}$`);
+
+    // Fechas de corte (rango cerrado-abierto) del mes objetivo
+    const startOfMonth = new Date(targetYear, targetMonthIndex, 1);
+    const startOfNextMonth = new Date(targetYear, targetMonthIndex + 1, 1);
+
     // Pipeline simplificado que funciona con los datos reales
     const pipelineBase = [
-      // 1) Filtrar por rango de fechas usando strings (más compatible)
+      // 0) Normalizar dia_venta a Date en _diaParsed (soporta múltiples formatos)
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $eq: [ { $type: "$dia_venta" }, "date" ] },
+              "$dia_venta",
+              {
+                $let: {
+                  vars: {
+                    fmts: [
+                      "%Y-%m-%d",
+                      "%d/%m/%Y",
+                      "%a %b %d %Y",
+                      "%b %d %Y"
+                    ]
+                  },
+                  in: {
+                    $reduce: {
+                      input: "$$fmts",
+                      initialValue: null,
+                      in: {
+                        $cond: [
+                          { $ne: ["$$value", null] },
+                          "$$value", // ya se parseó con un formato anterior
+                          {
+                            $dateFromString: {
+                              dateString: { $toString: "$dia_venta" },
+                              format: "$$this",
+                              timezone: "-06:00"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      // 1) Filtrar por rango del mes objetivo usando _diaParsed (>= inicioMes y < inicioMesSiguiente)
       {
         $match: {
-          $or: [
-            // Formato YYYY-MM-DD
-            { dia_venta: { $regex: /^2025-10-/ } },
-            // Formato DD/MM/YYYY
-            { dia_venta: { $regex: /\/10\/2025$/ } },
-            // Fecha como Date object
-            { 
-              dia_venta: { 
-                $gte: new Date(startDate), 
-                $lte: new Date(endDate + 'T23:59:59.999Z') 
-              } 
-            }
+          _diaParsed: { $ne: null },
+          $expr: { $and: [
+            { $gte: [ "$_diaParsed", startOfMonth ] },
+            { $lt:  [ "$_diaParsed", startOfNextMonth ] }
+          ]}
+        }
+      },
+      // 1.1) Barrera adicional anti-colados: excluir explícitamente meses adyacentes
+      {
+        $match: {
+          $nor: [
+            // YYYY-MM del mes previo/siguiente
+            { dia_venta: { $regex: new RegExp(`^${prevYear}-${prevMonthPadded}-`) } },
+            { dia_venta: { $regex: new RegExp(`^${nextYear}-${nextMonthPadded}-`) } },
+            // D/M/YYYY o DD/MM/YYYY del mes previo/siguiente
+            { dia_venta: { $regex: new RegExp(`\\/(?:${prevMonthIdx+1}|${prevMonthPadded})\\/${prevYear}$`) } },
+            { dia_venta: { $regex: new RegExp(`\\/(?:${nextMonthIdx+1}|${nextMonthPadded})\\/${nextYear}$`) } },
+            // Nombre de mes en inglés del previo/siguiente
+            { dia_venta: { $regex: new RegExp(`\\b${prevAbbr}\\b.*\\b${prevYear}\\b`, 'i') } },
+            { dia_venta: { $regex: new RegExp(`\\b${nextAbbr}\\b.*\\b${nextYear}\\b`, 'i') } }
           ]
         }
       },
@@ -210,6 +313,7 @@ router.get('/', protect, async (req, res) => {
     ];
 
     console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipelineBase, null, 2));
+    const matchStageDiaVenta = pipelineBase[0];
 
     // Ejecutar consulta directamente en costumers (colección principal con datos reales)
     let rankingResults = [];
@@ -330,6 +434,21 @@ router.get('/', protect, async (req, res) => {
       }
     }
 
+    // Si debug=1, obtener muestra de registros que pasaron el filtro por dia_venta
+    let matchedSamples = null;
+    if (String(debug) === '1') {
+      try {
+        const debugArr = await db.collection(usedCollection).aggregate([
+          matchStageDiaVenta,
+          { $project: { _id: 0, dia_venta: 1, agenteNombre: 1, status: 1, puntaje: 1 } },
+          { $limit: 25 }
+        ]).toArray();
+        matchedSamples = debugArr;
+      } catch (e) {
+        console.warn('[RANKING][DEBUG] No se pudo obtener muestra de dia_venta:', e?.message);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Datos de ranking obtenidos',
@@ -340,9 +459,17 @@ router.get('/', protect, async (req, res) => {
         count: Array.isArray(rankingData) ? rankingData.length : 0,
         dateRange: { startDate, endDate },
         params: { fechaInicio, fechaFin, all: !!all, limit: hardLimit, debug: String(debug)==='1', skipDate: String(skipDate)==='1', agente: agente || null, field },
+        monthFilter: {
+          targetYear,
+          targetMonthIndex,
+          targetMonthPadded,
+          allowedYMDCount: allowedYMD.length,
+          allowedDMYCount: allowedDMY.length
+        },
         attempts,
         scoreFieldStats,
-        sampleDocs
+        sampleDocs,
+        matchedSamples
       }
     });
   } catch (error) {

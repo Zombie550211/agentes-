@@ -55,7 +55,6 @@
       flex-direction: column;
       gap: 18px;
     }
-
     .page-header {
       display: flex;
       align-items: center;
@@ -653,15 +652,25 @@
         // Mostrar indicador de carga
         root.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-2">Cargando datos de equipos...</p></div>';
         
-        // Rango del MES COMPLETO (desde día 1 hasta hoy)
+        // Leer parámetro ?m= si existe para navegación de mes
+        const urlParams = new URLSearchParams(location.search);
+        const mParam = urlParams.get('m');
+        let targetMonth;
+        if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+          const [y,m] = mParam.split('-').map(Number);
+          targetMonth = new Date(y, m-1, 15, 12, 0, 0);
+        } else {
+          targetMonth = new Date();
+        }
+        // Rango del MES COMPLETO (desde día 1 hasta último día del mes)
         let fechaInicio = '';
         let fechaFin = '';
         {
-          const hoy = new Date();
-          const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+          const primerDiaMes = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+          const ultimoDiaMes = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
           const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          fechaInicio = fmt(primerDiaMes);  // Primer día del mes
-          fechaFin = fmt(hoy);               // Día actual
+          fechaInicio = fmt(primerDiaMes);
+          fechaFin = fmt(ultimoDiaMes);
           console.log('[ESTADISTICAS] Rango mes completo:', { fechaInicio, fechaFin });
         }
         
@@ -967,6 +976,7 @@
             fallbackTeamData = displayRows;
             // mantener teamData en sincronía para totales
             teamData = displayRows.slice();
+            try { window.MonthDisplayRows = displayRows.slice(); } catch(_){ }
             // recalcular totales definitivos con displayRows
             totals = (displayRows||[]).reduce((acc, r) => ({
               ICON: acc.ICON + (r.ICON || 0),
@@ -979,14 +989,17 @@
         })();
 
         // Encabezado: siempre mostrar MES (mm/yyyy) para esta tabla (izquierda)
-        const hoy = new Date();
-        const mesTexto = `${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()}`;
+        const mesTexto = `${String(targetMonth.getMonth()+1).padStart(2,'0')}/${targetMonth.getFullYear()}`;
         const encabezadoTitulo = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${mesTexto})`;
 
         // Generar HTML de la tabla de equipos
         let html = `
           <div class="conversion-card">
-            <div class="conversion-title">${encabezadoTitulo}</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px 8px 0 0;">
+              <button id="month-prev" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes anterior">◀</button>
+              <div class="conversion-title" style="margin:0;">${encabezadoTitulo}</div>
+              <button id="month-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes siguiente">▶</button>
+            </div>
             <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
               <button id="btn-detalle-mensual" class="filter-button" style="height:28px;">Ver detalle</button>
             </div>
@@ -1073,6 +1086,13 @@
               btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
             }
           }
+        } catch(_) {}
+        // Hook flechas navegación mes
+        try {
+          const btnPrev = document.getElementById('month-prev');
+          const btnNext = document.getElementById('month-next');
+          if (btnPrev) btnPrev.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()-1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+          if (btnNext) btnNext.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
         } catch(_) {}
 
         // Ahora, renderizar el gráfico de dona con los datos de los equipos
@@ -1247,6 +1267,15 @@
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
+      // Adjuntar token si está disponible (algunos endpoints lo requieren)
+      try {
+        const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
+        const user = storedUser ? JSON.parse(storedUser) : null;
+        const token = (user && user.token) || localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (token) {
+          defaultHeaders['Authorization'] = `Bearer ${token}`;
+        }
+      } catch(_) {}
       
       const response = await fetch(url, {
         ...options,
@@ -1595,10 +1624,16 @@
         loadDayData();
         try { prepareMonthDetails(); } catch(_){ }
         // Inyectar el botón dentro del contenedor mensual cuando esté renderizado
-        try { injectMonthlyDetailButton(); } catch(_){}
+        try { injectMonthlyDetailButton(); } catch(_){ }
+        // Asegurar barra de toggles del DÍA aún si el render cambió
+        try { ensureDayTogglesFallback(); } catch(_){ }
+        // Agregar tabs Día/Mes a ambas tarjetas
+        try { ensureStatsTabs(); } catch(_){ }
       }, 200); // Delay para asegurar que el DOM esté listo
     }
 
+    // Deshabilitado: ya no se inyectan toggles fuera del modal
+    function ensureDayTogglesFallback(){ return; }
     // ====== MODAL DETALLE DÍA ======
     // Estilos básicos del modal (inline para no depender de CSS externo)
     (function ensureModalStyles(){
@@ -1666,14 +1701,85 @@
       if (el) el.style.display = 'none';
     }
 
+    // Crea el modal del Día si no existe
+    function ensureDayDetailModal(){
+      if (document.getElementById('day-detail-modal')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'day-detail-modal';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal">
+          <div class="modal-header">
+            <div>Detalle de Ventas del Día</div>
+            <button class="close-btn" id="close-day-detail">Cerrar</button>
+          </div>
+          <div class="modal-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <label style="font-weight:600;">Equipo:</label>
+              <select id="filter-team-select" style="min-width:160px;"></select>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                <span id="day-detail-subtitle"></span>
+              </div>
+            </div>
+            <div id="day-visibility-dropdown" style="position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <label style="font-weight:600;">Equipos visibles:</label>
+              <button id="open-day-visibility" class="filter-button" style="height:28px;">Seleccionar equipos</button>
+              <div id="day-visibility-panel" style="position:absolute;top:36px;left:130px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;display:none;z-index:20;min-width:220px;">
+                <div id="day-visibility-options" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                  <button id="day-visibility-clear" class="filter-button" style="height:28px;background:#e2e8f0;color:#111827;">Limpiar</button>
+                  <button id="apply-day-visibility" class="filter-button" style="height:28px;">Aplicar</button>
+                </div>
+              </div>
+            </div>
+            <table id="day-detail-table" class="table-compact">
+              <thead>
+                <tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th><th>Fecha</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.querySelector('#close-day-detail').onclick = ()=>{ overlay.style.display='none'; };
+    }
+
     function showDayDetailModal(){
       try{
+        ensureDayDetailModal();
         const store = window.DayDetailRows || { fecha:'', rows:[] };
         const rows = Array.isArray(store.rows) ? store.rows : [];
         const overlay = document.getElementById('day-detail-modal');
         if (!overlay) return;
         const tbody = overlay.querySelector('#day-detail-table tbody');
         const sel = overlay.querySelector('#filter-team-select');
+        // Visibilidad de equipos para la TABLA DEL DÍA (dropdown multiselect)
+        let drop = overlay.querySelector('#day-visibility-dropdown');
+        // Si el modal existente es antiguo, crear el bloque de dropdown
+        if (!drop) {
+          const table = overlay.querySelector('#day-detail-table');
+          const body = overlay.querySelector('.modal-body') || table?.parentElement || overlay;
+          const wrapper = document.createElement('div');
+          wrapper.id = 'day-visibility-dropdown';
+          wrapper.style.cssText = 'position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+          wrapper.innerHTML = `
+            <label style="font-weight:600;">Equipos visibles:</label>
+            <button id="open-day-visibility" class="filter-button" style="height:28px;">Seleccionar equipos</button>
+            <div id="day-visibility-panel" style="position:absolute;top:36px;left:130px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;display:none;z-index:20;min-width:220px;">
+              <div id="day-visibility-options" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+              <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button id="day-visibility-clear" class="filter-button" style="height:28px;background:#e2e8f0;color:#111827;">Limpiar</button>
+                <button id="apply-day-visibility" class="filter-button" style="height:28px;">Aplicar</button>
+              </div>
+            </div>`;
+          if (body && table && table.parentElement === body) body.insertBefore(wrapper, table); else (body || overlay).appendChild(wrapper);
+        }
+        // Tomar referencias (ahora garantizado que existen)
+        const btnOpen = overlay.querySelector('#open-day-visibility');
+        const panel = overlay.querySelector('#day-visibility-panel');
+        const optRoot = overlay.querySelector('#day-visibility-options');
+        const btnClear = overlay.querySelector('#day-visibility-clear');
+        const btnApply = overlay.querySelector('#apply-day-visibility');
         const subtitle = overlay.querySelector('#day-detail-subtitle');
 
         subtitle.textContent = `Fecha: ${store.fecha}`;
@@ -1699,9 +1805,80 @@
         render('');
         sel.onchange = () => render(sel.value);
 
+        // Poblado del dropdown de visibilidad
+        try {
+          const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+          const STORAGE_KEY = 'stats_day_visible_teams';
+          const getSaved = () => { try { const v=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); return Array.isArray(v)&&v.length?v:ORDER_ALL; } catch(_){ return ORDER_ALL; } };
+          const setSaved = (arr) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(_){} };
+
+          if (optRoot) {
+            optRoot.innerHTML = ORDER_ALL.map(n=>`
+              <label style="display:flex;gap:8px;align-items:center;font-size:.92rem;color:#0f172a;">
+                <input type="checkbox" class="vis-opt" value="${n}"> ${n}
+              </label>
+            `).join('');
+            const saved = getSaved();
+            Array.from(optRoot.querySelectorAll('.vis-opt')).forEach(ch=>{ ch.checked = saved.includes(ch.value); });
+          }
+          if (btnOpen && panel) {
+            btnOpen.onclick = () => { panel.style.display = panel.style.display==='none' || !panel.style.display ? 'block' : 'none'; };
+            document.addEventListener('click', (e)=>{
+              if (!drop.contains(e.target)) panel.style.display = 'none';
+            });
+          }
+          if (btnClear && optRoot) {
+            btnClear.onclick = () => { Array.from(optRoot.querySelectorAll('.vis-opt')).forEach(ch=> ch.checked=false); };
+          }
+          if (btnApply && optRoot) {
+            btnApply.onclick = () => {
+              const selected = Array.from(optRoot.querySelectorAll('.vis-opt')).filter(ch=>ch.checked).map(ch=>ch.value);
+              setSaved(selected);
+              try { window.applyDayTeamVisibility && window.applyDayTeamVisibility(selected); } catch(_) {}
+              panel.style.display = 'none';
+            };
+          }
+        } catch(_){ }
+
         overlay.style.display = 'flex';
       } catch(e){ console.error('Error abriendo detalle del día', e); }
     }
+
+    // Aplica visibilidad a la tabla del Día y persiste selección
+    window.applyDayTeamVisibility = function(teams){
+      try {
+        const STORAGE_KEY = 'stats_day_visible_teams';
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(teams)); } catch(_) {}
+        const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+        const base = Array.isArray(window.DayRowsOriginal) ? window.DayRowsOriginal : [];
+        const rows = (teams && teams.length ? ORDER_ALL.filter(n=>teams.includes(n)) : ORDER_ALL).map(n => {
+          const found = (base||[]).find(r=>String(r.name)===n);
+          return found || { name:n, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+        });
+        const card = document.querySelector('#ventas-dia-card .sales-table');
+        if (!card) return;
+        const tbody = card.querySelector('tbody');
+        if (!tbody) return;
+        const bodyRows = rows.map(team => `
+          <tr>
+            <td>${team.name}</td>
+            <td>${team.ICON || 0}</td>
+            <td>${team.BAMO || 0}</td>
+            <td>${team.Total || 0}</td>
+            <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+          </tr>
+        `).join('');
+        const totalHTML = `
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td>${rows.reduce((s,t)=>s+(t.ICON||0),0)}</td>
+            <td>${rows.reduce((s,t)=>s+(t.BAMO||0),0)}</td>
+            <td>${rows.reduce((s,t)=>s+(t.Total||0),0)}</td>
+            <td>${rows.reduce((s,t)=>s+parseFloat(t.Puntaje||0),0).toFixed(2)}</td>
+          </tr>`;
+        tbody.innerHTML = bodyRows + totalHTML;
+      } catch(e){ console.warn('applyDayTeamVisibility error', e); }
+    };
 
     // ====== DETALLE MENSUAL ======
 
@@ -1786,7 +1963,7 @@
         const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
         const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
         const normalizeServicio = (lead) => {
-          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre','tipo_servicio']);
+          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
           if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
           return (raw ? String(raw) : '').trim();
         };
@@ -1886,14 +2063,46 @@
       }
       if (card.querySelector('#btn-detalle-mensual')) return;
       const toolbar = document.createElement('div');
-      toolbar.style.cssText = 'display:flex; justify-content:flex-end; margin:8px 0 6px;';
+      toolbar.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin:8px 0 6px;';
+      const navDiv = document.createElement('div');
+      navDiv.style.cssText = 'display:flex; gap:6px;';
+      const btnPrev = document.createElement('button');
+      btnPrev.id = 'month-prev';
+      btnPrev.className = 'filter-button';
+      btnPrev.style.cssText = 'height:28px;width:32px;';
+      btnPrev.title = 'Mes anterior';
+      btnPrev.textContent = '◀';
+      const btnNext = document.createElement('button');
+      btnNext.id = 'month-next';
+      btnNext.className = 'filter-button';
+      btnNext.style.cssText = 'height:28px;width:32px;';
+      btnNext.title = 'Mes siguiente';
+      btnNext.textContent = '▶';
+      navDiv.appendChild(btnPrev);
+      navDiv.appendChild(btnNext);
+      const actionsDiv = document.createElement('div');
+      actionsDiv.style.cssText = 'display:flex; gap:8px;';
       const btn = document.createElement('button');
       btn.id = 'btn-detalle-mensual';
       btn.className = 'filter-button';
       btn.style.height = '28px';
       btn.textContent = 'Ver detalle mensual';
       btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
-      toolbar.appendChild(btn);
+      actionsDiv.appendChild(btn);
+      toolbar.appendChild(navDiv);
+      toolbar.appendChild(actionsDiv);
+      // Hook flechas navegación mes
+      const urlParams = new URLSearchParams(location.search);
+      const mParam = urlParams.get('m');
+      let base;
+      if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+        const [y,m] = mParam.split('-').map(Number);
+        base = new Date(y, m-1, 15);
+      } else {
+        base = new Date();
+      }
+      btnPrev.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()-1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+      btnNext.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
       const convTwoCol = card.querySelector('.conv-two-col');
       if (convTwoCol) card.insertBefore(toolbar, convTwoCol); else card.appendChild(toolbar);
     }
@@ -1919,12 +2128,20 @@
         return;
       }
 
-      // Día efectivo con corte 09:30 local
-      const nowLocal = new Date();
+      // Leer parámetro ?d= si existe para navegación
+      const urlParams = new URLSearchParams(location.search);
+      const dParam = urlParams.get('d');
       const cutoffHour = 9, cutoffMinute = 30;
-      const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-      const effective = new Date(nowLocal);
-      if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+      let effective;
+      if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
+        const [y,m,d] = dParam.split('-').map(Number);
+        effective = new Date(y, m-1, d, 12, 0, 0);
+      } else {
+        const nowLocal = new Date();
+        const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
+        effective = new Date(nowLocal);
+        if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+      }
       const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
 
       // Placeholder de carga
@@ -1940,8 +2157,13 @@
         const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
         let dayData = [];
         const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-        const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-        const leadsResp = await fetchWithAuth('/api/leads');
+        // Si navegamos con ?d=, capturar TODO el día (00:00 a 23:59:59)
+        const urlParams = new URLSearchParams(location.search);
+        const isNavigating = urlParams.has('d');
+        const endExclusive = isNavigating 
+          ? new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0)
+          : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}`);
         if (!leadsResp) return;
         const leadsJson = await leadsResp.json();
         const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -1986,6 +2208,26 @@
                 Total: parseFloat(equipo.Total || 0),
                 Puntaje: parseFloat(equipo.Puntaje || 0)
               }));
+            }
+          }
+        } catch(_) {}
+        // Fallback: si no retornó datos o todo es cero y estamos viendo HOY, consulta sin fechas (scope=day)
+        try {
+          const sum = (arr)=> (arr||[]).reduce((a,r)=>a+(r.Total||0),0);
+          const isTodayView = !new URLSearchParams(location.search).has('d');
+          if ((!preTeamData || sum(preTeamData)===0) && isTodayView) {
+            const alt = await fetchWithAuth(`/api/equipos/estadisticas?scope=day&forceAll=1`);
+            if (alt && alt.ok) {
+              const dj2 = await alt.json();
+              if (dj2 && dj2.success && Array.isArray(dj2.data) && dj2.data.length) {
+                preTeamData = dj2.data.map(equipo => ({
+                  name: equipo.TEAM || equipo.team || 'Sin equipo',
+                  ICON: parseFloat(equipo.ICON || 0),
+                  BAMO: parseFloat(equipo.BAMO || 0),
+                  Total: parseFloat(equipo.Total || 0),
+                  Puntaje: parseFloat(equipo.Puntaje || 0)
+                }));
+              }
             }
           }
         } catch(_) {}
@@ -2069,7 +2311,7 @@
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             const ordered = order.map(ensureRow);
             mainData = ordered;
-            try { window.DayDisplayRows = ordered.slice(); } catch(_) {}
+            try { window.DayDisplayRows = ordered.slice(); window.DayRowsOriginal = ordered.slice(); } catch(_) {}
           } catch(e) { console.warn('[ESTADISTICAS][DAY] ensure rows error:', e); }
         })();
 
@@ -2077,7 +2319,11 @@
         // Siempre renderizar filas (aunque sean 0)
         const tablaHtml = `
             <div class="conversion-card">
-              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px 8px 0 0;">
+                <button id="day-prev" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día anterior">◀</button>
+                <div class="conversion-title" style="margin:0;">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+                <button id="day-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día siguiente">▶</button>
+              </div>
               <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
                 <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
               </div>
@@ -2186,6 +2432,46 @@
             try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
           });
         }
+        // Hook flechas navegación día
+        try {
+          const btnPrev = document.getElementById('day-prev');
+          const btnNext = document.getElementById('day-next');
+          if (btnPrev) btnPrev.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()-1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+          if (btnNext) btnNext.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()+1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        } catch(_) {}
+        // Tabs inline en tarjeta del Día
+        try {
+          const pad2 = (n)=> String(n).padStart(2,'0');
+          const formatDMY = (d)=> `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+          const formatMY = (d)=> `${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+          const today = new Date();
+          const title = container.querySelector('.conversion-title');
+          const table = container.querySelector('.sales-table');
+          const btnDay = container.querySelector('#tab-dia-day');
+          const btnMonth = container.querySelector('#tab-dia-month');
+          const setActive = (which)=>{
+            if (!btnDay || !btnMonth) return;
+            btnDay.style.background = which==='day' ? '#22b3ec' : '';
+            btnDay.style.color = which==='day' ? '#fff' : '';
+            btnMonth.style.background = which==='month' ? '#22b3ec' : '';
+            btnMonth.style.color = which==='month' ? '#fff' : '';
+          };
+          const renderTable = (rows)=>{
+            const tbody = table?.querySelector('tbody');
+            if (!tbody) return;
+            const body = (rows||[]).map(r=>`<tr><td>${r.name}</td><td>${r.ICON||0}</td><td>${r.BAMO||0}</td><td>${r.Total||0}</td><td class="score-col">${parseFloat(r.Puntaje||0).toFixed(2)}</td></tr>`).join('');
+            const totals = (rows||[]).reduce((a,r)=>({ICON:a.ICON+(r.ICON||0),BAMO:a.BAMO+(r.BAMO||0),Total:a.Total+(r.Total||0),Puntaje:a.Puntaje+parseFloat(r.Puntaje||0)}),{ICON:0,BAMO:0,Total:0,Puntaje:0});
+            const total = `<tr class="total-row"><td>TOTAL</td><td>${totals.ICON}</td><td>${totals.BAMO}</td><td>${totals.Total}</td><td>${totals.Puntaje.toFixed(2)}</td></tr>`;
+            tbody.innerHTML = body + total;
+          };
+          const showDay = ()=>{ setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
+          const showMonth = ()=>{ setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(today)})`; renderTable(window.MonthDisplayRows||[]); };
+          if (btnDay) btnDay.onclick = showDay;
+          if (btnMonth) btnMonth.onclick = showMonth;
+          // Selección por defecto: Día
+          showDay();
+        } catch(_) {}
+        // Control de equipos se mueve al modal "Ver detalle"
       } catch (e) {
         console.error('Error cargando datos del día:', e);
         container.innerHTML = `
@@ -2336,12 +2622,20 @@
         return;
       }
 
-      // Día efectivo con corte 09:30 local
-      const nowLocal = new Date();
+      // Leer parámetro ?d= si existe para navegación
+      const urlParams = new URLSearchParams(location.search);
+      const dParam = urlParams.get('d');
       const cutoffHour = 9, cutoffMinute = 30;
-      const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-      const effective = new Date(nowLocal);
-      if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+      let effective;
+      if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
+        const [y,m,d] = dParam.split('-').map(Number);
+        effective = new Date(y, m-1, d, 12, 0, 0);
+      } else {
+        const nowLocal = new Date();
+        const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
+        effective = new Date(nowLocal);
+        if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+      }
       const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
 
       // Placeholder de carga
@@ -2358,8 +2652,13 @@
         // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
         let dayData = [];
         const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-        const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-        const leadsResp = await fetchWithAuth('/api/leads');
+        // Si navegamos con ?d=, capturar TODO el día (00:00 a 23:59:59)
+        const urlParams2 = new URLSearchParams(location.search);
+        const isNavigating2 = urlParams2.has('d');
+        const endExclusive = isNavigating2 
+          ? new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0)
+          : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
+        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}`);
         if (!leadsResp) return;
         const leadsJson = await leadsResp.json();
         const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -2407,7 +2706,7 @@
         const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
         let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
 
-        // Completar equipos y fijar orden (L–V: todos; FDS: grupo rotativo)
+        // Completar equipos y fijar orden (siempre todos los equipos)
         (function ensureDayRows(){
           try {
             const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
@@ -2416,7 +2715,6 @@
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
             const dow = effective.getDay();
             let order = ORDER_ALL;
-            if (dow === 6) order = ORDER_A; else if (dow === 0) order = ORDER_B;
             const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             mainData = order.map(ensureRow);
@@ -2427,7 +2725,11 @@
         // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
         const tablaHtml = `
             <div class="conversion-card">
-              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px 8px 0 0;">
+                <button id="day-prev-alt" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día anterior">◀</button>
+                <div class="conversion-title" style="margin:0;">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+                <button id="day-next-alt" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día siguiente">▶</button>
+              </div>
               <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
                 <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
               </div>
@@ -2499,6 +2801,13 @@
             try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
           });
         }
+        // Hook flechas navegación día (alternativas)
+        try {
+          const btnPrevAlt = document.getElementById('day-prev-alt');
+          const btnNextAlt = document.getElementById('day-next-alt');
+          if (btnPrevAlt) btnPrevAlt.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()-1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+          if (btnNextAlt) btnNextAlt.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()+1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        } catch(_) {}
       } catch (e) {
         console.error('Error cargando datos del día:', e);
         container.innerHTML = `

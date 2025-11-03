@@ -2257,7 +2257,7 @@
             const d = String(now.getDate()).padStart(2, '0');
             const fechaInicio = `${y}-${m}-01`;
             const fechaFin = `${y}-${m}-${d}`;
-            const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+            const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
             console.log('[RANKING] ⏱️ Rango aplicado:', { fechaInicio, fechaFin });
             const res = await fetch(url, { credentials: 'include' });
             if (!res.ok) throw new Error('Respuesta no OK en /api/ranking');
@@ -2274,6 +2274,12 @@
             const top1 = list[0];
             const top2 = list[1];
             const top3 = list[2];
+
+            console.log('[RANKING] Top3 recibidos:', {
+              top1: { nombre: top1?.nombre, puntos: top1?.puntos, ventas: top1?.ventas },
+              top2: { nombre: top2?.nombre, puntos: top2?.puntos, ventas: top2?.ventas },
+              top3: { nombre: top3?.nombre, puntos: top3?.puntos, ventas: top3?.ventas }
+            });
 
             const getScore = (item) => {
               // Usar los valores EXACTOS sin redondeo
@@ -2305,6 +2311,17 @@
               // Si en el futuro llega imageUrl
               if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
             };
+
+            // Limpiar antes de pintar para evitar valores residuales
+            const clearSlot = (selectorBase) => {
+              const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
+              const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
+              if (nameEl) nameEl.textContent = '—';
+              if (scoreEl) scoreEl.textContent = '0';
+            };
+            clearSlot('.first-pos');
+            clearSlot('.second-pos');
+            clearSlot('.third-pos');
 
             setSlot('.first-pos', top1);
             setSlot('.second-pos', top2);
@@ -2374,7 +2391,7 @@
                     const d = String(now.getDate()).padStart(2, '0');
                     const fechaInicio = `${y}-${m}-01`;
                     const fechaFin = `${y}-${m}-${d}`;
-                    const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+                    const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
                     const resAll = await fetch(urlAll, { credentials: 'include' });
                     if (resAll.ok) {
                       const dataAll = await resAll.json();
