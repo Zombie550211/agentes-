@@ -636,7 +636,7 @@
 
   <script>
     // Datos de ejemplo para visualizaciÃ³n inicial (puedes reemplazar por datos reales)
-    function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }  
 
     async function renderConversionTable(root) {
       try {
@@ -686,6 +686,8 @@
           const role = (u?.role || '').toString().trim().toLowerCase();
           if (role === 'agent' || role === 'agente') params.append('forceAll', '1');
         } catch(_){ }
+        // Cache-busting
+        params.append('t', Date.now());
         if (params.toString()) url += `?${params.toString()}`;
         
         console.log('Solicitando datos a:', url);
@@ -2163,7 +2165,7 @@
         const endExclusive = isNavigating 
           ? new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0)
           : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}`);
+        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&skipDate=1&t=${Date.now()}`);
         if (!leadsResp) return;
         const leadsJson = await leadsResp.json();
         const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -2171,7 +2173,29 @@
         const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
         const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
         const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
-        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
+        // Funciones de ayuda para comparar el mismo día, soportando múltiples formatos
+        const pad2 = (n)=> String(n).padStart(2,'0');
+        const ymd = `${y}-${m}-${d}`; // YYYY-MM-DD del día efectivo
+        const dmyNoPad = `${Number(d)}/${Number(m)}/${y}`; // D/M/YYYY
+        const dmyPad = `${d}/${m}/${y}`; // DD/MM/YYYY
+        const engMonth = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][effective.getMonth()];
+        const engRegex = new RegExp(`\\b${engMonth}\\b\\s+${Number(d)}\\s+${y}`, 'i');
+        const sameLocalDay = (dt) => dt && dt >= startLocal && dt < endExclusive;
+        const isSameDayAny = (val) => {
+          if (!val && val !== 0) return false;
+          if (val instanceof Date) return sameLocalDay(val);
+          if (typeof val === 'number') return sameLocalDay(new Date(val < 1e12 ? val*1000 : val));
+          const s = String(val).trim();
+          if (!s) return false;
+          if (s === ymd || s === dmyNoPad || s === dmyPad) return true;
+          if (engRegex.test(s)) return true;
+          const dt = tryDateFrom(s);
+          return sameLocalDay(dt);
+        };
+        const inDay = leads.filter(l => {
+          const v = findFirst(l, createdPaths);
+          return isSameDayAny(v);
+        });
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
           const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
@@ -2658,7 +2682,7 @@
         const endExclusive = isNavigating2 
           ? new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0)
           : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}`);
+        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&skipDate=1&t=${Date.now()}`);
         if (!leadsResp) return;
         const leadsJson = await leadsResp.json();
         const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -2666,7 +2690,25 @@
         const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
         const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
         const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
-        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); const dt = tryDateFrom(v); return dt && dt >= startLocal && dt < endExclusive; });
+        // Helpers para comparar el mismo día (mismos que el bloque superior)
+        const ymd = `${y}-${m}-${d}`;
+        const dmyNoPad = `${Number(d)}/${Number(m)}/${y}`;
+        const dmyPad = `${d}/${m}/${y}`;
+        const engMonth = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][effective.getMonth()];
+        const engRegex = new RegExp(`\\b${engMonth}\\b\\s+${Number(d)}\\s+${y}`, 'i');
+        const sameLocalDay = (dt) => dt && dt >= startLocal && dt < endExclusive;
+        const isSameDayAny = (val) => {
+          if (!val && val !== 0) return false;
+          if (val instanceof Date) return sameLocalDay(val);
+          if (typeof val === 'number') return sameLocalDay(new Date(val < 1e12 ? val*1000 : val));
+          const s = String(val).trim();
+          if (!s) return false;
+          if (s === ymd || s === dmyNoPad || s === dmyPad) return true;
+          if (engRegex.test(s)) return true;
+          const dt = tryDateFrom(s);
+          return sameLocalDay(dt);
+        };
+        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); return isSameDayAny(v); });
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
           const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
