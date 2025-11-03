@@ -121,7 +121,7 @@
       <div class="tabla-excel-editable">
         <table id="tablaExcel">
           <thead>
-            <tr>
+            <tr>                        
               <th>FECHA</th>
               <th>ALEXIS</th>
               <th>VENTAS<br>POR DIA</th>
@@ -230,12 +230,16 @@
     return;
   }
 })();
-if (window.ChartjsPluginDatalabels) {
-  Chart.register(window.ChartjsPluginDatalabels);
-  console.log('Plugin Datalabels registrado correctamente');
-} else {
-  console.warn('Plugin Datalabels no encontrado - etiquetas podrían no mostrarse');
-}
+// Registrar plugin de datalabels (compatibilidad de nombres globales)
+try {
+  const DL = window.ChartDataLabels || window.ChartjsPluginDatalabels;
+  if (DL && window.Chart) {
+    Chart.register(DL);
+    console.log('Plugin Datalabels registrado correctamente');
+  } else {
+    console.warn('Plugin Datalabels no encontrado - etiquetas podrían no mostrarse');
+  }
+} catch(e) { console.warn('No se pudo registrar ChartDataLabels', e); }
 
 // Logout manejado por el botón del sidebar compartido vía sidebar-loader.js
 const filtroMes = document.getElementById("filtroMes");
@@ -613,12 +617,14 @@ async function actualizarGrafica() {
           borderWidth: 2,
           borderRadius: 8,
           datalabels: {
-            anchor: 'center',
-            align: 'center',
-            color: '#fff',
-            font: { weight: 'bold', size: 18 },
+            anchor: 'end',
+            align: 'end',
+            offset: -28,
+            color: '#0b2447',
+            font: { weight: '800', size: 14 },
             formatter: function(value) {
-              return "$" + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              if (!value || Number(value) === 0) return '';
+              return "$" + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
           }
         }]
@@ -627,11 +633,15 @@ async function actualizarGrafica() {
         plugins: {
           legend: { display: false },
           title: { display: false },
-          datalabels: { display: true }
+          datalabels: { 
+            display: function(ctx){
+              try { return Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0; } catch(_) { return false; }
+            }
+          }
         },
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 20 } },
+        layout: { padding: { top: 60 } },
         scales: {
           x: {
             grid: { display: false, drawBorder: false },
