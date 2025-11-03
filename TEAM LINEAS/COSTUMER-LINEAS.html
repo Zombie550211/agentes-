@@ -44,9 +44,6 @@
               <option value="pending">PENDING</option>
               <option value="repro">REPRO</option>
             </select>
-            <select id="agentSelect" class="form-control" style="min-width:220px; display:none;">
-              <option value="">Seleccione agente</option>
-            </select>
           </div>
           
         </div>
@@ -71,7 +68,7 @@
                     <th>STATUS</th>
                     <th>Día venta</th>
                     <th>Día instalación</th>
-                    <th>ID</th>
+                    <th>ID</th> 
                     <th>Mercado</th>
                     <th>Supervisor</th>
                     <th>ACCIÓN</th>
@@ -97,30 +94,28 @@
       const $ = (s) => document.querySelector(s);
       const $$ = (s) => Array.from(document.querySelectorAll(s));
 
+      // Configuración de actualización de STATUS
+      const STATUS_ENDPOINT = '/api/lineas-team/status'; // Ajustar si tu ruta es distinta
+      const STATUS_METHOD = 'PUT';
+      const STATUS_OPTIONS = [
+        { val: 'pending', label: 'Pending' },
+        { val: 'hold', label: 'Hold' },
+        { val: 'cancelled', label: 'Cancelled' },
+        { val: 'rescheduled', label: 'Rescheduled' },
+        { val: 'completed', label: 'Completed' }
+      ];
+      function getUserRole(){
+        try{ const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return String(u.role||'').toLowerCase(); }catch{ return ''; }
+      }
+      function canEditStatus(){
+        const r = getUserRole();
+        return r.includes('admin') || r.includes('administrador') || r.includes('backoffice');
+      }
+
       function normalizeDigits(v){ return String(v||'').replace(/\D+/g,''); }
 
       async function fetchData(){
-        // Requerir ?agente= si es supervisor
-        let isSupervisorTL = false;
-        let supUsername = '';
-        try {
-          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-          const roleLc = String(user.role||'').toLowerCase();
-          isSupervisorTL = roleLc.includes('supervisor');
-          supUsername = String(user.username||user.name||'').toUpperCase();
-        } catch {}
-
-        let url = '/api/lineas-team';
-        if (isSupervisorTL) {
-          const sel = document.getElementById('agentSelect');
-          const agente = sel ? String(sel.value||'').trim() : '';
-          if (!agente) {
-            return [];
-          }
-          url += `?agente=${encodeURIComponent(agente)}`;
-        }
-
-        const resp = await fetch(url,{ credentials:'include' });
+        const resp = await fetch(`/api/lineas-team?t=${Date.now()}`,{ credentials:'include' });
         const j = await resp.json();
         return Array.isArray(j?.data) ? j.data : [];
       }
@@ -130,7 +125,6 @@
         if (!thead) return;
         thead.innerHTML = `
           <tr>
-            <th style="width:28px;"></th>
             <th>Cliente</th>
             <th>Teléfono</th>
             <th>Cuenta</th>
@@ -164,6 +158,7 @@
         const idv = '';
         const mercado = [];
         let sup = '';
+        if (!sup && defaultSupervisor) sup = defaultSupervisor;
 
         return items.filter(it=>{
           if (query) {
@@ -197,7 +192,7 @@
       function renderTable(items){
         buildHeaders();
         const tb = document.getElementById('costumer-tbody');
-        let rowIndex = 0;
+        const editable = canEditStatus();
         tb.innerHTML = items.map(it=>{
           const servArr = Array.isArray(it.servicios) ? it.servicios : (typeof it.servicios_texto==='string' ? it.servicios_texto.split(/[,;]+/).map(s=>s.trim()).filter(Boolean) : []);
           const tels = Array.isArray(it.telefonos) ? it.telefonos : [];
@@ -207,51 +202,29 @@
             const t = tels[i] || '';
             return (s||t) ? `${s}${s&&t?': ':''}${t}` : '';
           }).filter(Boolean);
-          const firstLine = pairs[0] || '';
-          const rest = pairs.slice(1);
           const cant = (it.cantidad_lineas!=null) ? it.cantidad_lineas : (Array.isArray(it.telefonos) ? it.telefonos.length : '');
-          const rid = `r${rowIndex++}`;
-          const hasChildren = rest.length > 0;
-          const main = `<tr class="main-row" data-rid="${rid}" data-has-children="${hasChildren? '1':'0'}" style="cursor:pointer;">
-            <td class="expander" title="Expandir/colapsar">${hasChildren? '<span class="chev">&#9654;</span>' : ''}</td>
+          const statusLower = String(it.status||'').toLowerCase();
+          const statusCell = editable
+            ? `<select class="status-select" data-id="${it.id||it._id||''}" style="min-width:140px;">
+                 ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
+               </select>`
+            : String(it.status||'').toUpperCase();
+          return `<tr>
             <td>${it.nombre_cliente||''}</td>
             <td>${it.telefono_principal||''}</td>
             <td>${it.numero_cuenta||''}</td>
-            <td>${1}/${cant || pairs.length || 1}</td>
-            <td>${firstLine}</td>
-            <td>${(it.status||'').toUpperCase()}</td>
+            <td>${cant}</td>
+            <td>${pairs.length ? pairs.map(p=>`<div>${p}</div>`).join('') : ''}</td>
+            <td>${statusCell}</td>
             <td>${it.dia_venta||''}</td>
             <td>${it.dia_instalacion||''}</td>
             <td>${it.id||''}</td>
             <td>${it.mercado||''}</td>
             <td>${it.supervisor||''}</td>
-            <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="event.stopPropagation(); alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
+            <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
           </tr>`;
-          const children = rest.map((line, idx) => `
-            <tr class="child-row" data-parent="${rid}" style="display:none; background:#f8fafc;">
-              <td class="expander"></td>
-              <td>${it.nombre_cliente||''}</td>
-              <td>${it.telefono_principal||''}</td>
-              <td>${it.numero_cuenta||''}</td>
-              <td>${(idx+2)}/${cant || pairs.length || (idx+2)}</td>
-              <td>${line}</td>
-              <td>${(it.status||'').toUpperCase()}</td>
-              <td>${it.dia_venta||''}</td>
-              <td>${it.dia_instalacion||''}</td>
-              <td>${it.id||''}</td>
-              <td>${it.mercado||''}</td>
-              <td>${it.supervisor||''}</td>
-              <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="event.stopPropagation(); alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
-            </tr>
-          `).join('');
-          const separator = `
-            <tr class="sep-row" data-parent="${rid}" style="display:none;">
-              <td colspan="13" style="height:12px; border-top: 2px solid #e5e7eb; background: #ffffff;"></td>
-            </tr>
-          `;
-          return main + children + separator;
         }).join('');
-        // No handlers here; a single global delegated handler is attached once on DOMContentLoaded
+        // Ajustar espejo si existe util
         if (window.rebuildStickyHead) try{ window.rebuildStickyHead(); }catch{}
       }
 
@@ -278,67 +251,53 @@
       if (q) q.addEventListener('input', ()=> renderTable(applyFilters(allItems)) );
       if (qs) qs.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
 
-      // Preparar selector de agentes si el usuario es supervisor
+      // Detect supervisor por usuario y marcar por defecto
+      let defaultSupervisor = '';
       try {
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-        const roleLc = String(user.role||'').toLowerCase();
-        const isSupervisorTL = roleLc.includes('supervisor');
-        if (isSupervisorTL) {
-          const username = String(user.username||user.name||'').toUpperCase();
-          const agentsMap = {
-            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA'],
-            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
-          };
-          const list = [username, ...((agentsMap[username] || []))];
-          const sel = document.getElementById('agentSelect');
-          if (sel) {
-            sel.style.display = 'block';
-            sel.innerHTML = '<option value="">Seleccione agente</option>' + list.map((a,i)=>`<option value="${a}">${i===0? a+' (Supervisor)': a}</option>`).join('');
-            sel.addEventListener('change', async ()=>{ allItems = await fetchData(); renderTable(applyFilters(allItems)); });
-            // Preseleccionar al supervisor para cargar sus ventas propias
-            sel.value = username;
-            sel.dispatchEvent(new Event('change'));
-          }
-        }
+        const name = String(user.supervisor||user.username||'').toUpperCase();
+        if (name.includes('JONATHAN')) defaultSupervisor = 'JONATHAN';
+        else if (name.includes('GUTIERREZ')) defaultSupervisor = 'GUTIERREZ';
       } catch {}
+      // Prefiltro aplicado en applyFilters sin mostrar controles
 
       // Toggle filters panel
       // No hay panel de filtros
       buildHeaders();
 
-      // Attach single delegated handler for expand/collapse
-      try {
-        const tbOnce = document.getElementById('costumer-tbody');
-        if (tbOnce && !tbOnce._boundExpand) {
-          tbOnce.addEventListener('click', function(e){
-            const tr = e.target.closest('tr.main-row');
-            if (!tr) return;
-            if (tr.getAttribute('data-has-children') !== '1') return;
-            const rid = tr.getAttribute('data-rid');
-            const childs = Array.from(tbOnce.querySelectorAll(`tr.child-row[data-parent="${rid}"]`));
-            const sep = tbOnce.querySelector(`tr.sep-row[data-parent="${rid}"]`);
-            const anyHidden = childs.some(c => c.style.display === 'none') || (sep && sep.style.display === 'none');
-            childs.forEach(c => { c.style.display = anyHidden ? 'table-row' : 'none'; });
-            if (sep) sep.style.display = anyHidden ? 'table-row' : 'none';
-            const chev = tr.querySelector('.chev');
-            if (chev) chev.innerHTML = anyHidden ? '&#9660;' : '&#9654;';
-          });
-          tbOnce._boundExpand = true;
-        }
-      } catch {}
-
-      // Si es supervisor y no ha elegido agente, esperar; si no, cargar
-      (async () => {
-        try {
-          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-          const isSupTL = String(user.role||'').toLowerCase().includes('supervisor');
-          if (isSupTL) {
-            const sel = document.getElementById('agentSelect');
-            if (sel && !sel.value) { renderTable([]); return; }
+      // Guardar cambios de STATUS (delegado)
+      const tbody = document.getElementById('costumer-tbody');
+      if (tbody) {
+        tbody.addEventListener('change', async (e)=>{
+          const sel = e.target.closest('select.status-select');
+          if (!sel) return;
+          if (!canEditStatus()) { alert('No tienes permisos para cambiar el STATUS.'); return; }
+          const id = sel.getAttribute('data-id');
+          const status = sel.value;
+          const prev = sel.getAttribute('data-prev') || '';
+          sel.disabled = true;
+          try{
+            const res = await fetch(STATUS_ENDPOINT, {
+              method: STATUS_METHOD,
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id, status, statusUpper: String(status||'').toUpperCase() })
+            });
+            if (!res.ok) throw new Error('HTTP '+res.status);
+            sel.setAttribute('data-prev', status);
+            // Refetch para asegurar persistencia real al recargar
+            await load();
+          }catch(err){
+            console.error('[STATUS] error', err);
+            alert('No se pudo actualizar el STATUS');
+            if (prev) sel.value = prev;
+          }finally{
+            sel.disabled = false;
           }
-        } catch {}
-        load();
-      })();
+        });
+      }
+
+      load();
     });
   </script>
 </body>

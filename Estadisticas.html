@@ -229,15 +229,40 @@
       font-weight: 800; 
       color: #000;
     }
-    /* Layout mejorado para conversiÃ³n: tabla + panel LINEAS */
-    .conv-two-col { display: flex; gap: 28px; align-items: flex-start; width: 100%; }
-    .conv-left { flex: 1 1 0; min-width: 0; max-height: 520px; overflow-y: auto; overflow-x: hidden; padding-right: 4px; }
-    .conv-right { flex: 0 0 320px; align-self: stretch; }
+    /* Layout mejorado para conversión: tabla + panel LINEAS (Grid asegura uso total de ancho) */
+    .conv-two-col { display: grid; grid-template-columns: minmax(0,1fr) 200px; gap: 8px; align-items: stretch; width: 100%; }
+    .conv-left { min-width: 0; max-height: 520px; overflow-y: auto; overflow-x: hidden; margin: 0; padding: 0; }
+    .conv-left .sales-table { width: 100% !important; table-layout: fixed; }
+    .conv-right { width: 100%; }
+    /* Igualar ancho de tabla entre MES y DÍA en desktop */
+    @media (min-width: 901px) {
+      .conversion-card .conv-left { max-width: 640px; }
+      /* Contenedor ajustado al mismo ancho total que tabla+panel+gap */
+      .conversion-card { max-width: 640px + 200px + 8px; max-width: 848px; margin-left: auto; margin-right: auto; }
+    }
+    /* Quitar contenedores externos (solo dentro de la sección MES/DÍA) */
+    #mes-dia-section > .card {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    #mes-dia-section > .card > h3 { display: none !important; }
+    /* Quitar cualquier tarjeta interna generada por el renderer del MES o del DÍA */
+    #mes-dia-section .conversion-card,
+    #mes-dia-section .ventas-diarias-card {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
     .mini-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 8px; }
     .mini-card .mini-table { width: 100%; }
     .mini-card .mini-table th { padding: 12px; font-size: 0.9rem; }
     .mini-card .mini-table td { padding: 10px 12px; font-size: 1rem; text-align: center; }
-    @media (max-width: 900px) { .conv-two-col { flex-direction: column; } .conv-left { min-width: 0; } .conv-right { order: -1; width: 100%; min-width: 0; } }
+    @media (max-width: 900px) { .conv-two-col { display: block; } .conv-left { min-width: 0; } .conv-right { width: 100%; min-width: 0; } }
     .mini-table { 
       width: 100%; 
       border-collapse: collapse; 
@@ -289,6 +314,15 @@
       padding: 12px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    /* Animaciones tipo carrusel */
+    .slide-container { position: relative; overflow: hidden; }
+    .slide-card { transition: transform 280ms ease, opacity 280ms ease; will-change: transform, opacity; }
+    .slide-exit-left { transform: translateX(-20%); opacity: 0; }
+    .slide-exit-right { transform: translateX(20%); opacity: 0; }
+    .slide-enter-base { transform: translateX(0); opacity: 0; }
+    .slide-enter-from-left { transform: translateX(-20%); opacity: 0; }
+    .slide-enter-from-right { transform: translateX(20%); opacity: 0; }
+    .slide-enter-active { transform: translateX(0); opacity: 1; }
     
     .ventas-title {
       font-weight: 800;
@@ -538,7 +572,7 @@
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
+        <div id="mes-dia-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
           <div class="card">
             <h3></h3>
             <div id="conversion-table" class="conversion-grid"></div>
@@ -1703,149 +1737,6 @@
       if (el) el.style.display = 'none';
     }
 
-    // Crea el modal del Día si no existe
-    function ensureDayDetailModal(){
-      if (document.getElementById('day-detail-modal')) return;
-      const overlay = document.createElement('div');
-      overlay.id = 'day-detail-modal';
-      overlay.className = 'modal-overlay';
-      overlay.innerHTML = `
-        <div class="modal">
-          <div class="modal-header">
-            <div>Detalle de Ventas del Día</div>
-            <button class="close-btn" id="close-day-detail">Cerrar</button>
-          </div>
-          <div class="modal-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <label style="font-weight:600;">Equipo:</label>
-              <select id="filter-team-select" style="min-width:160px;"></select>
-              <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-                <span id="day-detail-subtitle"></span>
-              </div>
-            </div>
-            <div id="day-visibility-dropdown" style="position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <label style="font-weight:600;">Equipos visibles:</label>
-              <button id="open-day-visibility" class="filter-button" style="height:28px;">Seleccionar equipos</button>
-              <div id="day-visibility-panel" style="position:absolute;top:36px;left:130px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;display:none;z-index:20;min-width:220px;">
-                <div id="day-visibility-options" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-                <div style="display:flex;gap:8px;justify-content:flex-end;">
-                  <button id="day-visibility-clear" class="filter-button" style="height:28px;background:#e2e8f0;color:#111827;">Limpiar</button>
-                  <button id="apply-day-visibility" class="filter-button" style="height:28px;">Aplicar</button>
-                </div>
-              </div>
-            </div>
-            <table id="day-detail-table" class="table-compact">
-              <thead>
-                <tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th><th>Fecha</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      overlay.querySelector('#close-day-detail').onclick = ()=>{ overlay.style.display='none'; };
-    }
-
-    function showDayDetailModal(){
-      try{
-        ensureDayDetailModal();
-        const store = window.DayDetailRows || { fecha:'', rows:[] };
-        const rows = Array.isArray(store.rows) ? store.rows : [];
-        const overlay = document.getElementById('day-detail-modal');
-        if (!overlay) return;
-        const tbody = overlay.querySelector('#day-detail-table tbody');
-        const sel = overlay.querySelector('#filter-team-select');
-        // Visibilidad de equipos para la TABLA DEL DÍA (dropdown multiselect)
-        let drop = overlay.querySelector('#day-visibility-dropdown');
-        // Si el modal existente es antiguo, crear el bloque de dropdown
-        if (!drop) {
-          const table = overlay.querySelector('#day-detail-table');
-          const body = overlay.querySelector('.modal-body') || table?.parentElement || overlay;
-          const wrapper = document.createElement('div');
-          wrapper.id = 'day-visibility-dropdown';
-          wrapper.style.cssText = 'position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
-          wrapper.innerHTML = `
-            <label style="font-weight:600;">Equipos visibles:</label>
-            <button id="open-day-visibility" class="filter-button" style="height:28px;">Seleccionar equipos</button>
-            <div id="day-visibility-panel" style="position:absolute;top:36px;left:130px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;display:none;z-index:20;min-width:220px;">
-              <div id="day-visibility-options" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-              <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button id="day-visibility-clear" class="filter-button" style="height:28px;background:#e2e8f0;color:#111827;">Limpiar</button>
-                <button id="apply-day-visibility" class="filter-button" style="height:28px;">Aplicar</button>
-              </div>
-            </div>`;
-          if (body && table && table.parentElement === body) body.insertBefore(wrapper, table); else (body || overlay).appendChild(wrapper);
-        }
-        // Tomar referencias (ahora garantizado que existen)
-        const btnOpen = overlay.querySelector('#open-day-visibility');
-        const panel = overlay.querySelector('#day-visibility-panel');
-        const optRoot = overlay.querySelector('#day-visibility-options');
-        const btnClear = overlay.querySelector('#day-visibility-clear');
-        const btnApply = overlay.querySelector('#apply-day-visibility');
-        const subtitle = overlay.querySelector('#day-detail-subtitle');
-
-        subtitle.textContent = `Fecha: ${store.fecha}`;
-
-        // Poblar select de equipos
-        const teams = Array.from(new Set(rows.map(r => (r.team||'').toString().trim()).filter(Boolean))).sort();
-        sel.innerHTML = `<option value="">Todos</option>` + teams.map(t=>`<option value="${t}">${t}</option>`).join('');
-
-        function render(filterTeam){
-          const data = rows.filter(r => !filterTeam || String(r.team).trim() === filterTeam);
-          tbody.innerHTML = data.map(r => `
-            <tr>
-              <td>${r.team || ''}</td>
-              <td>${r.agente || ''}</td>
-              <td>${r.servicio || ''}</td>
-              <td>${r.mercado || ''}</td>
-              <td>${Number(r.puntaje||0).toFixed(2)}</td>
-              <td>${typeof r.fecha==='string' ? r.fecha : (r.fecha instanceof Date ? r.fecha.toISOString() : (r.fecha||''))}</td>
-            </tr>
-          `).join('');
-        }
-
-        render('');
-        sel.onchange = () => render(sel.value);
-
-        // Poblado del dropdown de visibilidad
-        try {
-          const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
-          const STORAGE_KEY = 'stats_day_visible_teams';
-          const getSaved = () => { try { const v=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); return Array.isArray(v)&&v.length?v:ORDER_ALL; } catch(_){ return ORDER_ALL; } };
-          const setSaved = (arr) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(_){} };
-
-          if (optRoot) {
-            optRoot.innerHTML = ORDER_ALL.map(n=>`
-              <label style="display:flex;gap:8px;align-items:center;font-size:.92rem;color:#0f172a;">
-                <input type="checkbox" class="vis-opt" value="${n}"> ${n}
-              </label>
-            `).join('');
-            const saved = getSaved();
-            Array.from(optRoot.querySelectorAll('.vis-opt')).forEach(ch=>{ ch.checked = saved.includes(ch.value); });
-          }
-          if (btnOpen && panel) {
-            btnOpen.onclick = () => { panel.style.display = panel.style.display==='none' || !panel.style.display ? 'block' : 'none'; };
-            document.addEventListener('click', (e)=>{
-              if (!drop.contains(e.target)) panel.style.display = 'none';
-            });
-          }
-          if (btnClear && optRoot) {
-            btnClear.onclick = () => { Array.from(optRoot.querySelectorAll('.vis-opt')).forEach(ch=> ch.checked=false); };
-          }
-          if (btnApply && optRoot) {
-            btnApply.onclick = () => {
-              const selected = Array.from(optRoot.querySelectorAll('.vis-opt')).filter(ch=>ch.checked).map(ch=>ch.value);
-              setSaved(selected);
-              try { window.applyDayTeamVisibility && window.applyDayTeamVisibility(selected); } catch(_) {}
-              panel.style.display = 'none';
-            };
-          }
-        } catch(_){ }
-
-        overlay.style.display = 'flex';
-      } catch(e){ console.error('Error abriendo detalle del día', e); }
-    }
-
     // Aplica visibilidad a la tabla del Día y persiste selección
     window.applyDayTeamVisibility = function(teams){
       try {
@@ -2339,79 +2230,95 @@
           } catch(e) { console.warn('[ESTADISTICAS][DAY] ensure rows error:', e); }
         })();
 
-        // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
-        // Siempre renderizar filas (aunque sean 0)
+        // Construir bloque del DÍA (título, flechas y panel derecho) SIN el contenedor externo
         const tablaHtml = `
-            <div class="conversion-card">
-              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px 8px 0 0;">
-                <button id="day-prev" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día anterior">◀</button>
-                <div class="conversion-title" style="margin:0;">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
-                <button id="day-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día siguiente">▶</button>
-              </div>
-              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-                <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
-              </div>
-              <div class="conv-two-col">
-                <div class="conv-left">
-                  <table class="sales-table">
-                    <thead>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px;">
+            <button id="day-prev-alt" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día anterior">◀</button>
+            <div class="conversion-title" style="margin:0; background: transparent;">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+            <button id="day-next-alt" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Día siguiente">▶</button>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+            <button id="btn-detalle-dia" class="filter-button" style="height:28px;">Ver detalle</button>
+          </div>
+          <div class="conv-two-col slide-container">
+            <div class="conv-left">
+              <table class="sales-table" style="width:100%">
+                <thead>
+                  <tr>
+                    <th>EQUIPO</th>
+                    <th>ICON</th>
+                    <th>BAMO</th>
+                    <th>TOTAL</th>
+                    <th>PUNTAJE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${mainData.map(team => `
+                    <tr>
+                      <td>${team.name}</td>
+                      <td>${team.ICON || 0}</td>
+                      <td>${team.BAMO || 0}</td>
+                      <td>${team.Total || 0}</td>
+                      <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  <tr class="total-row">
+                    <td>TOTAL</td>
+                    <td>${mainData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
+                    <td>${mainData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
+                    <td>${mainData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
+                    <td>${mainData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="conv-right">
+              <div class="mini-card">
+                <table class="mini-table">
+                  <thead>
+                    <tr>
+                      <th>TEAM LINEAS</th>
+                      <th>ICON</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${(lineasData || []).map(r => `
                       <tr>
-                        <th>EQUIPO</th>
-                        <th>ICON</th>
-                        <th>BAMO</th>
-                        <th>TOTAL</th>
-                        <th>PUNTAJE</th>
+                        <td>${r.name}</td>
+                        <td>${r.ICON || 0}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      ${mainData.map(team => `
-                        <tr>
-                          <td>${team.name}</td>
-                          <td>${team.ICON || 0}</td>
-                          <td>${team.BAMO || 0}</td>
-                          <td>${team.Total || 0}</td>
-                          <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
-                        </tr>
-                      `).join('')}
-                      <tr class="total-row">
-                        <td>TOTAL</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="conv-right">
-                  <div class="mini-card">
-                    <table class="mini-table">
-                      <thead>
-                        <tr>
-                          <th>TEAM LINEAS</th>
-                          <th>ICON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${(lineasData || []).map(r => `
-                          <tr>
-                            <td>${r.name}</td>
-                            <td>${r.ICON || 0}</td>
-                          </tr>
-                        `).join('')}
-                        <tr class="total">
-                          <td>TOTAL</td>
-                          <td class="total-icon">${lineasTotalICON}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                    `).join('')}
+                    <tr class="total">
+                      <td>TOTAL</td>
+                      <td class="total-icon">${lineasTotalICON}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          `;
+          </div>
+        `;
 
         container.innerHTML = tablaHtml;
+        // Hook botón detalle (con fallback y delegación)
+        try {
+          const openDetail = () => {
+            try { if (typeof ensureDayDetailModal === 'function') ensureDayDetailModal(); } catch(_){}
+            try { showDayDetailModal(); }
+            catch(e){
+              console.warn('Fallback abrir detalle del día', e);
+              const overlay = document.getElementById('day-detail-modal');
+              if (overlay) overlay.style.display = 'flex';
+            }
+          };
+          const btnDet = document.getElementById('btn-detalle-dia');
+          if (btnDet) btnDet.addEventListener('click', openDetail);
+          // Delegación por si el botón se re-renderiza
+          container.addEventListener('click', (ev)=>{
+            const t = ev.target;
+            if (t && t.id === 'btn-detalle-dia') { ev.preventDefault(); openDetail(); }
+          });
+        } catch(_) {}
         // Safety enforcement: on Sundays, force display order to GROUP B in the DOM
         try {
           const dowToday = (new Date()).getDay(); // 0=Sun
@@ -2542,46 +2449,7 @@
       const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
     })();
 
-    // Contenedor del modal
-    (function ensureModalContainer(){
-      if (!document.getElementById('day-detail-modal')){
-        const overlay = document.createElement('div');
-        overlay.id = 'day-detail-modal';
-        overlay.className = 'modal-overlay';
-        overlay.innerHTML = `
-          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
-            <div class="modal-header">
-              <div id="dayDetailTitle">Detalle de Ventas del Día</div>
-              <button class="close-btn" id="day-detail-close">Cerrar</button>
-            </div>
-            <div class="modal-body">
-              <div class="toolbar">
-                <label for="filter-team-select" style="font-weight:600">Equipo:</label>
-                <select id="filter-team-select"></select>
-                <span id="day-detail-subtitle" style="margin-left:auto;color:#475569"></span>
-              </div>
-              <div style="overflow:auto">
-                <table class="table-compact" id="day-detail-table">
-                  <thead>
-                    <tr>
-                      <th>Equipo</th>
-                      <th>Agente</th>
-                      <th>Servicio</th>
-                      <th>Mercado</th>
-                      <th>Puntaje</th>
-                      <th>Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-              </div>
-            </div>
-          </div>`;
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideDayDetailModal(); });
-        document.getElementById('day-detail-close').addEventListener('click', hideDayDetailModal);
-      }
-    })();
+    // (El contenedor de modal del día se define estático en el HTML; no recrear dinámicamente)
 
     function hideDayDetailModal(){
       const el = document.getElementById('day-detail-modal');
@@ -2836,19 +2704,42 @@
           `;
 
         container.innerHTML = tablaHtml;
-        // Hook botón detalle
-        const btnDet = document.getElementById('btn-detalle-dia');
-        if (btnDet) {
-          btnDet.addEventListener('click', () => {
-            try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
-          });
-        }
+        // Helpers de animación (carrusel) para navegación con ?d=
+        const animateSwap = async (rootEl, direction, update) => {
+          try {
+            const card = container; // usar el propio contenedor
+            card.classList.add('slide-card');
+            card.classList.remove('slide-enter-from-left','slide-enter-from-right','slide-enter-active');
+            card.classList.add(direction === 'prev' ? 'slide-exit-right' : 'slide-exit-left');
+            await new Promise(r => setTimeout(r, 200));
+            card.classList.remove('slide-exit-right','slide-exit-left');
+            await update();
+            // Entrada
+            card.classList.add('slide-card','slide-enter-base', direction === 'prev' ? 'slide-enter-from-left' : 'slide-enter-from-right');
+            requestAnimationFrame(() => {
+              card.classList.add('slide-enter-active');
+              card.classList.remove('slide-enter-from-left','slide-enter-from-right');
+              setTimeout(()=>{ card.classList.remove('slide-card','slide-enter-base','slide-enter-active'); }, 280);
+            });
+          } catch(_) { await update(); }
+        };
+
         // Hook flechas navegación día (alternativas)
         try {
-          const btnPrevAlt = document.getElementById('day-prev-alt');
-          const btnNextAlt = document.getElementById('day-next-alt');
-          if (btnPrevAlt) btnPrevAlt.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()-1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-          if (btnNextAlt) btnNextAlt.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()+1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+          // Botones ya no existen, navegar con teclado (opcional) o programático
+          const btnPrevAlt = null;
+          const btnNextAlt = null;
+          document.addEventListener('keydown', async (e) => {
+            if (e.key === 'ArrowLeft') {
+              const d2 = new Date(effective); d2.setDate(d2.getDate()-1);
+              const newQ = `?d=${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
+              await animateSwap(container, 'prev', async () => { history.replaceState({}, '', newQ); await loadDayData(); });
+            } else if (e.key === 'ArrowRight') {
+              const d2 = new Date(effective); d2.setDate(d2.getDate()+1);
+              const newQ = `?d=${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
+              await animateSwap(container, 'next', async () => { history.replaceState({}, '', newQ); await loadDayData(); });
+            }
+          });
         } catch(_) {}
       } catch (e) {
         console.error('Error cargando datos del día:', e);

@@ -3541,6 +3541,55 @@ v   <html lang="es">
         try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
       }
 
+      // Guardar STATUS del lead (usado por el <select class="status-select">)
+      function canEditStatus(){
+        try{
+          const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const r = String(u.role||u?.usuario?.role||'').toLowerCase();
+          return r.includes('admin') || r.includes('administrador') || r.includes('backoffice');
+        }catch{ return false; }
+      }
+      window.updateLeadStatus = async function(id, newStatus){
+        try{
+          if (!canEditStatus()) { alert('No tienes permisos para cambiar el STATUS'); return; }
+          if (!id) { alert('ID inválido'); return; }
+          // Mantener idioma tal como viene del select
+          const payload = { status: newStatus };
+          const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+          const opts = (method, body) => ({ method, credentials: 'include', headers, body: JSON.stringify(body) });
+          // Endpoint real en backend
+          const target = { url: `/api/leads/${encodeURIComponent(id)}/status`, method: 'PUT', body: payload };
+          let ok = false, lastErr;
+          console.log('[STATUS] Guardando', { id, newStatus, endpoint: target.url });
+          // feedback visual: desactivar todos los selects de esa fila
+          try{
+            const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+            if (sel) sel.disabled = true;
+          }catch{}
+          try{
+            const res = await fetch(target.url, opts(target.method, target.body));
+            console.log('[STATUS] Respuesta', target.method, target.url, res.status);
+            if (res.ok) ok = true; else lastErr = new Error(`HTTP ${res.status} @ ${target.url}`);
+          }catch(e){ lastErr = e; }
+          if (!ok) { throw lastErr || new Error('No se pudo actualizar el STATUS'); }
+          // Refrescar datos visibles (si hay pipeline), si no recargar página
+          try {
+            if (typeof window.renderCostumerTable === 'function' && Array.isArray(window.ultimaListaLeads)){
+              // actualizar en memoria y re-render rápido
+              const lead = (window.ultimaListaLeads||[]).find(l=>String((typeof getLeadId==='function')?getLeadId(l):l.id)===String(id));
+              if (lead) { try { lead.status = newStatus; } catch(_) {} }
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } else {
+              // fallback: recargar para asegurar persistencia
+              location.reload();
+            }
+          } catch { location.reload(); }
+        }catch(e){
+          console.warn('[STATUS] Falló actualización:', e);
+          alert('No se pudo actualizar el STATUS: ' + (e?.message||e));
+        }
+      }
+
       // Helper: render con separadores mensuales usando getDateFromLead
       function renderWithMonthlySeparators(list) {
         const tbodyLoc = document.getElementById('costumer-tbody');
