@@ -80,7 +80,7 @@ const SCORING_TABLE = {
   'frontier-2g-plus': {
     base: 1.5
   },
-
+   
   // ========== EARTHLINK ==========
   'internet-earthlink': {
     base: 1.0

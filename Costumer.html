@@ -2307,16 +2307,17 @@ v   <html lang="es">
         // Funci¨®n para verificar si el usuario puede editar el estado de un lead
     function canEditStatus() {
       try {
-        // Obtener datos del usuario desde localStorage o sessionStorage
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const userRole = (userData.role || '').toLowerCase();
-        
-        // Permitir edici¨®n a administradores y supervisores
-        return ['admin', 'supervisor', 'backoffice'].includes(userRole);
-      } catch (error) {
-        console.error('Error al verificar permisos de edici¨®n:', error);
-        return false; // Por defecto, no permitir edici¨®n si hay un error
-      }
+        const role = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+        return role === 'admin' || role === 'administrador' || role === 'administrator' || role === 'backoffice';
+      } catch { return false; }
+    }
+    function canFullEdit(){
+      try{
+        const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const r = String(u.role || u?.usuario?.role || '').toLowerCase();
+        return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice';
+      }catch{ return false; }
     }
 
     // Funciones para el manejo de comentarios - Asegurar que estén en scope global
@@ -4115,7 +4116,7 @@ v   <html lang="es">
         try{
           const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
           const r = String(u.role||u?.usuario?.role||'').toLowerCase();
-          return r.includes('admin') || r.includes('administrador') || r.includes('backoffice') || r.includes('supervisor');
+          return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice';
         }catch{ return false; }
       }
       window.updateLeadStatus = async function(id, newStatus){
@@ -5452,6 +5453,28 @@ v   <html lang="es">
         }
       } catch(_) {}
 
+      // Aplicar permisos de edición en el modal
+      try {
+        const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
+        const setDisabled = (id, dis) => { try { const el = document.getElementById(id); if (el){ el.disabled = !!dis; el.readOnly = !!dis; } } catch{} };
+        const blockIds = [
+          'edit-telefono','edit-telefono-alt','edit-numero-cuenta','edit-autopago','edit-direccion',
+          'edit-servicios','edit-sistema','edit-riesgo','edit-status','edit-mercado','edit-supervisor',
+          'edit-comentario','edit-motivo-llamada','edit-puntaje','edit-zip-code','edit-nombres','edit-apellidos'
+        ];
+        if (!isFull) {
+          // Bloquear todo excepto fechas
+          blockIds.forEach(id => setDisabled(id, true));
+          setDisabled('edit-dia-venta', false);
+          setDisabled('edit-dia-instalacion', false);
+        } else {
+          // Habilitar todos para admin/backoffice
+          blockIds.forEach(id => setDisabled(id, false));
+          setDisabled('edit-dia-venta', false);
+          setDisabled('edit-dia-instalacion', false);
+        }
+      } catch{}
+
       try { window.__currentEditingLead = lead; } catch(_) {}
       // Mostrar modal
       modal.style.display = 'block';
@@ -5532,45 +5555,54 @@ v   <html lang="es">
     window.guardarCambiosLead = async function() {
       const leadId = document.getElementById('edit-id').value;
       
-      const nombreCompleto = [
-        document.getElementById('edit-nombres').value.trim(),
-        document.getElementById('edit-apellidos').value.trim()
-      ].filter(Boolean).join(' ');
-
-      const tipoServicio = (
-        (document.getElementById('edit-servicios') && document.getElementById('edit-servicios').value)
-        || (window.__currentEditingLead && (window.__currentEditingLead.servicios || window.__currentEditingLead.tipo_servicio || window.__currentEditingLead.tipo_servicios || window.__currentEditingLead.servicios_texto))
-        || ''
-      ).toString().trim();
-      if (!tipoServicio) {
-        alert('Falta el campo "Tipo de servicio"');
-        try { document.getElementById('edit-tipo-servicios').focus(); } catch(_) {}
-        return;
+      const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
+      let datosActualizados = {};
+      if (isFull) {
+        const nombreCompleto = [
+          document.getElementById('edit-nombres').value.trim(),
+          document.getElementById('edit-apellidos').value.trim()
+        ].filter(Boolean).join(' ');
+        const tipoServicio = (
+          (document.getElementById('edit-servicios') && document.getElementById('edit-servicios').value)
+          || (window.__currentEditingLead && (window.__currentEditingLead.servicios || window.__currentEditingLead.tipo_servicio || window.__currentEditingLead.tipo_servicios || window.__currentEditingLead.servicios_texto))
+          || ''
+        ).toString().trim();
+        if (!tipoServicio) {
+          alert('Falta el campo "Tipo de servicio"');
+          try { document.getElementById('edit-tipo-servicios').focus(); } catch(_) {}
+          return;
+        }
+        datosActualizados = {
+          nombre_cliente: nombreCompleto,
+          telefono_principal: document.getElementById('edit-telefono').value,
+          telefono_alterno: document.getElementById('edit-telefono-alt').value,
+          numero_cuenta: document.getElementById('edit-numero-cuenta').value,
+          autopago: document.getElementById('edit-autopago').value,
+          direccion: document.getElementById('edit-direccion').value,
+          // Compatibilidad: enviar ambos nombres de campo
+          servicios: tipoServicio,
+          tipo_servicio: tipoServicio,
+          tipo_servicios: tipoServicio,
+          sistema: document.getElementById('edit-sistema').value,
+          riesgo: (document.getElementById('edit-riesgo').value||'').toString().toLowerCase(),
+          dia_venta: document.getElementById('edit-dia-venta').value,
+          dia_instalacion: document.getElementById('edit-dia-instalacion').value,
+          status: document.getElementById('edit-status').value,
+          mercado: document.getElementById('edit-mercado').value,
+          supervisor: document.getElementById('edit-supervisor').value,
+          comentario: document.getElementById('edit-comentario').value,
+          motivo_llamada: document.getElementById('edit-motivo-llamada').value,
+          zip_code: document.getElementById('edit-zip-code').value,
+          zip: document.getElementById('edit-zip-code').value,
+          puntaje: parseFloat(document.getElementById('edit-puntaje').value) || 0
+        };
+      } else {
+        // Modo restringido: solo fechas de venta/instalación
+        datosActualizados = {
+          dia_venta: document.getElementById('edit-dia-venta').value,
+          dia_instalacion: document.getElementById('edit-dia-instalacion').value
+        };
       }
-      const datosActualizados = {
-        nombre_cliente: nombreCompleto,
-        telefono_principal: document.getElementById('edit-telefono').value,
-        telefono_alterno: document.getElementById('edit-telefono-alt').value,
-        numero_cuenta: document.getElementById('edit-numero-cuenta').value,
-        autopago: document.getElementById('edit-autopago').value,
-        direccion: document.getElementById('edit-direccion').value,
-        // Compatibilidad: enviar ambos nombres de campo
-        servicios: tipoServicio,
-        tipo_servicio: tipoServicio,
-        tipo_servicios: tipoServicio,
-        sistema: document.getElementById('edit-sistema').value,
-        riesgo: (document.getElementById('edit-riesgo').value||'').toString().toLowerCase(),
-        dia_venta: document.getElementById('edit-dia-venta').value,
-        dia_instalacion: document.getElementById('edit-dia-instalacion').value,
-        status: document.getElementById('edit-status').value,
-        mercado: document.getElementById('edit-mercado').value,
-        supervisor: document.getElementById('edit-supervisor').value,
-        comentario: document.getElementById('edit-comentario').value,
-        motivo_llamada: document.getElementById('edit-motivo-llamada').value,
-        zip_code: document.getElementById('edit-zip-code').value,
-        zip: document.getElementById('edit-zip-code').value,
-        puntaje: parseFloat(document.getElementById('edit-puntaje').value) || 0
-      };
 
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
