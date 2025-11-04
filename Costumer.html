@@ -238,31 +238,321 @@ v   <html lang="es">
         return agentCanonicalName(raw);
       }
       function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
-      function renderRows(list){ const tbody=document.getElementById('costumer-tbody'); if(!tbody) return; tbody.innerHTML=''; (list||[]).forEach(l=>{ const autop=(l.autopay??l.autopago); const autopTxt=typeof autop==='boolean'?(autop?'Sí':'No'):(String(autop||'').toUpperCase()==='SI'?'Sí':(String(autop||'').toUpperCase()==='NO'?'No':String(autop||''))); const cant=(l.cantidad_lineas!=null)?l.cantidad_lineas:(Array.isArray(l.telefonos)?l.telefonos.length:''); const cells=[ l.nombre_cliente||'', l.telefono_principal||'', l.numero_cuenta||'', autopTxt||'', maskPin(l.pin_seguridad)||'', l.direccion||'', normDate(l.dia_venta||l.fecha_contratacion||l.fecha||''), normDate(l.dia_instalacion||''), (l.status||'').toString().toUpperCase(), cant||'', serviciosResumen(l)||'', (l.id_cliente||l._id||l.id||''), l.supervisor||'', l.mercado||'' ]; const tr=document.createElement('tr'); tr.innerHTML=cells.map(v=>`<td>${v==null?'':v}</td>`).join(''); tbody.appendChild(tr); }); }
+      function renderRows(list){
+        const tbody=document.getElementById('costumer-tbody'); if(!tbody) return; tbody.innerHTML='';
+        (list||[]).forEach(l=>{
+          const autop=(l.autopay??l.autopago);
+          const autopTxt=typeof autop==='boolean'?(autop?'Sí':'No'):(String(autop||'').toUpperCase()==='SI'?'Sí':(String(autop||'').toUpperCase()==='NO'?'No':String(autop||'')));
+          const cant=(l.cantidad_lineas!=null)?l.cantidad_lineas:(Array.isArray(l.telefonos)?l.telefonos.length:'');
+          const statusRaw=(l.status||'').toString();
+          const statusNorm=statusRaw.trim().toLowerCase();
+          const idVal=(l.id_cliente||l._id||l.id||'');
+          const cells=[
+            l.nombre_cliente||'',
+            l.telefono_principal||'',
+            l.numero_cuenta||'',
+            autopTxt||'',
+            maskPin(l.pin_seguridad)||'',
+            l.direccion||'',
+            normDate(l.dia_venta||l.fecha_contratacion||l.fecha||''),
+            normDate(l.dia_instalacion||''),
+            statusRaw.toUpperCase(),
+            cant||'',
+            serviciosResumen(l)||'',
+            idVal,
+            l.supervisor||'',
+            l.mercado||''
+          ];
+          const tr=document.createElement('tr');
+          if (idVal) tr.setAttribute('data-lead-id', String(idVal));
+          if(statusNorm){
+            let cls='row-status-';
+            if(/cancel/.test(statusNorm)) cls+='canceled';
+            else if(/hold/.test(statusNorm)) cls+='hold';
+            else if(/repro|resched/.test(statusNorm)) cls+='rescheduled';
+            else if(/complete|active/.test(statusNorm)) cls+='complete';
+            else cls+='pending';
+            tr.classList.add(cls);
+          }
+          tr.innerHTML=cells.map(v=>`<td>${v==null?'':v}</td>`).join('');
+          try {
+            const tdStatus = tr.children[8];
+            if (tdStatus) tdStatus.dataset.status = statusNorm; // para CSS :has() y recolor persistente
+          } catch {}
+          tbody.appendChild(tr);
+        });
+      }
       // Guardar referencia al renderizador anterior
       const originalRenderer = window.renderCostumerTable;
       
       // Sobrescribir con nuestro renderizador Team Líneas
-      window.renderCostumerTable = function(leads){ 
-        console.log('[Team Líneas] Interceptando renderCostumerTable, leads:', leads?.length || 0);
-        try{ 
-          if(isTeamLineas()){ 
-            console.log('[Team Líneas] Aplicando vista Team Líneas');
-            applyHeader(); 
-            const arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]); 
-            renderRows(arr); 
-            return; 
-          } 
-        }catch(e){ 
-          console.warn('[Team Líneas render] error', e);
-        } 
-        
-        // Si no es Team Líneas, usar renderizador original
-        if(typeof originalRenderer==='function'){ 
-          console.log('[Team Líneas] Usando renderizador original');
-          return originalRenderer(leads);
-        }
+      // Aplicador global para el renderizado no-Team: colorea filas según texto del status en la col 9
+      function syncStatusDatasets(){
+        try{
+          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+          const rows=[...tbody.querySelectorAll('tr')];
+          rows.forEach(tr=>{
+            const td=tr.children[8]; if (!td) return;
+            const sel = td.querySelector('select');
+            const val = sel && sel.value ? String(sel.value).trim().toLowerCase() : (td.textContent||'').trim().toLowerCase();
+            if (val) td.dataset.status = val;
+          });
+        }catch{}
+      }
+
+      window.applyRowStatusColors = function(){
+        try{
+          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+          const rows=[...tbody.querySelectorAll('tr')];
+          rcLog('applyRowStatusColors start', {rows: rows.length});
+          // asegurar que cada celda STATUS tenga data-status actualizado antes de colorear
+          syncStatusDatasets();
+          rows.forEach(tr=>{
+            const td=tr.children[8]; // 9na columna (STATUS)
+            let txt='';
+            if (td){
+              // Priorizar select interno si existe
+              const sel = td.querySelector('select');
+              const ds = (td.dataset && td.dataset.status) ? String(td.dataset.status).trim().toLowerCase() : '';
+              if (ds) txt = ds;
+              else if (sel && sel.value) txt = String(sel.value).trim().toLowerCase();
+              else txt = (td.textContent||'').trim().toLowerCase();
+            }
+            tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active');
+            let cls='row-status-';
+            if(/cancel/.test(txt)) cls+='canceled';
+            else if(/hold/.test(txt)) cls+='hold';
+            else if(/repro|resched/.test(txt)) cls+='rescheduled';
+            else if(/complete|active/.test(txt)) cls+='complete';
+            else cls+='pending';
+            tr.classList.add(cls);
+            // Inline color para persistencia visual
+            const color = statusToColor(txt);
+            const tds = tr ? Array.from(tr.children) : [];
+            try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch{}
+            try{ tr.style.setProperty('background', 'none', 'important'); }catch{}
+            try{ tr.style.setProperty('background-color', color, 'important'); }catch{}
+            tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch{} });
+            tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch{} });
+            if (rcEnabled()) {
+              const id = tr?.getAttribute('data-lead-id') || '(sin-id)';
+              rcLog('row colored', {id, txt, cls, color, rowStatus: tr?.dataset?.rowStatus});
+            }
+          });
+          rcLog('applyRowStatusColors end');
+        }catch(e){ /* noop */ }
       };
+
+      window.__suspendRender = true; // deshabilitado por defecto
+      window.__suspendRenderTO = null;
+      window.disableGlobalRender = function(){
+        try{ window.__suspendRender = true; console.log('[Render] Global render DESHABILITADO'); }catch{}
+      };
+      window.enableGlobalRender = function(){
+        try{ window.__suspendRender = false; console.log('[Render] Global render HABILITADO'); }catch{}
+      };
+
+      // Monkey-patch robusto: impedir re-renders incluso si otro script reasigna la función
+      (function(){
+        let _renderFn = typeof originalRenderer==='function' ? originalRenderer.bind(window) : (typeof window.renderCostumerTable==='function' ? window.renderCostumerTable.bind(window) : null);
+        Object.defineProperty(window, 'renderCostumerTable', {
+          configurable: true,
+          enumerable: true,
+          get(){
+            return function(leads){
+              try {
+                console.log('renderCostumerTable llamada con leads:', leads?.length || (Array.isArray(leads?.leads)?leads.leads.length:0));
+                // Bloqueo global
+                if (window.__suspendRender) {
+                  // Permitir un ÚNICO render inicial para poblar la tabla
+                  if (!window.__initialPaintDone) {
+                    try {
+                      const arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
+                      const tbody = document.getElementById('costumer-tbody');
+                      if (tbody) tbody.innerHTML = '';
+                      if (typeof _renderFn === 'function') {
+                        // Usar el render original para respetar filtros/toolbars
+                        _renderFn(arr);
+                        console.log('[Render] Pintado inicial permitiendo _renderFn() (una sola vez)');
+                      } else if (typeof renderWithMonthlySeparators === 'function') {
+                        renderWithMonthlySeparators(arr);
+                        console.log('[Render] Pintado inicial forzado con renderWithMonthlySeparators()');
+                      }
+                      try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
+                      try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+                      window.__initialPaintDone = true;
+                    } catch(e){ console.warn('[Render] fallo en pintado inicial', e); }
+                  } else {
+                    console.log('[Render] BLOQUEADO por __suspendRender');
+                  }
+                  return;
+                }
+                // Vista Team Líneas
+                try{
+                  if (isTeamLineas()){
+                    console.log('[Team Líneas] Aplicando vista Team Líneas');
+                    applyHeader();
+                    const arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
+                    renderRows(arr);
+                    return;
+                  }
+                }catch(err){ console.warn('[Team Líneas render] error', err); }
+                // Fallback al render original si no está suspendido
+                if (typeof _renderFn === 'function') {
+                  const r = _renderFn(leads);
+                  setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
+                  return r;
+                }
+              } catch(e){ console.warn('[Render wrapper] error', e); }
+            }
+          },
+          set(fn){
+            try{
+              _renderFn = (typeof fn === 'function') ? fn.bind(window) : null;
+              console.log('[Render] Nueva función asignada; wrapper activo. __suspendRender=', window.__suspendRender);
+            }catch(e){ console.warn('[Render] setter error', e); }
+          }
+        });
+      })();
+    })();
+  </script>
+  <script>
+    // Helpers globales para colorear filas por STATUS inmediatamente
+    (function(){
+      // Logger controlado por bandera: activar con localStorage.setItem('rowColorDebug','1')
+      function rcEnabled(){ try{ return localStorage.getItem('rowColorDebug')==='1' || window.__ROW_COLOR_DEBUG===true; }catch{ return false; } }
+      function rcLog(){ try{ if (rcEnabled()) console.log('[RowColor]', ...arguments); }catch{} }
+      function statusToClass(val){
+        try{
+          const t=String(val||'').trim().toLowerCase();
+          if(/cancel/.test(t)) return 'row-status-canceled';
+          if(/hold/.test(t)) return 'row-status-hold';
+          if(/repro|resched/.test(t)) return 'row-status-rescheduled';
+          if(/complete|active/.test(t)) return 'row-status-complete';
+          return 'row-status-pending';
+        }catch{ return 'row-status-pending'; }
+      }
+      function statusToColor(val){
+        try{
+          const t=String(val||'').trim().toLowerCase();
+          if(/cancel/.test(t)) return '#ffe7e7';
+          if(/hold/.test(t)) return '#fff8db';
+          if(/repro|resched/.test(t)) return '#f2e9ff';
+          if(/complete|active/.test(t)) return '#e9f9ee';
+          return '#f8fafc';
+        }catch{ return '#f8fafc'; }
+      }
+      function applyRowClass(tr, statusVal){
+        try{
+          const cls=statusToClass(statusVal);
+          const id = tr?.getAttribute('data-lead-id') || '(sin-id)';
+          rcLog('applyRowClass ->', {id, statusVal, cls});
+          tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active');
+          tr.classList.add(cls);
+          // Aplicar color inline para vencer cualquier re-pintado externo
+          const color = statusToColor(statusVal);
+          const tds = tr ? Array.from(tr.children) : [];
+          try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch{}
+          try{ tr.style.setProperty('background', 'none', 'important'); }catch{}
+          try{ tr.style.setProperty('background-color', color, 'important'); }catch{}
+          tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch{} });
+          tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch{} });
+          rcLog('inline color aplicado', {id, color, rowStatus: tr?.dataset?.rowStatus});
+        }catch{}
+      }
+      // Re-aplicar colores cuando cambie el DOM de la tabla (con guardas anti bucle)
+      let _statusObserver = null;
+      let _statusDebounceTO = null;
+      let _statusPainting = false;
+      function debouncedApply(){
+        clearTimeout(_statusDebounceTO);
+        _statusDebounceTO = setTimeout(()=>{ try{ _statusPainting = true; rcLog('debouncedApply run'); window.applyRowStatusColors && window.applyRowStatusColors(); }finally{ _statusPainting = false; } }, 60);
+      }
+      function installStatusObserver(){
+        try{
+          const tbody = document.getElementById('costumer-tbody');
+          if (!tbody){
+            // reintentar pronto si aún no existe
+            setTimeout(installStatusObserver, 200);
+            return;
+          }
+          if (_statusObserver) { try{ _statusObserver.disconnect(); }catch{} _statusObserver = null; }
+          _statusObserver = new MutationObserver((muts)=>{
+            if (_statusPainting) return; // ignorar mutaciones causadas por nuestro repintado
+            // Solo re-aplicar una vez tras lote de cambios
+            rcLog('observer batch', {mutations: muts?.length||0});
+            debouncedApply();
+          });
+          // Observar solo cambios estructurales para evitar bucles por cambios de estilo
+          _statusObserver.observe(tbody, { childList: true, subtree: true });
+          // aplicar una vez al instalar
+          rcLog('observer installed');
+          debouncedApply();
+        }catch{}
+      }
+
+      // Exponer para uso externo si se requiere
+      window._statusRowHelpers = { statusToClass, applyRowClass, installStatusObserver };
+
+      // Delegado: cuando cambie un select de STATUS dentro de la tabla, aplicar color inmediato
+      document.addEventListener('change', function(ev){
+        try{
+          const el = ev.target;
+          if (!el || el.tagName !== 'SELECT') return;
+          const name = (el.name||'').toLowerCase();
+          const id = (el.id||'').toLowerCase();
+          const isStatus = el.classList.contains('status-select') || name.includes('status') || id.includes('status');
+          if (!isStatus) return;
+          const tr = el.closest('tr');
+          if (!tr) return;
+          // Guardar el valor en la celda como dataset para persistencia
+          const td = tr.children[8];
+          if (td) { try { td.dataset.status = String(el.value||''); } catch{} }
+          rcLog('change(status) ->', {value: el.value, rowId: tr?.getAttribute('data-lead-id')});
+
+          // Suspender re-render global temporalmente para evitar que destruya el color/estado
+          try{
+            window.__suspendRender = true;
+            if (window.__suspendRenderTO) { try{ clearTimeout(window.__suspendRenderTO); }catch{} }
+            window.__suspendRenderTO = setTimeout(()=>{
+              window.__suspendRender = false;
+              try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
+              try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+            }, 800);
+          }catch{}
+
+          _statusPainting = true;
+          try{ applyRowClass(tr, el.value); } finally { _statusPainting = false; }
+          // asegurar persistencia incluso si otra lógica re-renderiza luego
+          debouncedApply();
+          // keep-alive: durante 3s re-aplicar por si otro código repinta
+          let count=0; const iv = setInterval(()=>{ try{
+            if (++count>4) { clearInterval(iv); return; }
+            if (td && td.dataset && td.dataset.status) {
+              _statusPainting = true; try{ applyRowClass(tr, td.dataset.status); } finally { _statusPainting = false; }
+            } else {
+              _statusPainting = true; try{ applyRowClass(tr, el.value); } finally { _statusPainting = false; }
+            }
+          }catch{} }, 500);
+        }catch{}
+      }, true);
+
+      // Instalar observer cuando el DOM esté listo
+      function startKeepAliveInitial(){
+        try{
+          let n=0; const iv=setInterval(()=>{ try{
+            window.applyRowStatusColors && window.applyRowStatusColors();
+            if (++n>6) clearInterval(iv);
+          }catch{ clearInterval(iv); } }, 500);
+        }catch{}
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ()=>{ rcLog('DOMContentLoaded'); installStatusObserver(); startKeepAliveInitial(); });
+      } else {
+        rcLog('init immediate');
+        installStatusObserver();
+        startKeepAliveInitial();
+      }
     })();
   </script>
   <script>
@@ -736,6 +1026,34 @@ v   <html lang="es">
       line-height: 1.2 !important;
       display: inline-block;
     }
+
+    /* ===== Colores suaves por STATUS (aplicados a toda la fila) ===== */
+    /* Pintar las celdas para garantizar visibilidad incluso si la tabla tiene fondo propio */
+    .costumer-table tbody tr.row-status-pending td { background-color: #f8fafc !important; }
+    .costumer-table tbody tr.row-status-hold td { background-color: #fff8db !important; }
+    .costumer-table tbody tr.row-status-rescheduled td { background-color: #f2e9ff !important; }
+    .costumer-table tbody tr.row-status-canceled td,
+    .costumer-table tbody tr.row-status-cancelled td { background-color: #ffe7e7 !important; }
+    .costumer-table tbody tr.row-status-complete td,
+    .costumer-table tbody tr.row-status-active td { background-color: #e9f9ee !important; }
+    /* Mejorar legibilidad de separadores */
+    .costumer-table tbody tr[class^="row-status-"] td { border-bottom-color: #e6edf5; }
+    /* Reglas por data-row-status (más robusto contra re-pintados) */
+    .costumer-table tbody tr[data-row-status="pending"] td { background-color: #f8fafc !important; }
+    .costumer-table tbody tr[data-row-status="hold"] td { background-color: #fff8db !important; }
+    .costumer-table tbody tr[data-row-status="rescheduled"] td { background-color: #f2e9ff !important; }
+    .costumer-table tbody tr[data-row-status="canceled"] td,
+    .costumer-table tbody tr[data-row-status="cancelled"] td { background-color: #ffe7e7 !important; }
+    .costumer-table tbody tr[data-row-status="complete"] td,
+    .costumer-table tbody tr[data-row-status="active"] td { background-color: #e9f9ee !important; }
+
+    /* Reglas declarativas usando :has() en la 9na columna (STATUS) */
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="cancel"]) td { background-color: #ffe7e7 !important; }
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="hold"]) td { background-color: #fff8db !important; }
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="resched"]) td { background-color: #f2e9ff !important; }
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="complete"]) td,
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="active"]) td { background-color: #e9f9ee !important; }
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="pending"]) td { background-color: #f8fafc !important; }
 
     /* Forzar estilo por clase (más específico y robusto) */
     .costumer-table .status-col { padding: 2px 4px !important; text-align: left; width: 1% !important; white-space: nowrap !important; }
@@ -1270,8 +1588,53 @@ v   <html lang="es">
           </div>
           <div>
             <div class="edit-section-title">Servicios</div>
-            <label>Servicios</label>
-            <input type="text" id="edit-tipo-servicios" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 0 8px;">
+            <label for="edit-servicios">Servicios</label>
+            <select id="edit-servicios" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 0 8px;">
+              <option value="">Elige</option>
+              <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
+              <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
+              <option value="att-air">ATT AIR</option>
+              <option value="att-18-25-mb">ATT 18 - 25 MB</option>
+              <option value="att-50-100-mb">ATT 50 - 100 MB</option>
+              <option value="att-100-fibra">ATT 100 FIBRA</option>
+              <option value="att-300-500-mb">ATT 300 - 500 MB</option>
+              <option value="att-1g-plus">ATT 1G+</option>
+              <option value="mobility-spectrum">MOBILITY SPECTRUM</option>
+              <option value="sim-spectrum">SIM SPECTRUM</option>
+              <option value="frontier-200-mb">FRONTIER 200 MB</option>
+              <option value="frontier-500-mb">FRONTIER 500 MB</option>
+              <option value="frontier-1g">FRONTIER 1G</option>
+              <option value="frontier-2g-plus">FRONTIER 2G+</option>
+              <option value="spectrum-500">SPECTRUM 500</option>
+              <option value="spectrum-1g">SPECTRUM 1G</option>
+              <option value="spectrum-2g">SPECTRUM 2G</option>
+              <option value="internet-wow">INTERNET WOW</option>
+              <option value="internet-altafiber">INTERNET ALTA FIBER</option>
+              <option value="internet-windstream">INTERNET WINDSTREAM</option>
+              <option value="internet-hughesnet">INTERNET HUGHESNET</option>
+              <option value="internet-viasat">INTERNET VIASAT</option>
+              <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
+              <option value="internet-consolidate-2g">INTERNET CONSOLIDATE 2G</option>
+              <option value="internet-consolidate-1g">INTERNET CONSOLIDATE 1G</option>
+              <option value="internet-consolidate-300m">INTERNET CONSOLIDATE 300M</option>
+              <option value="internet-consolidate-100m">INTERNET CONSOLIDATE 100M</option>
+              <option value="internet-centurylink">INTERNET CENTURYLINK</option>
+              <option value="internet-metronet">INTERNET METRONET</option>
+              <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
+              <option value="internet-hawaiian">INTERNET HAWAIIAN</option>
+              <option value="video-select-spectrum">VIDEO SELECT SPECTRUM</option>
+              <option value="double-play-spectrum">DOUBLE PLAY SPECTRUM</option>
+              <option value="brightspeed-10-100">BRIGHTSPEED 10-100MBPS</option>
+              <option value="brightspeed-100-900">BRIGHTSPEED 100-900MBPS</option>
+              <option value="internet-optimum">INTERNET OPTIMUM</option>
+              <option value="internet-earthlink">INTERNET EARTHLINK</option>
+              <option value="xfinity-double-play">XFINITY DOUBLE PLAY</option>
+              <option value="xfinity-100-299">XFINITY 100 - 299 MBPS</option>
+              <option value="xfinity-300">XFINITY 300MBPS</option>
+              <option value="xfinity-500-plus">XFINITY 500MBPS+</option>
+              <option value="xfinity-ultimate-tv">XFINITY ULTIMATE TV</option>
+              <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
+            </select>
             
             <label style="margin-top:12px;">Autopago</label>
             <select id="edit-autopago" style="width: 180px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
@@ -1287,11 +1650,11 @@ v   <html lang="es">
             </select>
             <label style="margin-top:12px;">Riesgo</label>
             <select id="edit-riesgo" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
-              <option value="">Seleccionar...</option>
-              <option value="LOW">LOW</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="HIGH">HIGH</option>
-              <option value="N/A">N/A</option>
+              <option value="">Elige</option>
+              <option value="low">LOW</option>
+              <option value="medium">MEDIUM</option>
+              <option value="high">HIGH</option>
+              <option value="na">N/A</option>
             </select>
             <label style="margin-top:12px;">Status</label>
             <select id="edit-status" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
@@ -1307,7 +1670,18 @@ v   <html lang="es">
               <option value="N/A">N/A</option>
             </select>
             <label style="margin-top:12px;">Puntaje</label>
-            <input type="number" step="0.01" id="edit-puntaje" style="width: 120px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f3f4f6;" readonly>
+            <select id="edit-puntaje" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
+              <option value="">Elige puntaje</option>
+              <option value="1.5">1.5</option>
+              <option value="1.25">1.25</option>
+              <option value="1.0">1.0</option>
+              <option value="0.95">0.95</option>
+              <option value="0.75">0.75</option>
+              <option value="0.70">0.70</option>
+              <option value="0.50">0.50</option>
+              <option value="0.35">0.35</option>
+              <option value="0.25">0.25</option>
+            </select>
           </div>
           <div>
             <div class="edit-section-title">Administrativo</div>
@@ -3572,18 +3946,30 @@ v   <html lang="es">
             if (res.ok) ok = true; else lastErr = new Error(`HTTP ${res.status} @ ${target.url}`);
           }catch(e){ lastErr = e; }
           if (!ok) { throw lastErr || new Error('No se pudo actualizar el STATUS'); }
-          // Refrescar datos visibles (si hay pipeline), si no recargar página
+          // Actualizar SOLO la fila afectada y recolorear
           try {
-            if (typeof window.renderCostumerTable === 'function' && Array.isArray(window.ultimaListaLeads)){
-              // actualizar en memoria y re-render rápido
-              const lead = (window.ultimaListaLeads||[]).find(l=>String((typeof getLeadId==='function')?getLeadId(l):l.id)===String(id));
-              if (lead) { try { lead.status = newStatus; } catch(_) {} }
-              window.renderCostumerTable(window.ultimaListaLeads);
-            } else {
-              // fallback: recargar para asegurar persistencia
-              location.reload();
+            // actualizar en memoria si existe
+            const lead = (window.ultimaListaLeads||[]).find(l=>String((typeof getLeadId==='function')?getLeadId(l):l.id)===String(id));
+            if (lead) { try { lead.status = newStatus; } catch(_) {} }
+            // localizar fila
+            const tr = document.querySelector(`tr[data-lead-id="${id}"]`) || (function(){
+              try{
+                const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+                return sel ? sel.closest('tr') : null;
+              }catch{ return null; }
+            })();
+            if (tr) {
+              // celda de STATUS (9na)
+              const td = tr.children && tr.children[8] ? tr.children[8] : tr.querySelector('td.status-col, td:nth-child(9)');
+              if (td) { try { td.dataset.status = String(newStatus||''); } catch{} }
+              // aplicar clase/estilos
+              try { _statusPainting = true; applyRowClass(tr, newStatus); } finally { _statusPainting = false; }
             }
-          } catch { location.reload(); }
+            // reactivar select
+            try{ const sel = document.querySelector(`select.status-select[onchange*="${id}"]`); if (sel) sel.disabled = false; }catch{}
+            // mantener colores en el resto
+            try { if (typeof debouncedApply==='function') debouncedApply(); } catch{}
+          } catch(_) {}
         }catch(e){
           console.warn('[STATUS] Falló actualización:', e);
           alert('No se pudo actualizar el STATUS: ' + (e?.message||e));
@@ -4708,6 +5094,23 @@ v   <html lang="es">
 
         let data = await tryFetch(`/api/customers/${id}`);
         if (!data) data = await tryFetch(`/api/leads/${id}`);
+        // Fallback: listar y buscar por id si no existe endpoint GET /api/leads/:id
+        if (!data) {
+          try {
+            const resAll = await fetch(`/api/leads?skipDate=1&limit=50000`, { method:'GET', credentials:'include', headers:{ 'Content-Type':'application/json' } });
+            if (resAll.ok) {
+              const all = await resAll.json();
+              const arr = Array.isArray(all?.data) ? all.data : (Array.isArray(all) ? all : []);
+              const norm = (v)=>{
+                try{ if (!v) return ''; if (typeof v==='object'){ const s=v.$oid||v._id||v.id||v.value; return s?String(s):''; } return String(v);}catch{ return ''; }
+              };
+              const hit = arr.find(l=>{
+                const a = norm(l._id)||norm(l.id)||norm(l.leadId); return a===String(id);
+              });
+              if (hit) data = hit;
+            }
+          } catch(_) {}
+        }
         if (!data) throw new Error('No se pudo obtener el registro');
 
         const lead = data.data || data.lead || data;
@@ -4752,9 +5155,12 @@ v   <html lang="es">
       document.getElementById('edit-numero-cuenta').value = lead.numero_cuenta || '';
       document.getElementById('edit-autopago').value = (lead.autopago || '').toString().toUpperCase();
       document.getElementById('edit-direccion').value = lead.direccion || '';
-      document.getElementById('edit-tipo-servicios').value = lead.tipo_servicios || lead.tipo_servicio || '';
+      // Servicios: nuevo select principal
+      const svc = lead.servicios || lead.tipo_servicios || lead.tipo_servicio || '';
+      const selSvc = document.getElementById('edit-servicios');
+      if (selSvc) selSvc.value = svc;
       document.getElementById('edit-sistema').value = lead.sistema || '';
-      document.getElementById('edit-riesgo').value = lead.riesgo || '';
+      document.getElementById('edit-riesgo').value = String(lead.riesgo || '').toLowerCase();
       document.getElementById('edit-dia-venta').value = (lead.dia_venta || '').slice(0,10);
       document.getElementById('edit-dia-instalacion').value = (lead.dia_instalacion || '').slice(0,10);
       document.getElementById('edit-status').value = lead.status || '';
@@ -4762,8 +5168,34 @@ v   <html lang="es">
       document.getElementById('edit-supervisor').value = lead.supervisor || '';
       document.getElementById('edit-comentario').value = lead.comentario || '';
       document.getElementById('edit-motivo-llamada').value = lead.motivo_llamada || '';
+      const punt = parseFloat(lead.puntaje)||0;
+      try{
+        const selP = document.getElementById('edit-puntaje');
+        if (selP){
+          const allowed = ["1.5","1.25","1.0","0.95","0.75","0.70","0.50","0.35","0.25"];
+          const fmt = (n)=>{
+            if(!isFinite(n)) return "";
+            // normalizar a 2 decimales y quitar ceros sobrantes
+            const r2 = Math.round((n + Number.EPSILON) * 100) / 100;
+            let s = r2.toFixed(2);
+            s = s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+            return s;
+          };
+          let sv = fmt(punt);
+          // mapear 1 -> 1.0 para coincidir
+          if (sv === "1") sv = "1.0";
+          // si no está en allowed pero existe opción con ese valor textual, úsala
+          let exists = Array.from(selP.options).some(o=>o.value===sv);
+          if (!exists && allowed.includes(sv)) exists = true;
+          if (!exists && sv){
+            const opt = document.createElement('option');
+            opt.value = sv; opt.textContent = sv;
+            selP.appendChild(opt);
+          }
+          if (sv){ selP.value = sv; }
+        }
+      }catch{}
       document.getElementById('edit-zip-code').value = (lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || '');
-      document.getElementById('edit-puntaje').value = lead.puntaje || '';
 
       // Poblar notas existentes
       try {
@@ -4874,9 +5306,11 @@ v   <html lang="es">
         document.getElementById('edit-apellidos').value.trim()
       ].filter(Boolean).join(' ');
 
-      const tipoServicio = (document.getElementById('edit-tipo-servicios').value
-        || (window.__currentEditingLead && (window.__currentEditingLead.tipo_servicio || window.__currentEditingLead.tipo_servicios || window.__currentEditingLead.servicios_texto))
-        || '').toString().trim();
+      const tipoServicio = (
+        (document.getElementById('edit-servicios') && document.getElementById('edit-servicios').value)
+        || (window.__currentEditingLead && (window.__currentEditingLead.servicios || window.__currentEditingLead.tipo_servicio || window.__currentEditingLead.tipo_servicios || window.__currentEditingLead.servicios_texto))
+        || ''
+      ).toString().trim();
       if (!tipoServicio) {
         alert('Falta el campo "Tipo de servicio"');
         try { document.getElementById('edit-tipo-servicios').focus(); } catch(_) {}
@@ -4890,10 +5324,11 @@ v   <html lang="es">
         autopago: document.getElementById('edit-autopago').value,
         direccion: document.getElementById('edit-direccion').value,
         // Compatibilidad: enviar ambos nombres de campo
+        servicios: tipoServicio,
         tipo_servicio: tipoServicio,
         tipo_servicios: tipoServicio,
         sistema: document.getElementById('edit-sistema').value,
-        riesgo: document.getElementById('edit-riesgo').value,
+        riesgo: (document.getElementById('edit-riesgo').value||'').toString().toLowerCase(),
         dia_venta: document.getElementById('edit-dia-venta').value,
         dia_instalacion: document.getElementById('edit-dia-instalacion').value,
         status: document.getElementById('edit-status').value,
@@ -4950,8 +5385,32 @@ v   <html lang="es">
         alert('✅ Registro actualizado exitosamente');
         cerrarModalEdicion();
         
-        // Recargar la tabla
-        location.reload();
+        // Actualizar STATUS/color en la fila sin recargar
+        try{
+          const tbody = document.getElementById('costumer-tbody');
+          const statusNew = (datosActualizados.status||'').toString().toUpperCase();
+          let tr = tbody ? tbody.querySelector(`tr[data-lead-id="${CSS.escape(leadId)}"]`) : null;
+          if (!tr && tbody) {
+            // Fallback: buscar por coincidencia exacta del ID en alguna celda (idealmente col 12)
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            tr = rows.find(r=>{
+              const tds = Array.from(r.children);
+              return tds.some(td => (td.textContent||'').trim() === String(leadId));
+            }) || null;
+          }
+          if (tr) {
+            const statusTd = tr.children[8]; // 9na columna
+            if (statusTd) statusTd.textContent = statusNew || (statusTd.textContent||'');
+            if (window._statusRowHelpers && typeof window._statusRowHelpers.applyRowClass==='function') {
+              window._statusRowHelpers.applyRowClass(tr, statusNew);
+            } else if (typeof window.applyRowStatusColors==='function') {
+              window.applyRowStatusColors();
+            }
+          } else {
+            // Si no encontramos la fila, como último recurso recargar
+            location.reload();
+          }
+        }catch{ /* si falla, no romper UX */ }
       } catch (error) {
         console.error('Error al guardar cambios:', error);
         alert('❌ Error al actualizar el registro: ' + error.message);
