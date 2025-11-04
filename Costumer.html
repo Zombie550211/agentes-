@@ -4157,17 +4157,32 @@ v   <html lang="es">
               // celda de STATUS (9na)
               const td = tr.children && tr.children[8] ? tr.children[8] : tr.querySelector('td.status-col, td:nth-child(9)');
               if (td) { try { td.dataset.status = String(newStatus||''); } catch{} }
+              // sincronizar valor del select en UI
+              try {
+                const sel = tr.querySelector('select.status-select');
+                if (sel) sel.value = String(newStatus||'');
+              } catch {}
               // aplicar clase/estilos
               try { _statusPainting = true; applyRowClass(tr, newStatus); } finally { _statusPainting = false; }
             }
-            // reactivar select
-            try{ const sel = document.querySelector(`select.status-select[onchange*="${id}"]`); if (sel) sel.disabled = false; }catch{}
+            // reactivar select SIEMPRE
+            try{
+              const row = document.querySelector(`tr[data-lead-id="${id}"]`) || document;
+              const sels = row.querySelectorAll ? row.querySelectorAll('select.status-select') : [];
+              sels.forEach(s=>{ try{ s.disabled = false; s.removeAttribute('disabled'); }catch{} });
+            }catch{}
             // mantener colores en el resto
             try { if (typeof debouncedApply==='function') debouncedApply(); } catch{}
           } catch(_) {}
         }catch(e){
           console.warn('[STATUS] Falló actualización:', e);
           alert('No se pudo actualizar el STATUS: ' + (e?.message||e));
+        } finally {
+          // Rehabilitar por si hubo error temprano
+          try{
+            const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+            if (sel) { sel.disabled = false; sel.removeAttribute('disabled'); }
+          }catch{}
         }
       }
 
