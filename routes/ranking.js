@@ -146,8 +146,24 @@ router.get('/', protect, async (req, res) => {
     const startOfNextMonth = new Date(targetYear, targetMonthIndex + 1, 1);
 
     // Pipeline simplificado que funciona con los datos reales
+    const useCreatedAt = String(field).toLowerCase() === 'createdat';
     const pipelineBase = [
-      // 0) Normalizar dia_venta a Date en _diaParsed (soporta múltiples formatos)
+      // 0-pre) Si el cliente pide field=createdAt, usarlo directamente como base de fecha
+      ...(useCreatedAt ? [{
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $eq: [ { $type: "$createdAt" }, "date" ] }, "$createdAt",
+              { $cond: [
+                { $eq: [ { $type: "$createdAt" }, "string" ] },
+                { $dateFromString: { dateString: { $toString: "$createdAt" }, timezone: "-06:00" } },
+                null
+              ]}
+            ]
+          }
+        }
+      }] : []),
+      // 0) Normalizar dia_venta a Date en _diaParsed (robusto por formato)
       {
         $addFields: {
           _diaParsed: {
@@ -155,35 +171,93 @@ router.get('/', protect, async (req, res) => {
               { $eq: [ { $type: "$dia_venta" }, "date" ] },
               "$dia_venta",
               {
+                $let: { vars: { s: { $toString: "$dia_venta" } }, in: {
+                  $cond: [
+                    // ISO YYYY-MM-DD
+                    { $regexMatch: { input: "$$s", regex: /^\d{4}-\d{2}-\d{2}$/ } },
+                    { $dateFromString: { dateString: "$$s", format: "%Y-%m-%d", timezone: "-06:00" } },
+                    {
+                      $cond: [
+                        // D/M/YYYY o DD/MM/YYYY -> usar split + dateFromParts
+                        { $regexMatch: { input: "$$s", regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                        { $let: { vars: { parts: { $split: ["$$s", "/"] } }, in: {
+                          $dateFromParts: {
+                            year: { $toInt: { $arrayElemAt: ["$$parts", 2] } },
+                            month: { $toInt: { $arrayElemAt: ["$$parts", 1] } },
+                            day: { $toInt: { $arrayElemAt: ["$$parts", 0] } }
+                          }
+                        }}},
+                        {
+                          $cond: [
+                            // Nombre de mes inglés (con o sin día 0-pad). Dejar que el parser deduzca.
+                            { $regexMatch: { input: "$$s", regex: /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\s+\d{1,2}\s+\d{4}/i } },
+                            { $dateFromString: { dateString: "$$s", timezone: "-06:00" } },
+                            // Último recurso: intentar parseo libre; si falla, null
+                            { $dateFromString: { dateString: "$$s", timezone: "-06:00" } }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }}
+              }
+            ]
+          }
+        }
+      },
+      // 0.1) Fallback adicional: si _diaParsed sigue null y dia_venta es d/m/yyyy (sin padding), parsear con split + dateFromParts
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $ne: ["$_diaParsed", null] },
+              "$_diaParsed",
+              {
                 $let: {
-                  vars: {
-                    fmts: [
-                      "%Y-%m-%d",
-                      "%d/%m/%Y",
-                      "%a %b %d %Y",
-                      "%b %d %Y"
-                    ]
-                  },
+                  vars: { s: { $toString: "$dia_venta" } },
                   in: {
-                    $reduce: {
-                      input: "$$fmts",
-                      initialValue: null,
-                      in: {
-                        $cond: [
-                          { $ne: ["$$value", null] },
-                          "$$value", // ya se parseó con un formato anterior
-                          {
-                            $dateFromString: {
-                              dateString: { $toString: "$dia_venta" },
-                              format: "$$this",
-                              timezone: "-06:00"
+                    $cond: [
+                      { $regexMatch: { input: "$$s", regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                      {
+                        $let: {
+                          vars: { parts: { $split: ["$$s", "/"] } },
+                          in: {
+                            $dateFromParts: {
+                              year: { $toInt: { $arrayElemAt: ["$$parts", 2] } },
+                              month: { $toInt: { $arrayElemAt: ["$$parts", 1] } },
+                              day: { $toInt: { $arrayElemAt: ["$$parts", 0] } }
                             }
                           }
-                        ]
-                      }
-                    }
+                        }
+                      },
+                      null
+                    ] 
                   }
                 }
+              }
+            ]
+          }
+        }
+      },
+      // 0.2) Fallback final: usar createdAt cuando dia_venta no existe/no parsea
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $ne: ["$_diaParsed", null] },
+              "$_diaParsed",
+              {
+                $cond: [
+                  { $eq: [ { $type: "$createdAt" }, "date" ] },
+                  "$createdAt",
+                  {
+                    $cond: [
+                      { $eq: [ { $type: "$createdAt" }, "string" ] },
+                      { $dateFromString: { dateString: { $toString: "$createdAt" }, timezone: "-06:00" } },
+                      null
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -199,22 +273,7 @@ router.get('/', protect, async (req, res) => {
           ]}
         }
       },
-      // 1.1) Barrera adicional anti-colados: excluir explícitamente meses adyacentes
-      {
-        $match: {
-          $nor: [
-            // YYYY-MM del mes previo/siguiente
-            { dia_venta: { $regex: new RegExp(`^${prevYear}-${prevMonthPadded}-`) } },
-            { dia_venta: { $regex: new RegExp(`^${nextYear}-${nextMonthPadded}-`) } },
-            // D/M/YYYY o DD/MM/YYYY del mes previo/siguiente
-            { dia_venta: { $regex: new RegExp(`\\/(?:${prevMonthIdx+1}|${prevMonthPadded})\\/${prevYear}$`) } },
-            { dia_venta: { $regex: new RegExp(`\\/(?:${nextMonthIdx+1}|${nextMonthPadded})\\/${nextYear}$`) } },
-            // Nombre de mes en inglés del previo/siguiente
-            { dia_venta: { $regex: new RegExp(`\\b${prevAbbr}\\b.*\\b${prevYear}\\b`, 'i') } },
-            { dia_venta: { $regex: new RegExp(`\\b${nextAbbr}\\b.*\\b${nextYear}\\b`, 'i') } }
-          ]
-        }
-      },
+      // 1.1) Eliminado: la barrera anti-colados por regex en dia_venta podía excluir válidos cuando usamos createdAt
       
       // 2) Filtrar por agente (si aplica)
       ...(agente ? [{
@@ -226,11 +285,13 @@ router.get('/', protect, async (req, res) => {
         }
       }] : []),
       
-      // 3) Filtrar solo documentos con agente y puntaje válidos
+      // 3) Filtrar solo documentos con agente válido (puntaje puede faltar)
       {
         $match: {
-          agenteNombre: { $exists: true, $ne: null, $ne: "" },
-          puntaje: { $exists: true, $ne: null },
+          $or: [
+            { agenteNombre: { $exists: true, $ne: null, $ne: "" } },
+            { agente: { $exists: true, $ne: null, $ne: "" } }
+          ],
           excluirDeReporte: { $ne: true } // Excluir ventas marcadas para no contar
         }
       },
@@ -264,7 +325,11 @@ router.get('/', protect, async (req, res) => {
         $addFields: {
           isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
           puntajeEfectivo: {
-            $cond: [ { $eq: ["$_statusNorm", "CANCEL"] }, 0, { $toDouble: "$puntaje" } ]
+            $cond: [
+              { $eq: ["$_statusNorm", "CANCEL"] },
+              0,
+              { $toDouble: { $ifNull: [ "$puntaje", 0 ] } }
+            ]
           }
         }
       },

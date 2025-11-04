@@ -2739,10 +2739,11 @@
         }
 
         async function loadRankingByMonth(y,m){
-          const {fechaInicio,fechaFin}=monthBounds(y,m);
+          const {fechaInicio,fechaFin,isCurrent}=monthBounds(y,m);
           setPeriodLabel(y,m);
           try{
-            const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1&t=${Date.now()}`;
+            const fieldParam = isCurrent ? '' : '&field=createdAt';
+            const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}&t=${Date.now()}`;
             const res=await fetch(url,{credentials:'include'});
             if(!res.ok) throw new Error('HTTP '+res.status);
             const data=await res.json();
