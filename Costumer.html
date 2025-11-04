@@ -287,14 +287,77 @@ v   <html lang="es">
       
       // Sobrescribir con nuestro renderizador Team Líneas
       // Aplicador global para el renderizado no-Team: colorea filas según texto del status en la col 9
-      function syncStatusDatasets(){
+      function ensureRowIds(){
         try{
           const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
-          const rows=[...tbody.querySelectorAll('tr')];
+          const rows=[...tbody.querySelectorAll('tr')].filter(tr=>!tr.classList.contains('costumer-month-separator'));
+          rows.forEach(tr=>{
+            if (tr.hasAttribute('data-lead-id')) return;
+            // Intentar obtener ID desde el botón Editar
+            const btn = tr.querySelector('button[onclick^="editarLead("]');
+            if (btn){
+              const m = btn.getAttribute('onclick')?.match(/editarLead\('([^']+)'\)/);
+              if (m && m[1]) { tr.setAttribute('data-lead-id', m[1]); return; }
+            }
+            // Intentar obtener ID desde el select de status (onchange="updateLeadStatus('ID', this.value)")
+            const sel = tr.querySelector('select.status-select[onchange]');
+            if (sel){
+              const oc = sel.getAttribute('onchange')||'';
+              const m2 = oc.match(/updateLeadStatus\('([^']+)'/);
+              if (m2 && m2[1]) { tr.setAttribute('data-lead-id', m2[1]); return; }
+            }
+          });
+        }catch{}
+      }
+
+      window.syncStatusDatasets = function(){
+        try{
+          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+          ensureRowIds();
+          const rows=[...tbody.querySelectorAll('tr')]
+            .filter(tr=>!tr.classList.contains('costumer-month-separator'));
+          // Construir mapa id->status desde memoria si existe
+          let map = null;
+          try{
+            const list = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
+            if (list.length && typeof getLeadId==='function') {
+              map = new Map(list.map(l=>[ String(getLeadId(l)), String(l?.status||'').trim().toLowerCase() ]));
+            }
+          }catch{}
           rows.forEach(tr=>{
             const td=tr.children[8]; if (!td) return;
-            const sel = td.querySelector('select');
-            const val = sel && sel.value ? String(sel.value).trim().toLowerCase() : (td.textContent||'').trim().toLowerCase();
+            const id = tr.getAttribute('data-lead-id') || '';
+            // 0) status desde memoria por id
+            let val = '';
+            if (map && id && map.has(String(id))) val = map.get(String(id));
+            // 1) select interno
+            if (!val) {
+              const sel = td.querySelector('select');
+              if (sel && sel.value) val = String(sel.value).trim().toLowerCase();
+            }
+            // 2) badge con data-value
+            if (!val) {
+              const badge = td.querySelector('[data-value], .badge, .badge-status, .status-badge');
+              if (badge && badge.getAttribute) {
+                const dv = String(badge.getAttribute('data-value')||'').trim().toLowerCase();
+                if (dv) val = dv;
+              }
+            }
+            // 3) clases comunes en badges
+            if (!val) {
+              const b = td.querySelector('.badge, .badge-status, .status-badge');
+              const cls = b ? (' '+b.className+' ') : (' '+td.className+' ');
+              if (/cancel/.test(cls)) val = 'cancelled';
+              else if (/hold/.test(cls)) val = 'hold';
+              else if (/resched|repro/.test(cls)) val = 'rescheduled';
+              else if (/complete|active/.test(cls)) val = 'completed';
+              else if (/pend/i.test(cls)) val = 'pending';
+            }
+            // 4) texto visible de la celda
+            if (!val) {
+              const txt = (td.textContent||'').trim().toLowerCase();
+              if (txt) val = txt;
+            }
             if (val) td.dataset.status = val;
           });
         }catch{}
@@ -303,7 +366,9 @@ v   <html lang="es">
       window.applyRowStatusColors = function(){
         try{
           const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
-          const rows=[...tbody.querySelectorAll('tr')];
+          ensureRowIds();
+          const rows=[...tbody.querySelectorAll('tr')]
+            .filter(tr=>!tr.classList.contains('costumer-month-separator'));
           rcLog('applyRowStatusColors start', {rows: rows.length});
           // asegurar que cada celda STATUS tenga data-status actualizado antes de colorear
           syncStatusDatasets();
@@ -378,8 +443,21 @@ v   <html lang="es">
                         renderWithMonthlySeparators(arr);
                         console.log('[Render] Pintado inicial forzado con renderWithMonthlySeparators()');
                       }
-                      try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
-                      try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+                      // Aplicar colores cuando el DOM ya tenga filas (el render original puede ser asíncrono)
+                      try {
+                        const tryApplyColors = (attempt=0) => {
+                          try {
+                            const tbody = document.getElementById('costumer-tbody');
+                            const count = tbody ? tbody.querySelectorAll('tr').length : 0;
+                            if (count === 0 && attempt < 20) { // reintentar hasta 2s
+                              return setTimeout(() => tryApplyColors(attempt+1), 100);
+                            }
+                            if (typeof syncStatusDatasets==='function') syncStatusDatasets();
+                            if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors();
+                          } catch(_) {}
+                        };
+                        tryApplyColors();
+                      } catch(_) {}
                       window.__initialPaintDone = true;
                     } catch(e){ console.warn('[Render] fallo en pintado inicial', e); }
                   } else {
@@ -414,6 +492,49 @@ v   <html lang="es">
           }
         });
       })();
+
+      // Recoloreo garantizado tras carga inicial de la página
+      try {
+        window.addEventListener('DOMContentLoaded', function(){
+          let tries = 0;
+          const maxTries = 100; // hasta 10s
+          const attempt = () => {
+            tries++;
+            try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
+            try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+            try {
+              const tbody = document.getElementById('costumer-tbody');
+              const rows = tbody ? tbody.querySelectorAll('tr') : [];
+              const colored = rows && rows.length>0 && Array.from(rows).some(tr => (tr.dataset && tr.dataset.rowStatus) || (tr.style && tr.style.backgroundColor));
+              if (!colored && tries < maxTries) { setTimeout(attempt, 100); }
+            } catch { if (tries < maxTries) { setTimeout(attempt, 100); } }
+          };
+          setTimeout(attempt, 150);
+
+          // Observer ligero: nuevas filas -> recolorear inmediatamente
+          try {
+            const tbody = document.getElementById('costumer-tbody');
+            if (tbody && window.MutationObserver) {
+              let timer = null;
+              const apply = () => {
+                try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
+                try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+              };
+              const obs = new MutationObserver(muts => {
+                let added = false;
+                for (const m of muts) { if (m.type==='childList' && (m.addedNodes&&m.addedNodes.length)) { added = true; break; } }
+                if (added) {
+                  if (timer) clearTimeout(timer);
+                  timer = setTimeout(apply, 50);
+                }
+              });
+              obs.observe(tbody, { childList: true, subtree: false });
+              // Guardar referencia global por si se requiere depuración
+              try { window.__rowColorObserver = obs; } catch {}
+            }
+          } catch {}
+        });
+      } catch {}
     })();
   </script>
   <script>
@@ -1476,9 +1597,19 @@ v   <html lang="es">
         </div>
         <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
         <!-- Controles de paginación -->
-        <div id="paginationControls" style="display:flex; gap:8px; align-items:center; justify-content:flex-end; padding:8px 12px;">
+        <div id="paginationControls" style="display:flex; gap:10px; align-items:center; justify-content:flex-end; padding:8px 12px; flex-wrap:wrap;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <label for="pageSizeSelect" style="font-size:12px;color:#475569;">Por página</label>
+            <select id="pageSizeSelect" style="padding:4px 6px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+          <button id="toggleMonthsBtn" class="action-btn" title="Ver todo / Solo 2 meses" style="min-width:140px;">Solo 2 meses</button>
           <button id="pagePrev" class="action-btn" title="Página anterior"><i class="fas fa-chevron-left"></i></button>
-          <span id="pageInfo" style="font-size:12px; color:#475569; min-width:120px; text-align:center;">Página 1</span>
+          <span id="pageInfo" style="font-size:12px; color:#475569; min-width:160px; text-align:center;">Página 1</span>
           <button id="pageNext" class="action-btn" title="Página siguiente"><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>
@@ -2787,7 +2918,9 @@ v   <html lang="es">
         // Traemos un lote más grande y filtramos en frontend
         // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
         __page = Math.max(1, Number(page)||1);
-        let url = `/api/leads?page=${__page}&limit=${__limit}`;
+        // Traer datos sin filtro de mes en backend: se filtra en frontend (2 meses o todos)
+        const apiLimit = 50000;
+        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1`;
         let alreadyFilteredByAgent = false;
         
         console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
@@ -2845,9 +2978,9 @@ v   <html lang="es">
           leadsRaw = extractArray(data);
         }
 
-        // NUEVO: también cargar /api/customers y unificar con leadsRaw
+        // NUEVO: también cargar /api/customers (sin filtro por mes) y unificar con leadsRaw
         try {
-          const custRes = await fetch('/api/customers?page=1&limit=1000', fetchOptions);
+          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1`, fetchOptions);
           if (custRes.ok) {
             const custJson = await custRes.json();
             const customers = extractArray(custJson);
@@ -3490,10 +3623,72 @@ v   <html lang="es">
         if (nextBtn) nextBtn.disabled = (window.__page >= totalPages);
         // Enlazar eventos una sola vez
         if (!window.__pagingBound) {
-          if (prevBtn) prevBtn.addEventListener('click', function(){ if (window.__page > 1) { window.__page--; window.renderCostumerTable(window.ultimaListaLeads||[]); } });
-          if (nextBtn) nextBtn.addEventListener('click', function(){ const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||100))); if (window.__page < tp) { window.__page++; window.renderCostumerTable(window.ultimaListaLeads||[]); } });
+          const safeRepaint = () => {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false; // permitir sólo este render
+              window.renderCostumerTable(window.ultimaListaLeads||[]);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          };
+          if (prevBtn) prevBtn.addEventListener('click', function(){
+            if (window.__page > 1) { window.__page--; safeRepaint(); }
+          });
+          if (nextBtn) nextBtn.addEventListener('click', function(){
+            const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||100)));
+            if (window.__page < tp) { window.__page++; safeRepaint(); }
+          });
           window.__pagingBound = true;
         }
+        // Inicializar controles adicionales (solo una vez)
+        try {
+          if (!window.__controlsInit) {
+            const pageSizeSel = document.getElementById('pageSizeSelect');
+            const toggleBtn = document.getElementById('toggleMonthsBtn');
+            // Restaurar page size
+            try {
+              const savedSize = Number(localStorage.getItem('costumer_page_size')||'') || Number(pageSizeSel?.value||'100') || 100;
+              window.__limit = savedSize;
+              if (pageSizeSel) pageSizeSel.value = String(savedSize);
+            } catch {}
+            // Estado del filtro meses
+            const usp = new URLSearchParams(window.location.search||'');
+            const showAll = usp.get('showAllMonths')==='1' || usp.get('showAllMonths')==='true' || localStorage.getItem('costumer_show_all_months')==='1';
+            const setBtnText = () => { if (toggleBtn) toggleBtn.textContent = showAll ? 'Ver solo 2 meses' : 'Solo 2 meses'; };
+            setBtnText();
+            // Eventos
+            if (pageSizeSel) {
+              pageSizeSel.addEventListener('change', function(){
+                const v = Number(this.value||'100')||100;
+                localStorage.setItem('costumer_page_size', String(v));
+                window.__limit = v;
+                window.__page = 1;
+                // repaint seguro
+                const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+              });
+            }
+            if (toggleBtn) {
+              toggleBtn.addEventListener('click', function(){
+                const cur = localStorage.getItem('costumer_show_all_months')==='1';
+                const next = !cur; // toggle
+                localStorage.setItem('costumer_show_all_months', next ? '1' : '0');
+                // Ajustar query param sin recargar
+                try {
+                  const url = new URL(window.location.href);
+                  if (next) url.searchParams.set('showAllMonths','1'); else url.searchParams.delete('showAllMonths');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {}
+                // repaint seguro
+                window.__page = 1;
+                const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+                // actualizar etiqueta
+                this.textContent = next ? 'Ver solo 2 meses' : 'Solo 2 meses';
+              });
+            }
+            window.__controlsInit = true;
+          }
+        } catch {}
       } catch(_) {}
       // Migraci¨®n de compatibilidad: renombrar filtro legado a nombre neutral
       try {
@@ -3980,6 +4175,27 @@ v   <html lang="es">
       function renderWithMonthlySeparators(list) {
         const tbodyLoc = document.getElementById('costumer-tbody');
         if (!tbodyLoc) return;
+        // Filtro por defecto: mostrar solo mes actual y anterior (desactivable con ?showAllMonths=1)
+        try {
+          const usp = new URLSearchParams(window.location.search||'');
+          const showAll = usp.get('showAllMonths')==='1' || usp.get('showAllMonths')==='true';
+          if (!showAll && Array.isArray(list)) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth()+1; // 1-12
+            const pad = (n)=>('0'+n).slice(-2);
+            const thisMonth = `${y}-${pad(m)}`;
+            const prev = new Date(y, m-2, 1);
+            const prevMonth = `${prev.getFullYear()}-${pad(prev.getMonth()+1)}`;
+            list = list.filter(item => {
+              const iso = getDateFromLead(item); // 'YYYY-MM-DD'
+              if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+              const ym = iso.slice(0,7);
+              return ym===thisMonth || ym===prevMonth;
+            });
+            try { console.log('[MonthlyFilter] Aplicado (2 meses). Restantes =', list.length, 'Meses permitidos =', thisMonth, prevMonth); } catch {}
+          }
+        } catch {}
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         // Ordenar por fecha descendente usando getDateFromLead (YYYY-MM-DD)
         const sorted = (Array.isArray(list) ? list.slice() : []).sort((a,b) => {
