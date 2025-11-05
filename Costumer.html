@@ -2837,7 +2837,22 @@ v   <html lang="es">
     function getDateFromLead(lead) {
       try {
         if (!lead) return '';
-        const raw = lead.dia_venta || lead.fecha_contratacion || lead.fecha || lead.createdAt || lead.created_at || (lead._raw && (lead._raw.dia_venta || lead._raw.createdAt));
+        // Candidatos de fecha (en orden de prioridad)
+        const candidates = [
+          lead.dia_venta,
+          lead.fecha_contratacion,
+          lead.fecha,
+          lead.createdAt,
+          lead.created_at,
+          lead.creadoEn,
+          lead.creado_en,
+          lead.fecha_creacion,
+          lead.fechaCreacion,
+          lead.updatedAt,
+          // Anidados en _raw
+          lead._raw && (lead._raw.dia_venta || lead._raw.createdAt || lead._raw.creadoEn || lead._raw.fecha_creacion)
+        ].filter(Boolean);
+        const raw = candidates.length ? candidates[0] : null;
         if (!raw) return '';
         const toYMD = (d) => {
           const y = d.getFullYear();
@@ -2845,19 +2860,39 @@ v   <html lang="es">
           const day = String(d.getDate()).padStart(2, '0');
           return `${y}-${m}-${day}`;
         };
+        // Timestamps numéricos
+        if (typeof raw === 'number') {
+          const dt = new Date(raw);
+          return isNaN(dt) ? '' : toYMD(dt);
+        }
+        // Cadenas
         if (typeof raw === 'string') {
           const s = raw.trim();
+          // ISO puro YYYY-MM-DD
           if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          // ISO con hora
+          if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+            const dt = new Date(s);
+            return isNaN(dt) ? '' : toYMD(dt);
+          }
+          // Formato D/M/YYYY o DD/MM/YYYY
           if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
             const [d, m, y] = s.split('/').map(n => parseInt(n, 10));
             const dt = new Date(y, m - 1, d);
             return isNaN(dt) ? '' : toYMD(dt);
           }
+          // Strings tipo Date.toString()
           const dt = new Date(s);
           return isNaN(dt) ? '' : toYMD(dt);
         }
+        // Objetos Date
         if (raw instanceof Date) {
           return toYMD(raw);
+        }
+        // Objetos con $date
+        if (raw && typeof raw === 'object' && ('$date' in raw)) {
+          const dt = new Date(raw.$date);
+          return isNaN(dt) ? '' : toYMD(dt);
         }
         return '';
       } catch { return ''; }

@@ -1030,11 +1030,11 @@
     .inline-phone-service .radio-label span { font-weight:700; color:#25a9dd; text-transform: uppercase; letter-spacing: 0.3px; }
     .inline-phone-service .form-control { width:100%; min-width: 240px; }
     /* Ocultamiento forzado para Team Líneas */
-    body.team-lineas [data-field="comentario"],
-    body.team-lineas [data-field="servicios"],
-    body.team-lineas label[for="servicios"],
-    body.team-lineas #servicios,
-    body.team-lineas select[name="servicios"] {
+    body.team-lineas.lead-lineas-page [data-field="comentario"],
+    body.team-lineas.lead-lineas-page [data-field="servicios"],
+    body.team-lineas.lead-lineas-page label[for="servicios"],
+    body.team-lineas.lead-lineas-page #servicios,
+    body.team-lineas.lead-lineas-page select[name="servicios"] {
       display: none !important;
     }
   </style>
@@ -1105,64 +1105,6 @@
                   <option value="earthlink">XFINITY</option>
                 </select>
               </div>
-              
-              <!-- Servicios (izquierda) -->
-              <div class="form-group area-servicios">
-                <label for="servicios">SERVICIOS</label>
-                <select id="servicios" name="servicios" class="form-control" required>
-                  <option value="">Elige</option>
-                  <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
-                  <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
-                  <option value="att-air">ATT AIR</option>
-                  <option value="att-18-25-mb">ATT 18 - 25 MB</option>
-                  <option value="att-50-100-mb">ATT 50 - 100 MB</option>
-                  <option value="att-100-fibra">ATT 100 FIBRA</option>
-                  <option value="att-300-500-mb">ATT 300 - 500 MB</option>
-                  <option value="att-1g-plus">ATT 1G+</option>
-                  <option value="mobility-spectrum">MOBILITY SPECTRUM</option>
-                  <option value="sim-spectrum">SIM SPECTRUM</option>
-                  <option value="frontier-200-mb">FRONTIER 200 MB</option>
-                  <option value="frontier-500-mb">FRONTIER 500 MB</option>
-                  <option value="frontier-1g">FRONTIER 1G</option>
-                  <option value="frontier-2g-plus">FRONTIER 2G+</option>
-                  <option value="spectrum-500">SPECTRUM 500</option>
-                  <option value="spectrum-1g">SPECTRUM 1G</option>
-                  <option value="spectrum-2g">SPECTRUM 2G</option>
-                  <option value="internet-wow">INTERNET WOW</option>
-                  <option value="internet-altafiber">INTERNET ALTA FIBER</option>
-                  <option value="internet-windstream">INTERNET WINDSTREAM</option>
-                  <option value="internet-hughesnet">INTERNET HUGHESNET</option>
-                  <option value="internet-viasat">INTERNET VIASAT</option>
-                  <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
-                  <option value="internet-consolidate-2g">INTERNET CONSOLIDATE 2G</option>
-                  <option value="internet-consolidate-1g">INTERNET CONSOLIDATE 1G</option>
-                  <option value="internet-consolidate-300m">INTERNET CONSOLIDATE 300M</option>
-                  <option value="internet-consolidate-100m">INTERNET CONSOLIDATE 100M</option>
-                  <option value="internet-centurylink">INTERNET CENTURYLINK</option>
-                  <option value="internet-metronet">INTERNET METRONET</option>
-                  <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
-                  <option value="ziply-10g">INTERNET ZIPLY FIBER 10G</option>
-                  <option value="ziply-5g">INTERNET ZIPLY FIBER 5G</option>
-                  <option value="ziply-2g">INTERNET ZIPLY FIBER 2G</option>
-                  <option value="ziply-1g">INTERNET ZIPLY FIBER 1G</option>
-                  <option value="ziply-300-300">INTERNET ZIPLY FIBER 300/300</option>
-                  <option value="ziply-200-200">INTERNET ZIPLY FIBER 200/200</option>
-                  <option value="internet-hawaiian">INTERNET HAWAIIAN</option>
-                  <option value="video-select-spectrum">VIDEO SELECT SPECTRUM</option>
-                  <option value="double-play-spectrum">DOUBLE PLAY SPECTRUM</option>
-                  <option value="brightspeed-10-100">BRIGHTSPEED 10-100MBPS</option>
-                  <option value="brightspeed-100-900">BRIGHTSPEED 100-900MBPS</option>
-                  <option value="internet-optimum">INTERNET OPTIMUM</option>
-                  <option value="internet-earthlink">INTERNET EARTHLINK</option>
-                  <option value="xfinity-double-play">XFINITY DOUBLE PLAY</option>
-                  <option value="xfinity-100-299">XFINITY 100 - 299 MBPS</option>
-                  <option value="xfinity-300">XFINITY 300MBPS</option>
-                  <option value="xfinity-500-plus">XFINITY 500MBPS+</option>
-                  <option value="xfinity-ultimate-tv">XFINITY ULTIMATE TV</option>
-                  <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
-                </select>
-              </div>
-              
               <!-- Motivo de la llamada -->
               <div class="form-group form-group-full form-group-motivo">
                 <label>¿POR QUÉ LLAMÓ EL CLIENTE? *</label>
@@ -1351,7 +1293,8 @@
         (function(){
           const cleanup = () => {
             try {
-              if (!document.body.classList.contains('team-lineas')) return;
+              const isLeadLineas = /(^|\/)lead-lineas\.html$/i.test(window.location.pathname);
+              if (!document.body.classList.contains('team-lineas') || !isLeadLineas) return;
               // 1) data-field="comentario"
               const com = document.querySelector('[data-field="comentario"]');
               if (com) com.remove();
@@ -3794,6 +3737,12 @@ document.addEventListener('DOMContentLoaded', function() {
           'frontier-500-mb': { base: 1.0 },
           'frontier-1g': { base: 1.25 },
           'frontier-2g-plus': { base: 1.5 },
+          // Frontier nuevas variantes
+          'frontier-7g': { base: 1.5 },
+          'frontier-5g': { base: 1.5 },
+          'frontier-2g': { base: 1.5 },
+          'frontier-under-500': { base: 0.35 },
+          'frontier-digital-voice': { base: 0.35 },
           'internet-earthlink': { base: 1.0 },
           'internet-ziply-fiber': { base: 0.35 },
           // Ziply Fiber por velocidad
@@ -3809,6 +3758,7 @@ document.addEventListener('DOMContentLoaded', function() {
           'spectrum-500': { base: 0.75 },
           'spectrum-1g': { base: 1.0 },
           'spectrum-2g': { base: 1.25 },
+          'spectrum-400': { base: 1.0 },
           'double-play-spectrum': { base: 1.0 },
           'mobility-spectrum': { base: 0.5 },
           'sim-spectrum': { base: 0.5 },
@@ -3818,7 +3768,15 @@ document.addEventListener('DOMContentLoaded', function() {
           'internet-consolidate-300m': { base: 0.35 },
           'internet-consolidate-100m': { base: 0.35 },
           // Fallback genérico si no se detecta velocidad
-          'internet-consolidate': { base: 0.35 }
+          'internet-consolidate': { base: 0.35 },
+          // CenturyLink/Lumen
+          'centurylink-900-plus': { base: 1.0 },
+          'centurylink-100-899': { base: 0.75 },
+          'centurylink-10-99': { base: 0.35 },
+          // Optimum
+          'optimum-2g': { base: 1.25 },
+          'optimum-1g': { base: 1.0 },
+          'optimum-500': { base: 0.35 }
         };
         
         if (!serviceKey) return 0;
