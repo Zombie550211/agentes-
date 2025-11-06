@@ -39,7 +39,7 @@
       }
     }
   </script>
-
+  
   <style>
     /* Layout general consistente con otras pÃ¡ginas */
     * { box-sizing: border-box; }
@@ -76,7 +76,7 @@
     }
 
     .card {
-      background: #fff;
+      background: #ffffff;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       padding: 24px;
@@ -317,6 +317,9 @@
     /* Animaciones tipo carrusel */
     .slide-container { position: relative; overflow: hidden; }
     .slide-card { transition: transform 280ms ease, opacity 280ms ease; will-change: transform, opacity; }
+    .flip-viewport { perspective: 1200px; position: relative; width: 100%; }
+    .flip-scene { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.8s ease; }
+    .flip-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
     .slide-exit-left { transform: translateX(-20%); opacity: 0; }
     .slide-exit-right { transform: translateX(20%); opacity: 0; }
     .slide-enter-base { transform: translateX(0); opacity: 0; }
@@ -719,11 +722,8 @@
           const u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
           const role = (u?.role || '').toString().trim().toLowerCase();
           if (role === 'agent' || role === 'agente') params.append('forceAll', '1');
-        } catch(_){ }
-        // Cache-busting
-        params.append('t', Date.now());
-        if (params.toString()) url += `?${params.toString()}`;
-        
+              } catch(_){ }
+            // restore any hidden sticky elements
         console.log('Solicitando datos a:', url);
         
         // Realizar petición a la API usando la función fetchWithAuth
@@ -958,7 +958,7 @@
                 }
               } catch(_){ }
               // fallback estático
-              return ['Pleitez','Roberto','Marisol','Johana','Irania'];
+              return [];
             })();
             const targetSet = new Set(allTeams.map(x=>norm(x)));
             const ensureRows = (arr)=>{
@@ -1013,6 +1013,9 @@
             // mantener teamData en sincronía para totales
             teamData = displayRows.slice();
             try { window.MonthDisplayRows = displayRows.slice(); } catch(_){ }
+            // Datos para la gráfica mensual (flip)
+            try { window.__monthlyTeamData = displayRows.slice(); } catch(_){ }
+            try { window.__monthlyRange = { start: fechaInicio, end: fechaFin }; } catch(_){ }
             // recalcular totales definitivos con displayRows
             totals = (displayRows||[]).reduce((acc, r) => ({
               ICON: acc.ICON + (r.ICON || 0),
@@ -1036,71 +1039,83 @@
               <div class="conversion-title" style="margin:0;">${encabezadoTitulo}</div>
               <button id="month-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes siguiente">▶</button>
             </div>
-            <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
+            <div style="display:flex; justify-content:flex-end; margin:8px 0 6px; gap:8px;">
               <button id="btn-detalle-mensual" class="filter-button" style="height:28px;">Ver detalle</button>
+              <button id="btn-flip-monthly" class="filter-button" title="Ver gráfica" style="height:28px;width:32px;font-weight:700;">↻</button>
             </div>
-            <div class="conv-two-col">
-              <div class="conv-left">
-                <table class="sales-table">
-                  <thead>
-                    <tr>
-                      <th>EQUIPO</th>
-                      <th>ICON</th>
-                      <th>BAMO</th>
-                      <th>TOTAL</th>
-                      <th>PUNTAJE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${(!fallbackTeamData || fallbackTeamData.length === 0) ? `
-                      <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
-                          No hay datos disponibles para la fecha seleccionada
-                        </td>
-                      </tr>
-                    ` : (fallbackTeamData || []).map(team => `
-                      <tr>
-                        <td>${team.name}</td>
-                        <td>${team.ICON || 0}</td>
-                        <td>${team.BAMO || 0}</td>
-                        <td>${team.Total || 0}</td>
-                        <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
-                      </tr>
-                    `).join('')}
-                    ${ (fallbackTeamData && fallbackTeamData.length > 0) ? `
-                      <tr class="total-row">
-                        <td>TOTAL</td>
-                        <td>${totals.ICON}</td>
-                        <td>${totals.BAMO}</td>
-                        <td>${totals.Total}</td>
-                        <td>${Number(totals.Puntaje).toFixed(2)}</td>
-                      </tr>
-                    ` : ''}
-                  </tbody>
-                </table>
-              </div>
-              <div class="conv-right">
-                <div class="mini-card">
-                  <table class="mini-table">
-                    <thead>
-                      <tr>
-                        <th>TEAM LINEAS</th>
-                        <th>ICON</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${lineasData.map(r => `
-                        <tr>
-                          <td>${r.name}</td>
-                          <td>${r.ICON || 0}</td>
-                        </tr>
-                      `).join('')}
-                      <tr class="total">
-                        <td>TOTAL</td>
-                        <td class="total-icon">${lineasTotalICON}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+            <div class="flip-viewport" id="month-flip-local">
+              <div class="flip-scene">
+                <div class="flip-face front" id="month-front-face">
+                  <div class="conv-two-col">
+                    <div class="conv-left">
+                      <table class="sales-table">
+                        <thead>
+                          <tr>
+                            <th>EQUIPO</th>
+                            <th>ICON</th>
+                            <th>BAMO</th>
+                            <th>TOTAL</th>
+                            <th>PUNTAJE</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${(!fallbackTeamData || fallbackTeamData.length === 0) ? `
+                            <tr>
+                              <td colspan="5" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
+                                No hay datos disponibles para la fecha seleccionada
+                              </td>
+                            </tr>
+                          ` : (fallbackTeamData || []).map(team => `
+                            <tr>
+                              <td>${team.name}</td>
+                              <td>${team.ICON || 0}</td>
+                              <td>${team.BAMO || 0}</td>
+                              <td>${team.Total || 0}</td>
+                              <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
+                            </tr>
+                          `).join('')}
+                          ${ (fallbackTeamData && fallbackTeamData.length > 0) ? `
+                            <tr class="total-row">
+                              <td>TOTAL</td>
+                              <td>${totals.ICON}</td>
+                              <td>${totals.BAMO}</td>
+                              <td>${totals.Total}</td>
+                              <td>${Number(totals.Puntaje).toFixed(2)}</td>
+                            </tr>
+                          ` : ''}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="conv-right">
+                      <div class="mini-card">
+                        <table class="mini-table">
+                          <thead>
+                            <tr>
+                              <th>TEAM LINEAS</th>
+                              <th>ICON</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${lineasData.map(r => `
+                              <tr>
+                                <td>${r.name}</td>
+                                <td>${r.ICON || 0}</td>
+                              </tr>
+                            `).join('')}
+                            <tr class="total">
+                              <td>TOTAL</td>
+                              <td class="total-icon">${lineasTotalICON}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="flip-face back">
+                  <div class="chart-wrapper">
+                    <canvas id="monthly-team-chart"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1109,18 +1124,59 @@
         
         // Asignar el HTML generado al elemento raíz
         root.innerHTML = html;
+        // Overlay + handler del botón ↻ (mostrar gráfica en el mismo contenedor)
         try {
-          const btn = document.getElementById('btn-detalle-mensual');
-          if (btn) {
-            // Control de roles: solo Supervisores, Admin y Backoffice
-            const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
-            const role = (user?.role || '').toString().trim().toLowerCase();
-            const allowed = new Set(['admin','administrador','supervisor','backoffice','back office','b.o','bo']);
-            if (!allowed.has(role)) {
-              btn.style.display = 'none';
-            } else {
-              btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
-            }
+          const card = root.querySelector('.conversion-card');
+          if (card && !card.querySelector('.month-chart-overlay')) {
+            card.insertAdjacentHTML(
+              'beforeend',
+              '<div class="month-chart-overlay"><div class="chart-wrapper"><canvas id="monthly-team-chart"></canvas></div></div>'
+            );
+          }
+          const flipBtn = document.getElementById('btn-flip-monthly');
+          if (flipBtn && card) {
+            flipBtn.onclick = function(){
+              try {
+                card.classList.toggle('show-chart');
+                if (card.classList.contains('show-chart')) {
+                  const canvas = document.getElementById('monthly-team-chart');
+                  if (!canvas) return;
+                  const rows = (Array.isArray(window.MonthDisplayRows) && window.MonthDisplayRows.length)
+                    ? window.MonthDisplayRows
+                    : (Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : []);
+                  const labels = rows.map(r => String(r.name || ''));
+                  const ventas  = rows.map(r => Number(r.Total   || 0));
+                  const puntos  = rows.map(r => Number(r.Puntaje || 0));
+                  try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); } } catch(_) {}
+                  const ctx = canvas.getContext('2d');
+                  window.__monthlyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets: [
+                      { label: 'Ventas',  data: ventas,  backgroundColor: 'rgba(37,99,235,0.85)' },
+                      { label: 'Puntaje', data: puntos,  backgroundColor: 'rgba(239,68,68,0.85)' }
+                    ] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                  });
+                }
+              } catch(e) { console.warn('overlay error', e); }
+            };
+          }
+        } catch(_) {}
+        
+        // Ajustar altura del contenedor flip local al alto real de la tabla
+        try {
+          const flipBtn = document.getElementById('btn-flip-monthly');
+          if (flipBtn) {
+            flipBtn.addEventListener('click', function(){
+              try {
+                // Delegate to centralized toggle helper to avoid duplicated logic and canvases
+                if (typeof window.__toggleMonthlyFlip === 'function') {
+                  window.__toggleMonthlyFlip();
+                } else {
+                  console.warn('toggle helper no disponible');
+                }
+              } catch(e){ console.warn('flip error', e); }
+            });
           }
         } catch(_) {}
         // Hook flechas navegación mes
@@ -1660,7 +1716,9 @@
         loadDayData();
         try { prepareMonthDetails(); } catch(_){ }
         // Inyectar el botón dentro del contenedor mensual cuando esté renderizado
-        try { injectMonthlyDetailButton(); } catch(_){ }
+  try { injectMonthlyDetailButton(); } catch(_){ }
+  // Inyectar botón flip para la tarjeta del DÍA
+  try { injectDayFlipButton(); } catch(_){ }
         // Asegurar barra de toggles del DÍA aún si el render cambió
         try { ensureDayTogglesFallback(); } catch(_){ }
         // Agregar tabs Día/Mes a ambas tarjetas
@@ -1684,6 +1742,16 @@
       .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
       `;
       const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+    })();
+
+    // Force-visible helper CSS (used as a robust fallback to make front face/table visible)
+    (function(){
+      if (document.getElementById('flip-force-styles')) return;
+      const css = `
+        .force-visible { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; transform: none !important; }
+        .force-visible table { display: table !important; visibility: visible !important; opacity: 1 !important; }
+      `;
+      const s = document.createElement('style'); s.id = 'flip-force-styles'; s.textContent = css; document.head.appendChild(s);
     })();
 
     // Contenedor del modal
@@ -1820,11 +1888,25 @@
     })();
 
     async function prepareMonthDetails(){
-      try{
-        const hoy = new Date();
-        const start = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0, 0);
-        const end = new Date(hoy.getFullYear(), hoy.getMonth()+1, 1, 0, 0, 0, 0);
         // Intentar SIEMPRE el agregado del DÍA con forceAll=1 (todos los equipos)
+        // Ensure start/end Date objects are defined (use window.__monthlyRange if available)
+        let start, end;
+        try {
+          const r = (window && window.__monthlyRange) ? window.__monthlyRange : null;
+          if (r && r.start) {
+            // r.start/r.end may be strings like 'YYYY-MM-DD'
+            start = (r.start instanceof Date) ? r.start : new Date(String(r.start) + 'T00:00:00');
+            // make end exclusive (next day after r.end)
+            const last = (r.end instanceof Date) ? r.end : new Date(String(r.end) + 'T00:00:00');
+            end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1, 0, 0, 0);
+          } else {
+            const now = new Date();
+            start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+          }
+        } catch(_) {
+          start = new Date(); end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        }
         let leads = [];
         let usedEquiposAggreg = false;
         try {
@@ -1860,6 +1942,38 @@
           if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
           return (raw ? String(raw) : '').trim();
         };
+
+        // Watcher: if the day front table exists in DOM but remains hidden, attempt automatic recovery
+        window.__startDayTableVisibilityWatcher = function(timeoutMs = 8000){
+          try {
+            if (window.__dayTableWatcherTimer) return;
+            const start = Date.now();
+            window.__dayTableWatcherTimer = setInterval(() => {
+              try {
+                const vp = document.getElementById('day-flip-local');
+                if (!vp) return;
+                const front = vp.querySelector('.flip-face.front');
+                const table = front && front.querySelector ? front.querySelector('table.sales-table') : null;
+                if (!table) return;
+                const cs = window.getComputedStyle(table);
+                const hidden = (!cs || cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0 || cs.pointerEvents === 'none');
+                if (hidden) {
+                  try { console.log('[VIS-WATCHER] Table hidden detected, attempting restore'); } catch(_){}
+                  try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
+                  try { front && front.classList.add('force-visible'); } catch(_){}
+                  setTimeout(() => { try { front && front.classList.remove('force-visible'); } catch(_){} }, 500);
+                } else {
+                  // visible -> stop watcher
+                  clearInterval(window.__dayTableWatcherTimer); window.__dayTableWatcherTimer = null;
+                }
+                if ((Date.now() - start) > timeoutMs) { clearInterval(window.__dayTableWatcherTimer); window.__dayTableWatcherTimer = null; }
+              } catch(e){ try{ console.warn('[VIS-WATCHER] error', e); }catch(_){} }
+            }, 300);
+          } catch(e){ try{ console.warn('startDayTableVisibilityWatcher error', e); }catch(_){} }
+        };
+
+        // Kick the watcher when the script initializes so it can auto-heal intermittent cases
+        try { setTimeout(() => { try { window.__startDayTableVisibilityWatcher(10000); } catch(_){} }, 800); } catch(_){}
         const normalizeAgente = (lead) => {
           const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
           const val = (raw ? String(raw) : '').trim();
@@ -1878,7 +1992,6 @@
           rango: `${String(start.getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()} - ${String(new Date(end-1).getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}/${start.getFullYear()}`,
           rows
         };
-      } catch(e){ console.error('Error preparando detalle mensual', e); }
     }
 
     function hideMonthDetailModal(){ const el = document.getElementById('month-detail-modal'); if (el) el.style.display = 'none'; }
@@ -1975,6 +2088,13 @@
       navDiv.appendChild(btnNext);
       const actionsDiv = document.createElement('div');
       actionsDiv.style.cssText = 'display:flex; gap:8px;';
+      // Botón Flip ↻
+      const btnFlip = document.createElement('button');
+      btnFlip.id = 'btn-flip-monthly';
+      btnFlip.className = 'filter-button';
+      btnFlip.title = 'Ver gráfica';
+      btnFlip.textContent = '↻';
+      btnFlip.style.cssText = 'height:28px;width:32px;font-weight:700;';
       const btn = document.createElement('button');
       btn.id = 'btn-detalle-mensual';
       btn.className = 'filter-button';
@@ -1982,6 +2102,7 @@
       btn.textContent = 'Ver detalle mensual';
       btn.addEventListener('click', () => { try { showMonthDetailModal(); } catch(e){ console.error(e); } });
       actionsDiv.appendChild(btn);
+      actionsDiv.appendChild(btnFlip);
       toolbar.appendChild(navDiv);
       toolbar.appendChild(actionsDiv);
       // Hook flechas navegación mes
@@ -2230,6 +2351,140 @@
           } catch(e) { console.warn('[ESTADISTICAS][DAY] ensure rows error:', e); }
         })();
 
+          // Helper to force the day card back to its front (table) view and clean up daily chart
+          window.__ensureDayFrontVisible = function(){
+            try {
+              const vp = document.getElementById('day-flip-local');
+              if (!vp) return;
+              if (!vp.classList.contains('is-flipped')) return;
+              const scene = vp.querySelector('.flip-scene');
+              const frontFace = vp.querySelector('.flip-face.front');
+              // Temporarily disable transition to avoid any transitionend handlers re-hiding the front
+              let prevTrans = '';
+              try { prevTrans = scene && scene.style ? scene.style.transition || '' : ''; if (scene && scene.style) scene.style.transition = 'none'; } catch(_){}
+              // remove flipped state so front becomes visible immediately
+              vp.classList.remove('is-flipped');
+              try { if (frontFace) { frontFace.style.visibility = 'visible'; frontFace.style.opacity = '1'; frontFace.style.pointerEvents = ''; } } catch(_){ }
+              // restore any hidden sticky elements stored earlier
+              try {
+                const hidden = vp && vp.__hiddenSticky;
+                if (hidden && Array.isArray(hidden)) {
+                  hidden.forEach(item => { try{ item.el.style.visibility = item.vis || ''; } catch(_){} });
+                  vp.__hiddenSticky = null;
+                }
+              } catch(_){ }
+              try { if (window.__dailyChart) { window.__dailyChart.destroy(); window.__dailyChart = null; } } catch(_){ }
+              const wrap = vp.querySelector('.chart-wrapper');
+              if (wrap) { try { wrap.style.height = ''; wrap.style.maxHeight = ''; wrap.style.overflow = ''; wrap.style.paddingBottom = ''; } catch(_){} }
+              // Forcefully restore any table elements inside the front face (in case they were hidden)
+              try {
+                const tables = (frontFace && frontFace.querySelectorAll) ? Array.from(frontFace.querySelectorAll('table')) : [];
+                tables.forEach(tbl => {
+                  try {
+                    tbl.style.display = '';
+                    tbl.style.visibility = 'visible';
+                    tbl.style.opacity = '1';
+                    tbl.style.pointerEvents = '';
+                  } catch(_){}
+                });
+              } catch(_){}
+              // force reflow then restore transition
+              try { void vp.offsetHeight; if (scene && scene.style) scene.style.transition = prevTrans || 'transform 360ms cubic-bezier(.2,.8,.2,1)'; } catch(_){}
+              setTimeout(() => { try { vp.style.height = ''; vp.style.minHeight = ''; if (scene) { scene.style.minHeight = ''; scene.style.height = ''; } } catch(_){} }, 200);
+              window.__dayFlipAnimating = false;
+            } catch(e){ console.warn('ensureDayFrontVisible error', e); }
+          };
+
+        // Utility: aggressively clear any inline visibility/display styles that may hide the day front/table
+        window.__clearDayHiddenStyles = function(){
+          try {
+            const root = document.getElementById('ventas-dia-card');
+            if (!root) return;
+            // Clear inline visibility:hidden on the front face and any tables inside
+            const vp = root.querySelector('#day-flip-local') || root.querySelector('.conversion-card');
+            if (!vp) return;
+            const fronts = vp.querySelectorAll ? vp.querySelectorAll('.flip-face.front, .conversion-card, .conv-left, .conv-two-col') : [];
+            Array.from(fronts).forEach(el => {
+              try {
+                // remove specific inline properties that may force hidden state
+                if (el.style) {
+                  if (el.style.visibility && el.style.visibility.indexOf('hidden') !== -1) el.style.visibility = '';
+                  if (el.style.display && el.style.display.indexOf('none') !== -1) el.style.display = '';
+                  el.style.opacity = el.style.opacity === '0' ? '' : el.style.opacity;
+                  el.style.pointerEvents = el.style.pointerEvents === 'none' ? '' : el.style.pointerEvents;
+                  el.style.transform = el.style.transform === 'none' ? '' : el.style.transform;
+                }
+              } catch(_){}
+            });
+            // Also clear any tables specifically
+            const tables = vp.querySelectorAll ? vp.querySelectorAll('table') : [];
+            Array.from(tables).forEach(tbl => {
+              try {
+                if (tbl.style) {
+                  if (tbl.style.visibility && tbl.style.visibility.indexOf('hidden') !== -1) tbl.style.visibility = '';
+                  if (tbl.style.display && tbl.style.display.indexOf('none') !== -1) tbl.style.display = '';
+                  if (tbl.style.opacity === '0') tbl.style.opacity = '';
+                  tbl.style.pointerEvents = '';
+                }
+              } catch(_){}
+            });
+            // Finally, ensure the root container isn't hidden
+            try { if (root.style && root.style.visibility && root.style.visibility.indexOf('hidden') !== -1) root.style.visibility = ''; } catch(_){}
+          } catch(e){ try{ console.warn('__clearDayHiddenStyles error', e); }catch(_){} }
+        };
+
+        // Install a MutationObserver to auto-clear any inline visibility:hidden on the day front/table
+        window.__installDayVisibilityObserver = function(){
+          try {
+            if (window.__dayVisibilityObserver) return;
+            const root = document.getElementById('ventas-dia-card');
+            if (!root) return;
+            const obs = new MutationObserver((mutations) => {
+              try {
+                for (const m of mutations) {
+                  if (m.type === 'attributes' && (m.attributeName === 'style' || m.attributeName === 'class')) {
+                    const el = m.target;
+                    try {
+                      const cs = window.getComputedStyle(el);
+                      if (cs && cs.visibility === 'hidden' && cs.display !== 'none') {
+                        try { console.log('[VIS-OBSERVER] clearing hidden style on', el); } catch(_){}
+                        el.style.visibility = '';
+                        el.style.display = '';
+                        el.style.opacity = '';
+                        el.style.pointerEvents = '';
+                        el.style.transform = '';
+                      }
+                    } catch(_){}
+                  }
+                  if (m.addedNodes && m.addedNodes.length) {
+                    Array.from(m.addedNodes).forEach(n => {
+                      if (n.nodeType !== 1) return;
+                      try {
+                        const targets = n.querySelectorAll ? n.querySelectorAll('.flip-face.front, table') : [];
+                        Array.from(targets).forEach(el => {
+                          try {
+                            const cs = window.getComputedStyle(el);
+                            if (cs && cs.visibility === 'hidden' && cs.display !== 'none') {
+                              try { console.log('[VIS-OBSERVER] clearing hidden on added node', el); } catch(_){}
+                              el.style.visibility = '';
+                              el.style.display = '';
+                              el.style.opacity = '';
+                              el.style.pointerEvents = '';
+                              el.style.transform = '';
+                            }
+                          } catch(_){}
+                        });
+                      } catch(_){}
+                    });
+                  }
+                }
+              } catch(e){ try{ console.warn('[VIS-OBSERVER] error', e); }catch(_){} }
+            });
+            obs.observe(root, { attributes: true, childList: true, subtree: true, attributeFilter: ['style','class'] });
+            window.__dayVisibilityObserver = obs;
+          } catch(e){ try{ console.warn('installDayVisibilityObserver error', e); }catch(_){} }
+        };
+
         // Construir bloque del DÍA (título, flechas y panel derecho) SIN el contenedor externo
         const tablaHtml = `
           <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px;">
@@ -2299,7 +2554,11 @@
           </div>
         `;
 
-        container.innerHTML = tablaHtml;
+  container.innerHTML = tablaHtml;
+  // Clear any stray inline hidden styles that some browsers may have left behind
+  try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
+  // Ensure the flip button is injected after we render the day card
+  try { if (typeof window.injectDayFlipButton === 'function') window.injectDayFlipButton(); } catch(_){ }
         // Hook botón detalle (con fallback y delegación)
         try {
           const openDetail = () => {
@@ -2395,8 +2654,29 @@
             const total = `<tr class="total-row"><td>TOTAL</td><td>${totals.ICON}</td><td>${totals.BAMO}</td><td>${totals.Total}</td><td>${totals.Puntaje.toFixed(2)}</td></tr>`;
             tbody.innerHTML = body + total;
           };
-          const showDay = ()=>{ setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
-          const showMonth = ()=>{ setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(today)})`; renderTable(window.MonthDisplayRows||[]); };
+          const showDay = ()=>{ 
+            try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
+            // As a robust fallback, temporarily force the front face visible
+            try {
+              const vp = document.getElementById('day-flip-local');
+              const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
+              if (front) {
+                front.classList.add('force-visible');
+                setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
+              }
+            } catch(_){}
+            setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
+          const showMonth = ()=>{ 
+            try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
+            try {
+              const vp = document.getElementById('day-flip-local');
+              const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
+              if (front) {
+                front.classList.add('force-visible');
+                setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
+              }
+            } catch(_){}
+            setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(today)})`; renderTable(window.MonthDisplayRows||[]); };
           if (btnDay) btnDay.onclick = showDay;
           if (btnMonth) btnMonth.onclick = showMonth;
           // Selección por defecto: Día
@@ -2703,7 +2983,9 @@
             </div>
           `;
 
-        container.innerHTML = tablaHtml;
+  container.innerHTML = tablaHtml;
+  // Clear inline hidden styles just in case a previous flip left elements hidden
+  try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
         // Helpers de animación (carrusel) para navegación con ?d=
         const animateSwap = async (rootEl, direction, update) => {
           try {
@@ -3422,7 +3704,8 @@
               },
               datalabels: {
                 display: true,
-                clamp: true,
+                // allow labels to render outside the bar area (above)
+                clamp: false,
                 clip: false
               }
             }
@@ -3466,6 +3749,585 @@
         initVentasPuntajeChart();
       }, 500);
     }
+  </script>
+  <script>
+    // Utility: ensure canvas is rendered crisply on high-DPI (retina) displays
+    window.__ensureHiDPICanvas = function(canvas, minH){
+      try {
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        // get css size
+        const rect = canvas.getBoundingClientRect();
+        const cssW = rect && rect.width ? rect.width : (canvas.clientWidth || 300);
+        const cssH = rect && rect.height ? rect.height : (minH || Math.max(220, Math.round(cssW * 0.33)));
+        // set actual pixel size
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        canvas.style.width = cssW + 'px';
+        canvas.style.height = cssH + 'px';
+        const ctx = canvas.getContext('2d');
+        if (ctx && typeof ctx.setTransform === 'function') ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      } catch (e) { /* silent */ }
+    };
+
+    // Central helper: animate a 3D flip of the monthly card and create/destroy the monthly chart
+    window.__toggleMonthlyFlip = function(){
+      try {
+        const root = document.getElementById('conversion-table');
+        if (!root) return;
+        const card = root.querySelector('.conversion-card');
+        if (!card) return;
+
+        // Inject flip CSS once
+        if (!document.getElementById('month-flip-styles')){
+          const css = `
+            /* Monthly flip styles (adjusted) */
+            #month-flip-local { perspective: 1200px; width:100%; display:block; position:relative; }
+            #month-flip-local .flip-scene { position:relative; width:100%; transform-style:preserve-3d; transition: transform 360ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+            /* Faces - front is normal flow, back is absolute full-cover */
+            #month-flip-local .flip-face { backface-visibility: hidden; -webkit-backface-visibility:hidden; transition: opacity 260ms ease-in-out; overflow: hidden; }
+            #month-flip-local .flip-face.front { position:relative; width:100%; z-index:2; }
+            #month-flip-local .flip-face.back { position:absolute !important; top:0; left:0; right:0; bottom:0; transform: rotateY(180deg); display:flex; align-items:stretch; opacity:0; z-index:1; }
+            /* When flipped, ensure back is on top and front doesn't receive events */
+            #month-flip-local.is-flipped .flip-scene { transform: rotateY(180deg); }
+            /* back hidden by default, made visible when flipped. keep faces in flow to allow 3D transform animation */
+            #month-flip-local .flip-face.back { opacity: 0; visibility: hidden; }
+            #month-flip-local.is-flipped .flip-face.back { opacity:1; visibility: visible; z-index:9999; pointer-events: auto; }
+        /* Keep the front face occupying layout while fading it out during the 3D rotate.
+          We'll only set visibility:hidden after the transition ends via JS to avoid layout jumps. */
+        #month-flip-local.is-flipped .flip-face.front { opacity:0; pointer-events: none; visibility: visible; }
+            #month-flip-local .chart-wrapper{ width:100%; height:100%; box-sizing:border-box; padding:6px; min-height:320px; }
+            /* Ensure canvas fills the back face */
+            #month-flip-local canvas { width:100% !important; height:100% !important; display:block; }
+          `;
+          const s = document.createElement('style'); s.id = 'month-flip-styles'; s.textContent = css; document.head.appendChild(s);
+        }
+
+        // Ensure flip viewport and faces exist (reuse if present)
+        let vp = card.querySelector('#month-flip-local');
+        let frontFace, backFace, scene;
+        if (!vp){
+          const twoCol = card.querySelector('.conv-two-col');
+          if (!twoCol) return;
+
+          // Create structure: vp > scene > front + back
+          vp = document.createElement('div'); vp.id = 'month-flip-local'; vp.className = 'month-flip-viewport';
+          scene = document.createElement('div'); scene.className = 'flip-scene';
+          frontFace = document.createElement('div'); frontFace.className = 'flip-face front';
+          backFace = document.createElement('div'); backFace.className = 'flip-face back';
+
+          // Move existing twoCol into frontFace
+          frontFace.appendChild(twoCol);
+
+          // Build back face with canvas (reuse existing canvas if any)
+          const backWrap = document.createElement('div'); backWrap.className = 'chart-wrapper';
+          let canvas = document.getElementById('monthly-team-chart');
+          if (!canvas) {
+            canvas = document.createElement('canvas'); canvas.id = 'monthly-team-chart';
+          } else {
+            // if canvas existed elsewhere, remove it from previous parent to avoid duplicates
+            try { canvas.parentElement &&   canvas.parentElement.removeChild(canvas); } catch(_){}
+          }
+          backWrap.appendChild(canvas);
+          backFace.appendChild(backWrap);
+
+          scene.appendChild(frontFace);
+          scene.appendChild(backFace);
+          vp.appendChild(scene);
+
+          // Immediately fix the viewport height to the front face size to avoid layout jumps
+          try {
+            const initialH = (frontFace && frontFace.getBoundingClientRect && frontFace.getBoundingClientRect().height) || frontFace.offsetHeight || 220;
+            vp.style.height = initialH + 'px';
+            vp.style.minHeight = initialH + 'px';
+            vp.style.overflow = 'hidden';
+            // also keep scene min-height so faces don't push
+            scene.style.minHeight = initialH + 'px';
+          } catch(_) {}
+
+          // Replace the original twoCol in the card with the flip viewport
+          // twoCol was moved into frontFace, so find its former container and replace child
+          const holder = card.querySelector('.conv-two-col')?.parentElement || card;
+          // Try to find the element that previously contained twoCol (we moved it), so replace the empty spot
+          // As a safe fallback, append vp to card
+          try {
+            // If holder still has a reference to the old twoCol (now absent), replace the placeholder
+            const possible = Array.from(holder.children).find(ch => ch.classList && ch.classList.contains('conv-two-col'));
+            if (possible) holder.replaceChild(vp, possible);
+            else card.appendChild(vp);
+          } catch(_) { card.appendChild(vp); }
+        } else {
+          scene = vp.querySelector('.flip-scene');
+          frontFace = vp.querySelector('.flip-face.front');
+          backFace = vp.querySelector('.flip-face.back');
+        }
+
+  // Prevent rapid toggles while animating
+  if (window.__monthlyFlipAnimating) return;
+  // maintain container height to avoid layout jumps (use bounding rect for more accurate value)
+  try {
+    const frontEl = frontFace || vp.querySelector('.flip-face.front');
+    if (frontEl) {
+      const h = (frontEl.getBoundingClientRect && frontEl.getBoundingClientRect().height) || frontEl.offsetHeight || 220;
+      vp.style.height = h + 'px';
+      vp.style.minHeight = h + 'px';
+      vp.style.overflow = 'hidden';
+      // also set scene min-height to stabilize 3D transform
+      const sc = vp.querySelector('.flip-scene'); if (sc) sc.style.minHeight = h + 'px';
+    }
+  } catch(_){ }
+  const willShowBack = !vp.classList.contains('is-flipped');
+  window.__monthlyFlipAnimating = true;
+
+        // Helper to build chart after flip completes
+            const buildChart = () => {
+          try {
+            if (typeof Chart === 'undefined') return;
+            const rows = Array.isArray(window.MonthDisplayRows) && window.MonthDisplayRows.length ? window.MonthDisplayRows : (Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : []);
+            // build multiline labels (Chart.js supports array-of-strings per label for multiline)
+            // Get name from row data
+            const labels = rows.map(r => String(r.name || ''));
+            try{ console.log('DEBUG: buildChart MONTH start', {labels, rowsLength: rows.length}); } catch(_){}
+            const ventas = rows.map(r => Number(r.Total || 0));
+            const puntos = rows.map(r => Number(r.Puntaje || 0));
+            const canvas = document.getElementById('monthly-team-chart');
+            if (!canvas) return;
+            // Ensure canvas parent has explicit height so Chart can size properly
+            const wrap = canvas.parentElement;
+            try {
+              const vpH = (vp && vp.getBoundingClientRect && vp.getBoundingClientRect().height) || vp.clientHeight || 320;
+              const minH = 320; // ensure chart has a minimum visual height so bars aren't tiny
+              const finalH = Math.max(vpH, minH);
+              if (wrap) {
+                wrap.style.height = finalH + 'px';
+                wrap.style.maxHeight = finalH + 'px';
+                wrap.style.overflow = 'hidden';
+                // add bottom padding so x-axis labels and datalabels have room
+                wrap.style.paddingBottom = '28px';
+              }
+            } catch(_){ }
+              try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); } } catch(_){ }
+              try { if (typeof window.__ensureHiDPICanvas === 'function') window.__ensureHiDPICanvas(canvas, finalH); } catch(_){}
+              const ctx = canvas.getContext('2d');
+            window.__monthlyChart = new Chart(ctx, {
+              type: 'bar',
+              data: { labels, datasets: [
+                  { label: 'Ventas', data: ventas, backgroundColor: 'rgba(37,99,235,0.85)' },
+                  { label: 'Puntaje', data: puntos, backgroundColor: 'rgba(239,68,68,0.85)' }
+              ] },
+                options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                // give extra bottom padding so x-axis labels and datalabels have room
+                layout: { padding: { top: 12, bottom: 60 } },
+                plugins: {
+                  legend: { display: true, position: 'top' },
+                      datalabels: {
+                        // place labels above the bar (outside the bar area)
+                        anchor: 'end',
+                        align: 'end',
+                        offset: -6,
+                        clamp: false,
+                        clip: false,
+                        color: '#0b1220',
+                        font: { weight: '600', size: 11 },
+                        formatter: v => (v == null ? '' : v)
+                      }
+                },
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: {
+                      display: true,
+                      color: '#1e293b',
+                      autoSkip: false,
+                      maxRotation: 0,
+                      minRotation: 0,
+                      padding: 12,
+                      font: { 
+                        size: 12,
+                        weight: '500'
+                      },
+                      textStrokeWidth: 0.5
+                    }
+                  },
+                  y: { beginAtZero: true, grid: { display: false }, ticks: { display: false } }
+                }
+              },
+              plugins: (Chart && Chart.registry && Chart.registry.getPlugin) ? [] : []
+            });
+          } catch (e) { console.warn('monthly chart build error', e); }
+        };
+
+        // Handler for end of transition
+        const onTransit = (ev) => {
+          if (ev && ev.propertyName && ev.propertyName.indexOf('transform') === -1) return;
+          try {
+            if (willShowBack) {
+              // Now the back face is visible: build the chart
+              buildChart();
+              // hide the front face from rendering/assistive UI after the back is visible
+              try { if (frontFace) frontFace.style.visibility = 'hidden'; } catch(_){ }
+            } else {
+              // We're back to front: make sure front face is visible again and destroy chart to free memory
+              try { if (frontFace) { frontFace.style.visibility = 'visible'; frontFace.classList.add('force-visible'); } } catch(_){ }
+              try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); window.__monthlyChart = null; } } catch(_){ }
+              // Aggressive cleanup: clear inline hidden/display/opacity styles inside the front face
+              try {
+                if (frontFace && frontFace.querySelectorAll) {
+                  Array.from(frontFace.querySelectorAll('*')).forEach(el => {
+                    try {
+                      if (!el || !el.style) return;
+                      if (el.style.visibility && el.style.visibility.indexOf('hidden') !== -1) el.style.visibility = '';
+                      if (el.style.display && el.style.display.indexOf('none') !== -1) el.style.display = '';
+                      if (el.style.opacity === '0') el.style.opacity = '';
+                      if (el.style.pointerEvents === 'none') el.style.pointerEvents = '';
+                      if (el.style.transform && el.style.transform.indexOf('rotateY') !== -1) el.style.transform = '';
+                    } catch(_){ }
+                  });
+                }
+              } catch(_){ }
+              // Also run a delayed, forceful cleanup to counter racey mutations from Chart.js
+              try {
+                setTimeout(() => {
+                  try {
+                    if (frontFace) {
+                      try { frontFace.style.visibility = ''; } catch(_){}
+                      try { frontFace.classList.remove('force-visible'); } catch(_){}
+                    }
+                    try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){}
+                  } catch(_){}
+                }, 240);
+              } catch(_){}
+            }
+
+            // restore any hidden sticky elements
+            try {
+              const hidden = vp && vp.__hiddenSticky;
+              if (hidden && Array.isArray(hidden)) {
+                hidden.forEach(item => { try{ item.el.style.visibility = item.vis || ''; } catch(_){} });
+                vp.__hiddenSticky = null;
+              }
+            } catch(_){ }
+
+            // restore table display (in case)
+            try { const tbl = vp.querySelector('table'); if (tbl) tbl.style.display = ''; } catch(_){ }
+          } finally {
+            try {
+              // if we flipped back to front, remove any inline sizing after a short delay so layout can resume
+              if (!willShowBack) {
+                const wrapEl = vp && vp.querySelector && vp.querySelector('.chart-wrapper');
+                if (wrapEl) { wrapEl.style.height = ''; wrapEl.style.maxHeight = ''; wrapEl.style.overflow = ''; }
+                setTimeout(() => { try { vp.style.height = ''; vp.style.minHeight = ''; if (scene) scene.style.minHeight = ''; } catch(_){} }, 200);
+              }
+            } catch(_){ }
+            // cleanup
+            if (scene) scene.removeEventListener('transitionend', onTransit);
+            window.__monthlyFlipAnimating = false;
+          }
+        };
+
+        // Attach transitionend and toggle class to start animation
+        if (scene) {
+          scene.addEventListener('transitionend', onTransit);
+        }
+        // Before starting the flip, hide any sticky elements inside the front face so they don't overlap during the 3D rotate
+        try {
+          if (willShowBack && frontFace) {
+            const hidden = [];
+            Array.from(frontFace.querySelectorAll('*')).forEach(el => {
+              try {
+                const cs = window.getComputedStyle(el);
+                if (cs && (cs.position === 'sticky' || cs.position === 'fixed')) {
+                  hidden.push({el, vis: el.style.visibility});
+                  el.style.visibility = 'hidden';
+                }
+              } catch(_) {}
+            });
+            // store to restore later
+            vp.__hiddenSticky = hidden;
+          }
+        } catch(_) {}
+  // Force reflow then toggle. Ensure frontFace remains occupying layout during the animation.
+  try { if (frontFace) frontFace.style.visibility = 'visible'; } catch(_){}
+  try { if (scene) { scene.style.height = vp.style.height || (vp.getBoundingClientRect && vp.getBoundingClientRect().height + 'px'); scene.style.boxSizing = 'border-box'; } } catch(_){}
+  void vp.offsetHeight;
+  if (willShowBack) vp.classList.add('is-flipped'); else vp.classList.remove('is-flipped');
+
+        // Safety: if transitionend doesn't fire (old browsers), fallback after timeout
+        setTimeout(() => {
+          if (window.__monthlyFlipAnimating) {
+            try { onTransit(); } catch(_) { window.__monthlyFlipAnimating = false; }
+          }
+  }, 500);
+
+      } catch (e) { console.warn('toggleMonthlyFlip error', e); }
+    };
+
+    // Fallback global: asegurar flip local y gráfica al pulsar ↻ aunque el HTML varié
+    (function(){
+      function ensureFlipAndToggle(){
+        try{
+          if (typeof window.__toggleMonthlyFlip === 'function') {
+            window.__toggleMonthlyFlip();
+          }
+        }catch(e){ console.warn('ensureFlipAndToggle error', e); }
+      }
+      document.addEventListener('click', function(ev){
+        const t = ev.target;
+        if (t && t.id === 'btn-flip-monthly'){
+          ev.preventDefault();
+          ensureFlipAndToggle();
+        }
+      }, true);
+    })();
+    
+    // Inject helper and fallback for DAY flip (same behavior as monthly)
+    (function(){
+      // Inject a small toolbar flip button into the day card when it appears
+      window.injectDayFlipButton = function(attempt = 0){
+        const root = document.getElementById('ventas-dia-card');
+        const card = root ? root.querySelector('.conversion-card') : null;
+        if (!card) {
+          if (attempt < 20) return setTimeout(() => window.injectDayFlipButton(attempt + 1), 300);
+          return;
+        }
+        if (card.querySelector('#btn-flip-day')) return;
+        // Find the area where buttons are placed (a small container with Ver detalle)
+        const toolbarWrap = card.querySelector('div[style*="justify-content:flex-end"]') || card;
+        const btnFlip = document.createElement('button');
+        btnFlip.id = 'btn-flip-day';
+        btnFlip.className = 'filter-button';
+        btnFlip.title = 'Ver gráfica';
+        btnFlip.textContent = '↻';
+        btnFlip.style.cssText = 'height:28px;width:32px;font-weight:700;margin-left:8px;';
+        // Append next to existing detalle button if present
+        const detalle = card.querySelector('#btn-detalle-dia');
+        if (detalle && detalle.parentElement) detalle.parentElement.appendChild(btnFlip);
+        else toolbarWrap.appendChild(btnFlip);
+      };
+
+      // Core toggle for day card
+      window.__toggleDayFlip = function(){
+        try {
+          const root = document.getElementById('ventas-dia-card');
+          if (!root) return;
+          const card = root.querySelector('.conversion-card');
+          if (!card) return;
+
+          // Reuse monthly styles if available, otherwise inject day-specific styles
+          if (!document.getElementById('day-flip-styles') && document.getElementById('month-flip-styles')){
+            // reuse month styles, add a marker
+            const s = document.createElement('style'); s.id = 'day-flip-styles'; s.textContent = ''; document.head.appendChild(s);
+          } else if (!document.getElementById('day-flip-styles')){
+              const css = `
+                  /* Day flip styles (adjusted to match monthly) */
+                  #day-flip-local { perspective: 1200px; width:100%; display:block; }
+                    #day-flip-local .flip-scene { position:relative; width:100%; transform-style:preserve-3d; transition: transform 360ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+                  /* Faces */
+                  #day-flip-local .flip-face { backface-visibility: hidden; -webkit-backface-visibility:hidden; position:relative; width:100%; transition: opacity 260ms ease-in-out; overflow:hidden; }
+                  #day-flip-local .flip-face.front { z-index:2; }
+                  #day-flip-local .flip-face.back { position:absolute; inset:0; transform: rotateY(180deg); display:flex; align-items:stretch; opacity:0; z-index:1; }
+                  /* When flipped, ensure back is on top and front doesn't receive events */
+                  #day-flip-local.is-flipped .flip-scene { transform: rotateY(180deg); }
+                  /* back hidden by default, made visible when flipped. keep faces in flow to allow 3D transform animation */
+                  #day-flip-local .flip-face.back { opacity: 0; visibility: hidden; }
+                  #day-flip-local.is-flipped .flip-face.back { opacity:1; visibility: visible; z-index:3; pointer-events:auto; }
+            /* Keep front face visible (but transparent) during animation to preserve layout.
+              Visibility will be toggled in JS when the transition finishes. */
+            #day-flip-local.is-flipped .flip-face.front { opacity:0; pointer-events:none; visibility: visible; }
+                  #day-flip-local .chart-wrapper{ width:100%; height:100%; box-sizing:border-box; padding:6px; min-height:320px; }
+                  #day-flip-local canvas { width:100% !important; height:100% !important; display:block; }
+                `;
+            const s = document.createElement('style'); s.id = 'day-flip-styles'; s.textContent = css; document.head.appendChild(s);
+          }
+
+          // Build the flip viewport if absent
+          let vp = card.querySelector('#day-flip-local');
+          let scene, frontFace, backFace;
+          if (!vp){
+            const twoCol = card.querySelector('.conv-two-col');
+            if (!twoCol) return;
+            vp = document.createElement('div'); vp.id = 'day-flip-local'; vp.className = 'day-flip-viewport';
+            scene = document.createElement('div'); scene.className = 'flip-scene';
+            frontFace = document.createElement('div'); frontFace.className = 'flip-face front';
+            backFace = document.createElement('div'); backFace.className = 'flip-face back';
+            frontFace.appendChild(twoCol);
+            const backWrap = document.createElement('div'); backWrap.className = 'chart-wrapper';
+            let canvas = document.getElementById('daily-team-chart');
+            if (!canvas){ canvas = document.createElement('canvas'); canvas.id = 'daily-team-chart'; }
+            else { try{ canvas.parentElement && canvas.parentElement.removeChild(canvas); } catch(_){} }
+            backWrap.appendChild(canvas); backFace.appendChild(backWrap);
+            scene.appendChild(frontFace); scene.appendChild(backFace); vp.appendChild(scene);
+            try { const holder = card.querySelector('.conv-two-col')?.parentElement || card; const possible = Array.from(holder.children).find(ch => ch.classList && ch.classList.contains('conv-two-col')); if (possible) holder.replaceChild(vp, possible); else card.appendChild(vp); } catch(_) { card.appendChild(vp); }
+          } else { scene = vp.querySelector('.flip-scene'); }
+
+          if (window.__dayFlipAnimating) return;
+          // keep height stable during flip (use bounding rect precision)
+          try {
+            const frontEl = frontFace || vp.querySelector('.flip-face.front');
+            if (frontEl) {
+              const h = (frontEl.getBoundingClientRect && frontEl.getBoundingClientRect().height) || frontEl.offsetHeight || 220;
+              vp.style.height = h + 'px';
+              vp.style.minHeight = h + 'px';
+              vp.style.overflow = 'hidden';
+              const sc = vp.querySelector('.flip-scene'); if (sc) sc.style.minHeight = h + 'px';
+            }
+          } catch(_){ }
+          const willShowBack = !vp.classList.contains('is-flipped');
+          window.__dayFlipAnimating = true;
+
+                  const buildChart = () => {
+            try {
+              if (typeof Chart === 'undefined') return;
+              const rows = Array.isArray(window.DayDisplayRows) && window.DayDisplayRows.length ? window.DayDisplayRows : (Array.isArray(window.dayData) ? window.dayData : []);
+              // Get name from row data
+              const labels = rows.map(r => String(r.name || ''));
+              try{ console.log('DEBUG: buildChart DAY start', {labels, rowsLength: rows.length}); } catch(_){ }
+              const ventas = rows.map(r=>Number(r.Total||0));
+              const puntos = rows.map(r=>Number(r.Puntaje||0));
+              const canvas = document.getElementById('daily-team-chart'); if (!canvas) return;
+              const wrap = canvas.parentElement;
+              try {
+                const vpH = (vp && vp.getBoundingClientRect && vp.getBoundingClientRect().height) || vp.clientHeight || 320;
+                const minH = 320;
+                const finalH = Math.max(vpH, minH);
+                if (wrap) { wrap.style.height = finalH + 'px'; wrap.style.maxHeight = finalH + 'px'; wrap.style.overflow = 'hidden'; wrap.style.paddingBottom = '28px'; }
+              } catch(_){ }
+                try{ if (window.__dailyChart) { window.__dailyChart.destroy(); } } catch(_){ }
+                try { if (typeof window.__ensureHiDPICanvas === 'function') window.__ensureHiDPICanvas(canvas, finalH); } catch(_){}
+                const ctx = canvas.getContext('2d');
+              window.__dailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [
+                  { label: 'Ventas', data: ventas, backgroundColor: 'rgba(37,99,235,0.85)' },
+                  { label: 'Puntaje', data: puntos, backgroundColor: 'rgba(239,68,68,0.85)' }
+                ] },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  // give extra bottom padding so x-axis labels and datalabels have room
+                  layout: { padding: { top: 12, bottom: 60 } },
+                  plugins: {
+                    legend: { display: true, position: 'top' },
+                    datalabels: {
+                      // place labels above the bar (outside the bar area)
+                      anchor: 'end',
+                      align: 'end',
+                      offset: -6,
+                      clamp: false,
+                      clip: false,
+                      color: '#0b1220',
+                          font: { weight: '600', size: 12 },
+                      formatter: v => (v == null ? '' : v)
+                    }
+                  },
+                  scales: {
+                    x: {
+                      grid: { display: false },
+                      ticks: {
+                        display: true,
+                        color: '#1e293b',
+                        autoSkip: false,
+                        maxRotation: 0,
+                        minRotation: 0,
+                        padding: 12,
+                        font: { 
+                          size: 13,
+                          weight: '500'
+                        },
+                        textStrokeWidth: 0.5
+                      }
+                    },
+                    y: { beginAtZero: true, grid: { display: false }, ticks: { display: false } }
+                  }
+                }
+              });
+            } catch(e){ console.warn('daily chart build error', e); }
+          };
+
+          const onTransit = (ev) => {
+            if (ev && ev.propertyName && ev.propertyName.indexOf('transform') === -1) return;
+            try {
+                  if (willShowBack) {
+                    buildChart();
+                    try { if (frontFace) frontFace.style.visibility = 'hidden'; } catch(_){ }
+                  } else {
+                    try { if (frontFace) frontFace.style.visibility = 'visible'; } catch(_){ }
+                    try{ if (window.__dailyChart) { window.__dailyChart.destroy(); window.__dailyChart = null; } } catch(_){ }
+                    // Aggressively clear inline styles that could keep the front/table hidden
+                    try {
+                      if (frontFace && frontFace.querySelectorAll) {
+                        Array.from(frontFace.querySelectorAll('*')).forEach(el => {
+                          try {
+                            if (!el || !el.style) return;
+                            if (el.style.visibility && el.style.visibility.indexOf('hidden') !== -1) el.style.visibility = '';
+                            if (el.style.display && el.style.display.indexOf('none') !== -1) el.style.display = '';
+                            if (el.style.opacity === '0') el.style.opacity = '';
+                            if (el.style.pointerEvents === 'none') el.style.pointerEvents = '';
+                            if (el.style.transform && el.style.transform.indexOf('rotateY') !== -1) el.style.transform = '';
+                          } catch(_){}
+                        });
+                      }
+                      try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){}
+                    } catch(_){}
+                  }
+              // restore any hidden sticky elements
+              try {
+                const hidden = vp && vp.__hiddenSticky;
+                if (hidden && Array.isArray(hidden)) {
+                  hidden.forEach(item => { try{ item.el.style.visibility = item.vis || ''; } catch(_){} });
+                  vp.__hiddenSticky = null;
+                }
+              } catch(_){}
+            } finally {
+              try {
+                if (!willShowBack) {
+                  const wrapEl = vp && vp.querySelector && vp.querySelector('.chart-wrapper');
+                  if (wrapEl) { wrapEl.style.height = ''; wrapEl.style.maxHeight = ''; wrapEl.style.overflow = ''; wrapEl.style.paddingBottom = ''; }
+                  setTimeout(() => { try { vp.style.height = ''; vp.style.minHeight = ''; if (scene) { scene.style.minHeight = ''; scene.style.height = ''; } } catch(_){} }, 200);
+                }
+              } catch(_){}
+              if (scene) scene.removeEventListener('transitionend', onTransit);
+              window.__dayFlipAnimating = false;
+            }
+          };
+
+          if (scene) scene.addEventListener('transitionend', onTransit);
+          // Before starting the flip, hide any sticky elements inside the front face so they don't overlap during the 3D rotate
+          try {
+            if (willShowBack && frontFace) {
+              const hidden = [];
+              Array.from(frontFace.querySelectorAll('*')).forEach(el => {
+                try {
+                  const cs = window.getComputedStyle(el);
+                  if (cs && (cs.position === 'sticky' || cs.position === 'fixed')) {
+                    hidden.push({el, vis: el.style.visibility});
+                    el.style.visibility = 'hidden';
+                  }
+                } catch(_) {}
+              });
+              // store to restore later
+              vp.__hiddenSticky = hidden;
+            }
+          } catch(_) {}
+          try { if (frontFace) frontFace.style.visibility = 'visible'; } catch(_){}
+          void vp.offsetHeight;
+          if (willShowBack) vp.classList.add('is-flipped'); else vp.classList.remove('is-flipped');
+          setTimeout(() => { if (window.__dayFlipAnimating) { try { onTransit(); } catch(_) { window.__dayFlipAnimating = false; } } }, 500);
+
+        } catch(e){ console.warn('toggleDayFlip error', e); }
+      };
+
+      // Fallback click listener for day flip
+      document.addEventListener('click', function(ev){
+        const t = ev.target;
+        if (t && t.id === 'btn-flip-day'){
+          ev.preventDefault();
+          try{ if (typeof window.__toggleDayFlip === 'function') window.__toggleDayFlip(); } catch(e){ console.warn(e); }
+        }
+      }, true);
+    })();
   </script>
 </body>
 </html>
