@@ -134,7 +134,7 @@ const SCORING_TABLE = {
     base: 1.0
   },
   'internet-hughesnet': {
-    base: 0.75
+    base: 0.35
   },
   'internet-viasat': {
     base: 0.75

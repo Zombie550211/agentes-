@@ -92,7 +92,7 @@ El puntaje se calcula automáticamente en el frontend y se valida en el backend.
 | **BRIGHTSPEED 100-900MBPS** | 1.0 |
 | **INTERNET WOW** | 1.0 |
 | **INTERNET ALTA FIBER** | 1.0 |
-| **INTERNET HUGHESNET** | 0.75 |
+| **INTERNET HUGHESNET** | 0.35 |
 | **INTERNET VIASAT** | 0.75 |
 | **INTERNET CONSOLIDATE** | 1.0 |
 | **INTERNET CENTURYLINK** | 1.0 |

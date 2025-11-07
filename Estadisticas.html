@@ -387,6 +387,23 @@
       grid-column: 1 / -1;
       margin-bottom: 20px;
     }
+    /* Excepción: las tarjetas dentro de #top-charts usan su propio grid (2 columnas)
+       Evitamos que la regla global .chart-card las fuerce a 1 columna */
+    #top-charts .chart-card { grid-column: auto !important; }
+    /* Forzar altura consistente en los top charts para que se muestren lado a lado */
+    #top-charts .chart-wrapper { min-height: 340px; height: 340px; }
+
+    /* Excepción: fila de Ventas y Productos (dos columnas al mismo nivel) */
+    #ventas-products-row .chart-card { grid-column: auto !important; }
+  /* match altura de .graph-container para que queden alineados */
+  #ventas-products-row .chart-wrapper { min-height: 360px; height: 420px; }
+  #ventas-products-row .graph-container { height: 420px; }
+  /* asegurar que el canvas llene el wrapper (override inline/Chart.js sizing) */
+  #ventas-products-row .chart-wrapper canvas { width: 100% !important; height: 100% !important; display: block; }
+    @media (max-width: 900px) {
+      /* en pantallas pequeñas, apilar una columna para mejor lectura */
+      #ventas-products-row { grid-template-columns: 1fr !important; }
+    }
     
     .chart-wrapper {
       position: relative;
@@ -493,15 +510,15 @@
       padding: 20px;
       margin-bottom: 20px;
       width: 100%;
-      height: 460px;
-      max-height: 460px;
+      height: 420px;
+      max-height: 420px;
       position: relative;
     }
     
     .graph-canvas {
       width: 100% !important;
       height: 100% !important;
-      min-height: 420px;
+      min-height: 360px;
     }
 
     /* Estilos para notificaciones */
@@ -567,10 +584,21 @@
       </header>
 
       <section class="stats-grid">
-        <div class="card chart-card">
-          <h3>Ventas por equipo</h3>
-          <div class="chart-wrapper">
-            <canvas id="chart-ventas-dia"></canvas>
+        <!-- STAGE 1: Top charts row: Porcentaje de Activasion (left) + Ventas Activas del mes (right) -->
+        <div id="top-charts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
+          <!-- top-half evita la regla global .chart-card que fuerza ancho completo -->
+          <div class="card chart-card top-half">
+            <h3><i class="fas fa-percent" style="color:#22b3ec; margin-right:8px;"></i> Porcentaje de Activasion</h3>
+            <div class="chart-wrapper">
+              <canvas id="chart-porcentaje-activacion"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card top-half">
+            <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas Activas del mes</h3>
+            <div class="chart-wrapper">
+              <canvas id="chart-ventas-activas-mes"></canvas>
+            </div>
           </div>
         </div>
 
@@ -587,50 +615,59 @@
           </div>
         </div>
 
-        <!-- Nueva Sección: Gráfica de Ventas y Puntaje (Últimos 7 días) -->
-        <div class="card chart-card">
-          <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas y Puntaje - Últimos 7 días</h3>
-          
-          <!-- Filtro de Fecha -->
-          <div class="date-filter-container" style="margin-bottom: 20px;">
-            <div class="date-filter">
-              <label for="month-select">Mes:</label>
-              <select id="month-select" class="date-select">
-                <option value="0">Enero</option>
-                <option value="1">Febrero</option>
-                <option value="2">Marzo</option>
-                <option value="3">Abril</option>
-                <option value="4">Mayo</option>
-                <option value="5">Junio</option>
-                <option value="6">Julio</option>
-                <option value="7">Agosto</option>
-                <option value="8">Septiembre</option>
-                <option value="9">Octubre</option>
-                <option value="10">Noviembre</option>
-                <option value="11">Diciembre</option>
-              </select>
-              
-              <label for="day-select">Día:</label>
-              <select id="day-select" class="date-select">
-                <!-- Los días se llenarán dinámicamente -->
-              </select>
-              
-              <label for="year-select">Año:</label>
-              <select id="year-select" class="date-select">
-                <option value="2023">2023</option>
-                <option value="2024">2024</option>
-                <option value="2025" selected>2025</option>
-                <option value="2026">2026</option>
-              </select>
-              
-              <button id="apply-filter" class="filter-button">Aplicar Filtro</button>
-              <button id="reset-filter" class="filter-button">Hoy</button>
+        <!-- Nueva Sección: Gráfica de Ventas y Puntaje (Últimos 7 días) + Productos vendidos en el mes -->
+  <div id="ventas-products-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
+          <div class="card chart-card">
+            <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas y Puntaje - Últimos 7 días</h3>
+            
+            <!-- Filtro de Fecha -->
+            <div class="date-filter-container" style="margin-bottom: 20px;">
+              <div class="date-filter">
+                <label for="month-select">Mes:</label>
+                <select id="month-select" class="date-select">
+                  <option value="0">Enero</option>
+                  <option value="1">Febrero</option>
+                  <option value="2">Marzo</option>
+                  <option value="3">Abril</option>
+                  <option value="4">Mayo</option>
+                  <option value="5">Junio</option>
+                  <option value="6">Julio</option>
+                  <option value="7">Agosto</option>
+                  <option value="8">Septiembre</option>
+                  <option value="9">Octubre</option>
+                  <option value="10">Noviembre</option>
+                  <option value="11">Diciembre</option>
+                </select>
+                
+                <label for="day-select">Día:</label>
+                <select id="day-select" class="date-select">
+                  <!-- Los días se llenarán dinámicamente -->
+                </select>
+                
+                <label for="year-select">Año:</label>
+                <select id="year-select" class="date-select">
+                  <option value="2023">2023</option>
+                  <option value="2024">2024</option>
+                  <option value="2025" selected>2025</option>
+                  <option value="2026">2026</option>
+                </select>
+                
+                <button id="apply-filter" class="filter-button">Aplicar Filtro</button>
+                <button id="reset-filter" class="filter-button">Hoy</button>
+              </div>
+            </div>
+
+            <!-- Gráfica de Ventas y Puntaje -->
+            <div class="graph-container">
+              <canvas id="ventasPuntajeChart" class="graph-canvas"></canvas>
             </div>
           </div>
 
-          <!-- Gráfica de Ventas y Puntaje -->
-          <div class="graph-container">
-            <canvas id="ventasPuntajeChart" class="graph-canvas"></canvas>
+          <div class="card chart-card">
+            <h3><i class="fas fa-box" style="color:#22b3ec; margin-right:8px;"></i> Productos vendidos en el mes</h3>
+            <div class="chart-wrapper">
+              <canvas id="productsChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
@@ -1194,8 +1231,9 @@
           if (btnNext) btnNext.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
         } catch(_) {}
 
-        // Ahora, renderizar el gráfico de dona con los datos de los equipos
-        renderVentasPorEquipoChart(fallbackTeamData);
+  // Ahora, renderizar el gráfico de porcentaje de activación (dona) y el de ventas activas del mes (barra)
+  try { renderPorcentajeActivacion(fallbackTeamData); } catch(_) { try { renderVentasPorEquipoChart(fallbackTeamData); } catch(_){} }
+  try { renderVentasActivasMes(fallbackTeamData); } catch(_) { /* non-fatal */ }
         
         // Filtro eliminado: no se requiere manejar eventos de filtrado
       } catch (e) {
@@ -1455,6 +1493,133 @@
           }
         }
       });
+    }
+
+    // Nuevo: renderiza un donut que muestra % de activación (ICON vs resto)
+    function renderPorcentajeActivacion(teamData) {
+      try {
+        const canvas = document.getElementById('chart-porcentaje-activacion');
+        if (!canvas) return;
+
+        // Agregar datos defensivos
+        teamData = Array.isArray(teamData) ? teamData : [];
+        const totalICON = teamData.reduce((s, t) => s + (Number(t.ICON || 0)), 0);
+        const total = teamData.reduce((s, t) => s + (Number(t.Total || 0)), 0) || 0;
+        const active = totalICON;
+        const inactive = Math.max(0, total - totalICON);
+
+        if (window.porcentajeActivacionChart) try { window.porcentajeActivacionChart.destroy(); } catch(_){}
+
+        const ctx = canvas.getContext('2d');
+        window.porcentajeActivacionChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Activadas', 'No activadas'],
+            datasets: [{
+              data: [active, inactive],
+              backgroundColor: ['#10b981', '#e5e7eb'],
+              borderColor: ['#fff','#fff'],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right' },
+              tooltip: { callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed} (${(total?((ctx.parsed/total)*100):0).toFixed(1)}%)`; } } }
+            }
+          }
+        });
+      } catch (e) { console.warn('renderPorcentajeActivacion error', e); }
+    }
+
+    // Nuevo: renderiza un gráfico de barras con ventas activas por equipo (usa ICON como proxy de activas)
+    function renderVentasActivasMes(teamData) {
+      try {
+        const canvas = document.getElementById('chart-ventas-activas-mes');
+        if (!canvas) return;
+        teamData = Array.isArray(teamData) ? teamData : [];
+
+        // Orden/filtrado como se usa en tabla: evitar equipos de LINEA en este gráfico
+        const filtered = teamData.filter(t => !/LINEA/i.test(String(t.name || '')));
+        const labels = filtered.map(t => String(t.name || 'Sin equipo'));
+        const dataVals = filtered.map(t => Number(t.ICON || 0));
+
+        if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); } catch(_){}
+
+        const ctx = canvas.getContext('2d');
+        window.ventasActivasMesChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Ventas activas (ICON)',
+              data: dataVals,
+              backgroundColor: 'rgba(34,179,236,0.9)',
+              borderColor: 'rgba(26,144,193,1)',
+              borderWidth: 1,
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'ICON (activas)' } },
+              x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
+            }
+          }
+        });
+      } catch (e) { console.warn('renderVentasActivasMes error', e); }
+    }
+
+    // --- Productos vendidos en el mes: helpers y gráfico ---
+    const SOLD = new Set(['vendido','cerrado','aprobado','approved','sold','closed']);
+    function pickDateForProduct(lead){
+      const cand = lead && (lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha || lead.created_at || lead.createdOn);
+      const d = cand ? new Date(cand) : null;
+      return d && !isNaN(d) ? d : new Date(0);
+    }
+
+    let productsChartRef = null;
+    function renderProducts(leads){
+      try{
+        leads = Array.isArray(leads) ? leads : [];
+        const now = new Date(); const M = now.getMonth(); const Y = now.getFullYear();
+        let monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y && SOLD.has(String(l.status||'').toLowerCase()); });
+        if (monthSales.length === 0) {
+          monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y; });
+        }
+        const getProd = (l) => {
+          const v = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || (l.producto && l.producto.nombre) || l.product || l.service || l.servicio || '';
+          return v ? String(v).replace(/[-_]/g,' ').toUpperCase() : 'SIN PRODUCTO';
+        };
+        const counts = {};
+        monthSales.forEach(l => { const k = getProd(l); if (!k) return; counts[k] = (counts[k]||0) + 1; });
+        const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+        const labels = entries.map(e => e[0]);
+        const dataVals = entries.map(e => e[1]);
+        const canvas = document.getElementById('productsChart'); if (!canvas) return; const ctx = canvas.getContext('2d');
+        if (productsChartRef) try { productsChartRef.destroy(); } catch(_){}
+        productsChartRef = new Chart(ctx, {
+          type: 'bar',
+          data: { labels, datasets: [{ label: 'Cantidad', data: dataVals, backgroundColor: 'rgba(54,162,235,.7)', borderColor: 'rgba(54,162,235,1)', borderWidth: 1, borderRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } } }
+        });
+      } catch (e) { console.warn('renderProducts error', e); }
+    }
+
+    async function loadProductsChart(){
+      try{
+        if (!checkAuth()) return;
+        const resp = await fetchWithAuth('/api/leads');
+        if (!resp || !resp.ok) { console.warn('loadProductsChart: no response or error from /api/leads'); return; }
+        const json = await resp.json();
+        const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+        renderProducts(leads);
+      } catch(e) { console.warn('loadProductsChart error', e); }
     }
 
     async function initCharts(){
@@ -1730,8 +1895,27 @@
         try { ensureDayTogglesFallback(); } catch(_){ }
         // Agregar tabs Día/Mes a ambas tarjetas
         try { ensureStatsTabs(); } catch(_){ }
+        // Cargar gráfica de Productos vendidos en el mes
+        try { loadProductsChart(); } catch(_){ }
+        // Igualar alturas entre la gráfica izquierda y la tarjeta de productos para evitar espacios
+        try { setTimeout(() => { try { equalizeVentasProductsHeights(); } catch(_){} }, 300); } catch(_){}
       }, 200); // Delay para asegurar que el DOM esté listo
     }
+
+  // Igualar alturas de las dos tarjetas (Ventas vs Productos) para evitar espacio en blanco
+  function equalizeVentasProductsHeights(){
+    try{
+      const row = document.getElementById('ventas-products-row'); if (!row) return;
+      const left = row.querySelector('.graph-container');
+      const right = row.querySelector('.chart-wrapper');
+      if (!left || !right) return;
+      const h = left.clientHeight;
+      right.style.height = h + 'px';
+      // also ensure canvas fills
+      const cvs = right.querySelector('canvas'); if (cvs) { cvs.style.width='100%'; cvs.style.height='100%'; }
+    } catch(e){ console.warn('equalizeVentasProductsHeights error', e); }
+  }
+  window.addEventListener('resize', () => { try{ equalizeVentasProductsHeights(); }catch(_){} });
 
     // Deshabilitado: ya no se inyectan toggles fuera del modal
     function ensureDayTogglesFallback(){ return; }
