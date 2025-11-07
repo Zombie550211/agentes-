@@ -53,7 +53,6 @@
       padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
     }
     .page-header {
       display: flex;
@@ -674,6 +673,7 @@
   <script>
     // Datos de ejemplo para visualizaciÃ³n inicial (puedes reemplazar por datos reales)
     function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }  
+    function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }  
 
     async function renderConversionTable(root) {
       try {
@@ -1135,29 +1135,48 @@
           }
           const flipBtn = document.getElementById('btn-flip-monthly');
           if (flipBtn && card) {
+            // Single, robust handler: toggle using helper (if present), then create/destroy chart
             flipBtn.onclick = function(){
               try {
-                card.classList.toggle('show-chart');
-                if (card.classList.contains('show-chart')) {
-                  const canvas = document.getElementById('monthly-team-chart');
-                  if (!canvas) return;
-                  const rows = (Array.isArray(window.MonthDisplayRows) && window.MonthDisplayRows.length)
-                    ? window.MonthDisplayRows
-                    : (Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : []);
-                  const labels = rows.map(r => String(r.name || ''));
-                  const ventas  = rows.map(r => Number(r.Total   || 0));
-                  const puntos  = rows.map(r => Number(r.Puntaje || 0));
-                  try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); } } catch(_) {}
-                  const ctx = canvas.getContext('2d');
-                  window.__monthlyChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels, datasets: [
-                      { label: 'Ventas',  data: ventas,  backgroundColor: 'rgba(37,99,235,0.85)' },
-                      { label: 'Puntaje', data: puntos,  backgroundColor: 'rgba(239,68,68,0.85)' }
-                    ] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-                  });
+                // Use centralized helper to lock heights and toggle class when available
+                if (typeof window.__toggleMonthlyFlip === 'function') {
+                  window.__toggleMonthlyFlip();
+                } else {
+                  card.classList.toggle('show-chart');
                 }
+
+                // Defer chart creation/destruction slightly to allow layout/overlay to settle
+                setTimeout(() => {
+                  try {
+                    const showing = card.classList.contains('show-chart');
+                    const canvas = document.getElementById('monthly-team-chart');
+                    if (showing) {
+                      if (!canvas) return;
+                      const rows = (Array.isArray(window.MonthDisplayRows) && window.MonthDisplayRows.length)
+                        ? window.MonthDisplayRows
+                        : (Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : []);
+                      const labels = rows.map(r => String(r.name || ''));
+                      const ventas  = rows.map(r => Number(r.Total   || 0));
+                      const puntos  = rows.map(r => Number(r.Puntaje || 0));
+                      try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); window.__monthlyChart = null; } } catch(_) {}
+                      const ctx = canvas.getContext('2d');
+                      try {
+                        window.__monthlyChart = new Chart(ctx, {
+                          type: 'bar',
+                          data: { labels, datasets: [
+                            { label: 'Ventas',  data: ventas,  backgroundColor: 'rgba(37,99,235,0.85)' },
+                            { label: 'Puntaje', data: puntos,  backgroundColor: 'rgba(239,68,68,0.85)' }
+                          ] },
+                          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                        });
+                      } catch(chartErr){ console.warn('monthly chart create error', chartErr); }
+                      try { if (window.__monthlyChart && typeof window.__monthlyChart.resize === 'function') window.__monthlyChart.resize(); } catch(_){}
+                    } else {
+                      // hiding -> destroy chart to free memory and avoid stray drawings
+                      try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); window.__monthlyChart = null; } } catch(_){}
+                    }
+                  } catch(err){ console.warn('deferred monthly overlay handler error', err); }
+                }, 80);
               } catch(e) { console.warn('overlay error', e); }
             };
           }
@@ -1165,19 +1184,7 @@
         
         // Ajustar altura del contenedor flip local al alto real de la tabla
         try {
-          const flipBtn = document.getElementById('btn-flip-monthly');
-          if (flipBtn) {
-            flipBtn.addEventListener('click', function(){
-              try {
-                // Delegate to centralized toggle helper to avoid duplicated logic and canvases
-                if (typeof window.__toggleMonthlyFlip === 'function') {
-                  window.__toggleMonthlyFlip();
-                } else {
-                  console.warn('toggle helper no disponible');
-                }
-              } catch(e){ console.warn('flip error', e); }
-            });
-          }
+          // No extra handler here: the flip button's onclick above covers toggling and chart lifecycle
         } catch(_) {}
         // Hook flechas navegación mes
         try {
@@ -1748,10 +1755,147 @@
     (function(){
       if (document.getElementById('flip-force-styles')) return;
       const css = `
-        .force-visible { display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; transform: none !important; }
+        /* force-visible: used sparingly to nudge visibility without changing table layout
+           avoid forcing display:block globally which breaks table/tr layout */
+        .force-visible { visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; transform: none !important; }
         .force-visible table { display: table !important; visibility: visible !important; opacity: 1 !important; }
+
+        /* Stronger, scoped override: when the flip viewport is NOT flipped, ensure the front face
+           is visible and interactive. This targets the transient race where CSS with
+           .flip-front-hidden (which uses !important) may still be present or re-applied.
+           Using :not(.is-flipped) and placing this style late in the document gives it
+           the correct cascade precedence without affecting the flipped state. */
+        #day-flip-local:not(.is-flipped) .flip-face.front { visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; transform: none !important; }
+        #day-flip-local:not(.is-flipped) .flip-face.front table { display: table !important; visibility: visible !important; opacity: 1 !important; }
       `;
       const s = document.createElement('style'); s.id = 'flip-force-styles'; s.textContent = css; document.head.appendChild(s);
+    })();
+
+    // Styles for the monthly overlay so showing the monthly chart doesn't change layout flow
+    (function ensureMonthlyOverlayStyles(){
+      if (document.getElementById('monthly-overlay-styles')) return;
+      const css = `
+        /* Ensure conversion card is a positioning context for the absolute overlay */
+        .conversion-card { position: relative; }
+
+        /* The overlay is absolutely positioned and hidden by default so it doesn't affect layout */
+        .conversion-card .month-chart-overlay {
+          position: absolute;
+          inset: 0;
+          display: none;
+          padding: 12px;
+          box-sizing: border-box;
+          background: #fff;
+          z-index: 5;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* When the card has show-chart, display the overlay as a flex container (no reflow) */
+        .conversion-card.show-chart .month-chart-overlay { display: flex; }
+
+        /* Ensure the inner chart wrapper fills the overlay */
+        .month-chart-overlay .chart-wrapper { width: 100%; height: 100%; }
+
+        /* Prevent the overlay from changing document flow when visible */
+        .month-chart-overlay canvas { width: 100% !important; height: 100% !important; }
+      `;
+      const s = document.createElement('style'); s.id = 'monthly-overlay-styles'; s.textContent = css; document.head.appendChild(s);
+    })();
+
+    /* Day flip: make the back face an absolute overlay so the day chart never pushes or
+       overlaps the table in a way that changes layout flow. This keeps the front table
+       visible unless explicitly hidden and prevents reflow of the lower panels. */
+    (function ensureDayFlipOverlayStyles(){
+      if (document.getElementById('day-flip-overlay-styles')) return;
+      const css = `
+        /* Positioning context */
+        #day-flip-local { position: relative; }
+
+        /* Put the back face (chart) out of flow and hidden by default */
+        #day-flip-local .flip-face.back {
+          position: absolute;
+          inset: 0;
+          display: none;
+          z-index: 6;
+          box-sizing: border-box;
+          padding: 8px;
+          background: rgba(255,255,255,0.98);
+          pointer-events: auto;
+        }
+
+        /* When the container is marked as flipped, show the back overlay without reflow */
+        #day-flip-local.is-flipped .flip-face.back,
+        #day-flip-local.show-chart-day .flip-face.back { display: block; }
+
+        /* Keep front in normal flow so tables retain dimensions */
+        #day-flip-local .flip-face.front { position: relative; z-index: 2; }
+
+        /* Make sure any canvases fill the overlay area */
+        #day-flip-local .flip-face.back .chart-wrapper,
+        #day-flip-local .flip-face.back canvas { width: 100% !important; height: 100% !important; }
+      `;
+      const s = document.createElement('style'); s.id = 'day-flip-overlay-styles'; s.textContent = css; document.head.appendChild(s);
+    })();
+
+    // Safe delegated click handler for the day flip button: call existing toggle if present
+    (function attachDayFlipDelegated(){
+      document.addEventListener('click', function onDocClick(e){
+        try {
+          const t = e.target;
+          if (!t) return;
+          // Common IDs used by the app for the monthly/day flip buttons: try to catch the day one
+          if (t.id === 'btn-flip-day' || t.dataset && t.dataset.flip === 'day') {
+            e.preventDefault();
+            if (typeof window.__toggleDayFlip === 'function') {
+              try { window.__toggleDayFlip(); } catch(err){ console.warn('error calling __toggleDayFlip', err); }
+            } else if (typeof window.__toggleMonthlyFlip === 'function') {
+              // fallback: reuse monthly helper if day toggle isn't present
+              try { window.__toggleMonthlyFlip(); } catch(_){}
+            } else {
+              // Last resort: toggle a show class on #day-flip-local so CSS overlay shows
+              const container = document.getElementById('day-flip-local');
+              if (container) container.classList.toggle('show-chart-day');
+            }
+          }
+        } catch(_){}
+      }, false);
+    })();
+
+    // Ensure monthly flip preserves layout height to avoid shifting the lower chart
+    // This helper locks the flip viewport (or card) to the front face height while the
+    // flip transition runs, then releases it and triggers a chart resize.
+    (function ensureMonthlyFlipHeightLock(){
+      if (window.__toggleMonthlyFlip) return; // don't overwrite if already defined
+      window.__toggleMonthlyFlip = function(){
+        try {
+          // Prefer the conversion-card that contains the monthly flip
+          const card = document.querySelector('.conversion-card');
+          const flipViewport = (card && card.querySelector('#month-flip-local')) || document.getElementById('month-flip-local');
+          const front = flipViewport ? flipViewport.querySelector('.flip-face.front') : null;
+          const lockTarget = flipViewport || card || document.body;
+
+          // Measure and lock height so the layout below doesn't reflow mid-transition
+          const height = (front && front.offsetHeight) ? front.offsetHeight : (lockTarget && lockTarget.offsetHeight) || 0;
+          if (height) {
+            // Use minHeight so content can still grow if needed but won't shrink during flip
+            lockTarget.style.minHeight = height + 'px';
+          }
+
+          // Toggle the visual state (same class the rest of the code expects)
+          if (card) card.classList.toggle('show-chart');
+
+          // After the flip animation settles, release the lock and refresh charts
+          const RELEASE_MS = 700; // slightly longer than the CSS transition to be safe
+          setTimeout(() => {
+            try { if (height) lockTarget.style.minHeight = ''; } catch(_){}
+            try { if (window.__monthlyChart && typeof window.__monthlyChart.resize === 'function') window.__monthlyChart.resize(); } catch(_){}
+            try { if (window.ventasPorEquipoChart && typeof window.ventasPorEquipoChart.resize === 'function') window.ventasPorEquipoChart.resize(); } catch(_){}
+          }, RELEASE_MS);
+        } catch(e){
+          console.warn('toggleMonthlyFlip error', e);
+        }
+      };
     })();
 
     // Contenedor del modal
@@ -1947,9 +2091,13 @@
         window.__startDayTableVisibilityWatcher = function(timeoutMs = 8000){
           try {
             if (window.__dayTableWatcherTimer) return;
+            // ensure paused flag exists
+            if (typeof window.__dayWatcherPaused === 'undefined') window.__dayWatcherPaused = false;
             const start = Date.now();
             window.__dayTableWatcherTimer = setInterval(() => {
               try {
+                // if paused (we're in the middle of a flip/cleanup) avoid fighting with flip code
+                if (window.__dayWatcherPaused) return;
                 const vp = document.getElementById('day-flip-local');
                 if (!vp) return;
                 const front = vp.querySelector('.flip-face.front');
@@ -2012,6 +2160,7 @@
 
     function showMonthDetailModal(){
       try{
+        console.log('[MODAL] showMonthDetailModal invoked', { MonthDetailRows: !!window.MonthDetailRows });
         const store = window.MonthDetailRows || { rango:'', rows:[] };
         const rows = Array.isArray(store.rows) ? store.rows : [];
         const overlay = document.getElementById('month-detail-modal'); if (!overlay) return;
@@ -2364,7 +2513,7 @@
               try { prevTrans = scene && scene.style ? scene.style.transition || '' : ''; if (scene && scene.style) scene.style.transition = 'none'; } catch(_){}
               // remove flipped state so front becomes visible immediately
               vp.classList.remove('is-flipped');
-              try { if (frontFace) { frontFace.style.visibility = 'visible'; frontFace.style.opacity = '1'; frontFace.style.pointerEvents = ''; } } catch(_){ }
+              try { if (frontFace) { frontFace.classList.remove('flip-front-hidden'); frontFace.classList.add('force-visible'); } } catch(_){ }
               // restore any hidden sticky elements stored earlier
               try {
                 const hidden = vp && vp.__hiddenSticky;
@@ -2385,9 +2534,12 @@
                     tbl.style.visibility = 'visible';
                     tbl.style.opacity = '1';
                     tbl.style.pointerEvents = '';
+                    try { tbl.style.setProperty('visibility','visible','important'); tbl.style.setProperty('display','table','important'); tbl.style.setProperty('opacity','1','important'); } catch(_){}
                   } catch(_){}
                 });
               } catch(_){}
+              // Also force the front face visible with !important to override any lingering CSS rules
+              try { if (frontFace) { frontFace.style.setProperty('visibility','visible','important'); frontFace.style.setProperty('display','block','important'); frontFace.style.setProperty('opacity','1','important'); } } catch(_){}
               // force reflow then restore transition
               try { void vp.offsetHeight; if (scene && scene.style) scene.style.transition = prevTrans || 'transform 360ms cubic-bezier(.2,.8,.2,1)'; } catch(_){}
               setTimeout(() => { try { vp.style.height = ''; vp.style.minHeight = ''; if (scene) { scene.style.minHeight = ''; scene.style.height = ''; } } catch(_){} }, 200);
@@ -2398,11 +2550,12 @@
         // Utility: aggressively clear any inline visibility/display styles that may hide the day front/table
         window.__clearDayHiddenStyles = function(){
           try {
+            console.log('[__clearDayHiddenStyles] running');
             const root = document.getElementById('ventas-dia-card');
-            if (!root) return;
+            if (!root) { console.log('[__clearDayHiddenStyles] no root found'); return; }
             // Clear inline visibility:hidden on the front face and any tables inside
             const vp = root.querySelector('#day-flip-local') || root.querySelector('.conversion-card');
-            if (!vp) return;
+            if (!vp) { console.log('[__clearDayHiddenStyles] no vp found'); return; }
             const fronts = vp.querySelectorAll ? vp.querySelectorAll('.flip-face.front, .conversion-card, .conv-left, .conv-two-col') : [];
             Array.from(fronts).forEach(el => {
               try {
@@ -2429,7 +2582,8 @@
               } catch(_){}
             });
             // Finally, ensure the root container isn't hidden
-            try { if (root.style && root.style.visibility && root.style.visibility.indexOf('hidden') !== -1) root.style.visibility = ''; } catch(_){}
+            try { if (root.style && root.style.visibility && root.style.visibility.indexOf('hidden') !== -1) root.style.visibility = ''; } catch(_){ }
+            try { console.log('[__clearDayHiddenStyles] cleared, tables:', (tables && tables.length) || 0); } catch(_){ }
           } catch(e){ try{ console.warn('__clearDayHiddenStyles error', e); }catch(_){} }
         };
 
@@ -2438,6 +2592,7 @@
           try {
             if (window.__dayVisibilityObserver) return;
             const root = document.getElementById('ventas-dia-card');
+            try { console.log('[VIS-OBSERVER] installing for #ventas-dia-card', !!root); } catch(_){ }
             if (!root) return;
             const obs = new MutationObserver((mutations) => {
               try {
@@ -2482,6 +2637,7 @@
             });
             obs.observe(root, { attributes: true, childList: true, subtree: true, attributeFilter: ['style','class'] });
             window.__dayVisibilityObserver = obs;
+            try { console.log('[VIS-OBSERVER] installed'); } catch(_){ }
           } catch(e){ try{ console.warn('installDayVisibilityObserver error', e); }catch(_){} }
         };
 
@@ -2738,6 +2894,7 @@
 
     function showDayDetailModal(){
       try{
+        console.log('[MODAL] showDayDetailModal invoked', { DayDetailRows: !!window.DayDetailRows });
         const store = window.DayDetailRows || { fecha:'', rows:[] };
         const rows = Array.isArray(store.rows) ? store.rows : [];
         const overlay = document.getElementById('day-detail-modal');
@@ -3751,6 +3908,29 @@
     }
   </script>
   <script>
+    // Delegate clicks for "Ver detalle" buttons (robust against re-renders)
+    (function attachDetailDelegation(){
+      try {
+        document.addEventListener('click', function(ev){
+          try {
+            const t = ev.target;
+            if (!t) return;
+            if (t.id === 'btn-detalle-dia' || (t.dataset && t.dataset.detail === 'day')) {
+              ev.preventDefault();
+              console.log('[DELEGATE] btn-detalle-dia click');
+              try { if (typeof showDayDetailModal === 'function') showDayDetailModal(); else console.warn('showDayDetailModal not defined'); } catch(err){ console.warn('delegated showDayDetailModal error', err); }
+              return;
+            }
+            if (t.id === 'btn-detalle-mensual' || (t.dataset && t.dataset.detail === 'month')) {
+              ev.preventDefault();
+              console.log('[DELEGATE] btn-detalle-mensual click');
+              try { if (typeof showMonthDetailModal === 'function') showMonthDetailModal(); else console.warn('showMonthDetailModal not defined'); } catch(err){ console.warn('delegated showMonthDetailModal error', err); }
+              return;
+            }
+          } catch(_){}
+        }, true);
+      } catch(e){ console.warn('attachDetailDelegation error', e); }
+    })();
     // Utility: ensure canvas is rendered crisply on high-DPI (retina) displays
     window.__ensureHiDPICanvas = function(canvas, minH){
       try {
@@ -3796,6 +3976,9 @@
         /* Keep the front face occupying layout while fading it out during the 3D rotate.
           We'll only set visibility:hidden after the transition ends via JS to avoid layout jumps. */
         #month-flip-local.is-flipped .flip-face.front { opacity:0; pointer-events: none; visibility: visible; }
+        /* Helper classes for JS toggles */
+        #month-flip-local .flip-face.front.flip-front-hidden { visibility: hidden !important; pointer-events: none !important; }
+        .force-visible { visibility: visible !important; }
             #month-flip-local .chart-wrapper{ width:100%; height:100%; box-sizing:border-box; padding:6px; min-height:320px; }
             /* Ensure canvas fills the back face */
             #month-flip-local canvas { width:100% !important; height:100% !important; display:block; }
@@ -3967,10 +4150,10 @@
               // Now the back face is visible: build the chart
               buildChart();
               // hide the front face from rendering/assistive UI after the back is visible
-              try { if (frontFace) frontFace.style.visibility = 'hidden'; } catch(_){ }
+              try { if (frontFace) { frontFace.classList.add('flip-front-hidden'); } } catch(_){ }
             } else {
               // We're back to front: make sure front face is visible again and destroy chart to free memory
-              try { if (frontFace) { frontFace.style.visibility = 'visible'; frontFace.classList.add('force-visible'); } } catch(_){ }
+              try { if (frontFace) { frontFace.classList.remove('flip-front-hidden'); frontFace.classList.add('force-visible'); } } catch(_){ }
               try { if (window.__monthlyChart) { window.__monthlyChart.destroy(); window.__monthlyChart = null; } } catch(_){ }
               // Aggressive cleanup: clear inline hidden/display/opacity styles inside the front face
               try {
@@ -3992,7 +4175,7 @@
                 setTimeout(() => {
                   try {
                     if (frontFace) {
-                      try { frontFace.style.visibility = ''; } catch(_){}
+                      try { frontFace.classList.remove('flip-front-hidden'); frontFace.classList.remove('force-visible'); } catch(_){}
                       try { frontFace.classList.remove('force-visible'); } catch(_){}
                     }
                     try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){}
@@ -4136,6 +4319,9 @@
             /* Keep front face visible (but transparent) during animation to preserve layout.
               Visibility will be toggled in JS when the transition finishes. */
             #day-flip-local.is-flipped .flip-face.front { opacity:0; pointer-events:none; visibility: visible; }
+            /* Helper classes for JS toggles */
+            #day-flip-local .flip-face.front.flip-front-hidden { visibility: hidden !important; pointer-events: none !important; }
+            .force-visible { visibility: visible !important; }
                   #day-flip-local .chart-wrapper{ width:100%; height:100%; box-sizing:border-box; padding:6px; min-height:320px; }
                   #day-flip-local canvas { width:100% !important; height:100% !important; display:block; }
                 `;
@@ -4161,6 +4347,9 @@
             scene.appendChild(frontFace); scene.appendChild(backFace); vp.appendChild(scene);
             try { const holder = card.querySelector('.conv-two-col')?.parentElement || card; const possible = Array.from(holder.children).find(ch => ch.classList && ch.classList.contains('conv-two-col')); if (possible) holder.replaceChild(vp, possible); else card.appendChild(vp); } catch(_) { card.appendChild(vp); }
           } else { scene = vp.querySelector('.flip-scene'); }
+
+          // Ensure we have a visibility observer installed to auto-recover stray style changes
+          try { if (typeof window.__installDayVisibilityObserver === 'function') window.__installDayVisibilityObserver(); } catch(_){}
 
           if (window.__dayFlipAnimating) return;
           // keep height stable during flip (use bounding rect precision)
@@ -4249,13 +4438,32 @@
           const onTransit = (ev) => {
             if (ev && ev.propertyName && ev.propertyName.indexOf('transform') === -1) return;
             try {
+                  // Pause visibility watcher while we perform flip/cleanup to avoid fight conditions
+                  try { window.__dayWatcherPaused = true; } catch(_){}
+                  try { console.log('[DAY onTransit] willShowBack=', willShowBack, 'property=', ev && ev.propertyName); } catch(_){ }
                   if (willShowBack) {
+                    try { console.log('[DAY onTransit] showing back -> buildChart'); } catch(_){ }
                     buildChart();
-                    try { if (frontFace) frontFace.style.visibility = 'hidden'; } catch(_){ }
+                    try { if (frontFace) { frontFace.classList.add('flip-front-hidden'); } } catch(_){ }
                   } else {
-                    try { if (frontFace) frontFace.style.visibility = 'visible'; } catch(_){ }
-                    try{ if (window.__dailyChart) { window.__dailyChart.destroy(); window.__dailyChart = null; } } catch(_){ }
-                    // Aggressively clear inline styles that could keep the front/table hidden
+              try { console.log('[DAY onTransit] showing front -> cleaning and destroying chart'); } catch(_){ }
+              try { if (frontFace) { frontFace.classList.remove('flip-front-hidden'); frontFace.classList.add('force-visible');
+                  // Destroy chart first to avoid Chart.js or related code re-applying styles while we restore the front face
+                  try{ if (window.__dailyChart) { window.__dailyChart.destroy(); window.__dailyChart = null; } } catch(_){ }
+                  // After the chart is destroyed, restore visibility on the front face. Use a tiny delay to let any
+                  // layout/paint triggered by chart destruction settle before removing the hiding class.
+                  try {
+                    if (frontFace) {
+                      // remove the hidden class after a short tick
+                      setTimeout(() => {
+                        try { frontFace.classList.remove('flip-front-hidden'); } catch(_){}
+                        try { frontFace.classList.add('force-visible'); } catch(_){}
+                        try { frontFace.style.setProperty('visibility','visible','important'); frontFace.style.setProperty('opacity','1','important'); } catch(_){ }
+                      }, 30);
+                    }
+                  } catch(_){ }
+              } } catch(_){ }
+              // Aggressively clear inline styles that could keep the front/table hidden
                     try {
                       if (frontFace && frontFace.querySelectorAll) {
                         Array.from(frontFace.querySelectorAll('*')).forEach(el => {
@@ -4266,12 +4474,17 @@
                             if (el.style.opacity === '0') el.style.opacity = '';
                             if (el.style.pointerEvents === 'none') el.style.pointerEvents = '';
                             if (el.style.transform && el.style.transform.indexOf('rotateY') !== -1) el.style.transform = '';
-                          } catch(_){}
+                          } catch(_){ }
                         });
                       }
-                      try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){}
-                    } catch(_){}
-                  }
+                      try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
+                      // As an extra last-resort override, set important visibility on any tables in the front face
+                      try {
+                        const tbls = frontFace && frontFace.querySelectorAll ? Array.from(frontFace.querySelectorAll('table')) : [];
+                        tbls.forEach(t => { try { t.style.setProperty('visibility','visible','important'); t.style.setProperty('display','table','important'); t.style.setProperty('opacity','1','important'); } catch(_){} });
+                      } catch(_){ }
+                    } catch(_){ }
+                    }
               // restore any hidden sticky elements
               try {
                 const hidden = vp && vp.__hiddenSticky;
@@ -4289,6 +4502,78 @@
                 }
               } catch(_){}
               if (scene) scene.removeEventListener('transitionend', onTransit);
+
+              // Robust cleanup: retry-check computed styles and clear inline hiding up to a few times.
+              (function ensureFrontVisibleRetry(attempt){
+                try {
+                  if (!frontFace) return;
+                  // remove transient force-visible immediately
+                  try { frontFace.classList.remove('force-visible'); } catch(_){ }
+                  // run global helper to clear suspicious inline styles
+                  try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
+
+                  // Check computed style of the front face and any contained tables
+                  const cs = window.getComputedStyle(frontFace);
+                  try { console.log('[ensureFrontVisibleRetry] attempt=', attempt, 'front computed=', cs ? {visibility: cs.visibility, display: cs.display, opacity: cs.opacity} : null); } catch(_){ }
+                  let stillHidden = false;
+                  if (cs) {
+                    if (cs.visibility === 'hidden' || cs.display === 'none' || Number((cs.opacity || '1')) === 0) stillHidden = true;
+                  }
+                  if (!stillHidden) {
+                    // Also verify tables inside
+                    const tbls = frontFace.querySelectorAll ? Array.from(frontFace.querySelectorAll('table')) : [];
+                    for (const t of tbls) {
+                      try {
+                        const cst = window.getComputedStyle(t);
+                        if (cst && (cst.visibility === 'hidden' || cst.display === 'none' || Number((cst.opacity||'1')) === 0)) { stillHidden = true; break; }
+                      } catch(_){ }
+                    }
+                  }
+
+                  if (stillHidden) {
+                    // collect problematic elements for logging
+                    try {
+                      const problems = [];
+                      const all = frontFace.querySelectorAll ? Array.from(frontFace.querySelectorAll('*')) : [];
+                      all.forEach(el => {
+                        try {
+                          const s = window.getComputedStyle(el);
+                          if (s && (s.visibility === 'hidden' || s.display === 'none' || Number((s.opacity||'1')) === 0)) {
+                            problems.push({ tag: el.tagName, id: el.id || null, cls: el.className || null, vis: s.visibility, display: s.display, opacity: s.opacity });
+                          }
+                        } catch(_){}
+                      });
+                      try { console.log('[ensureFrontVisibleRetry] attempt=', attempt, 'stillHidden=true problems=', problems.slice(0,20)); } catch(_){ }
+                    } catch(_){}
+                  } else {
+                    try { console.log('[ensureFrontVisibleRetry] attempt=', attempt, 'front appears visible'); } catch(_){ }
+                  }
+
+                  if (stillHidden && attempt < 3) {
+                    // Forcefully clear inline styles on front and tables
+                    try {
+                      if (frontFace && frontFace.querySelectorAll) {
+                        Array.from(frontFace.querySelectorAll('*')).forEach(el => {
+                          try {
+                            if (!el || !el.style) return;
+                            if (el.style.visibility && el.style.visibility.indexOf('hidden') !== -1) el.style.visibility = '';
+                            if (el.style.display && el.style.display.indexOf('none') !== -1) el.style.display = '';
+                            if (el.style.opacity === '0') el.style.opacity = '';
+                            if (el.style.pointerEvents === 'none') el.style.pointerEvents = '';
+                            if (el.style.transform && el.style.transform.indexOf('rotateY') !== -1) el.style.transform = '';
+                          } catch(_){ }
+                        });
+                      }
+                    } catch(_){ }
+                    // schedule another check with exponential backoff
+                    setTimeout(() => ensureFrontVisibleRetry(attempt + 1), 80 * Math.pow(2, attempt));
+                  }
+                } catch(e){ try{ console.warn('ensureFrontVisibleRetry error', e); }catch(_){} }
+              })(0);
+
+              // give a little extra time before re-enabling the watcher so any late DOM changes settle
+              try { setTimeout(() => { try { window.__dayWatcherPaused = false; } catch(_){} }, 900); } catch(_){ }
+
               window.__dayFlipAnimating = false;
             }
           };
