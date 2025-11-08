@@ -473,6 +473,29 @@
       flex: 1;
       min-width: 0;
     }
+    /* Estilos para Ventas Activas (similar a Porcentaje) */
+    .top-chart-section.ventas-activas-section {
+      display: flex;
+      flex-direction: column;
+    }
+    .top-chart-section.ventas-activas-section .chart-subtitle {
+      margin-bottom: 15px;
+    }
+    .ventas-activas-content {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .ventas-activas-left {
+      width: 200px;
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+    .ventas-activas-right {
+      flex: 1;
+      min-width: 0;
+    }
     .chart-subtitle {
       font-size: 1rem;
       font-weight: 600;
@@ -714,10 +737,18 @@
             </div>
 
             <!-- Gráfico derecho: Ventas Activas -->
-            <div class="top-chart-section">
+            <div class="top-chart-section ventas-activas-section">
               <h4 class="chart-subtitle"><i class="fas fa-chart-bar"></i> Ventas Activas</h4>
-              <div class="chart-wrapper">
-                <canvas id="chart-ventas-activas-mes"></canvas>
+              <div class="ventas-activas-content">
+                <div class="ventas-activas-left">
+                  <div id="ventas-activas-team-list" style="display:flex; flex-direction:column; gap:6px; max-height:400px; overflow:auto;"></div>
+                  <div id="ventas-activas-note" style="font-size:0.9rem;color:#374151; margin-top: 10px;"></div>
+                </div>
+                <div class="ventas-activas-right">
+                  <div class="chart-wrapper">
+                    <canvas id="chart-ventas-activas-mes"></canvas>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1715,18 +1746,106 @@
       } catch (e) { console.warn('renderPorcentajeActivacion error', e); }
     }
 
-    // Nuevo: renderiza un gráfico de barras con ventas activas por equipo (usa ICON como proxy de activas)
+    // Renderiza un gráfico de barras con ventas activas por equipo
     function renderVentasActivasMes(teamData) {
       try {
+        console.log('[VENTAS ACTIVAS] Datos recibidos:', teamData);
+        
         const canvas = document.getElementById('chart-ventas-activas-mes');
-        if (!canvas) return;
+        const listEl = document.getElementById('ventas-activas-team-list');
+        const noteEl = document.getElementById('ventas-activas-note');
+        
+        if (!canvas) {
+          console.warn('[VENTAS ACTIVAS] Canvas no encontrado');
+          return;
+        }
+        
         teamData = Array.isArray(teamData) ? teamData : [];
 
-        // Orden/filtrado como se usa en tabla: evitar equipos de LINEA en este gráfico
-        const filtered = teamData.filter(t => !/LINEA/i.test(String(t.name || '')));
-        const labels = filtered.map(t => String(t.name || 'Sin equipo'));
-        const dataVals = filtered.map(t => Number(t.ICON || 0));
+        // Lista completa de equipos ordenada
+        const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'Jonathan', 'Luis'];
+        
+        // Deduplicar por nombre y asegurar que todos los equipos estén presentes
+        const mapByName = new Map();
+        
+        // Primero procesar los datos existentes
+        for (const team of teamData) {
+          const key = String(team.name || '').trim().toUpperCase();
+          if (!mapByName.has(key)) {
+            mapByName.set(key, {
+              name: team.name,
+              ACTIVAS: Number(team.ACTIVAS || 0),
+              Total: Number(team.Total || 0)
+            });
+          } else {
+            // Si hay duplicados, sumar sus valores
+            const existing = mapByName.get(key);
+            existing.ACTIVAS = (existing.ACTIVAS || 0) + Number(team.ACTIVAS || 0);
+            existing.Total = (existing.Total || 0) + Number(team.Total || 0);
+          }
+        }
 
+        // Asegurar que todos los equipos requeridos estén presentes
+        for (const teamName of EQUIPOS_ORDER) {
+          const key = teamName.trim().toUpperCase();
+          if (!mapByName.has(key)) {
+            mapByName.set(key, {
+              name: teamName,
+              ACTIVAS: 0,
+              Total: 0
+            });
+          }
+        }
+
+        // Convertir a array ordenado
+        const filtered = EQUIPOS_ORDER.map(teamName => {
+          return mapByName.get(teamName.trim().toUpperCase()) || {
+            name: teamName,
+            ACTIVAS: 0,
+            Total: 0
+          };
+        });
+
+        const labels = filtered.map(t => String(t.name || 'Sin equipo'));
+        const dataVals = filtered.map(t => Number(t.ACTIVAS || 0));
+
+        console.log('[VENTAS ACTIVAS] Labels:', labels);
+        console.log('[VENTAS ACTIVAS] Valores:', dataVals);
+
+        // Renderizar lista de equipos
+        if (listEl) {
+          let totalActivas = 0;
+          let totalVentas = 0;
+          
+          const listHtml = filtered.map(team => {
+            const activas = Number(team.ACTIVAS || 0);
+            const total = Number(team.Total || 0);
+            totalActivas += activas;
+            totalVentas += total;
+            
+            return `
+              <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f9fafb; border-radius:4px; font-size:0.85rem;">
+                <span style="font-weight:600; color:#1f3b63;">${team.name}</span>
+                <span style="color:#22b3ec; font-weight:700;">${activas}</span>
+              </div>
+            `;
+          }).join('');
+          
+          listEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; padding:6px 8px; background:#22b3ec; color:#fff; border-radius:4px; font-weight:700; margin-bottom:8px;">
+              <span>Total</span>
+              <span>${totalActivas}</span>
+            </div>
+            ${listHtml}
+          `;
+        }
+        
+        // Actualizar nota
+        if (noteEl) {
+          noteEl.innerHTML = `Solo ventas con status <strong>Completed</strong>`;
+        }
+
+        // Renderizar gráfico
         if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); } catch(_){}
 
         const ctx = canvas.getContext('2d');
@@ -1735,7 +1854,7 @@
           data: {
             labels,
             datasets: [{
-              label: 'Ventas activas (ICON)',
+              label: 'Ventas Activas',
               data: dataVals,
               backgroundColor: 'rgba(34,179,236,0.9)',
               borderColor: 'rgba(26,144,193,1)',
@@ -1746,14 +1865,34 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { 
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const idx = context.dataIndex;
+                    const activas = dataVals[idx];
+                    const total = filtered[idx].Total;
+                    return `Activas: ${activas} de ${total}`;
+                  }
+                }
+              }
+            },
             scales: {
-              y: { beginAtZero: true, title: { display: true, text: 'ICON (activas)' } },
+              y: { 
+                beginAtZero: true, 
+                title: { display: true, text: 'Ventas Activas' },
+                ticks: { stepSize: 1 }
+              },
               x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
             }
           }
         });
-      } catch (e) { console.warn('renderVentasActivasMes error', e); }
+        
+        console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
+      } catch (e) { 
+        console.error('[VENTAS ACTIVAS] Error al renderizar:', e); 
+      }
     }
 
     // --- Productos vendidos en el mes: helpers y gráfico ---
@@ -2515,6 +2654,9 @@
           // allow rendering now that data arrived
           try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){}
           renderPorcentajeTeams(teamData);
+          
+          // Renderizar también el gráfico de ventas activas con los mismos datos
+          renderVentasActivasMes(teamData);
         } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
         // ensure the initializing flag is cleared even on unexpected errors
         try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
