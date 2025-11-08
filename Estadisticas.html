@@ -2753,7 +2753,7 @@
               // Generar la lista de equipos con sus porcentajes
               const itemsHtml = rows.map(team => {
                 const totalVentas = Number(team.Total || 0);
-                const totalActivas = Number(team.ACTIVAS || team.ICON || 0);
+                const totalActivas = Number(team.ACTIVAS || 0); // Solo usar ventas completadas (ACTIVAS)
                 const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
                 return `
                   <div style="display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
@@ -2784,9 +2784,9 @@
           function renderPorcentajeForTeam(rowsArr, selIdx){
             try{
               const team = rowsArr[selIdx] || rowsArr[0];
-              // Prefer ACTIVAS (verified completed leads) when available, otherwise fall back to ICON
-              const active = Number((team.ACTIVAS !== undefined ? team.ACTIVAS : team.ICON) || 0);
-              const total = Number(team.Total||0);
+              // Usar solo ventas completadas (ACTIVAS) para el cálculo
+              const active = Number(team.ACTIVAS || 0);
+              const total = Number(team.Total || 0);
               const inactive = Math.max(0, total - active);
               // If the team has no total sales at all, clear and hide the canvas
               // but if Total > 0 we still render a donut (with Activadas possibly 0)
@@ -2838,7 +2838,7 @@
             try{
               if (!Array.isArray(rowsArr) || rowsArr.length === 0) return;
               const labels = rowsArr.map(r => String(r.name));
-              const data = rowsArr.map(r => ((r.ACTIVAS !== undefined && r.ACTIVAS !== null) ? Number(r.ACTIVAS) : Number(r.ICON || 0)));
+              const data = rowsArr.map(r => Number(r.ACTIVAS || 0)); // Solo usar ventas completadas
               const totalActive = data.reduce((s,n)=>s+(Number.isFinite(n) ? Number(n) : 0),0);
               const totalTotal = rowsArr.reduce((s,r)=>s+(Number(r.Total)||0),0) || 1;
               const overallPct = totalTotal ? (totalActive/totalTotal*100) : 0;
@@ -2863,8 +2863,8 @@
                 type: 'doughnut',
                 data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 2 }] },
                 options: {
-                  responsive:true,
-                  maintainAspectRatio:false,
+                  responsive: true,
+                  maintainAspectRatio: false,
                   cutout: '60%',
                   // Ensure labels are placed after the initial animation/layout
                   animation: {
@@ -2874,15 +2874,46 @@
                   },
                   plugins: {
                     legend: { display: false },
-                    tooltip: { intersect: false, position: 'nearest', callbacks: { label: function(ctx){ const v = ctx.parsed || 0; const idx = ctx.dataIndex; const teamTotal = Number((rowsArr[idx] && rowsArr[idx].Total) || 0); if (useTotalsInstead) { return `${ctx.label}: ${v} ventas (0% activadas)`; } const pct = teamTotal ? (v / teamTotal * 100) : 0; return `${ctx.label}: ${v} (${pct.toFixed(2)}% de activadas)`; } } },
+                    tooltip: { 
+                      intersect: false, 
+                      position: 'nearest', 
+                      callbacks: { 
+                        label: function(ctx){ 
+                          const idx = ctx.dataIndex;
+                          const team = rowsArr[idx];
+                          const totalVentas = Number(team.Total || 0);
+                          const totalActivas = Number(team.ACTIVAS || 0);
+                          const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+                          return `${ctx.label}: ${porcentaje.toFixed(1)}% de activación`;
+                        } 
+                      } 
+                    },
                     // Use Chart.js datalabels plugin for reliable in-canvas placement
                     datalabels: {
-                      display: true,
+                      display: function(context) {
+                        const team = rowsArr[context.dataIndex];
+                        const totalActivas = Number(team.ACTIVAS || 0);
+                        // Solo mostrar etiqueta si hay ventas activas
+                        return totalActivas > 0;
+                      },
                       anchor: 'center',
                       align: 'center',
-                      formatter: function(value){ return value === null || value === undefined ? '' : String(value); },
-                      color: function(context){ try { const bg = context.dataset && context.dataset.backgroundColor && context.dataset.backgroundColor[context.dataIndex]; if (!bg) return '#0f172a'; const hex = String(bg); if (hex.startsWith('#')){ const v = hex.slice(1); const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v,16); const r=(bigint>>16)&255,g=(bigint>>8)&255,b=bigint&255; const lum = 0.2126*(r/255) + 0.7152*(g/255) + 0.0722*(b/255); return lum < 0.5 ? '#ffffff' : '#0f172a'; } return '#0f172a'; } catch(e){ return '#0f172a'; } },
-                      font: { weight: '700', size: 12 },
+                      formatter: function(value, context){ 
+                        const idx = context.dataIndex;
+                        const team = rowsArr[idx];
+                        const totalVentas = Number(team.Total || 0);
+                        const totalActivas = Number(team.ACTIVAS || 0);
+                        const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+                        // Solo mostrar el número con un decimal
+                        return porcentaje.toFixed(1);
+                      },
+                      color: '#000000', // Color negro fijo para mejor visibilidad
+                      font: { 
+                        weight: '700', 
+                        size: 16,
+                        family: 'Arial'
+                      },
+                      // Sin backgroundColor
                       padding: 4,
                       clamp: true
                     }
