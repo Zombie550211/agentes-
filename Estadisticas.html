@@ -37,6 +37,11 @@
         Chart.register(ChartDataLabels);
         console.log('Plugin de etiquetas registrado');
       }
+
+    // Marcar inicialización de porcentaje para evitar dibujar donuts provisionales
+          try { window.__porcIsInitializing = true; try { if (typeof showPorcSpinner === 'function') showPorcSpinner(true); } catch(_){} } catch(_){ }
+
+      // Lista/modal de equipos y render por equipo removidos: la vista por defecto es "Mostrar todos".
     }
   </script>
   
@@ -90,6 +95,28 @@
     }
 
     .card h3 { margin: 0 0 12px 0; font-size: 1.05rem; color: #1e293b; }
+    /* Spinner overlay for porcentaje donut */
+    .porc-spinner-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      pointer-events: none;
+      background: rgba(255,255,255,0.0);
+    }
+    .porc-spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 4px solid rgba(16,24,40,0.08);
+      border-top-color: rgba(16,24,40,0.65);
+      animation: porc-spin 900ms linear infinite;
+      box-shadow: 0 2px 6px rgba(2,6,23,0.08);
+      pointer-events: none;
+    }
+    @keyframes porc-spin { to { transform: rotate(360deg); } }
     
     /* Estilos para la tabla de calificaciones */
     .ventas-diarias-grid {
@@ -173,6 +200,7 @@
       padding: 12px; 
       border: 1px solid #dee2e6;
     }
+  /* Tabla de conversión visible por defecto (se muestra debajo de las gráficas) */
     .conversion-title { 
       font-weight: 800; 
       margin: 0 0 8px 0; 
@@ -338,6 +366,11 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
+    /* Botones flecha para navegación de meses (solo íconos) dentro de tarjetas */
+    .porc-nav { display:flex; gap:8px; align-items:center; }
+    .porc-nav .porc-arrow { background:#e6eef9; border:1px solid #cfe0fa; color:#0f172a; width:34px; height:34px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-weight:700; }
+    .porc-nav .porc-arrow:hover { background:#d0e7ff; }
     
     .ventas-table {
       width: 100%;
@@ -591,6 +624,8 @@
             <h3><i class="fas fa-percent" style="color:#22b3ec; margin-right:8px;"></i> Porcentaje de Activasion</h3>
             <div class="chart-wrapper">
               <canvas id="chart-porcentaje-activacion"></canvas>
+                <div id="porc-team-list" style="margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:180px; overflow:auto;"></div>
+                <div id="porc-activas-note" style="margin-top:8px;font-size:0.9rem;color:#374151;"></div>
             </div>
           </div>
 
@@ -664,7 +699,11 @@
           </div>
 
           <div class="card chart-card">
-            <h3><i class="fas fa-box" style="color:#22b3ec; margin-right:8px;"></i> Productos vendidos en el mes</h3>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px 8px 0 0;">
+              <button id="products-prev" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes anterior">◀</button>
+              <div id="products-month-title" class="conversion-title" style="margin:0;">Productos vendidos en Noviembre 2025</div>
+              <button id="products-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes siguiente">▶</button>
+            </div>
             <div class="chart-wrapper">
               <canvas id="productsChart"></canvas>
             </div>
@@ -811,6 +850,7 @@
           teamData = data.data.map(equipo => ({
             name: equipo.TEAM || equipo.team || 'Sin equipo',
             ICON: parseFloat(equipo.ICON || 0),
+            ACTIVAS: parseFloat(equipo.ACTIVAS || 0),
             BAMO: parseFloat(equipo.BAMO || 0),
             Total: parseFloat(equipo.Total || 0),
             Puntaje: parseFloat(equipo.Puntaje || 0)
@@ -821,7 +861,8 @@
         if (payloadEmpty || payloadZero) {
           try {
             console.log('[ESTADISTICAS][MES] Construyendo datos desde /api/leads (fallback por rol o vacío)');
-            const leadsResp = await fetchWithAuth('/api/leads'); // ya filtra por el mes actual
+            // Pedimos al endpoint /api/leads el mismo rango que usamos para equipos (fechaInicio/fechaFin)
+            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
             if (leadsResp && leadsResp.ok) {
               const leadsJson = await leadsResp.json();
               const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -868,6 +909,9 @@
         const lineasTotalICON = typeof data.lineasTotalICON === 'number' ? data.lineasTotalICON : lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(['TEAM LINEA','TEAM LINEAS']);
         let fallbackTeamData = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
+          // Nota: la verificación de "activas" era realizada en el cliente (consultando /api/leads).
+          // Se ha eliminado aquí para evitar llamadas redundantes y condiciones de carrera.
+          // El conteo autoritativo de ACTIVAS debe provenir del backend (`/api/equipos/estadisticas`).
         // Fallback: si principal queda vacío o todos son cero, construir desde /api/leads con rango del DÍA efectivo
         const allZero = fallbackTeamData.length > 0 && fallbackTeamData.every(t => Number(t.Total||0) === 0 && Number(t.ICON||0) === 0 && Number(t.BAMO||0) === 0 && Number(t.Puntaje||0) === 0);
         if (fallbackTeamData.length === 0 || allZero) {
@@ -907,8 +951,8 @@
             const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
             const dayKey = toISOInTZLocal(effective, BUSINESS_TZ_OFFSET_MIN);
 
-            // Obtener leads
-            const leadsResp = await fetchWithAuth('/api/leads');
+            // Obtener leads para el día efectivo (usar dayKey calculado arriba)
+            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${dayKey}&fechaFin=${dayKey}`);
             if (leadsResp && leadsResp.ok) {
               const leadsJson = await leadsResp.json();
               let leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
@@ -1159,8 +1203,8 @@
           </div>
         `;
         
-        // Asignar el HTML generado al elemento raíz
-        root.innerHTML = html;
+    // Asignar el HTML generado al elemento raíz (mostrar la tabla de conversión)
+    root.innerHTML = html;
         // Overlay + handler del botón ↻ (mostrar gráfica en el mismo contenedor)
         try {
           const card = root.querySelector('.conversion-card');
@@ -1231,8 +1275,9 @@
           if (btnNext) btnNext.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
         } catch(_) {}
 
-  // Ahora, renderizar el gráfico de porcentaje de activación (dona) y el de ventas activas del mes (barra)
-  try { renderPorcentajeActivacion(fallbackTeamData); } catch(_) { try { renderVentasPorEquipoChart(fallbackTeamData); } catch(_){} }
+  // Ahora, renderizar el gráfico de ventas activas del mes (barra).
+  // La gráfica de porcentaje (dona) se renderizará desde la carga asíncrona
+  // `loadPorcentajeForMonth` para evitar render duplicado durante inicialización.
   try { renderVentasActivasMes(fallbackTeamData); } catch(_) { /* non-fatal */ }
         
         // Filtro eliminado: no se requiere manejar eventos de filtrado
@@ -1366,8 +1411,8 @@
           </div>
         `;
         
-        // Asignar el HTML generado al elemento raÃ­z
-        root.innerHTML = html;
+    // Asignar el HTML generado al elemento raíz (mostrar la tabla de conversión)
+    root.innerHTML = html;
         
         // Agregar evento al botÃ³n de filtrar
         const btnFiltrar = document.getElementById('btnFiltrarEquipos');
@@ -1501,23 +1546,42 @@
         const canvas = document.getElementById('chart-porcentaje-activacion');
         if (!canvas) return;
 
-        // Agregar datos defensivos
+        // Datos defensivos
         teamData = Array.isArray(teamData) ? teamData : [];
         const totalICON = teamData.reduce((s, t) => s + (Number(t.ICON || 0)), 0);
         const total = teamData.reduce((s, t) => s + (Number(t.Total || 0)), 0) || 0;
         const active = totalICON;
         const inactive = Math.max(0, total - totalICON);
 
-        if (window.porcentajeActivacionChart) try { window.porcentajeActivacionChart.destroy(); } catch(_){}
+        // Si no hay datos (total === 0) mostramos un placeholder simple
+        if (total === 0) {
+          // Don't draw a neutral/placeholder donut that persists after load —
+          // instead clear any previous chart and leave the canvas ready to be
+          // rendered when real data arrives. This prevents showing an unwanted
+          // neutral donut as seen in the UI.
+          try { if (window.porcentajeActivacionChart) { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } } catch(_){ }
+          try {
+            const ctxClear = canvas.getContext('2d');
+            ctxClear.clearRect(0,0,canvas.width, canvas.height);
+            try { canvas.style.display = 'none'; } catch(_){}
+          } catch(_){ }
+          return;
+        }
 
-        const ctx = canvas.getContext('2d');
+  // Destruir instancia previa si existe (limpiar labels primero)
+  if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
+
+  const ctx = canvas.getContext('2d');
+  try { canvas.style.display = 'block'; } catch(_){}
+        // Crear gráfico (sin número central) - mostramos sólo el donut
         window.porcentajeActivacionChart = new Chart(ctx, {
           type: 'doughnut',
           data: {
             labels: ['Activadas', 'No activadas'],
             datasets: [{
               data: [active, inactive],
-              backgroundColor: ['#10b981', '#e5e7eb'],
+              // Paleta principal (usar primer color para activadas, paleta de la imagen para no activadas)
+              backgroundColor: ['#588A87', '#DFD9CA'],
               borderColor: ['#fff','#fff'],
               borderWidth: 2
             }]
@@ -1525,12 +1589,16 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
               legend: { position: 'right' },
               tooltip: { callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed} (${(total?((ctx.parsed/total)*100):0).toFixed(1)}%)`; } } }
             }
           }
         });
+
+        // Forzar resize por si el canvas parent cambió de tamaño
+        try { if (window.porcentajeActivacionChart && typeof window.porcentajeActivacionChart.resize === 'function') window.porcentajeActivacionChart.resize(); } catch(_){}
       } catch (e) { console.warn('renderPorcentajeActivacion error', e); }
     }
 
@@ -1611,16 +1679,195 @@
       } catch (e) { console.warn('renderProducts error', e); }
     }
 
+    // Variables para el control de navegación de productos por mes
+    let currentProductsDate = new Date();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
     async function loadProductsChart(){
       try{
         if (!checkAuth()) return;
-        const resp = await fetchWithAuth('/api/leads');
-        if (!resp || !resp.ok) { console.warn('loadProductsChart: no response or error from /api/leads'); return; }
+        
+        // Actualizar título del mes primero para feedback inmediato
+        const titleElement = document.getElementById('products-month-title');
+        if (titleElement) {
+          titleElement.textContent = `PRODUCTOS VENDIDOS EN ${monthNames[currentProductsDate.getMonth()].toUpperCase()} ${currentProductsDate.getFullYear()}`;
+        }
+
+        // Construir rango de fechas para el mes seleccionado
+        const startDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth(), 1);
+        const endDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth() + 1, 0);
+        const startStr = startDate.toISOString().split('T')[0];
+        const endStr = endDate.toISOString().split('T')[0];
+
+        console.log('Cargando productos para:', monthNames[currentProductsDate.getMonth()], currentProductsDate.getFullYear());
+        console.log('Rango de fechas:', { startStr, endStr });
+
+        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}`);
+        if (!resp || !resp.ok) { 
+          console.warn('loadProductsChart: error en la respuesta de /api/leads'); 
+          showNoDataMessage();
+          return; 
+        }
+        
         const json = await resp.json();
         const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
-        renderProducts(leads);
-      } catch(e) { console.warn('loadProductsChart error', e); }
+        console.log(`Obtenidos ${leads.length} leads para el mes`);
+
+        // Filtrar ventas del mes seleccionado
+        const monthSales = leads.filter(l => {
+          const d = new Date(l.dia_venta || l.fecha_contratacion || l.createdAt || l.fecha || l.created_at || l.createdOn);
+          return d.getMonth() === currentProductsDate.getMonth() && d.getFullYear() === currentProductsDate.getFullYear();
+        });
+        console.log(`Filtrados ${monthSales.length} ventas para el mes`);
+
+        if (monthSales.length === 0) {
+          showNoDataMessage();
+          return;
+        }
+
+        // Contar productos
+        const counts = {};
+        monthSales.forEach(l => {
+          const prod = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || 
+                      l.producto || (l.producto && l.producto.nombre) || l.product || l.service || 
+                      l.servicio || 'SIN PRODUCTO';
+          const key = prod ? String(prod).replace(/[-_]/g,' ').toUpperCase() : 'SIN PRODUCTO';
+          counts[key] = (counts[key] || 0) + 1;
+        });
+
+        // Ordenar por cantidad
+        const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+        const labels = entries.map(e => e[0]);
+        const dataVals = entries.map(e => e[1]);
+
+        // Actualizar gráfico
+        const canvas = document.getElementById('productsChart');
+        if (!canvas) return;
+
+        if (productsChartRef) {
+          productsChartRef.destroy();
+        }
+
+        productsChartRef = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Cantidad',
+              data: dataVals,
+              backgroundColor: 'rgba(54,162,235,.7)',
+              borderColor: 'rgba(54,162,235,1)',
+              borderWidth: 1,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: true,
+                text: `Total: ${dataVals.reduce((a,b) => a + b, 0)} ventas`,
+                padding: {top: 10, bottom: 10},
+                font: { size: 14, weight: 'bold' }
+              },
+              datalabels: {
+                anchor: 'end',
+                align: 'top',
+                offset: 4,
+                color: '#333',
+                font: {
+                  weight: 'bold',
+                  size: 13
+                },
+                formatter: function(value) {
+                  return value;
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { stepSize: 1 }
+              },
+              x: {
+                ticks: {
+                  autoSkip: false,
+                  maxRotation: 45,
+                  minRotation: 45
+                }
+              }
+            }
+          }
+        });
+
+      } catch(e) { 
+        console.error('Error en loadProductsChart:', e);
+        showNoDataMessage();
+      }
     }
+
+    // Función auxiliar para mostrar mensaje cuando no hay datos
+    function showNoDataMessage() {
+      const canvas = document.getElementById('productsChart');
+      if (!canvas) return;
+
+      if (productsChartRef) {
+        productsChartRef.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#666666';
+      ctx.font = '14px Arial';
+      ctx.fillText('No hay datos disponibles para este mes', canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    }
+    
+
+    // Función auxiliar para mostrar mensaje cuando no hay datos
+    function showNoDataMessage() {
+      const canvas = document.getElementById('productsChart');
+      if (!canvas) return;
+
+      if (productsChartRef) {
+        productsChartRef.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#666666';
+      ctx.font = '14px Arial';
+      ctx.fillText('No hay datos disponibles para este mes', canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    }
+
+    // Configurar eventos de navegación después de que el DOM esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+      const prevBtn = document.getElementById('products-prev');
+      const nextBtn = document.getElementById('products-next');
+
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          currentProductsDate.setMonth(currentProductsDate.getMonth() - 1);
+          loadProductsChart();
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          currentProductsDate.setMonth(currentProductsDate.getMonth() + 1);
+          loadProductsChart();
+        });
+      }
+    });
 
     async function initCharts(){
       // Esta funciÃ³n se deja vacÃ­a intencionalmente para dar paso al nuevo grÃ¡fico de dona.
@@ -1891,6 +2138,10 @@
   try { injectMonthlyDetailButton(); } catch(_){ }
   // Inyectar botón flip para la tarjeta del DÍA
   try { injectDayFlipButton(); } catch(_){ }
+    // Inyectar flechas de navegación para la tarjeta de Porcentaje de Activasion
+    try { if (typeof window.injectPorcentajeNavButtons === 'function') window.injectPorcentajeNavButtons(); } catch(_){ }
+    // mark porcentaje loader as initializing so we don't render placeholder charts
+    try { window.__porcIsInitializing = true; } catch(_){}
         // Asegurar barra de toggles del DÍA aún si el render cambió
         try { ensureDayTogglesFallback(); } catch(_){ }
         // Agregar tabs Día/Mes a ambas tarjetas
@@ -1986,6 +2237,720 @@
       `;
       const s = document.createElement('style'); s.id = 'monthly-overlay-styles'; s.textContent = css; document.head.appendChild(s);
     })();
+
+    // Inyectar flechas en la tarjeta de Porcentaje de Activasion (solo íconos)
+    window.injectPorcentajeNavButtons = function(attempt = 0){
+      try {
+        const topCharts = document.getElementById('top-charts');
+        if (!topCharts) {
+          if (attempt < 20) return setTimeout(() => window.injectPorcentajeNavButtons(attempt+1), 300);
+          return;
+        }
+        // Buscar la tarjeta que contiene chart-porcentaje-activacion
+        const canvas = document.getElementById('chart-porcentaje-activacion');
+        if (!canvas) return;
+        const card = canvas.closest('.card');
+        if (!card) return;
+        // No duplicar
+        if (card.querySelector('.porc-nav')) return;
+        const nav = document.createElement('div'); nav.className = 'porc-nav';
+        const prev = document.createElement('button'); prev.className = 'porc-arrow'; prev.innerHTML = '◀';
+        const next = document.createElement('button'); next.className = 'porc-arrow'; next.innerHTML = '▶';
+        nav.appendChild(prev); nav.appendChild(next);
+        // Insertar al inicio del header
+        const header = card.querySelector('h3');
+        if (header) header.parentNode.insertBefore(nav, header.nextSibling);
+
+        // Handlers: navegar mes anterior/siguiente mediante ?m=YYYY-MM
+        const urlParams = new URLSearchParams(location.search);
+        const mParam = urlParams.get('m');
+        let base;
+        if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+          const [y,m] = mParam.split('-').map(Number); base = new Date(y, m-1, 15);
+        } else {
+          base = new Date();
+        }
+  // Wire to in-place loader (no full page reload)
+  window.currentPorcMonth = base;
+  prev.onclick = () => { try { window.shiftPorcMonth(-1); } catch(e){ console.warn(e); } };
+  next.onclick = () => { try { window.shiftPorcMonth(1); } catch(e){ console.warn(e); } };
+  // Auto-load porcentaje for the current month (if function available). If the loader
+  // isn't defined yet, schedule a short retry so the chart appears without manual console call.
+  try{
+    if (typeof loadPorcentajeForMonth === 'function') {
+      loadPorcentajeForMonth(base);
+    } else {
+      setTimeout(()=>{ try{ if (typeof loadPorcentajeForMonth === 'function') loadPorcentajeForMonth(base); }catch(_){}} , 250);
+    }
+  }catch(_){ }
+      } catch(e){ if (attempt < 20) return setTimeout(() => window.injectPorcentajeNavButtons(attempt+1), 300); }
+    };
+
+      // --- Porcentaje de Activacion: in-place month loader and per-team donut renderer ---
+      // Moved here to avoid nesting inside other IIFEs and to keep top-level functions stable.
+      window.shiftPorcMonth = function(delta){
+        try{
+          if (!window.currentPorcMonth) window.currentPorcMonth = new Date();
+          const d = new Date(window.currentPorcMonth);
+          d.setMonth(d.getMonth() + delta);
+          window.currentPorcMonth = d;
+          try { loadPorcentajeForMonth(d); } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
+        } catch(e){ console.warn('shiftPorcMonth error', e); }
+      };
+
+      async function loadPorcentajeForMonth(date){
+        try{
+          try { window.__porcIsInitializing = true; } catch(_){}
+          if (!date) date = (window.currentPorcMonth || new Date());
+          const y = date.getFullYear();
+          const m = String(date.getMonth()+1).padStart(2,'0');
+          
+          // Obtener primer y último día del mes actual
+          const primer = `${y}-${m}-01`;
+          const ultimo = `${y}-${m}-${String(new Date(y, date.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
+          
+          // Calcular primer y último día del mes anterior para comparación
+          const mesAnterior = new Date(y, date.getMonth()-1, 1);
+          const yAnt = mesAnterior.getFullYear();
+          const mAnt = String(mesAnterior.getMonth()+1).padStart(2,'0');
+          const primerAnt = `${yAnt}-${mAnt}-01`;
+          const ultimoAnt = `${yAnt}-${mAnt}-${String(new Date(yAnt, mesAnterior.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
+          const url = `/api/equipos/estadisticas?fechaInicio=${primer}&fechaFin=${ultimo}`;
+          const resp = await fetchWithAuth(url);
+          let teamData = [];
+          if (resp && resp.ok) {
+            const json = await resp.json();
+            teamData = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+          } else {
+            teamData = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
+          }
+          // Normalize simple equipos payload (accept several field names)
+          teamData = (teamData||[]).map(r => {
+            const totalVentas = Number(r.Total || r.total || r.cantidad || 0);
+            const totalActivas = Number(r.ACTIVAS || r.activadas || r.activadas_count || r.ACTIVADAS || r.ICON || 0);
+            const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+            
+            return {
+              name: String(r.name || r.TEAM || r.team || r.equipo || 'Sin equipo'),
+              ICON: Number(r.ICON || 0),
+              ACTIVAS: totalActivas,
+              Total: totalVentas,
+              porcentajeActivacion: Math.round(porcentaje * 100) / 100 // Redondear a 2 decimales
+            };
+          });
+          console.log('loadPorcentajeForMonth: equipos payload normalized', teamData && teamData.length ? teamData.slice(0,10) : teamData);
+
+          // If the equipos endpoint didn't return usable per-team stats, fallback to aggregating from /api/leads
+          const looksEmpty = !Array.isArray(teamData) || teamData.length === 0 || teamData.every(t => Number(t.Total || 0) === 0 && Number(t.ICON || 0) === 0);
+          if (looksEmpty) {
+            try {
+              const leadsUrl = `/api/leads?fechaInicio=${primer}&fechaFin=${ultimo}`;
+              const r2 = await fetchWithAuth(leadsUrl);
+              let leads = [];
+              if (r2 && r2.ok) {
+                const j2 = await r2.json();
+                leads = Array.isArray(j2) ? j2 : (Array.isArray(j2.data) ? j2.data : (Array.isArray(j2.leads) ? j2.leads : []));
+              }
+
+              // Aggregate by probable team field. Be permissive matching status and boolean markers
+              const map = Object.create(null);
+              (leads||[]).forEach(ld => {
+                try {
+                  const teamName = String(ld.team || ld.TEAM || ld.equipo || ld.group || ld.supervisor || ld.assignedTeam || ld.teamName || ld.nombreEquipo || 'Sin equipo').trim();
+                  const rawStatus = String(ld.status || ld.estado || ld.estadoVenta || ld.workflowStatus || ld.state || ld.saleStatus || '').toLowerCase().trim();
+                  const statusNorm = rawStatus.replace(/\s+/g, '');
+                  const boolActive = (ld.activated === true || ld.sold === true || ld.isActive === true || ld.vendido === true);
+                  const numericActive = (String(ld.activated || ld.sold || ld.isActive || ld.vendido || '').trim() === '1');
+                  // Consider as active primarily when status indicates 'completed' (or Spanish variants), or boolean flags are set
+                  const isActive = boolActive || numericActive || /completed|completad|finaliz|vendid|vendido/i.test(rawStatus) || ['completed','complete','done','finalizado','completado','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
+                  if (!map[teamName]) map[teamName] = { name: teamName, ICON: 0, ACTIVAS: 0, Total: 0 };
+                  map[teamName].Total += 1;
+                  // count verified "activas" separately from market ICON counts
+                  if (isActive) map[teamName].ACTIVAS += 1;
+                } catch(_){}
+              });
+
+              teamData = Object.keys(map).map(k => ({ name: map[k].name, ICON: Number(map[k].ICON||0), ACTIVAS: Number(map[k].ACTIVAS||0), Total: Number(map[k].Total||0) }));
+              console.log('loadPorcentajeForMonth: aggregated from leads (fallback)', teamData);
+              // Nota: se omite la verificación adicional en cliente para evitar llamadas redundantes.
+              // El conteo de ACTIVAS debe venir del backend (/api/equipos/estadisticas).
+            } catch(e){
+              console.warn('fallback aggregation from /api/leads failed', e);
+            }
+          }
+
+          // allow rendering now that data arrived
+          try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){}
+          renderPorcentajeTeams(teamData);
+        } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
+        // ensure the initializing flag is cleared even on unexpected errors
+        try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
+      }
+
+      // Helpers: DOM-based external labels for porcentaje donuts (robust outside-canvas numeric labels)
+      function cleanupPorcLabels(chart){
+        try{
+          if (!chart) return;
+          try { if (chart._porcLabelsContainer && chart._porcLabelsContainer.parentNode) chart._porcLabelsContainer.parentNode.removeChild(chart._porcLabelsContainer); } catch(_){}
+          try { if (chart._porcResizeHandler) { window.removeEventListener('resize', chart._porcResizeHandler); chart._porcResizeHandler = null; } } catch(_){}
+          try { if (chart._porcObserver) { chart._porcObserver.disconnect(); chart._porcObserver = null; } } catch(_){}
+          // restore original update if we wrapped it
+          try { if (chart.__origUpdate) { chart.update = chart.__origUpdate; chart.__origUpdate = null; } } catch(_){}
+        } catch(_){}
+      }
+
+      function attachPorcLabels(chart, rowsArr, useTotals){
+        try{
+          if (!chart || !chart.canvas) return;
+          cleanupPorcLabels(chart);
+          const canvas = chart.canvas;
+          const wrapper = canvas.parentElement || document.body;
+          if (wrapper && getComputedStyle(wrapper).position === 'static') wrapper.style.position = 'relative';
+          const container = document.createElement('div');
+          container.className = 'porc-labels-overlay';
+          // Use fixed positioning anchored to the canvas bounding rect. This
+          // avoids ancestor transforms/stacking contexts that can shift absolute
+          // positioned overlays and makes mapping from chart pixels -> screen
+          // pixels more reliable across browsers/devices.
+          container.style.position = 'fixed';
+          container.style.pointerEvents = 'none';
+          container.style.zIndex = '40';
+          // align overlay to the canvas surface so arc.x/arc.y map 1:1 to overlay coords
+          try {
+            // Anchor the overlay to the canvas bounding box in viewport coordinates
+            // so subsequent label placement can use viewport absolute coords.
+            const canvasRect = canvas.getBoundingClientRect();
+            container.style.left = Math.round(canvasRect.left) + 'px';
+            container.style.top = Math.round(canvasRect.top) + 'px';
+            container.style.width = Math.round(canvasRect.width) + 'px';
+            container.style.height = Math.round(canvasRect.height) + 'px';
+          } catch(_) {
+            container.style.inset = '0';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100%';
+            container.style.height = '100%';
+          }
+          wrapper.appendChild(container);
+          chart._porcLabelsContainer = container;
+
+          const update = function(){
+            try {
+              container.innerHTML = '';
+              const meta = chart.getDatasetMeta(0);
+              if (!meta || !Array.isArray(meta.data)) return;
+                  meta.data.forEach((arc, i) => {
+                try {
+                  const rawVal = (chart.data && chart.data.datasets && chart.data.datasets[0] && chart.data.datasets[0].data && chart.data.datasets[0].data[i]) ? chart.data.datasets[0].data[i] : 0;
+                  const value = (rawVal === null || rawVal === undefined) ? 0 : rawVal;
+                  // skip labels for zero-sized slices to avoid clutter
+                  if (!value || Number(value) === 0) return;
+                  // compute slice color for contrast adjustments
+                  let sliceColor = null;
+                  try { sliceColor = (chart.data && chart.data.datasets && chart.data.datasets[0] && chart.data.datasets[0].backgroundColor && chart.data.datasets[0].backgroundColor[i]) ? chart.data.datasets[0].backgroundColor[i] : null; } catch(_) { sliceColor = null; }
+                  // place label at the middle of the slice (midpoint between inner and outer radius)
+                  const angle = (arc.startAngle + arc.endAngle) / 2;
+                  const outer = (typeof arc.outerRadius === 'number') ? arc.outerRadius : Math.min(chart.width, chart.height) / 2;
+                  const inner = (typeof arc.innerRadius === 'number') ? arc.innerRadius : Math.max(0, outer * 0.4);
+                  // pull labels slightly inward from the exact midpoint so they stay
+                  // visually inside the donut slice (helps for thin/adjacent slices)
+                  const span = Math.abs((arc.endAngle || 0) - (arc.startAngle || 0));
+                  let midRadius = (inner + outer) / 2;
+                  if (span < 0.6) {
+                    // narrow slice: push label closer to inner radius so it fits
+                    midRadius = inner + (outer - inner) * 0.38;
+                  } else {
+                    // normal slice: slight inward nudge
+                    midRadius = midRadius * 0.7;
+                  }
+                  const cx = (typeof arc.x === 'number') ? arc.x : (chart.width / 2);
+                  const cy = (typeof arc.y === 'number') ? arc.y : (chart.height / 2);
+                  // Chart internal coordinates may be in device pixels; map to the
+                  // overlay (which uses CSS pixels) using the canvas bounding rect.
+                  const cRect = canvas.getBoundingClientRect();
+                  // Use the canvas backing buffer size (canvas.width/height) which are
+                  // in device pixels. Mapping from chart internal pixels -> CSS pixels
+                  // is done by ratio = cssSize / backingSize.
+                  const backingW = (canvas.width || chart.width || cRect.width);
+                  const backingH = (canvas.height || chart.height || cRect.height);
+                  const ratioX = (cRect.width || 1) / backingW;
+                  const ratioY = (cRect.height || 1) / backingH;
+                  // Prefer the arc's built-in center/tooltip position if available
+                  // (Chart.js provides element.tooltipPosition() / getCenterPoint()).
+                  let pos = null;
+                  try {
+                    if (typeof arc.getCenterPoint === 'function') pos = arc.getCenterPoint();
+                    else if (typeof arc.tooltipPosition === 'function') pos = arc.tooltipPosition();
+                  } catch(_) { pos = null; }
+                  // Fallback: use our computed midpoint if Chart element helpers are missing
+                  let xChart, yChart;
+                  if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                    xChart = pos.x; yChart = pos.y;
+                  } else {
+                    xChart = cx + Math.cos(angle) * midRadius;
+                    yChart = cy + Math.sin(angle) * midRadius;
+                  }
+                  // Compute absolute screen coordinates for the label and then map
+                  // them into the overlay's coordinate system. This avoids offsets
+                  // caused by padding/margins or different positioning contexts.
+                  const absoluteX = cRect.left + (xChart * ratioX);
+                  const absoluteY = cRect.top  + (yChart * ratioY);
+                  // container is fixed and aligned to canvas bounding rect, so map
+                  // absolute viewport coords into the overlay by subtracting its
+                  // bounding rect. This avoids issues when wrapper has transforms.
+                  const containerRect = container.getBoundingClientRect();
+                  // coordinates relative to the overlay
+                  let x = absoluteX - containerRect.left;
+                  let y = absoluteY - containerRect.top;
+                  // keep labels inside the overlay bounds (padding 6px)
+                  try {
+                    const maxW = container.clientWidth || containerRect.width || cRect.width || 1;
+                    const maxH = container.clientHeight || containerRect.height || cRect.height || 1;
+                    x = Math.max(6, Math.min(maxW - 6, x));
+                    y = Math.max(6, Math.min(maxH - 6, y));
+                  } catch(_){}
+                  const lbl = document.createElement('div');
+                  lbl.className = 'porc-label';
+                  lbl.style.position = 'absolute';
+                  lbl.style.left = x + 'px';
+                  lbl.style.top = y + 'px';
+                  lbl.style.transform = 'translate(-50%, -50%)';
+                  lbl.style.pointerEvents = 'none';
+                  // make label visually compact so it fits inside slices
+                  lbl.style.background = 'rgba(255,255,255,0.9)';
+                  lbl.style.borderRadius = '6px';
+                  lbl.style.padding = '2px 6px';
+                  lbl.style.fontWeight = '700';
+                  lbl.style.fontSize = '11px';
+                  lbl.style.color = '#0f172a';
+                  lbl.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+                  lbl.style.border = '1px solid rgba(0,0,0,0.06)';
+                  // adjust foreground/background for readability depending on slice color
+                  try {
+                    if (sliceColor) {
+                      const hexToRgb = (h) => {
+                        try {
+                          if (h.startsWith('#')) {
+                            const v = h.slice(1);
+                            const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v, 16);
+                            return [(bigint>>16)&255, (bigint>>8)&255, bigint&255];
+                          }
+                          // rgba(...) or rgb(...)
+                          const m = h.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+                          if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+                        } catch(_){}
+                        return null;
+                      };
+                      const rgb = hexToRgb(String(sliceColor));
+                      if (rgb) {
+                        const [r,g,b] = rgb.map(n => Number(n)/255);
+                        // relative luminance
+                        const lum = 0.2126 * (r<=0.03928 ? r/12.92 : Math.pow((r+0.055)/1.055,2.4))
+                                  + 0.7152 * (g<=0.03928 ? g/12.92 : Math.pow((g+0.055)/1.055,2.4))
+                                  + 0.0722 * (b<=0.03928 ? b/12.92 : Math.pow((b+0.055)/1.055,2.4));
+                        if (lum < 0.45) {
+                          // dark slice -> light text, slight dark translucent bg
+                          lbl.style.color = '#ffffff';
+                          lbl.style.background = 'rgba(0,0,0,0.38)';
+                        } else {
+                          // light slice -> dark text, light translucent bg
+                          lbl.style.color = '#0f172a';
+                          lbl.style.background = 'rgba(255,255,255,0.85)';
+                        }
+                      }
+                    }
+                  } catch(_){}
+                  lbl.textContent = String(value);
+                  container.appendChild(lbl);
+                } catch(_){}
+              });
+            } catch(e){ console.warn('update porc labels error', e); }
+          };
+
+          // initial placement: run several times and after next frame to handle
+          // Chart.js internal layout timing (first draw may change canvas size).
+          try { update(); } catch(_){}
+          try { setTimeout(update, 30); } catch(_){}
+          try { requestAnimationFrame(() => { try { update(); } catch(_){} }); } catch(_){}
+          try { setTimeout(update, 220); } catch(_){ }
+          try { setTimeout(update, 600); } catch(_){ }
+          try { setTimeout(update, 1200); } catch(_){ }
+
+          // keep handler for later cleanup and recompute overlay bounds on resize
+          chart._porcResizeHandler = function(){
+            try {
+              // Re-anchor the fixed overlay to the canvas viewport rect so
+              // scrolling/resizes keep labels positioned correctly.
+              const cRect = canvas.getBoundingClientRect();
+              container.style.left = Math.round(cRect.left) + 'px';
+              container.style.top = Math.round(cRect.top) + 'px';
+              container.style.width = Math.round(cRect.width) + 'px';
+              container.style.height = Math.round(cRect.height) + 'px';
+            } catch(_){}
+            try { update(); } catch(_){}
+          };
+          window.addEventListener('resize', chart._porcResizeHandler);
+
+          // observe canvas size/attr changes to update labels
+          try { const mo = new MutationObserver(update); mo.observe(canvas, { attributes: true, attributeFilter: ['width','height','style'] }); chart._porcObserver = mo; } catch(_){}
+
+          // wrap update so labels refresh when chart.update() called
+          try { if (!chart.__origUpdate) { chart.__origUpdate = chart.update.bind(chart); chart.update = function(){ const res = chart.__origUpdate.apply(this, arguments); try { update(); } catch(_){} return res; }; } } catch(_){}
+
+          // Expose a simple forced update helper so callers (e.g. animation.onComplete)
+          // can request a multi-pass refresh. This schedules a few delayed retries
+          // to handle devicePixelRatio/layout shifts on first paint.
+          try {
+            chart._porcForceUpdate = function(){ try { update(); } catch(_){}
+              try { setTimeout(update, 350); } catch(_){}
+              try { setTimeout(update, 700); } catch(_){}
+              try { setTimeout(update, 1200); } catch(_){}
+            };
+          } catch(_){ }
+        } catch(e){ console.warn('attachPorcLabels error', e); }
+      }
+
+      function renderPorcentajeTeams(teamData, selectedIndex = 0){
+        try {
+          const canvas = document.getElementById('chart-porcentaje-activacion');
+          const listRoot = document.getElementById('porc-team-list');
+          if (!canvas) return;
+          if (!Array.isArray(teamData)) teamData = [];
+
+          // Lista completa de equipos ordenada
+          const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'Jonathan', 'Luis'];
+          
+          // while inicializando no dibujar gráficos provisionales
+          if (window.__porcIsInitializing) {
+            try {
+              if (canvas.getContext) {
+                const ctx = canvas.getContext('2d');
+                try { ctx.clearRect(0,0,canvas.width || canvas.clientWidth, canvas.height || canvas.clientHeight); } catch(_){}
+              }
+              return;
+            } catch(_) {}
+          }
+
+          // Deduplicar por nombre y asegurar que todos los equipos estén presentes
+          const mapByName = new Map();
+          
+          // Primero procesar los datos existentes
+          for (const team of teamData) {
+            const key = String(team.name || '').trim().toUpperCase();
+            if (!mapByName.has(key)) {
+              mapByName.set(key, {
+                name: team.name,
+                ICON: Number(team.ICON || 0),
+                ACTIVAS: Number(team.ACTIVAS || 0),
+                Total: Number(team.Total || 0),
+                Puntaje: Number(team.Puntaje || 0)
+              });
+            } else {
+              // Si hay duplicados, sumar sus valores
+              const existing = mapByName.get(key);
+              existing.ICON = (existing.ICON || 0) + Number(team.ICON || 0);
+              existing.ACTIVAS = (existing.ACTIVAS || 0) + Number(team.ACTIVAS || 0);
+              existing.Total = (existing.Total || 0) + Number(team.Total || 0);
+              existing.Puntaje = (existing.Puntaje || 0) + Number(team.Puntaje || 0);
+            }
+          }
+
+          // Asegurar que todos los equipos requeridos estén presentes
+          for (const teamName of EQUIPOS_ORDER) {
+            const key = teamName.trim().toUpperCase();
+            if (!mapByName.has(key)) {
+              mapByName.set(key, {
+                name: teamName,
+                ICON: 0,
+                ACTIVAS: 0,
+                Total: 0,
+                Puntaje: 0
+              });
+            }
+          }
+
+          // Convertir los equipos procesados a un array ordenado según EQUIPOS_ORDER
+          const rows = EQUIPOS_ORDER.map(teamName => {
+            const team = mapByName.get(teamName.trim().toUpperCase()) || {
+              name: teamName,
+              ICON: 0,
+              ACTIVAS: 0,
+              Total: 0,
+              Puntaje: 0
+            };
+            
+            // Calcular el porcentaje de activación usando solo ventas completadas (ACTIVAS)
+            const totalVentas = Number(team.Total || 0);
+            const totalActivas = Number(team.ACTIVAS || 0); // Solo usar ACTIVAS, no ICON
+            const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+            
+            return {
+              ...team,
+              porcentajeActivacion: Math.round(porcentaje * 100) / 100 // Redondear a 2 decimales
+            };
+          });
+          // Verificar si hay datos para mostrar
+          if (rows.length === 0) {
+            try {
+              // Limpiar y ocultar el canvas si no hay datos
+              if (window.porcentajeActivacionChart) {
+                try { 
+                  cleanupPorcLabels(window.porcentajeActivacionChart);
+                  window.porcentajeActivacionChart.destroy();
+                  window.porcentajeActivacionChart = null;
+                } catch(_){ }
+              }
+              if (canvas && canvas.getContext) {
+                const ctx = canvas.getContext('2d');
+                try { 
+                  ctx.clearRect(0, 0, canvas.width || canvas.clientWidth, canvas.height || canvas.clientHeight);
+                  canvas.style.display = 'none';
+                } catch(_){ }
+              }
+              return;
+            } catch(_){ }
+          }
+
+          // Spinner overlay management for Porcentaje de Activacion
+          function showPorcSpinner(show) {
+            try {
+              if (!canvas) return;
+              const wrapper = canvas.parentElement || document.body;
+              // ensure wrapper is a positioning context
+              if (wrapper && getComputedStyle(wrapper).position === 'static') {
+                wrapper.style.position = 'relative';
+              }
+              let overlay = wrapper.querySelector('.porc-spinner-overlay');
+              if (show) {
+                if (!overlay) {
+                  overlay = document.createElement('div');
+                  overlay.className = 'porc-spinner-overlay';
+                  overlay.innerHTML = '<div class="porc-spinner" aria-hidden="true"></div>';
+                  // align overlay to canvas bounds
+                  try {
+                    overlay.style.left = (canvas.offsetLeft || 0) + 'px';
+                    overlay.style.top = (canvas.offsetTop || 0) + 'px';
+                    overlay.style.width = (canvas.clientWidth || canvas.width || 200) + 'px';
+                    overlay.style.height = (canvas.clientHeight || canvas.height || 200) + 'px';
+                  } catch(_) { overlay.style.inset = '0'; }
+                  wrapper.appendChild(overlay);
+                }
+              } else {
+                try { 
+                  if (overlay && overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                  }
+                } catch(_){ }
+              }
+            } catch(e){ console.warn('showPorcSpinner error', e); }
+          }
+          if (listRoot) {
+            try{ 
+              listRoot.style.display = 'flex';
+              listRoot.style.flexDirection = 'column';
+              listRoot.innerHTML = '';
+              
+              // Generar la lista de equipos con sus porcentajes
+              const itemsHtml = rows.map(team => {
+                const totalVentas = Number(team.Total || 0);
+                const totalActivas = Number(team.ACTIVAS || team.ICON || 0);
+                const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+                return `
+                  <div style="display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                    <div style="font-weight:700;color:#0f172a;font-size:0.95rem;">${team.name}</div>
+                    <div style="text-align:right;color:#6b7280;font-size:0.85rem;line-height:1.1;">
+                      Total: <span style='font-weight:700;color:#111;'>${totalVentas}</span><br>
+                      Activas: <span style='font-weight:700;color:#111;'>${totalActivas}</span><br>
+                      <span style='color:#059669;font-weight:700;'>${porcentaje.toFixed(2)}%</span>
+                    </div>
+                  </div>`;
+              }).join('');
+
+              listRoot.innerHTML = `<div style="display:block;">${itemsHtml}</div>`;
+            } catch(_){ }
+          }
+
+          // By default render the aggregated 'all teams' donut when there are multiple teams
+          if (rows.length > 1) {
+            // default: render all teams view
+            renderPorcentajeAllTeams(rows);
+            return;
+          }
+
+          // fallback single team render
+          renderPorcentajeForTeam(rows, selectedIndex);
+
+          // --- helper: render a single team's donut ---
+          function renderPorcentajeForTeam(rowsArr, selIdx){
+            try{
+              const team = rowsArr[selIdx] || rowsArr[0];
+              // Prefer ACTIVAS (verified completed leads) when available, otherwise fall back to ICON
+              const active = Number((team.ACTIVAS !== undefined ? team.ACTIVAS : team.ICON) || 0);
+              const total = Number(team.Total||0);
+              const inactive = Math.max(0, total - active);
+              // If the team has no total sales at all, clear and hide the canvas
+              // but if Total > 0 we still render a donut (with Activadas possibly 0)
+              if (!total || Number(total) === 0) {
+                try { if (window.porcentajeActivacionChart) { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } } catch(_){ }
+                try { const ctx = canvas.getContext && canvas.getContext('2d'); if (ctx) ctx.clearRect(0,0,canvas.width || canvas.clientWidth, canvas.height || canvas.clientHeight); try { canvas.style.display = 'none'; } catch(_){} } catch(_){ }
+                return;
+              }
+              if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
+              const ctx = canvas.getContext('2d');
+              try { canvas.style.display = 'block'; } catch(_){}
+              // Usar la paleta de la imagen: #588A87, #B6C6BE, #DFD9CA, #EFCABF, #EEA995
+              window.porcentajeActivacionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Activadas','No activadas'], datasets: [{ data: [active, inactive], backgroundColor: ['#588A87','#DFD9CA'], borderColor: ['#fff','#fff'], borderWidth: 2 }] },
+                options: {
+                  responsive:true,
+                  maintainAspectRatio:false,
+                  cutout: '65%',
+                  // Ensure labels are placed after the initial animation/layout
+                  animation: {
+                    onComplete: function() {
+                      try { if (this && this._porcForceUpdate) this._porcForceUpdate(); } catch(_){}
+                    }
+                  },
+                  plugins: {
+                    legend: { position: 'right' },
+                    tooltip: { intersect: false, position: 'nearest', callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed}`; } } },
+                    // Use Chart.js datalabels plugin for reliable in-canvas placement
+                    datalabels: {
+                      display: true,
+                      anchor: 'center',
+                      align: 'center',
+                      formatter: function(value){ return value === null || value === undefined ? '' : String(value); },
+                      color: function(context){ try { const bg = context.dataset && context.dataset.backgroundColor && context.dataset.backgroundColor[context.dataIndex]; if (!bg) return '#0f172a'; const hex = String(bg); if (hex.startsWith('#')){ const v = hex.slice(1); const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v,16); const r=(bigint>>16)&255,g=(bigint>>8)&255,b=bigint&255; const lum = 0.2126*(r/255) + 0.7152*(g/255) + 0.0722*(b/255); return lum < 0.5 ? '#ffffff' : '#0f172a'; } return '#0f172a'; } catch(e){ return '#0f172a'; } },
+                      font: { weight: '700', size: 12 },
+                      padding: 4,
+                      clamp: true
+                    }
+                  }
+                }
+              });
+              // Labels are rendered inside the canvas by the datalabels plugin now.
+            }catch(e){ console.warn('renderPorcentajeForTeam error', e); }
+          }
+
+          // --- helper: render all teams as slices in a single donut ---
+          function renderPorcentajeAllTeams(rowsArr){
+            try{
+              if (!Array.isArray(rowsArr) || rowsArr.length === 0) return;
+              const labels = rowsArr.map(r => String(r.name));
+              const data = rowsArr.map(r => ((r.ACTIVAS !== undefined && r.ACTIVAS !== null) ? Number(r.ACTIVAS) : Number(r.ICON || 0)));
+              const totalActive = data.reduce((s,n)=>s+(Number.isFinite(n) ? Number(n) : 0),0);
+              const totalTotal = rowsArr.reduce((s,r)=>s+(Number(r.Total)||0),0) || 1;
+              const overallPct = totalTotal ? (totalActive/totalTotal*100) : 0;
+              // If there are no ACTIVAS at all, fall back to rendering a donut using
+              // Total per team (ventas) so the user sees distribution of activity.
+              // Only hide the canvas when totalTotal is zero (no data at all).
+              const useTotalsInstead = totalActive === 0 && totalTotal > 0;
+              const dataToUse = useTotalsInstead ? rowsArr.map(r => Number(r.Total || 0)) : data;
+              // If after choosing the data the sum is zero, there's nothing to draw
+              if ((Array.isArray(dataToUse) && dataToUse.reduce((s,n)=>s+Number(n||0),0) === 0) || totalTotal === 0) {
+                try { if (window.porcentajeActivacionChart) { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } } catch(_){ }
+                try { const ctx = canvas.getContext && canvas.getContext('2d'); if (ctx) ctx.clearRect(0,0,canvas.width || canvas.clientWidth, canvas.height || canvas.clientHeight); try { canvas.style.display = 'none'; } catch(_){} } catch(_){ }
+                return;
+              }
+              if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
+              const ctx = canvas.getContext('2d');
+              // generate colors
+              // Paleta provista por el usuario (imagen)
+              const palette = ['#588A87', '#B6C6BE', '#DFD9CA', '#EFCABF', '#EEA995'];
+              const background = labels.map((_,i)=> palette[i % palette.length]);
+              window.porcentajeActivacionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 2 }] },
+                options: {
+                  responsive:true,
+                  maintainAspectRatio:false,
+                  cutout: '60%',
+                  // Ensure labels are placed after the initial animation/layout
+                  animation: {
+                    onComplete: function() {
+                      try { if (this && this._porcForceUpdate) this._porcForceUpdate(); } catch(_){}
+                    }
+                  },
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { intersect: false, position: 'nearest', callbacks: { label: function(ctx){ const v = ctx.parsed || 0; const idx = ctx.dataIndex; const teamTotal = Number((rowsArr[idx] && rowsArr[idx].Total) || 0); if (useTotalsInstead) { return `${ctx.label}: ${v} ventas (0% activadas)`; } const pct = teamTotal ? (v / teamTotal * 100) : 0; return `${ctx.label}: ${v} (${pct.toFixed(2)}% de activadas)`; } } },
+                    // Use Chart.js datalabels plugin for reliable in-canvas placement
+                    datalabels: {
+                      display: true,
+                      anchor: 'center',
+                      align: 'center',
+                      formatter: function(value){ return value === null || value === undefined ? '' : String(value); },
+                      color: function(context){ try { const bg = context.dataset && context.dataset.backgroundColor && context.dataset.backgroundColor[context.dataIndex]; if (!bg) return '#0f172a'; const hex = String(bg); if (hex.startsWith('#')){ const v = hex.slice(1); const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v,16); const r=(bigint>>16)&255,g=(bigint>>8)&255,b=bigint&255; const lum = 0.2126*(r/255) + 0.7152*(g/255) + 0.0722*(b/255); return lum < 0.5 ? '#ffffff' : '#0f172a'; } return '#0f172a'; } catch(e){ return '#0f172a'; } },
+                      font: { weight: '700', size: 12 },
+                      padding: 4,
+                      clamp: true
+                    }
+                  }
+                }
+              });
+
+              // Labels are rendered inside the canvas by the datalabels plugin now.
+
+              // Populate the compact left-side list (`#porc-team-list`) with the
+              // rows for quick reference. Make it absolute-left inside the chart
+              // wrapper so it doesn't push content and avoid repopulating when
+              // identical (use dataset.porcKey as a guard).
+              try {
+                const listRootLocal = document.getElementById('porc-team-list');
+                if (listRootLocal) {
+                  const itemsHtml = rowsArr.map(team => {
+                    const name = String(team.name || 'Sin equipo');
+                    const total = Number(team.Total || 0);
+                    const activas = useTotalsInstead ? 0 : ((team.ACTIVAS !== undefined && team.ACTIVAS !== null) ? Number(team.ACTIVAS) : Number(team.ICON || 0));
+                    return `
+                      <div style="display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                        <div style="font-weight:700;color:#0f172a;font-size:0.95rem;">${name}</div>
+                        <div style="text-align:right;color:#6b7280;font-size:0.85rem;line-height:1.1;">Total: <span style='font-weight:700;color:#111;'>${total}</span><br>Activas: <span style='font-weight:700;color:#111;'>${activas}</span></div>
+                      </div>`;
+                  }).join('');
+
+                  const key = rowsArr.map(r => String(r.name || '') + '::' + Number(r.Total || 0) + '::' + Number((r.ACTIVAS !== undefined && r.ACTIVAS !== null) ? r.ACTIVAS : r.ICON || 0)).join('|');
+                  if (listRootLocal.dataset.porcKey !== key) {
+                    listRootLocal.innerHTML = `<div style="display:block;">${itemsHtml}</div>`;
+                    listRootLocal.dataset.porcKey = key;
+                  }
+
+                  // style it like the compact list (absolute left)
+                  try {
+                    listRootLocal.style.display = 'block';
+                    listRootLocal.style.position = 'absolute';
+                    listRootLocal.style.left = '12px';
+                    listRootLocal.style.top = '50%';
+                    listRootLocal.style.transform = 'translateY(-50%)';
+                    listRootLocal.style.width = '180px';
+                    listRootLocal.style.maxHeight = '360px';
+                    listRootLocal.style.overflow = 'auto';
+                    listRootLocal.style.padding = '4px 6px';
+                    listRootLocal.style.boxSizing = 'border-box';
+                    listRootLocal.style.background = 'transparent';
+                    listRootLocal.style.fontSize = '0.92rem';
+                    listRootLocal.style.color = '#0f172a';
+                    listRootLocal.style.zIndex = '6';
+                  } catch(_){}
+                }
+
+                // ensure the chart wrapper has space on the left so the list doesn't overlap the donut
+                try {
+                  const wrapper = canvas && canvas.parentElement;
+                  if (wrapper) {
+                    if (getComputedStyle(wrapper).position === 'static') wrapper.style.position = 'relative';
+                    wrapper.style.paddingLeft = '200px';
+                    wrapper.style.overflow = 'visible';
+                    try { if (wrapper.parentElement) wrapper.parentElement.style.overflow = 'visible'; } catch(_){ }
+                  }
+                } catch(_){ }
+              } catch(e){ console.warn('populate left porc-team-list error', e); }
+            }catch(e){ console.warn('renderPorcentajeAllTeams error', e); }
+          }
+
+        }catch(e){ console.warn('renderPorcentajeTeams error', e); }
+      }
 
     /* Day flip: make the back face an absolute overlay so the day chart never pushes or
        overlaps the table in a way that changes layout flow. This keeps the front table
@@ -2246,6 +3211,7 @@
               dayData = dj.data.map(equipo => ({
                 name: equipo.TEAM || equipo.team || 'Sin equipo',
                 ICON: parseFloat(equipo.ICON || 0),
+                ACTIVAS: parseFloat(equipo.ACTIVAS || 0),
                 BAMO: parseFloat(equipo.BAMO || 0),
                 Total: parseFloat(equipo.Total || 0),
                 Puntaje: parseFloat(equipo.Puntaje || 0)
@@ -2255,11 +3221,16 @@
           }
         } catch(_){ /* ignorar y caer al fallback por leads */ }
         if (!usedEquiposAggreg) {
-          // Construir desde /api/leads con ventana [00:00, +1 día 09:30]
-          const leadsResp = await fetchWithAuth('/api/leads');
-          if (!leadsResp) return;
-          const leadsJson = await leadsResp.json();
-          leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+          // Construir desde /api/leads para el rango mensual calculado arriba
+          try {
+            const sd = start; const ed = new Date(end.getTime() - 24*60*60*1000); // end es exclusivo -> restar 1 día
+            const sStr = `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;
+            const eStr = `${ed.getFullYear()}-${String(ed.getMonth()+1).padStart(2,'0')}-${String(ed.getDate()).padStart(2,'0')}`;
+            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${sStr}&fechaFin=${eStr}`);
+            if (!leadsResp) return;
+            const leadsJson = await leadsResp.json();
+            leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+          } catch(e) { console.warn('prepareMonthDetails leads fallback error', e); return; }
         }
         const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
         const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
@@ -2570,9 +3541,10 @@
           if (aggResp && aggResp.ok) {
             const dj = await aggResp.json();
             if (dj && dj.success && Array.isArray(dj.data) && dj.data.length) {
-              preTeamData = dj.data.map(equipo => ({
+                preTeamData = dj.data.map(equipo => ({
                 name: equipo.TEAM || equipo.team || 'Sin equipo',
                 ICON: parseFloat(equipo.ICON || 0),
+                ACTIVAS: parseFloat(equipo.ACTIVAS || 0),
                 BAMO: parseFloat(equipo.BAMO || 0),
                 Total: parseFloat(equipo.Total || 0),
                 Puntaje: parseFloat(equipo.Puntaje || 0)
@@ -2588,10 +3560,10 @@
             const alt = await fetchWithAuth(`/api/equipos/estadisticas?scope=day&forceAll=1`);
             if (alt && alt.ok) {
               const dj2 = await alt.json();
-              if (dj2 && dj2.success && Array.isArray(dj2.data) && dj2.data.length) {
+                if (dj2 && dj2.success && Array.isArray(dj2.data) && dj2.data.length) {
                 preTeamData = dj2.data.map(equipo => ({
                   name: equipo.TEAM || equipo.team || 'Sin equipo',
-                  ICON: parseFloat(equipo.ICON || 0),
+                  ICON: parseFloat(((equipo.ACTIVAS !== undefined) ? equipo.ACTIVAS : equipo.ICON) || 0),
                   BAMO: parseFloat(equipo.BAMO || 0),
                   Total: parseFloat(equipo.Total || 0),
                   Puntaje: parseFloat(equipo.Puntaje || 0)
@@ -2622,67 +3594,8 @@
         const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
         let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
 
-        // Asegurar presencia de equipos aunque no vendan (orden fijo y rotación fin de semana)
-        (function ensureDayRows(){
-          try {
-            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
-            const teamCanon = (name)=>{
-              const n = norm(name).replace(/^team\s+/, '');
-              if (n.includes('pleitez')) return 'Pleitez';
-              if (n.includes('roberto')) return 'Roberto';
-              if (n.includes('marisol')) return 'Marisol';
-              if (n.includes('johana') || n.includes('johanna')) return 'Johana';
-              if (n.includes('irania')) return 'Irania';
-              return name || 'Sin equipo';
-            };
-            const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
-            const ORDER_A = ['Johana','Irania'];
-            const ORDER_B = ['Pleitez','Roberto','Marisol'];
-            // Rotación anclada al PRIMER SÁBADO DEL MES actual (alterna cada fin de semana dentro del mes)
-            const today = new Date();
-            const dow = today.getDay(); // 0=Dom, 6=Sáb
-            const normMid = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            const offsetToSat = (6 - monthStart.getDay() + 7) % 7; // 0..6
-            const FIRST_SAT = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 + offsetToSat);
-            const startOfWeekend = (dow === 6) ? normMid(today) : (dow === 0 ? new Date(normMid(today).getTime() - 86400000) : null);
-            const weekendsPassed = startOfWeekend ? Math.floor((normMid(startOfWeekend) - normMid(FIRST_SAT)) / (7 * 86400000)) : 0;
-            const weekendParity = ((weekendsPassed % 2) + 2) % 2; // 0 ó 1
-            let order = ORDER_ALL;
-            if (dow === 6) { // Sábado
-              // En fin de semana base: Sábado -> ORDER_A; siguiente fin de semana alterna
-              order = weekendParity === 0 ? ORDER_A : ORDER_B;
-            } else if (dow === 0) { // Domingo
-              // En fin de semana base: Domingo -> ORDER_B; siguiente fin de semana alterna
-              order = weekendParity === 0 ? ORDER_B : ORDER_A;
-            }
-            // Regla estable: los DOMINGOS siempre muestran el grupo B por defecto
-            try {
-              if (dow === 0) {
-                order = ORDER_B;
-                console.log('[ESTADISTICAS][DAY] Sunday rule: forcing ORDER_B');
-              }
-            } catch(_) {}
-            // Override manual: ?group=A|B, localStorage('stats_force_group'), window.__forceWeekendGroup
-            try {
-              const params = new URLSearchParams(location.search);
-              const gParam = (params.get('group')||'').toUpperCase();
-              const gStore = (localStorage.getItem('stats_force_group')||'').toUpperCase();
-              const gWin = (window.__forceWeekendGroup||'').toUpperCase();
-              const forced = gParam || gStore || gWin;
-              if (forced === 'A') order = ORDER_A; else if (forced === 'B') order = ORDER_B;
-              if (forced) console.log('[ESTADISTICAS][DAY] Forced group:', forced, 'order=', order);
-            } catch(_) {}
-            // Debug opcional
-            try { console.log('[ESTADISTICAS][DAY] weekendParity=', weekendParity, 'dow=', dow, 'order=', order); } catch(_) {}
-            const canonRows = (mainData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
-            const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
-            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
-            const ordered = order.map(ensureRow);
-            mainData = ordered;
-            try { window.DayDisplayRows = ordered.slice(); window.DayRowsOriginal = ordered.slice(); } catch(_) {}
-          } catch(e) { console.warn('[ESTADISTICAS][DAY] ensure rows error:', e); }
-        })();
+        // (removed duplicate ensureDayRows + porcentaje helper block) - functionality
+        // moved to top-level to avoid nested IIFE interference and syntax issues.
 
           // Helper to force the day card back to its front (table) view and clean up daily chart
           window.__ensureDayFrontVisible = function(){

@@ -91,6 +91,9 @@ async function obtenerEstadisticasEquipos(req, res) {
         },
         teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', ''] } } } },
         mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
+  // Normalizar status/estado (simplificado) para contar 'activas' basadas en status
+  statusRaw: { $ifNull: [ '$status', '$estado' ] },
+  statusNorm: { $toLower: { $trim: { input: { $ifNull: [ '$status', '$estado' ] } } } },
         puntajeNum: {
           $convert: {
             input: { $ifNull: [ '$puntaje', { $ifNull: [ '$puntuacion', { $ifNull: [ '$points', '$score' ] } ] } ] },
@@ -199,6 +202,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       $group: {
         _id: '$teamNorm',
         ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
+        ACTIVAS: { $sum: { $cond: [ { $or: [ { $regexMatch: { input: '$statusNorm', regex: /completed|completad|finaliz|vendid|vendido/ } }, { $eq: ['$activated', true] }, { $eq: ['$sold', true] }, { $eq: ['$vendido', true] } ] }, 1, 0 ] } },
         BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
         Total: { $sum: 1 },
         Puntaje: { $sum: '$puntajeNum' },
@@ -207,7 +211,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     });
 
-    pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
+  pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
     pipeline.push({ $sort: { TEAM: 1 } });
 
     // Intentar múltiples colecciones posibles y UNIFICAR resultados
@@ -222,8 +226,9 @@ async function obtenerEstadisticasEquipos(req, res) {
           usedCollections.push(colName);
           for (const r of arr) {
             const key = String(r.TEAM || '').toUpperCase();
-            const cur = mergeMap.get(key) || { TEAM: key, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, PuntajeICON: 0, PuntajeBAMO: 0 };
+            const cur = mergeMap.get(key) || { TEAM: key, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0, PuntajeICON: 0, PuntajeBAMO: 0 };
             cur.ICON += Number(r.ICON || 0);
+            cur.ACTIVAS += Number(r.ACTIVAS || 0);
             cur.BAMO += Number(r.BAMO || 0);
             cur.Total += Number(r.Total || 0);
             cur.Puntaje += Number(r.Puntaje || 0);
@@ -257,10 +262,17 @@ async function obtenerEstadisticasEquipos(req, res) {
           for (const d of docs) {
             const teamKey = String(d.team || d.equipo || '').toUpperCase() || 'SIN EQUIPO';
             const mercadoKey = String(d.mercado || '').toUpperCase();
-            const punt = Number(d.puntaje || 0);
-            const obj = map.get(teamKey) || { TEAM: teamKey, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
-            if (mercadoKey === 'ICON') obj.ICON += 1; else if (mercadoKey === 'BAMO') obj.BAMO += 1;
-            obj.Total += 1; obj.Puntaje += punt; map.set(teamKey, obj);
+              const punt = Number(d.puntaje || 0);
+              const obj = map.get(teamKey) || { TEAM: teamKey, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+              if (mercadoKey === 'ICON') obj.ICON += 1; else if (mercadoKey === 'BAMO') obj.BAMO += 1;
+              // Determinar si este documento representa una 'venta activa' por status
+              try {
+                const status = (d.status || d.estado || d.estadoVenta || d.workflowStatus || d.state || d.saleStatus || '').toString().toLowerCase();
+                if (/completed|completad|finaliz|vendid|vendido/.test(status) || d.activated === true || d.sold === true) {
+                  obj.ACTIVAS = (obj.ACTIVAS || 0) + 1;
+                }
+              } catch(_) {}
+              obj.Total += 1; obj.Puntaje += punt; map.set(teamKey, obj);
           }
           equiposData = Array.from(map.values()).sort((a,b)=>a.TEAM.localeCompare(b.TEAM));
           total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
@@ -324,11 +336,12 @@ async function obtenerEstadisticasEquipos(req, res) {
     lineasPipeline.push({ $group: {
       _id: '$teamNorm',
       ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
+      ACTIVAS: { $sum: { $cond: [ { $or: [ { $regexMatch: { input: '$statusNorm', regex: /completed|completad|finaliz|vendid|vendido/ } }, { $eq: ['$activated', true] }, { $eq: ['$sold', true] } ] }, 1, 0 ] } },
       BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
       Total: { $sum: 1 },
       Puntaje: { $sum: '$puntajeNum' }
     } });
-    lineasPipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } });
+    lineasPipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1 } });
 
     let lineasTeams = [];
     for (const ln of lineasCollections) {
@@ -345,9 +358,10 @@ async function obtenerEstadisticasEquipos(req, res) {
       // Si ya existe TEAM LINEAS en equiposData, sumar
       const map = new Map(equiposData.map(e => [e.TEAM, { ...e }]));
       for (const lt of lineasTeams) {
-        if (map.has(lt.TEAM)) {
+          if (map.has(lt.TEAM)) {
           const cur = map.get(lt.TEAM);
           cur.ICON = (cur.ICON || 0) + (lt.ICON || 0);
+          cur.ACTIVAS = (cur.ACTIVAS || 0) + (lt.ACTIVAS || 0);
           cur.BAMO = (cur.BAMO || 0) + (lt.BAMO || 0);
           cur.Total = (cur.Total || 0) + (lt.Total || 0);
           cur.Puntaje = (cur.Puntaje || 0) + (lt.Puntaje || 0);
@@ -376,7 +390,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       const merged = new Map();
       for (const r of (equiposData || [])) {
         const key = baseName(r.TEAM);
-        const cur = merged.get(key) || { TEAM: key, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+  const cur = merged.get(key) || { TEAM: key, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 };
         cur.ICON += Number(r.ICON || 0);
         cur.BAMO += Number(r.BAMO || 0);
         cur.Total += Number(r.Total || 0);
@@ -417,8 +431,8 @@ async function obtenerEstadisticasEquipos(req, res) {
 
       const present = new Set((equiposData || []).map(e => baseName(e.TEAM)));
       for (const name of allTeamsSet) {
-        if (!present.has(name) && !EXCLUDED_TEAMS.has(name)) {
-          equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+          if (!present.has(name) && !EXCLUDED_TEAMS.has(name)) {
+          equiposData.push({ TEAM: name, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 });
         }
       }
 
@@ -439,7 +453,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       const present = new Set((equiposData || []).map(e => String(e.TEAM || '').toUpperCase()));
       for (const name of requiredOrderFinal) {
         if (!present.has(name) && !EXCLUDED_TEAMS.has(name)) {
-          equiposData.push({ TEAM: name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+          equiposData.push({ TEAM: name, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 });
         }
       }
       const orderIndex = new Map(requiredOrderFinal.map((n,i)=>[n,i]));
@@ -477,13 +491,14 @@ async function obtenerEstadisticasEquipos(req, res) {
                 { fecha_contratacion: { $regex: regexDMYDash } }
             ] } },
             { $group: {
-                _id: '$teamNorm',
-                ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
-                BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
-                Total: { $sum: 1 },
-                Puntaje: { $sum: '$puntajeNum' }
+        _id: '$teamNorm',
+        ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
+        ACTIVAS: { $sum: { $cond: [ { $or: [ { $regexMatch: { input: '$statusNorm', regex: /completed|completad|finaliz|vendid|vendido/ } }, { $eq: ['$activated', true] }, { $eq: ['$sold', true] } ] }, 1, 0 ] } },
+        BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
+        Total: { $sum: 1 },
+        Puntaje: { $sum: '$puntajeNum' }
             }},
-            { $project: { _id: 0, TEAM: '$_id', ICON: 1, BAMO: 1, Total: 1, Puntaje: 1 } },
+      { $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1 } },
             { $sort: { TEAM: 1 } }
           ];
 
