@@ -2138,7 +2138,7 @@
   try { injectMonthlyDetailButton(); } catch(_){ }
   // Inyectar botón flip para la tarjeta del DÍA
   try { injectDayFlipButton(); } catch(_){ }
-    // Inyectar flechas de navegación para la tarjeta de Porcentaje de Activasion
+    // Inyectar flechas de navegación para la tarjeta de Porcentaje de Activacion
     try { if (typeof window.injectPorcentajeNavButtons === 'function') window.injectPorcentajeNavButtons(); } catch(_){ }
     // mark porcentaje loader as initializing so we don't render placeholder charts
     try { window.__porcIsInitializing = true; } catch(_){}
@@ -2320,6 +2320,7 @@
           let teamData = [];
           if (resp && resp.ok) {
             const json = await resp.json();
+            console.log('🔍 RAW BACKEND RESPONSE:', JSON.stringify(json, null, 2));
             teamData = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
           } else {
             teamData = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
@@ -2327,7 +2328,7 @@
           // Normalize simple equipos payload (accept several field names)
           teamData = (teamData||[]).map(r => {
             const totalVentas = Number(r.Total || r.total || r.cantidad || 0);
-            const totalActivas = Number(r.ACTIVAS || r.activadas || r.activadas_count || r.ACTIVADAS || r.ICON || 0);
+            const totalActivas = Number(r.ACTIVAS || r.activadas || r.activadas_count || r.ACTIVADAS || 0);
             const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
             
             return {
@@ -2335,7 +2336,7 @@
               ICON: Number(r.ICON || 0),
               ACTIVAS: totalActivas,
               Total: totalVentas,
-              porcentajeActivacion: Math.round(porcentaje * 100) / 100 // Redondear a 2 decimales
+              porcentajeActivacion: porcentaje // Porcentaje exacto sin redondeo
             };
           });
           console.log('loadPorcentajeForMonth: equipos payload normalized', teamData && teamData.length ? teamData.slice(0,10) : teamData);
@@ -2378,6 +2379,12 @@
               console.warn('fallback aggregation from /api/leads failed', e);
             }
           }
+
+          // Comentado: ya no usar datos de prueba, usar datos reales del backend
+          // if (!Array.isArray(teamData) || teamData.length === 0) {
+          //   console.warn('No hay datos disponibles, usando datos de prueba para el gráfico de Porcentaje de Activación');
+          //   teamData = [];
+          // }
 
           // allow rendering now that data arrived
           try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){}
@@ -2884,7 +2891,7 @@
                           const totalVentas = Number(team.Total || 0);
                           const totalActivas = Number(team.ACTIVAS || 0);
                           const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-                          return `${ctx.label}: ${porcentaje.toFixed(1)}% de activación`;
+                          return `${ctx.label}: ${porcentaje.toFixed(2)}% de activación`;
                         } 
                       } 
                     },
@@ -2904,8 +2911,8 @@
                         const totalVentas = Number(team.Total || 0);
                         const totalActivas = Number(team.ACTIVAS || 0);
                         const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-                        // Solo mostrar el número con un decimal
-                        return porcentaje.toFixed(1);
+                        // Mostrar con 2 decimales
+                        return porcentaje.toFixed(2);
                       },
                       color: '#000000', // Color negro fijo para mejor visibilidad
                       font: { 

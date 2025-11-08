@@ -93,7 +93,19 @@ async function obtenerEstadisticasEquipos(req, res) {
         mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
   // Normalizar status/estado (simplificado) para contar 'activas' basadas en status
   statusRaw: { $ifNull: [ '$status', '$estado' ] },
-  statusNorm: { $toLower: { $trim: { input: { $ifNull: [ '$status', '$estado' ] } } } },
+  statusNorm: { 
+    $toLower: { 
+      $trim: { 
+        input: { 
+          $ifNull: [ 
+            { $convert: { input: '$status', to: 'string', onError: '', onNull: '' } },
+            { $convert: { input: '$estado', to: 'string', onError: '', onNull: '' } },
+            ''
+          ] 
+        } 
+      } 
+    } 
+  },
         puntajeNum: {
           $convert: {
             input: { $ifNull: [ '$puntaje', { $ifNull: [ '$puntuacion', { $ifNull: [ '$points', '$score' ] } ] } ] },
@@ -202,7 +214,19 @@ async function obtenerEstadisticasEquipos(req, res) {
       $group: {
         _id: '$teamNorm',
         ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
-        ACTIVAS: { $sum: { $cond: [ { $or: [ { $regexMatch: { input: '$statusNorm', regex: /completed|completad|finaliz|vendid|vendido/ } }, { $eq: ['$activated', true] }, { $eq: ['$sold', true] }, { $eq: ['$vendido', true] } ] }, 1, 0 ] } },
+        ACTIVAS: { $sum: { $cond: [ 
+          { $or: [ 
+            { $eq: ['$statusNorm', 'completed'] },
+            { $eq: ['$statusNorm', 'completado'] },
+            { $eq: ['$statusNorm', 'finalizado'] },
+            { $eq: ['$statusNorm', 'vendido'] },
+            { $eq: ['$activated', true] }, 
+            { $eq: ['$sold', true] }, 
+            { $eq: ['$vendido', true] } 
+          ] }, 
+          1, 
+          0 
+        ] } },
         BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
         Total: { $sum: 1 },
         Puntaje: { $sum: '$puntajeNum' },
@@ -213,6 +237,79 @@ async function obtenerEstadisticasEquipos(req, res) {
 
   pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
     pipeline.push({ $sort: { TEAM: 1 } });
+    
+    console.log('[EQUIPOS DEBUG] Buscando registros con status "completed" en noviembre...');
+    try {
+      const { ObjectId } = require('mongodb');
+      const completedId = new ObjectId('690d45fec1c56f24f452ceb5');
+      
+      // Buscar el registro específico con status completed
+      const completedDoc = await db.collection('costumers').findOne({ _id: completedId });
+      
+      if (completedDoc) {
+        console.log('[EQUIPOS DEBUG] ✅ Registro con status COMPLETED encontrado:');
+        console.log(`  - _id: ${completedDoc._id}`);
+        console.log(`  - nombre: ${completedDoc.nombre_cliente}`);
+        console.log(`  - status RAW: "${completedDoc.status}"`);
+        console.log(`  - supervisor: ${completedDoc.supervisor}`);
+        console.log(`  - dia_venta: ${completedDoc.dia_venta}`);
+        console.log(`  - mercado: ${completedDoc.mercado}`);
+        
+        // Verificar si el pipeline lo procesa
+        const testPipeline = [
+          { $match: { _id: completedId } },
+          {
+            $addFields: {
+              saleDateRaw: { $ifNull: ['$dia_venta', '$fecha_contratacion'] },
+              teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team'] } } } },
+              statusNorm: { 
+                $toLower: { 
+                  $trim: { 
+                    input: { 
+                      $ifNull: [ 
+                        { $convert: { input: '$status', to: 'string', onError: '', onNull: '' } },
+                        ''
+                      ] 
+                    } 
+                  } 
+                } 
+              }
+            }
+          }
+        ];
+        const testResult = await db.collection('costumers').aggregate(testPipeline).toArray();
+        if (testResult[0]) {
+          console.log(`  - statusNorm en pipeline: "${testResult[0].statusNorm}"`);
+          console.log(`  - teamNorm en pipeline: "${testResult[0].teamNorm}"`);
+          console.log(`  - saleDateRaw en pipeline: "${testResult[0].saleDateRaw}"`);
+        }
+      } else {
+        console.log('[EQUIPOS DEBUG] ❌ NO se encontró el registro con _id 690d45fec1c56f24f452ceb5');
+      }
+      
+      // Contar cuántos registros con status completed hay en noviembre
+      const completedCount = await db.collection('costumers').countDocuments({
+        status: 'completed',
+        dia_venta: { $regex: /2025-11-/ }
+      });
+      console.log(`[EQUIPOS DEBUG] Total registros con status "completed" en nov: ${completedCount}`);
+      
+    } catch(e) { console.warn('[EQUIPOS DEBUG] Error:', e.message); }
+
+    // DEBUG: Ejecutar un pipeline simplificado para ver si el registro completed pasa el filtro
+    console.log('[EQUIPOS DEBUG] Probando si el registro completed pasa el filtro de fechas...');
+    try {
+      const { ObjectId } = require('mongodb');
+      const testPipeline = [...pipeline];
+      testPipeline.push({ $match: { _id: new ObjectId('690d45fec1c56f24f452ceb5') } });
+      const testResult = await db.collection('costumers').aggregate(testPipeline).toArray();
+      console.log(`[EQUIPOS DEBUG] Resultado del test: ${testResult.length} documentos`);
+      if (testResult.length > 0) {
+        console.log('[EQUIPOS DEBUG] ✅ El registro SÍ pasa el filtro del pipeline');
+      } else {
+        console.log('[EQUIPOS DEBUG] ❌ El registro NO pasa el filtro del pipeline - quedó filtrado');
+      }
+    } catch(e) { console.warn('[EQUIPOS DEBUG] Error en test:', e.message); }
 
     // Intentar múltiples colecciones posibles y UNIFICAR resultados
     const collectionsToTry = ['costumers','Costumers','customers','leads','Leads','ventas'];
@@ -224,6 +321,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         const arr = await db.collection(colName).aggregate(pipeline).toArray();
         if (Array.isArray(arr) && arr.length > 0) {
           usedCollections.push(colName);
+          console.log(`[EQUIPOS DEBUG] Colección "${colName}" devolvió ${arr.length} equipos:`, JSON.stringify(arr));
           for (const r of arr) {
             const key = String(r.TEAM || '').toUpperCase();
             const cur = mergeMap.get(key) || { TEAM: key, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0, PuntajeICON: 0, PuntajeBAMO: 0 };
@@ -392,6 +490,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         const key = baseName(r.TEAM);
   const cur = merged.get(key) || { TEAM: key, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 };
         cur.ICON += Number(r.ICON || 0);
+        cur.ACTIVAS += Number(r.ACTIVAS || 0);
         cur.BAMO += Number(r.BAMO || 0);
         cur.Total += Number(r.Total || 0);
         cur.Puntaje += Number(r.Puntaje || 0);
@@ -465,9 +564,14 @@ async function obtenerEstadisticasEquipos(req, res) {
       });
     } catch {}
 
+    console.log(`[EQUIPOS DEBUG] Antes del fallback mensual: total=${total}, equiposData.length=${equiposData.length}`);
+    console.log(`[EQUIPOS DEBUG] equiposData con ACTIVAS:`, equiposData.map(e => ({ team: e.TEAM, activas: e.ACTIVAS, total: e.Total })));
+
     // Fallback mensual por strings del mes (si el rango es mensual y total sigue en 0)
     try {
+      console.log(`[EQUIPOS DEBUG] Verificando fallback mensual: total=${total}, fechaInicio=${fechaInicio}, fechaFin=${fechaFin}`);
       if (total === 0 && fechaInicio && fechaFin && fechaInicio !== fechaFin) {
+        console.log('[EQUIPOS DEBUG] ⚠️ ACTIVANDO FALLBACK MENSUAL - Esto sobrescribirá el resultado del pipeline principal');
         const [yyS, mmS] = String(fechaInicio).split('-');
         const [yyE, mmE] = String(fechaFin).split('-');
         if (yyS && mmS && yyE && mmE && yyS === yyE && mmS === mmE) {
