@@ -257,25 +257,29 @@
       color: #000;
     }
     /* Layout mejorado para conversión: tabla + panel LINEAS (Grid asegura uso total de ancho) */
-    .conv-two-col { display: grid; grid-template-columns: minmax(0,1fr) 200px; gap: 8px; align-items: stretch; width: 100%; }
-    .conv-left { min-width: 0; max-height: 520px; overflow-y: auto; overflow-x: hidden; margin: 0; padding: 0; }
+    .conv-two-col { display: grid; grid-template-columns: 640px 200px; gap: 8px; align-items: stretch; width: 848px; margin: 0 auto; }
+    .conv-left { min-width: 640px; max-width: 640px; width: 640px; max-height: 520px; overflow-y: auto; overflow-x: hidden; margin: 0; padding: 0; }
     .conv-left .sales-table { width: 100% !important; table-layout: fixed; }
-    .conv-right { width: 100%; }
-    /* Igualar ancho de tabla entre MES y DÍA en desktop */
-    @media (min-width: 901px) {
-      .conversion-card .conv-left { max-width: 640px; }
-      /* Contenedor ajustado al mismo ancho total que tabla+panel+gap */
-      .conversion-card { max-width: 640px + 200px + 8px; max-width: 848px; margin-left: auto; margin-right: auto; }
-    }
+    .conv-right { width: 200px; min-width: 200px; max-width: 200px; }
+    /* Igualar ancho de contenedores MES y DÍA */
+    .conversion-card { width: 848px; max-width: 848px; min-width: 848px; margin: 0 auto; }
+    #ventas-dia-card { width: 848px; max-width: 848px; min-width: 848px; margin: 0 auto; }
     /* Quitar contenedores externos (solo dentro de la sección MES/DÍA) */
     #mes-dia-section > .card {
       background: transparent !important;
       box-shadow: none !important;
       border: 0 !important;
       padding: 0 !important;
-      margin: 0 !important;
+      margin: 0 auto !important;
+      display: flex;
+      justify-content: center;
     }
     #mes-dia-section > .card > h3 { display: none !important; }
+    #mes-dia-section > .card > div { 
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+    }
     /* Quitar cualquier tarjeta interna generada por el renderer del MES o del DÍA */
     #mes-dia-section .conversion-card,
     #mes-dia-section .ventas-diarias-card {
@@ -283,13 +287,19 @@
       box-shadow: none !important;
       border: 0 !important;
       padding: 0 !important;
-      margin: 0 !important;
+      margin: 0 auto !important;
     }
     .mini-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 8px; }
     .mini-card .mini-table { width: 100%; }
     .mini-card .mini-table th { padding: 12px; font-size: 0.9rem; }
     .mini-card .mini-table td { padding: 10px 12px; font-size: 1rem; text-align: center; }
-    @media (max-width: 900px) { .conv-two-col { display: block; } .conv-left { min-width: 0; } .conv-right { width: 100%; min-width: 0; } }
+    @media (max-width: 900px) { 
+      .conv-two-col { display: block; width: 100%; } 
+      .conv-left { min-width: 0; width: 100%; max-width: 100%; } 
+      .conv-right { width: 100%; min-width: 0; max-width: 100%; } 
+      .conversion-card { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+      #ventas-dia-card { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    }
     .mini-table { 
       width: 100%; 
       border-collapse: collapse; 
@@ -422,9 +432,72 @@
     }
     /* Excepción: las tarjetas dentro de #top-charts usan su propio grid (2 columnas)
        Evitamos que la regla global .chart-card las fuerce a 1 columna */
-    #top-charts .chart-card { grid-column: auto !important; }
-    /* Forzar altura consistente en los top charts para que se muestren lado a lado */
-    #top-charts .chart-wrapper { min-height: 340px; height: 340px; }
+    #top-charts-combined {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto 20px auto;
+      padding: 20px;
+      grid-column: 1 / -1;
+    }
+    #top-charts-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+    .top-chart-section {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .top-chart-section.porcentaje-section {
+      display: flex;
+      flex-direction: column;
+    }
+    .top-chart-section.porcentaje-section .chart-subtitle {
+      margin-bottom: 15px;
+    }
+    .porcentaje-content {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .porcentaje-left {
+      width: 200px;
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+    .porcentaje-right {
+      flex: 1;
+      min-width: 0;
+    }
+    .chart-subtitle {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1f3b63;
+      margin: 0 0 15px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-subtitle i {
+      color: #22b3ec;
+    }
+    .top-chart-section .chart-wrapper {
+      height: 400px;
+      min-height: 400px;
+      position: relative;
+    }
+    @media (max-width: 1200px) {
+      #top-charts-inner {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+    }
 
     /* Excepción: fila de Ventas y Productos (dos columnas al mismo nivel) */
     #ventas-products-row .chart-card { grid-column: auto !important; }
@@ -617,22 +690,35 @@
       </header>
 
       <section class="stats-grid">
-        <!-- STAGE 1: Top charts row: Porcentaje de Activasion (left) + Ventas Activas del mes (right) -->
-        <div id="top-charts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
-          <!-- top-half evita la regla global .chart-card que fuerza ancho completo -->
-          <div class="card chart-card top-half">
-            <h3><i class="fas fa-percent" style="color:#22b3ec; margin-right:8px;"></i> Porcentaje de Activasion</h3>
-            <div class="chart-wrapper">
-              <canvas id="chart-porcentaje-activacion"></canvas>
-                <div id="porc-team-list" style="margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:180px; overflow:auto;"></div>
-                <div id="porc-activas-note" style="margin-top:8px;font-size:0.9rem;color:#374151;"></div>
+        <!-- STAGE 1: Combined top chart - Porcentaje de Activación y Ventas Activas del mes -->
+        <div id="top-charts-combined" class="card chart-card">
+          <h3 style="text-align:center; margin-bottom:20px;">
+            <i class="fas fa-chart-pie" style="color:#22b3ec; margin-right:8px;"></i> 
+            Estadísticas del Mes
+          </h3>
+          <div id="top-charts-inner">
+            <!-- Gráfico izquierdo: Porcentaje de Activación -->
+            <div class="top-chart-section porcentaje-section">
+              <h4 class="chart-subtitle"><i class="fas fa-percent"></i> Porcentaje de Activación</h4>
+              <div class="porcentaje-content">
+                <div class="porcentaje-left">
+                  <div id="porc-team-list" style="display:flex; flex-direction:column; gap:6px; max-height:400px; overflow:auto;"></div>
+                  <div id="porc-activas-note" style="font-size:0.9rem;color:#374151; margin-top: 10px;"></div>
+                </div>
+                <div class="porcentaje-right">
+                  <div class="chart-wrapper">
+                    <canvas id="chart-porcentaje-activacion"></canvas>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div class="card chart-card top-half">
-            <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas Activas del mes</h3>
-            <div class="chart-wrapper">
-              <canvas id="chart-ventas-activas-mes"></canvas>
+            <!-- Gráfico derecho: Ventas Activas -->
+            <div class="top-chart-section">
+              <h4 class="chart-subtitle"><i class="fas fa-chart-bar"></i> Ventas Activas</h4>
+              <div class="chart-wrapper">
+                <canvas id="chart-ventas-activas-mes"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -772,8 +858,10 @@
         if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
           const [y,m] = mParam.split('-').map(Number);
           targetMonth = new Date(y, m-1, 15, 12, 0, 0);
+          console.log('[ESTADISTICAS] Navegando a mes:', mParam, targetMonth);
         } else {
           targetMonth = new Date();
+          console.log('[ESTADISTICAS] Sin parámetro de mes, usando mes actual:', targetMonth);
         }
         // Rango del MES COMPLETO (desde día 1 hasta último día del mes)
         let fechaInicio = '';
@@ -784,7 +872,7 @@
           const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           fechaInicio = fmt(primerDiaMes);
           fechaFin = fmt(ultimoDiaMes);
-          console.log('[ESTADISTICAS] Rango mes completo:', { fechaInicio, fechaFin });
+          console.log('[ESTADISTICAS] Rango mes completo:', { mes: `${targetMonth.getMonth()+1}/${targetMonth.getFullYear()}`, fechaInicio, fechaFin });
         }
         
         // Construir URL con parámetros
@@ -798,12 +886,17 @@
           const u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
           const role = (u?.role || '').toString().trim().toLowerCase();
           if (role === 'agent' || role === 'agente') params.append('forceAll', '1');
-              } catch(_){ }
-            // restore any hidden sticky elements
-        console.log('Solicitando datos a:', url);
+        } catch(_){ }
+        
+        // Agregar parámetros a la URL
+        if (params.toString()) {
+          url += '?' + params.toString();
+        }
+        
+        console.log('[ESTADISTICAS] Solicitando datos a:', url);
         
         // Realizar petición a la API usando la función fetchWithAuth
-        console.log('Realizando petición a la API...');
+        console.log('[ESTADISTICAS] Realizando petición a la API...');
         const response = await fetchWithAuth(url);
         console.log('Respuesta recibida:', response);
         
@@ -1271,9 +1364,29 @@
         try {
           const btnPrev = document.getElementById('month-prev');
           const btnNext = document.getElementById('month-next');
-          if (btnPrev) btnPrev.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()-1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
-          if (btnNext) btnNext.onclick = () => { const d = new Date(targetMonth); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
-        } catch(_) {}
+          if (btnPrev) {
+            btnPrev.onclick = () => { 
+              const d = new Date(targetMonth); 
+              d.setMonth(d.getMonth()-1); 
+              location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
+            };
+            console.log('[MES] Botón anterior conectado');
+          } else {
+            console.warn('[MES] Botón anterior NO encontrado');
+          }
+          if (btnNext) {
+            btnNext.onclick = () => { 
+              const d = new Date(targetMonth); 
+              d.setMonth(d.getMonth()+1); 
+              location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
+            };
+            console.log('[MES] Botón siguiente conectado');
+          } else {
+            console.warn('[MES] Botón siguiente NO encontrado');
+          }
+        } catch(err) { 
+          console.error('[MES] Error al conectar flechas:', err); 
+        }
 
   // Ahora, renderizar el gráfico de ventas activas del mes (barra).
   // La gráfica de porcentaje (dona) se renderizará desde la carga asíncrona
@@ -2133,6 +2246,19 @@
       setTimeout(() => {
         initConversionTable();
         loadDayData();
+        
+        // Cargar gráfico de Porcentaje de Activación
+        try { 
+          console.log('[INIT] Cargando gráfico de Porcentaje de Activación...');
+          if (typeof loadPorcentajeForMonth === 'function') {
+            loadPorcentajeForMonth(new Date());
+          } else {
+            console.error('[INIT] loadPorcentajeForMonth no está definida');
+          }
+        } catch(e) { 
+          console.error('[INIT] Error cargando Porcentaje de Activación:', e); 
+        }
+        
         try { prepareMonthDetails(); } catch(_){ }
         // Inyectar el botón dentro del contenedor mensual cuando esté renderizado
   try { injectMonthlyDetailButton(); } catch(_){ }
@@ -2621,8 +2747,21 @@
         try {
           const canvas = document.getElementById('chart-porcentaje-activacion');
           const listRoot = document.getElementById('porc-team-list');
-          if (!canvas) return;
+          
+          console.log('[PORCENTAJE] Iniciando render...', {
+            canvasFound: !!canvas,
+            listRootFound: !!listRoot,
+            teamDataLength: teamData?.length,
+            selectedIndex
+          });
+          
+          if (!canvas) {
+            console.error('[PORCENTAJE] Canvas no encontrado!');
+            return;
+          }
           if (!Array.isArray(teamData)) teamData = [];
+          
+          console.log('[PORCENTAJE] TeamData:', teamData);
 
           // Lista completa de equipos ordenada
           const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'Jonathan', 'Luis'];
@@ -2845,17 +2984,13 @@
             try{
               if (!Array.isArray(rowsArr) || rowsArr.length === 0) return;
               const labels = rowsArr.map(r => String(r.name));
-              const data = rowsArr.map(r => Number(r.ACTIVAS || 0)); // Solo usar ventas completadas
-              const totalActive = data.reduce((s,n)=>s+(Number.isFinite(n) ? Number(n) : 0),0);
-              const totalTotal = rowsArr.reduce((s,r)=>s+(Number(r.Total)||0),0) || 1;
-              const overallPct = totalTotal ? (totalActive/totalTotal*100) : 0;
-              // If there are no ACTIVAS at all, fall back to rendering a donut using
-              // Total per team (ventas) so the user sees distribution of activity.
-              // Only hide the canvas when totalTotal is zero (no data at all).
-              const useTotalsInstead = totalActive === 0 && totalTotal > 0;
-              const dataToUse = useTotalsInstead ? rowsArr.map(r => Number(r.Total || 0)) : data;
+              // Usar el Total de ventas para el tamaño de las porciones del gráfico
+              // El porcentaje de activación se mostrará en las etiquetas
+              const dataToUse = rowsArr.map(r => Number(r.Total || 0));
+              const totalTotal = dataToUse.reduce((s,n)=>s+Number(n||0),0);
+              
               // If after choosing the data the sum is zero, there's nothing to draw
-              if ((Array.isArray(dataToUse) && dataToUse.reduce((s,n)=>s+Number(n||0),0) === 0) || totalTotal === 0) {
+              if (totalTotal === 0) {
                 try { if (window.porcentajeActivacionChart) { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } } catch(_){ }
                 try { const ctx = canvas.getContext && canvas.getContext('2d'); if (ctx) ctx.clearRect(0,0,canvas.width || canvas.clientWidth, canvas.height || canvas.clientHeight); try { canvas.style.display = 'none'; } catch(_){} } catch(_){ }
                 return;
@@ -2937,12 +3072,16 @@
               try {
                 const listRootLocal = document.getElementById('porc-team-list');
                 if (listRootLocal) {
-                  const itemsHtml = rowsArr.map(team => {
+                  // Colores del gráfico (misma paleta)
+                  const palette = ['#588A87', '#B6C6BE', '#DFD9CA', '#EFCABF', '#EEA995'];
+                  const itemsHtml = rowsArr.map((team, index) => {
                     const name = String(team.name || 'Sin equipo');
                     const total = Number(team.Total || 0);
-                    const activas = useTotalsInstead ? 0 : ((team.ACTIVAS !== undefined && team.ACTIVAS !== null) ? Number(team.ACTIVAS) : Number(team.ICON || 0));
+                    const activas = Number(team.ACTIVAS || 0);
+                    const color = palette[index % palette.length];
                     return `
-                      <div style="display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                      <div style="display:grid;grid-template-columns:auto 1fr auto;column-gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                        <div style="width:12px;height:12px;border-radius:50%;background-color:${color};flex-shrink:0;"></div>
                         <div style="font-weight:700;color:#0f172a;font-size:0.95rem;">${name}</div>
                         <div style="text-align:right;color:#6b7280;font-size:0.85rem;line-height:1.1;">Total: <span style='font-weight:700;color:#111;'>${total}</span><br>Activas: <span style='font-weight:700;color:#111;'>${activas}</span></div>
                       </div>`;
@@ -3575,9 +3714,12 @@
         // Intentar agregado del día desde backend (global)
         let preTeamData = null;
         try {
-          const aggResp = await fetchWithAuth(`/api/equipos/estadisticas?${qs}&scope=day&forceAll=1`);
+          const dayUrl = `/api/equipos/estadisticas?${qs}&scope=day&forceAll=1`;
+          console.log('[DÍA] Solicitando datos a:', dayUrl);
+          const aggResp = await fetchWithAuth(dayUrl);
           if (aggResp && aggResp.ok) {
             const dj = await aggResp.json();
+            console.log('[DÍA] Respuesta del backend:', dj);
             if (dj && dj.success && Array.isArray(dj.data) && dj.data.length) {
                 preTeamData = dj.data.map(equipo => ({
                 name: equipo.TEAM || equipo.team || 'Sin equipo',
@@ -3587,14 +3729,16 @@
                 Total: parseFloat(equipo.Total || 0),
                 Puntaje: parseFloat(equipo.Puntaje || 0)
               }));
+              console.log('[DÍA] Datos procesados:', preTeamData);
             }
           }
-        } catch(_) {}
+        } catch(err) { console.error('[DÍA] Error en fetch principal:', err); }
         // Fallback: si no retornó datos o todo es cero y estamos viendo HOY, consulta sin fechas (scope=day)
         try {
           const sum = (arr)=> (arr||[]).reduce((a,r)=>a+(r.Total||0),0);
           const isTodayView = !new URLSearchParams(location.search).has('d');
           if ((!preTeamData || sum(preTeamData)===0) && isTodayView) {
+            console.log('[DÍA] Usando fallback para HOY (sin fechas específicas)');
             const alt = await fetchWithAuth(`/api/equipos/estadisticas?scope=day&forceAll=1`);
             if (alt && alt.ok) {
               const dj2 = await alt.json();
@@ -3915,11 +4059,31 @@
         }
         // Hook flechas navegación día
         try {
-          const btnPrev = document.getElementById('day-prev');
-          const btnNext = document.getElementById('day-next');
-          if (btnPrev) btnPrev.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()-1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-          if (btnNext) btnNext.onclick = () => { const d = new Date(effective); d.setDate(d.getDate()+1); location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-        } catch(_) {}
+          const btnPrev = document.getElementById('day-prev-alt');
+          const btnNext = document.getElementById('day-next-alt');
+          if (btnPrev) {
+            btnPrev.onclick = () => { 
+              const d = new Date(effective); 
+              d.setDate(d.getDate()-1); 
+              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+            };
+            console.log('[DÍA] Botón anterior conectado');
+          } else {
+            console.warn('[DÍA] Botón anterior NO encontrado');
+          }
+          if (btnNext) {
+            btnNext.onclick = () => { 
+              const d = new Date(effective); 
+              d.setDate(d.getDate()+1); 
+              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+            };
+            console.log('[DÍA] Botón siguiente conectado');
+          } else {
+            console.warn('[DÍA] Botón siguiente NO encontrado');
+          }
+        } catch(err) { 
+          console.error('[DÍA] Error al conectar flechas:', err); 
+        }
         // Tabs inline en tarjeta del Día
         try {
           const pad2 = (n)=> String(n).padStart(2,'0');
