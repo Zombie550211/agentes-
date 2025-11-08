@@ -16,7 +16,7 @@
   <!-- Scripts de app -->
   <!-- Cargar primero las dependencias -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <!-- ChartDataLabels removido - causaba etiquetas duplicadas -->
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -32,17 +32,12 @@
       console.error('Error: No se pudo cargar Chart.js');
     } else {
       console.log('Chart.js cargado correctamente');
-      // Registrar el plugin de etiquetas si estÃ¡ disponible
-      if (typeof ChartDataLabels !== 'undefined') {
-        Chart.register(ChartDataLabels);
-        console.log('Plugin de etiquetas registrado');
-      }
+    }
 
     // Marcar inicialización de porcentaje para evitar dibujar donuts provisionales
-          try { window.__porcIsInitializing = true; try { if (typeof showPorcSpinner === 'function') showPorcSpinner(true); } catch(_){} } catch(_){ }
+    try { window.__porcIsInitializing = true; try { if (typeof showPorcSpinner === 'function') showPorcSpinner(true); } catch(_){} } catch(_){ }
 
-      // Lista/modal de equipos y render por equipo removidos: la vista por defecto es "Mostrar todos".
-    }
+    // Lista/modal de equipos y render por equipo removidos: la vista por defecto es "Mostrar todos".
   </script>
   
   <style>
@@ -1760,6 +1755,12 @@
           return;
         }
         
+        // Asegurar que el canvas esté visible
+        try {
+          canvas.style.display = 'block';
+          canvas.style.visibility = 'visible';
+        } catch(_) {}
+        
         teamData = Array.isArray(teamData) ? teamData : [];
 
         // Lista completa de equipos ordenada
@@ -1846,9 +1847,27 @@
         }
 
         // Renderizar gráfico
-        if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); } catch(_){}
+        if (window.ventasActivasMesChart) {
+          try { 
+            window.ventasActivasMesChart.destroy(); 
+            window.ventasActivasMesChart = null;
+          } catch(_){}
+        }
 
         const ctx = canvas.getContext('2d');
+        
+        // Asegurar que el contexto es válido
+        if (!ctx) {
+          console.error('[VENTAS ACTIVAS] No se pudo obtener el contexto 2D del canvas');
+          return;
+        }
+        
+        // Crear gradiente para efecto 3D
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(34, 179, 236, 1)');
+        gradient.addColorStop(0.5, 'rgba(34, 179, 236, 0.8)');
+        gradient.addColorStop(1, 'rgba(34, 179, 236, 0.6)');
+
         window.ventasActivasMesChart = new Chart(ctx, {
           type: 'bar',
           data: {
@@ -1856,18 +1875,26 @@
             datasets: [{
               label: 'Ventas Activas',
               data: dataVals,
-              backgroundColor: 'rgba(34,179,236,0.9)',
-              borderColor: 'rgba(26,144,193,1)',
-              borderWidth: 1,
-              borderRadius: 6
+              backgroundColor: gradient,
+              borderColor: 'rgba(26, 144, 193, 1)',
+              borderWidth: 2,
+              borderRadius: 8,
+              borderSkipped: false
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+              padding: 10
+            },
             plugins: { 
               legend: { display: false },
               tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: true,
                 callbacks: {
                   label: function(context) {
                     const idx = context.dataIndex;
@@ -1876,18 +1903,73 @@
                     return `Activas: ${activas} de ${total}`;
                   }
                 }
+              },
+              datalabels: {
+                display: false  // Deshabilitar etiquetas en las barras
               }
             },
             scales: {
               y: { 
                 beginAtZero: true, 
-                title: { display: true, text: 'Ventas Activas' },
-                ticks: { stepSize: 1 }
+                title: { 
+                  display: true, 
+                  text: 'Ventas Activas',
+                  font: { weight: 'bold', size: 12 }
+                },
+                ticks: { stepSize: 1 },
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)',
+                  lineWidth: 1
+                }
               },
-              x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
+              x: { 
+                ticks: { 
+                  autoSkip: false, 
+                  maxRotation: 45, 
+                  minRotation: 0,
+                  font: { weight: '600', size: 11 }
+                },
+                grid: {
+                  display: false
+                }
+              }
             }
-          }
+          },
+          plugins: [{
+            // Plugin personalizado para efecto 3D con sombras
+            id: 'barShadow3D',
+            beforeDatasetsDraw: (chart) => {
+              const ctx = chart.ctx;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+              ctx.shadowBlur = 10;
+              ctx.shadowOffsetX = 4;
+              ctx.shadowOffsetY = 4;
+            },
+            afterDatasetsDraw: (chart) => {
+              chart.ctx.restore();
+            }
+          }]
         });
+        
+        // Asegurar que el canvas permanezca visible después de crear el gráfico
+        try {
+          canvas.style.display = 'block';
+          canvas.style.visibility = 'visible';
+          canvas.style.opacity = '1';
+        } catch(_) {}
+        
+        // Forzar un resize para asegurar que el gráfico se renderice correctamente
+        try {
+          if (window.ventasActivasMesChart && typeof window.ventasActivasMesChart.resize === 'function') {
+            setTimeout(() => {
+              try {
+                window.ventasActivasMesChart.resize();
+                window.ventasActivasMesChart.update('none');
+              } catch(_) {}
+            }, 100);
+          }
+        } catch(_) {}
         
         console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
       } catch (e) { 
@@ -3089,33 +3171,37 @@
               // Usar la paleta de la imagen: #588A87, #B6C6BE, #DFD9CA, #EFCABF, #EEA995
               window.porcentajeActivacionChart = new Chart(ctx, {
                 type: 'doughnut',
-                data: { labels: ['Activadas','No activadas'], datasets: [{ data: [active, inactive], backgroundColor: ['#588A87','#DFD9CA'], borderColor: ['#fff','#fff'], borderWidth: 2 }] },
+                data: { labels: ['Activadas','No activadas'], datasets: [{ data: [active, inactive], backgroundColor: ['#588A87','#DFD9CA'], borderColor: ['#fff','#fff'], borderWidth: 3 }] },
                 options: {
-                  responsive:true,
-                  maintainAspectRatio:false,
-                  cutout: '65%',
-                  // Ensure labels are placed after the initial animation/layout
-                  animation: {
-                    onComplete: function() {
-                      try { if (this && this._porcForceUpdate) this._porcForceUpdate(); } catch(_){}
-                    }
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '60%',
+                  layout: {
+                    padding: 15
                   },
                   plugins: {
-                    legend: { position: 'right' },
-                    tooltip: { intersect: false, position: 'nearest', callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed}`; } } },
-                    // Use Chart.js datalabels plugin for reliable in-canvas placement
-                    datalabels: {
-                      display: true,
-                      anchor: 'center',
-                      align: 'center',
-                      formatter: function(value){ return value === null || value === undefined ? '' : String(value); },
-                      color: function(context){ try { const bg = context.dataset && context.dataset.backgroundColor && context.dataset.backgroundColor[context.dataIndex]; if (!bg) return '#0f172a'; const hex = String(bg); if (hex.startsWith('#')){ const v = hex.slice(1); const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v,16); const r=(bigint>>16)&255,g=(bigint>>8)&255,b=bigint&255; const lum = 0.2126*(r/255) + 0.7152*(g/255) + 0.0722*(b/255); return lum < 0.5 ? '#ffffff' : '#0f172a'; } return '#0f172a'; } catch(e){ return '#0f172a'; } },
-                      font: { weight: '700', size: 12 },
-                      padding: 4,
-                      clamp: true
+                    legend: { display: false },
+                    tooltip: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      padding: 12,
+                      cornerRadius: 8
                     }
                   }
-                }
+                },
+                plugins: [{
+                  id: 'shadow3D',
+                  beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowOffsetX = 5;
+                    ctx.shadowOffsetY = 5;
+                  },
+                  afterDraw: (chart) => {
+                    chart.ctx.restore();
+                  }
+                }]
               });
               // Labels are rendered inside the canvas by the datalabels plugin now.
             }catch(e){ console.warn('renderPorcentajeForTeam error', e); }
@@ -3143,24 +3229,43 @@
               // Paleta provista por el usuario (imagen)
               const palette = ['#588A87', '#B6C6BE', '#DFD9CA', '#EFCABF', '#EEA995'];
               const background = labels.map((_,i)=> palette[i % palette.length]);
+              
+              // Solo incluir plugin de sombras 3D
+              const chartPlugins = [{
+                id: 'shadow3D',
+                beforeDraw: (chart) => {
+                  const ctx = chart.ctx;
+                  ctx.save();
+                  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                  ctx.shadowBlur = 15;
+                  ctx.shadowOffsetX = 5;
+                  ctx.shadowOffsetY = 5;
+                },
+                afterDraw: (chart) => {
+                  chart.ctx.restore();
+                }
+              }];
+              
               window.porcentajeActivacionChart = new Chart(ctx, {
                 type: 'doughnut',
-                data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 2 }] },
+                data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 3 }] },
                 options: {
                   responsive: true,
                   maintainAspectRatio: false,
                   cutout: '60%',
-                  // Ensure labels are placed after the initial animation/layout
-                  animation: {
-                    onComplete: function() {
-                      try { if (this && this._porcForceUpdate) this._porcForceUpdate(); } catch(_){}
-                    }
+                  // Efecto 3D con sombras
+                  layout: {
+                    padding: 15
                   },
                   plugins: {
                     legend: { display: false },
                     tooltip: { 
                       intersect: false, 
-                      position: 'nearest', 
+                      position: 'nearest',
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      padding: 12,
+                      cornerRadius: 8,
+                      displayColors: true,
                       callbacks: { 
                         label: function(ctx){ 
                           const idx = ctx.dataIndex;
@@ -3168,44 +3273,14 @@
                           const totalVentas = Number(team.Total || 0);
                           const totalActivas = Number(team.ACTIVAS || 0);
                           const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-                          return `${ctx.label}: ${porcentaje.toFixed(2)}% de activación`;
+                          return `${ctx.label}: ${totalActivas}/${totalVentas} (${porcentaje.toFixed(1)}% activación)`;
                         } 
                       } 
-                    },
-                    // Use Chart.js datalabels plugin for reliable in-canvas placement
-                    datalabels: {
-                      display: function(context) {
-                        const team = rowsArr[context.dataIndex];
-                        const totalActivas = Number(team.ACTIVAS || 0);
-                        // Solo mostrar etiqueta si hay ventas activas
-                        return totalActivas > 0;
-                      },
-                      anchor: 'center',
-                      align: 'center',
-                      formatter: function(value, context){ 
-                        const idx = context.dataIndex;
-                        const team = rowsArr[idx];
-                        const totalVentas = Number(team.Total || 0);
-                        const totalActivas = Number(team.ACTIVAS || 0);
-                        const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-                        // Mostrar con 2 decimales
-                        return porcentaje.toFixed(2);
-                      },
-                      color: '#000000', // Color negro fijo para mejor visibilidad
-                      font: { 
-                        weight: '700', 
-                        size: 16,
-                        family: 'Arial'
-                      },
-                      // Sin backgroundColor
-                      padding: 4,
-                      clamp: true
                     }
                   }
-                }
+                },
+                plugins: chartPlugins
               });
-
-              // Labels are rendered inside the canvas by the datalabels plugin now.
 
               // Populate the compact left-side list (`#porc-team-list`) with the
               // rows for quick reference. Make it absolute-left inside the chart
