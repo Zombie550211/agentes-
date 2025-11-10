@@ -807,6 +807,194 @@ router.post('/customers/:id/notes', protect, commonAddNote);
 router.post('/leads/:id/notes', protect, commonAddNote);
 
 /**
+ * @route PUT /api/lineas-team/update
+ * @desc Actualizar un cliente de Team Lineas
+ * @access Private (Supervisor/Admin)
+ */
+router.put('/lineas-team/update', protect, async (req, res) => {
+  try {
+    console.log('[API LINEAS UPDATE] Solicitud recibida');
+    const { id, nombre_cliente, telefono_principal, numero_cuenta, cantidad_lineas, status, dia_venta, dia_instalacion } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID requerido' });
+    }
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const username = req.user?.username;
+
+    if (!['supervisor', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible' });
+    }
+
+    const { ObjectId } = require('mongodb');
+    let objId = null;
+    try { objId = new ObjectId(id); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: id };
+
+    const updateData = {};
+    if (nombre_cliente !== undefined) updateData.nombre_cliente = nombre_cliente;
+    if (telefono_principal !== undefined) updateData.telefono_principal = telefono_principal;
+    if (numero_cuenta !== undefined) updateData.numero_cuenta = numero_cuenta;
+    if (cantidad_lineas !== undefined) updateData.cantidad_lineas = cantidad_lineas;
+    if (status !== undefined) updateData.status = status;
+    if (dia_venta !== undefined) updateData.dia_venta = dia_venta;
+    if (dia_instalacion !== undefined) updateData.dia_instalacion = dia_instalacion;
+    updateData.updatedAt = new Date();
+
+    let agentsToSearch = [];
+    if (role === 'supervisor') {
+      const mainDb = getDb();
+      const usersCol = mainDb.collection('users');
+      const agents = await usersCol.find({ 
+        $or: [
+          { supervisor: username },
+          { supervisor: { $regex: username, $options: 'i' } }
+        ],
+        role: { $regex: /agente/i }
+      }).toArray();
+      
+      agentsToSearch = agents.map(a => a.username);
+      
+      if (agentsToSearch.length === 0) {
+        if (username.includes('JONATHAN')) {
+          agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
+        } else if (username.includes('LUIS')) {
+          agentsToSearch = ['DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'JOCELYN_REYES', 'JONATHAN_GARCIA', 'NANCY_LOPEZ'];
+        }
+      }
+    }
+
+    let updated = false;
+    
+    if (role === 'supervisor') {
+      for (const agentUsername of agentsToSearch) {
+        const colName = agentUsername.replace(/\s+/g, '_').toUpperCase();
+        
+        try {
+          const collection = db.collection(colName);
+          const result = await collection.updateOne(filter, { $set: updateData });
+          
+          if (result.matchedCount > 0) {
+            updated = true;
+            console.log(`[API LINEAS UPDATE] ✅ Cliente actualizado en ${colName}`);
+            break;
+          }
+        } catch (err) {
+          console.log(`[API LINEAS UPDATE] Error en ${colName}:`, err.message);
+        }
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Cliente actualizado correctamente'
+    });
+  } catch (e) {
+    console.error('[API LINEAS UPDATE] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
+/**
+ * @route DELETE /api/lineas-team/delete
+ * @desc Eliminar un cliente de Team Lineas
+ * @access Private (Supervisor/Admin)
+ */
+router.delete('/lineas-team/delete', protect, async (req, res) => {
+  try {
+    console.log('[API LINEAS DELETE] Solicitud recibida');
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID requerido' });
+    }
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const username = req.user?.username;
+
+    if (!['supervisor', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible' });
+    }
+
+    const { ObjectId } = require('mongodb');
+    let objId = null;
+    try { objId = new ObjectId(id); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: id };
+
+    let agentsToSearch = [];
+    if (role === 'supervisor') {
+      const mainDb = getDb();
+      const usersCol = mainDb.collection('users');
+      const agents = await usersCol.find({ 
+        $or: [
+          { supervisor: username },
+          { supervisor: { $regex: username, $options: 'i' } }
+        ],
+        role: { $regex: /agente/i }
+      }).toArray();
+      
+      agentsToSearch = agents.map(a => a.username);
+      
+      if (agentsToSearch.length === 0) {
+        if (username.includes('JONATHAN')) {
+          agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
+        } else if (username.includes('LUIS')) {
+          agentsToSearch = ['DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'JOCELYN_REYES', 'JONATHAN_GARCIA', 'NANCY_LOPEZ'];
+        }
+      }
+    }
+
+    let deleted = false;
+    
+    if (role === 'supervisor') {
+      for (const agentUsername of agentsToSearch) {
+        const colName = agentUsername.replace(/\s+/g, '_').toUpperCase();
+        
+        try {
+          const collection = db.collection(colName);
+          const result = await collection.deleteOne(filter);
+          
+          if (result.deletedCount > 0) {
+            deleted = true;
+            console.log(`[API LINEAS DELETE] ✅ Cliente eliminado en ${colName}`);
+            break;
+          }
+        } catch (err) {
+          console.log(`[API LINEAS DELETE] Error en ${colName}:`, err.message);
+        }
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Cliente eliminado correctamente'
+    });
+  } catch (e) {
+    console.error('[API LINEAS DELETE] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
+/**
  * @route POST /api/lineas-team/notes
  * @desc Agregar nota a una línea específica de un cliente en Team Lineas
  * @access Private (Supervisor/Admin)
