@@ -106,12 +106,13 @@ router.get('/lineas-team', protect, async (req, res) => {
             const agentData = await col.find({}).sort({ createdAt: -1, creadoEn: -1, updatedAt: -1, actualizadoEn: -1 }).toArray();
             
             // Agregar campo del agente para identificar de quién es cada registro
-            const dataWithAgent = agentData.map(item => ({
-              ...item,
-              _id: item._id ? String(item._id) : undefined,
-              agenteAsignado: agent.username,
-              supervisor: supUser
-            }));
+            const dataWithAgent = agentData.map(item => {
+              const itemCopy = { ...item };
+              if (itemCopy._id) itemCopy._id = String(itemCopy._id);
+              itemCopy.agenteAsignado = agent.username;
+              itemCopy.supervisor = supUser;
+              return itemCopy;
+            });
             
             allData.push(...dataWithAgent);
           }
@@ -151,7 +152,11 @@ router.get('/lineas-team', protect, async (req, res) => {
     const col = dbTL.collection(colName);
 
     const list = await col.find({}).sort({ createdAt: -1, creadoEn: -1, updatedAt: -1, actualizadoEn: -1 }).toArray();
-    const listWithStringId = list.map(item => ({ ...item, _id: item._id ? String(item._id) : undefined }));
+    const listWithStringId = list.map(item => {
+      const itemCopy = { ...item };
+      if (itemCopy._id) itemCopy._id = String(itemCopy._id);
+      return itemCopy;
+    });
     return res.json({ success:true, data:listWithStringId, collection: colName, count: listWithStringId.length });
   } catch (e) {
     console.error('[API LINEAS TEAM GET] Error:', e);
@@ -244,14 +249,17 @@ router.put('/lineas-team/status', protect, async (req, res) => {
     if (!dbTL) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
 
     const { id, status, statusUpper } = req.body;
+    console.log('[STATUS UPDATE] Request body:', { id, status, statusUpper, idType: typeof id });
     if (!id) return res.status(400).json({ success:false, message:'Falta el ID del registro' });
 
     const { ObjectId } = require('mongodb');
     let objId;
     try {
       objId = new ObjectId(id);
-    } catch {
-      return res.status(400).json({ success:false, message:'ID inválido' });
+      console.log('[STATUS UPDATE] ObjectId creado:', objId);
+    } catch (err) {
+      console.error('[STATUS UPDATE] Error creando ObjectId:', err.message);
+      return res.status(400).json({ success:false, message:'ID inválido: ' + err.message });
     }
 
     // Determinar en qué colección buscar
