@@ -34,10 +34,17 @@
     } else {
       console.log('Chart.js cargado correctamente');
       
-      // Desregistrar ChartDataLabels globalmente para evitar que se aplique a todos los charts
+      // Desactivar ChartDataLabels por defecto en todos los charts
       if (typeof ChartDataLabels !== 'undefined') {
+        // Desregistrar globalmente
         Chart.unregister(ChartDataLabels);
-        console.log('ChartDataLabels desregistrado globalmente - se aplicará solo a gráficas de barras');
+        console.log('ChartDataLabels desregistrado globalmente');
+        
+        // Configurar defaults para desactivarlo por defecto
+        Chart.defaults.set('plugins.datalabels', {
+          display: false
+        });
+        console.log('ChartDataLabels desactivado por defecto - se habilitará solo en gráficas específicas');
       }
     }
 
@@ -1952,7 +1959,7 @@
             }
           },
           plugins: [
-            ChartDataLabels,  // Agregar ChartDataLabels solo a esta gráfica
+            ChartDataLabels,  // Registrar plugin localmente para esta gráfica
             {
             // Plugin personalizado para efecto 3D con sombras
             id: 'barShadow3D',
@@ -2128,6 +2135,7 @@
                 font: { size: 14, weight: 'bold' }
               },
               datalabels: {
+                display: true,
                 anchor: 'end',
                 align: 'top',
                 offset: 4,
@@ -2289,6 +2297,7 @@
               }
             },
             datalabels: {
+              display: true,
               anchor: 'end',
               align: 'top',
               color: '#1f3b63',
@@ -2392,6 +2401,7 @@
               }
             },
             datalabels: {
+              display: true,
               anchor: 'end',
               align: 'top',
               color: '#1f3b63',
