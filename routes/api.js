@@ -231,6 +231,75 @@ router.post('/lineas', protect, async (req, res) => {
   }
 });
 
+// Actualizar STATUS de un registro en Team Líneas
+router.put('/lineas-team/status', protect, async (req, res) => {
+  try {
+    const roleLc = String(req.user?.role||'').toLowerCase();
+    const allow = __isTeamLineas(req) || roleLc.includes('supervisor') || roleLc.includes('admin');
+    if (!allow) return res.status(403).json({ success:false, message:'Sin permisos para actualizar STATUS' });
+
+    const dbTL = getDbFor('TEAM_LINEAS');
+    if (!dbTL) return res.status(500).json({ success:false, message:'DB TEAM_LINEAS no disponible' });
+
+    const { id, status, statusUpper } = req.body;
+    if (!id) return res.status(400).json({ success:false, message:'Falta el ID del registro' });
+
+    const { ObjectId } = require('mongodb');
+    let objId;
+    try {
+      objId = new ObjectId(id);
+    } catch {
+      return res.status(400).json({ success:false, message:'ID inválido' });
+    }
+
+    // Determinar en qué colección buscar
+    // Si es supervisor, buscar en todas las colecciones de sus agentes
+    const userName = req.user?.username || req.user?.name || '';
+    const colName = __normName(userName);
+    
+    let updated = false;
+    
+    if (roleLc.includes('supervisor')) {
+      // Buscar en colecciones de todos los agentes del supervisor
+      const db = getDb();
+      const usersCol = db.collection('users');
+      const supUser = String(req.user?.username || '').toUpperCase();
+      const agents = await usersCol.find({ supervisor: supUser }).toArray();
+      
+      for (const agent of agents) {
+        const agentCol = dbTL.collection(__normName(agent.username));
+        const result = await agentCol.updateOne(
+          { _id: objId },
+          { $set: { status: statusUpper || status, updatedAt: new Date().toISOString() } }
+        );
+        if (result.matchedCount > 0) {
+          updated = true;
+          break;
+        }
+      }
+    }
+    
+    // Si no se encontró en las colecciones de agentes, buscar en la propia
+    if (!updated) {
+      const col = dbTL.collection(colName);
+      const result = await col.updateOne(
+        { _id: objId },
+        { $set: { status: statusUpper || status, updatedAt: new Date().toISOString() } }
+      );
+      updated = result.matchedCount > 0;
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success:false, message:'Registro no encontrado' });
+    }
+
+    return res.json({ success:true, message:'STATUS actualizado correctamente' });
+  } catch (e) {
+    console.error('[API LINEAS STATUS UPDATE] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error:e.message });
+  }
+});
+
 /**
  * @route GET /api/leads
  * @desc Obtener leads/clientes desde MongoDB
