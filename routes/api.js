@@ -182,9 +182,16 @@ router.post('/lineas', protect, async (req, res) => {
         const agentDoc = await usersCol.findOne({ username: agenteSel });
         const supUser = String(req.user?.username || '').toUpperCase();
         const agentSup = String(agentDoc?.supervisor || '').toUpperCase();
-        if (!agentDoc || agentSup !== supUser) {
+        
+        // Validación más flexible: verificar si el supervisor del agente contiene el nombre del supervisor actual
+        const isAuthorized = agentDoc && (agentSup === supUser || agentSup.includes(supUser) || supUser.includes(agentSup.split(' ')[0]));
+        
+        if (!isAuthorized) {
+          console.log(`[ASIGNACIÓN] Rechazo: agente=${agenteSel}, supervisor del agente=${agentSup}, supervisor actual=${supUser}`);
           return res.status(403).json({ success:false, message:'No autorizado para asignar a este agente' });
         }
+        
+        console.log(`[ASIGNACIÓN] Autorizado: agente=${agenteSel}, supervisor=${supUser}`);
         targetName = agenteSel;
       } catch (e) {
         return res.status(500).json({ success:false, message:'Error validando agente asignado', error: e.message });
