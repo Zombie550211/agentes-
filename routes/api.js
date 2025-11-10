@@ -108,6 +108,7 @@ router.get('/lineas-team', protect, async (req, res) => {
             // Agregar campo del agente para identificar de quién es cada registro
             const dataWithAgent = agentData.map(item => ({
               ...item,
+              _id: item._id ? String(item._id) : undefined,
               agenteAsignado: agent.username,
               supervisor: supUser
             }));
@@ -150,7 +151,8 @@ router.get('/lineas-team', protect, async (req, res) => {
     const col = dbTL.collection(colName);
 
     const list = await col.find({}).sort({ createdAt: -1, creadoEn: -1, updatedAt: -1, actualizadoEn: -1 }).toArray();
-    return res.json({ success:true, data:list, collection: colName, count: list.length });
+    const listWithStringId = list.map(item => ({ ...item, _id: item._id ? String(item._id) : undefined }));
+    return res.json({ success:true, data:listWithStringId, collection: colName, count: listWithStringId.length });
   } catch (e) {
     console.error('[API LINEAS TEAM GET] Error:', e);
     return res.status(500).json({ success:false, message:'Error interno', error:e.message });

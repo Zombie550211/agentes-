@@ -212,8 +212,9 @@
           }).filter(Boolean);
           const cant = (it.cantidad_lineas!=null) ? it.cantidad_lineas : (Array.isArray(it.telefonos) ? it.telefonos.length : '');
           const statusLower = String(it.status||'').toLowerCase();
+          const docId = it._id || it.id || '';
           const statusCell = editable
-            ? `<select class="status-select" data-id="${it.id||it._id||''}" style="min-width:140px;">
+            ? `<select class="status-select" data-id="${docId}" data-prev="${statusLower}" style="min-width:140px;">
                  ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
                </select>`
             : String(it.status||'').toUpperCase();
@@ -299,6 +300,8 @@
           const id = sel.getAttribute('data-id');
           const status = sel.value;
           const prev = sel.getAttribute('data-prev') || '';
+          console.log('[STATUS UPDATE] Enviando:', { id, status, prev });
+          if (!id) { alert('Error: ID del registro no encontrado'); return; }
           sel.disabled = true;
           try{
             const res = await fetch(STATUS_ENDPOINT, {
@@ -307,7 +310,11 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id, status, statusUpper: String(status||'').toUpperCase() })
             });
-            if (!res.ok) throw new Error('HTTP '+res.status);
+            if (!res.ok) {
+              const errData = await res.json().catch(()=>({}));
+              console.error('[STATUS] Response error:', errData);
+              throw new Error(errData.message || 'HTTP '+res.status);
+            }
             sel.setAttribute('data-prev', status);
             // Refetch para asegurar persistencia real al recargar
             await load();
