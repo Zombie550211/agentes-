@@ -849,7 +849,9 @@ router.post('/lineas-team/notes', protect, async (req, res) => {
     // Para supervisores, buscar en las colecciones de sus agentes
     let agentsToSearch = [];
     if (role === 'supervisor') {
-      const usersCol = db.collection('users');
+      // Obtener la base de datos principal (crmagente) para buscar usuarios
+      const mainDb = getDb();
+      const usersCol = mainDb.collection('users');
       
       // Buscar agentes que tengan este supervisor
       const agents = await usersCol.find({ 
@@ -866,7 +868,6 @@ router.post('/lineas-team/notes', protect, async (req, res) => {
       // Si no encuentra agentes, usar las colecciones directamente basándose en el equipo
       if (agentsToSearch.length === 0) {
         // Obtener las colecciones del equipo JONATHAN F
-        const collections = await db.listCollections().toArray();
         if (username.includes('JONATHAN')) {
           agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
         } else if (username.includes('LUIS')) {
@@ -901,26 +902,40 @@ router.post('/lineas-team/notes', protect, async (req, res) => {
         try {
           const collection = db.collection(colName);
           
-          // Actualizar el array de notas de la línea específica
-          const updateField = `lines.${lineIndex}.notas`;
+          // Primero verificar si el documento existe
+          const doc = await collection.findOne(filter);
           
-          console.log(`[API LINEAS NOTES] Buscando en colección: ${colName} con filtro:`, filter);
-          
-          const result = await collection.updateOne(
-            filter,
-            { $push: { [updateField]: nota } }
-          );
-          
-          if (result.matchedCount > 0) {
-            updated = true;
-            collectionName = colName;
-            console.log(`[API LINEAS NOTES] Nota agregada en ${colName}, línea ${lineIndex}`);
-            break;
+          if (doc) {
+            console.log(`[API LINEAS NOTES] Documento encontrado en ${colName}`);
+            console.log(`[API LINEAS NOTES] Teléfonos:`, doc.telefonos?.length || 0);
+            console.log(`[API LINEAS NOTES] Servicios:`, doc.servicios?.length || 0);
+            console.log(`[API LINEAS NOTES] Array lines:`, doc.lines?.length || 0);
+            
+            // Guardar en lineas_notas.{lineIndex} en lugar de lines.{lineIndex}.notas
+            const updateField = `lineas_notas.${lineIndex}`;
+            
+            console.log(`[API LINEAS NOTES] Actualizando campo: ${updateField}`);
+            
+            const result = await collection.updateOne(
+              filter,
+              { $push: { [updateField]: nota } }
+            );
+            
+            if (result.modifiedCount > 0) {
+              updated = true;
+              collectionName = colName;
+              console.log(`[API LINEAS NOTES] ✅ Nota guardada en ${colName}, línea ${lineIndex}`);
+              
+              // Verificar que se guardó
+              const updatedDoc = await collection.findOne(filter);
+              console.log(`[API LINEAS NOTES] Notas después de actualizar:`, updatedDoc.lineas_notas?.[lineIndex] || []);
+              break;
+            }
           } else {
-            console.log(`[API LINEAS NOTES] No encontrado en ${colName} con filtro:`, filter);
+            console.log(`[API LINEAS NOTES] No encontrado en ${colName}`);
           }
         } catch (err) {
-          console.log(`[API LINEAS NOTES] Error buscando en ${colName}:`, err.message);
+          console.log(`[API LINEAS NOTES] Error en ${colName}:`, err.message);
         }
       }
     } else if (role === 'admin') {

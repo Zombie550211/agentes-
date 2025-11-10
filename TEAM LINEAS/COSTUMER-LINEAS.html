@@ -301,7 +301,17 @@
               const lineData = lines[i] || {};
               const telefono = tels[i] || lineData.telefono || '';
               const servicio = servArr[i] || lineData.servicio || '';
-              const notas = lineData.notas || [];
+              
+              // Leer notas desde lineas_notas en lugar de lines
+              const lineasNotas = it.lineas_notas || {};
+              const notas = lineasNotas[i] || [];
+              
+              console.log(`Cliente ${it.nombre_cliente}, Línea ${i}:`, {
+                telefono: telefono,
+                servicio: servicio,
+                notas: notas,
+                notasLength: notas.length
+              });
               
               detailsHTML += `
                 <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fafbfc;">
@@ -341,12 +351,26 @@
                     
                     <!-- Lista de notas existentes -->
                     <div class="notes-list" data-line-index="${i}" style="display:flex; flex-direction:column; gap:8px;">
-                      ${notas.length > 0 ? notas.map((nota, nIdx) => `
+                      ${notas.length > 0 ? notas.map((nota, nIdx) => {
+                        const textoNota = nota.texto || nota;
+                        let fechaNota = '';
+                        if (nota.fecha) {
+                          const fecha = new Date(nota.fecha);
+                          fechaNota = fecha.toLocaleString('es-ES', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          });
+                        }
+                        const autor = nota.autor || '';
+                        return `
                         <div style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px;">
-                          <div style="color:#0f172a;">${nota.texto || nota}</div>
-                          ${nota.fecha ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${nota.fecha}</div>` : ''}
-                        </div>
-                      `).join('') : '<div style="color:#94a3b8; font-size:12px; padding:8px 0;">No hay notas agregadas</div>'}
+                          <div style="color:#0f172a;">${textoNota}</div>
+                          ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
+                        </div>`;
+                      }).join('') : '<div style="color:#94a3b8; font-size:12px; padding:8px 0;">No hay notas agregadas</div>'}
                     </div>
                   </div>
                 </div>`;
@@ -399,7 +423,77 @@
           });
         });
         
-        // Event listeners para guardar nota
+        // Función para mostrar notificaciones
+        function showNotification(message, type = 'success') {
+          // Remover notificación anterior si existe
+          const existing = document.querySelector('.custom-notification');
+          if (existing) existing.remove();
+          
+          const notification = document.createElement('div');
+          notification.className = 'custom-notification';
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#10b981' : '#ef4444'};
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+          `;
+          
+          const icon = type === 'success' 
+            ? '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>'
+            : '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
+          
+          notification.innerHTML = `${icon}<span>${message}</span>`;
+          
+          // Agregar animación CSS si no existe
+          if (!document.querySelector('#notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+              @keyframes slideIn {
+                from {
+                  transform: translateX(100%);
+                  opacity: 0;
+                }
+                to {
+                  transform: translateX(0);
+                  opacity: 1;
+                }
+              }
+              @keyframes slideOut {
+                from {
+                  transform: translateX(0);
+                  opacity: 1;
+                }
+                to {
+                  transform: translateX(100%);
+                  opacity: 0;
+                }
+              }
+            `;
+            document.head.appendChild(style);
+          }
+          
+          document.body.appendChild(notification);
+          
+          // Auto-remover después de 3 segundos
+          setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => notification.remove(), 300);
+          }, 3000);
+        }
+        
+        // Event listeners para agregar nota
         document.querySelectorAll('.btn-save-note').forEach(btn => {
           btn.addEventListener('click', async function(e) {
             e.stopPropagation();
@@ -440,6 +534,15 @@
                 throw new Error(result.message || 'Error al guardar la nota');
               }
               
+              // Actualizar el objeto lineas_notas en allItems
+              if (!clientData.lineas_notas) {
+                clientData.lineas_notas = {};
+              }
+              if (!clientData.lineas_notas[lineIndex]) {
+                clientData.lineas_notas[lineIndex] = [];
+              }
+              clientData.lineas_notas[lineIndex].push(result.data);
+              
               // Agregar la nota visualmente
               const notesList = detailsRow.querySelector(`.notes-list[data-line-index="${lineIndex}"]`);
               const fecha = new Date(result.data.fecha).toLocaleString('es-ES', { 
@@ -449,6 +552,7 @@
                 hour: '2-digit', 
                 minute: '2-digit' 
               });
+              const autor = result.data.autor || '';
               
               // Remover mensaje "No hay notas"
               const noNotesMsg = notesList.querySelector('div[style*="No hay notas"]');
@@ -456,10 +560,10 @@
               
               // Agregar nueva nota
               const newNote = document.createElement('div');
-              newNote.style.cssText = 'background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px; margin-bottom:6px;';
+              newNote.style.cssText = 'background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px;';
               newNote.innerHTML = `
                 <div style="color:#0f172a;">${result.data.texto}</div>
-                <div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fecha}</div>
+                <div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fecha}${autor ? ' - ' + autor : ''}</div>
               `;
               notesList.appendChild(newNote);
               
@@ -486,76 +590,6 @@
             noteForm.style.display = 'none';
           });
         });
-        
-        // Función para mostrar notificaciones
-        function showNotification(message, type = 'success') {
-          // Remover notificación anterior si existe
-          const existing = document.querySelector('.custom-notification');
-          if (existing) existing.remove();
-          
-          const notification = document.createElement('div');
-          notification.className = 'custom-notification';
-          notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'success' ? '#10b981' : '#ef4444'};
-            color: white;
-            padding: 16px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
-            z-index: 9999;
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: slideIn 0.3s ease-out;
-          `;
-          
-          const icon = type === 'success' 
-            ? '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>'
-            : '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
-          
-          notification.innerHTML = `${icon}<span>${message}</span>`;
-          
-          // Agregar animación CSS
-          const style = document.createElement('style');
-          style.textContent = `
-            @keyframes slideIn {
-              from {
-                transform: translateX(100%);
-                opacity: 0;
-              }
-              to {
-                transform: translateX(0);
-                opacity: 1;
-              }
-            }
-            @keyframes slideOut {
-              from {
-                transform: translateX(0);
-                opacity: 1;
-              }
-              to {
-                transform: translateX(100%);
-                opacity: 0;
-              }
-            }
-          `;
-          if (!document.querySelector('#notification-styles')) {
-            style.id = 'notification-styles';
-            document.head.appendChild(style);
-          }
-          
-          document.body.appendChild(notification);
-          
-          // Auto-remover después de 3 segundos
-          setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => notification.remove(), 300);
-          }, 3000);
-        }
         
         // Ajustar espejo si existe util
         if (window.rebuildStickyHead) try{ window.rebuildStickyHead(); }catch{}
