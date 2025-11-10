@@ -396,13 +396,24 @@ router.get('/leads', protect, async (req, res) => {
     }
     // Si es supervisor, ver leads de su equipo
     else if (role === 'supervisor') {
-      filter = {
-        $or: [
-          { supervisor: user.username },
-          { team: user.team }
-        ]
-      };
-      console.log('[API LEADS] Filtro aplicado para supervisor:', user.username);
+      // Detectar si es supervisor de Team Lineas
+      const isLineasSupervisor = (user.team || '').toLowerCase().includes('lineas');
+      
+      if (isLineasSupervisor) {
+        // Para supervisores de Team Lineas: NO aplicar filtro en crmagente
+        // Se consultarán ambas bases y se combinarán después
+        console.log('[API LEADS] Supervisor de Team Lineas - consultará ambas bases de datos');
+        filter = {}; // Sin filtro en crmagente para obtener datos generales
+      } else {
+        // Para otros supervisores: filtro normal
+        filter = {
+          $or: [
+            { supervisor: user.username },
+            { team: user.team }
+          ]
+        };
+        console.log('[API LEADS] Filtro aplicado para supervisor:', user.username);
+      }
     }
     // Admin y Backoffice ven todo
     else {
@@ -513,10 +524,68 @@ router.get('/leads', protect, async (req, res) => {
     console.log(`[API LEADS] Total de documentos con filtro combinado: ${total}`);
 
     // TEMPORAL: Obtener TODOS los registros sin límite para debugging
-    const leads = await collection.find(combinedFilter)
+    let leads = await collection.find(combinedFilter)
       .sort({ _id: -1 })
       .toArray(); // SIN LÍMITE para asegurar que llegan TODOS
-    console.log(`[API LEADS] Leads obtenidos: ${leads.length} de ${total}`);
+    console.log(`[API LEADS] Leads de crmagente obtenidos: ${leads.length} de ${total}`);
+
+    // Si es supervisor de Team Lineas, consultar también TEAM_LINEAS y combinar
+    const isLineasSupervisor = role === 'supervisor' && (user.team || '').toLowerCase().includes('lineas');
+    if (isLineasSupervisor) {
+      try {
+        console.log('[API LEADS] Consultando base TEAM_LINEAS...');
+        const dbTL = getDbFor('TEAM_LINEAS');
+        if (dbTL) {
+          // Obtener todos los agentes del supervisor
+          const usersCol = db.collection('users');
+          const supUser = String(user?.username || '').toUpperCase();
+          const agents = await usersCol.find({ supervisor: supUser }).toArray();
+          
+          console.log(`[API LEADS] Agentes encontrados para ${supUser}:`, agents.length);
+          
+          if (agents && agents.length > 0) {
+            const lineasLeads = [];
+            
+            for (const agent of agents) {
+              const colName = __normName(agent.username);
+              const col = dbTL.collection(colName);
+              
+              // Obtener clientes del agente
+              const agentData = await col.find({}).toArray();
+              
+              // Transformar datos de TEAM_LINEAS al formato de leads
+              const transformedData = agentData.map(item => ({
+                ...item,
+                _id: String(item._id),
+                agente: agent.username,
+                agenteNombre: agent.username,
+                supervisor: supUser,
+                team: user.team,
+                database: 'TEAM_LINEAS', // Marcador para identificar origen
+                // Mapear campos de TEAM_LINEAS a formato estándar
+                nombre: item.nombre || item.nombreCompleto,
+                telefono: item.telefono || item.celular,
+                status: item.status || 'activo',
+                mercado: item.mercado || 'ICON',
+                dia_venta: item.createdAt ? new Date(item.createdAt).toISOString().split('T')[0] : null,
+                createdAt: item.createdAt || item.creadoEn
+              }));
+              
+              lineasLeads.push(...transformedData);
+            }
+            
+            console.log(`[API LEADS] Leads de TEAM_LINEAS obtenidos: ${lineasLeads.length}`);
+            
+            // Combinar leads de ambas bases
+            leads = [...leads, ...lineasLeads];
+            console.log(`[API LEADS] Total combinado: ${leads.length}`);
+          }
+        }
+      } catch (error) {
+        console.error('[API LEADS] Error consultando TEAM_LINEAS:', error);
+        // Continuar con solo los leads de crmagente
+      }
+    }
 
     // Log de registros sin fecha
     const sinFecha = leads.filter(lead => !lead.createdAt).length;
@@ -530,8 +599,8 @@ router.get('/leads', protect, async (req, res) => {
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: leads.length,
+        pages: Math.ceil(leads.length / limit)
       }
     });
 

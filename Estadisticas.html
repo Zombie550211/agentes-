@@ -4990,21 +4990,29 @@
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const nombreAgente = userData.name || 'Usuario';
         
-        // Construir la URL del endpoint de leads con filtro por agente
+        // Determinar si el usuario es de Team Lineas
+        const roleLower = ((userData && userData.role) || '').toString().toLowerCase();
+        const team = ((userData && userData.team) || '').toString().toLowerCase();
+        const isTeamLineas = /lineas/.test(team) || /lineas/.test(roleLower) || roleLower.includes('supervisor');
+        
+        // Usar siempre /api/leads ya que ahora consulta ambas bases de datos
+        // para supervisores de Team Lineas
         let url = '/api/leads';
+        
         try {
           const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
           const user = JSON.parse(userStr);
-          const roleLower = ((user && user.role) || '').toString().toLowerCase();
           const agenteNombreQuery = (user && (user.username || user.name)) || nombreAgente || '';
           const u = new URL(url, location.origin);
           const params = new URLSearchParams(u.search);
-          // Solo los agentes se filtran por su propio nombre; roles privilegiados ven todo
-          if (roleLower === 'agent' && agenteNombreQuery) {
+          
+          // Para Team Lineas, el endpoint ya maneja la lógica de supervisor vs agente
+          // Para otros equipos, solo los agentes se filtran por su propio nombre
+          if (!isTeamLineas && roleLower === 'agent' && agenteNombreQuery) {
             params.set('agente', agenteNombreQuery);
             console.info('[Filtro agente] (rol agent) Enviado en query a /api/leads:', agenteNombreQuery);
           } else {
-            console.info('[Filtro agente] Rol no-agent detectado (', roleLower, '): no se envía parámetro agente');
+            console.info('[Filtro agente] Rol privilegiado o Team Lineas detectado (', roleLower, team, '): endpoint maneja la lógica');
           }
           const qs = params.toString();
           url = qs ? `${u.pathname}?${qs}` : `${u.pathname}`;

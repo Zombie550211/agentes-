@@ -224,7 +224,7 @@
       allMenuItems.lead.href = '/TEAM LINEAS/LEAD-LINEAS.html';
       allMenuItems.costumer.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
       allMenuItems.ranking.href = '/TEAM LINEAS/RANKING-LINEAS.html';
-      allMenuItems.estadisticas.href = '/Estadisticas.html';
+      allMenuItems.estadisticas.href = '../Estadisticas.html';
     }
 
     let menuHTML = '';
