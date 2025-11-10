@@ -97,6 +97,251 @@
       const $ = (s) => document.querySelector(s);
       const $$ = (s) => Array.from(document.querySelectorAll(s));
 
+      // Función global para mostrar notificaciones con diseño mejorado
+      function showNotification(message, type = 'success') {
+        // Remover notificación anterior si existe
+        const existing = document.querySelector('.custom-notification');
+        if (existing) existing.remove();
+        
+        const colors = {
+          success: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
+          error: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
+          warning: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
+          info: { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' }
+        };
+        
+        const currentColor = colors[type] || colors.success;
+        
+        const notification = document.createElement('div');
+        notification.className = 'custom-notification';
+        notification.style.cssText = `
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          background: ${currentColor.bg};
+          color: white;
+          padding: 16px 24px;
+          border-radius: 12px;
+          border-left: 4px solid ${currentColor.border};
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1);
+          z-index: 10001;
+          font-size: 14px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 300px;
+          max-width: 500px;
+          animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          backdrop-filter: blur(10px);
+        `;
+        
+        const icons = {
+          success: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+          error: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+          warning: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+          info: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+        };
+        
+        const icon = icons[type] || icons.success;
+        
+        notification.innerHTML = `
+          <div style="flex-shrink: 0;">${icon}</div>
+          <div style="flex: 1; line-height: 1.5;">${message}</div>
+          <button class="notification-close" style="background: transparent; border: none; color: white; cursor: pointer; padding: 4px; display: flex; align-items: center; opacity: 0.8; transition: opacity 0.2s;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        `;
+        
+        // Agregar animaciones CSS si no existen
+        if (!document.querySelector('#notification-styles')) {
+          const style = document.createElement('style');
+          style.id = 'notification-styles';
+          style.textContent = `
+            @keyframes slideInBounce {
+              0% {
+                transform: translateX(120%) scale(0.9);
+                opacity: 0;
+              }
+              60% {
+                transform: translateX(-10px) scale(1.02);
+                opacity: 1;
+              }
+              100% {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+              }
+            }
+            @keyframes slideOutFade {
+              0% {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+              }
+              100% {
+                transform: translateX(120%) scale(0.9);
+                opacity: 0;
+              }
+            }
+            .notification-close:hover {
+              opacity: 1 !important;
+              transform: rotate(90deg);
+              transition: all 0.3s ease;
+            }
+            @keyframes fadeIn {
+              from {
+                opacity: 0;
+              }
+              to {
+                opacity: 1;
+              }
+            }
+            @keyframes scaleIn {
+              0% {
+                transform: scale(0.9);
+                opacity: 0;
+              }
+              100% {
+                transform: scale(1);
+                opacity: 1;
+              }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Botón de cerrar
+        const closeBtn = notification.querySelector('.notification-close');
+        closeBtn.addEventListener('click', () => {
+          notification.style.animation = 'slideOutFade 0.3s ease-in';
+          setTimeout(() => notification.remove(), 300);
+        });
+        
+        // Auto-remover después de 4 segundos
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            notification.style.animation = 'slideOutFade 0.3s ease-in';
+            setTimeout(() => notification.remove(), 300);
+          }
+        }, 4000);
+      }
+
+      // Función para mostrar confirmación personalizada
+      function showConfirm(title, message) {
+        return new Promise((resolve) => {
+          const overlay = document.createElement('div');
+          overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10002;
+            animation: fadeIn 0.2s ease-out;
+            backdrop-filter: blur(4px);
+          `;
+          
+          const modal = document.createElement('div');
+          modal.style.cssText = `
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: scaleIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            overflow: hidden;
+          `;
+          
+          modal.innerHTML = `
+            <div style="padding: 24px 24px 20px; border-bottom: 1px solid #e5e7eb;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                </div>
+                <h3 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 700;">${title}</h3>
+              </div>
+            </div>
+            <div style="padding: 20px 24px;">
+              <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">${message}</p>
+            </div>
+            <div style="display: flex; gap: 12px; padding: 20px 24px; background: #f8f9fa; border-top: 1px solid #e5e7eb;">
+              <button class="confirm-cancel" style="flex: 1; background: white; color: #64748b; border: 1px solid #e5e7eb; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                Cancelar
+              </button>
+              <button class="confirm-accept" style="flex: 1; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
+                Aceptar
+              </button>
+            </div>
+          `;
+          
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+          
+          // Agregar efectos hover
+          const cancelBtn = modal.querySelector('.confirm-cancel');
+          const acceptBtn = modal.querySelector('.confirm-accept');
+          
+          cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f8f9fa';
+            cancelBtn.style.borderColor = '#cbd5e1';
+          });
+          cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+            cancelBtn.style.borderColor = '#e5e7eb';
+          });
+          
+          acceptBtn.addEventListener('mouseenter', () => {
+            acceptBtn.style.transform = 'translateY(-2px)';
+            acceptBtn.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+          });
+          acceptBtn.addEventListener('mouseleave', () => {
+            acceptBtn.style.transform = 'translateY(0)';
+            acceptBtn.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+          });
+          
+          // Event listeners
+          cancelBtn.addEventListener('click', () => {
+            overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
+            setTimeout(() => {
+              overlay.remove();
+              resolve(false);
+            }, 200);
+          });
+          
+          acceptBtn.addEventListener('click', () => {
+            overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
+            setTimeout(() => {
+              overlay.remove();
+              resolve(true);
+            }, 200);
+          });
+          
+          // Cerrar al hacer clic fuera del modal
+          overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+              overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
+              setTimeout(() => {
+                overlay.remove();
+                resolve(false);
+              }, 200);
+            }
+          });
+        });
+      }
+
       // Configuración de actualización de STATUS
       const STATUS_ENDPOINT = '/api/lineas-team/status'; // Ajustar si tu ruta es distinta
       const STATUS_METHOD = 'PUT';
@@ -458,76 +703,6 @@
           });
         });
         
-        // Función para mostrar notificaciones
-        function showNotification(message, type = 'success') {
-          // Remover notificación anterior si existe
-          const existing = document.querySelector('.custom-notification');
-          if (existing) existing.remove();
-          
-          const notification = document.createElement('div');
-          notification.className = 'custom-notification';
-          notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'success' ? '#10b981' : '#ef4444'};
-            color: white;
-            padding: 16px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
-            z-index: 9999;
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: slideIn 0.3s ease-out;
-          `;
-          
-          const icon = type === 'success' 
-            ? '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>'
-            : '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
-          
-          notification.innerHTML = `${icon}<span>${message}</span>`;
-          
-          // Agregar animación CSS si no existe
-          if (!document.querySelector('#notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-              @keyframes slideIn {
-                from {
-                  transform: translateX(100%);
-                  opacity: 0;
-                }
-                to {
-                  transform: translateX(0);
-                  opacity: 1;
-                }
-              }
-              @keyframes slideOut {
-                from {
-                  transform: translateX(0);
-                  opacity: 1;
-                }
-                to {
-                  transform: translateX(100%);
-                  opacity: 0;
-                }
-              }
-            `;
-            document.head.appendChild(style);
-          }
-          
-          document.body.appendChild(notification);
-          
-          // Auto-remover después de 3 segundos
-          setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => notification.remove(), 300);
-          }, 3000);
-        }
-        
         // Event listeners para agregar nota
         document.querySelectorAll('.btn-save-note').forEach(btn => {
           btn.addEventListener('click', async function(e) {
@@ -721,9 +896,12 @@
           btn.addEventListener('click', async function(e) {
             e.stopPropagation();
             
-            if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
-              return;
-            }
+            const confirmed = await showConfirm(
+              'Eliminar Nota',
+              '¿Estás seguro de que deseas eliminar esta nota? Esta acción no se puede deshacer.'
+            );
+            
+            if (!confirmed) return;
             
             const clientId = this.getAttribute('data-client-id');
             const lineIndex = parseInt(this.getAttribute('data-line-index'));
@@ -926,9 +1104,12 @@
             const clientData = allItems.find(item => (item._id || item.id) === clientId);
             const clientName = clientData?.nombre_cliente || 'este cliente';
             
-            if (!confirm(`¿Estás seguro de que deseas eliminar a ${clientName}?\n\nEsta acción no se puede deshacer.`)) {
-              return;
-            }
+            const confirmed = await showConfirm(
+              'Eliminar Cliente',
+              `¿Estás seguro de que deseas eliminar a <strong>${clientName}</strong>?<br><br>Esta acción no se puede deshacer y se perderán todos los datos asociados.`
+            );
+            
+            if (!confirmed) return;
             
             try {
               const token = localStorage.getItem('token') || sessionStorage.getItem('token');
