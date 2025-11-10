@@ -366,9 +366,27 @@
                         }
                         const autor = nota.autor || '';
                         return `
-                        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px;">
-                          <div style="color:#0f172a;">${textoNota}</div>
-                          ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
+                        <div class="note-item" data-note-index="${nIdx}" style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; position:relative;">
+                          <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+                            <div style="flex:1;">
+                              <div class="note-text" style="color:#0f172a; font-size:13px;">${textoNota}</div>
+                              ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                              <button class="btn-edit-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px;" title="Editar nota">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                              </button>
+                              <button class="btn-delete-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px;" title="Eliminar nota">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                  <polyline points="3 6 5 6 21 6"></polyline>
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>`;
                       }).join('') : '<div style="color:#94a3b8; font-size:12px; padding:8px 0;">No hay notas agregadas</div>'}
                     </div>
@@ -588,6 +606,151 @@
             const textarea = noteForm.querySelector('.note-textarea');
             textarea.value = '';
             noteForm.style.display = 'none';
+          });
+        });
+        
+        // Event listeners para editar nota
+        document.querySelectorAll('.btn-edit-note').forEach(btn => {
+          btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const clientId = this.getAttribute('data-client-id');
+            const lineIndex = parseInt(this.getAttribute('data-line-index'));
+            const noteIndex = parseInt(this.getAttribute('data-note-index'));
+            
+            const noteItem = this.closest('.note-item');
+            const noteTextDiv = noteItem.querySelector('.note-text');
+            const currentText = noteTextDiv.textContent;
+            
+            // Crear textarea para editar
+            const editArea = document.createElement('textarea');
+            editArea.value = currentText;
+            editArea.style.cssText = 'width:100%; min-height:60px; padding:6px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; font-family:inherit; resize:vertical;';
+            
+            // Crear botones de guardar/cancelar
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display:flex; gap:6px; margin-top:6px;';
+            btnContainer.innerHTML = `
+              <button class="btn-save-edit" style="background:#10b981; color:#fff; border:none; padding:4px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:600;">Guardar</button>
+              <button class="btn-cancel-edit" style="background:#64748b; color:#fff; border:none; padding:4px 12px; border-radius:4px; font-size:11px; cursor:pointer;">Cancelar</button>
+            `;
+            
+            // Reemplazar contenido con textarea
+            const originalContent = noteTextDiv.parentElement.innerHTML;
+            noteTextDiv.parentElement.innerHTML = '';
+            noteTextDiv.parentElement.appendChild(editArea);
+            noteTextDiv.parentElement.appendChild(btnContainer);
+            editArea.focus();
+            
+            // Cancelar edición
+            btnContainer.querySelector('.btn-cancel-edit').addEventListener('click', function() {
+              noteTextDiv.parentElement.innerHTML = originalContent;
+              // Re-agregar event listeners
+              renderTable(applyFilters(allItems));
+            });
+            
+            // Guardar edición
+            btnContainer.querySelector('.btn-save-edit').addEventListener('click', async function() {
+              const newText = editArea.value.trim();
+              if (!newText) {
+                showNotification('La nota no puede estar vacía', 'error');
+                return;
+              }
+              
+              try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const response = await fetch('/api/lineas-team/notes/edit', {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    clientId: clientId,
+                    lineIndex: lineIndex,
+                    noteIndex: noteIndex,
+                    noteText: newText
+                  })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok || !result.success) {
+                  throw new Error(result.message || 'Error al editar la nota');
+                }
+                
+                // Actualizar en allItems
+                const detailsRow = noteItem.closest('.details-row');
+                const rowIndex = detailsRow.getAttribute('data-row-index');
+                const clientData = allItems[parseInt(rowIndex)];
+                if (clientData.lineas_notas && clientData.lineas_notas[lineIndex]) {
+                  clientData.lineas_notas[lineIndex][noteIndex].texto = newText;
+                  clientData.lineas_notas[lineIndex][noteIndex].editado = new Date().toISOString();
+                }
+                
+                showNotification('Nota actualizada correctamente', 'success');
+                
+                // Re-renderizar la tabla
+                renderTable(applyFilters(allItems));
+              } catch (error) {
+                console.error('Error al editar nota:', error);
+                showNotification('Error al editar la nota: ' + error.message, 'error');
+              }
+            });
+          });
+        });
+        
+        // Event listeners para eliminar nota
+        document.querySelectorAll('.btn-delete-note').forEach(btn => {
+          btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            
+            if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
+              return;
+            }
+            
+            const clientId = this.getAttribute('data-client-id');
+            const lineIndex = parseInt(this.getAttribute('data-line-index'));
+            const noteIndex = parseInt(this.getAttribute('data-note-index'));
+            
+            try {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              const response = await fetch('/api/lineas-team/notes/delete', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  clientId: clientId,
+                  lineIndex: lineIndex,
+                  noteIndex: noteIndex
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Error al eliminar la nota');
+              }
+              
+              // Actualizar en allItems
+              const noteItem = this.closest('.note-item');
+              const detailsRow = noteItem.closest('.details-row');
+              const rowIndex = detailsRow.getAttribute('data-row-index');
+              const clientData = allItems[parseInt(rowIndex)];
+              
+              if (clientData.lineas_notas && clientData.lineas_notas[lineIndex]) {
+                clientData.lineas_notas[lineIndex].splice(noteIndex, 1);
+              }
+              
+              showNotification('Nota eliminada correctamente', 'success');
+              
+              // Re-renderizar la tabla
+              renderTable(applyFilters(allItems));
+            } catch (error) {
+              console.error('Error al eliminar nota:', error);
+              showNotification('Error al eliminar la nota: ' + error.message, 'error');
+            }
           });
         });
         

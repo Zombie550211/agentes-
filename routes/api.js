@@ -983,4 +983,213 @@ router.post('/lineas-team/notes', protect, async (req, res) => {
   }
 });
 
+/**
+ * @route PUT /api/lineas-team/notes/edit
+ * @desc Editar una nota específica de una línea
+ * @access Private (Supervisor/Admin)
+ */
+router.put('/lineas-team/notes/edit', protect, async (req, res) => {
+  try {
+    console.log('[API LINEAS NOTES EDIT] Solicitud recibida');
+    const { clientId, lineIndex, noteIndex, noteText } = req.body;
+
+    if (!clientId || lineIndex === undefined || noteIndex === undefined || !noteText?.trim()) {
+      return res.status(400).json({ success: false, message: 'Parámetros incompletos' });
+    }
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const username = req.user?.username;
+
+    if (!['supervisor', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible' });
+    }
+
+    const { ObjectId } = require('mongodb');
+    let objId = null;
+    try { objId = new ObjectId(clientId); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: clientId };
+
+    let agentsToSearch = [];
+    if (role === 'supervisor') {
+      const mainDb = getDb();
+      const usersCol = mainDb.collection('users');
+      const agents = await usersCol.find({ 
+        $or: [
+          { supervisor: username },
+          { supervisor: { $regex: username, $options: 'i' } }
+        ],
+        role: { $regex: /agente/i }
+      }).toArray();
+      
+      agentsToSearch = agents.map(a => a.username);
+      
+      if (agentsToSearch.length === 0) {
+        if (username.includes('JONATHAN')) {
+          agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
+        } else if (username.includes('LUIS')) {
+          agentsToSearch = ['DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'JOCELYN_REYES', 'JONATHAN_GARCIA', 'NANCY_LOPEZ'];
+        }
+      }
+    }
+
+    let updated = false;
+    
+    if (role === 'supervisor') {
+      for (const agentUsername of agentsToSearch) {
+        const colName = agentUsername.replace(/\s+/g, '_').toUpperCase();
+        
+        try {
+          const collection = db.collection(colName);
+          const doc = await collection.findOne(filter);
+          
+          if (doc && doc.lineas_notas && doc.lineas_notas[lineIndex] && doc.lineas_notas[lineIndex][noteIndex]) {
+            const updateField = `lineas_notas.${lineIndex}.${noteIndex}.texto`;
+            const editedField = `lineas_notas.${lineIndex}.${noteIndex}.editado`;
+            
+            const result = await collection.updateOne(
+              filter,
+              { 
+                $set: { 
+                  [updateField]: noteText.trim(),
+                  [editedField]: new Date().toISOString()
+                } 
+              }
+            );
+            
+            if (result.modifiedCount > 0) {
+              updated = true;
+              console.log(`[API LINEAS NOTES EDIT] ✅ Nota editada en ${colName}`);
+              break;
+            }
+          }
+        } catch (err) {
+          console.log(`[API LINEAS NOTES EDIT] Error en ${colName}:`, err.message);
+        }
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Nota editada correctamente'
+    });
+  } catch (e) {
+    console.error('[API LINEAS NOTES EDIT] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
+/**
+ * @route DELETE /api/lineas-team/notes/delete
+ * @desc Eliminar una nota específica de una línea
+ * @access Private (Supervisor/Admin)
+ */
+router.delete('/lineas-team/notes/delete', protect, async (req, res) => {
+  try {
+    console.log('[API LINEAS NOTES DELETE] Solicitud recibida');
+    const { clientId, lineIndex, noteIndex } = req.body;
+
+    if (!clientId || lineIndex === undefined || noteIndex === undefined) {
+      return res.status(400).json({ success: false, message: 'Parámetros incompletos' });
+    }
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const username = req.user?.username;
+
+    if (!['supervisor', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible' });
+    }
+
+    const { ObjectId } = require('mongodb');
+    let objId = null;
+    try { objId = new ObjectId(clientId); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: clientId };
+
+    let agentsToSearch = [];
+    if (role === 'supervisor') {
+      const mainDb = getDb();
+      const usersCol = mainDb.collection('users');
+      const agents = await usersCol.find({ 
+        $or: [
+          { supervisor: username },
+          { supervisor: { $regex: username, $options: 'i' } }
+        ],
+        role: { $regex: /agente/i }
+      }).toArray();
+      
+      agentsToSearch = agents.map(a => a.username);
+      
+      if (agentsToSearch.length === 0) {
+        if (username.includes('JONATHAN')) {
+          agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
+        } else if (username.includes('LUIS')) {
+          agentsToSearch = ['DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'JOCELYN_REYES', 'JONATHAN_GARCIA', 'NANCY_LOPEZ'];
+        }
+      }
+    }
+
+    let deleted = false;
+    
+    if (role === 'supervisor') {
+      for (const agentUsername of agentsToSearch) {
+        const colName = agentUsername.replace(/\s+/g, '_').toUpperCase();
+        
+        try {
+          const collection = db.collection(colName);
+          const doc = await collection.findOne(filter);
+          
+          if (doc && doc.lineas_notas && doc.lineas_notas[lineIndex] && doc.lineas_notas[lineIndex][noteIndex]) {
+            // Usar $pull para eliminar el elemento del array
+            const updateField = `lineas_notas.${lineIndex}`;
+            
+            // Primero obtener el array completo
+            const notasArray = doc.lineas_notas[lineIndex];
+            // Eliminar el elemento por índice
+            notasArray.splice(noteIndex, 1);
+            
+            // Actualizar el array completo
+            const result = await collection.updateOne(
+              filter,
+              { $set: { [updateField]: notasArray } }
+            );
+            
+            if (result.modifiedCount > 0) {
+              deleted = true;
+              console.log(`[API LINEAS NOTES DELETE] ✅ Nota eliminada en ${colName}`);
+              break;
+            }
+          }
+        } catch (err) {
+          console.log(`[API LINEAS NOTES DELETE] Error en ${colName}:`, err.message);
+        }
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Nota eliminada correctamente'
+    });
+  } catch (e) {
+    console.error('[API LINEAS NOTES DELETE] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
 module.exports = router;
