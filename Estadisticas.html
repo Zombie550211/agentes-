@@ -16,7 +16,8 @@
   <!-- Scripts de app -->
   <!-- Cargar primero las dependencias -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- ChartDataLabels removido - causaba etiquetas duplicadas -->
+  <!-- ChartDataLabels para mostrar totales en barras -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -32,6 +33,12 @@
       console.error('Error: No se pudo cargar Chart.js');
     } else {
       console.log('Chart.js cargado correctamente');
+      
+      // Desregistrar ChartDataLabels globalmente para evitar que se aplique a todos los charts
+      if (typeof ChartDataLabels !== 'undefined') {
+        Chart.unregister(ChartDataLabels);
+        console.log('ChartDataLabels desregistrado globalmente - se aplicará solo a gráficas de barras');
+      }
     }
 
     // Marcar inicialización de porcentaje para evitar dibujar donuts provisionales
@@ -1886,7 +1893,7 @@
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-              padding: 10
+              padding: { top: 30, right: 10, bottom: 10, left: 10 }
             },
             plugins: { 
               legend: { display: false },
@@ -1905,7 +1912,16 @@
                 }
               },
               datalabels: {
-                display: false  // Deshabilitar etiquetas en las barras
+                anchor: 'end',
+                align: 'top',
+                color: '#1f3b63',
+                font: {
+                  weight: 'bold',
+                  size: 13
+                },
+                formatter: function(value) {
+                  return value;
+                }
               }
             },
             scales: {
@@ -1935,7 +1951,9 @@
               }
             }
           },
-          plugins: [{
+          plugins: [
+            ChartDataLabels,  // Agregar ChartDataLabels solo a esta gráfica
+            {
             // Plugin personalizado para efecto 3D con sombras
             id: 'barShadow3D',
             beforeDatasetsDraw: (chart) => {
@@ -2098,6 +2116,9 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+              padding: { top: 30, right: 10, bottom: 10, left: 10 }
+            },
             plugins: {
               legend: { display: false },
               title: {
@@ -2133,7 +2154,8 @@
                 }
               }
             }
-          }
+          },
+          plugins: [ChartDataLabels]  // Agregar ChartDataLabels a esta gráfica
         });
 
       } catch(e) { 
@@ -2252,6 +2274,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 30, right: 10, bottom: 10, left: 10 }
+          },
           plugins: {
             legend: {
               display: false
@@ -2261,6 +2286,18 @@
                 label: function(context) {
                   return `Ventas: ${context.raw}`;
                 }
+              }
+            },
+            datalabels: {
+              anchor: 'end',
+              align: 'top',
+              color: '#1f3b63',
+              font: {
+                weight: 'bold',
+                size: 13
+              },
+              formatter: function(value) {
+                return value;
               }
             }
           },
@@ -2289,7 +2326,8 @@
               }
             }
           }
-        }
+        },
+        plugins: [ChartDataLabels]  // Agregar ChartDataLabels a esta gráfica
       };
       
       // Crear el grÃ¡fico
@@ -2341,6 +2379,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 30, right: 10, bottom: 10, left: 10 }
+          },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -2348,6 +2389,18 @@
                 label: function(context) {
                   return `Ventas: ${context.raw}`;
                 }
+              }
+            },
+            datalabels: {
+              anchor: 'end',
+              align: 'top',
+              color: '#1f3b63',
+              font: {
+                weight: 'bold',
+                size: 13
+              },
+              formatter: function(value) {
+                return value;
               }
             }
           },
@@ -2373,7 +2426,8 @@
               }
             }
           }
-        }
+        },
+        plugins: [ChartDataLabels]  // Agregar ChartDataLabels a esta gráfica
       };
       
       try {
@@ -4866,7 +4920,8 @@
             elements: {
               point: { radius: 0, hoverRadius: 0 }
             }
-          }
+          },
+          plugins: [ChartDataLabels]  // Agregar ChartDataLabels a esta gráfica
         });
       } catch (error) {
         console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
@@ -5393,7 +5448,10 @@
           try { ventasPuntajeChart.destroy(); } catch (_) {}
           ventasPuntajeChart = null;
         }
-        ventasPuntajeChart = new Chart(ctx, config);
+        ventasPuntajeChart = new Chart(ctx, {
+          ...config,
+          plugins: [ChartDataLabels]  // Agregar ChartDataLabels a esta gráfica
+        });
         
         console.log('Gráfica de ventas y puntaje actualizada correctamente');
         return true;
