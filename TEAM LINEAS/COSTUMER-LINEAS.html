@@ -44,6 +44,9 @@
               <option value="pending">PENDING</option>
               <option value="repro">REPRO</option>
             </select>
+            <select id="agentFilter" class="form-control" style="min-width:180px;">
+              <option value="">AGENTE: Todos</option>
+            </select>
           </div>
           
         </div>
@@ -143,6 +146,7 @@
       function applyFilters(items){
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
+        const qagent = ($('#agentFilter')?.value || '').trim().toUpperCase();
         const nombre = '';
         const tel = '';
         const cuenta = '';
@@ -185,6 +189,10 @@
           if (idv && !(String(it.id||'').includes(idv))) return false;
           if (mercado.length && !mercado.includes(String(it.mercado||''))) return false;
           if (sup && !String(it.supervisor||'').toUpperCase().includes(sup.toUpperCase())) return false;
+          // Filtro por agente asignado
+          if (qagent && !(String(it.agenteAsignado||'').toUpperCase().includes(qagent) || 
+                          String(it.agenteNombre||'').toUpperCase().includes(qagent) ||
+                          String(it.agente||'').toUpperCase().includes(qagent))) return false;
           return true;
         });
       }
@@ -248,16 +256,32 @@
       // Live filtering from quick controls
       const q = $('#q');
       const qs = $('#qs');
+      const agentFilter = $('#agentFilter');
       if (q) q.addEventListener('input', ()=> renderTable(applyFilters(allItems)) );
       if (qs) qs.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+      if (agentFilter) agentFilter.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
 
       // Detect supervisor por usuario y marcar por defecto
       let defaultSupervisor = '';
+      let agentsList = [];
       try {
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const name = String(user.supervisor||user.username||'').toUpperCase();
-        if (name.includes('JONATHAN')) defaultSupervisor = 'JONATHAN F';
-        else if (name.includes('GUTIERREZ') || name.includes('LUIS')) defaultSupervisor = 'LUIS G';
+        const role = String(user.role||'').toLowerCase();
+        
+        if (name.includes('JONATHAN')) {
+          defaultSupervisor = 'JONATHAN F';
+          agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ'];
+        } else if (name.includes('GUTIERREZ') || name.includes('LUIS')) {
+          defaultSupervisor = 'LUIS G';
+          agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ'];
+        }
+        
+        // Poblar filtro de agentes si es supervisor
+        if (role.includes('supervisor') && agentFilter && agentsList.length > 0) {
+          agentFilter.innerHTML = '<option value="">AGENTE: Todos</option>' + 
+            agentsList.map(a => `<option value="${a}">${a}</option>`).join('');
+        }
       } catch {}
       // Prefiltro aplicado en applyFilters sin mostrar controles
 
