@@ -174,11 +174,11 @@ router.post('/lineas', protect, async (req, res) => {
     const ownerId = req.user?.id || req.user?._id || null;
     // Determinar el dueño/colección destino
     let targetName = ownerName;
-    if (roleLc.includes('supervisor') && body.agenteAsignado) {
+    const agenteSel = String(body.agenteAsignado || '').trim();
+    if (roleLc.includes('supervisor') && agenteSel) {
       try {
         const db = getDb();
         const usersCol = db.collection('users');
-        const agenteSel = String(body.agenteAsignado).trim();
         const agentDoc = await usersCol.findOne({ username: agenteSel });
         const supUser = String(req.user?.username || '').toUpperCase();
         const agentSup = String(agentDoc?.supervisor || '').toUpperCase();
