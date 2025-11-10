@@ -806,4 +806,166 @@ async function commonAddNote(req, res) {
 router.post('/customers/:id/notes', protect, commonAddNote);
 router.post('/leads/:id/notes', protect, commonAddNote);
 
+/**
+ * @route POST /api/lineas-team/notes
+ * @desc Agregar nota a una línea específica de un cliente en Team Lineas
+ * @access Private (Supervisor/Admin)
+ */
+router.post('/lineas-team/notes', protect, async (req, res) => {
+  try {
+    console.log('[API LINEAS NOTES] Solicitud recibida');
+    console.log('[API LINEAS NOTES] Usuario:', req.user?.username, 'Rol:', req.user?.role);
+    console.log('[API LINEAS NOTES] Body:', req.body);
+
+    const { clientId, lineIndex, noteText } = req.body;
+
+    // Validar parámetros
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'clientId requerido' });
+    }
+    if (lineIndex === undefined || lineIndex === null) {
+      return res.status(400).json({ success: false, message: 'lineIndex requerido' });
+    }
+    if (!noteText || !String(noteText).trim()) {
+      return res.status(400).json({ success: false, message: 'noteText requerido' });
+    }
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const username = req.user?.username;
+
+    // Verificar permisos (supervisores y admins)
+    if (!['supervisor', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      console.error('[API LINEAS NOTES] No se pudo conectar a la base de datos TEAM_LINEAS');
+      return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible' });
+    }
+    
+    console.log('[API LINEAS NOTES] Conectado a base de datos TEAM_LINEAS');
+
+    // Para supervisores, buscar en las colecciones de sus agentes
+    let agentsToSearch = [];
+    if (role === 'supervisor') {
+      const usersCol = db.collection('users');
+      
+      // Buscar agentes que tengan este supervisor
+      const agents = await usersCol.find({ 
+        $or: [
+          { supervisor: username },
+          { supervisor: { $regex: username, $options: 'i' } }
+        ],
+        role: { $regex: /agente/i }
+      }).toArray();
+      
+      agentsToSearch = agents.map(a => a.username);
+      console.log('[API LINEAS NOTES] Agentes del supervisor:', agentsToSearch);
+      
+      // Si no encuentra agentes, usar las colecciones directamente basándose en el equipo
+      if (agentsToSearch.length === 0) {
+        // Obtener las colecciones del equipo JONATHAN F
+        const collections = await db.listCollections().toArray();
+        if (username.includes('JONATHAN')) {
+          agentsToSearch = ['VICTOR_HURTADO', 'EDWARD_RAMIREZ', 'CRISTIAN_RIVERA', 'OSCAR_RIVERA', 'JOCELYN_REYES', 'NANCY_LOPEZ'];
+        } else if (username.includes('LUIS')) {
+          agentsToSearch = ['DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'JOCELYN_REYES', 'JONATHAN_GARCIA', 'NANCY_LOPEZ'];
+        }
+        console.log('[API LINEAS NOTES] Usando agentes predefinidos para', username, ':', agentsToSearch);
+      }
+    }
+
+    // Buscar el documento en las colecciones correspondientes
+    const { ObjectId } = require('mongodb');
+    let objId = null;
+    try { objId = new ObjectId(clientId); } catch { objId = null; }
+    const filter = objId ? { _id: objId } : { _id: clientId };
+
+    let updated = false;
+    let collectionName = '';
+
+    // Crear la nota
+    const nota = {
+      texto: String(noteText).trim(),
+      fecha: new Date().toISOString(),
+      autor: username
+    };
+
+    if (role === 'supervisor') {
+      // Buscar en colecciones de agentes
+      for (const agentUsername of agentsToSearch) {
+        // Las colecciones están con guiones bajos y mayúsculas
+        const colName = agentUsername.replace(/\s+/g, '_').toUpperCase();
+        
+        try {
+          const collection = db.collection(colName);
+          
+          // Actualizar el array de notas de la línea específica
+          const updateField = `lines.${lineIndex}.notas`;
+          
+          console.log(`[API LINEAS NOTES] Buscando en colección: ${colName} con filtro:`, filter);
+          
+          const result = await collection.updateOne(
+            filter,
+            { $push: { [updateField]: nota } }
+          );
+          
+          if (result.matchedCount > 0) {
+            updated = true;
+            collectionName = colName;
+            console.log(`[API LINEAS NOTES] Nota agregada en ${colName}, línea ${lineIndex}`);
+            break;
+          } else {
+            console.log(`[API LINEAS NOTES] No encontrado en ${colName} con filtro:`, filter);
+          }
+        } catch (err) {
+          console.log(`[API LINEAS NOTES] Error buscando en ${colName}:`, err.message);
+        }
+      }
+    } else if (role === 'admin') {
+      // Para admin, buscar en todas las colecciones de agentes
+      const collections = await db.listCollections().toArray();
+      const agentCollections = collections
+        .filter(c => {
+          // Filtrar colecciones que sean nombres de agentes (todas mayúsculas con guiones bajos)
+          return /^[A-Z_]+$/.test(c.name) && !c.name.startsWith('system.');
+        })
+        .map(c => c.name);
+
+      console.log('[API LINEAS NOTES] Colecciones de agentes encontradas:', agentCollections);
+
+      for (const colName of agentCollections) {
+        const collection = db.collection(colName);
+        const updateField = `lines.${lineIndex}.notas`;
+        const result = await collection.updateOne(
+          filter,
+          { $push: { [updateField]: nota } }
+        );
+        
+        if (result.matchedCount > 0) {
+          updated = true;
+          collectionName = colName;
+          console.log(`[API LINEAS NOTES] Nota agregada en ${colName}, línea ${lineIndex}`);
+          break;
+        }
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Nota agregada correctamente',
+      data: nota,
+      collection: collectionName
+    });
+  } catch (e) {
+    console.error('[API LINEAS NOTES] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
 module.exports = router;

@@ -48,7 +48,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
 if (!process.env.JWT_SECRET) {
   console.warn('[WARN] JWT_SECRET no definido en variables de entorno. Usa un valor fuerte en producción.');
 }
-const JWT_EXPIRES_IN = '24h'; // El token expira en 24 horas
+const JWT_EXPIRES_IN = '7d'; // El token expira en 7 días
 
 // Silenciar logs en producción (mantener warn/error)
 if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {

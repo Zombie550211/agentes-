@@ -36,7 +36,8 @@
           console.warn('Token inválido o expirado. Redirigiendo al login...');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = 'index.html';
+          // Redirigir a la raíz del sitio
+          window.location.href = '/login.html';
         }
         return response;
       })

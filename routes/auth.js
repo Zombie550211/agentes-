@@ -8,7 +8,7 @@ const nodemailer = require('nodemailer');
 
 // Configuración JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
-const JWT_EXPIRES_IN = '24h';
+const JWT_EXPIRES_IN = '7d';
 
 // ===== Password reset helpers =====
 function buildTransporter() {

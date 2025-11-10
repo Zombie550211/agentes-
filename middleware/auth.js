@@ -14,16 +14,28 @@ const protect = async (req, res, next) => {
     // Verificar token en header Authorization
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
+      console.log('[AUTH] Token desde Authorization header:', token ? token.substring(0, 30) + '...' : 'vacío');
     }
     // Verificar token en cookies
     else if (req.cookies && req.cookies.token) {
       token = req.cookies.token;
+      console.log('[AUTH] Token desde cookies:', token ? token.substring(0, 30) + '...' : 'vacío');
     }
 
     if (!token) {
+      console.log('[AUTH] No se encontró token en la petición');
       return res.status(401).json({
         success: false,
         message: 'Acceso denegado. Token no proporcionado.'
+      });
+    }
+
+    // Validar formato del token antes de verificar
+    if (!token || typeof token !== 'string' || token.split('.').length !== 3) {
+      console.error('[AUTH] Token malformado:', token ? `Longitud: ${token.length}, Partes: ${token.split('.').length}` : 'vacío');
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido'
       });
     }
 

@@ -201,16 +201,20 @@
         buildHeaders();
         const tb = document.getElementById('costumer-tbody');
         const editable = canEditStatus();
-        tb.innerHTML = items.map(it=>{
+        tb.innerHTML = items.map((it, idx)=>{
           const servArr = Array.isArray(it.servicios) ? it.servicios : (typeof it.servicios_texto==='string' ? it.servicios_texto.split(/[,;]+/).map(s=>s.trim()).filter(Boolean) : []);
           const tels = Array.isArray(it.telefonos) ? it.telefonos : [];
-          const maxLen = Math.max(servArr.length, tels.length);
+          const lines = Array.isArray(it.lines) ? it.lines : [];
+          const maxLen = Math.max(servArr.length, tels.length, lines.length);
+          
           const pairs = Array.from({length: maxLen}).map((_,i)=>{
             const s = servArr[i] || '';
             const t = tels[i] || '';
             return (s||t) ? `${s}${s&&t?': ':''}${t}` : '';
           }).filter(Boolean);
+          
           const cant = (it.cantidad_lineas!=null) ? it.cantidad_lineas : (Array.isArray(it.telefonos) ? it.telefonos.length : '');
+          const hasMultipleLines = cant > 1;
           const statusLower = String(it.status||'').toLowerCase();
           const docId = it._id || it.id || '';
           const statusCell = editable
@@ -218,8 +222,9 @@
                  ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
                </select>`
             : String(it.status||'').toUpperCase();
-          return `<tr>
-            <td>${it.nombre_cliente||''}</td>
+          
+          let mainRow = `<tr class="${hasMultipleLines ? 'expandable-row' : ''}" data-row-index="${idx}" style="${hasMultipleLines ? 'cursor:pointer;' : ''}">
+            <td>${it.nombre_cliente||''}${hasMultipleLines ? ' <span style="color:#22b3ec;">▼</span>' : ''}</td>
             <td>${it.telefono_principal||''}</td>
             <td>${it.numero_cuenta||''}</td>
             <td>${cant}</td>
@@ -232,7 +237,326 @@
             <td>${it.supervisor||''}</td>
             <td><button class="btn btn-small" data-id="${it.id||it._id||''}" onclick="alert('Abrir detalle: '+this.getAttribute('data-id'))">Ver</button></td>
           </tr>`;
+          
+          // Fila expandible con detalles de todas las líneas
+          if (hasMultipleLines) {
+            let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none; background:#f8f9fa;">
+              <td colspan="12" style="padding:20px;">
+                <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px;">
+                  <h4 style="margin:0 0 16px; color:#0f172a; font-size:16px;">Detalle Completo - ${it.nombre_cliente||''}</h4>
+                  
+                  <!-- Información General del Cliente -->
+                  <div style="background:#f8f9fa; border:1px solid #e5e7eb; border-radius:6px; padding:16px; margin-bottom:16px;">
+                    <div style="font-weight:700; color:#0f172a; margin-bottom:12px; font-size:15px;">Información del Cliente</div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; font-size:14px;">
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Cliente:</span><br>
+                        <span style="font-weight:600;">${it.nombre_cliente||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Teléfono Principal:</span><br>
+                        <span style="font-weight:600;">${it.telefono_principal||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Número de Cuenta:</span><br>
+                        <span style="font-weight:600;">${it.numero_cuenta||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Cantidad de Líneas:</span><br>
+                        <span style="font-weight:600;">${cant}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">STATUS:</span><br>
+                        <span style="font-weight:600; color:${statusLower === 'pending' ? '#f59e0b' : statusLower === 'completed' ? '#059669' : '#64748b'};">${String(it.status||'').toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Día de Venta:</span><br>
+                        <span style="font-weight:600;">${it.dia_venta||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Día de Instalación:</span><br>
+                        <span style="font-weight:600;">${it.dia_instalacion||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">ID:</span><br>
+                        <span style="font-weight:600;">${it.id||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Mercado:</span><br>
+                        <span style="font-weight:600;">${it.mercado||'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style="color:#64748b; font-size:12px;">Supervisor:</span><br>
+                        <span style="font-weight:600;">${it.supervisor||'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Detalle de Líneas -->
+                  <div style="font-weight:700; color:#0f172a; margin-bottom:12px; font-size:15px;">Detalle de Líneas</div>
+                  <div style="display:grid; gap:12px;">`;
+            
+            // Mostrar cada línea con su información completa
+            for (let i = 0; i < maxLen; i++) {
+              const lineData = lines[i] || {};
+              const telefono = tels[i] || lineData.telefono || '';
+              const servicio = servArr[i] || lineData.servicio || '';
+              const notas = lineData.notas || [];
+              
+              detailsHTML += `
+                <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fafbfc;">
+                  <div style="font-weight:700; color:#0f172a; margin-bottom:8px;">Línea ${i+1}</div>
+                  <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; font-size:14px; margin-bottom:12px;">
+                    <div>
+                      <span style="color:#64748b; font-size:12px;">Teléfono:</span><br>
+                      <span style="font-weight:600;">${telefono || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span style="color:#64748b; font-size:12px;">Servicio:</span><br>
+                      <span style="font-weight:600;">${servicio || 'N/A'}</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Sección de Notas -->
+                  <div style="border-top:1px solid #e5e7eb; padding-top:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                      <span style="color:#64748b; font-size:12px; font-weight:600;">Notas:</span>
+                      <button class="btn-add-note" data-client-id="${docId}" data-line-index="${i}" style="background:#10b981; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                        <span style="font-size:14px;">+</span> Agregar Nota
+                      </button>
+                    </div>
+                    
+                    <!-- Formulario para agregar nota (inicialmente oculto) -->
+                    <div class="note-form" data-line-index="${i}" style="display:none; background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:12px; margin-bottom:12px;">
+                      <textarea class="note-textarea" placeholder="Agregar nueva nota..." style="width:100%; min-height:80px; padding:8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; resize:vertical; font-family:inherit;"></textarea>
+                      <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn-save-note" style="background:#10b981; color:#fff; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;">
+                          + Agregar Nota
+                        </button>
+                        <button class="btn-cancel-note" style="background:#64748b; color:#fff; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer;">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Lista de notas existentes -->
+                    <div class="notes-list" data-line-index="${i}" style="display:flex; flex-direction:column; gap:8px;">
+                      ${notas.length > 0 ? notas.map((nota, nIdx) => `
+                        <div style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px;">
+                          <div style="color:#0f172a;">${nota.texto || nota}</div>
+                          ${nota.fecha ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${nota.fecha}</div>` : ''}
+                        </div>
+                      `).join('') : '<div style="color:#94a3b8; font-size:12px; padding:8px 0;">No hay notas agregadas</div>'}
+                    </div>
+                  </div>
+                </div>`;
+            }
+            
+            detailsHTML += `
+                  </div>
+                </div>
+              </td>
+            </tr>`;
+            
+            mainRow += detailsHTML;
+          }
+          
+          return mainRow;
         }).join('');
+        
+        // Agregar event listeners para expandir/colapsar
+        document.querySelectorAll('.expandable-row').forEach(row => {
+          row.addEventListener('click', function(e) {
+            // No expandir si se hace clic en el select o botón
+            if (e.target.closest('select') || e.target.closest('button')) return;
+            
+            const rowIndex = this.getAttribute('data-row-index');
+            const detailsRow = document.querySelector(`.details-row[data-row-index="${rowIndex}"]`);
+            const arrow = this.querySelector('span');
+            
+            if (detailsRow) {
+              const isVisible = detailsRow.style.display !== 'none';
+              detailsRow.style.display = isVisible ? 'none' : 'table-row';
+              if (arrow) arrow.textContent = isVisible ? '▼' : '▲';
+            }
+          });
+        });
+        
+        // Event listeners para botones de agregar nota
+        document.querySelectorAll('.btn-add-note').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const lineIndex = this.getAttribute('data-line-index');
+            const detailsRow = this.closest('.details-row');
+            const noteForm = detailsRow.querySelector(`.note-form[data-line-index="${lineIndex}"]`);
+            if (noteForm) {
+              noteForm.style.display = noteForm.style.display === 'none' ? 'block' : 'none';
+              if (noteForm.style.display === 'block') {
+                const textarea = noteForm.querySelector('.note-textarea');
+                if (textarea) textarea.focus();
+              }
+            }
+          });
+        });
+        
+        // Event listeners para guardar nota
+        document.querySelectorAll('.btn-save-note').forEach(btn => {
+          btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const noteForm = this.closest('.note-form');
+            const textarea = noteForm.querySelector('.note-textarea');
+            const noteText = textarea.value.trim();
+            
+            if (!noteText) {
+              showNotification('Por favor escribe una nota', 'error');
+              return;
+            }
+            
+            const lineIndex = parseInt(noteForm.getAttribute('data-line-index'));
+            const detailsRow = noteForm.closest('.details-row');
+            const rowIndex = detailsRow.getAttribute('data-row-index');
+            const clientData = allItems[parseInt(rowIndex)];
+            const clientId = clientData._id || clientData.id;
+            
+            // Guardar en el backend
+            try {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              const response = await fetch('/api/lineas-team/notes', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  clientId: clientId,
+                  lineIndex: lineIndex,
+                  noteText: noteText
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Error al guardar la nota');
+              }
+              
+              // Agregar la nota visualmente
+              const notesList = detailsRow.querySelector(`.notes-list[data-line-index="${lineIndex}"]`);
+              const fecha = new Date(result.data.fecha).toLocaleString('es-ES', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              });
+              
+              // Remover mensaje "No hay notas"
+              const noNotesMsg = notesList.querySelector('div[style*="No hay notas"]');
+              if (noNotesMsg) noNotesMsg.remove();
+              
+              // Agregar nueva nota
+              const newNote = document.createElement('div');
+              newNote.style.cssText = 'background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px; margin-bottom:6px;';
+              newNote.innerHTML = `
+                <div style="color:#0f172a;">${result.data.texto}</div>
+                <div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fecha}</div>
+              `;
+              notesList.appendChild(newNote);
+              
+              // Limpiar y ocultar formulario
+              textarea.value = '';
+              noteForm.style.display = 'none';
+              
+              // Mostrar notificación de éxito
+              showNotification('Nota guardada correctamente', 'success');
+            } catch (error) {
+              console.error('Error al guardar nota:', error);
+              showNotification('Error al guardar la nota: ' + error.message, 'error');
+            }
+          });
+        });
+        
+        // Event listeners para cancelar nota
+        document.querySelectorAll('.btn-cancel-note').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const noteForm = this.closest('.note-form');
+            const textarea = noteForm.querySelector('.note-textarea');
+            textarea.value = '';
+            noteForm.style.display = 'none';
+          });
+        });
+        
+        // Función para mostrar notificaciones
+        function showNotification(message, type = 'success') {
+          // Remover notificación anterior si existe
+          const existing = document.querySelector('.custom-notification');
+          if (existing) existing.remove();
+          
+          const notification = document.createElement('div');
+          notification.className = 'custom-notification';
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#10b981' : '#ef4444'};
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+          `;
+          
+          const icon = type === 'success' 
+            ? '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>'
+            : '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
+          
+          notification.innerHTML = `${icon}<span>${message}</span>`;
+          
+          // Agregar animación CSS
+          const style = document.createElement('style');
+          style.textContent = `
+            @keyframes slideIn {
+              from {
+                transform: translateX(100%);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+            @keyframes slideOut {
+              from {
+                transform: translateX(0);
+                opacity: 1;
+              }
+              to {
+                transform: translateX(100%);
+                opacity: 0;
+              }
+            }
+          `;
+          if (!document.querySelector('#notification-styles')) {
+            style.id = 'notification-styles';
+            document.head.appendChild(style);
+          }
+          
+          document.body.appendChild(notification);
+          
+          // Auto-remover después de 3 segundos
+          setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => notification.remove(), 300);
+          }, 3000);
+        }
+        
         // Ajustar espejo si existe util
         if (window.rebuildStickyHead) try{ window.rebuildStickyHead(); }catch{}
       }
