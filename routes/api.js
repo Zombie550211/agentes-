@@ -77,13 +77,59 @@ router.get('/lineas-team', protect, async (req, res) => {
     const roleLc = String(req.user?.role||'').toLowerCase();
     let targetName = (req.user?.name || req.user?.username || 'USUARIO');
 
-    // Opción A: si es supervisor, exigir ?agente y validar pertenencia
+    // Si es supervisor
     if (roleLc.includes('supervisor')) {
       const agenteParam = String(req.query.agente || '').trim();
+      
+      // Si no se especifica agente, devolver datos de TODOS sus agentes
       if (!agenteParam) {
-        return res.status(400).json({ success:false, message:'Parámetro "agente" es requerido para supervisores' });
+        try {
+          const db = getDb();
+          const usersCol = db.collection('users');
+          const supUser = String(req.user?.username || '').toUpperCase();
+          
+          // Buscar todos los agentes de este supervisor
+          const agents = await usersCol.find({ 
+            supervisor: supUser 
+          }).toArray();
+          
+          // Si no tiene agentes, devolver array vacío
+          if (!agents || agents.length === 0) {
+            return res.json({ success:true, data:[], collection: 'supervisor-no-agents', count: 0 });
+          }
+          
+          // Combinar datos de todos los agentes
+          const allData = [];
+          for (const agent of agents) {
+            const colName = __normName(agent.username);
+            const col = dbTL.collection(colName);
+            const agentData = await col.find({}).sort({ createdAt: -1, creadoEn: -1, updatedAt: -1, actualizadoEn: -1 }).toArray();
+            
+            // Agregar campo del agente para identificar de quién es cada registro
+            const dataWithAgent = agentData.map(item => ({
+              ...item,
+              agenteAsignado: agent.username,
+              supervisor: supUser
+            }));
+            
+            allData.push(...dataWithAgent);
+          }
+          
+          // Ordenar todos los datos combinados por fecha
+          allData.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.creadoEn || a.updatedAt || a.actualizadoEn || 0);
+            const dateB = new Date(b.createdAt || b.creadoEn || b.updatedAt || b.actualizadoEn || 0);
+            return dateB - dateA;
+          });
+          
+          return res.json({ success:true, data:allData, collection: 'supervisor-all-agents', count: allData.length });
+        } catch (e) {
+          console.error('[API LINEAS TEAM] Error cargando agentes del supervisor:', e);
+          return res.status(500).json({ success:false, message:'Error cargando datos de agentes', error: e.message });
+        }
       }
-      // Validar que el agente pertenezca al supervisor
+      
+      // Si se especifica agente, validar que pertenezca al supervisor
       try {
         const db = getDb();
         const usersCol = db.collection('users');

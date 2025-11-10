@@ -184,7 +184,7 @@
           if (cant && Number(it.cantidad_lineas||0)!== Number(cant)) return false;
           if (idv && !(String(it.id||'').includes(idv))) return false;
           if (mercado.length && !mercado.includes(String(it.mercado||''))) return false;
-          if (sup && String(it.supervisor||'')!==sup) return false;
+          if (sup && !String(it.supervisor||'').toUpperCase().includes(sup.toUpperCase())) return false;
           return true;
         });
       }
@@ -256,8 +256,8 @@
       try {
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const name = String(user.supervisor||user.username||'').toUpperCase();
-        if (name.includes('JONATHAN')) defaultSupervisor = 'JONATHAN';
-        else if (name.includes('GUTIERREZ')) defaultSupervisor = 'GUTIERREZ';
+        if (name.includes('JONATHAN')) defaultSupervisor = 'JONATHAN F';
+        else if (name.includes('GUTIERREZ') || name.includes('LUIS')) defaultSupervisor = 'LUIS G';
       } catch {}
       // Prefiltro aplicado en applyFilters sin mostrar controles
 
