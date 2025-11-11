@@ -261,13 +261,13 @@
       color: #000;
     }
     /* Layout mejorado para conversión: tabla + panel LINEAS (Grid asegura uso total de ancho) */
-    .conv-two-col { display: grid; grid-template-columns: 640px 200px; gap: 8px; align-items: stretch; width: 848px; margin: 0 auto; }
+    .conv-two-col { display: grid; grid-template-columns: 640px 1fr; gap: 8px; align-items: start; width: 100%; max-width: 900px; margin: 0 auto; }
     .conv-left { min-width: 640px; max-width: 640px; width: 640px; max-height: 520px; overflow-y: auto; overflow-x: hidden; margin: 0; padding: 0; }
     .conv-left .sales-table { width: 100% !important; table-layout: fixed; }
-    .conv-right { width: 200px; min-width: 200px; max-width: 200px; }
+    .conv-right { width: 100%; min-width: 200px; max-width: 250px; }
     /* Igualar ancho de contenedores MES y DÍA */
-    .conversion-card { width: 848px; max-width: 848px; min-width: 848px; margin: 0 auto; }
-    #ventas-dia-card { width: 848px; max-width: 848px; min-width: 848px; margin: 0 auto; }
+    .conversion-card { width: 100%; max-width: 900px; min-width: 848px; margin: 0 auto; }
+    #ventas-dia-card { width: 100%; max-width: 900px; min-width: 848px; margin: 0 auto; }
     /* Quitar contenedores externos (solo dentro de la sección MES/DÍA) */
     #mes-dia-section > .card {
       background: transparent !important;
@@ -293,10 +293,10 @@
       padding: 0 !important;
       margin: 0 auto !important;
     }
-    .mini-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 8px; }
+    .mini-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 4px; align-self: start; }
     .mini-card .mini-table { width: 100%; }
-    .mini-card .mini-table th { padding: 12px; font-size: 0.9rem; }
-    .mini-card .mini-table td { padding: 10px 12px; font-size: 1rem; text-align: center; }
+    .mini-card .mini-table th { padding: 8px; font-size: 0.85rem; }
+    .mini-card .mini-table td { padding: 6px 8px; font-size: 0.9rem; text-align: center; }
     @media (max-width: 900px) { 
       .conv-two-col { display: block; width: 100%; } 
       .conv-left { min-width: 0; width: 100%; max-width: 100%; } 
@@ -772,7 +772,7 @@
         </div>
 
         <!-- Nueva Sección: Gráfica de Ventas y Puntaje (Últimos 7 días) + Productos vendidos en el mes -->
-  <div id="ventas-products-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0;">
+  <div id="ventas-products-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1; width: 100%; margin: 40px 0 0 0; padding: 0; clear: both;">
           <div class="card chart-card">
             <h3><i class="fas fa-chart-bar" style="color:#22b3ec; margin-right:8px;"></i> Ventas y Puntaje - Últimos 7 días</h3>
             
@@ -1773,7 +1773,7 @@
         teamData = Array.isArray(teamData) ? teamData : [];
 
         // Lista completa de equipos ordenada
-        const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'Jonathan', 'Luis'];
+        const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'JONATHAN F', 'LUIS G'];
         
         // Deduplicar por nombre y asegurar que todos los equipos estén presentes
         const mapByName = new Map();
@@ -2734,7 +2734,18 @@
           if (resp && resp.ok) {
             const json = await resp.json();
             console.log('🔍 RAW BACKEND RESPONSE:', JSON.stringify(json, null, 2));
-            teamData = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+            
+            // Combinar datos principales (json.data) con supervisores de TEAM LINEAS (json.lineas)
+            const mainData = Array.isArray(json.data) ? json.data : [];
+            const lineasData = Array.isArray(json.lineas) ? json.lineas : [];
+            
+            // Unir ambos arrays
+            teamData = [...mainData, ...lineasData];
+            
+            // Si no hay datos en json.data/lineas, intentar otros campos
+            if (teamData.length === 0) {
+              teamData = Array.isArray(json) ? json : (Array.isArray(json.leads) ? json.leads : []);
+            }
           } else {
             teamData = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
           }
@@ -3054,7 +3065,7 @@
           console.log('[PORCENTAJE] TeamData:', teamData);
 
           // Lista completa de equipos ordenada
-          const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'Jonathan', 'Luis'];
+          const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'JONATHAN F', 'LUIS G'];
           
           // while inicializando no dibujar gráficos provisionales
           if (window.__porcIsInitializing) {
@@ -3367,12 +3378,13 @@
                     const name = String(team.name || 'Sin equipo');
                     const total = Number(team.Total || 0);
                     const activas = Number(team.ACTIVAS || 0);
+                    const porcentaje = total > 0 ? ((activas / total) * 100).toFixed(2) : '0.00';
                     const color = palette[index % palette.length];
                     return `
-                      <div style="display:grid;grid-template-columns:auto 1fr auto;column-gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.04);">
-                        <div style="width:12px;height:12px;border-radius:50%;background-color:${color};flex-shrink:0;"></div>
-                        <div style="font-weight:700;color:#0f172a;font-size:0.95rem;">${name}</div>
-                        <div style="text-align:right;color:#6b7280;font-size:0.85rem;line-height:1.1;">Total: <span style='font-weight:700;color:#111;'>${total}</span><br>Activas: <span style='font-weight:700;color:#111;'>${activas}</span></div>
+                      <div style="display:grid;grid-template-columns:auto 1fr auto;column-gap:6px;align-items:center;padding:3px 2px;border-bottom:1px solid rgba(0,0,0,0.04);">
+                        <div style="width:10px;height:10px;border-radius:50%;background-color:${color};flex-shrink:0;"></div>
+                        <div style="font-weight:700;color:#0f172a;font-size:0.8rem;">${name}</div>
+                        <div style="text-align:right;color:#6b7280;font-size:0.72rem;line-height:1.0;">Total: <span style='font-weight:700;color:#111;'>${total}</span><br>Activas: <span style='font-weight:700;color:#111;'>${activas}</span><br><span style='color:#059669;font-weight:700;'>${porcentaje}%</span></div>
                       </div>`;
                   }).join('');
 
@@ -3390,12 +3402,12 @@
                     listRootLocal.style.top = '50%';
                     listRootLocal.style.transform = 'translateY(-50%)';
                     listRootLocal.style.width = '180px';
-                    listRootLocal.style.maxHeight = '360px';
-                    listRootLocal.style.overflow = 'auto';
-                    listRootLocal.style.padding = '4px 6px';
+                    listRootLocal.style.maxHeight = 'none';
+                    listRootLocal.style.overflow = 'visible';
+                    listRootLocal.style.padding = '2px 4px';
                     listRootLocal.style.boxSizing = 'border-box';
                     listRootLocal.style.background = 'transparent';
-                    listRootLocal.style.fontSize = '0.92rem';
+                    listRootLocal.style.fontSize = '0.8rem';
                     listRootLocal.style.color = '#0f172a';
                     listRootLocal.style.zIndex = '6';
                   } catch(_){}
@@ -4002,6 +4014,7 @@
 
         // Intentar agregado del día desde backend (global)
         let preTeamData = null;
+        let lineasDataFromBackend = [];
         try {
           const dayUrl = `/api/equipos/estadisticas?${qs}&scope=day&forceAll=1`;
           console.log('[DÍA] Solicitando datos a:', dayUrl);
@@ -4009,16 +4022,27 @@
           if (aggResp && aggResp.ok) {
             const dj = await aggResp.json();
             console.log('[DÍA] Respuesta del backend:', dj);
-            if (dj && dj.success && Array.isArray(dj.data) && dj.data.length) {
+            if (dj && dj.success) {
+              // Procesar datos principales
+              if (Array.isArray(dj.data) && dj.data.length) {
                 preTeamData = dj.data.map(equipo => ({
-                name: equipo.TEAM || equipo.team || 'Sin equipo',
-                ICON: parseFloat(equipo.ICON || 0),
-                ACTIVAS: parseFloat(equipo.ACTIVAS || 0),
-                BAMO: parseFloat(equipo.BAMO || 0),
-                Total: parseFloat(equipo.Total || 0),
-                Puntaje: parseFloat(equipo.Puntaje || 0)
-              }));
-              console.log('[DÍA] Datos procesados:', preTeamData);
+                  name: equipo.TEAM || equipo.team || 'Sin equipo',
+                  ICON: parseFloat(equipo.ICON || 0),
+                  ACTIVAS: parseFloat(equipo.ACTIVAS || 0),
+                  BAMO: parseFloat(equipo.BAMO || 0),
+                  Total: parseFloat(equipo.Total || 0),
+                  Puntaje: parseFloat(equipo.Puntaje || 0)
+                }));
+                console.log('[DÍA] Datos procesados:', preTeamData);
+              }
+              // Procesar datos de TEAM LINEAS (supervisores)
+              if (Array.isArray(dj.lineas) && dj.lineas.length) {
+                lineasDataFromBackend = dj.lineas.map(sup => ({
+                  name: sup.name || sup.TEAM || 'Sin nombre',
+                  ICON: parseFloat(sup.ICON || sup.Total || 0)
+                }));
+                console.log('[DÍA] Datos LINEAS procesados:', lineasDataFromBackend);
+              }
             }
           }
         } catch(err) { console.error('[DÍA] Error en fetch principal:', err); }
@@ -4058,12 +4082,20 @@
           dayData = Array.from(teamMap.values());
         }
 
-        // Separar LINEAS para panel derecho y excluirlas de la tabla principal
-        const isLinea = (n) => /LINEA/i.test(String(n || ''));
-        const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
+        // Usar datos de LINEAS del backend si están disponibles
+        let lineasData = lineasDataFromBackend.length > 0 ? lineasDataFromBackend : [];
+        
+        // Fallback: si no hay datos de lineas del backend, intentar filtrar por nombre (legacy)
+        if (lineasData.length === 0) {
+          const isLinea = (n) => /LINEA/i.test(String(n || ''));
+          lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
+        }
+        
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-        const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
-        let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
+        
+        // Filtrar datos principales: excluir los nombres que están en lineasData
+        const lineasNames = new Set(lineasData.map(l => String(l.name).toUpperCase()));
+        let mainData = dayData.filter(t => !lineasNames.has(String(t.name).toUpperCase()));
 
         // (removed duplicate ensureDayRows + porcentaje helper block) - functionality
         // moved to top-level to avoid nested IIFE interference and syntax issues.

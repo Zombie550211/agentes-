@@ -621,122 +621,137 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     } catch {}
 
-    const response = { success: true, message: 'Estadísticas calculadas', total, data: equiposData };
+    const response = { success: true, message: 'Estadísticas calculadas', total, data: equiposData, lineas: [], lineasTotalICON: 0 };
     console.log('[EQUIPOS] Totales:', { total, equipos: equiposData.length });
     
-    // AGREGAR DATOS DE TEAM_LINEAS SI EL USUARIO ES SUPERVISOR DE TEAM LINEAS
+    // AGREGAR DATOS DE SUPERVISORES DE TEAM_LINEAS INDIVIDUALMENTE
     try {
       const { getDbFor } = require('../config/db');
       const user = req.user;
       const role = (user?.role || '').toLowerCase();
       const team = (user?.team || '').toLowerCase();
-      const isLineasSupervisor = role === 'supervisor' && team.includes('lineas');
       
-      if (isLineasSupervisor) {
-        console.log('[EQUIPOS] Usuario es supervisor de Team Lineas, agregando datos de TEAM_LINEAS...');
+      // Obtener todos los supervisores de Team Lineas
+      const supervisorsCol = await db.collection('users').find({ 
+        role: /supervisor/i,
+        team: /lineas/i
+      }).toArray();
+      
+      console.log('[EQUIPOS] Supervisores de Team Lineas encontrados:', supervisorsCol.length);
+      
+      if (supervisorsCol && supervisorsCol.length > 0) {
         const dbTL = getDbFor('TEAM_LINEAS');
         
         if (dbTL) {
-          // Obtener todos los agentes del supervisor
-          const supUser = String(user?.username || '').toUpperCase();
-          const agents = await db.collection('users').find({ supervisor: supUser }).toArray();
+          // Mapeo de usernames a nombres completos de supervisores
+          const supervisorNames = {
+            'JONATHAN': 'JONATHAN F',
+            'LUIS': 'LUIS G'
+          };
           
-          console.log(`[EQUIPOS] Agentes encontrados para ${supUser}:`, agents.length);
-          
-          if (agents && agents.length > 0) {
-            let totalICON = 0;
-            let totalACTIVAS = 0;
-            let totalBAMO = 0;
-            let totalVentas = 0;
-            let totalPuntaje = 0;
+          // Procesar cada supervisor individualmente
+          for (const supervisor of supervisorsCol) {
+            const supUsername = String(supervisor.username || '').toUpperCase();
+            // Usar el mapeo para obtener el nombre completo
+            const displayName = supervisorNames[supUsername] || supUsername;
             
-            // Helper para normalizar nombres de colecciones
-            const __normName = (s) => {
-              if (!s) return '';
-              let v = String(s).trim();
-              v = v.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-              v = v.toUpperCase();
-              v = v.replace(/\s+/g, '_');
-              return v;
-            };
+            console.log(`[EQUIPOS] Procesando supervisor: ${displayName} (username: ${supUsername})`);
             
-            // Recorrer cada agente y sumar sus datos
-            for (const agent of agents) {
-              try {
-                const colName = __normName(agent.username);
-                const col = dbTL.collection(colName);
-                
-                // Construir filtro de fecha si aplica
-                let dateFilter = {};
-                if (fechaInicio && fechaFin) {
-                  const sDate = parseDateInput(fechaInicio);
-                  const eDate = parseDateInput(fechaFin);
+            // Obtener todos los agentes de este supervisor (buscar por username)
+            const agents = await db.collection('users').find({ 
+              supervisor: supUsername 
+            }).toArray();
+            
+            console.log(`[EQUIPOS] Agentes encontrados para ${supUsername}:`, agents.length);
+            
+            if (agents && agents.length > 0) {
+              let totalVentas = 0;
+              let ventasActivas = 0; // Contador para ventas con status "Completed"
+              
+              // Helper para normalizar nombres de colecciones
+              const __normName = (s) => {
+                if (!s) return '';
+                let v = String(s).trim();
+                v = v.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                v = v.toUpperCase();
+                v = v.replace(/\s+/g, '_');
+                return v;
+              };
+              
+              // Recorrer cada agente y contar sus ventas
+              for (const agent of agents) {
+                try {
+                  const colName = __normName(agent.username);
+                  const col = dbTL.collection(colName);
                   
-                  if (sDate && eDate) {
-                    const sYMD = sDate.toISOString().split('T')[0];
-                    const eYMD = eDate.toISOString().split('T')[0];
+                  // Construir filtro de fecha si aplica
+                  let dateFilter = {};
+                  if (fechaInicio && fechaFin) {
+                    const sDate = parseDateInput(fechaInicio);
+                    const eDate = parseDateInput(fechaFin);
                     
-                    // Filtro flexible para diferentes formatos de fecha
-                    dateFilter = {
-                      $or: [
-                        { createdAt: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
-                        { creadoEn: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
-                        { dia_venta: { $gte: sYMD, $lte: eYMD } }
-                      ]
-                    };
-                  }
-                }
-                
-                // Obtener los clientes del agente
-                const agentData = await col.find(dateFilter).toArray();
-                
-                console.log(`[EQUIPOS] Agente ${agent.username}: ${agentData.length} registros`);
-                
-                // Sumar estadísticas
-                for (const item of agentData) {
-                  const mercado = (item.mercado || '').toUpperCase();
-                  const puntaje = parseFloat(item.puntaje) || 0;
-                  const status = (item.status || '').toLowerCase();
-                  
-                  if (mercado === 'ICON') totalICON++;
-                  else if (mercado === 'BAMO') totalBAMO++;
-                  
-                  // Contar activas basado en status
-                  if (status === 'completed' || status === 'completado' || status === 'activo' || status === 'vendido') {
-                    totalACTIVAS++;
+                    if (sDate && eDate) {
+                      const sYMD = sDate.toISOString().split('T')[0];
+                      const eYMD = eDate.toISOString().split('T')[0];
+                      
+                      // Filtro flexible para diferentes formatos de fecha
+                      dateFilter = {
+                        $or: [
+                          { createdAt: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
+                          { creadoEn: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
+                          { dia_venta: { $gte: sYMD, $lte: eYMD } }
+                        ]
+                      };
+                    }
                   }
                   
-                  totalVentas++;
-                  totalPuntaje += puntaje;
+                  // Contar el total de clientes del agente
+                  const count = await col.countDocuments(dateFilter);
+                  totalVentas += count;
+                  
+                  // Contar ventas ACTIVAS (status = "Completed" - case insensitive)
+                  const activasFilter = { 
+                    ...dateFilter, 
+                    $or: [
+                      { status: 'Completed' },
+                      { status: 'completed' },
+                      { status: 'COMPLETED' }
+                    ]
+                  };
+                  const activasCount = await col.countDocuments(activasFilter);
+                  ventasActivas += activasCount;
+                  
+                  console.log(`[EQUIPOS] Agente ${agent.username}: ${count} ventas totales, ${activasCount} activas (Completed)`);
+                } catch (err) {
+                  console.warn(`[EQUIPOS] Error procesando agente ${agent.username}:`, err.message);
                 }
-              } catch (err) {
-                console.warn(`[EQUIPOS] Error procesando agente ${agent.username}:`, err.message);
               }
+              
+              // Agregar el supervisor a los datos de TEAM LINEAS (separado de equipos principales)
+              const supervisorData = {
+                name: displayName, // Nombre completo del supervisor
+                TEAM: displayName,
+                ICON: totalVentas, // Para TEAM LINEAS, ICON muestra el total
+                ACTIVAS: ventasActivas, // Ventas con status "Completed"
+                BAMO: 0,
+                Total: totalVentas,
+                Puntaje: 0,
+                PuntajeICON: 0,
+                PuntajeBAMO: 0
+              };
+              
+              // Agregar al array de LINEAS (no al array principal de data)
+              response.lineas.push(supervisorData);
+              response.lineasTotalICON += totalVentas;
+              
+              console.log(`[EQUIPOS] Datos de supervisor ${displayName} agregados a LINEAS:`, supervisorData);
             }
-            
-            // Agregar el equipo TEAM LINEAS a los datos
-            const teamLineasData = {
-              TEAM: 'TEAM LINEAS',
-              ICON: totalICON,
-              ACTIVAS: totalACTIVAS,
-              BAMO: totalBAMO,
-              Total: totalVentas,
-              Puntaje: totalPuntaje,
-              PuntajeICON: 0, // Puedes calcularlo si lo necesitas
-              PuntajeBAMO: 0  // Puedes calcularlo si lo necesitas
-            };
-            
-            // Agregar al array de equipos
-            response.data.push(teamLineasData);
-            response.total += totalVentas;
-            
-            console.log('[EQUIPOS] Datos de TEAM LINEAS agregados:', teamLineasData);
           }
         }
       }
     } catch (err) {
-      console.error('[EQUIPOS] Error agregando datos de TEAM_LINEAS:', err);
-      // Continuar sin agregar TEAM_LINEAS si hay error
+      console.error('[EQUIPOS] Error agregando datos de supervisores TEAM_LINEAS:', err);
+      // Continuar sin agregar supervisores si hay error
     }
     
     if (isDebug) {
