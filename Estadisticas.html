@@ -985,49 +985,71 @@
           }));
         }
 
-        // Solo fallback si la respuesta viene vacía/cero
+        // Si la respuesta viene vacía/cero, mostrar botón para fallback manual
         if (payloadEmpty || payloadZero) {
-          try {
-            console.log('[ESTADISTICAS][MES] Construyendo datos desde /api/leads (fallback por rol o vacío)');
-            // Pedimos al endpoint /api/leads el mismo rango que usamos para equipos (fechaInicio/fechaFin)
-            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
-            if (leadsResp && leadsResp.ok) {
-              const leadsJson = await leadsResp.json();
-              const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-              const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
-              const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
-              const teamMap = new Map();
-              const teamNameOf = (lead) => {
-                const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
-                const s = (t || '').toString().trim();
-                return s || 'Sin equipo';
-              };
-              const isICON = (lead) => {
-                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                return v.includes('ICON');
-              };
-              const isBAMO = (lead) => {
-                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                return v.includes('BAMO');
-              };
-              const getPuntaje = (lead) => {
-                const p = findFirst(lead, ['puntaje','score','puntos']);
-                const n = typeof p === 'number' ? p : parseFloat(p);
-                return isNaN(n) ? 0 : n;
-              };
-              leads.forEach(l => {
-                const name = teamNameOf(l);
-                if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
-                const agg = teamMap.get(name);
-                agg.Total += 1;
-                if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
-                agg.Puntaje += getPuntaje(l);
-              });
-              teamData = Array.from(teamMap.values());
-            }
-          } catch (fe) {
-            console.warn('[ESTADISTICAS][MES] Fallback por rol/empty falló:', fe);
+          const fallbackBtnId = 'btn-fallback-leads';
+          if (!document.getElementById(fallbackBtnId)) {
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.style.textAlign = 'center';
+            fallbackDiv.style.margin = '24px 0';
+            fallbackDiv.innerHTML = `
+              <button id="${fallbackBtnId}" class="btn btn-warning">
+                Intentar cargar datos alternativos (leads)
+              </button>
+              <div id="fallback-leads-status" style="margin-top:10px;"></div>
+            `;
+            root.parentNode.insertBefore(fallbackDiv, root.nextSibling);
+            document.getElementById(fallbackBtnId).onclick = async function() {
+              const statusDiv = document.getElementById('fallback-leads-status');
+              statusDiv.innerHTML = 'Cargando datos alternativos...';
+              try {
+                const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+                if (leadsResp && leadsResp.ok) {
+                  const leadsJson = await leadsResp.json();
+                  const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+                  const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
+                  const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+                  const teamMap = new Map();
+                  const teamNameOf = (lead) => {
+                    const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+                    const s = (t || '').toString().trim();
+                    return s || 'Sin equipo';
+                  };
+                  const isICON = (lead) => {
+                    const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                    return v.includes('ICON');
+                  };
+                  const isBAMO = (lead) => {
+                    const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+                    return v.includes('BAMO');
+                  };
+                  const getPuntaje = (lead) => {
+                    const p = findFirst(lead, ['puntaje','score','puntos']);
+                    const n = typeof p === 'number' ? p : parseFloat(p);
+                    return isNaN(n) ? 0 : n;
+                  };
+                  leads.forEach(l => {
+                    const name = teamNameOf(l);
+                    if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+                    const agg = teamMap.get(name);
+                    agg.Total += 1;
+                    if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
+                    agg.Puntaje += getPuntaje(l);
+                  });
+                  teamData = Array.from(teamMap.values());
+                  statusDiv.innerHTML = '<span style="color:green">Datos alternativos cargados. Recargando tabla...</span>';
+                  // Recargar tabla con los nuevos datos
+                  renderConversionTable(root);
+                } else {
+                  statusDiv.innerHTML = '<span style="color:red">No se pudo obtener datos alternativos.</span>';
+                }
+              } catch (fe) {
+                statusDiv.innerHTML = '<span style="color:red">Error al cargar datos alternativos.</span>';
+              }
+            };
           }
+          // Detener aquí para no seguir procesando con datos vacíos
+          return;
         }
         // Separar TEAM LINEAS a tabla aparte y mantener principal sin LINEA(S)
         const lineasData = Array.isArray(data.lineas) ? data.lineas.map(r => ({
@@ -1690,37 +1712,71 @@
 
     // Nuevo: renderiza un donut que muestra % de activación (ICON vs resto)
     function renderPorcentajeActivacion(teamData) {
+
+      const canvas = document.getElementById('chart-porcentaje-activacion');
+      showChartSpinner(canvas, true);
       try {
-        const canvas = document.getElementById('chart-porcentaje-activacion');
         if (!canvas) return;
 
-        // Datos defensivos
+        // Si no se pasan datos, intentar cargar del cache
+        if (!teamData || !Array.isArray(teamData) || teamData.length === 0) {
+          const cached = localStorage.getItem('cache_porcentaje_activacion');
+          if (cached) {
+            try { teamData = JSON.parse(cached); } catch(_) { teamData = []; }
+          }
+        } else {
+          // Guardar en cache los datos actuales
+          try { localStorage.setItem('cache_porcentaje_activacion', JSON.stringify(teamData)); } catch(_){}
+        }
+
         teamData = Array.isArray(teamData) ? teamData : [];
         const totalICON = teamData.reduce((s, t) => s + (Number(t.ICON || 0)), 0);
         const total = teamData.reduce((s, t) => s + (Number(t.Total || 0)), 0) || 0;
         const active = totalICON;
         const inactive = Math.max(0, total - totalICON);
 
-        // Si no hay datos (total === 0) mostramos un placeholder simple
+        // Si no hay datos (total === 0) mostramos el último cache o un placeholder
         if (total === 0) {
-          // Don't draw a neutral/placeholder donut that persists after load —
-          // instead clear any previous chart and leave the canvas ready to be
-          // rendered when real data arrives. This prevents showing an unwanted
-          // neutral donut as seen in the UI.
+          // Si hay cache previo, mostrarlo
+          const cached = localStorage.getItem('cache_porcentaje_activacion');
+          if (cached) {
+            try {
+              const cachedData = JSON.parse(cached);
+              if (Array.isArray(cachedData) && cachedData.length > 0) {
+                showChartSpinner(canvas, false);
+                return renderPorcentajeActivacion(cachedData);
+              }
+            } catch(_){}
+          }
+          // Si no hay cache, limpiar canvas
           try { if (window.porcentajeActivacionChart) { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } } catch(_){ }
           try {
             const ctxClear = canvas.getContext('2d');
             ctxClear.clearRect(0,0,canvas.width, canvas.height);
             try { canvas.style.display = 'none'; } catch(_){}
           } catch(_){ }
+          // Mostrar mensaje de no datos
+          let msg = document.getElementById('porc-no-data-msg');
+          if (!msg) {
+            msg = document.createElement('div');
+            msg.id = 'porc-no-data-msg';
+            msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
+            canvas.parentElement.appendChild(msg);
+          }
+          msg.textContent = 'Sin datos para este mes.';
+          showChartSpinner(canvas, false);
           return;
+        } else {
+          // Ocultar mensaje si hay datos
+          let msg = document.getElementById('porc-no-data-msg');
+          if (msg) msg.remove();
         }
 
-  // Destruir instancia previa si existe (limpiar labels primero)
-  if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
+        // Destruir instancia previa si existe (limpiar labels primero)
+        if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
 
-  const ctx = canvas.getContext('2d');
-  try { canvas.style.display = 'block'; } catch(_){}
+        const ctx = canvas.getContext('2d');
+        try { canvas.style.display = 'block'; } catch(_){}
         // Crear gráfico (sin número central) - mostramos sólo el donut
         window.porcentajeActivacionChart = new Chart(ctx, {
           type: 'doughnut',
@@ -1728,7 +1784,6 @@
             labels: ['Activadas', 'No activadas'],
             datasets: [{
               data: [active, inactive],
-              // Paleta principal (usar primer color para activadas, paleta de la imagen para no activadas)
               backgroundColor: ['#588A87', '#DFD9CA'],
               borderColor: ['#fff','#fff'],
               borderWidth: 2
@@ -1740,267 +1795,227 @@
             cutout: '65%',
             plugins: {
               legend: { position: 'right' },
-              tooltip: { callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed} (${(total?((ctx.parsed/total)*100):0).toFixed(1)}%)`; } } }
+              tooltip: { callbacks: { label: function(ctx){ return `${ctx.label}: ${ctx.parsed} (${(total?((ctx.parsed/total)*100):0).toFixed(1)}%)`; } } },
+              datalabels: {
+                display: true,
+                color: '#1f3b63',
+                font: { weight: 'bold', size: 14 },
+                anchor: 'end',
+                align: 'end',
+                offset: 8,
+                formatter: function(value, context) {
+                  // Mostrar valor absoluto y porcentaje
+                  const percent = total ? ((value/total)*100).toFixed(1) : '0.0';
+                  return `${value} (${percent}%)`;
+                }
+              }
             }
-          }
+          },
+          plugins: [ChartDataLabels]
         });
 
         // Forzar resize por si el canvas parent cambió de tamaño
         try { if (window.porcentajeActivacionChart && typeof window.porcentajeActivacionChart.resize === 'function') window.porcentajeActivacionChart.resize(); } catch(_){}
-      } catch (e) { console.warn('renderPorcentajeActivacion error', e); }
+        showChartSpinner(canvas, false);
+      } catch (e) { showChartSpinner(canvas, false); console.warn('renderPorcentajeActivacion error', e); }
+    }
+
+
+    // Spinner overlay helper (reutilizable)
+    function showChartSpinner(canvas, show) {
+      try {
+        if (!canvas) return;
+        const wrapper = canvas.parentElement || document.body;
+        if (wrapper && getComputedStyle(wrapper).position === 'static') {
+          wrapper.style.position = 'relative';
+        }
+        let overlay = wrapper.querySelector('.chart-spinner-overlay');
+        if (show) {
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'chart-spinner-overlay';
+            overlay.innerHTML = '<div class="porc-spinner" aria-hidden="true"></div>';
+            overlay.style.position = 'absolute';
+            overlay.style.inset = '0';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '30';
+            wrapper.appendChild(overlay);
+          }
+        } else {
+          if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }
+      } catch(e){ console.warn('showChartSpinner error', e); }
     }
 
     // Renderiza un gráfico de barras con ventas activas por equipo
     function renderVentasActivasMes(teamData) {
       try {
         console.log('[VENTAS ACTIVAS] Datos recibidos:', teamData);
-        
         const canvas = document.getElementById('chart-ventas-activas-mes');
-        const listEl = document.getElementById('ventas-activas-team-list');
-        const noteEl = document.getElementById('ventas-activas-note');
-        
-        if (!canvas) {
-          console.warn('[VENTAS ACTIVAS] Canvas no encontrado');
-          return;
-        }
-        
-        // Asegurar que el canvas esté visible
-        try {
-          canvas.style.display = 'block';
-          canvas.style.visibility = 'visible';
-        } catch(_) {}
-        
-        teamData = Array.isArray(teamData) ? teamData : [];
-
-        // Lista completa de equipos ordenada
-        const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'JONATHAN F', 'LUIS G'];
-        
-        // Deduplicar por nombre y asegurar que todos los equipos estén presentes
-        const mapByName = new Map();
-        
-        // Primero procesar los datos existentes
-        for (const team of teamData) {
-          const key = String(team.name || '').trim().toUpperCase();
-          if (!mapByName.has(key)) {
-            mapByName.set(key, {
-              name: team.name,
-              ACTIVAS: Number(team.ACTIVAS || 0),
-              Total: Number(team.Total || 0)
-            });
-          } else {
-            // Si hay duplicados, sumar sus valores
-            const existing = mapByName.get(key);
-            existing.ACTIVAS = (existing.ACTIVAS || 0) + Number(team.ACTIVAS || 0);
-            existing.Total = (existing.Total || 0) + Number(team.Total || 0);
-          }
-        }
-
-        // Asegurar que todos los equipos requeridos estén presentes
-        for (const teamName of EQUIPOS_ORDER) {
-          const key = teamName.trim().toUpperCase();
-          if (!mapByName.has(key)) {
-            mapByName.set(key, {
-              name: teamName,
-              ACTIVAS: 0,
-              Total: 0
-            });
-          }
-        }
-
-        // Convertir a array ordenado
-        const filtered = EQUIPOS_ORDER.map(teamName => {
-          return mapByName.get(teamName.trim().toUpperCase()) || {
-            name: teamName,
-            ACTIVAS: 0,
-            Total: 0
-          };
-        });
-
-        const labels = filtered.map(t => String(t.name || 'Sin equipo'));
-        const dataVals = filtered.map(t => Number(t.ACTIVAS || 0));
-
-        console.log('[VENTAS ACTIVAS] Labels:', labels);
-        console.log('[VENTAS ACTIVAS] Valores:', dataVals);
-
-        // Renderizar lista de equipos
-        if (listEl) {
-          let totalActivas = 0;
-          let totalVentas = 0;
-          
-          const listHtml = filtered.map(team => {
-            const activas = Number(team.ACTIVAS || 0);
-            const total = Number(team.Total || 0);
-            totalActivas += activas;
-            totalVentas += total;
-            
-            return `
-              <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f9fafb; border-radius:4px; font-size:0.85rem;">
-                <span style="font-weight:600; color:#1f3b63;">${team.name}</span>
-                <span style="color:#22b3ec; font-weight:700;">${activas}</span>
-              </div>
-            `;
-          }).join('');
-          
-          listEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; padding:6px 8px; background:#22b3ec; color:#fff; border-radius:4px; font-weight:700; margin-bottom:8px;">
-              <span>Total</span>
-              <span>${totalActivas}</span>
-            </div>
-            ${listHtml}
-          `;
-        }
-        
-        // Actualizar nota
-        if (noteEl) {
-          noteEl.innerHTML = `Solo ventas con status <strong>Completed</strong>`;
-        }
-
-        // Renderizar gráfico
-        if (window.ventasActivasMesChart) {
-          try { 
-            window.ventasActivasMesChart.destroy(); 
-            window.ventasActivasMesChart = null;
-          } catch(_){}
-        }
-
-        const ctx = canvas.getContext('2d');
-        
-        // Asegurar que el contexto es válido
-        if (!ctx) {
-          console.error('[VENTAS ACTIVAS] No se pudo obtener el contexto 2D del canvas');
-          return;
-        }
-        
-        // Crear gradiente para efecto 3D
-        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(34, 179, 236, 1)');
-        gradient.addColorStop(0.5, 'rgba(34, 179, 236, 0.8)');
-        gradient.addColorStop(1, 'rgba(34, 179, 236, 0.6)');
-
-        window.ventasActivasMesChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [{
-              label: 'Ventas Activas',
-              data: dataVals,
-              backgroundColor: gradient,
-              borderColor: 'rgba(26, 144, 193, 1)',
-              borderWidth: 2,
-              borderRadius: 8,
-              borderSkipped: false
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-              padding: { top: 30, right: 10, bottom: 10, left: 10 }
-            },
-            plugins: { 
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                padding: 12,
-                cornerRadius: 8,
-                displayColors: true,
-                callbacks: {
-                  label: function(context) {
-                    const idx = context.dataIndex;
-                    const activas = dataVals[idx];
-                    const total = filtered[idx].Total;
-                    return `Activas: ${activas} de ${total}`;
-                  }
-                }
+        showChartSpinner(canvas, true);
+        setTimeout(() => { // Simula carga asíncrona, reemplaza por fetch real si aplica
+          try {
+            const listEl = document.getElementById('ventas-activas-team-list');
+            const noteEl = document.getElementById('ventas-activas-note');
+            // Si no se pasan datos, intentar cargar del cache
+            if (!teamData || !Array.isArray(teamData) || teamData.length === 0) {
+              const cached = localStorage.getItem('cache_ventas_activas_mes');
+              if (cached) {
+                try { teamData = JSON.parse(cached); } catch(_) { teamData = []; }
               }
-            },
-            scales: {
-              y: { 
-                beginAtZero: true, 
-                title: { 
-                  display: true, 
-                  text: 'Ventas Activas',
-                  font: { weight: 'bold', size: 12 }
-                },
-                ticks: { stepSize: 1 },
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)',
-                  lineWidth: 1
-                }
-              },
-              x: { 
-                ticks: { 
-                  autoSkip: false, 
-                  maxRotation: 45, 
-                  minRotation: 0,
-                  font: { weight: '600', size: 11 }
-                },
-                grid: {
-                  display: false
-                }
+            } else {
+              // Guardar en cache los datos actuales
+              try { localStorage.setItem('cache_ventas_activas_mes', JSON.stringify(teamData)); } catch(_){}
+            }
+            if (!canvas) {
+              console.warn('[VENTAS ACTIVAS] Canvas no encontrado');
+              showChartSpinner(canvas, false);
+              return;
+            }
+            // Procesar datos
+            teamData = Array.isArray(teamData) ? teamData : [];
+            const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'JONATHAN F', 'LUIS G'];
+            const mapByName = new Map();
+            for (const team of teamData) {
+              const key = String(team.name || '').trim().toUpperCase();
+              if (!mapByName.has(key)) {
+                mapByName.set(key, {
+                  name: team.name,
+                  ACTIVAS: Number(team.ACTIVAS || 0),
+                  Total: Number(team.Total || 0)
+                });
+              } else {
+                const existing = mapByName.get(key);
+                existing.ACTIVAS = (existing.ACTIVAS || 0) + Number(team.ACTIVAS || 0);
+                existing.Total = (existing.Total || 0) + Number(team.Total || 0);
               }
             }
-          },
-          plugins: [
-            {
-              // Configuración de ChartDataLabels para esta gráfica
-              id: 'datalabels',
-              afterDatasetsDraw: function(chart, args, options) {
-                const ctx = chart.ctx;
-                chart.data.datasets.forEach((dataset, i) => {
-                  const meta = chart.getDatasetMeta(i);
-                  if (!meta.hidden) {
-                    meta.data.forEach((element, index) => {
-                      ctx.fillStyle = '#1f3b63';
-                      ctx.font = 'bold 13px sans-serif';
-                      ctx.textAlign = 'center';
-                      ctx.textBaseline = 'bottom';
-                      const dataString = dataset.data[index].toString();
-                      ctx.fillText(dataString, element.x, element.y - 5);
-                    });
-                  }
+            for (const teamName of EQUIPOS_ORDER) {
+              const key = teamName.trim().toUpperCase();
+              if (!mapByName.has(key)) {
+                mapByName.set(key, {
+                  name: teamName,
+                  ACTIVAS: 0,
+                  Total: 0
                 });
               }
-            },
-            {
-            // Plugin personalizado para efecto 3D con sombras
-            id: 'barShadow3D',
-            beforeDatasetsDraw: (chart) => {
-              const ctx = chart.ctx;
-              ctx.save();
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-              ctx.shadowBlur = 10;
-              ctx.shadowOffsetX = 4;
-              ctx.shadowOffsetY = 4;
-            },
-            afterDatasetsDraw: (chart) => {
-              chart.ctx.restore();
             }
-          }]  // Cerrar array de plugins
-        });
-        
-        // Asegurar que el canvas permanezca visible después de crear el gráfico
-        try {
-          canvas.style.display = 'block';
-          canvas.style.visibility = 'visible';
-          canvas.style.opacity = '1';
-        } catch(_) {}
-        
-        // Forzar un resize para asegurar que el gráfico se renderice correctamente
-        try {
-          if (window.ventasActivasMesChart && typeof window.ventasActivasMesChart.resize === 'function') {
-            setTimeout(() => {
+            const filtered = Array.from(mapByName.values());
+            const labels = filtered.map(t => t.name);
+            const dataVals = filtered.map(t => t.ACTIVAS);
+            // Si todos los valores son 0, mostrar mensaje de sin datos
+            if (dataVals.every(v => v === 0)) {
+              try { if (window.ventasActivasMesChart) { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } } catch(_){}
               try {
-                window.ventasActivasMesChart.resize();
-                window.ventasActivasMesChart.update('none');
-              } catch(_) {}
-            }, 100);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                canvas.style.display = 'none';
+              } catch(_){}
+              let msg = document.getElementById('ventas-activas-no-data-msg');
+              if (!msg) {
+                msg = document.createElement('div');
+                msg.id = 'ventas-activas-no-data-msg';
+                msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
+                canvas.parentElement.appendChild(msg);
+              }
+              msg.textContent = 'Sin datos para este mes.';
+              showChartSpinner(canvas, false);
+              return;
+            } else {
+              let msg = document.getElementById('ventas-activas-no-data-msg');
+              if (msg) msg.remove();
+            }
+            if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
+            const ctx = canvas.getContext('2d');
+            window.ventasActivasMesChart = new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels,
+                datasets: [{
+                  label: 'Ventas activas',
+                  data: dataVals,
+                  backgroundColor: '#10b981',
+                  borderRadius: 6,
+                  maxBarThickness: 38
+                }]
+              },
+              options: {
+                layout: {
+                  padding: { top: 30, right: 10, bottom: 10, left: 10 }
+                },
+                plugins: { 
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                      label: function(context) {
+                        const idx = context.dataIndex;
+                        const activas = dataVals[idx];
+                        const total = filtered[idx].Total;
+                        return `Activas: ${activas} de ${total}`;
+                      }
+                    }
+                  },
+                  datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#1f3b63',
+                    font: {
+                      weight: 'bold',
+                      size: 13
+                    },
+                    offset: 4,
+                    formatter: function(value, context) {
+                      return value;
+                    }
+                  }
+                }
+              },
+              plugins: [
+                {
+                  id: 'barShadow3D',
+                  beforeDatasetsDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetX = 4;
+                    ctx.shadowOffsetY = 4;
+                  },
+                  afterDatasetsDraw: (chart) => {
+                    chart.ctx.restore();
+                  }
+                },
+                ChartDataLabels
+              ]
+            });
+            // Forzar un resize para asegurar que el gráfico se renderice correctamente
+            try {
+              if (window.ventasActivasMesChart && typeof window.ventasActivasMesChart.resize === 'function') {
+                setTimeout(() => {
+                  try {
+                    window.ventasActivasMesChart.resize();
+                    window.ventasActivasMesChart.update('none');
+                  } catch(_) {}
+                }, 100);
+              }
+            } catch(_) {}
+            console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
+            showChartSpinner(canvas, false);
+          } catch (e) { 
+            showChartSpinner(canvas, false);
+            console.error('[VENTAS ACTIVAS] Error al renderizar:', e); 
           }
-        } catch(_) {}
-        
-        console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
+        }, 0); // Quitar el setTimeout si ya es asíncrono
       } catch (e) { 
-        console.error('[VENTAS ACTIVAS] Error al renderizar:', e); 
+        showChartSpinner(document.getElementById('chart-ventas-activas-mes'), false);
+        console.error('[VENTAS ACTIVAS] Error general:', e); 
       }
     }
 
@@ -2014,30 +2029,58 @@
 
     let productsChartRef = null;
     function renderProducts(leads){
-      try{
-        leads = Array.isArray(leads) ? leads : [];
-        const now = new Date(); const M = now.getMonth(); const Y = now.getFullYear();
-        let monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y && SOLD.has(String(l.status||'').toLowerCase()); });
-        if (monthSales.length === 0) {
-          monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y; });
-        }
-        const getProd = (l) => {
-          const v = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || (l.producto && l.producto.nombre) || l.product || l.service || l.servicio || '';
-          return v ? String(v).replace(/[-_]/g,' ').toUpperCase() : 'SIN PRODUCTO';
-        };
-        const counts = {};
-        monthSales.forEach(l => { const k = getProd(l); if (!k) return; counts[k] = (counts[k]||0) + 1; });
-        const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-        const labels = entries.map(e => e[0]);
-        const dataVals = entries.map(e => e[1]);
-        const canvas = document.getElementById('productsChart'); if (!canvas) return; const ctx = canvas.getContext('2d');
-        if (productsChartRef) try { productsChartRef.destroy(); } catch(_){}
-        productsChartRef = new Chart(ctx, {
-          type: 'bar',
-          data: { labels, datasets: [{ label: 'Cantidad', data: dataVals, backgroundColor: 'rgba(54,162,235,.7)', borderColor: 'rgba(54,162,235,1)', borderWidth: 1, borderRadius: 4 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } } }
-        });
-      } catch (e) { console.warn('renderProducts error', e); }
+      const canvas = document.getElementById('productsChart');
+      showChartSpinner(canvas, true);
+      setTimeout(() => { // Simula carga asíncrona, reemplaza por fetch real si aplica
+        try{
+          leads = Array.isArray(leads) ? leads : [];
+          const now = new Date(); const M = now.getMonth(); const Y = now.getFullYear();
+          let monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y && SOLD.has(String(l.status||'').toLowerCase()); });
+          if (monthSales.length === 0) {
+            monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y; });
+          }
+          const getProd = (l) => {
+            const v = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || (l.producto && l.producto.nombre) || l.product || l.service || l.servicio || '';
+            return v ? String(v).replace(/[-_]/g,' ').toUpperCase() : 'SIN PRODUCTO';
+          };
+          const counts = {};
+          monthSales.forEach(l => { const k = getProd(l); if (!k) return; counts[k] = (counts[k]||0) + 1; });
+          const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+          const labels = entries.map(e => e[0]);
+          const dataVals = entries.map(e => e[1]);
+          if (!canvas) return;
+          // Si todos los valores son 0 o no hay datos, mostrar mensaje de sin datos
+          if (dataVals.length === 0 || dataVals.every(v => v === 0)) {
+            try { if (productsChartRef) productsChartRef.destroy(); } catch(_){}
+            try {
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0,0,canvas.width,canvas.height);
+              canvas.style.display = 'none';
+            } catch(_){}
+            let msg = document.getElementById('products-no-data-msg');
+            if (!msg) {
+              msg = document.createElement('div');
+              msg.id = 'products-no-data-msg';
+              msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
+              canvas.parentElement.appendChild(msg);
+            }
+            msg.textContent = 'Sin datos para este mes.';
+            showChartSpinner(canvas, false);
+            return;
+          } else {
+            let msg = document.getElementById('products-no-data-msg');
+            if (msg) msg.remove();
+          }
+          const ctx = canvas.getContext('2d');
+          if (productsChartRef) try { productsChartRef.destroy(); } catch(_){}
+          productsChartRef = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Cantidad', data: dataVals, backgroundColor: 'rgba(54,162,235,.7)', borderColor: 'rgba(54,162,235,1)', borderWidth: 1, borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } } }
+          });
+        } catch (e) { console.warn('renderProducts error', e); }
+        showChartSpinner(canvas, false);
+      }, 0); // Quitar el setTimeout si ya es asíncrono
     }
 
     // Variables para el control de navegación de productos por mes
