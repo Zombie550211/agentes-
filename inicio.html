@@ -1974,8 +1974,15 @@
         console.warn('⚠️ Elemento teamsChart no encontrado en el DOM, saltando creación del gráfico');
         return;
       }
-      
+
       // Destruir gráfico existente si existe
+      if (chartElement.__chartInstance) {
+        try {
+          chartElement.__chartInstance.destroy();
+        } catch (e) {
+          console.warn('Error al destruir teamsChart existente:', e);
+        }
+      }
       if (teamsChartRefMain) {
         try {
           teamsChartRefMain.destroy();
@@ -1983,23 +1990,23 @@
           console.warn('Error al destruir teamsChart existente:', e);
         }
       }
-      
+
       const ctx = chartElement.getContext('2d');
-      
+
       // Contar leads por team
       const teamCounts = {};
       leads.forEach(lead => {
         const team = lead.team || lead.TEAM || 'Sin equipo';
         teamCounts[team] = (teamCounts[team] || 0) + 1;
       });
-      
+
       const teams = Object.keys(teamCounts);
       const counts = Object.values(teamCounts);
       const colors = [
         '#667eea', '#f093fb', '#4facfe', '#43e97b', 
         '#fa709a', '#feb47b', '#a8edea', '#d299c2'
       ];
-      
+
       teamsChartRefMain = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -2024,6 +2031,7 @@
           }
         }
       });
+      chartElement.__chartInstance = teamsChartRefMain;
     }
 
     // Debug: Verificar elementos del sidebar
@@ -2394,7 +2402,6 @@
         return value ? String(value).trim() : 'DESCONOCIDO';
       }
 
-      let teamsChartRef = null;
       function renderTeamsChart(leads){
         const monthly = leads.filter(l => { const d = pickDate(l); return d.getMonth()===M && d.getFullYear()===Y; });
         if (!monthly.length) return;
@@ -2405,9 +2412,10 @@
         const canvas = document.getElementById('teamsChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
-        if (teamsChartRef) { try{teamsChartRef.destroy();}catch(_){} }
+        // Destruir instancia previa si existe (unificar con teamsChartRefMain global)
+        if (window.teamsChartRefMain) { try{window.teamsChartRefMain.destroy();}catch(_){} }
         const palette = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feb47b','#a8edea','#d299c2','#5ee7df','#b490ca'];
-        teamsChartRef = new Chart(ctx, {
+        window.teamsChartRefMain = new Chart(ctx, {
           type: 'doughnut',
           data: { labels, datasets: [{ data, backgroundColor: palette.slice(0, labels.length), borderWidth: 0 }] },
           options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding: 20 } } } }

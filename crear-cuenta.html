@@ -558,7 +558,7 @@
 
             // Recopilar datos del formulario
             const formData = {
-                fullName: document.getElementById('fullName').value,
+                name: document.getElementById('fullName').value,
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
                 role: document.getElementById('role').value,
@@ -566,21 +566,33 @@
                 password: password.value
             };
 
-            console.log('Datos del formulario:', formData);
-            
-            // Mostrar mensaje de éxito
-            successMessage.classList.add('show');
-            form.style.opacity = '0.5';
-            form.style.pointerEvents = 'none';
-
-            setTimeout(() => {
-                alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role);
-                form.reset();
-                strengthBar.className = 'password-strength-bar';
-                successMessage.classList.remove('show');
-                form.style.opacity = '1';
-                form.style.pointerEvents = 'auto';
-            }, 2000);
+            // Enviar datos al backend para crear usuario real
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    successMessage.classList.add('show');
+                    form.style.opacity = '0.5';
+                    form.style.pointerEvents = 'none';
+                    setTimeout(() => {
+                        alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role);
+                        form.reset();
+                        strengthBar.className = 'password-strength-bar';
+                        successMessage.classList.remove('show');
+                        form.style.opacity = '1';
+                        form.style.pointerEvents = 'auto';
+                    }, 2000);
+                } else {
+                    alert('❌ Error al crear la cuenta: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(err => {
+                alert('❌ Error de red o servidor: ' + err.message);
+            });
         });
 
         function handleCancel() {

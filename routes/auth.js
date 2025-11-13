@@ -1,3 +1,43 @@
+/**
+ * @route POST /api/auth/register
+ * @desc Registrar nuevo usuario
+ * @access Public (solo para pruebas, proteger en producción)
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    const { name, username, email, password, role, team } = req.body;
+    if (!username || !password || !role) {
+      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios (usuario, contraseña, rol)' });
+    }
+    // Verificar si ya existe el usuario
+    const exists = await db.collection('users').findOne({ username });
+    if (exists) {
+      return res.status(409).json({ success: false, message: 'El usuario ya existe' });
+    }
+    // Hashear contraseña
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
+    const now = new Date();
+    const userDoc = {
+      username,
+      password: hashed,
+      role,
+      team: team || '',
+      name: name || '',
+      email: email || '',
+      createdAt: now,
+      updatedAt: now
+    };
+    const result = await db.collection('users').insertOne(userDoc);
+    return res.json({ success: true, message: 'Usuario creado', userId: result.insertedId });
+  } catch (e) {
+    console.error('[REGISTER] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error al crear usuario' });
+  }
+});
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');

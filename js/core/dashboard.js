@@ -130,10 +130,11 @@
       const role = (user?.role||'').toString().trim().toLowerCase();
       const isAgent = ['agente','agent'].includes(role);
 
+      let totalPoints = 0;
       // Solo agentes: actualizar KPIs propios. Para admins/BO/supervisor, Inicio maneja los totales.
       if (isAgent) {
         updateText('month-sales-count', String(leads.length));
-        const totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
+        totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
         updateText('month-points-total', totalPoints.toFixed(2));
         const bestTeam = pickBestTeam(leads);
         updateText('best-team-name', bestTeam || '-');

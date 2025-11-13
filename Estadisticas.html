@@ -185,6 +185,21 @@
       padding-right: 16px;
     }
     .chart-wrapper { position: relative; height: 320px; }
+      .chart-wrapper {
+        position: relative;
+        height: 400px;
+        width: 100%;
+        min-height: 300px;
+        overflow: hidden;
+      }
+      .chart-wrapper canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        box-sizing: border-box;
+      }
 
     /* Responsive para mÃ³vil: sidebar superior */
     @media (max-width: 768px) {
@@ -4127,15 +4142,32 @@
 
         // Usar datos de LINEAS del backend si están disponibles
         let lineasData = lineasDataFromBackend.length > 0 ? lineasDataFromBackend : [];
-        
         // Fallback: si no hay datos de lineas del backend, intentar filtrar por nombre (legacy)
         if (lineasData.length === 0) {
           const isLinea = (n) => /LINEA/i.test(String(n || ''));
           lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
         }
-        
+        // Siempre mostrar los nombres fijos aunque no haya datos
+        const lineasFijos = [
+          { name: 'JONATHAN F', ICON: 0 },
+          { name: 'LUIS G', ICON: 0 }
+        ];
+        // Si no hay datos, forzar la visualización de los fijos
+        if (!lineasData || lineasData.length === 0) {
+          lineasData = [...lineasFijos];
+        } else {
+          // Si hay datos, asegurarse que los fijos estén presentes (aunque todo esté en cero)
+          for (const fijo of lineasFijos) {
+            if (!lineasData.some(l => String(l.name).toUpperCase() === fijo.name.toUpperCase())) {
+              lineasData.push({ name: fijo.name, ICON: 0 });
+            }
+          }
+        }
+        // Si después de todo lineasData sigue vacío (caso extremo), forzar los fijos
+        if (!lineasData || lineasData.length === 0) {
+          lineasData = [...lineasFijos];
+        }
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-        
         // Filtrar datos principales: excluir los nombres que están en lineasData
         const lineasNames = new Set(lineasData.map(l => String(l.name).toUpperCase()));
         let mainData = dayData.filter(t => !lineasNames.has(String(t.name).toUpperCase()));
