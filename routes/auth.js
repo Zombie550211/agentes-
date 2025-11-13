@@ -1,3 +1,6 @@
+const express = require('express');
+const router = express.Router();
+
 /**
  * @route POST /api/auth/register
  * @desc Registrar nuevo usuario
@@ -38,8 +41,7 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Error al crear usuario' });
   }
 });
-const express = require('express');
-const router = express.Router();
+// ...existing code...
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../config/db');
