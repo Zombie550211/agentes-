@@ -1586,8 +1586,8 @@ v   <html lang="es">
                 <th>Tipo de servicios</th>
                 <th>Sistema</th>
                 <th>Riesgo</th>
-                <th>D&iacute;a de venta</th>
-                <th>D&iacute;a de instalaci&oacute;n</th>
+                <th style="white-space:nowrap;">D&iacute;a de venta <button id="filterDiaVenta" class="date-filter-btn" data-field="dia_venta" data-lskey="costumer_datefilter_dia_venta" title="Filtrar por Día de venta" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">▾</button></th>
+                <th style="white-space:nowrap;">D&iacute;a de instalaci&oacute;n <button id="filterDiaInstalacion" class="date-filter-btn" data-field="dia_instalacion" data-lskey="costumer_datefilter_dia_instalacion" title="Filtrar por Día de instalación" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">▾</button></th>
                 <th>Status</th>
                 <th>Servicios</th>
                 <th>Mercado</th>
@@ -3679,6 +3679,28 @@ v   <html lang="es">
         }
       } catch (e) { console.warn('[Costumer Filter] error applying status filter', e); }
 
+      // Aplicar filtros de fecha (Día de venta / Día de instalación) si existen inputs
+      try {
+        // Read selected dates arrays from localStorage (stored as JSON arrays). Backwards compatible with single-string values.
+        const readArray = (k) => {
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) return [];
+            try { const p = JSON.parse(raw); if (Array.isArray(p)) return p.map(x=>String(x).slice(0,10)); } catch(_) {}
+            // fallback: plain string
+            return [String(raw).slice(0,10)];
+          } catch(_) { return []; }
+        };
+        const selVenta = readArray('costumer_datefilter_dia_venta');
+        const selInst = readArray('costumer_datefilter_dia_instalacion');
+        if (selVenta && selVenta.length) {
+          try { leadsArray = leadsArray.filter(l => selVenta.includes(String(l?.dia_venta||'').slice(0,10))); } catch(_) {}
+        }
+        if (selInst && selInst.length) {
+          try { leadsArray = leadsArray.filter(l => selInst.includes(String(l?.dia_instalacion||'').slice(0,10))); } catch(_) {}
+        }
+      } catch(e) { console.warn('[Costumer Filter] error applying date filters', e); }
+
       // Paginación en cliente
       try {
         const total = leadsArray.length;
@@ -3743,16 +3765,55 @@ v   <html lang="es">
                 const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
               });
             }
-            // bind status filter change
+            // bind status filter and date filters (venta / instalacion)
             try {
               const statusSel = document.getElementById('statusFilter');
+              const fv = document.getElementById('filterDiaVenta');
+              const fi = document.getElementById('filterDiaInstalacion');
+              // restore saved values
+              try { const sv = localStorage.getItem('costumer_status_filter'); if (sv && statusSel) statusSel.value = sv; } catch(_) {}
+              try {
+                const raw = localStorage.getItem('costumer_datefilter_dia_venta');
+                if (raw && fv) {
+                  try {
+                    const parsed = JSON.parse(raw);
+                    const label = Array.isArray(parsed) ? (parsed.length === 0 ? '' : (parsed.length === 1 ? parsed[0] : `${parsed.length} seleccionadas`)) : (typeof parsed === 'string' ? parsed : String(raw));
+                    if ((fv.tagName||'').toUpperCase() === 'INPUT') fv.value = label;
+                    else fv.textContent = label;
+                  } catch { if ((fv.tagName||'').toUpperCase() === 'INPUT') fv.value = raw || ''; else fv.textContent = raw || ''; }
+                }
+              } catch(_) {}
+              try {
+                const raw2 = localStorage.getItem('costumer_datefilter_dia_instalacion');
+                if (raw2 && fi) {
+                  try {
+                    const parsed2 = JSON.parse(raw2);
+                    const label2 = Array.isArray(parsed2) ? (parsed2.length === 0 ? '' : (parsed2.length === 1 ? parsed2[0] : `${parsed2.length} seleccionadas`)) : (typeof parsed2 === 'string' ? parsed2 : String(raw2));
+                    if ((fi.tagName||'').toUpperCase() === 'INPUT') fi.value = label2;
+                    else fi.textContent = label2;
+                  } catch { if ((fi.tagName||'').toUpperCase() === 'INPUT') fi.value = raw2 || ''; else fi.textContent = raw2 || ''; }
+                }
+              } catch(_) {}
+
               if (statusSel) {
-                // restore saved
-                try { const sv = localStorage.getItem('costumer_status_filter'); if (sv) statusSel.value = sv; } catch(_) {}
                 statusSel.addEventListener('change', function(){
                   try { localStorage.setItem('costumer_status_filter', String(this.value)); } catch(_) {}
                   window.__page = 1;
                   const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+                });
+              }
+              // clicking the readonly trigger opens the Excel-like filter popup
+              if (fv) {
+                fv.addEventListener('click', function(e){
+                  e.stopPropagation();
+                  openDateFilterPopup({ field: 'dia_venta', lsKey: 'costumer_datefilter_dia_venta', trigger: fv, label: 'Día de venta' });
+                });
+              }
+
+              if (fi) {
+                fi.addEventListener('click', function(e){
+                  e.stopPropagation();
+                  openDateFilterPopup({ field: 'dia_instalacion', lsKey: 'costumer_datefilter_dia_instalacion', trigger: fi, label: 'Día de instalación' });
                 });
               }
             } catch(_) {}
@@ -5977,5 +6038,221 @@ v   <html lang="es">
   <!-- <script src="js/costumer-actions.js?v=5"></script> -->
   <!-- <script src="js/costumer-init.js?v=5"></script> -->
   <!-- <script src="js/costumer-calendar.js?v=5"></script> -->
+  <script>
+    // Popover tipo Excel para filtrar por valores únicos de fecha
+    (function(){
+      const popoverId = 'costumer-datefilter-popover';
+
+      function closePopover() {
+        const ex = document.getElementById(popoverId);
+        if (ex) ex.remove();
+        document.removeEventListener('click', onDocClick);
+      }
+      // only close when clicking outside the popover
+      function onDocClick(e) {
+        try {
+          const ex = document.getElementById(popoverId);
+          if (!ex) return;
+          if (ex.contains(e.target)) return; // inside popover: ignore
+          closePopover();
+        } catch (err) { closePopover(); }
+      }
+
+      function formatDateLabel(d) {
+        return String(d||'').slice(0,10);
+      }
+
+      window.openDateFilterPopup = function(opts) {
+        // opts: { field, lsKey, trigger, label }
+        try {
+          closePopover();
+          const { field, lsKey, trigger, label } = opts || {};
+          const root = document.createElement('div');
+          root.id = popoverId;
+          root.style.position = 'absolute';
+          root.style.zIndex = 99999;
+          root.style.boxSizing = 'border-box';
+          root.style.width = '260px';
+          root.style.maxWidth = '90vw';
+          // Allow taller popover so footer buttons stay visible on most screens
+          root.style.maxHeight = '520px';
+          root.style.overflow = 'hidden';
+          root.style.boxShadow = '0 6px 18px rgba(15,23,42,0.18)';
+          root.style.background = '#fff';
+          root.style.border = '1px solid #e2e8f0';
+          root.style.borderRadius = '8px';
+          root.style.fontSize = '13px';
+          root.style.padding = '8px 8px 6px 8px';
+
+          // Header
+          const h = document.createElement('div');
+          h.style.display = 'flex';
+          h.style.justifyContent = 'space-between';
+          h.style.alignItems = 'center';
+          h.style.marginBottom = '6px';
+          const title = document.createElement('div'); title.textContent = label || 'Filtrar'; title.style.fontWeight = '600';
+          const actions = document.createElement('div'); actions.style.fontSize = '12px';
+          root.appendChild(h);
+          h.appendChild(title); h.appendChild(actions);
+
+          // Search
+          const search = document.createElement('input');
+          search.type = 'search'; search.placeholder = 'Buscar...';
+          search.style.width = '100%'; search.style.padding = '6px 8px'; search.style.marginBottom = '8px'; search.style.border = '1px solid #e6edf3'; search.style.borderRadius = '6px';
+          root.appendChild(search);
+
+          // Select all / Clear
+          const tools = document.createElement('div'); tools.style.display = 'flex'; tools.style.justifyContent = 'space-between'; tools.style.alignItems = 'center'; tools.style.marginBottom = '6px';
+          const left = document.createElement('div'); left.style.fontSize = '12px';
+          const selectAllLink = document.createElement('a'); selectAllLink.href = '#'; selectAllLink.textContent = 'Seleccionar todo'; selectAllLink.style.marginRight = '8px';
+          const clearLink = document.createElement('a'); clearLink.href = '#'; clearLink.textContent = 'Borrar';
+          left.appendChild(selectAllLink); left.appendChild(clearLink);
+          tools.appendChild(left);
+          root.appendChild(tools);
+
+          // List container
+          const listWrap = document.createElement('div');
+          listWrap.style.overflowY = 'auto'; listWrap.style.overflowX = 'hidden'; listWrap.style.maxHeight = '380px'; listWrap.style.borderTop = '1px solid #f1f5f9'; listWrap.style.paddingTop = '6px';
+          listWrap.style.boxSizing = 'border-box'; listWrap.style.paddingRight = '8px';
+          root.appendChild(listWrap);
+
+          // Footer buttons
+          const footer = document.createElement('div'); footer.style.display = 'flex'; footer.style.justifyContent = 'flex-end'; footer.style.gap = '8px'; footer.style.marginTop = '8px'; footer.style.flexWrap = 'wrap';
+          const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancelar'; btnCancel.className = 'action-btn'; btnCancel.style.padding = '6px 8px'; btnCancel.style.fontSize = '12px';
+          const btnAccept = document.createElement('button'); btnAccept.textContent = 'Aceptar'; btnAccept.className = 'action-btn'; btnAccept.style.background = '#10b981'; btnAccept.style.color = '#fff'; btnAccept.style.padding = '6px 8px'; btnAccept.style.fontSize = '12px';
+          footer.appendChild(btnCancel); footer.appendChild(btnAccept); root.appendChild(footer);
+
+          // Position near trigger (try center under the trigger, clamp to viewport, flip above if not enough space)
+          document.body.appendChild(root);
+          const rect = trigger.getBoundingClientRect();
+          // prefer a reasonable width but keep within viewport
+          const preferredWidth = 260;
+          root.style.width = preferredWidth + 'px';
+          // initial position: centered under trigger
+          let topCandidate = window.scrollY + rect.bottom + 6;
+          let leftCandidate = window.scrollX + rect.left + (rect.width / 2) - (preferredWidth / 2);
+          // clamp horizontally with small margin
+          const margin = 8;
+          leftCandidate = Math.max(window.scrollX + margin, Math.min(leftCandidate, window.scrollX + window.innerWidth - preferredWidth - margin));
+          root.style.top = `${topCandidate}px`;
+          root.style.left = `${leftCandidate}px`;
+
+          // After rendering, compute available space and adjust list height so footer (Aceptar/Cancelar) stays visible.
+          setTimeout(() => {
+            try {
+              const viewportTop = window.scrollY;
+              const viewportBottom = window.scrollY + window.innerHeight;
+              const b = root.getBoundingClientRect();
+
+              // reserved space: header + search + tools + footer + paddings
+              const reserved = (h.offsetHeight || 0) + (search.offsetHeight || 0) + (tools.offsetHeight || 0) + (footer.offsetHeight || 0) + 24;
+
+              // space below trigger
+              const spaceBelow = viewportBottom - (window.scrollY + rect.bottom) - 12;
+              const spaceAbove = (window.scrollY + rect.top) - viewportTop - 12;
+
+              // decide whether to flip above
+              let placeAbove = false;
+              if (spaceBelow < 120 && spaceAbove > spaceBelow) placeAbove = true;
+              if (placeAbove) {
+                let newTop = window.scrollY + rect.top - b.height - 6;
+                if (newTop < window.scrollY + margin) newTop = window.scrollY + margin;
+                root.style.top = `${newTop}px`;
+                topCandidate = newTop;
+              }
+
+              // compute available (below or above) for list
+              const available = placeAbove ? (spaceAbove - reserved) : (spaceBelow - reserved);
+              const listMax = Math.max(80, Math.min(200, available || 120));
+              try { listWrap.style.maxHeight = `${listMax}px`; } catch(_) {}
+            } catch (e) { /* ignore */ }
+          }, 10);
+
+          // Build unique date list from window.ultimaListaLeads
+          const all = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
+          const set = new Set();
+          all.forEach(l => { const v = String(l && l[field] ? String(l[field]).slice(0,10) : ''); if (v) set.add(v); });
+          const items = Array.from(set).sort((a,b)=> (b||'').localeCompare(a||''));
+
+          // current selection
+          let currentSel = [];
+          try { const raw = localStorage.getItem(lsKey); if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) currentSel = p.map(x=>String(x).slice(0,10)); else if (typeof p==='string') currentSel = [p.slice(0,10)]; } } catch(_) { }
+
+          // Render items
+          const ul = document.createElement('div'); ul.style.display='flex'; ul.style.flexDirection='column'; ul.style.gap='6px'; ul.style.margin = '0'; ul.style.padding = '0';
+          items.forEach(it => {
+            // Row layout: checkbox and date next to each other; avoid overflow
+            const row = document.createElement('div');
+            row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.justifyContent = 'flex-start'; row.style.padding = '6px 4px'; row.style.cursor = 'pointer';
+            row.style.boxSizing = 'border-box';
+
+            const cbWrap = document.createElement('div'); cbWrap.style.flex = '0 0 auto'; cbWrap.style.display = 'flex'; cbWrap.style.alignItems = 'center'; cbWrap.style.marginRight = '8px';
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = it; cb.checked = currentSel.includes(it);
+            cbWrap.appendChild(cb);
+
+            const dateSpan = document.createElement('div'); dateSpan.textContent = it; dateSpan.style.fontSize = '13px'; dateSpan.style.whiteSpace = 'nowrap'; dateSpan.style.color = '#0f172a'; dateSpan.style.overflow = 'hidden'; dateSpan.style.textOverflow = 'ellipsis'; dateSpan.style.flex = '1 1 auto'; dateSpan.style.textAlign = 'left';
+
+            // Toggle checkbox when clicking on row (except on the checkbox itself)
+            row.addEventListener('click', function(e){ if (e.target !== cb) cb.checked = !cb.checked; });
+
+            row.appendChild(cbWrap);
+            row.appendChild(dateSpan);
+            ul.appendChild(row);
+          });
+          listWrap.appendChild(ul);
+
+          // Search filter
+          search.addEventListener('input', function(){
+            const q = String(this.value||'').toLowerCase().trim();
+            Array.from(ul.children).forEach(r => {
+              const txt = (r.textContent||'').toLowerCase();
+              r.style.display = q ? (txt.includes(q) ? '' : 'none') : '';
+            });
+          });
+
+          selectAllLink.addEventListener('click', function(e){ e.preventDefault(); Array.from(ul.querySelectorAll('input[type=checkbox]')).forEach(c=>c.checked=true); });
+          clearLink.addEventListener('click', function(e){ e.preventDefault(); Array.from(ul.querySelectorAll('input[type=checkbox]')).forEach(c=>c.checked=false); });
+
+          btnCancel.addEventListener('click', function(){ closePopover(); });
+          btnAccept.addEventListener('click', function(){
+            const chosen = Array.from(ul.querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value).filter(Boolean);
+            try { localStorage.setItem(lsKey, JSON.stringify(chosen)); } catch(_) { try { localStorage.setItem(lsKey, String(chosen[0]||'')); } catch(_) {} }
+            // update trigger display (use textContent for buttons, value for inputs)
+            try {
+              const label = chosen.length === 0 ? '' : (chosen.length === 1 ? chosen[0] : `${chosen.length} seleccionadas`);
+              if (trigger) {
+                if ((trigger.tagName||'').toUpperCase() === 'INPUT') trigger.value = label;
+                else trigger.textContent = label;
+              }
+            } catch(_) {}
+            // repaint
+            window.__page = 1;
+            const prev = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prev; }
+            closePopover();
+          });
+
+          // close on outside click
+          setTimeout(()=>{ document.addEventListener('click', onDocClick); }, 50);
+        } catch(e) { console.error('openDateFilterPopup error', e); }
+      };
+    })();
+  </script>
+  <script>
+    // Delegated handler: asegurar que los botones .date-filter-btn siempre abran el popup
+    document.addEventListener('click', function(e){
+      try {
+        const btn = e.target.closest && e.target.closest('.date-filter-btn');
+        if (!btn) return;
+        e.preventDefault(); e.stopPropagation();
+        const field = btn.getAttribute('data-field');
+        const lsKey = btn.getAttribute('data-lskey');
+        if (typeof window.openDateFilterPopup === 'function') {
+          window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
+        } else {
+          console.warn('openDateFilterPopup no está disponible todavía');
+        }
+      } catch(err) { console.error('date-filter delegated click error', err); }
+    });
+  </script>
 </body>
 </html>
