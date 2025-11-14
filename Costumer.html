@@ -1547,6 +1547,15 @@ v   <html lang="es">
           <h2 class="costumer-table-title">Lista de Clientes</h2>
           <div class="costumer-table-actions">
             <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
+            <label for="statusFilter" style="margin-left:8px; font-size:12px; color:#475569;">Status</label>
+            <select id="statusFilter" style="margin-left:6px; padding:6px 8px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;">
+              <option value="all">Todos</option>
+              <option value="completed">Completed / Active</option>
+              <option value="pending">Pending</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="hold">Hold</option>
+              <option value="rescheduled">Rescheduled</option>
+            </select>
             <button id="scroll-left" class="action-btn" title="Desplazar a la izquierda">
               <i class="fas fa-angle-double-left"></i>
             </button>
@@ -3640,6 +3649,36 @@ v   <html lang="es">
           : [];
       // Guardar la ¨²ltima lista para re-renderizados por filtros/toolbar
       try { window.ultimaListaLeads = leadsArray.slice(); } catch(_) {}
+      // Diagnostic logs: contar estados y supervisores para depuración rápida
+      try {
+        const allLeads = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
+        const completedCount = allLeads.reduce((acc, l) => {
+          const s = String(l?.status || '').toLowerCase();
+          return acc + ((/complete|active/.test(s)) ? 1 : 0);
+        }, 0);
+        const johanaCount = allLeads.reduce((acc, l) => acc + ((String(l?.supervisor || '').toLowerCase().trim() === 'johana') ? 1 : 0), 0);
+        console.log(`[Costumer Debug] leads cargados=${allLeads.length}, completed=${completedCount}, supervisor JOHANA=${johanaCount}`);
+      } catch (e) { console.warn('[Costumer Debug] error contando leads:', e); }
+      // Aplicar filtro por status (si el select existe)
+      try {
+        const statusSel = document.getElementById('statusFilter');
+        if (statusSel) {
+          const sel = String(statusSel.value || 'all').toLowerCase();
+          if (sel && sel !== 'all') {
+            const predicate = (l) => {
+              const s = String(l?.status || '').toLowerCase();
+              if (sel === 'completed') return /complete|active/.test(s);
+              if (sel === 'cancelled') return /cancel/.test(s);
+              if (sel === 'hold') return /hold/.test(s);
+              if (sel === 'rescheduled') return /repro|resched|reprogram|reagend/.test(s);
+              if (sel === 'pending') return !(/complete|active|cancel|hold|repro|resched/.test(s));
+              return true;
+            };
+            try { leadsArray = leadsArray.filter(predicate); } catch(_) {}
+          }
+        }
+      } catch (e) { console.warn('[Costumer Filter] error applying status filter', e); }
+
       // Paginación en cliente
       try {
         const total = leadsArray.length;
@@ -3704,6 +3743,19 @@ v   <html lang="es">
                 const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
               });
             }
+            // bind status filter change
+            try {
+              const statusSel = document.getElementById('statusFilter');
+              if (statusSel) {
+                // restore saved
+                try { const sv = localStorage.getItem('costumer_status_filter'); if (sv) statusSel.value = sv; } catch(_) {}
+                statusSel.addEventListener('change', function(){
+                  try { localStorage.setItem('costumer_status_filter', String(this.value)); } catch(_) {}
+                  window.__page = 1;
+                  const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+                });
+              }
+            } catch(_) {}
             if (toggleBtn) {
               toggleBtn.addEventListener('click', function(){
                 const cur = localStorage.getItem('costumer_show_all_months')==='1';

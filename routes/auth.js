@@ -190,6 +190,51 @@ router.post('/reset-password-by-email', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/reset-password
+ * body: { username, newPassword }
+ * access: Protected (admin)
+ */
+router.post('/reset-password', protect, authorize('admin', 'Administrador', 'administrador'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const username = String(req.body?.username || '').trim();
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!username || !newPassword) return res.status(400).json({ success: false, message: 'Campos requeridos: username, newPassword' });
+    if (newPassword.length < 8) return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
+
+    // Buscar usuario permitiendo variantes comunes (misma lógica que en login)
+    const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+    const uname = username;
+    const variants = Array.from(new Set([
+      uname,
+      uname.replace(/[\s]+/g, '.'),
+      uname.replace(/[.]+/g, ' '),
+      uname.replace(/[.\s]+/g, ' '),
+      uname.replace(/[.\s]+/g, '.')
+    ].filter(Boolean)));
+    const ors = variants.flatMap(v => {
+      const rx = new RegExp(`^${esc(v)}$`, 'i');
+      return [ { username: rx }, { name: rx } ];
+    });
+
+    const user = await db.collection('users').findOne({ $or: ors });
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+    await db.collection('users').updateOne({ _id: user._id }, { $set: { password: hashed, updatedAt: new Date() } });
+
+    return res.json({ success: true, message: 'Contraseña restablecida' });
+  } catch (e) {
+    console.error('[RESET-PASSWORD] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error al restablecer contraseña' });
+  }
+});
+
+/**
  * @route POST /api/auth/login
  * @desc Iniciar sesión
  * @access Public
