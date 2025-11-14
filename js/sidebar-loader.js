@@ -76,6 +76,23 @@
   // Obtener información del usuario desde localStorage o API
   async function getUserInfo() {
     try {
+      // Primero intentar obtener usuario desde almacenamiento local (más rápido y evita llamadas cuando se abre como file://)
+      try {
+        const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.username || parsed.name || parsed.email)) {
+            // normalizar propiedad username
+            const userFromStorage = Object.assign({}, parsed);
+            if (!userFromStorage.username) userFromStorage.username = userFromStorage.name || userFromStorage.email || 'Usuario';
+            console.log('👤 Usuario cargado desde localStorage/sessionStorage para sidebar:', userFromStorage);
+            return userFromStorage;
+          }
+        }
+      } catch (e) {
+        // ignore parse errors and continue to server probe
+      }
+
       // Intentar obtener del servidor usando cookies (método actual del sistema)
       const response = await fetch('/api/auth/verify-server', {
         method: 'GET',
@@ -83,27 +100,28 @@
       });
 
       if (!response.ok) {
-        throw new Error('Error obteniendo información del usuario');
+        // Registrar en nivel warn para no llenar la consola en casos normales donde no hay sesión
+        console.warn('Advertencia: respuesta no OK de /api/auth/verify-server:', response.status);
+        throw new Error('No se pudo verificar sesión en servidor');
       }
 
       const data = await response.json();
-      
-      if (!data.authenticated || !data.user) {
+      if (!data || !data.authenticated || !data.user) {
+        console.warn('Usuario no autenticado en /api/auth/verify-server, usando fallback');
         throw new Error('Usuario no autenticado');
       }
-      
+
       const user = data.user;
-      console.log('👤 Usuario cargado en sidebar:', user);
+      console.log('👤 Usuario cargado en sidebar (servidor):', user);
       return user;
     } catch (error) {
-      console.error('Error obteniendo usuario:', error);
-      // Retornar usuario por defecto
+      // No usar console.error para errores esperados (p. ej. sesión ausente). Mostrar warning y devolver fallback.
+      console.warn('Error obteniendo usuario (se usará fallback):', (error && error.message) ? error.message : error);
       const fallbackUser = {
         username: 'Usuario',
         role: 'agente',
         team: 'Sin equipo'
       };
-      console.warn('⚠️ Usando usuario por defecto:', fallbackUser);
       return fallbackUser;
     }
   }
