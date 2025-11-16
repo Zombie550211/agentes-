@@ -128,10 +128,17 @@
 
   // Generar HTML del sidebar
   function generateSidebarHTML(user, activePage) {
-    const initials = getInitials(user.username || 'U');
-    const normalizedRole = normalizeRole(user.role);
-    const roleName = getRoleName(normalizedRole);
-    const isLineas = /lineas/i.test(String(user.team || ''));
+  const initials = getInitials(user.username || 'U');
+  const normalizedRole = normalizeRole(user.role);
+  const roleName = getRoleName(normalizedRole);
+  // Detectar si el usuario pertenece a Team Líneas. Seguimos la misma lógica que el servidor (__isTeamLineas):
+  // - team contiene 'lineas'
+  // - role contiene 'teamlineas' o contiene 'lineas'
+  // - username comienza con 'lineas-'
+  const uname = String(user.username || '').toLowerCase();
+  const urole = String(user.role || '').toLowerCase();
+  const uteam = String(user.team || '').toLowerCase();
+  const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-');
     
     // Determinar menú según rol
     const menuItems = getMenuItems(normalizedRole, activePage, { isLineas });
