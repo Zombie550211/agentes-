@@ -39,13 +39,13 @@
             { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/Ranking y Promociones.html' },
             { icon:'fa-chart-bar', text:'Estadísticas', href:'\/Estadisticas.html' }
           ];
-          firstMenu.innerHTML = items.map(it => `
-            <li>
-              <a href="${it.href}" class="btn btn-sidebar">
-                <i class="fas ${it.icon}"></i> ${it.text}
-              </a>
-            </li>
-          `).join('');
+            firstMenu.innerHTML = items.map(it => `
+              <li>
+                <a href="${it.href}" class="btn btn-sidebar" title="${it.text}">
+                  <i class="fas ${it.icon}"></i><span class="menu-label">${it.text}</span>
+                </a>
+              </li>
+            `).join('');
           const roleSpan = sidebarElement.querySelector('#user-role');
           if (roleSpan) roleSpan.textContent = 'Agente';
         }
@@ -182,8 +182,8 @@
       <!-- Logout -->
       <ul class="menu">
         <li>
-          <button type="button" class="btn btn-sidebar btn-logout" data-logout-button>
-            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+          <button type="button" class="btn btn-sidebar btn-logout" data-logout-button title="Cerrar Sesión">
+            <i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar Sesión</span>
           </button>
         </li>
       </ul>
@@ -255,8 +255,8 @@
         const isActive = key === activePage ? 'is-active' : '';
         menuHTML += `
           <li>
-            <a href="${item.href}" class="btn btn-sidebar ${isActive}">
-              <i class="fas ${item.icon}"></i> ${item.text}
+            <a href="${item.href}" class="btn btn-sidebar ${isActive}" title="${item.text}">
+              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
             </a>
           </li>
         `;
@@ -273,12 +273,11 @@
         menuHTML += `
           <li>
             <a href="${item.href}" class="btn btn-sidebar ${isActive}">
-              <i class="fas ${item.icon}"></i> ${item.text}
+              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
             </a>
           </li>
         `;
       }
-      visibleItems.push(...agentKeys.map(k=>allMenuItems[k].text));
     }
 
     console.log('✅ Items visibles para este rol:', visibleItems);
@@ -314,8 +313,8 @@
       </div>
       <h3>Navegación</h3>
       <ul class="menu">
-        <li><a href="/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i> Inicio</a></li>
-        <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+        <li><a href="/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
+        <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar Sesión</span></a></li>
       </ul>
     `;
   }
@@ -331,18 +330,49 @@
     const STYLE_ID = 'global-auto-hide-sidebar-styles';
     if (!DOC.getElementById(STYLE_ID)) {
       const css = `
-        :root { --sidebar-width: 240px; --sidebar-peek: 12px; }
-        /* Sidebar overlay fijo: no reserva espacio en el layout */
-        .sidebar { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-width) !important; height: 100vh !important; backface-visibility: hidden; transform: translate3d(0,0,0) !important; will-change: transform; z-index: 140 !important; }
-        body.auto-hide-sidebar .sidebar { transform: translate3d(calc(var(--sidebar-width) * -1 + var(--sidebar-peek)), 0, 0) !important; transition: transform .12s ease-out; }
-        body.auto-hide-sidebar.show-sidebar .sidebar { transform: translate3d(0,0,0) !important; }
-        /* Contenido: margen fijo pequeño siempre, SIN transiciones */
-        .main-content { margin-left: calc(var(--sidebar-peek) + 8px) !important; }
-        /* Zona de hover para mostrar sidebar */
-        .sidebar-hover-zone { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-peek) !important; height: 100vh !important; z-index: 150 !important; pointer-events: auto; }
-        @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { transform: translate3d(0,0,0) !important; } .sidebar-hover-zone { display: none !important; } }
-        @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar { transition: none !important; } }
-      `;
+          :root { --sidebar-width: 260px; --sidebar-collapsed: 72px; --sidebar-peek: 12px; }
+          /* Base sidebar positioning */
+          .sidebar { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-width) !important; height: 100vh !important; backface-visibility: hidden; transform: translate3d(0,0,0) !important; will-change: width, transform; z-index: 140 !important; transition: width .14s ease; overflow: hidden; }
+
+          /* ICON-ONLY collapsed mode: reduce width and hide labels */
+          body.auto-hide-sidebar .sidebar { width: var(--sidebar-collapsed) !important; }
+          body.auto-hide-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar .sidebar .user-name,
+          body.auto-hide-sidebar .sidebar .user-role,
+          body.auto-hide-sidebar .sidebar .stat-label,
+          body.auto-hide-sidebar .sidebar .stat-content { display: none !important; }
+
+          /* Center icons when collapsed */
+          body.auto-hide-sidebar .sidebar a { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
+          body.auto-hide-sidebar .sidebar a i { margin-right: 0 !important; font-size: 1.15rem; }
+          body.auto-hide-sidebar .sidebar .avatar { width: 44px; height: 44px; margin: 12px auto; }
+          /* Prevent hover padding shift when collapsed */
+          body.auto-hide-sidebar .sidebar a:hover { padding-left: 0 !important; padding-right: 0 !important; border-left-color: transparent !important; }
+
+          /* When showing (hover), expand to full width and reveal labels */
+          body.auto-hide-sidebar.show-sidebar .sidebar { width: var(--sidebar-width) !important; }
+          /* Reveal all user/header/menu sections when expanded */
+          body.auto-hide-sidebar.show-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-name,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-role,
+          body.auto-hide-sidebar.show-sidebar .sidebar .stat-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .stat-content,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-details,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-info,
+          body.auto-hide-sidebar.show-sidebar .sidebar .avatar,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-stats,
+          body.auto-hide-sidebar.show-sidebar .sidebar h3,
+          body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-footer-quote { display: block !important; }
+
+          /* Adjust main content margin to the collapsed width to avoid layout jump */
+          .main-content { margin-left: calc(var(--sidebar-collapsed) + 16px) !important; transition: margin-left .14s ease; }
+
+          /* Hover zone to trigger expansion */
+          .sidebar-hover-zone { position: fixed !important; left: 0 !important; top: 0 !important; width: calc(var(--sidebar-collapsed) + var(--sidebar-peek)) !important; height: 100vh !important; z-index: 150 !important; pointer-events: auto; }
+
+          @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { width: var(--sidebar-width) !important; } .sidebar-hover-zone { display: none !important; } }
+          @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar, .main-content { transition: none !important; } }
+        `;
       const styleEl = DOC.createElement('style');
       styleEl.id = STYLE_ID;
       styleEl.textContent = css;
@@ -369,6 +399,84 @@
     zone.addEventListener('mouseleave', scheduleHide, { passive: true });
     sidebar.addEventListener('mouseenter', show, { passive: true });
     sidebar.addEventListener('mouseleave', scheduleHide, { passive: true });
+    
+      /* Strong overrides to disable translateX slide-off variants used in some pages
+         and force icon-only width. This complements the rules above and ensures
+         consistency even when page-specific CSS uses translateX or !important. */
+      let css = `
+        /* Force icon-only and cancel translate-based hiding */
+        html body.auto-hide-sidebar .sidebar,
+        html body.auto-hide-sidebar .sidebar.sidebar-inicio {
+          transform: none !important;
+          -webkit-transform: none !important;
+          left: 0 !important;
+          width: var(--sidebar-collapsed) !important;
+          min-width: var(--sidebar-collapsed) !important;
+          overflow: hidden !important;
+          visibility: visible !important;
+        }
+
+        /* Ensure show-sidebar expands to full width */
+        html body.auto-hide-sidebar.show-sidebar .sidebar,
+        html body.auto-hide-sidebar.show-sidebar .sidebar.sidebar-inicio {
+          transform: none !important;
+          width: var(--sidebar-width) !important;
+          min-width: var(--sidebar-width) !important;
+        }
+
+        /* Keep main content margin in sync */
+        html body.auto-hide-sidebar .main-content { margin-left: calc(var(--sidebar-collapsed) + 12px) !important; }
+
+        /* Make hover zone reliable */
+        .sidebar-hover-zone { width: calc(var(--sidebar-collapsed) + 6px) !important; }
+
+        /* Strong layout enforcement for menu links when expanded - highest specificity */
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          gap: 12px !important;
+          flex-wrap: nowrap !important;
+          justify-content: flex-start !important;
+          padding-left: 20px !important;
+          padding-right: 20px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar i {
+          flex: 0 0 20px !important;
+          width: 20px !important;
+          margin-right: 12px !important;
+          text-align: center !important;
+          font-size: 1.05rem !important;
+        }
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar .menu-label {
+          white-space: nowrap !important;
+          display: inline-block !important;
+        }
+
+        /* When collapsed: keep icons centered */
+        html body.auto-hide-sidebar .sidebar .btn-sidebar {
+          justify-content: center !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+      `;
+      // If the primary style element exists, append overrides there; otherwise create a dedicated overrides style.
+      try {
+        const primary = DOC.getElementById(STYLE_ID);
+        if (primary) {
+          primary.textContent = (primary.textContent || '') + css;
+        } else {
+          const extra = DOC.createElement('style');
+          extra.id = STYLE_ID + '-overrides';
+          extra.textContent = css;
+          DOC.head.appendChild(extra);
+        }
+      } catch (e) {
+        // best-effort: create a new style tag if anything goes wrong
+        try { const extra2 = DOC.createElement('style'); extra2.id = STYLE_ID + '-overrides-fallback'; extra2.textContent = css; DOC.head.appendChild(extra2); } catch(_){}
+      }
   }
 
   // Cargar sidebar inmediatamente
