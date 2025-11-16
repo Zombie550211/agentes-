@@ -876,6 +876,120 @@ router.post('/customers/:id/notes', protect, commonAddNote);
 router.post('/leads/:id/notes', protect, commonAddNote);
 
 /**
+ * @route POST /api/customers/bulk-status-update
+ * @desc Aplicar actualización masiva de status desde un archivo (cliente-side parse -> server apply)
+ * @access Private (Administrador, Backoffice)
+ */
+router.post('/customers/bulk-status-update', protect, authorize('Administrador','Backoffice','admin','administrador'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success:false, message:'DB no disponible' });
+
+    const userName = req.user?.username || req.user?.name || 'unknown';
+    const { fileName, dryRun, saveSnapshot, rows } = req.body || {};
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ success:false, message:'rows array requerido' });
+
+    const collection = db.collection('costumers');
+    const auditCol = db.collection('bulk_status_audit');
+
+    const results = [];
+    let updated = 0;
+    let unmatched = 0;
+    const maxRows = 10000;
+    for (let i=0; i<Math.min(rows.length, maxRows); i++){
+      const item = rows[i] || {};
+      const rowIndex = item.row || (i+1);
+      const rawPhone = String(item.telefono_principal || item.telefono || '').trim();
+      const rawName = String(item.nombre_cliente || item.name || '').trim();
+      const newStatus = String(item.status_archivo || item.status || '').trim();
+
+      let matchedDoc = null;
+      let matchedBy = null;
+      try{
+        const phoneDigits = rawPhone.replace(/\D+/g,'');
+        if (phoneDigits) {
+          // Build candidate regexes: prefer anchored endings (last 9/8/7 digits), then contains
+          const regexes = [];
+          if (phoneDigits.length >= 9) regexes.push(new RegExp(phoneDigits.slice(-9) + '$'));
+          if (phoneDigits.length >= 8) regexes.push(new RegExp(phoneDigits.slice(-8) + '$'));
+          if (phoneDigits.length >= 7) regexes.push(new RegExp(phoneDigits.slice(-7) + '$'));
+          // fallback: contains anywhere
+          regexes.push(new RegExp(phoneDigits));
+
+          // Log attempt for first rows to aid diagnosis
+          if (i < 30) console.log(`[API BULK STATUS] row=${rowIndex} rawPhone="${rawPhone}" phoneDigits=${phoneDigits} tryingRegexes=${regexes.map(r=>r.toString()).join(',')}`);
+
+          // Try each regex in order until one finds a document
+          for (const rx of regexes) {
+            matchedDoc = await collection.findOne({ $or: [
+              { telefono_principal: { $regex: rx } },
+              { telefono_alterno: { $regex: rx } },
+              { telefonos: { $elemMatch: { $regex: rx } } }
+            ] });
+            if (matchedDoc) { matchedBy = 'phone'; break; }
+          }
+        }
+      }catch(e){ console.warn('[BULK] phone match error', e); }
+
+      if (!matchedDoc && rawName) {
+        try{
+          const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+          // First try exact match (case insensitive), then partial (contains) to be more tolerant
+          const exactQ = { nombre_cliente: { $regex: `^${esc(rawName)}$`, $options: 'i' } };
+          matchedDoc = await collection.findOne(exactQ);
+          if (!matchedDoc) {
+            // loosen: allow partial matches (words, order differences)
+            const partial = esc(rawName).replace(/\\\s+/g, '\\s+');
+            const partialQ = { nombre_cliente: { $regex: partial, $options: 'i' } };
+            matchedDoc = await collection.findOne(partialQ);
+          }
+          if (matchedDoc) matchedBy = 'name';
+        }catch(e){ console.warn('[BULK] name match error', e); }
+      }
+
+      if (!matchedDoc) {
+        unmatched++;
+        results.push({ row: rowIndex, matched: false });
+        continue;
+      }
+
+      const prevStatus = matchedDoc.status || null;
+      const filter = { _id: matchedDoc._id };
+      if (!dryRun) {
+        const upd = { $set: { status: newStatus, updatedAt: new Date().toISOString() } };
+        const r = await collection.updateOne(filter, upd);
+        const modified = r.modifiedCount || 0;
+        if (modified>0) updated++;
+        results.push({ row: rowIndex, matched: true, matchedBy, id: String(matchedDoc._id), previousStatus: prevStatus, newStatus, updated: modified>0 });
+      } else {
+        results.push({ row: rowIndex, matched: true, matchedBy, id: String(matchedDoc._id), previousStatus: prevStatus, newStatus, updated: false });
+      }
+    }
+
+    // Persistir auditoría / snapshot si se solicita
+    const auditDoc = {
+      fileName: fileName || null,
+      createdBy: userName,
+      createdAt: new Date().toISOString(),
+      dryRun: !!dryRun,
+      saveSnapshot: !!saveSnapshot,
+      totalRows: rows.length,
+      processed: Math.min(rows.length, maxRows),
+      updatedCount: updated,
+      unmatchedCount: unmatched
+    };
+    if (saveSnapshot) auditDoc.results = results;
+
+    const ins = await auditCol.insertOne(auditDoc);
+
+    return res.json({ success:true, updated, unmatched, auditId: ins.insertedId, errors: [] });
+  } catch (e) {
+    console.error('[API BULK STATUS] Error:', e);
+    return res.status(500).json({ success:false, message:'Error interno', error: e.message });
+  }
+});
+
+/**
  * @route PUT /api/lineas-team/update
  * @desc Actualizar un cliente de Team Lineas
  * @access Private (Supervisor/Admin)

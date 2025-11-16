@@ -10,14 +10,48 @@
   <link rel="stylesheet" href="css/sidebar-shared.css">
 
   <!-- LibrerÃ­as -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
   <!-- Scripts de app -->
   <!-- Cargar primero las dependencias -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- ChartDataLabels para mostrar totales en barras -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="/vendor/chartjs/chart.umd.min.js"></script>
+
+    <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
+    <script>
+      // Registrar ChartDataLabels de forma idempotente y defensiva para evitar registros dobles
+      (function(){
+        try{
+          if (typeof Chart === 'undefined') { console.warn('Chart no está definido al registrar plugins'); return; }
+          if (typeof ChartDataLabels === 'undefined') { console.warn('ChartDataLabels no está definido al intentar registrar'); return; }
+
+          // Intentar limpiar registros previos del plugin por id (maneja múltiples instancias)
+          try {
+            // Preferir manipular el registro de plugins si la estructura está expuesta
+            if (Chart && Chart.registry && Chart.registry.plugins && Array.isArray(Chart.registry.plugins.items)) {
+              Chart.registry.plugins.items = Chart.registry.plugins.items.filter(p => !(p && p.id === 'datalabels'));
+            }
+            // Intento alternativo: usar unregister con objeto identificador
+            if (typeof Chart.unregister === 'function') {
+              try { Chart.unregister({ id: 'datalabels' }); } catch(_){}
+            }
+          } catch(_){ /* no crítico */ }
+
+          // Registrar el plugin exactamente una vez (idempotente)
+          try {
+            if (typeof Chart.register === 'function') {
+              Chart.register(ChartDataLabels);
+              // Marcar en el objeto plugin para evitar re-registros desde este mismo runtime
+              try { ChartDataLabels.__registeredWithChart = true; } catch(_){}
+              console.log('ChartDataLabels registrado (idempotente)');
+            } else {
+              console.warn('No se encontró método Chart.register para registrar plugins');
+            }
+          } catch(e){ console.warn('Error registrando ChartDataLabels:', e); }
+
+        }catch(e){ console.warn('Registro ChartDataLabels fallo:', e); }
+      })();
+    </script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -1826,7 +1860,7 @@
               }
             }
           },
-          plugins: [ChartDataLabels]
+          /* ChartDataLabels se registra globalmente; no incluir aquí para evitar etiquetas dobles */
         });
 
         // Forzar resize por si el canvas parent cambió de tamaño
@@ -1920,27 +1954,15 @@
             const filtered = Array.from(mapByName.values());
             const labels = filtered.map(t => t.name);
             const dataVals = filtered.map(t => t.ACTIVAS);
-            // Si todos los valores son 0, mostrar mensaje de sin datos
+            console.log('[VENTAS ACTIVAS] labels:', labels);
+            console.log('[VENTAS ACTIVAS] dataVals:', dataVals);
+            // Si todos los valores son 0: registrar advertencia pero continuar para dibujar (diagnóstico)
             if (dataVals.every(v => v === 0)) {
-              try { if (window.ventasActivasMesChart) { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } } catch(_){}
-              try {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                canvas.style.display = 'none';
-              } catch(_){}
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (!msg) {
-                msg = document.createElement('div');
-                msg.id = 'ventas-activas-no-data-msg';
-                msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
-                canvas.parentElement.appendChild(msg);
-              }
-              msg.textContent = 'Sin datos para este mes.';
-              showChartSpinner(canvas, false);
-              return;
-            } else {
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (msg) msg.remove();
+              console.warn('[VENTAS ACTIVAS] Todos los valores ACTIVAS son 0 — se mostrará el gráfico de diagnóstico');
+              // eliminar posible mensaje previo
+              try { const prevMsg = document.getElementById('ventas-activas-no-data-msg'); if (prevMsg) prevMsg.remove(); } catch(_){}
+              // Asegurar que el canvas esté visible para depuración
+              try { canvas.style.display = 'block'; } catch(_){}
             }
             if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
             const ctx = canvas.getContext('2d');
@@ -1987,7 +2009,8 @@
                     },
                     offset: 4,
                     formatter: function(value, context) {
-                      return value;
+                      // Ocultar etiquetas para valores 0 (evita mostrar varios '0' pequeños)
+                      return (value && Number(value) > 0) ? value : '';
                     }
                   }
                 }
@@ -2007,7 +2030,7 @@
                     chart.ctx.restore();
                   }
                 },
-                ChartDataLabels
+                /* ChartDataLabels se registra globalmente; no incluir aquí para evitar etiquetas dobles */
               ]
             });
             // Forzar un resize para asegurar que el gráfico se renderice correctamente

@@ -8,7 +8,7 @@ v   <html lang="es">
   <title>CRM Agente - Costumer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="css/theme.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/costumer-table-clean.css">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
@@ -1467,6 +1467,32 @@ v   <html lang="es">
     #editarModal .note-btn.delete:hover { background: #dc2626; transform: translateY(-1px); }
     #editarModal .note-content { background:#f9fafb; border:1px solid var(--agemni-border); border-radius: 10px; padding: 12px; font-size: 12px; color:#374151; line-height: 1.6; white-space: pre-wrap; }
   </style>
+  <style>
+    /* Bulk Excel Modal styles (scoped) */
+    #bulkExcelModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2200; align-items: center; justify-content: center; }
+    #bulkExcelModal.show { display: flex; }
+    #bulkExcelModal .bulk-dialog { width: 920px; max-width: calc(100% - 48px); background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 18px 40px rgba(2,8,20,0.25); }
+    #bulkExcelModal .bulk-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #bulkExcelModal .bulk-header h3 { margin:0; font-size:18px; color:#0f172a; }
+    #bulkExcelModal .bulk-body { display:flex; gap:16px; margin-top:12px; flex-wrap:wrap; }
+    #bulkExcelModal .bulk-left { flex:1 1 300px; min-width:260px; }
+    #bulkExcelModal .bulk-right { flex:1 1 460px; min-width:300px; max-height:420px; overflow:auto; background:#fbfdff; padding:12px; border-radius:8px; border:1px solid #eef2f7; }
+    #bulkExcelModal label strong { font-size:14px; color:#0f172a; }
+    #bulkExcelModal input[type=file] { display:block; margin-top:8px; }
+    #bulkExcelModal .hint { font-size:13px; color:#6b7280; margin-top:8px; }
+    #bulkExcelModal .checks { margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+    #bulkExcelModal .bulk-actions { margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    #bulkExcelModal .bulk-actions .btn-primary { background:#16a34a; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700; }
+    #bulkExcelModal .bulk-actions .btn-secondary { background:#fff; border:1px solid #e2e8f0; color:#0f172a; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    #bulkExcelModal .bulk-actions .action-btn { background: none; border: none; color: #475569; padding: 8px; border-radius:8px; }
+    #bulkExcelModal .bulk-footer { margin-top:14px; display:flex; justify-content:flex-end; gap:8px; }
+    #bulkExcelModal table#bulkPreviewTable { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+    #bulkExcelModal table#bulkPreviewTable thead th { padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700; }
+    #bulkExcelModal table#bulkPreviewTable tbody td { padding:8px; border-bottom:1px solid #f1f5f9; color:#111827; }
+    #bulkExcelModal .small-muted { font-size:12px; color:#6b7280; }
+    /* Responsive tweaks */
+    @media (max-width: 880px) { #bulkExcelModal .bulk-body { flex-direction:column-reverse; } #bulkExcelModal .bulk-dialog { padding:12px; } }
+  </style>
 <body>
   <div class="layout">
     <!-- SIDEBAR (cargado din¨¢micamente) -->
@@ -1570,6 +1596,10 @@ v   <html lang="es">
             <button id="toggle-forceall" class="action-btn" title="Ver todos" style="display:none">
               <i class="fas fa-users"></i>
             </button>
+            <!-- Botón para actualización masiva desde Excel (solo Admin/Backoffice) -->
+            <button id="bulk-excel-btn" class="action-btn" title="Actualizar status desde Excel" style="display:none; margin-left:6px;">
+              <i class="fas fa-file-excel" style="color:#1f8a22;"></i>
+            </button>
           </div>
         </div>
         
@@ -1626,6 +1656,42 @@ v   <html lang="es">
   </div>
 
   <!-- Modal para Comentarios -->
+
+  <!-- Modal: Bulk Excel -> Status Update -->
+  <div id="bulkExcelModal" class="modal" aria-hidden="true">
+    <div class="bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="bulkExcelTitle">
+      <div class="bulk-header">
+        <h3 id="bulkExcelTitle">Actualizar status desde Excel</h3>
+        <button id="bulkExcelClose" class="action-btn" title="Cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="bulk-body">
+        <div class="bulk-left">
+          <label><strong>Archivo (.xlsx / .xls / .csv)</strong></label>
+          <input id="bulkExcelFile" type="file" accept=".xlsx,.xls,.csv" />
+          <p class="hint">El parser se ejecuta en el navegador. Acepta encabezados comunes (por ejemplo: <em>AGENTE</em>, <em>Nombre cliente</em>, <em>Teléfono principal</em>, <em>Teléfono Alterno</em>, <em>Status</em>). Se intentará emparejar por <strong>telefono_principal</strong> (normalizado) y si no hay match por <strong>nombre_cliente</strong> (case-insensitive). Además, el valor <strong>ACTIVE</strong> se normaliza y se tratará como <strong>COMPLETED</strong>.</p>
+          <div class="checks">
+            <label><input type="checkbox" id="bulkDryRun" checked /> Hacer dry-run (previsualización) antes de aplicar</label>
+            <label><input type="checkbox" id="bulkSaveSnapshot" checked /> Guardar snapshot/auditoría en servidor</label>
+          </div>
+          <div class="bulk-actions">
+            <button id="bulkParseBtn" class="btn-secondary">Cargar y previsualizar</button>
+            <button id="bulkApplyBtn" class="btn-primary" disabled>Aplicar cambios</button>
+            <button id="bulkDownloadPreview" class="action-btn" disabled title="Descargar preview CSV">Descargar preview</button>
+          </div>
+        </div>
+        <div class="bulk-right">
+          <div id="bulkPreviewInfo" class="small-muted">Ningún archivo cargado.</div>
+          <table id="bulkPreviewTable" style="display:none;">
+            <thead><tr><th>#</th><th>Nombre</th><th>Teléfono</th><th>Status (archivo)</th><th>Match</th></tr></thead>
+            <tbody id="bulkPreviewTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bulk-footer">
+        <button id="bulkModalCancel" class="action-btn">Cerrar</button>
+      </div>
+    </div>
+  </div>
   <div id="comentariosModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
     <div style="position: absolute; right: 0; top: 0; width: 500px; height: 100%; background-color: #fff; box-shadow: -2px 0 10px rgba(0,0,0,0.2); display: flex; flex-direction: column;">
       <!-- Encabezado del modal -->
@@ -1980,8 +2046,37 @@ v   <html lang="es">
     };
   </script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <!-- Cargar Chart.js desde assets locales para evitar bloqueos por tracking prevention -->
+  <script src="/vendor/chartjs/chart.umd.min.js"></script>
+  <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
+  <script>
+    // Registrar ChartDataLabels de forma idempotente y defensiva para evitar registros dobles
+    (function(){
+      try{
+        if (typeof Chart === 'undefined') { console.warn('Chart no está definido al registrar plugins (Costumer.html)'); return; }
+        if (typeof ChartDataLabels === 'undefined') { console.warn('ChartDataLabels no está definido al intentar registrar (Costumer.html)'); return; }
+        // Intentar limpiar registros previos del plugin por id si la estructura lo permite
+        try {
+          if (Chart && Chart.registry && Chart.registry.plugins && Array.isArray(Chart.registry.plugins.items)) {
+            Chart.registry.plugins.items = Chart.registry.plugins.items.filter(p => !(p && p.id === 'datalabels'));
+          }
+          if (typeof Chart.unregister === 'function') {
+            try { Chart.unregister({ id: 'datalabels' }); } catch(_){ }
+          }
+        } catch(_){ /* no crítico */ }
+        // Registrar de forma segura
+        try {
+          if (typeof Chart.register === 'function') {
+            Chart.register(ChartDataLabels);
+            try { ChartDataLabels.__registeredWithChart = true; } catch(_){ }
+            console.log('ChartDataLabels registrado (idempotente) en Costumer.html');
+          } else {
+            console.warn('No se encontró método Chart.register para registrar plugins (Costumer.html)');
+          }
+        } catch(e){ console.warn('Error registrando ChartDataLabels (Costumer.html):', e); }
+      }catch(e){ console.warn('Registro ChartDataLabels fallo (Costumer.html):', e); }
+    })();
+  </script>
   <script src="utils/teams.js"></script>
   <script>
     // Función para crear toolbar de supervisor
@@ -1989,6 +2084,280 @@ v   <html lang="es">
       // Deshabilitado temporalmente: no renderizar barra de filtros por agente para supervisores
       return;
     };
+  </script>
+  <script>
+    // Bulk Excel -> Status update (client-side parsing + send to server)
+    (function(){
+      // Utils
+      function safeParseUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch{return {}; } }
+      function isAdminOrBackofficeLocal(){
+        try{
+          const u = safeParseUser();
+          const r = (u.role || u?.usuario?.role || '').toString().toLowerCase().trim();
+          if (!r) return false;
+          if (['admin','administrador','administrator'].includes(r)) return true;
+          if (['backoffice','back office','back_office','bo','b.o','b-o','b:o'].includes(r)) return true;
+          return false;
+        }catch{return false;}
+      }
+
+      const btn = document.getElementById('bulk-excel-btn');
+      const modal = document.getElementById('bulkExcelModal');
+      const fileInput = document.getElementById('bulkExcelFile');
+      const parseBtn = document.getElementById('bulkParseBtn');
+      const applyBtn = document.getElementById('bulkApplyBtn');
+      const closeBtn = document.getElementById('bulkExcelClose');
+      const cancelBtn = document.getElementById('bulkModalCancel');
+      const previewInfo = document.getElementById('bulkPreviewInfo');
+      const previewTable = document.getElementById('bulkPreviewTable');
+      const previewTbody = document.getElementById('bulkPreviewTbody');
+      const dryRunEl = document.getElementById('bulkDryRun');
+      const saveSnapshotEl = document.getElementById('bulkSaveSnapshot');
+      const downloadPreviewBtn = document.getElementById('bulkDownloadPreview');
+
+      // show button only for admin/backoffice
+      try{ if (btn) { if (isAdminOrBackofficeLocal()) btn.style.display='inline-block'; else btn.style.display='none'; } }catch(e){console.warn(e);} 
+
+      function loadSheetJS(){
+        return new Promise((resolve,reject)=>{
+          if (window.XLSX) return resolve(window.XLSX);
+          const local = '/vendor/xlsx/xlsx.full.min.js';
+          const cdns = [
+            'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+            'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+            'https://unpkg.com/xlsx/dist/xlsx.full.min.js'
+          ];
+          const appendScript = (src, onload, onerror) => {
+            const s = document.createElement('script'); s.async = false; s.src = src;
+            s.onload = onload; s.onerror = onerror; document.head.appendChild(s);
+          };
+
+          const tryCdns = (i) => {
+            if (window.XLSX) return resolve(window.XLSX);
+            if (i >= cdns.length) {
+              try { if (previewInfo) previewInfo.textContent = 'No se pudo cargar SheetJS desde CDN ni localmente. Descarga el bundle y colócalo en /public/vendor/xlsx/xlsx.full.min.js (ver instrucciones en consola).'; } catch(_){}
+              console.error('[SheetJS] No se pudo cargar desde CDNs. Intenta descargar el archivo y colocarlo en public/vendor/xlsx/xlsx.full.min.js');
+              console.error('PowerShell example:');
+              console.error('Invoke-WebRequest -Uri "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" -OutFile "./public/vendor/xlsx/xlsx.full.min.js"');
+              return reject(new Error('No se pudo cargar SheetJS'));
+            }
+            appendScript(cdns[i], ()=>{ if (window.XLSX) return resolve(window.XLSX); tryCdns(i+1); }, ()=>{ tryCdns(i+1); });
+          };
+
+          // Try local first (HEAD). If HEAD ok and looks like JS, load local, otherwise cycle CDNs
+          fetch(local, { method: 'HEAD' }).then(headRes => {
+            try {
+              const ct = (headRes.headers.get('content-type')||'').toLowerCase();
+              const useLocal = headRes.ok && ct.includes('javascript');
+              if (useLocal) {
+                appendScript(local, ()=>{ if (window.XLSX) return resolve(window.XLSX); tryCdns(0); }, ()=>{ tryCdns(0); });
+                return;
+              }
+            } catch(_) {}
+            tryCdns(0);
+          }).catch(()=>{
+            // HEAD failed (might be blocked); try CDNs
+            tryCdns(0);
+          });
+        });
+      }
+
+      function normalizePhone(v){ if(!v) return ''; return String(v).replace(/[^0-9]+/g,'').replace(/^0+/,''); }
+      function normalizeName(v){ if(!v) return ''; return String(v).normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase(); }
+
+      async function parseFile(file){
+        await loadSheetJS();
+        return new Promise((resolve,reject)=>{
+          const reader = new FileReader();
+          reader.onload = (e)=>{
+            try{
+              const data = e.target.result;
+              const wb = window.XLSX.read(data, {type: 'binary'});
+              const first = wb.SheetNames[0];
+              const ws = wb.Sheets[first];
+              const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval: ''});
+              resolve(rows);
+            }catch(err){ reject(err); }
+          };
+          reader.onerror = (err)=>reject(err);
+          // read as binary string (works for xlsx and csv)
+          try{ reader.readAsBinaryString(file); }catch(e){ // fallback for some browsers
+            reader.readAsArrayBuffer(file);
+          }
+        });
+      }
+
+      function findHeaderIndex(headers, candidates){
+        // Normalize header text: remove diacritics, lowercase and strip non-alphanumeric
+        const norm = h=>{
+          try{
+            return String(h||'')
+              .normalize('NFD')
+              .replace(/\p{Diacritic}+/gu,'')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g,'');
+          }catch(e){
+            return String(h||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+          }
+        };
+        const map = headers.map(h=>norm(h));
+        for(const c of candidates){
+          const nc = norm(c);
+          const idx = map.indexOf(nc);
+          if(idx>=0) return idx;
+        }
+        return -1;
+      }
+
+      function normalizeStatus(v){
+        if(!v) return '';
+        const s = String(v).trim().toLowerCase();
+        if (['active','activo','activa','activated','activado'].includes(s)) return 'COMPLETED';
+        if (['completed','complete','completado','completa','finalizado','finalizada'].includes(s)) return 'COMPLETED';
+        if (['pending','pendiente','pend'].includes(s)) return 'PENDING';
+        if (['canceled','cancelled','cancelado','cancelada','cancel'].includes(s)) return 'CANCELED';
+        if (['hold','on hold','en espera','suspendido'].includes(s)) return 'HOLD';
+        return String(v).trim().toUpperCase();
+      }
+
+      function buildPreview(rows, idxName, idxPhone, idxStatus, idxAgent){
+        previewTbody.innerHTML='';
+  const max = Math.min(rows.length-1, 2000);
+        for(let i=1;i<=max;i++){
+          const r = rows[i];
+          const name = r[idxName]||'';
+          const phone = r[idxPhone]||'';
+          const status = r[idxStatus]||'';
+          const agent = (typeof idxAgent === 'number' && idxAgent>=0) ? (r[idxAgent]||'') : '';
+          const norm = normalizeStatus(status);
+          const statusDisplay = norm && String(status||'').trim().toUpperCase() !== norm ? `${String(status||'')} → ${norm}` : String(status||'');
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td style="padding:6px;border-bottom:1px solid #e6e9ef">${i}</td><td style="padding:6px;border-bottom:1px solid #e6e9ef">${String(name||'')}</td><td style="padding:6px;border-bottom:1px solid #e6e9ef">${String(phone||'')}</td><td style="padding:6px;border-bottom:1px solid #e6e9ef">${statusDisplay}</td><td style="padding:6px;border-bottom:1px solid #e6e9ef">${agent?String(agent):'-'}</td>`;
+          previewTbody.appendChild(tr);
+        }
+        previewTable.style.display='table';
+  previewInfo.textContent = `Filas detectadas: ${rows.length-1}. Mostrando primeras ${Math.min(2000, rows.length-1)} filas para preview.`;
+      }
+
+      async function handleParse(){
+        const f = fileInput.files && fileInput.files[0];
+        if(!f){ alert('Selecciona un archivo .xlsx o .csv'); return; }
+        previewInfo.textContent = 'Parseando archivo...';
+        try{
+          const rows = await parseFile(f);
+          if(!rows || rows.length<2){ previewInfo.textContent='El archivo no contiene filas.'; return; }
+          const headers = rows[0].map(h=>String(h||''));
+          // find indices (accept many header name variants, including AGENTE)
+          const idxStatus = findHeaderIndex(headers, ['status','estado','estatus','stato']);
+          const idxName = findHeaderIndex(headers, ['nombre_cliente','nombre','clientename','name','cliente','customername']);
+          const idxPhone = findHeaderIndex(headers, ['telefono_principal','telefono','telefono1','phone','phone_main','telefono_pri']);
+          const idxAgent = findHeaderIndex(headers, ['agente','agent','agente_nombre','agente nombre','agenteNombre','vendedor','salesagent']);
+          if(idxStatus<0){ previewInfo.textContent='No se encontró columna STATUS en el archivo. Encabezados: ' + headers.join(', '); return; }
+          buildPreview(rows, idxName>=0?idxName:0, idxPhone>=0?idxPhone:1, idxStatus, idxAgent>=0?idxAgent:-1);
+          // save parsed data to window for apply (include agent index)
+          window.__bulkExcelParsed = { rows, headers, idxStatus, idxName, idxPhone, idxAgent: idxAgent>=0?idxAgent:-1, fileName: f.name };
+          applyBtn.disabled = false;
+          downloadPreviewBtn.disabled = false;
+        }catch(e){ console.error(e); previewInfo.textContent='Error parseando archivo: '+(e.message||e); }
+      }
+
+      function downloadCSVPreview(){
+        const parsed = window.__bulkExcelParsed; if(!parsed) return; const {rows, idxStatus, idxName, idxPhone, idxAgent} = parsed; const lines=['row,nombre,telefono,agente,status,status_normalized'];
+        for(let i=1;i<rows.length;i++){ const r=rows[i]; const name=r[idxName]||''; const phone=r[idxPhone]||''; const agent = (typeof idxAgent==='number' && idxAgent>=0)?(r[idxAgent]||'') : '' ; const status=r[idxStatus]||''; const norm = (typeof normalizeStatus==='function')?normalizeStatus(status):String(status).toUpperCase(); lines.push(`${i},"${String(name).replace(/"/g,'""')}","${String(phone).replace(/"/g,'""')}","${String(agent).replace(/"/g,'""')}","${String(status).replace(/"/g,'""')}","${String(norm).replace(/"/g,'""')}"`); if(i>5000) break; }
+        const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='bulk_preview.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      }
+
+      async function handleApply(){
+        const parsed = window.__bulkExcelParsed; if(!parsed){ alert('No hay datos parseados.'); return; }
+        const {rows, idxStatus, idxName, idxPhone, idxAgent, fileName} = parsed;
+        const dry = !!dryRunEl.checked;
+        const saveSnapshot = !!saveSnapshotEl.checked;
+        // build normalized rows (limit to configured maximum, e.g., 10000)
+        const maxRows = 10000; const allRows = [];
+        for(let i=1;i<rows.length && allRows.length<maxRows;i++){
+          const r = rows[i];
+          const name = r[idxName]||'';
+          const phone = r[idxPhone]||'';
+          const agent = (typeof idxAgent==='number' && idxAgent>=0)?(r[idxAgent]||'') : '';
+          const statusRaw = r[idxStatus]||'';
+          const statusNorm = normalizeStatus(statusRaw);
+          // Enviar telefono ya normalizado para mejorar matching en servidor
+          allRows.push({row:i, nombre_cliente: String(name), telefono_principal: normalizePhone(phone), original_telefono: String(phone), agente: String(agent), status_archivo: String(statusNorm)});
+        }
+
+        if (allRows.length === 0) { alert('No hay filas para procesar.'); return; }
+
+        // chunk settings
+        const chunkSize = 1000; // filas por petición (ajustable)
+        const chunks = [];
+        for (let i=0;i<allRows.length;i+=chunkSize) chunks.push(allRows.slice(i, i+chunkSize));
+
+        applyBtn.disabled = true; applyBtn.textContent='Aplicando...';
+        let aggregated = { updated:0, unmatched:0, errors:[], auditIds: [] };
+        const token = localStorage.getItem('token')||sessionStorage.getItem('token')||'';
+
+        for (let ci=0; ci<chunks.length; ci++){
+          const chunk = chunks[ci];
+          previewInfo.textContent = `Enviando chunk ${ci+1}/${chunks.length} (${chunk.length} filas)...`;
+          try{
+            const body = { fileName, dryRun: !!dry, saveSnapshot: !!saveSnapshot && (ci===chunks.length-1), rows: chunk, chunkIndex: ci, chunkTotal: chunks.length };
+            const resp = await fetch('/api/customers/bulk-status-update', {
+              method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, token?{'Authorization':'Bearer '+token}:{}), body: JSON.stringify(body)
+            });
+
+            const ct = (resp.headers.get('content-type') || '').toLowerCase();
+            let j = null;
+            if (ct.includes('application/json')) {
+              try{ j = await resp.json(); } catch(err){ j = null; }
+            } else {
+              const txt = await resp.text();
+              if (!resp.ok) {
+                if (resp.status === 413) throw new Error('Payload demasiado grande en el servidor al procesar este chunk. Reduce chunkSize o contacta a tu administrador.');
+                throw new Error(`Error del servidor ${resp.status}: ${txt.slice(0,400)}`);
+              }
+              try{ j = JSON.parse(txt); } catch(e){ j = null; }
+            }
+
+            if (!resp.ok) {
+              const msg = j && j.message ? j.message : `Error del servidor: ${resp.status}`;
+              aggregated.errors.push({ chunk: ci, message: msg });
+              console.error('Bulk chunk error:', resp.status, j || msg);
+              // decide: continuar con siguientes chunks o abortar? Continuamos para intentar aplicar lo que sí pueda
+            } else {
+              if (j) {
+                aggregated.updated += (j.updated||0);
+                aggregated.unmatched += (j.unmatched||0);
+                if (Array.isArray(j.errors)) aggregated.errors.push(...j.errors);
+                if (j.auditId) aggregated.auditIds.push(j.auditId);
+              }
+            }
+          }catch(err){
+            console.error('[BULK CHUNK] Error en chunk', ci, err);
+            aggregated.errors.push({ chunk: ci, message: err.message||String(err) });
+          }
+        }
+
+        // resultado final
+        applyBtn.disabled = false; applyBtn.textContent='Aplicar cambios';
+        previewInfo.textContent = `Proceso finalizado. Procesados: ${allRows.length}. Chunks: ${chunks.length}.`;
+        const errCount = aggregated.errors.length;
+        alert(`Resultado: actualizados=${aggregated.updated||0}, sin_match=${aggregated.unmatched||0}, errores=${errCount}`);
+        if (errCount) console.warn('Errores durante bulk:', aggregated.errors);
+        if (aggregated.auditIds.length) console.log('Audit IDs:', aggregated.auditIds);
+      }
+
+      // Event wiring
+  if(btn) btn.addEventListener('click', ()=>{ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); });
+  if(closeBtn) closeBtn.addEventListener('click', ()=>{ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); });
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); });
+      if(parseBtn) parseBtn.addEventListener('click', handleParse);
+      if(downloadPreviewBtn) downloadPreviewBtn.addEventListener('click', downloadCSVPreview);
+      if(applyBtn) applyBtn.addEventListener('click', handleApply);
+
+      // close modal on outside click
+  modal.addEventListener('click', (e)=>{ if(e.target===modal) { modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); } });
+    })();
   </script>
   <script>
     // Funci¨®n para verificar el rol del usuario y mostrar/ocultar elementos seg¨²n corresponda
@@ -2065,7 +2434,7 @@ v   <html lang="es">
   </script>
   <!-- Override DESPUÉS de script.js para Team Líneas -->
   <script>
-    // Override para Team Líneas después de cargar script.js
+    // Overfride para Team Líneas después de cargar script.js
     (function() {
       const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
       const role = (user.role||user?.usuario?.role||'').toString().trim().toLowerCase();
@@ -6116,7 +6485,7 @@ v   <html lang="es">
           listWrap.style.boxSizing = 'border-box'; listWrap.style.paddingRight = '8px';
           root.appendChild(listWrap);
 
-          // Footer buttons
+          // Footer buttonsq
           const footer = document.createElement('div'); footer.style.display = 'flex'; footer.style.justifyContent = 'flex-end'; footer.style.gap = '8px'; footer.style.marginTop = '8px'; footer.style.flexWrap = 'wrap';
           const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancelar'; btnCancel.className = 'action-btn'; btnCancel.style.padding = '6px 8px'; btnCancel.style.fontSize = '12px';
           const btnAccept = document.createElement('button'); btnAccept.textContent = 'Aceptar'; btnAccept.className = 'action-btn'; btnAccept.style.background = '#10b981'; btnAccept.style.color = '#fff'; btnAccept.style.padding = '6px 8px'; btnAccept.style.fontSize = '12px';
@@ -6124,8 +6493,8 @@ v   <html lang="es">
 
           // Position near trigger (try center under the trigger, clamp to viewport, flip above if not enough space)
           document.body.appendChild(root);
-          const rect = trigger.getBoundingClientRect();
-          // prefer a reasonable width but keep within viewport
+          const rect = trigger.getBoundingClientRect();   
+          // prefer a reasonable width but keep within viewport  
           const preferredWidth = 260;
           root.style.width = preferredWidth + 'px';
           // initial position: centered under trigger
