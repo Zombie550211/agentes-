@@ -100,6 +100,16 @@
               setImportantStyle(el, 'padding-left', '0');
               setImportantStyle(el, 'padding-right', '0');
             });
+              // Ensure active pill loses its background when collapsed
+              try {
+                Array.from(document.querySelectorAll('.sidebar .btn-sidebar.is-active')).forEach(function(act){
+                  try { setImportantStyle(act, 'background', 'transparent'); } catch(e){}
+                  try { setImportantStyle(act, 'color', 'inherit'); } catch(e){}
+                  try { setImportantStyle(act, 'border-radius', '0'); } catch(e){}
+                  try { setImportantStyle(act, 'padding-left', '0'); setImportantStyle(act, 'padding-right', '0'); } catch(e){}
+                  try { var aico = act.querySelector('i'); if (aico) setImportantStyle(aico, 'color', 'inherit'); } catch(e){}
+                });
+              } catch(e){}
           };
 
           var clearExpandedStyle = function() {

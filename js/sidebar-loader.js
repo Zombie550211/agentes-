@@ -461,6 +461,17 @@
           padding-left: 0 !important;
           padding-right: 0 !important;
         }
+
+        /* Hide active pill when collapsed (no blue blob) */
+        html body.auto-hide-sidebar:not(.show-sidebar) .sidebar .btn-sidebar.is-active,
+        html body.auto-hide-sidebar .sidebar:not(.show-sidebar) .btn-sidebar.is-active {
+          background: transparent !important;
+          color: inherit !important;
+          border-radius: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          box-shadow: none !important;
+        }
       `;
       // If the primary style element exists, append overrides there; otherwise create a dedicated overrides style.
       try {
