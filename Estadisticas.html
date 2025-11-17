@@ -19,37 +19,18 @@
 
     <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
     <script>
-      // Registrar ChartDataLabels de forma idempotente y defensiva para evitar registros dobles
+      // Registrar ChartDataLabels una sola vez para habilitar etiquetas en todas las gráficas.
       (function(){
-        try{
-          if (typeof Chart === 'undefined') { console.warn('Chart no está definido al registrar plugins'); return; }
-          if (typeof ChartDataLabels === 'undefined') { console.warn('ChartDataLabels no está definido al intentar registrar'); return; }
-
-          // Intentar limpiar registros previos del plugin por id (maneja múltiples instancias)
-          try {
-            // Preferir manipular el registro de plugins si la estructura está expuesta
-            if (Chart && Chart.registry && Chart.registry.plugins && Array.isArray(Chart.registry.plugins.items)) {
-              Chart.registry.plugins.items = Chart.registry.plugins.items.filter(p => !(p && p.id === 'datalabels'));
-            }
-            // Intento alternativo: usar unregister con objeto identificador
-            if (typeof Chart.unregister === 'function') {
-              try { Chart.unregister({ id: 'datalabels' }); } catch(_){}
-            }
-          } catch(_){ /* no crítico */ }
-
-          // Registrar el plugin exactamente una vez (idempotente)
-          try {
-            if (typeof Chart.register === 'function') {
-              Chart.register(ChartDataLabels);
-              // Marcar en el objeto plugin para evitar re-registros desde este mismo runtime
-              try { ChartDataLabels.__registeredWithChart = true; } catch(_){}
-              console.log('ChartDataLabels registrado (idempotente)');
-            } else {
-              console.warn('No se encontró método Chart.register para registrar plugins');
-            }
-          } catch(e){ console.warn('Error registrando ChartDataLabels:', e); }
-
-        }catch(e){ console.warn('Registro ChartDataLabels fallo:', e); }
+        try {
+          if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+            Chart.register(ChartDataLabels);
+            console.log('ChartDataLabels registrado globalmente (Estadisticas.html)');
+          } else {
+            console.warn('No se pudo registrar ChartDataLabels: Chart o ChartDataLabels no definidos');
+          }
+        } catch(e) {
+          console.warn('Error registrando ChartDataLabels:', e);
+        }
       })();
     </script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
@@ -1999,26 +1980,20 @@
                     }
                   },
                   datalabels: {
-                    display: true,
-                    anchor: 'end',
-                    align: 'top',
-                    color: '#1f3b63',
-                    font: {
-                      weight: 'bold',
-                      size: 13
-                    },
-                    offset: 4,
-                    formatter: function(value, context) {
-                      // Ocultar etiquetas para valores 0 (evita mostrar varios '0' pequeños)
-                      return (value && Number(value) > 0) ? value : '';
-                    }
+                    // Desactivar etiquetas en la gráfica de Ventas Activas para evitar
+                    // cualquier efecto visual doble con el 3D.
+                    display: false
                   }
                 }
               },
               plugins: [
+                // Activar explícitamente ChartDataLabels en esta gráfica
+                (typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : {}),
                 {
                   id: 'barShadow3D',
-                  beforeDatasetsDraw: (chart) => {
+                  // Aplicar sombra solo mientras se dibujan las barras, restaurar justo
+                  // después para que ChartDataLabels pinte las etiquetas sin sombra.
+                  beforeDatasetsDraw: (chart, args, opts) => {
                     const ctx = chart.ctx;
                     ctx.save();
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -2026,8 +2001,9 @@
                     ctx.shadowOffsetX = 4;
                     ctx.shadowOffsetY = 4;
                   },
-                  afterDatasetsDraw: (chart) => {
-                    chart.ctx.restore();
+                  afterDatasetsDraw: (chart, args, opts) => {
+                    const ctx = chart.ctx;
+                    ctx.restore();
                   }
                 },
                 /* ChartDataLabels se registra globalmente; no incluir aquí para evitar etiquetas dobles */
@@ -2735,7 +2711,7 @@
     // Inyectar flechas en la tarjeta de Porcentaje de Activasion (solo íconos)
     window.injectPorcentajeNavButtons = function(attempt = 0){
       try {
-        const topCharts = document.getElementById('top-charts');
+        const topCharts = document.getElementById('top-charts-combined');
         if (!topCharts) {
           if (attempt < 20) return setTimeout(() => window.injectPorcentajeNavButtons(attempt+1), 300);
           return;
@@ -3301,11 +3277,15 @@
           // By default render the aggregated 'all teams' donut when there are multiple teams
           if (rows.length > 1) {
             // default: render all teams view
+            // NO overlays ni helpers personalizados de etiquetas
+            window.attachPorcLabels = function(){};
             renderPorcentajeAllTeams(rows);
             return;
           }
 
           // fallback single team render
+          // NO overlays ni helpers personalizados de etiquetas
+          window.attachPorcLabels = function(){};
           renderPorcentajeForTeam(rows, selectedIndex);
 
           // --- helper: render a single team's donut ---
@@ -3351,7 +3331,10 @@
                 },
                 plugins: [{
                   id: 'shadow3D',
-                  beforeDraw: (chart) => {
+                  // Igual que en barras: aplicar sombra solo mientras se dibuja el
+                  // dataset de la dona y restaurar antes de que datalabels pinte
+                  // las etiquetas para evitar efecto "doble".
+                  beforeDatasetsDraw: (chart, args, opts) => {
                     const ctx = chart.ctx;
                     ctx.save();
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -3359,8 +3342,9 @@
                     ctx.shadowOffsetX = 5;
                     ctx.shadowOffsetY = 5;
                   },
-                  afterDraw: (chart) => {
-                    chart.ctx.restore();
+                  afterDatasetsDraw: (chart, args, opts) => {
+                    const ctx = chart.ctx;
+                    ctx.restore();
                   }
                 }]
               });
@@ -3407,6 +3391,20 @@
                 }
               }];
               
+              // Eliminar cualquier overlay de etiquetas previo (para evitar duplicados)
+              try {
+                // Eliminar overlay de etiquetas personalizado si existe
+                const canvas = document.getElementById('chart-porcentaje-activacion');
+                if (canvas && canvas.parentElement) {
+                  const overlays = canvas.parentElement.querySelectorAll('.porc-labels-overlay');
+                  overlays.forEach(el => el.remove());
+                }
+                if (window.porcentajeActivacionChart) {
+                  if (window.porcentajeActivacionChart._porcLabelsContainer && window.porcentajeActivacionChart._porcLabelsContainer.parentNode) {
+                    window.porcentajeActivacionChart._porcLabelsContainer.parentNode.removeChild(window.porcentajeActivacionChart._porcLabelsContainer);
+                  }
+                }
+              } catch(_){}
               window.porcentajeActivacionChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 3 }] },
@@ -3414,7 +3412,6 @@
                   responsive: true,
                   maintainAspectRatio: false,
                   cutout: '60%',
-                  // Efecto 3D con sombras
                   layout: {
                     padding: 15
                   },
@@ -3439,17 +3436,20 @@
                       } 
                     },
                     datalabels: {
-                      display: false  // Desactivar etiquetas en gráfica de donut
+                      // Desactivar etiquetas internas en el donut para evitar efecto doble.
+                      display: false
                     }
                   }
                 },
-                plugins: chartPlugins
+                plugins: [
+                  // Solo plugins de sombra/estilo; sin ChartDataLabels para evitar
+                  // etiquetas dentro del donut y cualquier efecto doble visual.
+                  ...chartPlugins
+                ]
               });
 
-              // Populate the compact left-side list (`#porc-team-list`) with the
-              // rows for quick reference. Make it absolute-left inside the chart
-              // wrapper so it doesn't push content and avoid repopulating when
-              // identical (use dataset.porcKey as a guard).
+              // NO llamar attachPorcLabels ni overlays personalizados para evitar duplicados de etiquetas en el donut.
+              // Solo se muestra la lista a la izquierda, sin overlays ni helpers de etiquetas.
               try {
                 const listRootLocal = document.getElementById('porc-team-list');
                 if (listRootLocal) {
