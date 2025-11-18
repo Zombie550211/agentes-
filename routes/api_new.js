@@ -4,82 +4,6 @@ const { getDb, getDbFor } = require('../config/db');
 const { ObjectId } = require('mongodb');
 const { protect } = require('../middleware/auth');
 
-// ============================
-// Funciones auxiliares
-// ============================
-
-function __isTeamLineas(req) {
-  try {
-    const t = String(req.user?.team||'').toLowerCase();
-    const r = String(req.user?.role||'').toLowerCase();
-    const u = String(req.user?.username||'').toLowerCase();
-    return t.includes('lineas') || r.includes('teamlineas') || u.startsWith('lineas-');
-  } catch { return false; }
-}
-
-function __normName(s) {
-  try { 
-    return String(s||'').normalize('NFD')
-      .replace(/[^\x00-\x7F]/g,'')
-      .toUpperCase()
-      .replace(/\\s+/g,'_')
-      .replace(/[^A-Z0-9_]/g,'_') || 'UNKNOWN'; 
-  } catch { 
-    return String(s||'').toUpperCase().replace(/\\s+/g,'_') || 'UNKNOWN'; 
-  }
-}
-
-function __getTeamLineasCollection(req) {
-  const dbTL = getDbFor('TEAM_LINEAS');
-  if (!dbTL) return null;
-  const ownerName = req.user?.name || req.user?.username || 'UNKNOWN';
-  const colName = __normName(ownerName);
-  return dbTL.collection(colName);
-}
-
-async function __findByIdGeneric(col, recordId) {
-  let objId = null;
-  try { objId = new ObjectId(String(recordId)); } catch { objId = null; }
-  const byObj = objId ? await col.findOne({ _id: objId }) : null;
-  if (byObj) return byObj;
-  return await col.findOne({ _id: String(recordId) }) || await col.findOne({ id: String(recordId) });
-}
-
-async function getCostumerById(db, recordId) {
-  const collection = db.collection('costumers');
-  let objId = null;
-  try { objId = new ObjectId(recordId); } catch { objId = null; }
-  const byObj = objId ? await collection.findOne({ _id: objId }) : null;
-  if (byObj) return byObj;
-  return await collection.findOne({ _id: recordId });
-}
-
-// ============================
-// Rutas
-// ============================
-
-/**
- * @route GET /api/leads
- * @desc Obtener lista de leads/clientes
- * @access Private
- */
-router.get('/leads', protect, async (req, res) => {
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
-    }
-
-    const collection = db.collection('costumers');
-    const leads = await collection.find({}).toArray();
-
-    res.json({ success: true, data: leads });
-  } catch (error) {
-    console.error('[API] Error:', error);
-    res.status(500).json({ success: false, message: 'Error interno del servidor' });
-  }
-});
-
 /**
  * @route GET /api/estadisticas/leads-dashboard
  * @desc Obtener datos pre-agrupados para dashboard de estadísticas
@@ -181,12 +105,6 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
     const [result] = await collection.aggregate(pipeline).toArray();
 
     if (role === 'admin' || (role === 'supervisor' && user.team?.toLowerCase().includes('lineas'))) {
-      const dbTL = getDbFor('TEAM_LINEAS');
-      if (!dbTL) {
-        console.warn('[API] DB TEAM_LINEAS no disponible');
-        return res.json({ success: true, data: result });
-      }
-
       const usersCol = db.collection('users');
       const supervisores = await usersCol.find({ role: 'supervisor', team: /lineas/i }).toArray();
 
@@ -227,41 +145,6 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
   } catch (error) {
     console.error('[API] Error:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
-  }
-});
-
-/**
- * @route PUT /api/leads/:id/status
- * @desc Actualizar el estado de un lead
- * @access Private
- */
-router.put('/leads/:id/status', protect, async (req, res) => {
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
-    }
-
-    const { id: recordId } = req.params;
-    const { status: newStatus } = req.body || {};
-    if (!newStatus) {
-      return res.status(400).json({ success: false, message: 'status requerido' });
-    }
-
-    const collection = db.collection('costumers');
-    let objId = null;
-    try { objId = new ObjectId(recordId); } catch { objId = null; }
-    const filter = objId ? { _id: objId } : { _id: recordId };
-    const result = await collection.updateOne(filter, { $set: { status: newStatus } });
-
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
-    }
-
-    return res.json({ success: true, message: 'Status actualizado', data: { id: recordId, status: newStatus } });
-  } catch (error) {
-    console.error('[API UPDATE STATUS] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });
 

@@ -13,16 +13,37 @@
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const username = (userData.username || '').toLowerCase();
         const role = (userData.role || '').toLowerCase();
-        return role === 'teamlineas' || username.startsWith('lineas-');
+        const team = (userData.team || '').toLowerCase();
+        
+        // Verificar por role
+        if (role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas') {
+          return true;
+        }
+        
+        // Verificar supervisor con team lineas
+        if (role === 'supervisor' && team.includes('lineas')) {
+          return true;
+        }
+        
+        // Verificar por team
+        if (team.includes('lineas')) {
+          return true;
+        }
+        
+        // Verificar por username (formato original)
+        if (username.startsWith('lineas-')) {
+          return true;
+        }
+        
+        return false;
       } catch (e) {
-        console.error('Error al verificar usuario de Team Líneas:', e);
         return false;
       }
     }
 
     // Redirigir SOLO a Team Líneas
-    if (isTeamLineasUser() && !window.location.pathname.endsWith('lead-lineas.html')) {
-      window.location.replace('/lead-lineas.html');
+    if (isTeamLineasUser() && !window.location.pathname.endsWith('LEAD-LINEAS.html')) {
+      window.location.replace('/TEAM LINEAS/LEAD-LINEAS.html');
     }
   </script>
   
@@ -2761,7 +2782,29 @@ document.addEventListener('DOMContentLoaded', function() {
       const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
       const username = (userData.username || '').toLowerCase();
       const role = (userData.role || '').toLowerCase();
-      return role === 'teamlineas' || username.startsWith('lineas-');
+      const team = (userData.team || '').toLowerCase();
+      
+      // Verificar por role
+      if (role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas') {
+        return true;
+      }
+      
+      // Verificar supervisor con team lineas
+      if (role === 'supervisor' && team.includes('lineas')) {
+        return true;
+      }
+      
+      // Verificar por team
+      if (team.includes('lineas')) {
+        return true;
+      }
+      
+      // Verificar por username (formato original)
+      if (username.startsWith('lineas-')) {
+        return true;
+      }
+      
+      return false;
     } catch (e) {
       return false;
     }

@@ -15,7 +15,8 @@
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const role = String(user.role||'').toLowerCase();
         const username = String(user.username||'').toLowerCase();
-        const ok = role==='teamlineas' || username.startsWith('lineas-');
+        const team = String(user.team||'').toLowerCase();
+        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();

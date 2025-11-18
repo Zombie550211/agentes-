@@ -38,17 +38,15 @@ const { protect, authorize } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const rankingRoutes = require('./routes/ranking');
-const rankingTestRoutes = require('./routes/ranking-test');
 const equipoRoutes = require('./routes/equipoRoutes');
 const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
-const facturacionRoutes = require('./routes/facturacion');
 
 // Configuración de JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
 if (!process.env.JWT_SECRET) {
   console.warn('[WARN] JWT_SECRET no definido en variables de entorno. Usa un valor fuerte en producción.');
 }
-const JWT_EXPIRES_IN = '7d'; // El token expira en 7 días
+const JWT_EXPIRES_IN = '24h'; // El token expira en 24 horas
 
 // Silenciar logs en producción (mantener warn/error)
 if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {
@@ -59,15 +57,6 @@ if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {
 
 // Inicializar Express app
 const app = express();
-
-// Configurar trust proxy para servicios de hosting como Render, Heroku, etc.
-// Esto es necesario para que express-rate-limit funcione correctamente con X-Forwarded-For
-if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
-  app.set('trust proxy', 1); // Confiar en el primer proxy (Render, Heroku, etc.)
-} else {
-  app.set('trust proxy', false); // En desarrollo local, no confiar en proxies
-}
-
 // En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
 const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
 const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
@@ -81,6 +70,7 @@ app.get('/health', (req, res) => {
   const map = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   res.json({ ok: state === 1, mongo: map[state] || String(state) });
 });
+
 // Configuración de rutas de archivos estáticos
 app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
   setHeaders: (res, path) => {
@@ -101,12 +91,10 @@ app.use(express.static(__dirname, {
   extensions: ['html', 'htm'],
   index: false,
   setHeaders: (res, path) => {
-    if (path.endsWith('.html') || path.endsWith('.htm')) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    } else if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
     } else if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Content-Type', 'application/javascript');
     }
   }
 }));
@@ -235,15 +223,9 @@ const corsOptions = {
     // Permitir solicitudes sin origen (navegación directa)
     if (!origin) return callback(null, true);
 
-    // En desarrollo, permitir todos los orígenes localhost y 127.0.0.1
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    if (isDevelopment) {
-      const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
-      if (localhostRegex.test(origin)) {
-        console.log(`[CORS] Origen localhost permitido: ${origin}`);
-        return callback(null, true);
-      }
-    }
+    // Permitir localhost y 127.0.0.1 en cualquier puerto (incluye 3001)
+    const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?$/i;
+    if (localhostRegex.test(origin)) return callback(null, true);
 
     // Permitir el mismo host del servidor (mismo origen)
     try {
@@ -278,209 +260,11 @@ let db;
 
 // Configuración de middlewares
 app.use(cors(corsOptions));
-// Aumentar límite de payload para permitir cargas de JSON grandes desde el cliente (bulk updates)
-// Allow larger payloads for bulk operations (adjustable)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 if (cookieParser) {
   app.use(cookieParser());
 }
-
-// Notas por lead (GET/POST)
-app.get('/api/leads/:id/notas', protect, async (req, res) => {
-  try {
-    if (!db) db = await connectToMongoDB();
-    const { id } = req.params;
-    let leadObjectId = null;
-    try { leadObjectId = new ObjectId(id); } catch {}
-    const coll = db.collection('Vcomments');
-    const q = leadObjectId ? { leadId: leadObjectId } : { $or: [{ leadId: id }, { leadIdStr: id }] };
-    const list = await coll.find(q).sort({ createdAt: 1 }).toArray();
-    const notas = list.map(c => ({
-      id: String(c._id || ''),
-      texto: c.texto || c.text || '',
-      usuario: c.autor || c.author || 'Usuario',
-      fecha: (c.createdAt ? new Date(c.createdAt) : new Date()).toISOString()
-    }));
-    return res.json({ ok: true, notas });
-  } catch (e) {
-    return res.status(500).json({ message: 'Error interno' });
-  }
-});
-
-app.post('/api/leads/:id/notas', protect, async (req, res) => {
-  try {
-    if (!db) db = await connectToMongoDB();
-    const { id } = req.params;
-    const { texto, usuario, fecha } = req.body || {};
-    if (!texto || !String(texto).trim()) return res.status(400).json({ message: 'texto es requerido' });
-    let leadObjectId = null;
-    try { leadObjectId = new ObjectId(id); } catch {}  
-    const coll = db.collection('Vcomments');
-    const doc = {
-      leadId: leadObjectId || id,
-      texto: String(texto).slice(0, 2000),
-      autor: usuario || req.user?.username || 'Usuario',
-      createdAt: fecha ? new Date(fecha) : new Date(),
-      updatedAt: new Date()
-    };
-    await coll.insertOne(doc);
-    return res.json({ ok: true, message: 'Nota agregada', nota: { texto: doc.texto, usuario: doc.autor, fecha: doc.createdAt.toISOString() } });
-  } catch (e) {
-    return res.status(500).json({ message: 'Error interno' });
-  }
-});
-
-// Editar nota
-app.put('/api/leads/:id/notas/:notaId', protect, async (req, res) => {
-  try {
-    if (!db) db = await connectToMongoDB();
-    const { id, notaId } = req.params;
-    const { texto } = req.body || {};
-    if (!texto || !String(texto).trim()) return res.status(400).json({ message: 'texto es requerido' });
-    let noteObjectId = null; let leadObjectId = null;
-    try { noteObjectId = new ObjectId(notaId); } catch {}
-    try { leadObjectId = new ObjectId(id); } catch {}
-    const coll = db.collection('Vcomments');
-    const filter = noteObjectId ? { _id: noteObjectId } : { _id: notaId };
-    const doc = await coll.findOne(filter);
-    if (!doc) return res.status(404).json({ message: 'Nota no encontrada' });
-    // Autorización: autor o admin/backoffice/supervisor
-    const role = (req.user?.role || '').toLowerCase();
-    const username = req.user?.username || '';
-    const allowed = ['admin','administrador','backoffice','bo','supervisor'];
-    const isAuthor = (doc.autor || doc.author || '') === username;
-    if (!isAuthor && !allowed.some(r => role.includes(r))) return res.status(403).json({ message: 'No autorizado' });
-    // (Opcional) validar pertenencia al lead
-    // Actualizar
-    const upd = { $set: { texto: String(texto).slice(0,2000), updatedAt: new Date() } };
-    await coll.updateOne(filter, upd);
-    return res.json({ ok: true, message: 'Nota actualizada' });
-  } catch (e) {
-    return res.status(500).json({ message: 'Error interno' });
-  }
-});
-
-// Eliminar nota
-app.delete('/api/leads/:id/notas/:notaId', protect, async (req, res) => {
-  try {
-    if (!db) db = await connectToMongoDB();
-    const { id, notaId } = req.params;
-    let noteObjectId = null;
-    try { noteObjectId = new ObjectId(notaId); } catch {}
-    const coll = db.collection('Vcomments');
-    const filter = noteObjectId ? { _id: noteObjectId } : { _id: notaId };
-    const doc = await coll.findOne(filter);
-    if (!doc) return res.status(404).json({ message: 'Nota no encontrada' });
-    // Autorización: autor o admin/backoffice/supervisor
-    const role = (req.user?.role || '').toLowerCase();
-    const username = req.user?.username || '';
-    const allowed = ['admin','administrador','backoffice','bo','supervisor'];
-    const isAuthor = (doc.autor || doc.author || '') === username;
-    if (!isAuthor && !allowed.some(r => role.includes(r))) return res.status(403).json({ message: 'No autorizado' });
-    await coll.deleteOne(filter);
-    return res.json({ ok: true, message: 'Nota eliminada' });
-  } catch (e) {
-    return res.status(500).json({ message: 'Error interno' });
-  }
-});
-
-app.put('/api/leads/:id', protect, async (req, res) => {
-  try {
-    if (!db) db = await connectToMongoDB();
-    const { id } = req.params;
-    const body = req.body || {};
-    // Autorización: solo admin/backoffice
-    try {
-      const role = (req.user?.role || '').toLowerCase();
-      const allowed = ['admin','administrador','backoffice','bo'];
-      const ok = allowed.some(r => role.includes(r));
-      if (!ok) return res.status(403).json({ success: false, message: 'No autorizado' });
-    } catch {}
-    const updates = {};
-    for (const k in body) {
-      const v = body[k];
-      if (v === '' || v == null) continue;
-      updates[k] = v;
-    }
-    updates.actualizadoEn = new Date();
-    let leadObjectId = null;
-    try { leadObjectId = new ObjectId(id); } catch {}
-    const coll = db.collection('costumers');
-    const orConds = [
-      { _id: id },
-      { id: id },
-      { ID: id },
-      { id_cliente: id },
-      { leadId: id },
-      { lead_id: id }
-    ];
-    if (leadObjectId) orConds.unshift({ _id: leadObjectId });
-    const filter = { $or: orConds };
-    const result = await coll.updateOne(filter, { $set: updates });
-    if (!result || result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
-    }
-    return res.json({ success: true, message: 'Lead actualizado', data: { id, updated: updates }, modified: result.modifiedCount });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: 'Error al actualizar el lead', error: e.message });
-  }
-});
-
-// Bulk update: cambiar supervisor RANDAL -> JOHANA para leads enviados HOY
-app.post('/api/leads/bulk-update-supervisor', protect, async (req, res) => {
-  try {
-    const role = (req.user?.role || '').toLowerCase();
-    const allowed = ['admin','administrador','backoffice','supervisor'];
-    if (!allowed.some(r => role.includes(r))) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    if (!db) db = await connectToMongoDB();
-    const coll = db.collection('costumers');
-
-    const {
-      fromSupervisor = 'RANDAL',
-      fromTeam = 'RANDAL', // si deseas filtrar por team también
-      setSupervisor = 'JOHANA',
-      setTeam // opcional: si también quieres cambiar el team
-    } = req.body || {};
-
-    // Rango de fechas de HOY (local)
-    const start = new Date(); start.setHours(0,0,0,0);
-    const end = new Date(start); end.setDate(end.getDate()+1);
-    const yyyy = start.getFullYear();
-    const mm = String(start.getMonth()+1).padStart(2,'0');
-    const dd = String(start.getDate()).padStart(2,'0');
-    const dateStr = `${yyyy}-${mm}-${dd}`; // para campos string tipo 'YYYY-MM-DD'
-
-    const andConds = [
-      { supervisor: { $regex: new RegExp(`^${fromSupervisor}$`, 'i') } }
-    ];
-    if (fromTeam) andConds.push({ team: { $regex: new RegExp(fromTeam, 'i') } });
-
-    // Coincidir documentos creados hoy por distintos campos de fecha
-    const dateOr = {
-      $or: [
-        { createdAt: { $gte: start, $lt: end } },
-        { creadoEn: { $gte: start, $lt: end } },
-        { dia_venta: { $regex: new RegExp(`^${dateStr}`) } },
-        { fecha_contratacion: { $regex: new RegExp(`^${dateStr}`) } },
-        { fecha: { $regex: new RegExp(`^${dateStr}`) } }
-      ]
-    };
-
-    const filter = { $and: [ ...andConds, dateOr ] };
-    const update = { $set: { supervisor: setSupervisor, actualizadoEn: new Date() } };
-    if (setTeam) update.$set.team = setTeam;
-
-    const result = await coll.updateMany(filter, update);
-    return res.json({ success: true, matched: result.matchedCount, modified: result.modifiedCount });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: 'Error en bulk update', error: e.message });
-  }
-});
-
 // Helmet (si disponible)
 if (helmet) {
   app.use(helmet({
@@ -522,22 +306,6 @@ app.get('/api/lineas', protect, async (req, res) => {
       console.log(`[GET /api/lineas] Usuario privilegiado ${username}, sin filtros`);
     }
 
-    // Filtro adicional por usuario/agente vía query (?user= o ?agente=)
-    try {
-      const qUser = (req.query.user || req.query.agente || '').toString().trim();
-      if (qUser) {
-        const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const rx = new RegExp(`^${esc(qUser)}$`, 'i');
-        const extra = { $or: [
-          { agente: rx },
-          { agenteNombre: rx },
-          { createdBy: rx },
-          { registeredBy: rx },
-        ] };
-        filter = Object.keys(filter || {}).length ? { $and: [filter, extra] } : extra;
-      }
-    } catch {}
-
     // Consultar registros
     const registros = await db.collection('Lineas').find(filter).sort({ creadoEn: -1 }).toArray();
     
@@ -561,8 +329,7 @@ app.get('/api/lineas', protect, async (req, res) => {
   }
 });
 
-// LEGACY: mantenido para compatibilidad, renombrado para no interferir con Team Líneas
-app.post('/api/lineas-legacy', protect, async (req, res) => {
+app.post('/api/lineas', protect, async (req, res) => {
   try {
     // Asegurar conexión BD
     if (!db) db = await connectToMongoDB();
@@ -614,19 +381,8 @@ app.post('/api/lineas-legacy', protect, async (req, res) => {
     const mercadoArr = Array.isArray(body.mercado) ? body.mercado : [body.mercado];
     const mercado = mercadoArr.map(String);
     if (mercado.length !== 1 || !['bamo','icon'].includes(mercado[0].toLowerCase())) errors.push('mercado debe ser uno: bamo | icon');
-    const supervisorVal = String(body.supervisor || '').toLowerCase().trim();
-    const supOk = (
-      supervisorVal === 'jonathan' ||
-      supervisorVal === 'diego' ||
-      supervisorVal === 'luis' ||
-      supervisorVal === 'jonathan f' ||
-      supervisorVal === 'luis g' ||
-      supervisorVal === 'gutierrez' ||
-      /^jonathan\b/i.test(supervisorVal) ||
-      /^luis\b/i.test(supervisorVal) ||
-      /^gutierrez\b/i.test(supervisorVal)
-    );
-    if (!supOk) errors.push('supervisor inválido (permitidos: JONATHAN, LUIS, DIEGO, GUTIERREZ)');
+    const supervisorVal = String(body.supervisor || '').toLowerCase();
+    if (!['jonathan','diego'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN, DIEGO)');
     if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser entre 1 y 5');
     if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
     if (errors.length) {
@@ -727,12 +483,10 @@ app.use(express.static(__dirname, {
   extensions: ['html', 'htm'],
   index: false,  // Evitar que se sirva index.html automáticamente
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html') || filePath.endsWith('.htm')) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    } else if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
     } else if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Content-Type', 'application/javascript');
     }
   }
 }));
@@ -752,10 +506,8 @@ app.use('/api/auth', authLimiter, authRoutes);
 // Montar rutas de API públicas
 app.use('/api', apiRoutes);
 app.use('/api/ranking', rankingRoutes);
-app.use('/api/ranking-test', rankingTestRoutes);
 app.use('/api/employees-of-month', employeesOfMonthRoutes);
 app.use('/api/equipos', equipoRoutes);
-app.use('/api/facturacion', facturacionRoutes);
 
 // Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
 // Wrapper mínimo por compatibilidad con referencias existentes
@@ -781,22 +533,10 @@ app.get('/api/protected', protect, (req, res) => {
 
 // Endpoint para verificar autenticación desde el servidor (sin protección)
 app.get('/api/auth/verify-server', (req, res) => {
-  // Verificar si hay token en cookies o en Authorization header
-  let token = req.cookies?.token;
-  
-  // Si no hay token en cookies, verificar en Authorization header
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7); // Remover 'Bearer ' del inicio
-      console.log('[VERIFY-SERVER] Token encontrado en Authorization header');
-    }
-  } else {
-    console.log('[VERIFY-SERVER] Token encontrado en cookies');
-  }
+  // Verificar si hay token en cookies
+  const token = req.cookies?.token;
 
   if (!token) {
-    console.log('[VERIFY-SERVER] No se encontró token en cookies ni en Authorization header');
     return res.json({
       success: false,
       message: 'No se encontró token',
@@ -811,7 +551,6 @@ app.get('/api/auth/verify-server', (req, res) => {
     const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    console.log('[VERIFY-SERVER] Token válido para usuario:', decoded.username);
     res.json({
       success: true,
       message: 'Token válido',
@@ -824,7 +563,6 @@ app.get('/api/auth/verify-server', (req, res) => {
       }
     });
   } catch (error) {
-    console.log('[VERIFY-SERVER] Token inválido:', error.message);
     res.json({
       success: false,
       message: 'Token inválido',
@@ -1694,6 +1432,38 @@ app.get('/api/leads/:id/comentarios', protect, (req, res, next) => {
   } catch (err) {
     console.error('GET comentarios error:', err);
     return res.status(500).json({ success: false, message: 'Error al obtener comentarios', error: err.message });
+  }
+});
+
+// Crear comentario
+app.post('/api/leads/:id/comentarios', protect, async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const { texto, comentario, autor: autorBody } = req.body || {};
+    if (!db) await connectToMongoDB();
+    let leadObjectId;
+    try { 
+      leadObjectId = new ObjectId(leadId); 
+    } catch { 
+      return res.status(400).json({ success: false, message: 'leadId inválido' }); 
+    }
+    const now = new Date();
+    const doc = {
+      leadId: leadObjectId,
+      texto: (texto ?? comentario ?? '').toString().slice(0, 1000),
+      autor: autorBody || req.user?.username || 'Sistema',
+      createdAt: now,
+      updatedAt: now
+    };
+    const result = await db.collection('Vcomments').insertOne(doc);
+    return res.status(201).json({
+      success: true,
+      message: 'Comentario creado',
+      data: { _id: result.insertedId.toString(), ...doc }
+    });
+  } catch (err) {
+    console.error('POST comentario error:', err);
+    return res.status(500).json({ success: false, message: 'Error al crear comentario', error: err.message });
   }
 });
 

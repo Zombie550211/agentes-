@@ -10,29 +10,14 @@
   <link rel="stylesheet" href="css/sidebar-shared.css">
 
   <!-- LibrerÃ­as -->
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
   <!-- Scripts de app -->
   <!-- Cargar primero las dependencias -->
-    <script src="/vendor/chartjs/chart.umd.min.js"></script>
-
-    <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
-    <script>
-      // Registrar ChartDataLabels una sola vez para habilitar etiquetas en todas las gráficas.
-      (function(){
-        try {
-          if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
-            Chart.register(ChartDataLabels);
-            console.log('ChartDataLabels registrado globalmente (Estadisticas.html)');
-          } else {
-            console.warn('No se pudo registrar ChartDataLabels: Chart o ChartDataLabels no definidos');
-          }
-        } catch(e) {
-          console.warn('Error registrando ChartDataLabels:', e);
-        }
-      })();
-    </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- ChartDataLabels para mostrar totales en barras -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -200,21 +185,6 @@
       padding-right: 16px;
     }
     .chart-wrapper { position: relative; height: 320px; }
-      .chart-wrapper {
-        position: relative;
-        height: 400px;
-        width: 100%;
-        min-height: 300px;
-        overflow: hidden;
-      }
-      .chart-wrapper canvas {
-        width: 100% !important;
-        height: 100% !important;
-        display: block;
-        max-width: 100%;
-        max-height: 100%;
-        box-sizing: border-box;
-      }
 
     /* Responsive para mÃ³vil: sidebar superior */
     @media (max-width: 768px) {
@@ -1841,7 +1811,7 @@
               }
             }
           },
-          /* ChartDataLabels se registra globalmente; no incluir aquí para evitar etiquetas dobles */
+          plugins: [ChartDataLabels]
         });
 
         // Forzar resize por si el canvas parent cambió de tamaño
@@ -1935,15 +1905,27 @@
             const filtered = Array.from(mapByName.values());
             const labels = filtered.map(t => t.name);
             const dataVals = filtered.map(t => t.ACTIVAS);
-            console.log('[VENTAS ACTIVAS] labels:', labels);
-            console.log('[VENTAS ACTIVAS] dataVals:', dataVals);
-            // Si todos los valores son 0: registrar advertencia pero continuar para dibujar (diagnóstico)
+            // Si todos los valores son 0, mostrar mensaje de sin datos
             if (dataVals.every(v => v === 0)) {
-              console.warn('[VENTAS ACTIVAS] Todos los valores ACTIVAS son 0 — se mostrará el gráfico de diagnóstico');
-              // eliminar posible mensaje previo
-              try { const prevMsg = document.getElementById('ventas-activas-no-data-msg'); if (prevMsg) prevMsg.remove(); } catch(_){}
-              // Asegurar que el canvas esté visible para depuración
-              try { canvas.style.display = 'block'; } catch(_){}
+              try { if (window.ventasActivasMesChart) { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } } catch(_){}
+              try {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                canvas.style.display = 'none';
+              } catch(_){}
+              let msg = document.getElementById('ventas-activas-no-data-msg');
+              if (!msg) {
+                msg = document.createElement('div');
+                msg.id = 'ventas-activas-no-data-msg';
+                msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
+                canvas.parentElement.appendChild(msg);
+              }
+              msg.textContent = 'Sin datos para este mes.';
+              showChartSpinner(canvas, false);
+              return;
+            } else {
+              let msg = document.getElementById('ventas-activas-no-data-msg');
+              if (msg) msg.remove();
             }
             if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
             const ctx = canvas.getContext('2d');
@@ -1980,20 +1962,25 @@
                     }
                   },
                   datalabels: {
-                    // Desactivar etiquetas en la gráfica de Ventas Activas para evitar
-                    // cualquier efecto visual doble con el 3D.
-                    display: false
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#1f3b63',
+                    font: {
+                      weight: 'bold',
+                      size: 13
+                    },
+                    offset: 4,
+                    formatter: function(value, context) {
+                      return value;
+                    }
                   }
                 }
               },
               plugins: [
-                // Activar explícitamente ChartDataLabels en esta gráfica
-                (typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : {}),
                 {
                   id: 'barShadow3D',
-                  // Aplicar sombra solo mientras se dibujan las barras, restaurar justo
-                  // después para que ChartDataLabels pinte las etiquetas sin sombra.
-                  beforeDatasetsDraw: (chart, args, opts) => {
+                  beforeDatasetsDraw: (chart) => {
                     const ctx = chart.ctx;
                     ctx.save();
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -2001,12 +1988,11 @@
                     ctx.shadowOffsetX = 4;
                     ctx.shadowOffsetY = 4;
                   },
-                  afterDatasetsDraw: (chart, args, opts) => {
-                    const ctx = chart.ctx;
-                    ctx.restore();
+                  afterDatasetsDraw: (chart) => {
+                    chart.ctx.restore();
                   }
                 },
-                /* ChartDataLabels se registra globalmente; no incluir aquí para evitar etiquetas dobles */
+                ChartDataLabels
               ]
             });
             // Forzar un resize para asegurar que el gráfico se renderice correctamente
@@ -2711,7 +2697,7 @@
     // Inyectar flechas en la tarjeta de Porcentaje de Activasion (solo íconos)
     window.injectPorcentajeNavButtons = function(attempt = 0){
       try {
-        const topCharts = document.getElementById('top-charts-combined');
+        const topCharts = document.getElementById('top-charts');
         if (!topCharts) {
           if (attempt < 20) return setTimeout(() => window.injectPorcentajeNavButtons(attempt+1), 300);
           return;
@@ -3277,15 +3263,11 @@
           // By default render the aggregated 'all teams' donut when there are multiple teams
           if (rows.length > 1) {
             // default: render all teams view
-            // NO overlays ni helpers personalizados de etiquetas
-            window.attachPorcLabels = function(){};
             renderPorcentajeAllTeams(rows);
             return;
           }
 
           // fallback single team render
-          // NO overlays ni helpers personalizados de etiquetas
-          window.attachPorcLabels = function(){};
           renderPorcentajeForTeam(rows, selectedIndex);
 
           // --- helper: render a single team's donut ---
@@ -3331,10 +3313,7 @@
                 },
                 plugins: [{
                   id: 'shadow3D',
-                  // Igual que en barras: aplicar sombra solo mientras se dibuja el
-                  // dataset de la dona y restaurar antes de que datalabels pinte
-                  // las etiquetas para evitar efecto "doble".
-                  beforeDatasetsDraw: (chart, args, opts) => {
+                  beforeDraw: (chart) => {
                     const ctx = chart.ctx;
                     ctx.save();
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -3342,9 +3321,8 @@
                     ctx.shadowOffsetX = 5;
                     ctx.shadowOffsetY = 5;
                   },
-                  afterDatasetsDraw: (chart, args, opts) => {
-                    const ctx = chart.ctx;
-                    ctx.restore();
+                  afterDraw: (chart) => {
+                    chart.ctx.restore();
                   }
                 }]
               });
@@ -3391,20 +3369,6 @@
                 }
               }];
               
-              // Eliminar cualquier overlay de etiquetas previo (para evitar duplicados)
-              try {
-                // Eliminar overlay de etiquetas personalizado si existe
-                const canvas = document.getElementById('chart-porcentaje-activacion');
-                if (canvas && canvas.parentElement) {
-                  const overlays = canvas.parentElement.querySelectorAll('.porc-labels-overlay');
-                  overlays.forEach(el => el.remove());
-                }
-                if (window.porcentajeActivacionChart) {
-                  if (window.porcentajeActivacionChart._porcLabelsContainer && window.porcentajeActivacionChart._porcLabelsContainer.parentNode) {
-                    window.porcentajeActivacionChart._porcLabelsContainer.parentNode.removeChild(window.porcentajeActivacionChart._porcLabelsContainer);
-                  }
-                }
-              } catch(_){}
               window.porcentajeActivacionChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 3 }] },
@@ -3412,6 +3376,7 @@
                   responsive: true,
                   maintainAspectRatio: false,
                   cutout: '60%',
+                  // Efecto 3D con sombras
                   layout: {
                     padding: 15
                   },
@@ -3436,20 +3401,17 @@
                       } 
                     },
                     datalabels: {
-                      // Desactivar etiquetas internas en el donut para evitar efecto doble.
-                      display: false
+                      display: false  // Desactivar etiquetas en gráfica de donut
                     }
                   }
                 },
-                plugins: [
-                  // Solo plugins de sombra/estilo; sin ChartDataLabels para evitar
-                  // etiquetas dentro del donut y cualquier efecto doble visual.
-                  ...chartPlugins
-                ]
+                plugins: chartPlugins
               });
 
-              // NO llamar attachPorcLabels ni overlays personalizados para evitar duplicados de etiquetas en el donut.
-              // Solo se muestra la lista a la izquierda, sin overlays ni helpers de etiquetas.
+              // Populate the compact left-side list (`#porc-team-list`) with the
+              // rows for quick reference. Make it absolute-left inside the chart
+              // wrapper so it doesn't push content and avoid repopulating when
+              // identical (use dataset.porcKey as a guard).
               try {
                 const listRootLocal = document.getElementById('porc-team-list');
                 if (listRootLocal) {
@@ -4165,32 +4127,15 @@
 
         // Usar datos de LINEAS del backend si están disponibles
         let lineasData = lineasDataFromBackend.length > 0 ? lineasDataFromBackend : [];
+        
         // Fallback: si no hay datos de lineas del backend, intentar filtrar por nombre (legacy)
         if (lineasData.length === 0) {
           const isLinea = (n) => /LINEA/i.test(String(n || ''));
           lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
         }
-        // Siempre mostrar los nombres fijos aunque no haya datos
-        const lineasFijos = [
-          { name: 'JONATHAN F', ICON: 0 },
-          { name: 'LUIS G', ICON: 0 }
-        ];
-        // Si no hay datos, forzar la visualización de los fijos
-        if (!lineasData || lineasData.length === 0) {
-          lineasData = [...lineasFijos];
-        } else {
-          // Si hay datos, asegurarse que los fijos estén presentes (aunque todo esté en cero)
-          for (const fijo of lineasFijos) {
-            if (!lineasData.some(l => String(l.name).toUpperCase() === fijo.name.toUpperCase())) {
-              lineasData.push({ name: fijo.name, ICON: 0 });
-            }
-          }
-        }
-        // Si después de todo lineasData sigue vacío (caso extremo), forzar los fijos
-        if (!lineasData || lineasData.length === 0) {
-          lineasData = [...lineasFijos];
-        }
+        
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
+        
         // Filtrar datos principales: excluir los nombres que están en lineasData
         const lineasNames = new Set(lineasData.map(l => String(l.name).toUpperCase()));
         let mainData = dayData.filter(t => !lineasNames.has(String(t.name).toUpperCase()));

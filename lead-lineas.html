@@ -8,7 +8,8 @@
         const u = JSON.parse(s||'{}');
         const role = String(u.role||'').toLowerCase();
         const username = String(u.username||'').toLowerCase();
-        const isTL = role==='teamlineas' || username.startsWith('lineas-');
+        const team = String(u.team||'').toLowerCase();
+        const isTL = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
         const to = isTL ? '/TEAM LINEAS/LEAD-LINEAS.html' : '/lead.html';
         if (!location.pathname.endsWith(to.replace(/^\//,''))) {
           window.location.replace(to);
@@ -31,9 +32,18 @@
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const username = (userData.username || '').toLowerCase();
         const role = (userData.role || '').toLowerCase();
+        const team = (userData.team || '').toLowerCase();
+        
+        // Verificar si el usuario es de Team Líneas
+        const isTeamLineas = role === 'teamlineas' || 
+                            role === 'lineas-agentes' || 
+                            role === 'supervisor team lineas' ||
+                            (role === 'supervisor' && team.includes('lineas')) ||
+                            team.includes('lineas') ||
+                            username.startsWith('lineas-');
         
         // Si el usuario no es de Team Líneas, redirigir a la página de inicio
-        if (role !== 'teamlineas' && !username.startsWith('lineas-')) {
+        if (!isTeamLineas) {
           window.location.href = '/inicio.html';
         }
       } catch (e) {
@@ -496,7 +506,7 @@
     <!-- Menú principal -->
     <ul class="menu">
       <li><a href="inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i>Inicio</a></li>
-      <li><a href="lead-lineas.html" class="btn btn-sidebar"><i class="fas fa-user-plus"></i>Lead</a></li>
+      <li><a href="/TEAM LINEAS/LEAD-LINEAS.html" class="btn btn-sidebar"><i class="fas fa-user-plus"></i>Lead</a></li>
       <li><a href="Costumer.html" class="btn btn-sidebar"><i class="fas fa-users"></i>Customer</a></li>
       <li><a href="facturacion.html" class="btn btn-sidebar"><i class="fas fa-file-invoice"></i>Facturación</a></li>
       <li><a href="Estadisticas.html" class="btn btn-sidebar"><i class="fas fa-chart-bar"></i>Estadísticas</a></li>

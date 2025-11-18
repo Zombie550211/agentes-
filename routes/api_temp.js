@@ -20,7 +20,7 @@ function __isTeamLineas(req) {
 function __normName(s) {
   try { 
     return String(s||'').normalize('NFD')
-      .replace(/[^\x00-\x7F]/g,'')
+      .replace(/\\p{Diacritic}/gu,'')
       .toUpperCase()
       .replace(/\\s+/g,'_')
       .replace(/[^A-Z0-9_]/g,'_') || 'UNKNOWN'; 
