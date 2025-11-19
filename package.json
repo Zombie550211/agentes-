@@ -26,9 +26,10 @@
     "check:form": "node scripts/check_form_integrity.js",
     "start": "node server.js",
     "start:strict": "CHECK_STRICT=1 node scripts/check_form_integrity.js && node server.js",
-    "dev": "nodemon server.js",
     "backfill:agenteId:dry": "node scripts/backfill_agenteId_from_nombre.js --dry-run",
-    "backfill:agenteId:commit": "node scripts/backfill_agenteId_from_nombre.js --commit"
+    "backfill:agenteId:commit": "node scripts/backfill_agenteId_from_nombre.js --commit",
+    "dev": "set NODE_ENV=development&& nodemon server.js",
+    "seed:dev": "set NODE_ENV=development&& node scripts/seed_team_lineas.js --commit"
   },
   "repository": {
     "type": "git",
@@ -44,6 +45,8 @@
   "description": "",
   "devDependencies": {
     "@types/node": "^24.5.2",
+    "mongodb-memory-server": "^10.3.0",
+    "nodemon": "^3.1.11",
     "typescript": "^5.9.2"
   }
 }

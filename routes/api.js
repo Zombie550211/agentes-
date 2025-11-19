@@ -265,4 +265,75 @@ router.put('/leads/:id/status', protect, async (req, res) => {
   }
 });
 
+router.get('/lineas-team', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = (user?.role || '').toLowerCase();
+    const team = (user?.team || '').toLowerCase();
+    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador';
+    if (!isTeamLineas) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado' });
+    }
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+    const collection = db.collection('team_lineas_leads');
+    let filter = {};
+    if (role === 'supervisor') {
+      filter = { supervisor: { $regex: new RegExp('^' + user.username + '$', 'i') } };
+    } else if (role === 'lineas-agentes') {
+      filter = { agenteAsignado: user.username };
+    }
+    const leads = await collection.find(filter).toArray();
+    res.json({ success: true, data: leads });
+  } catch (error) {
+    console.error('[API /lineas-team] Error:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+router.post('/seed-lineas-leads', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = (user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'administrador') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB de Team Lineas' });
+    }
+    const leadsCollection = db.collection('team_lineas_leads');
+    const agentsBySupervisor = {
+      'JONATHAN F': [{ username: 'VICTOR HURTADO' }, { username: 'EDWARD RAMIREZ' }, { username: 'CRISTIAN RIVERA' }],
+      'LUIS G': [{ username: 'DANIEL DEL CID' }, { username: 'FERNANDO BELTRAN' }, { username: 'KARLA RODRIGUEZ' }, { username: 'JOCELYN REYES' }, { username: 'JONATHAN GARCIA' }, { username: 'NANCY LOPEZ' }]
+    };
+    const supervisorsWithAgents = Object.keys(agentsBySupervisor);
+    const leadsPlan = [];
+    for (let i = 0; i < 10; i++) {
+      const supervisorName = supervisorsWithAgents[i % supervisorsWithAgents.length];
+      const agents = agentsBySupervisor[supervisorName];
+      const agent = agents[i % agents.length];
+      const lead = {
+        nombre_cliente: `CLIENTE DE PRUEBA ${i + 1}`,
+        telefono_principal: `555-010${i}`,
+        numero_cuenta: `ACC-TL-00${i}`,
+        status: i % 3 === 0 ? 'completed' : 'pending',
+        supervisor: supervisorName,
+        agenteAsignado: agent.username,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      leadsPlan.push(lead);
+    }
+    await leadsCollection.deleteMany({});
+    await leadsCollection.insertMany(leadsPlan);
+    res.json({ success: true, message: `${leadsPlan.length} leads de prueba creados.` });
+  } catch (error) {
+    console.error('[API /seed-lineas-leads] Error:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor al crear leads.' });
+  }
+});
+
 module.exports = router;

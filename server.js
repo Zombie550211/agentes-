@@ -99,25 +99,6 @@ app.use(express.static(__dirname, {
   }
 }));
 
-// Iniciar conexión Mongoose
-try {
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Zombie550211:fDJneHzSCsiU5mdy@cluster0.ywxaotz.mongodb.net/crmagente?retryWrites=true&w=majority&appName=Cluster0';
-  mongoose.set('strictQuery', false);
-  const insecure = process.env.TLS_INSECURE === '1';
-  const mongooseOpts = {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 5,
-    tls: insecure ? true : undefined,
-    tlsInsecure: insecure ? true : undefined,
-  };
-  mongoose.connect(MONGODB_URI, mongooseOpts)
-  .then(() => console.log('[Mongoose] Conectado a MongoDB Atlas'))
-  .catch(err => console.error('[Mongoose] Error de conexión:', err?.message));
-} catch (e) {
-  console.error('[Mongoose] Excepción iniciando conexión:', e?.message);
-}
-
 // Configurar directorio para uploads
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {

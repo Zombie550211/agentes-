@@ -15,6 +15,7 @@
  *  node scripts/seed_team_lineas.js --commit   # apply changes
  */
 
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { connectToMongoDB, closeConnection } = require('../config/db');
 
@@ -113,8 +114,42 @@ function teamForSupervisor(name) {
     if (!doCommit) {
       console.log('\nDRY-RUN: No se aplicaron cambios. Ejecuta con --commit para escribir en DB.');
     } else {
-      console.log('\nCOMMIT: Cambios aplicados.');
+      console.log('\nCOMMIT: Cambios de usuarios aplicados.');
     }
+
+
+    // Seed leads for Team Lineas
+    const leadsCollection = db.collection('team_lineas_leads');
+    const leadsPlan = [];
+    const supervisorsWithAgents = Object.keys(agentsBySupervisor);
+
+    for (let i = 0; i < 10; i++) {
+      const supervisorName = supervisorsWithAgents[i % supervisorsWithAgents.length];
+      const agents = agentsBySupervisor[supervisorName];
+      const agent = agents[i % agents.length];
+      const lead = {
+        nombre_cliente: `CLIENTE DE PRUEBA ${i + 1}`,
+        telefono_principal: `555-010${i}`,
+        numero_cuenta: `ACC-TL-00${i}`,
+        status: i % 3 === 0 ? 'completed' : 'pending',
+        supervisor: supervisorName,
+        agenteAsignado: agent.username,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      leadsPlan.push(lead);
+    }
+
+    if (doCommit) {
+      console.log('\nBorrando leads anteriores de Team Lineas...');
+      await leadsCollection.deleteMany({});
+      console.log('Insertando nuevos leads de prueba...');
+      await leadsCollection.insertMany(leadsPlan);
+      console.log(`${leadsPlan.length} leads de prueba insertados en 'team_lineas_leads'.`);
+    } else {
+      console.log(`\nDRY-RUN: Se crearían ${leadsPlan.length} leads de prueba.`);
+    }
+
   } catch (e) {
     console.error('Error en seed_team_lineas:', e?.message || e);
     process.exitCode = 1;
