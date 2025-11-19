@@ -1,75 +1,122 @@
 const { MongoClient } = require('mongodb');
 const mongoose = require('mongoose');
 
-// Configuración de conexión a MongoDB
-const MONGODB_URI = process.env.MONGODB_URI;
+// --- Configuración de Conexión --- //
+const MONGODB_URI_ATLAS = process.env.MONGODB_URI;
+const MONGODB_URI_LOCAL = process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/crmagente_local';
+const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
 
-// Variable global para mantener la conexión
+// --- Estado de la Conexión --- //
 let db = null;
 let __nativeClient = null;
+let isConnected = false;
+let isConnecting = false;
 
+/**
+ * Conecta a MongoDB con una estrategia de fallback para desarrollo local.
+ * 1. Intenta conectar a Atlas.
+ * 2. Si falla por error de red en desarrollo, intenta conectar a una DB local.
+ * 3. Si todo falla, permite que la app corra sin conexión.
+ */
 async function connectToMongoDB() {
+  if (isConnected && db) {
+    return db;
+  }
+  if (isConnecting) {
+    // Evita múltiples intentos de conexión simultáneos
+    console.warn('[DB] Intento de reconexión mientras ya se está conectando. Esperando...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    return db;
+  }
+
+  isConnecting = true;
+
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  let connectionUri = MONGODB_URI_ATLAS;
+  let connectionTarget = 'Atlas';
+
   try {
-    if (db) {
-      return db;
-    }
-
-    console.log('[DB] Conectando a MongoDB Atlas...');
-    const client = new MongoClient(MONGODB_URI, { appName: 'dashboard-backend' });
-
+    console.log(`[DB] Intentando conectar a MongoDB ${connectionTarget}...`);
+    const client = new MongoClient(connectionUri, {
+      serverSelectionTimeoutMS: 5000, // Falla rápido si no hay red
+      connectTimeoutMS: 5000,
+      appName: 'dashboard-backend'
+    });
     await client.connect();
-    const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
     db = client.db(DB_NAME);
     __nativeClient = client;
+    isConnected = true;
+    console.log(`[DB] Conexión nativa a MongoDB ${connectionTarget} establecida.`);
 
-    console.log('[DB] Conexión nativa a MongoDB establecida correctamente');
+    // Sincronizar conexión de Mongoose
+    mongoose.connect(connectionUri, { useNewUrlParser: true, useUnifiedTopology: true })
+      .then(() => console.log(`[Mongoose] Conectado a ${connectionTarget}`))
+      .catch(err => console.error(`[Mongoose] Error conectando a ${connectionTarget}:`, err.message));
 
-    client.on('error', (error) => {
-      console.error('[DB] Error de conexión:', error);
-      db = null;
-    });
-
-    client.on('close', () => {
-      console.log('[DB] Conexión nativa cerrada');
-      db = null;
-    });
-
-    return db;
   } catch (error) {
-    console.error('[DB] Error al conectar a MongoDB:', error);
-    throw error;
+    console.error(`[DB] Error al conectar a ${connectionTarget}:`, error.message);
+
+    if (isDevelopment && (error.code === 'ECONNREFUSED' || error.name === 'MongoServerSelectionError')) {
+      // --- Fallback a DB Local --- //
+      connectionUri = MONGODB_URI_LOCAL;
+      connectionTarget = 'Local';
+      console.log('[DB] Fallback: Intentando conectar a MongoDB Local...');
+      try {
+        const localClient = new MongoClient(connectionUri, { serverSelectionTimeoutMS: 2000 });
+        await localClient.connect();
+        db = localClient.db(DB_NAME);
+        __nativeClient = localClient;
+        isConnected = true;
+        console.log('[DB] Conexión nativa a MongoDB Local establecida.');
+
+        mongoose.connect(connectionUri)
+          .then(() => console.log('[Mongoose] Conectado a Local'))
+          .catch(err => console.error('[Mongoose] Error conectando a Local:', err.message));
+
+      } catch (localError) {
+        console.error('[DB] Error al conectar a MongoDB Local:', localError.message);
+        console.warn('[DB] La aplicación se ejecutará en modo OFFLINE. Las funciones de base de datos no estarán disponibles.');
+        db = null;
+        __nativeClient = null;
+        isConnected = false;
+      }
+    } else {
+      console.warn('[DB] La aplicación se ejecutará en modo OFFLINE. Las funciones de base de datos no estarán disponibles.');
+      db = null;
+      __nativeClient = null;
+      isConnected = false;
+    }
   }
+
+  isConnecting = false;
+  return db;
 }
 
 function getDb() {
-  if (db) {
-    return db;
+  if (!isConnected) {
+    // No mostrar warning si estamos intencionadamente offline
+    return null;
   }
-  console.warn('[DB] No hay conexión activa a la base de datos');
-  return null;
+  return db;
 }
 
 function getDbFor(dbName) {
-  try {
-    if (__nativeClient) return __nativeClient.db(dbName);
-    if (db && db.s && db.s.client) return db.s.client.db(dbName);
-    return null;
-  } catch (e) {
-    console.warn('[DB] getDbFor error:', e?.message);
-    return null;
-  }
+  if (!isConnected || !__nativeClient) return null;
+  return __nativeClient.db(dbName);
 }
 
 async function closeConnection() {
   try {
     if (__nativeClient) {
       await __nativeClient.close();
-      __nativeClient = null;
-      db = null;
-      console.log('[DB] Conexión cerrada correctamente');
     }
+    await mongoose.disconnect();
+    __nativeClient = null;
+    db = null;
+    isConnected = false;
+    console.log('[DB] Conexiones (Nativa y Mongoose) cerradas.');
   } catch (error) {
-    console.error('[DB] Error al cerrar conexión:', error);
+    console.error('[DB] Error al cerrar conexiones:', error);
   }
 }
 
@@ -89,5 +136,6 @@ module.exports = {
   connectToMongoDB,
   getDb,
   getDbFor,
-  closeConnection
+  closeConnection,
+  isConnected: () => isConnected
 };

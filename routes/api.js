@@ -362,7 +362,15 @@ router.get('/facturacion/anual/:ano', protect, async (req, res) => {
     }
     const pipeline = [
       { $match: { anio: parseInt(ano) } },
-      { $addFields: { totalDiaNum: { $convert: { input: { $arrayElemAt: ["$campos", 9] }, to: "double", onError: 0.0, onNull: 0.0 } } } },
+      { $addFields: {
+        totalDiaStr: { $arrayElemAt: ["$campos", 9] }
+      }},
+      { $addFields: {
+        cleanedTotalStr: { $replaceAll: { input: { $replaceAll: { input: "$totalDiaStr", find: "$", replacement: "" } }, find: ",", replacement: "" } }
+      }},
+      { $addFields: {
+        totalDiaNum: { $convert: { input: "$cleanedTotalStr", to: "double", onError: 0.0, onNull: 0.0 } }
+      }},
       { $group: { _id: "$mes", total: { $sum: "$totalDiaNum" } } }
     ];
     const resultados = await db.collection('Facturacion').aggregate(pipeline).toArray();

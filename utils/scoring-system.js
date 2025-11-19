@@ -19,7 +19,12 @@ const SCORING_TABLE = {
     }
   },
   'video-directv-satelite': {
-    base: 1.0
+    byRisk: {
+      low: 1.0,
+      medium: 0.35,
+      high: 1.0,
+      na: 1.0
+    }
   },
   'video-select-spectrum': {
     base: 1.0

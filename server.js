@@ -29,7 +29,7 @@ let cookieParser = null;
 try { cookieParser = require('cookie-parser'); } catch { console.warn('[INIT] cookie-parser no instalado (opcional si usas JWT en header)'); }
 
 // Importar configuración de base de datos
-const { connectToMongoDB, getDb, closeConnection } = require('./config/db');
+const { connectToMongoDB, getDb, closeConnection, isConnected } = require('./config/db');
 
 // Middleware de autenticación unificado
 const { protect, authorize } = require('./middleware/auth');
@@ -99,24 +99,9 @@ app.use(express.static(__dirname, {
   }
 }));
 
-// Iniciar conexión Mongoose
-try {
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Zombie550211:fDJneHzSCsiU5mdy@cluster0.ywxaotz.mongodb.net/crmagente?retryWrites=true&w=majority&appName=Cluster0';
-  mongoose.set('strictQuery', false);
-  const insecure = process.env.TLS_INSECURE === '1';
-  const mongooseOpts = {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 5,
-    tls: insecure ? true : undefined,
-    tlsInsecure: insecure ? true : undefined,
-  };
-  mongoose.connect(MONGODB_URI, mongooseOpts)
-  .then(() => console.log('[Mongoose] Conectado a MongoDB Atlas'))
-  .catch(err => console.error('[Mongoose] Error de conexión:', err?.message));
-} catch (e) {
-  console.error('[Mongoose] Excepción iniciando conexión:', e?.message);
-}
+// La conexión de Mongoose ahora es gestionada centralmente por config/db.js
+// para permitir el fallback a una base de datos local y el modo offline.
+// Se ha eliminado el bloque de conexión duplicado de este archivo.
 
 // Configurar directorio para uploads
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -249,12 +234,11 @@ const corsOptions = {
 // Inicializar la conexión a la base de datos
 let db;
 (async () => {
-  try {
-    db = await connectToMongoDB();
-    console.log('Conexión a MongoDB Atlas establecida correctamente');
-  } catch (error) {
-    console.error('Error al conectar a MongoDB Atlas en el arranque:', error?.message);
-    console.warn('Continuando sin conexión inicial. Los endpoints intentarán reconectar bajo demanda...');
+  db = await connectToMongoDB(); // La lógica de error y fallback ya está dentro.
+  if (isConnected()) {
+    console.log('[SERVER] Conexión a base de datos establecida.');
+  } else {
+    console.warn('[SERVER] Iniciando en modo OFFLINE. Las operaciones de base de datos fallarán.');
   }
 })();
 
@@ -280,7 +264,10 @@ const authLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, limit: 100, standard
 app.get('/api/lineas', protect, async (req, res) => {
   try {
     // Asegurar conexión BD
-    if (!db) db = await connectToMongoDB();
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
 
     const user = req.user;
     const username = user?.username || '';
@@ -332,7 +319,10 @@ app.get('/api/lineas', protect, async (req, res) => {
 app.post('/api/lineas', protect, async (req, res) => {
   try {
     // Asegurar conexión BD
-    if (!db) db = await connectToMongoDB();
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
 
     const body = req.body || {};
 
@@ -705,7 +695,10 @@ app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'adm
     }
     
     // Crear el nuevo usuario
-    if (!db) db = await connectToMongoDB();
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
 
     // Verificar si el usuario ya existe
     const existingUser = await db.collection('users').findOne({ username: username });
@@ -779,7 +772,10 @@ app.post('/api/auth/reset-password', protect, authorize('Administrador', 'admin'
       });
     }
     
-    // Conectar a MongoDB
+    // Asegurar conexión BD
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
     let db;
     try {
       db = await connectToMongoDB();
@@ -832,8 +828,11 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
         message: 'No se recibió ningún archivo'
       });
     }
-    // Conectar a BD si es necesario
-    if (!db) await connectToMongoDB();
+    // Asegurar conexión BD
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
     const collection = db.collection('mediafiles');
     
     // Determinar categoría del archivo (permite override desde el cliente)
@@ -1117,7 +1116,10 @@ app.get('/api/debug/user', protect, async (req, res) => {
     if (req.user && req.user._id) {
       // Usar MongoDB en lugar de UserMemory
       try {
-        if (!db) db = await connectToMongoDB();
+        if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
         dbUser = await db.collection('users').findOne({ _id: new ObjectId(req.user._id) });
       } catch (error) {
         console.error('[DEBUG] Error buscando usuario en MongoDB:', error);
@@ -1144,7 +1146,10 @@ app.get('/api/debug/users', async (req, res) => {
     }
 
     // Usar MongoDB en lugar de UserMemory
-    if (!db) db = await connectToMongoDB();
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
     const users = await db.collection('users')
       .find({}, { username: 1, role: 1, _id: 1 })
       .toArray();
