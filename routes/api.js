@@ -362,7 +362,8 @@ router.get('/facturacion/anual/:ano', protect, async (req, res) => {
     }
     const pipeline = [
       { $match: { anio: parseInt(ano) } },
-      { $group: { _id: "$mes", total: { $sum: "$totalDia" } } }
+      { $addFields: { totalDiaNum: { $toDouble: { $arrayElemAt: ["$campos", 9] } } } },
+      { $group: { _id: "$mes", total: { $sum: "$totalDiaNum" } } }
     ];
     const resultados = await db.collection('Facturacion').aggregate(pipeline).toArray();
     const totalesPorMes = Array(12).fill(0);
