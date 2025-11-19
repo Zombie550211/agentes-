@@ -1,3 +1,7 @@
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas de red.');
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -29,7 +33,7 @@ let cookieParser = null;
 try { cookieParser = require('cookie-parser'); } catch { console.warn('[INIT] cookie-parser no instalado (opcional si usas JWT en header)'); }
 
 // Importar configuración de base de datos
-const { connectToMongoDB, getDb, closeConnection, isConnected } = require('./config/db');
+const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./config/db');
 
 // Middleware de autenticación unificado
 const { protect, authorize } = require('./middleware/auth');
@@ -322,9 +326,10 @@ app.post('/api/lineas', protect, async (req, res) => {
     if (!isConnected()) {
       return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
     }
-    if (!db) db = getDb();
 
     const body = req.body || {};
+    const user = req.user;
+    const username = user?.username || '';
 
     // Helpers de normalización
     const toUpper = (s) => (s == null ? '' : String(s).trim().toUpperCase());
@@ -332,7 +337,6 @@ app.post('/api/lineas', protect, async (req, res) => {
     const asDate = (s) => {
       if (!s) return null;
       try {
-        // soportar yyyy-mm-dd y dd/mm/yyyy
         const str = String(s).trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return new Date(str);
         if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)) {
@@ -344,9 +348,9 @@ app.post('/api/lineas', protect, async (req, res) => {
       } catch { return null; }
     };
 
-    // Validaciones mínimas obligatorias (según especificación):
+    // Validaciones mínimas obligatorias
     const errors = [];
-    const requiredFields = ['nombre_cliente','telefono_principal','numero_cuenta','autopay','pin_seguridad','direccion','servicios','dia_venta','dia_instalacion','status','cantidad_lineas','id','mercado','supervisor'];
+    const requiredFields = ['nombre_cliente','telefono_principal','numero_cuenta','autopay','pin_seguridad','direccion','dia_venta','dia_instalacion','status','cantidad_lineas','id','mercado','supervisor'];
     for (const f of requiredFields) {
       if (body[f] == null || body[f] === '' || (Array.isArray(body[f]) && body[f].length === 0)) {
         errors.push(`Campo requerido faltante: ${f}`);
@@ -357,32 +361,38 @@ app.post('/api/lineas', protect, async (req, res) => {
     }
 
     // Coerciones/normalizaciones
-    const servicios = Array.isArray(body.servicios) ? body.servicios.map(v => String(v)) : [String(body.servicios)];
-    const cantidadLineasSel = Array.isArray(body.cantidad_lineas) ? body.cantidad_lineas : [body.cantidad_lineas];
-    const cantidadLineas = Number(cantidadLineasSel[0] || 0);
-    const telefonosRaw = Array.isArray(body.telefonos) ? body.telefonos : [body.telefono_1, body.telefono_2, body.telefono_3, body.telefono_4, body.telefono_5].filter(v => v != null);
-    const telefonos = telefonosRaw.map(digitsOnly).filter(Boolean).slice(0, Math.max(0, cantidadLineas || 0));
+    const cantidadLineas = Number(body.cantidad_lineas || 0);
+    const telefonos = (Array.isArray(body.telefonos) ? body.telefonos : []).map(digitsOnly).filter(Boolean);
+    const servicios = Array.isArray(body.servicios) ? body.servicios.map(String) : [];
 
     // Validaciones de dominio
-    const autopayVal = String(body.autopay || '').toLowerCase(); // 'si' | 'no'
+    const autopayVal = String(body.autopay || '').toLowerCase();
     if (!['si','no'].includes(autopayVal)) errors.push('autopay debe ser si | no');
-    const statusVal = String(body.status || '').toLowerCase(); // 'pending' | 'repro'
+    const statusVal = String(body.status || '').toLowerCase();
     if (!['pending','repro'].includes(statusVal)) errors.push('status inválido (permitidos: pending, repro)');
-    const mercadoArr = Array.isArray(body.mercado) ? body.mercado : [body.mercado];
-    const mercado = mercadoArr.map(String);
-    if (mercado.length !== 1 || !['bamo','icon'].includes(mercado[0].toLowerCase())) errors.push('mercado debe ser uno: bamo | icon');
+    const mercado = String(body.mercado || '').toLowerCase();
+    if (!['bamo','icon'].includes(mercado)) errors.push('mercado debe ser uno: bamo | icon');
     const supervisorVal = String(body.supervisor || '').toLowerCase();
-    if (!['jonathan','diego'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN, DIEGO)');
+    if (!['jonathan f', 'luis g'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN F, LUIS G)');
     if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser entre 1 y 5');
     if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
     if (errors.length) {
       return res.status(400).json({ success: false, message: 'Validación fallida', errors });
     }
 
-    // Obtener información del usuario que crea el registro
-    const user = req.user;
-    const username = user?.username || '';
-    
+    // --- Lógica de guardado dinámico ---
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) {
+        return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
+    }
+
+    // Determinar la colección de destino
+    let targetAgent = username;
+    if (user.role.toLowerCase().includes('supervisor') && body.agenteAsignado) {
+        targetAgent = body.agenteAsignado;
+    }
+    const targetCollectionName = targetAgent.replace(/\s+/g, '_').toUpperCase();
+
     // Construir documento a insertar
     const now = new Date();
     const doc = {
@@ -393,27 +403,32 @@ app.post('/api/lineas', protect, async (req, res) => {
       autopay: autopayVal === 'si',
       pin_seguridad: String(body.pin_seguridad || '').trim(),
       direccion: String(body.direccion || '').trim(),
-      servicios, // múltiples checks permitidos
+      servicios,
       dia_venta: asDate(body.dia_venta),
       dia_instalacion: asDate(body.dia_instalacion),
-      status: statusVal.toUpperCase(), // PENDING | REPRO
+      status: statusVal.toUpperCase(),
       cantidad_lineas: cantidadLineas,
       telefonos,
-      ID: String(body.id || body.ID || '').trim(),
-      mercado: mercado[0].toUpperCase(), // BAMO | ICON
-      supervisor: supervisorVal.toUpperCase(), // JONATHAN | DIEGO
-      // Información del agente que crea el registro
-      agente: username,
-      agenteNombre: username,
-      createdBy: username,
-      registeredBy: username,
+      ID: String(body.id || '').trim(),
+      mercado: mercado.toUpperCase(),
+      supervisor: supervisorVal.toUpperCase(),
+      agente: username, // Quien CREA el registro
+      agenteAsignado: targetAgent, // A quien se le ASIGNA el registro
       creadoEn: now,
       actualizadoEn: now,
       _raw: body
     };
 
-    const result = await db.collection('Lineas').insertOne(doc);
-    return res.status(201).json({ success: true, message: 'Formulario Lineas creado', id: result.insertedId?.toString(), data: doc });
+    const collection = teamLineasDb.collection(targetCollectionName);
+    const result = await collection.insertOne(doc);
+
+    return res.status(201).json({ 
+        success: true, 
+        message: `Formulario guardado en TEAM_LINEAS > ${targetCollectionName}`, 
+        id: result.insertedId?.toString(), 
+        data: doc 
+    });
+
   } catch (error) {
     console.error('Error en POST /api/lineas:', error);
     return res.status(500).json({ success: false, message: 'Error al crear el registro de Lineas', error: error.message });

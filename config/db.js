@@ -49,7 +49,7 @@ async function connectToMongoDB() {
     console.log(`[DB] Conexión nativa a MongoDB ${connectionTarget} establecida.`);
 
     // Sincronizar conexión de Mongoose
-    mongoose.connect(connectionUri, { useNewUrlParser: true, useUnifiedTopology: true })
+    mongoose.connect(connectionUri, { useNewUrlParser: true })
       .then(() => console.log(`[Mongoose] Conectado a ${connectionTarget}`))
       .catch(err => console.error(`[Mongoose] Error conectando a ${connectionTarget}:`, err.message));
 
