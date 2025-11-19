@@ -70,12 +70,51 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const collection = db.collection('costumers');
-    const leads = await collection.find({}).toArray();
+    const { fechaInicio, fechaFin, status } = req.query;
+    let query = {};
 
-    res.json({ success: true, data: leads });
+    // Filtro por status (si se proporciona)
+    if (status && status.toLowerCase() !== 'todos') {
+      query.status = status;
+    }
+
+    // Filtro por rango de fechas o solo hoy por defecto
+    if (fechaInicio && fechaFin) {
+      const start = new Date(fechaInicio);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(fechaFin);
+      end.setUTCHours(23, 59, 59, 999);
+
+      query.dia_venta = {
+        $gte: start.toISOString().split('T')[0],
+        $lte: end.toISOString().split('T')[0]
+      };
+    } else if (!fechaInicio && !fechaFin) {
+      // Por defecto, solo ventas de hoy
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      const todayStrSlash = `${day}/${month}/${year}`;
+
+      // Regex para capturar fechas de hoy en formato de objeto Date convertido a string
+      const todayRegex = new RegExp(`^${today.toDateString()}`, 'i');
+
+      query.$or = [
+        { dia_venta: todayStr },
+        { dia_venta: todayStrSlash },
+        { dia_venta: { $regex: todayRegex } }
+      ];
+    }
+
+    const collection = db.collection('costumers');
+    const leads = await collection.find(query).sort({ createdAt: -1 }).toArray();
+
+    res.json({ success: true, data: leads, queryUsed: query });
+
   } catch (error) {
-    console.error('[API] Error:', error);
+    console.error('[API] Error en GET /api/leads:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
@@ -359,7 +398,7 @@ router.get('/facturacion/anual/:ano', protect, async (req, res) => {
     const db = getDb();
     if (!db) {
       return res.status(500).json({ ok: false, message: 'Error de conexión a DB' });
-    }
+    }j
     const pipeline = [
       { $match: { anio: parseInt(ano) } },
       { $addFields: {
