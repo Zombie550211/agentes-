@@ -72,40 +72,45 @@ router.get('/leads', protect, async (req, res) => {
 
     const { fechaInicio, fechaFin, status } = req.query;
     let query = {};
+    const andConditions = [];
 
     // Filtro por status (si se proporciona)
     if (status && status.toLowerCase() !== 'todos') {
-      query.status = status;
+      andConditions.push({ status: status });
     }
 
-    // Filtro por rango de fechas o solo hoy por defecto
+    // Filtro por rango de fechas (si se proporciona)
     if (fechaInicio && fechaFin) {
       const start = new Date(fechaInicio);
       start.setUTCHours(0, 0, 0, 0);
       const end = new Date(fechaFin);
       end.setUTCHours(23, 59, 59, 999);
 
-      query.dia_venta = {
-        $gte: start.toISOString().split('T')[0],
-        $lte: end.toISOString().split('T')[0]
+      const dateStrings = [];
+      const dateRegexes = [];
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        
+        dateStrings.push(`${year}-${month}-${day}`);
+        dateStrings.push(`${day}/${month}/${year}`);
+        dateRegexes.push(new RegExp(`^${d.toDateString()}`, 'i'));
+      }
+
+      const dateQuery = {
+        $or: [
+          { dia_venta: { $in: dateStrings } },
+          { dia_venta: { $in: dateRegexes.map(r => ({ $regex: r })) } },
+          { createdAt: { $gte: start, $lte: end } } // También filtrar por si dia_venta está vacío
+        ]
       };
-    } else if (!fechaInicio && !fechaFin) {
-      // Por defecto, solo ventas de hoy
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      const todayStrSlash = `${day}/${month}/${year}`;
-
-      // Regex para capturar fechas de hoy en formato de objeto Date convertido a string
-      const todayRegex = new RegExp(`^${today.toDateString()}`, 'i');
-
-      query.$or = [
-        { dia_venta: todayStr },
-        { dia_venta: todayStrSlash },
-        { dia_venta: { $regex: todayRegex } }
-      ];
+      andConditions.push(dateQuery);
+    }
+    
+    if (andConditions.length > 0) {
+        query = { $and: andConditions };
     }
 
     const collection = db.collection('costumers');
