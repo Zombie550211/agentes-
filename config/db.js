@@ -1,5 +1,4 @@
 const { MongoClient } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 
 // Configuración de conexión a MongoDB
@@ -8,7 +7,6 @@ const MONGODB_URI = process.env.MONGODB_URI;
 // Variable global para mantener la conexión
 let db = null;
 let __nativeClient = null;
-let mongoServer;
 
 async function connectToMongoDB() {
   try {
@@ -16,27 +14,15 @@ async function connectToMongoDB() {
       return db;
     }
 
-    let uri = MONGODB_URI;
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    console.log('[DB] Conectando a MongoDB Atlas...');
+    const client = new MongoClient(MONGODB_URI, { appName: 'dashboard-backend' });
 
-    if (isDevelopment) {
-      console.log('[DB] Iniciando servidor MongoDB en memoria para desarrollo...');
-      mongoServer = await MongoMemoryServer.create();
-      uri = mongoServer.getUri();
-      console.log(`[DB] Servidor en memoria corriendo en: ${uri}`);
-    } else {
-      console.log('[DB] Conectando a MongoDB Atlas...');
-    }
-
-    await mongoose.connect(uri, { dbName: process.env.MONGODB_DBNAME || 'crmagente' });
-    console.log(`[Mongoose] Conectado a la base de datos en: ${isDevelopment ? 'memoria' : 'Atlas'}`);
-
-    const client = mongoose.connection.getClient();
+    await client.connect();
     const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
     db = client.db(DB_NAME);
     __nativeClient = client;
 
-    console.log(`[DB] Conexión nativa establecida correctamente a: ${isDevelopment ? 'memoria' : 'Atlas'}`);
+    console.log('[DB] Conexión nativa a MongoDB establecida correctamente');
 
     client.on('error', (error) => {
       console.error('[DB] Error de conexión:', error);
@@ -76,16 +62,12 @@ function getDbFor(dbName) {
 
 async function closeConnection() {
   try {
-    if (mongoose?.connection?.readyState === 1) {
-      await mongoose.disconnect();
-      console.log('[Mongoose] Conexión cerrada.');
+    if (__nativeClient) {
+      await __nativeClient.close();
+      __nativeClient = null;
+      db = null;
+      console.log('[DB] Conexión cerrada correctamente');
     }
-    if (mongoServer) {
-      await mongoServer.stop();
-      console.log('[DB] Servidor en memoria detenido.');
-    }
-    __nativeClient = null;
-    db = null;
   } catch (error) {
     console.error('[DB] Error al cerrar conexión:', error);
   }

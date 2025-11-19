@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, getDbFor } = require('../config/db');
+const { getDb, connectToMongoDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
 const { protect } = require('../middleware/auth');
 
@@ -333,6 +333,71 @@ router.post('/seed-lineas-leads', protect, async (req, res) => {
   } catch (error) {
     console.error('[API /seed-lineas-leads] Error:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor al crear leads.' });
+  }
+});
+
+// Endpoint para obtener la facturación de un mes específico
+router.get('/facturacion/:ano/:mes', protect, async (req, res) => {
+  try {
+    const { ano, mes } = req.params;
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ ok: false, message: 'Error de conexión a DB' });
+    }
+    const facturacion = await db.collection('Facturacion').find({ anio: parseInt(ano), mes: parseInt(mes) }).toArray();
+    res.json({ ok: true, data: facturacion });
+  } catch (error) {
+    console.error('Error en GET /facturacion/:ano/:mes:', error);
+    res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para obtener los totales anuales de facturación
+router.get('/facturacion/anual/:ano', protect, async (req, res) => {
+  try {
+    const { ano } = req.params;
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ ok: false, message: 'Error de conexión a DB' });
+    }
+    const pipeline = [
+      { $match: { anio: parseInt(ano) } },
+      { $group: { _id: "$mes", total: { $sum: "$totalDia" } } }
+    ];
+    const resultados = await db.collection('Facturacion').aggregate(pipeline).toArray();
+    const totalesPorMes = Array(12).fill(0);
+    resultados.forEach(r => {
+      if (r._id >= 1 && r._id <= 12) {
+        totalesPorMes[r._id - 1] = r.total;
+      }
+    });
+    res.json({ ok: true, totalesPorMes });
+  } catch (error) {
+    console.error('Error en GET /facturacion/anual/:ano:', error);
+    res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para guardar/actualizar un registro de facturación
+router.post('/facturacion', protect, async (req, res) => {
+  try {
+    const { fecha, campos } = req.body;
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ ok: false, message: 'Error de conexión a DB' });
+    }
+    const [dia, mes, anio] = fecha.split('/').map(Number);
+    const totalDia = parseFloat(campos[9]) || 0;
+
+    const result = await db.collection('Facturacion').updateOne(
+      { anio, mes, dia },
+      { $set: { fecha, campos, totalDia, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ ok: true, result });
+  } catch (error) {
+    console.error('Error en POST /facturacion:', error);
+    res.status(500).json({ ok: false, message: 'Error interno del servidor' });
   }
 });
 
