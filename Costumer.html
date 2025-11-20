@@ -10,7 +10,7 @@ v   <html lang="es">
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/costumer-table-clean.css">
+  <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251024">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <link rel="stylesheet" href="css/costumer-table-comments.css">`n  <link rel="stylesheet" href="css/costumer-calendar.css">
   <link rel="stylesheet" href="css/sidebar-shared.css">
@@ -819,7 +819,7 @@ v   <html lang="es">
     .main-content {
       padding: 30px;
       min-height: 100vh;
-      background-color: #f8fafc;
+      background-color: transparent; /* Dejar que el tema del body se vea */
       position: relative;
       transition: margin-left 0.25s ease-in-out;
     }
@@ -890,7 +890,7 @@ v   <html lang="es">
     .main-content {
       flex: 1;
       padding: 20px;
-      background-color: var(--background);
+      background-color: transparent; /* Dejar que el tema del body se vea */
       min-height: 100vh;
       position: relative;
     }
@@ -1493,6 +1493,120 @@ v   <html lang="es">
     /* Responsive tweaks */
     @media (max-width: 880px) { #bulkExcelModal .bulk-body { flex-direction:column-reverse; } #bulkExcelModal .bulk-dialog { padding:12px; } }
   </style>
+  <style>
+    /* Dark Theme Overrides for Costumer Table */
+    body.dark-theme .costumer-table-container {
+      background: var(--card-background);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+
+    body.dark-theme .costumer-table-header {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    body.dark-theme .costumer-table-title {
+      color: var(--text-primary);
+    }
+
+    body.dark-theme .costumer-table,
+    body.dark-theme .sticky-head-wrapper table {
+      background: var(--card-background);
+    }
+
+    body.dark-theme .costumer-table th,
+    body.dark-theme .costumer-table td {
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    body.dark-theme .costumer-table th {
+      color: var(--text-primary);
+    }
+
+    /* Row status colors for dark theme */
+    body.dark-theme .costumer-table tbody tr.row-status-pending td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="pending"] td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="pending"]) td {
+      background-color: #2c3a51 !important;
+    }
+
+    body.dark-theme .costumer-table tbody tr.row-status-hold td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="hold"] td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="hold"]) td {
+      background-color: #5a3a1a !important;
+    }
+
+    body.dark-theme .costumer-table tbody tr.row-status-rescheduled td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="rescheduled"] td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="resched"]) td {
+      background-color: #4c1d95 !important;
+    }
+
+    body.dark-theme .costumer-table tbody tr.row-status-canceled td,
+    body.dark-theme .costumer-table tbody tr.row-status-cancelled td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="canceled"] td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="cancelled"] td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="cancel"]) td {
+      background-color: #5b2121 !important;
+    }
+
+    body.dark-theme .costumer-table tbody tr.row-status-complete td,
+    body.dark-theme .costumer-table tbody tr.row-status-active td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="complete"] td,
+    body.dark-theme .costumer-table tbody tr[data-row-status="active"] td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="complete"]) td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="active"]) td {
+      background-color: #164e3b !important;
+    }
+
+    body.dark-theme .costumer-table tbody tr[class^="row-status-"] td {
+        border-bottom-color: #3e4c62;
+    }
+
+    /* Fix zebra-striping and hover for dark theme */
+    body.dark-theme .costumer-table tbody tr:nth-child(even) td {
+      background-color: #1a2436;
+    }
+
+    body.dark-theme .costumer-table tbody tr:hover td {
+      background-color: #253147;
+    }
+
+    /* Fix badges for dark theme */
+    body.dark-theme .badge-success { background-color: var(--success-light); color: var(--success-dark); }
+    body.dark-theme .badge-warning { background-color: var(--warning-light); color: var(--warning-dark); }
+    body.dark-theme .badge-danger { background-color: var(--danger-light); color: var(--danger-dark); }
+
+    /* Fix action buttons for dark theme */
+    body.dark-theme .action-btn {
+      color: var(--text-secondary);
+    }
+
+    body.dark-theme .action-btn:hover {
+      background-color: #2c3a51;
+      color: var(--primary-color);
+    }
+
+    body.dark-theme .action-btn.toggle {
+      border-color: var(--border-color);
+      background: var(--card-background);
+      color: var(--text-primary);
+    }
+
+    body.dark-theme .action-btn.toggle.active {
+      background-color: #1e3a8a;
+      color: #dbeafe;
+      border-color: #3b82f6;
+    }
+
+    /* Fix Agemni overrides */
+    body.dark-theme .costumer-table th {
+      background: #1a2436;
+      color: var(--text-primary);
+      box-shadow: inset 1px 0 0 var(--border-color);
+    }
+
+  </style>
 <body>
   <div class="layout">
     <!-- SIDEBAR (cargado din¨¢micamente) -->
@@ -1573,8 +1687,8 @@ v   <html lang="es">
           <h2 class="costumer-table-title">Lista de Clientes</h2>
           <div class="costumer-table-actions">
             <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
-            <label for="statusFilter" style="margin-left:8px; font-size:12px; color:#475569;">Status</label>
-            <select id="statusFilter" style="margin-left:6px; padding:6px 8px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px;">
+            <label for="statusFilter">Status</label>
+            <select id="statusFilter">
               <option value="all">Todos</option>
               <option value="completed">Completed / Active</option>
               <option value="pending">Pending</option>
@@ -1636,10 +1750,10 @@ v   <html lang="es">
         </div>
         <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
         <!-- Controles de paginación -->
-        <div id="paginationControls" style="display:flex; gap:10px; align-items:center; justify-content:flex-end; padding:8px 12px; flex-wrap:wrap;">
-          <div style="display:flex; gap:6px; align-items:center;">
-            <label for="pageSizeSelect" style="font-size:12px;color:#475569;">Por página</label>
-            <select id="pageSizeSelect" style="padding:4px 6px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px;">
+        <div id="paginationControls">
+          <div>
+            <label for="pageSizeSelect">Por página</label>
+            <select id="pageSizeSelect">
               <option value="50">50</option>
               <option value="100" selected>100</option>
               <option value="200">200</option>
@@ -1648,7 +1762,7 @@ v   <html lang="es">
           </div>
           <button id="toggleMonthsBtn" class="action-btn" title="Ver todo / Solo 2 meses" style="min-width:140px;">Solo 2 meses</button>
           <button id="pagePrev" class="action-btn" title="Página anterior"><i class="fas fa-chevron-left"></i></button>
-          <span id="pageInfo" style="font-size:12px; color:#475569; min-width:160px; text-align:center;">Página 1</span>
+          <span id="pageInfo">Página 1</span>
           <button id="pageNext" class="action-btn" title="Página siguiente"><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>

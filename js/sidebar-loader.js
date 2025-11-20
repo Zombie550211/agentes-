@@ -57,6 +57,9 @@
       document.dispatchEvent(new Event('sidebar:loaded'));
       loadedOk = true;
       console.log('✅ Sidebar cargado correctamente para rol:', user.role);
+
+      // Inicializar el interruptor de tema
+      setupThemeSwitcher();
     } catch (error) {
       console.error('❌ Error cargando sidebar:', error);
       // Mostrar sidebar básico en caso de error
@@ -194,6 +197,15 @@
           </button>
         </li>
       </ul>
+
+      <!-- Frase motivacional -->
+      <!-- Interruptor de Tema -->
+      <div class="theme-switcher-container">
+        <button type="button" class="btn btn-sidebar theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
+          <i class="fas fa-sun"></i>
+          <span class="menu-label">Cambiar Tema</span>
+        </button>
+      </div>
 
       <!-- Frase motivacional -->
       <div class="sidebar-footer-quote">
@@ -495,6 +507,40 @@
         // best-effort: create a new style tag if anything goes wrong
         try { const extra2 = DOC.createElement('style'); extra2.id = STYLE_ID + '-overrides-fallback'; extra2.textContent = css; DOC.head.appendChild(extra2); } catch(_){}
       }
+  }
+
+  // Función para configurar el interruptor de tema
+  function setupThemeSwitcher() {
+    const themeSwitcherBtn = document.getElementById('theme-switcher-btn');
+    if (!themeSwitcherBtn) return;
+
+    const body = document.body;
+    const icon = themeSwitcherBtn.querySelector('i');
+
+    // Función para aplicar el tema
+    const applyTheme = (theme) => {
+      if (theme === 'dark') {
+        body.classList.add('dark-theme');
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+      } else {
+        body.classList.remove('dark-theme');
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+      }
+    };
+
+    // Cargar el tema guardado al iniciar
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+
+    // Evento de clic para cambiar el tema
+    themeSwitcherBtn.addEventListener('click', () => {
+      const isDark = body.classList.contains('dark-theme');
+      const newTheme = isDark ? 'light' : 'dark';
+      localStorage.setItem('theme', newTheme);
+      applyTheme(newTheme);
+    });
   }
 
   // Cargar sidebar inmediatamente

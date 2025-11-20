@@ -1,24 +1,32 @@
-/* Estilos para la tabla de clientes */
+/* Estilos para la tabla de clientes - Theme-Aware */
 .costumer-table-container {
-  background: white;
+  background: var(--card-background);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   margin-top: 20px;
+  border: 1px solid var(--border-color);
 }
 
 .costumer-table-header {
   padding: 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--card-background);
 }
 
 .costumer-table-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
+}
+
+.costumer-table-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .table-responsive {
@@ -32,12 +40,12 @@
 }
 
 .costumer-table thead {
-  background: #ffffff;
-  color: #334155; /* slate-700 */
+  background: var(--background-light);
+  color: var(--text-secondary);
   position: sticky;
   top: 0;
   z-index: 5;
-  border-bottom: 1px solid #e5e7eb; /* slate-200 */
+  border-bottom: 1px solid var(--border-color);
 }
 
 .costumer-table thead th {
@@ -49,22 +57,37 @@
   text-transform: uppercase;
   white-space: nowrap !important;
   line-height: 1.2;
-  border-right: 1px solid #f1f5f9; /* slate-100 */
+  border-right: 1px solid var(--border-color);
 }
 
 .costumer-table thead th:last-child { border-right: none; }
 
-/* Evitar que los encabezados se partan en varios renglones en pantallas pequeñas */
-.table-responsive { white-space: nowrap; }
-
 .costumer-table td {
   padding: 12px 15px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .costumer-table tbody tr:hover {
-  background: #f8fafc;
+  background: var(--background-light);
+}
+
+#paginationControls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    background: var(--card-background);
+    border-top: 1px solid var(--border-color);
+}
+
+#paginationControls > div {
+    display: flex;
+    gap: 6px;
+    align-items: center;
 }
 
 /* Status badges */
@@ -77,21 +100,21 @@
 }
 
 .status-activo {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--success-light);
+  color: var(--success-dark);
 }
 
 .status-pendiente, .status-pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-light);
+  color: var(--warning-dark);
 }
 
 .status-cancelado, .status-cancelled, .status-canceled {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--danger-light);
+  color: var(--danger-dark);
 }
 
 .status-instalado {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--info-light);
+  color: var(--info-dark);
 }

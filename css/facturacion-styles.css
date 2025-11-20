@@ -1,0 +1,56 @@
+html, body { margin: 0; padding: 0; width: 100vw; min-height: 100vh; background: var(--background-light); font-family: 'Bebas Neue', sans-serif; color: var(--text-primary);}
+    .layout { display: flex; min-height: 100vh; width: 100vw; background: var(--background-light);}
+    .main-content { flex: 1; padding: 40px 50px; background: transparent; min-height: 100vh; display: flex; flex-direction: column; gap: 24px; overflow-x: hidden;}
+    .header-reportes { background: var(--card-background); width: 100%; padding: 30px 0 10px 0; display: flex; flex-direction: column; align-items: stretch; border-bottom: 1.5px solid var(--border-color); box-shadow: 0 4px 12px 0 rgba(40,181,232,0.07); margin-bottom: 0; border-radius: 12px; overflow: hidden;}
+    .filtros-reportes { display: flex; align-items: center; gap: 12px; font-size: 0.95em; margin-left: 34px; margin-bottom: 2px;}
+    .filtros-reportes label { font-weight: 600; color: var(--text-primary); margin-right: 2px;}
+    .filtros-reportes select { padding: 2px 6px; font-size: 0.85em; border-radius: 4px; border: 1px solid var(--border-color); background: var(--background-light); color: var(--text-primary); font-family: inherit; transition: border var(--trans); font-weight: 500; box-shadow: 0 1px 2px 0 rgba(40,181,232,0.02); width: 85px;}
+    .filtros-reportes select:focus { outline: none; border-color: var(--primary-color);}
+    .titulo-reportes { text-align: center; margin: 0 0 8px 0; font-weight: 700; font-size: 2.0em; color: var(--text-primary); letter-spacing: .5px; font-family: inherit; text-shadow: none; box-shadow: none !important;}
+    .tabla-expand-btn { margin: 10px 32px 0 32px; text-align: right;}
+    #btnExpandirTabla { background: var(--primary-color); color: #fff; border: none; border-radius: 8px; padding: 7px 22px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.18s; box-shadow: 0 2px 8px #22b3ec22;}
+    #btnExpandirTabla:hover { background: #18a0d6;}
+    .modal-bg { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(30,41,59,0.22); align-items: center; justify-content: center;}
+    .modal-bg.active { display: flex;}
+    .modal-content { background: var(--card-background); border-radius: 18px; box-shadow: 0 8px 40px #0016; padding: 24px 16px 18px 16px; max-width: 95vw; max-height: 90vh; overflow: auto; position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 400px;}
+    .modal-close-btn { position: absolute; top: 15px; right: 22px; background: #f74747; color: #fff; border: none; border-radius: 5px; font-size: 1.2em; font-weight: bold; padding: 2px 13px 4px 13px; cursor: pointer; z-index: 10; box-shadow: 0 1px 4px #0003; transition: background 0.17s;}
+    .modal-close-btn:hover { background: #ca2222;}
+    .modal-title { font-size: 1.45em; font-weight: 700; color: var(--text-primary); margin: 0 0 18px 0; text-align: center;}
+    .modal-table-container { overflow-y: auto; max-height: 65vh; min-width: 100%;}
+    .tabla-excel-editable { background: var(--card-background); border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px 0 28px; width: calc(100% - 56px); border: none; padding: 0; display: flex; flex-direction: column; align-items: stretch; height: auto; max-height: none; overflow-y: visible; transition: box-shadow var(--trans);}
+    table { border-collapse: separate; border-spacing: 0; width: 100%; background: var(--card-background); color: var(--text-primary); font-size: 1em; table-layout: fixed; border: none;}
+    th, td { border: 1.5px solid var(--border-color); text-align: center; min-width: 70px; max-width: 120px; height: 32px; overflow: hidden; text-overflow: ellipsis; font-family: inherit; background: var(--card-background); font-size: .99em; font-weight: 400; padding: 0; white-space: nowrap; transition: background var(--trans);}
+    th { background: var(--background-light); font-weight: 700; font-size: 0.97em; height: 38px; white-space: pre-line; line-height: 1.12; color: var(--text-primary) !important; border-bottom: 2.5px solid var(--primary-color); position: sticky; top: 0; z-index: 3; box-shadow: 0 2px 6px rgba(40,181,232,.03);}
+    tr:nth-child(even) td { background: var(--background-light);}
+    tr:hover td { background: #d9f7fb; transition: background var(--trans);}
+    td[contenteditable="true"] { background: var(--card-background); cursor: pointer; transition: background var(--trans);}
+    td:focus { outline: 2px solid var(--primary-color);}
+    th { padding: 2px 1px; font-size: 0.98em; white-space: pre-line;}
+    #tablaExcel th:nth-child(4), #tablaExcel td:nth-child(4),
+    #tablaExcel th:nth-child(7), #tablaExcel td:nth-child(7),
+    #tablaExcel th:nth-child(10), #tablaExcel td:nth-child(10) { border-right: 3px solid var(--primary-color); }
+    .fila-totales-fija div:nth-child(4),
+    .fila-totales-fija div:nth-child(7),
+    .fila-totales-fija div:nth-child(10) { border-right: 3px solid var(--primary-color); }
+    .tabla-paginacion { width: 100%; display: flex; justify-content: flex-end; gap: 10px; margin: 10px 40px 0 0;}
+    .tabla-paginacion button { padding: 5px 17px; border-radius: 10px; background: var(--primary-color); color: #fff; border: none; font-weight: 600; font-size: 1.07em; cursor: pointer; transition: background var(--trans), box-shadow var(--trans); box-shadow: 0 1px 4px rgba(40,181,232,.08);}
+    .tabla-paginacion button:active { background: #209dd5;}
+    .tabla-paginacion button:disabled { background: #b7e8f5; color: #eee; cursor: default;}
+    .fila-totales-fija { display: flex; background: var(--background-light); border-top: 2px solid var(--primary-color); color: var(--text-primary); font-weight: bold; position: sticky; bottom: 0; z-index: 3; }
+    .fila-totales-fija div { flex: 1; text-align: center; padding: 8px; border: 1.5px solid var(--border-color); min-width: 70px; }
+    .grafica-reporte { background: var(--card-background); border-radius: var(--radius); box-shadow: var(--sombra); margin: 18px 28px; width: calc(100% - 56px); padding: 26px 0 18px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;}
+    .grafica-scroll-x { width: 100%; min-width: 300px; max-width: 100%; overflow-x: auto; padding-bottom: 8px; display: flex; align-items: center; justify-content: flex-start;}
+    .grafica-reporte h3 { color: var(--text-primary); font-size: 1.15em; margin-bottom: 10px; text-align: left; width: 100%; font-weight: 700; letter-spacing: .3px; padding-left: 18px;}
+    .facturacion-toolbar { display: flex; justify-content: flex-end; align-items: center; margin: 18px 30px 0 0; gap: 16px;}
+    #btnGuardarFacturacion { background: var(--primary-color); color: #fff; padding: 9px 35px; font-size: 1.1em; border-radius: 7px; cursor: pointer; border: none; box-shadow: 0 2px 8px rgba(30,41,59,0.10); font-weight: bold; letter-spacing: 0.03em; transition: background 0.18s;}
+    #btnGuardarFacturacion:hover { background: #1ea1d8;}
+    @media (max-width: 1300px) {
+      .tabla-excel-editable, .grafica-reporte { width: 99vw; min-width: 0; margin-left:0; margin-right:0; }
+      th, td { min-width: 54px; font-size: 0.9em;}
+      .tabla-paginacion {margin-right:10px;}
+    }
+    @media (max-width: 900px) {
+      .tabla-excel-editable, .grafica-reporte { margin-left:0; margin-right:0; width:99vw;}
+      .header-reportes, .titulo-reportes { font-size:1.1em;}
+      .tabla-expand-btn {margin-left:0;margin-right:0;}
+    }
