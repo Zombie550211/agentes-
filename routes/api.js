@@ -81,32 +81,48 @@ router.get('/leads', protect, async (req, res) => {
 
     // Filtro por rango de fechas (si se proporciona)
     if (fechaInicio && fechaFin) {
-      const start = new Date(fechaInicio);
-      start.setUTCHours(0, 0, 0, 0);
-      const end = new Date(fechaFin);
-      end.setUTCHours(23, 59, 59, 999);
+      // Parsear fechas en formato YYYY-MM-DD
+      const [yStart, mStart, dStart] = fechaInicio.split('-').map(Number);
+      const [yEnd, mEnd, dEnd] = fechaFin.split('-').map(Number);
+      
+      const start = new Date(yStart, mStart - 1, dStart, 0, 0, 0, 0);
+      const end = new Date(yEnd, mEnd - 1, dEnd, 23, 59, 59, 999);
 
       const dateStrings = [];
       const dateRegexes = [];
 
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+      // Generar strings para cada día en el rango
+      const current = new Date(yStart, mStart - 1, dStart);
+      const endDate = new Date(yEnd, mEnd - 1, dEnd);
+      
+      while (current <= endDate) {
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
         
         dateStrings.push(`${year}-${month}-${day}`);
         dateStrings.push(`${day}/${month}/${year}`);
-        dateRegexes.push(new RegExp(`^${d.toDateString()}`, 'i'));
+        dateRegexes.push(new RegExp(`^${current.toDateString()}`, 'i'));
+        
+        current.setDate(current.getDate() + 1);
       }
 
-      const dateQuery = {
-        $or: [
-          { dia_venta: { $in: dateStrings } },
-          { dia_venta: { $in: dateRegexes.map(r => ({ $regex: r })) } },
-          { createdAt: { $gte: start, $lte: end } } // También filtrar por si dia_venta está vacío
-        ]
-      };
+      const dateOrConditions = [
+        { dia_venta: { $in: dateStrings } },
+        { createdAt: { $gte: start, $lte: end } }
+      ];
+      
+      // Agregar condiciones de regex individualmente usando el source del RegExp
+      dateRegexes.forEach(regex => {
+        dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
+      });
+
+      const dateQuery = { $or: dateOrConditions };
       andConditions.push(dateQuery);
+      
+      // Logs de depuración dentro del scope
+      console.log(`[API /leads] Filtro de fecha: ${fechaInicio} a ${fechaFin}`);
+      console.log(`[API /leads] Strings de fecha buscados:`, dateStrings.slice(0, 4));
     }
     
     if (andConditions.length > 0) {
@@ -116,11 +132,63 @@ router.get('/leads', protect, async (req, res) => {
     const collection = db.collection('costumers');
     const leads = await collection.find(query).sort({ createdAt: -1 }).toArray();
 
+    console.log(`[API /leads] Query ejecutado:`, JSON.stringify(query, null, 2));
+    console.log(`[API /leads] Resultados encontrados: ${leads.length}`);
+
     res.json({ success: true, data: leads, queryUsed: query });
 
   } catch (error) {
     console.error('[API] Error en GET /api/leads:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint de diagnóstico para ver formatos de fecha
+router.get('/leads/debug-dates', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    const collection = db.collection('costumers');
+    
+    // Buscar específicamente del día 20
+    const day20 = await collection.find({
+      dia_venta: "2025-11-20"
+    }).toArray();
+    
+    console.log(`[DEBUG] Encontradas ${day20.length} ventas del día 20/11/2025`);
+    
+    // Buscar ventas de noviembre 2025
+    const novSamples = await collection.find({
+      dia_venta: { $regex: /^2025-11/ }
+    }).sort({ createdAt: -1 }).limit(20).toArray();
+    
+    // Contar total de noviembre
+    const novCount = await collection.countDocuments({
+      dia_venta: { $regex: /^2025-11/ }
+    });
+    
+    const dateInfo = novSamples.map(s => ({
+      _id: s._id,
+      dia_venta: s.dia_venta,
+      createdAt: s.createdAt,
+      status: s.status,
+      agente: s.agenteNombre || s.agente
+    }));
+    
+    res.json({ 
+      success: true, 
+      totalNoviembre: novCount,
+      totalDia20: day20.length,
+      samples: dateInfo,
+      dia20Samples: day20.slice(0, 10).map(s => ({
+        dia_venta: s.dia_venta,
+        status: s.status,
+        agente: s.agenteNombre || s.agente,
+        servicios: s.servicios_texto || s.servicios
+      }))
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

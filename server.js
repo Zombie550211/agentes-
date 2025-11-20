@@ -3205,8 +3205,25 @@ function startServer(port) {
   return server;
 }
 
-// Arrancar servidor
-startServer(PORT);
+// Arrancar servidor solo después de que la BD esté conectada
+(async () => {
+  // Esperar a que la conexión a la base de datos esté lista
+  let retries = 0;
+  const maxRetries = 30; // 30 segundos máximo
+  while (!isConnected() && retries < maxRetries) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    retries++;
+  }
+  
+  if (isConnected()) {
+    console.log('[SERVER] Base de datos lista, iniciando servidor...');
+    startServer(PORT);
+  } else {
+    console.error('[SERVER] No se pudo conectar a la base de datos después de 30 segundos');
+    console.error('[SERVER] Iniciando servidor de todos modos (modo degradado)');
+    startServer(PORT);
+  }
+})();
 
 // Manejo de cierre graceful
 process.on('SIGINT', async () => {

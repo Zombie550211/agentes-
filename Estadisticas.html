@@ -702,6 +702,42 @@
     .table-compact th,.table-compact td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left}
     .table-compact th{background:#1f3b63;color:#fff}
     .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+
+    /* Dark theme overrides for tables */
+    body.dark-theme .ventas-table,
+    body.dark-theme .sales-table,
+    body.dark-theme .mini-table,
+    body.dark-theme .table-compact {
+      background-color: transparent;
+    }
+
+    body.dark-theme .ventas-table th,
+    body.dark-theme .sales-table th,
+    body.dark-theme .mini-table th,
+    body.dark-theme .table-compact th {
+      background: #1e3a5f !important;
+      color: #e2e8f0 !important;
+      border-color: #334155;
+    }
+
+    body.dark-theme .ventas-table td,
+    body.dark-theme .sales-table td,
+    body.dark-theme .mini-table td,
+    body.dark-theme .table-compact td {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      border-color: #334155;
+    }
+
+    body.dark-theme .ventas-table tbody tr:nth-child(even) td,
+    body.dark-theme .sales-table tbody tr:nth-child(even) td {
+      background-color: #1a2436;
+    }
+
+    body.dark-theme .ventas-table tbody tr:hover td,
+    body.dark-theme .sales-table tbody tr:hover td {
+      background-color: #253147;
+    }
   </style>
 </head>
 <body>
@@ -5051,6 +5087,80 @@
       mostrarNotificacion(mensaje, 'error');
     }
 
+    // Función auxiliar para actualizar la gráfica con rango de fechas específico
+    async function actualizarGraficaVentasPuntajePorFecha(fechaInicio, fechaFin) {
+      try {
+        console.log('=== ACTUALIZANDO GRÁFICA CON FECHAS ===', { fechaInicio, fechaFin });
+        
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const roleLower = ((userData && userData.role) || '').toString().toLowerCase();
+        const team = ((userData && userData.team) || '').toString().toLowerCase();
+        const isTeamLineas = /lineas/.test(team) || /lineas/.test(roleLower) || roleLower.includes('supervisor');
+        
+        let url = '/api/leads';
+        const params = new URLSearchParams();
+        
+        // Añadir parámetros de fecha
+        if (fechaInicio) params.set('fechaInicio', fechaInicio);
+        if (fechaFin) params.set('fechaFin', fechaFin);
+        
+        // Filtro por agente si es necesario
+        if (!isTeamLineas && roleLower === 'agent') {
+          const agenteNombre = userData.username || userData.name || '';
+          if (agenteNombre) params.set('agente', agenteNombre);
+        }
+        
+        const queryString = params.toString();
+        url = queryString ? `${url}?${queryString}` : url;
+        
+        console.log('Solicitando datos a:', url);
+        
+        const tokenForGet = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': tokenForGet ? `Bearer ${tokenForGet}` : '',
+            'Cache-Control': 'no-cache'
+          },
+          credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+          console.error(`Error en la respuesta: ${response.status}`);
+          return await procesarDatosGraficaEstadisticas(datosPrueba);
+        }
+        
+        const responseData = await response.json();
+        console.log('Datos recibidos:', responseData);
+        
+        // Extraer array de datos
+        let costumers = [];
+        if (Array.isArray(responseData)) {
+          costumers = responseData;
+        } else if (Array.isArray(responseData.data)) {
+          costumers = responseData.data;
+        } else if (Array.isArray(responseData.leads)) {
+          costumers = responseData.leads;
+        }
+        
+        console.log(`Total de registros recibidos: ${costumers.length}`);
+        
+        if (costumers.length === 0) {
+          console.warn('No hay datos para el rango de fechas seleccionado');
+          mostrarNotificacion('No hay datos para la fecha seleccionada', 'warning');
+          return await procesarDatosGraficaEstadisticas([]);
+        }
+        
+        // Procesar datos directamente pasándolos como parámetro
+        return await actualizarGraficaVentasPuntaje(costumers);
+        
+      } catch (error) {
+        console.error('Error al actualizar gráfica por fecha:', error);
+        return await procesarDatosGraficaEstadisticas(datosPrueba);
+      }
+    }
+
     // Función para actualizar la gráfica de ventas y puntaje con datos de la API
     async function actualizarGraficaVentasPuntaje(datos = null) {
       try {
@@ -5350,8 +5460,18 @@
       if (applyFilterBtn) {
         applyFilterBtn.addEventListener('click', () => {
           console.log('Aplicando filtro de fecha...');
-          // Actualizar gráfica con datos reales de la API
-          actualizarGraficaVentasPuntaje().catch(() => {
+          
+          // Obtener valores de los selectores
+          const year = document.getElementById('year-select').value;
+          const month = String(parseInt(document.getElementById('month-select').value) + 1).padStart(2, '0');
+          const day = String(document.getElementById('day-select').value).padStart(2, '0');
+          
+          // Construir fechas para filtrar por el día seleccionado
+          const fechaSeleccionada = `${year}-${month}-${day}`;
+          console.log('Filtrando por fecha:', fechaSeleccionada);
+          
+          // Actualizar gráfica con datos reales de la API usando el rango de fecha
+          actualizarGraficaVentasPuntajePorFecha(fechaSeleccionada, fechaSeleccionada).catch(() => {
             console.warn('Error al cargar datos de la API, usando datos de prueba');
             procesarDatosGraficaEstadisticas(datosPrueba);
           });
