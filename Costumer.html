@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 v   <html lang="es">
 <head>
@@ -408,7 +409,7 @@ v   <html lang="es">
         }catch(e){ /* noop */ }
       };
 
-      window.__suspendRender = true; // deshabilitado por defecto
+      window.__suspendRender = false; // habilitado por defecto para que funcione el filtro
       window.__suspendRenderTO = null;
       window.disableGlobalRender = function(){
         try{ window.__suspendRender = true; console.log('[Render] Global render DESHABILITADO'); }catch{}
@@ -1766,6 +1767,17 @@ v   <html lang="es">
           <h2 class="costumer-table-title">Lista de Clientes</h2>
           <div class="costumer-table-actions">
             <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
+            <label for="monthFilter">Mes</label>
+            <select id="monthFilter">
+              <option value="" selected>Todos los meses</option>
+              <option value="2025-12">Diciembre 2025</option>
+              <option value="2025-11">Noviembre 2025</option>
+              <option value="2025-10">Octubre 2025</option>
+              <option value="2025-09">Septiembre 2025</option>
+              <option value="2025-08">Agosto 2025</option>
+              <option value="2025-07">Julio 2025</option>
+              <option value="2025-06">Junio 2025</option>
+            </select>
             <label for="statusFilter">Status</label>
             <select id="statusFilter">
               <option value="all">Todos</option>
@@ -3525,9 +3537,9 @@ v   <html lang="es">
         // Traemos un lote más grande y filtramos en frontend
         // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
         __page = Math.max(1, Number(page)||1);
-        // Traer datos sin filtro de mes en backend: se filtra en frontend (2 meses o todos)
+        // Traer TODOS los datos sin filtro de fecha para que el filtro frontend funcione
         const apiLimit = 50000;
-        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1`;
+        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31`;
         let alreadyFilteredByAgent = false;
         
         console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
@@ -3587,7 +3599,7 @@ v   <html lang="es">
 
         // NUEVO: también cargar /api/customers (sin filtro por mes) y unificar con leadsRaw
         try {
-          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1`, fetchOptions);
+          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31`, fetchOptions);
           if (custRes.ok) {
             const custJson = await custRes.json();
             const customers = extractArray(custJson);
@@ -4779,9 +4791,9 @@ v   <html lang="es">
                 dia_instalacion: lead.dia_instalacion,
                 fecha_contratacion: lead.fecha_contratacion
               });
-              return lead.dia_venta ? formatearFechaSinDesfase(lead.dia_venta) : 'N/A';
+              return lead.dia_venta ? String(lead.dia_venta).slice(0,10) : 'N/A';
             })()}</td>
-          <td>${lead.dia_instalacion ? formatearFechaSinDesfase(lead.dia_instalacion) : 'N/A'}</td>
+          <td>${lead.dia_instalacion ? String(lead.dia_instalacion).slice(0,10) : 'N/A'}</td>
           <td class="status-col">
             ${editable ? `
               <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus('${getLeadId(lead)}', this.value)">
@@ -4901,27 +4913,40 @@ v   <html lang="es">
       function renderWithMonthlySeparators(list) {
         const tbodyLoc = document.getElementById('costumer-tbody');
         if (!tbodyLoc) return;
-        // Filtro por defecto: mostrar solo mes actual y anterior (desactivable con ?showAllMonths=1)
+        
+        // Aplicar filtro de mes seleccionado
         try {
-          const usp = new URLSearchParams(window.location.search||'');
-          const showAll = usp.get('showAllMonths')==='1' || usp.get('showAllMonths')==='true';
-          if (!showAll && Array.isArray(list)) {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = now.getMonth()+1; // 1-12
-            const pad = (n)=>('0'+n).slice(-2);
-            const thisMonth = `${y}-${pad(m)}`;
-            const prev = new Date(y, m-2, 1);
-            const prevMonth = `${prev.getFullYear()}-${pad(prev.getMonth()+1)}`;
+          const monthFilter = document.getElementById('monthFilter');
+          const selectedMonth = monthFilter ? monthFilter.value : '';
+          
+          if (selectedMonth && Array.isArray(list)) {
+            console.log('[MonthFilter] Filtrando por mes:', selectedMonth, 'Total items:', list.length);
+            
+            // Debug optimizado: solo mostrar conteo por mes (sin procesar todos los items)
+            if (window.__debugMonthFilter) {
+              const datesByMonth = {};
+              list.forEach(item => {
+                const iso = getDateFromLead(item);
+                const ym = iso ? iso.slice(0,7) : 'sin-fecha';
+                datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
+              });
+              console.log('[MonthFilter] Conteo por mes:', datesByMonth);
+            }
+            // Filtrado optimizado sin logs por cada item
             list = list.filter(item => {
               const iso = getDateFromLead(item); // 'YYYY-MM-DD'
               if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-              const ym = iso.slice(0,7);
-              return ym===thisMonth || ym===prevMonth;
+              const ym = iso.slice(0,7); // 'YYYY-MM'
+              return ym === selectedMonth;
             });
-            try { console.log('[MonthlyFilter] Aplicado (2 meses). Restantes =', list.length, 'Meses permitidos =', thisMonth, prevMonth); } catch {}
+            console.log('[MonthFilter] Filtrado por mes:', selectedMonth, 'Resultados:', list.length);
+          } else if (!selectedMonth) {
+            // Si no hay mes seleccionado, mostrar TODOS los meses (sin filtro por defecto)
+            console.log('[MonthFilter] Sin filtro de mes - mostrando todos:', list.length);
           }
-        } catch {}
+        } catch(e) { 
+          console.warn('[MonthFilter] Error aplicando filtro:', e);
+        }
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         // Ordenar por fecha descendente usando getDateFromLead (YYYY-MM-DD)
         const sorted = (Array.isArray(list) ? list.slice() : []).sort((a,b) => {
@@ -6578,6 +6603,50 @@ v   <html lang="es">
       // Inicializar la página
       initPage();
       
+      // Función para habilitar debug del filtro (usar en consola: enableMonthFilterDebug())
+      window.enableMonthFilterDebug = function() {
+        window.__debugMonthFilter = true;
+        console.log('[MonthFilter] Debug habilitado');
+      };
+      
+      // Configurar filtro de mes
+      const monthFilter = document.getElementById('monthFilter');
+      if (monthFilter) {
+        // Debounce para evitar renders múltiples
+        let filterTimeout;
+        monthFilter.addEventListener('change', function() {
+          console.log('[MONTH FILTER] Cambiando a mes:', this.value || 'Todos los meses');
+          
+          // Cancelar timeout anterior si existe
+          if (filterTimeout) {
+            clearTimeout(filterTimeout);
+          }
+          
+          // Mostrar indicador de carga
+          const tbody = document.getElementById('costumer-tbody');
+          if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="21" style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Filtrando...</td></tr>';
+          }
+          
+          // Aplicar filtro con delay mínimo para mejor UX
+          filterTimeout = setTimeout(() => {
+            if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+              const prevSuspend = window.__suspendRender;
+              try {
+                window.__suspendRender = false; // permitir este render
+                window.renderCostumerTable(window.ultimaListaLeads);
+              } finally {
+                window.__suspendRender = prevSuspend;
+              }
+            } else if (typeof fetchLeadsAgente === 'function') {
+              fetchLeadsAgente().catch(err => {
+                console.error('[MONTH FILTER] Error cargando datos:', err);
+              });
+            }
+          }, 100); // 100ms delay para mejor UX
+        });
+      }
+      
       // Configurar botón de cerrar sesión
       const logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) {
@@ -6818,4 +6887,3 @@ v   <html lang="es">
   </script>
 </body>
 </html>
-npo
