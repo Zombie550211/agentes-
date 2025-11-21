@@ -1778,6 +1778,17 @@ v   <html lang="es">
               <option value="2025-07">Julio 2025</option>
               <option value="2025-06">Junio 2025</option>
             </select>
+            <label for="teamFilter">Team</label>
+            <select id="teamFilter" style="min-width: 120px;">
+              <option value="">Todos los teams</option>
+            </select>
+            <label for="agentFilter">Agente</label>
+            <select id="agentFilter" style="min-width: 140px;">
+              <option value="">Todos los agentes</option>
+            </select>
+            <button onclick="clearAllFilters()" class="action-btn" title="Limpiar todos los filtros" style="margin-left: 10px; padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              <i class="fas fa-times"></i> Limpiar
+            </button>
             <label for="statusFilter">Status</label>
             <select id="statusFilter">
               <option value="all">Todos</option>
@@ -3584,13 +3595,16 @@ v   <html lang="es">
           len: Array.isArray(data) ? data.length : (data && Array.isArray(data.data) ? data.data.length : 0)
         });
         
-        // Debug específico para octubre
+        // Debug específico para octubre usando getDateFromLead
         if (Array.isArray(data)) {
-          const octoberCount = data.filter(item => {
-            const fecha = item.dia_venta || item.fecha_contratacion || item.createdAt || '';
-            return String(fecha).includes('2025-10') || String(fecha).includes('Oct 2025');
-          }).length;
-          console.log('[fetchLeadsAgente] Registros de octubre en respuesta:', octoberCount);
+          const datesByMonth = {};
+          data.forEach(item => {
+            const iso = getDateFromLead(item);
+            const ym = iso ? iso.slice(0,7) : 'sin-fecha';
+            datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
+          });
+          console.log('[fetchLeadsAgente] DATOS DE API - Conteo por mes:', datesByMonth);
+          console.log('[fetchLeadsAgente] DATOS DE API - Octubre 2025:', datesByMonth['2025-10'] || 0, 'registros');
         }
         
         // Extraer datos según el endpoint
@@ -3628,6 +3642,15 @@ v   <html lang="es">
               }
               leadsRaw = out;
               console.log('[unify customers] Unificados leads+customers ->', leadsRaw.length);
+              
+              // Debug después de unificar
+              const datesByMonthUnified = {};
+              leadsRaw.forEach(item => {
+                const iso = getDateFromLead(item);
+                const ym = iso ? iso.slice(0,7) : 'sin-fecha';
+                datesByMonthUnified[ym] = (datesByMonthUnified[ym] || 0) + 1;
+              });
+              console.log('[unify customers] DESPUÉS DE UNIFICAR - Conteo por mes:', datesByMonthUnified);
             }
           } else {
             console.warn('[unify customers] /api/customers no OK:', custRes.status);
@@ -3805,8 +3828,13 @@ v   <html lang="es">
         // Filtro por mes en frontend desactivado (el backend ya aplica filtro robusto)
         try { console.log('[Filtro mes actual frontend] desactivado; manteniendo', normalizedLeads.length, 'registros'); } catch(_){ }
 
-    // Filtrar por agente si el usuario es role 'agent' SOLO si no se filtr¨® ya en el backend
-    if (!alreadyFilteredByAgent && !forceAll) {
+    // IMPORTANTE: Verificar si hay filtro de mes activo antes de aplicar filtro por agente
+    const monthFilter = document.getElementById('monthFilter');
+    const hasMonthFilter = monthFilter && monthFilter.value && monthFilter.value !== '';
+    console.log('[Filtro Debug] Filtro de mes activo:', hasMonthFilter, 'Valor:', monthFilter?.value);
+
+    // Filtrar por agente si el usuario es role 'agent' SOLO si no se filtr¨® ya en el backend Y no hay filtro de mes
+    if (!alreadyFilteredByAgent && !forceAll && !hasMonthFilter) {
       try {
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
@@ -3818,6 +3846,7 @@ v   <html lang="es">
           if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
           return r;
         })(roleRaw);
+        console.log('[Filtro Debug] Rol detectado en fetchLeadsAgente:', role, 'desde roleRaw:', roleRaw);
         if (role === 'agente') {
           const norm = (s) => {
             try {
@@ -3898,6 +3927,8 @@ v   <html lang="es">
       } catch (e) {
         console.warn('No se pudo aplicar filtro por agente:', e?.message);
       }
+    } else if (hasMonthFilter) {
+      console.log('[Filtro rol=agent] OMITIDO porque hay filtro de mes activo - mostrando todos los datos');
     }
 
     // Filtrar por equipo si el usuario es 'supervisor' y NO est¨¢ activo forceAll
@@ -3944,6 +3975,11 @@ v   <html lang="es">
       }));
       console.log('[fetchLeadsAgente] Muestra post-filtrado:', sample);
     } catch {}
+
+        // Poblar filtros de Team y Agente con los datos cargados
+        if (typeof window.populateTeamAndAgentFilters === 'function') {
+            window.populateTeamAndAgentFilters(normalizedLeads);
+        }
 
         // Actualizar la interfaz
         if (typeof window.renderCostumerTable === 'function') {
@@ -4284,23 +4320,41 @@ v   <html lang="es">
         }
       } catch(e) { console.warn('[Costumer Filter] error applying date filters', e); }
 
-      // Paginación en cliente
+      // Paginación en cliente (SOLO si NO hay filtro de mes activo)
       try {
-        const total = leadsArray.length;
-        const limit = Number(window.__limit) || 100;
-        const totalPages = Math.max(1, Math.ceil(total / limit));
-        if (typeof window.__page !== 'number' || window.__page < 1) window.__page = 1;
-        if (window.__page > totalPages) window.__page = totalPages;
-        const start = (window.__page - 1) * limit;
-        const end = start + limit;
-        leadsArray = leadsArray.slice(start, end);
+        const monthFilter = document.getElementById('monthFilter');
+        const hasMonthFilter = monthFilter && monthFilter.value;
+        
+        if (!hasMonthFilter) {
+          // Solo aplicar paginación si NO hay filtro de mes
+          const total = leadsArray.length;
+          const limit = Number(window.__limit) || 100;
+          const totalPages = Math.max(1, Math.ceil(total / limit));
+          if (typeof window.__page !== 'number' || window.__page < 1) window.__page = 1;
+          if (window.__page > totalPages) window.__page = totalPages;
+          const start = (window.__page - 1) * limit;
+          const end = start + limit;
+          leadsArray = leadsArray.slice(start, end);
+          console.log('[Paginación] Aplicada - Página:', window.__page, 'Mostrando:', start, 'a', end, 'de', total);
+        } else {
+          console.log('[Paginación] DESHABILITADA por filtro de mes activo:', monthFilter.value);
+        }
         // Actualizar controles UI
         const info = document.getElementById('pageInfo');
         const prevBtn = document.getElementById('pagePrev');
         const nextBtn = document.getElementById('pageNext');
-        if (info) info.textContent = `Página ${window.__page} de ${totalPages} — ${total} clientes`;
-        if (prevBtn) prevBtn.disabled = (window.__page <= 1);
-        if (nextBtn) nextBtn.disabled = (window.__page >= totalPages);
+        
+        if (!hasMonthFilter) {
+          // Mostrar info de paginación normal
+          if (info) info.textContent = `Página ${window.__page} de ${totalPages} — ${total} clientes`;
+          if (prevBtn) prevBtn.disabled = (window.__page <= 1);
+          if (nextBtn) nextBtn.disabled = (window.__page >= totalPages);
+        } else {
+          // Mostrar info sin paginación
+          if (info) info.textContent = `Mostrando todos los resultados — ${leadsArray.length} clientes`;
+          if (prevBtn) prevBtn.disabled = true;
+          if (nextBtn) nextBtn.disabled = true;
+        }
         // Enlazar eventos una sola vez
         if (!window.__pagingBound) {
           const safeRepaint = () => {
@@ -4923,24 +4977,60 @@ v   <html lang="es">
         const tbodyLoc = document.getElementById('costumer-tbody');
         if (!tbodyLoc) return;
         
-        // Aplicar filtro de mes seleccionado
+        // PASO 1: Aplicar filtros de Team y Agente PRIMERO (sobre todos los datos)
+        try {
+          const teamFilter = document.getElementById('teamFilter');
+          const agentFilter = document.getElementById('agentFilter');
+          const selectedTeam = teamFilter ? teamFilter.value : '';
+          const selectedAgent = agentFilter ? agentFilter.value : '';
+          
+          console.log('[FilterOrder] PASO 1 - Aplicando Team/Agent - Team:', selectedTeam, 'Agent:', selectedAgent, 'Items iniciales:', list.length);
+          
+          // Debug: verificar si hay filtros seleccionados
+          if (!selectedTeam && !selectedAgent) {
+            console.log('[FilterOrder] PASO 1 - Sin filtros Team/Agent seleccionados, manteniendo todos los datos');
+          }
+          
+          if (selectedTeam && Array.isArray(list)) {
+            const beforeTeamFilter = list.length;
+            list = list.filter(item => {
+              const itemTeam = item?.team || item?.equipo || item?.supervisor || '';
+              const teamMatch = String(itemTeam).trim() === selectedTeam;
+              return teamMatch;
+            });
+            console.log('[FilterOrder] Team filtrado:', selectedTeam, 'Resultados:', beforeTeamFilter, '->', list.length);
+          }
+          
+          if (selectedAgent && Array.isArray(list)) {
+            const beforeAgentFilter = list.length;
+            list = list.filter(item => {
+              const itemAgent = item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || '';
+              const agentMatch = String(itemAgent).trim() === selectedAgent;
+              return agentMatch;
+            });
+            console.log('[FilterOrder] Agent filtrado:', selectedAgent, 'Resultados:', beforeAgentFilter, '->', list.length);
+          }
+        } catch(e) {
+          console.warn('[FilterOrder] Error aplicando filtros Team/Agent:', e);
+        }
+        
+        // PASO 2: Aplicar filtro de mes seleccionado
         try {
           const monthFilter = document.getElementById('monthFilter');
           const selectedMonth = monthFilter ? monthFilter.value : '';
           
           if (selectedMonth && Array.isArray(list)) {
-            console.log('[MonthFilter] Filtrando por mes:', selectedMonth, 'Total items:', list.length);
+            console.log('[FilterOrder] PASO 2 - Filtrando por mes:', selectedMonth, 'Items después de Team/Agent:', list.length);
             
-            // Debug optimizado: solo mostrar conteo por mes (sin procesar todos los items)
-            if (window.__debugMonthFilter) {
-              const datesByMonth = {};
-              list.forEach(item => {
-                const iso = getDateFromLead(item);
-                const ym = iso ? iso.slice(0,7) : 'sin-fecha';
-                datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
-              });
-              console.log('[MonthFilter] Conteo por mes:', datesByMonth);
-            }
+            // Debug: SIEMPRE mostrar conteo por mes para diagnosticar
+            const datesByMonth = {};
+            list.forEach(item => {
+              const iso = getDateFromLead(item);
+              const ym = iso ? iso.slice(0,7) : 'sin-fecha';
+              datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
+            });
+            console.log('[DEBUG MESES] Conteo por mes disponible:', datesByMonth);
+            console.log('[DEBUG MESES] Buscando mes:', selectedMonth, 'Disponible:', datesByMonth[selectedMonth] || 0);
             // Filtrado optimizado sin logs por cada item
             list = list.filter(item => {
               const iso = getDateFromLead(item); // 'YYYY-MM-DD'
@@ -4948,7 +5038,68 @@ v   <html lang="es">
               const ym = iso.slice(0,7); // 'YYYY-MM'
               return ym === selectedMonth;
             });
-            console.log('[MonthFilter] Filtrado por mes:', selectedMonth, 'Resultados:', list.length);
+            console.log('[FilterOrder] PASO 2 - Filtrado por mes:', selectedMonth, 'Resultados finales:', list.length);
+            
+            // IMPORTANTE: Aplicar filtro por agente DESPUÉS del filtro de mes si es necesario
+            try {
+              const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+              const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+              const role = (function normalizeRole(r){
+                if (!r) return 'agente';
+                if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+                if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+                if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+                if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+                return r;
+              })(roleRaw);
+              
+              console.log('[MonthFilter + AgentFilter] Rol detectado:', role, 'desde roleRaw:', roleRaw);
+              
+              if (role === 'agente') {
+                console.log('[MonthFilter + AgentFilter] Usuario detectado como AGENTE, aplicando filtro por agente');
+                const beforeAgentFilter = list.length;
+                // Aplicar el mismo filtro por agente que se usa en fetchLeadsAgente
+                const norm = (s) => {
+                  try {
+                    const x = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                    return x.replace(/[^a-z0-9]+/g,'');
+                  } catch {
+                    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
+                  }
+                };
+                const str = (v) => (v == null ? '' : String(v));
+                const myIds = [
+                  userData.id, userData._id, userData.userId, userData.uid,
+                  userData?.usuario?._id, userData?.usuario?.id,
+                  userData?.user?._id, userData?.user?.id,
+                  userData?.profile?._id, userData?.profile?.id
+                ].map(str).filter(x => x.trim().length);
+                const myNames = [
+                  userData.name, userData.nombre, userData.username, userData.email,
+                  userData?.usuario?.name, userData?.usuario?.nombre, userData?.usuario?.username
+                ].map(str).filter(x => x.trim().length);
+                
+                const myIdsNorm = new Set(myIds.map(x => norm(x)));
+                const myNamesNorm = new Set(myNames.map(x => norm(x)));
+                
+                list = list.filter(l => {
+                  // Verificar por ID
+                  const leadId = norm(String(l?.agenteId || l?.agente_id || l?.idAgente || l?.agentId || l?.creadoPor || l?.createdBy || ''));
+                  if (leadId && myIdsNorm.has(leadId)) return true;
+                  
+                  // Verificar por nombre
+                  const leadName = norm(String(l?.agenteNombre || l?.nombreAgente || l?.agente || l?.agent || ''));
+                  if (leadName && myNamesNorm.has(leadName)) return true;
+                  
+                  return false;
+                });
+                console.log('[MonthFilter + AgentFilter] Filtrado adicional por agente:', beforeAgentFilter, '->', list.length);
+              } else {
+                console.log('[MonthFilter + AgentFilter] NO se aplica filtro por agente - rol:', role, '(admin/supervisor/backoffice ven todos los datos)');
+              }
+            } catch (e) {
+              console.warn('[MonthFilter] Error aplicando filtro por agente:', e?.message);
+            }
           } else if (!selectedMonth) {
             // Si no hay mes seleccionado, mostrar TODOS los meses (sin filtro por defecto)
             console.log('[MonthFilter] Sin filtro de mes - mostrando todos:', list.length);
@@ -4956,6 +5107,8 @@ v   <html lang="es">
         } catch(e) { 
           console.warn('[MonthFilter] Error aplicando filtro:', e);
         }
+        
+        // MOVIDO: Los filtros de Team y Agente ahora se aplican ANTES del filtro de mes
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         // Ordenar por fecha descendente usando getDateFromLead (YYYY-MM-DD)
         const sorted = (Array.isArray(list) ? list.slice() : []).sort((a,b) => {
@@ -6618,8 +6771,185 @@ v   <html lang="es">
         console.log('[MonthFilter] Debug habilitado');
       };
       
-      // Debug deshabilitado por defecto (usar enableMonthFilterDebug() si necesitas debug)
-      // window.__debugMonthFilter = true;
+      // Debug habilitado para diagnosticar problema de octubre vacío
+      window.__debugMonthFilter = true;
+      
+      // Función para poblar filtros de Team y Agente
+      window.populateTeamAndAgentFilters = function(leads) {
+        try {
+          if (!Array.isArray(leads)) return;
+          
+          // IMPORTANTE: Filtrar leads por mes seleccionado ANTES de poblar los filtros
+          let filteredLeads = leads;
+          const monthFilter = document.getElementById('monthFilter');
+          const selectedMonth = monthFilter ? monthFilter.value : '';
+          
+          if (selectedMonth) {
+            filteredLeads = leads.filter(lead => {
+              const iso = getDateFromLead(lead); // 'YYYY-MM-DD'
+              if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+              const ym = iso.slice(0,7); // 'YYYY-MM'
+              return ym === selectedMonth;
+            });
+            console.log('[Filtros] Poblando con datos filtrados por mes:', selectedMonth, 'Total:', filteredLeads.length, 'de', leads.length);
+            
+            // Debug específico para Evelin Garcia
+            const evelinLeads = filteredLeads.filter(lead => {
+              const allFields = [
+                lead?.team, lead?.equipo, lead?.supervisor,
+                lead?.agente, lead?.agenteNombre, lead?.nombreAgente, lead?.agent,
+                lead?.nombre, lead?.name, lead?.cliente
+              ].join(' ').toLowerCase();
+              return allFields.includes('evelin');
+            });
+            console.log('[DEBUG EVELIN] Leads de Evelin en', selectedMonth + ':', evelinLeads.length);
+            if (evelinLeads.length > 0) {
+              console.log('[DEBUG EVELIN] Primeros 3 leads:', evelinLeads.slice(0, 3));
+            }
+          } else {
+            console.log('[Filtros] Poblando con todos los datos:', leads.length);
+          }
+          
+          // Extraer teams y agentes de los datos filtrados
+          const teamsSet = new Set();
+          const agentsMap = new Map(); // team -> Set(agents)
+          const allAgentsSet = new Set();
+          
+          filteredLeads.forEach((lead, index) => {
+            // Extraer team
+            const team = lead?.team || lead?.equipo || lead?.supervisor || '';
+            if (team && String(team).trim()) {
+              const teamNorm = String(team).trim();
+              teamsSet.add(teamNorm);
+              
+              if (!agentsMap.has(teamNorm)) {
+                agentsMap.set(teamNorm, new Set());
+              }
+            }
+            
+            // Extraer agente
+            const agent = lead?.agente || lead?.agenteNombre || lead?.nombreAgente || lead?.agent || '';
+            if (agent && String(agent).trim()) {
+              const agentNorm = String(agent).trim();
+              allAgentsSet.add(agentNorm);
+              
+              // Asociar agente con team si existe
+              if (team && String(team).trim()) {
+                const teamNorm = String(team).trim();
+                if (agentsMap.has(teamNorm)) {
+                  agentsMap.get(teamNorm).add(agentNorm);
+                }
+              }
+            }
+            
+            // Debug para los primeros 3 items para ver la estructura de datos
+            if (index < 3 && window.__debugMonthFilter) {
+              console.log('[Filtros Debug] Lead sample:', {
+                index: index,
+                team: lead?.team,
+                equipo: lead?.equipo,
+                supervisor: lead?.supervisor,
+                agente: lead?.agente,
+                agenteNombre: lead?.agenteNombre,
+                nombreAgente: lead?.nombreAgente,
+                agent: lead?.agent,
+                dia_venta: lead?.dia_venta,
+                fecha: lead?.fecha
+              });
+            }
+          });
+          
+          // Poblar filtro de teams
+          const teamFilter = document.getElementById('teamFilter');
+          if (teamFilter) {
+            // Limpiar opciones existentes excepto la primera
+            while (teamFilter.children.length > 1) {
+              teamFilter.removeChild(teamFilter.lastChild);
+            }
+            
+            // Agregar teams ordenados
+            Array.from(teamsSet).sort().forEach(team => {
+              const option = document.createElement('option');
+              option.value = team;
+              option.textContent = team;
+              teamFilter.appendChild(option);
+            });
+          }
+          
+          // Poblar filtro de agentes (inicialmente todos)
+          const agentFilter = document.getElementById('agentFilter');
+          if (agentFilter) {
+            // Limpiar opciones existentes excepto la primera
+            while (agentFilter.children.length > 1) {
+              agentFilter.removeChild(agentFilter.lastChild);
+            }
+            
+            // Agregar todos los agentes ordenados
+            Array.from(allAgentsSet).sort().forEach(agent => {
+              const option = document.createElement('option');
+              option.value = agent;
+              option.textContent = agent;
+              agentFilter.appendChild(option);
+            });
+          }
+          
+          // Guardar mapa para uso posterior
+          window.__teamAgentsMap = agentsMap;
+          window.__allAgents = allAgentsSet;
+          
+          console.log('[Filtros] Teams encontrados:', Array.from(teamsSet));
+          console.log('[Filtros] Agentes encontrados:', Array.from(allAgentsSet));
+          console.log('[Filtros] Mapa team->agentes:', Object.fromEntries(
+            Array.from(agentsMap.entries()).map(([k, v]) => [k, Array.from(v)])
+          ));
+          
+        } catch (e) {
+          console.warn('[Filtros] Error poblando filtros:', e);
+        }
+      };
+      
+      // Función para limpiar todos los filtros
+      window.clearAllFilters = function() {
+        try {
+          const monthFilter = document.getElementById('monthFilter');
+          const teamFilter = document.getElementById('teamFilter');
+          const agentFilter = document.getElementById('agentFilter');
+          const statusFilter = document.getElementById('statusFilter');
+          
+          if (monthFilter) monthFilter.value = '';
+          if (teamFilter) teamFilter.value = '';
+          if (agentFilter) agentFilter.value = '';
+          if (statusFilter) statusFilter.value = 'all';
+          
+          // Restaurar todos los agentes cuando se limpia el filtro de team
+          if (agentFilter && window.__allAgents) {
+            while (agentFilter.children.length > 1) {
+              agentFilter.removeChild(agentFilter.lastChild);
+            }
+            Array.from(window.__allAgents).sort().forEach(agent => {
+              const option = document.createElement('option');
+              option.value = agent;
+              option.textContent = agent;
+              agentFilter.appendChild(option);
+            });
+          }
+          
+          // Re-renderizar tabla
+          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false;
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          }
+          
+          console.log('[Filtros] Todos los filtros limpiados');
+        } catch (e) {
+          console.warn('[Filtros] Error limpiando filtros:', e);
+        }
+      };
       
       // Configurar filtro de mes
       const monthFilter = document.getElementById('monthFilter');
@@ -6636,12 +6966,26 @@ v   <html lang="es">
           
           // Mostrar indicador de carga
           const tbody = document.getElementById('costumer-tbody');
-          if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="21" style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Filtrando...</td></tr>';
-          }
-          
           // Aplicar filtro con delay mínimo para mejor UX
           filterTimeout = setTimeout(() => {
+            // Mostrar indicador de carga
+            const statusIndicator = document.querySelector('.filter-status');
+            if (statusIndicator) {
+              statusIndicator.textContent = 'Filtrando...';
+              statusIndicator.style.display = 'inline';
+            }
+            
+            // IMPORTANTE: Re-poblar filtros de Team y Agente cuando cambie el mes
+            if (window.ultimaListaLeads && typeof window.populateTeamAndAgentFilters === 'function') {
+              // Resetear filtros de team y agente antes de re-poblarlos
+              const teamFilter = document.getElementById('teamFilter');
+              const agentFilter = document.getElementById('agentFilter');
+              if (teamFilter) teamFilter.value = '';
+              if (agentFilter) agentFilter.value = '';
+              
+              window.populateTeamAndAgentFilters(window.ultimaListaLeads);
+            }
+            
             if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
               const prevSuspend = window.__suspendRender;
               try {
@@ -6656,6 +7000,76 @@ v   <html lang="es">
               });
             }
           }, 100); // 100ms delay para mejor UX
+        });
+      }
+      
+      // Configurar filtro de team
+      const teamFilter = document.getElementById('teamFilter');
+      if (teamFilter) {
+        teamFilter.addEventListener('change', function() {
+          console.log('[TEAM FILTER] Cambiando a team:', this.value || 'Todos los teams');
+          
+          // Actualizar filtro de agentes basado en el team seleccionado
+          const agentFilter = document.getElementById('agentFilter');
+          if (agentFilter && window.__teamAgentsMap) {
+            // Limpiar opciones de agentes excepto la primera
+            while (agentFilter.children.length > 1) {
+              agentFilter.removeChild(agentFilter.lastChild);
+            }
+            
+            // Reset del filtro de agente
+            agentFilter.value = '';
+            
+            let agentsToShow = [];
+            if (this.value === '') {
+              // Si no hay team seleccionado, mostrar todos los agentes
+              agentsToShow = Array.from(window.__allAgents || []);
+            } else {
+              // Mostrar solo agentes del team seleccionado
+              const teamAgents = window.__teamAgentsMap.get(this.value);
+              agentsToShow = teamAgents ? Array.from(teamAgents) : [];
+            }
+            
+            // Poblar filtro de agentes
+            agentsToShow.sort().forEach(agent => {
+              const option = document.createElement('option');
+              option.value = agent;
+              option.textContent = agent;
+              agentFilter.appendChild(option);
+            });
+            
+            console.log('[TEAM FILTER] Agentes disponibles para team "' + this.value + '":', agentsToShow);
+          }
+          
+          // Re-renderizar tabla
+          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false;
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          }
+        });
+      }
+      
+      // Configurar filtro de agente
+      const agentFilter = document.getElementById('agentFilter');
+      if (agentFilter) {
+        agentFilter.addEventListener('change', function() {
+          console.log('[AGENT FILTER] Cambiando a agente:', this.value || 'Todos los agentes');
+          
+          // Re-renderizar tabla
+          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false;
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          }
         });
       }
       
