@@ -51,6 +51,7 @@
   </script>
   
   <style>
+    /* v2025-11-20-15:31 - Force cache refresh */
     /* Layout general consistente con otras pÃ¡ginas */
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -206,11 +207,35 @@
       border: 1px solid #dee2e6;
     }
   /* Tabla de conversión visible por defecto (se muestra debajo de las gráficas) */
+    .conversion-title-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #fef3c7;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .conversion-title-wrapper .conversion-title {
+      flex: 1;
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      background: transparent;
+      padding: 0;
+    }
+    
     .conversion-title { 
       font-weight: 800; 
       margin: 0 0 8px 0; 
       color: #000; 
-      font-size: 1rem;
+      font-size: 1rem; 
       text-align: center;
       background: #fff9c2;
       padding: 6px 4px;
@@ -626,6 +651,44 @@
     
     .filter-button:hover {
       background-color: #2563eb;
+    }
+    
+    /* Botones de navegación de día */
+    .day-nav-btn,
+    #day-prev-alt,
+    #day-next-alt {
+      padding: 6px 12px !important;
+      font-size: 16px !important;
+      height: auto !important;
+      min-width: 38px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+      background-color: #3b82f6 !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 6px !important;
+      cursor: pointer !important;
+      font-weight: 600 !important;
+      transition: all 0.2s !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .day-nav-btn:hover,
+    #day-prev-alt:hover,
+    #day-next-alt:hover {
+      background-color: #2563eb !important;
+      transform: scale(1.05) !important;
+    }
+    
+    body.dark-theme .day-nav-btn,
+    body.dark-theme #day-prev-alt,
+    body.dark-theme #day-next-alt {
+      padding: 8px 16px !important;
+      font-size: 18px !important;
+      height: auto !important;
+      background-color: #3b82f6 !important;
     }
     
     #reset-filter {
@@ -4323,13 +4386,13 @@
 
         // Construir bloque del DÍA (título, flechas y panel derecho) SIN el contenedor externo
         const tablaHtml = `
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fef3c7; border-radius:8px;">
-            <button id="day-prev-alt" class="filter-button" class="filter-button" title="Día anterior">◀</button>
-            <div class="conversion-title" style="margin:0; background: transparent;">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
-            <button id="day-next-alt" class="filter-button" class="filter-button" title="Día siguiente">▶</button>
+          <div class="conversion-title-wrapper">
+            <button id="day-prev-alt" class="day-nav-btn" title="Día anterior">◀</button>
+            <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
+            <button id="day-next-alt" class="day-nav-btn" title="Día siguiente">▶</button>
           </div>
           <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-            <button id="btn-detalle-dia" class="filter-button" class="filter-button">Ver detalle</button>
+            <button id="btn-detalle-dia" class="filter-button">Ver detalle</button>
           </div>
           <div class="conv-two-col slide-container">
             <div class="conv-left">
@@ -4521,7 +4584,7 @@
                 setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
               }
             } catch(_){}
-            setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
+            setActive('day'); if (title) title.textContent = `VENTAS DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
           const showMonth = ()=>{ 
             try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
             try {
@@ -4543,7 +4606,7 @@
         console.error('Error cargando datos del día:', e);
         container.innerHTML = `
           <div class="conversion-card">
-            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+            <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">
@@ -4773,12 +4836,12 @@
         const tablaHtml = `
             <div class="conversion-card">
               <div class="conversion-title-wrapper">
-                <button id="day-prev-alt" class="filter-button" class="filter-button" title="Día anterior">◀</button>
-                <div class="conversion-title" >VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
-                <button id="day-next-alt" class="filter-button" class="filter-button" title="Día siguiente">▶</button>
+                <button id="day-prev-alt" class="day-nav-btn" title="Día anterior">◀</button>
+                <div class="conversion-title" >VENTAS Y PUNTAJE DEL DÍA (${diaTexto})</div>
+                <button id="day-next-alt" class="day-nav-btn" title="Día siguiente">▶</button>
               </div>
               <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-                <button id="btn-detalle-dia" class="filter-button" class="filter-button">Ver detalle</button>
+                <button id="btn-detalle-dia" class="filter-button">Ver detalle</button>
               </div>
               <div class="conv-two-col">
                 <div class="conv-left">
@@ -4884,7 +4947,7 @@
         console.error('Error cargando datos del día:', e);
         container.innerHTML = `
           <div class="conversion-card">
-            <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${diaTexto})</div>
+            <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
             <div class="conv-two-col">
               <div class="conv-left">
                 <table class="sales-table">

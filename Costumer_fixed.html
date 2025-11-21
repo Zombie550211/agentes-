@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Clientes - Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
+    <div class="main-content">
+      <div class="costumer-table-container compact">
+        <div class="costumer-table-header">
+          <h2 class="costumer-table-title">Lista de Clientes</h2>
+          <div class="costumer-table-actions">
+            <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
+            <label for="monthFilter">Mes</label>
+            <select id="monthFilter">
+              <option value="2025-11">Noviembre 2025</option>
+              <option value="2025-10">Octubre 2025</option>
+              <option value="2025-09">Septiembre 2025</option>
+              <option value="2025-08">Agosto 2025</option>
+              <option value="2025-07">Julio 2025</option>
+              <option value="2025-06">Junio 2025</option>
+            </select>
+            <label for="statusFilter">Status</label>
+            <select id="statusFilter">
+              <option value="all">Todos</option>
+              <option value="completed">Completed / Active</option>
+              <option value="pending">Pending</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="hold">Hold</option>
+              <option value="rescheduled">Rescheduled</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="costumer-table">
+            <thead>
+              <tr>
+                <th>Nombre cliente</th>
+                <th>Teléfono principal</th>
+                <th>Día de venta</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="costumer-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Función para cargar datos
+    async function fetchLeadsAgente() {
+      try {
+        const monthFilter = document.getElementById('monthFilter');
+        const selectedMonth = monthFilter ? monthFilter.value : '';
+        
+        let url = '/api/leads?page=1&limit=1000';
+        if (selectedMonth) {
+          url += `&month=${selectedMonth}`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          renderTable(data.data);
+        }
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      }
+    }
+
+    // Función para renderizar tabla
+    function renderTable(leads) {
+      const tbody = document.getElementById('costumer-tbody');
+      tbody.innerHTML = '';
+      
+      leads.forEach(lead => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${lead.nombre_cliente || 'N/A'}</td>
+          <td>${lead.telefono_principal || 'N/A'}</td>
+          <td>${lead.dia_venta || 'N/A'}</td>
+          <td>${lead.status || 'N/A'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Evento para el selector de mes
+    document.addEventListener('DOMContentLoaded', function() {
+      const monthFilter = document.getElementById('monthFilter');
+      if (monthFilter) {
+        monthFilter.addEventListener('change', function() {
+          console.log('Cambiando a mes:', this.value);
+          fetchLeadsAgente();
+        });
+      }
+      
+      // Cargar datos iniciales
+      fetchLeadsAgente();
+    });
+  </script>
+</body>
+</html>

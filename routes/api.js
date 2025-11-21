@@ -70,7 +70,7 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { fechaInicio, fechaFin, status } = req.query;
+    const { fechaInicio, fechaFin, status, month } = req.query;
     let query = {};
     const andConditions = [];
 
@@ -79,8 +79,57 @@ router.get('/leads', protect, async (req, res) => {
       andConditions.push({ status: status });
     }
 
+    // Filtro por mes específico o mes actual si no se especifican fechas
+    if (!fechaInicio && !fechaFin) {
+      let targetYear, targetMonth;
+      
+      if (month) {
+        // Usar mes específico del parámetro (formato: YYYY-MM)
+        const [year, monthNum] = month.split('-').map(Number);
+        targetYear = year;
+        targetMonth = monthNum;
+        console.log(`[API /leads] Filtro por mes específico: ${month}`);
+      } else {
+        // Usar mes actual por defecto
+        const now = new Date();
+        targetYear = now.getFullYear();
+        targetMonth = now.getMonth() + 1; // 1-12
+        console.log(`[API /leads] Filtro automático por mes actual: ${targetYear}-${String(targetMonth).padStart(2, '0')}`);
+      }
+      
+      // Generar strings para todo el mes objetivo
+      const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+      const dateStrings = [];
+      const dateRegexes = [];
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const monthStr = String(targetMonth).padStart(2, '0');
+        
+        dateStrings.push(`${targetYear}-${monthStr}-${dayStr}`);
+        dateStrings.push(`${dayStr}/${monthStr}/${targetYear}`);
+        
+        const dateObj = new Date(targetYear, targetMonth - 1, day);
+        dateRegexes.push(new RegExp(`^${dateObj.toDateString()}`, 'i'));
+      }
+      
+      const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(targetYear, targetMonth - 1, daysInMonth, 23, 59, 59, 999);
+      
+      const dateOrConditions = [
+        { dia_venta: { $in: dateStrings } },
+        { createdAt: { $gte: monthStart, $lte: monthEnd } }
+      ];
+      
+      dateRegexes.forEach(regex => {
+        dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
+      });
+      
+      const dateQuery = { $or: dateOrConditions };
+      andConditions.push(dateQuery);
+    }
     // Filtro por rango de fechas (si se proporciona)
-    if (fechaInicio && fechaFin) {
+    else if (fechaInicio && fechaFin) {
       // Parsear fechas en formato YYYY-MM-DD
       const [yStart, mStart, dStart] = fechaInicio.split('-').map(Number);
       const [yEnd, mEnd, dEnd] = fechaFin.split('-').map(Number);
@@ -130,7 +179,10 @@ router.get('/leads', protect, async (req, res) => {
     }
 
     const collection = db.collection('costumers');
-    const leads = await collection.find(query).sort({ createdAt: -1 }).toArray();
+    const leads = await collection.find(query).sort({ 
+      dia_venta: -1,  // Primero por día de venta (más reciente primero)
+      createdAt: -1   // Luego por fecha de creación
+    }).toArray();
 
     console.log(`[API /leads] Query ejecutado:`, JSON.stringify(query, null, 2));
     console.log(`[API /leads] Resultados encontrados: ${leads.length}`);
@@ -519,6 +571,64 @@ router.post('/facturacion', protect, async (req, res) => {
   } catch (error) {
     console.error('Error en POST /facturacion:', error);
     res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint de diagnóstico: revisar fechas en la base de datos (sin protección temporal)
+router.get('/leads/check-dates', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'DB no disponible' });
+    }
+    
+    const collection = db.collection('costumers');
+    
+    // Obtener todas las ventas de octubre y noviembre 2025
+    const ventas = await collection.find({
+      $or: [
+        { dia_venta: { $regex: /^2025-10/ } },
+        { dia_venta: { $regex: /^2025-11/ } },
+        { dia_venta: { $regex: /^[0-9]{2}\/10\/2025/ } },
+        { dia_venta: { $regex: /^[0-9]{2}\/11\/2025/ } },
+        { createdAt: { $gte: new Date('2025-10-01'), $lte: new Date('2025-11-30T23:59:59') } }
+      ]
+    }).limit(200).toArray();
+    
+    // Agrupar por fecha
+    const porFecha = {};
+    ventas.forEach(lead => {
+      const fecha = lead.dia_venta || lead.fecha_contratacion || lead.createdAt || 'sin_fecha';
+      const fechaStr = typeof fecha === 'string' ? fecha : fecha.toISOString();
+      if (!porFecha[fechaStr]) {
+        porFecha[fechaStr] = [];
+      }
+      porFecha[fechaStr].push({
+        nombre: lead.nombre_cliente,
+        agente: lead.agente || lead.agenteNombre,
+        createdAt: lead.createdAt
+      });
+    });
+    
+    // Ordenar por fecha
+    const fechasOrdenadas = Object.keys(porFecha).sort();
+    
+    res.json({
+      success: true,
+      total: ventas.length,
+      fechasEncontradas: fechasOrdenadas.length,
+      porFecha: fechasOrdenadas.reduce((acc, fecha) => {
+        acc[fecha] = {
+          cantidad: porFecha[fecha].length,
+          ejemplos: porFecha[fecha].slice(0, 3)
+        };
+        return acc;
+      }, {}),
+      hoy: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error en check-dates:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

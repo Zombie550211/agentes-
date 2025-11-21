@@ -3539,7 +3539,7 @@ v   <html lang="es">
         __page = Math.max(1, Number(page)||1);
         // Traer TODOS los datos sin filtro de fecha para que el filtro frontend funcione
         const apiLimit = 50000;
-        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31`;
+        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31&allData=1&noDateFilter=1`;
         let alreadyFilteredByAgent = false;
         
         console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
@@ -3584,6 +3584,15 @@ v   <html lang="es">
           len: Array.isArray(data) ? data.length : (data && Array.isArray(data.data) ? data.data.length : 0)
         });
         
+        // Debug específico para octubre
+        if (Array.isArray(data)) {
+          const octoberCount = data.filter(item => {
+            const fecha = item.dia_venta || item.fecha_contratacion || item.createdAt || '';
+            return String(fecha).includes('2025-10') || String(fecha).includes('Oct 2025');
+          }).length;
+          console.log('[fetchLeadsAgente] Registros de octubre en respuesta:', octoberCount);
+        }
+        
         // Extraer datos según el endpoint
         let leadsRaw = [];
         const extractArray = (d) => Array.isArray(d)
@@ -3599,7 +3608,7 @@ v   <html lang="es">
 
         // NUEVO: también cargar /api/customers (sin filtro por mes) y unificar con leadsRaw
         try {
-          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31`, fetchOptions);
+          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31&allData=1&noDateFilter=1`, fetchOptions);
           if (custRes.ok) {
             const custJson = await custRes.json();
             const customers = extractArray(custJson);
@@ -6608,6 +6617,9 @@ v   <html lang="es">
         window.__debugMonthFilter = true;
         console.log('[MonthFilter] Debug habilitado');
       };
+      
+      // Debug deshabilitado por defecto (usar enableMonthFilterDebug() si necesitas debug)
+      // window.__debugMonthFilter = true;
       
       // Configurar filtro de mes
       const monthFilter = document.getElementById('monthFilter');
