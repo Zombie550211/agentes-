@@ -3605,6 +3605,7 @@ v   <html lang="es">
           });
           console.log('[fetchLeadsAgente] DATOS DE API - Conteo por mes:', datesByMonth);
           console.log('[fetchLeadsAgente] DATOS DE API - Octubre 2025:', datesByMonth['2025-10'] || 0, 'registros');
+          console.log('[fetchLeadsAgente] DATOS DE API - Marzo 2025:', datesByMonth['2025-03'] || 0, 'registros');
         }
         
         // Extraer datos según el endpoint
@@ -4338,6 +4339,7 @@ v   <html lang="es">
           console.log('[Paginación] Aplicada - Página:', window.__page, 'Mostrando:', start, 'a', end, 'de', total);
         } else {
           console.log('[Paginación] DESHABILITADA por filtro de mes activo:', monthFilter.value);
+          console.log('[Paginación] Datos sin paginar - Total disponible:', leadsArray.length);
         }
         // Actualizar controles UI
         const info = document.getElementById('pageInfo');
@@ -5110,6 +5112,16 @@ v   <html lang="es">
         
         // MOVIDO: Los filtros de Team y Agente ahora se aplican ANTES del filtro de mes
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        
+        // Debug: Ver qué datos llegan antes del ordenamiento
+        if (window.__debugMonthFilter && Array.isArray(list)) {
+          const sampleDates = list.slice(0, 10).map(item => ({
+            fecha: getDateFromLead(item),
+            agente: item?.agente || item?.agenteNombre || 'sin agente'
+          }));
+          console.log('[RENDER DEBUG] Primeras 10 fechas antes de ordenar:', sampleDates);
+        }
+        
         // Ordenar por fecha descendente usando getDateFromLead (YYYY-MM-DD)
         const sorted = (Array.isArray(list) ? list.slice() : []).sort((a,b) => {
           const da = getDateFromLead(a); // 'YYYY-MM-DD' o ''
@@ -5118,6 +5130,15 @@ v   <html lang="es">
           const tb = db ? Date.parse(db) : 0;
           return tb - ta; // descendente
         });
+        
+        // Debug: Ver qué datos quedan después del ordenamiento
+        if (window.__debugMonthFilter && Array.isArray(sorted)) {
+          const sampleDatesSorted = sorted.slice(0, 10).map(item => ({
+            fecha: getDateFromLead(item),
+            agente: item?.agente || item?.agenteNombre || 'sin agente'
+          }));
+          console.log('[RENDER DEBUG] Primeras 10 fechas después de ordenar:', sampleDatesSorted);
+        }
         let lastKey = '';
         sorted.forEach(item => {
           const iso = getDateFromLead(item);
@@ -5994,6 +6015,7 @@ v   <html lang="es">
         } catch (e) { console.warn('Error en vista admin por TEAM:', e); }
       } else {
         // Render por defecto con separadores mensuales
+        console.log('[RENDER ROUTE] Usando renderWithMonthlySeparators con', leadsArray.length, 'leads');
         renderWithMonthlySeparators(leadsArray);
         try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
       }
@@ -6771,7 +6793,7 @@ v   <html lang="es">
         console.log('[MonthFilter] Debug habilitado');
       };
       
-      // Debug habilitado para diagnosticar problema de octubre vacío
+      // Debug habilitado para diagnosticar problema de datos incompletos
       window.__debugMonthFilter = true;
       
       // Función para poblar filtros de Team y Agente
