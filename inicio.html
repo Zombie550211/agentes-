@@ -1989,6 +1989,7 @@
         } catch (e) {
           console.warn('Error al destruir teamsChart existente:', e);
         }
+        teamsChartRefMain = null;
       }
 
       const ctx = chartElement.getContext('2d');
@@ -1996,7 +1997,7 @@
       // Contar leads por team
       const teamCounts = {};
       leads.forEach(lead => {
-        const team = lead.team || lead.TEAM || 'Sin equipo';
+        const team = lead.team || lead.supervisor || 'Sin Team';
         teamCounts[team] = (teamCounts[team] || 0) + 1;
       });
 
@@ -2437,9 +2438,20 @@
         const data = Object.values(counts);
         const canvas = document.getElementById('teamsChart');
         if (!canvas) return;
+
+        // Destruir gráfico existente usando Chart.getChart()
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+          existingChart.destroy();
+        }
+
+        // Destruir instancia global si existe
+        if (window.teamsChartRefMain) { 
+          try { window.teamsChartRefMain.destroy(); } catch(_) {} 
+          window.teamsChartRefMain = null;
+        }
+
         const ctx = canvas.getContext('2d');
-        // Destruir instancia previa si existe (unificar con teamsChartRefMain global)
-        if (window.teamsChartRefMain) { try{window.teamsChartRefMain.destroy();}catch(_){} }
         const palette = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feb47b','#a8edea','#d299c2','#5ee7df','#b490ca'];
         window.teamsChartRefMain = new Chart(ctx, {
           type: 'doughnut',
@@ -2725,9 +2737,17 @@
       const stateStats = {};
       const validLocations = [];
       
+      console.log('[Map] TOTAL LEADS RECIBIDOS:', leads.length);
+      let addressesFiltered = 0;
+      let addressesProcessed = 0;
+      
       for (const lead of leads) {
         const address = lead.direccion || lead.address || lead.ubicacion || '';
-        if (!address || address.trim().length < 3) continue; // Reducir filtro mínimo
+        if (!address || address.trim().length < 3) {
+          addressesFiltered++;
+          continue; // Reducir filtro mínimo
+        }
+        addressesProcessed++;
 
         try {
           // Extraer información de la dirección
@@ -2780,8 +2800,16 @@
         }
       }
 
+      console.log('[Map] RESUMEN FINAL:');
+      console.log('[Map] - Direcciones filtradas (muy cortas):', addressesFiltered);
+      console.log('[Map] - Direcciones procesadas:', addressesProcessed);
+      console.log('[Map] - Ubicaciones válidas creadas:', validLocations.length);
       console.log('[Map] Estadísticas por estado:', stateStats);
-      console.log('[Map] Ubicaciones válidas:', validLocations.length);
+      
+      // Verificar suma total
+      const totalFromStats = Object.values(stateStats).reduce((sum, stat) => sum + stat.count, 0);
+      console.log('[Map] - SUMA TOTAL DE ESTADÍSTICAS:', totalFromStats);
+      console.log('[Map] - ¿Coincide con ubicaciones válidas?', totalFromStats === validLocations.length);
 
       // Actualizar estadísticas en el panel lateral
       updateStatsPanel(stateStats, validLocations.length);
