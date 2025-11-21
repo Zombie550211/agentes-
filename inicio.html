@@ -2243,6 +2243,32 @@
         </div>
       </div>
 
+      <!-- Sección del Mapa de Clientes -->
+      <div class="map-section">
+        <div class="map-header">
+          <h3><i class="fas fa-map-marked-alt"></i> Distribución de Clientes en Estados Unidos</h3>
+          <p>Ubicaciones de nuestros clientes y estadísticas por estado</p>
+        </div>
+        
+        <div class="map-container">
+          <!-- Mapa -->
+          <div class="map-wrapper">
+            <div id="usa-map" class="map-canvas"></div>
+          </div>
+          
+          <!-- Panel lateral con estadísticas -->
+          <div class="map-stats">
+            <div class="stats-header">
+              <h4>Clientes por Estado</h4>
+            </div>
+            
+            <div class="stats-list" id="states-stats">
+              <!-- Se llenará dinámicamente -->
+            </div>
+          </div>
+        </div>
+      </div>
+
   <!-- Scripts al final del body para mejor rendimiento -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
@@ -2426,6 +2452,580 @@
       const startLoad = () => { if (!window.__dashboardLoading && !window.__dashboardLoaded) loadLeads(); };
       if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startLoad); else startLoad();
     })();
+  </script>
+
+  <!-- Leaflet CSS y JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Estilos para la sección del mapa */
+    .map-section {
+      width: 100%;
+      max-width: 1400px;
+      margin: 40px auto 0;
+      padding: 0 20px;
+    }
+
+    .map-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .map-header h3 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .map-header h3 i {
+      color: #3b82f6;
+    }
+
+    .map-header p {
+      font-size: 1.1rem;
+      color: #64748b;
+      margin: 0;
+    }
+
+    .map-container {
+      display: flex;
+      gap: 20px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      min-height: 600px;
+    }
+
+    .map-wrapper {
+      flex: 2;
+      position: relative;
+    }
+
+    .map-canvas {
+      width: 100%;
+      height: 600px;
+      border-radius: 20px 0 0 20px;
+    }
+
+    .map-stats {
+      flex: 1;
+      padding: 30px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stats-header {
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .stats-header h4 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 15px;
+    }
+
+    .stats-list {
+      height: 520px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 8px;
+    }
+
+    .stats-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .stats-list::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 3px;
+    }
+
+    .stats-list::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    .stats-list::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .state-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .state-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .state-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .state-flag {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .state-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .state-name {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 0.95rem;
+    }
+
+    .state-code {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    .state-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .client-count {
+      font-weight: 700;
+      color: #3b82f6;
+      font-size: 1.1rem;
+    }
+
+    .client-percentage {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .map-container {
+        flex-direction: column;
+        min-height: auto;
+      }
+
+      .map-canvas {
+        height: 400px;
+        border-radius: 20px 20px 0 0;
+      }
+
+      .map-stats {
+        border-radius: 0 0 20px 20px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .map-section {
+        padding: 0 15px;
+      }
+
+      .map-header h3 {
+        font-size: 1.5rem;
+      }
+
+      .map-container {
+        border-radius: 15px;
+      }
+
+      .map-canvas {
+        height: 300px;
+      }
+
+      .map-stats {
+        padding: 20px;
+      }
+
+      .total-number {
+        font-size: 2rem;
+      }
+    }
+  </style>
+
+  <script>
+    // Inicializar mapa de clientes
+    let clientMap = null;
+    let markersLayer = null;
+
+    function initializeClientMap() {
+      // Crear el mapa centrado en Estados Unidos
+      clientMap = L.map('usa-map').setView([39.8283, -98.5795], 4);
+
+      // Agregar tiles del mapa
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: ' OpenStreetMap contributors',
+        maxZoom: 18
+      }).addTo(clientMap);
+
+      // Crear layer para los marcadores
+      markersLayer = L.layerGroup().addTo(clientMap);
+
+      // Cargar datos de clientes
+      loadClientLocations();
+    }
+
+    async function loadClientLocations() {
+      try {
+        // Obtener datos de leads (reutilizar la función existente)
+        const response = await fetch('/api/leads?page=1&limit=50000&allData=1&noDateFilter=1');
+        const data = await response.json();
+        
+        let leads = [];
+        if (Array.isArray(data)) {
+          leads = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          leads = data.data;
+        } else if (data.leads && Array.isArray(data.leads)) {
+          leads = data.leads;
+        }
+
+        console.log('[Map] Cargados', leads.length, 'leads para el mapa');
+        
+        // Procesar ubicaciones
+        await processClientLocations(leads);
+        
+      } catch (error) {
+        console.error('[Map] Error cargando ubicaciones:', error);
+      }
+    }
+
+    async function processClientLocations(leads) {
+      const stateStats = {};
+      const validLocations = [];
+      
+      for (const lead of leads) {
+        const address = lead.direccion || lead.address || lead.ubicacion || '';
+        if (!address || address.trim().length < 5) continue;
+
+        try {
+          // Extraer información de la dirección
+          const locationInfo = parseAddress(address);
+          if (locationInfo.state) {
+            // Contar por estado
+            if (!stateStats[locationInfo.state]) {
+              stateStats[locationInfo.state] = {
+                count: 0,
+                cities: new Set(),
+                zipCodes: new Set()
+              };
+            }
+            
+            stateStats[locationInfo.state].count++;
+            if (locationInfo.city) stateStats[locationInfo.state].cities.add(locationInfo.city);
+            if (locationInfo.zipCode) stateStats[locationInfo.state].zipCodes.add(locationInfo.zipCode);
+            
+            validLocations.push({
+              address: address,
+              state: locationInfo.state,
+              city: locationInfo.city,
+              zipCode: locationInfo.zipCode,
+              lead: lead
+            });
+          }
+        } catch (error) {
+          console.warn('[Map] Error procesando dirección:', address, error);
+        }
+      }
+
+      console.log('[Map] Estadísticas por estado:', stateStats);
+      console.log('[Map] Ubicaciones válidas:', validLocations.length);
+
+      // Actualizar estadísticas en el panel lateral
+      updateStatsPanel(stateStats, validLocations.length);
+
+      // Agregar marcadores al mapa (TODAS las ubicaciones)
+      addMarkersToMap(validLocations);
+    }
+
+    function parseAddress(address) {
+      // Parser simple para direcciones de EE.UU.
+      const addressUpper = address.toUpperCase();
+      
+      // Extraer código postal (5 dígitos al final)
+      const zipMatch = address.match(/\b(\d{5})\b/);
+      const zipCode = zipMatch ? zipMatch[1] : null;
+      
+      // Estados de EE.UU. (abreviaciones comunes)
+      const stateAbbreviations = {
+        'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+        'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+        'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+        'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+        'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+        'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+        'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+        'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+        'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+        'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
+      };
+      
+      let state = null;
+      let city = null;
+      
+      // Buscar abreviación de estado
+      for (const [abbr, fullName] of Object.entries(stateAbbreviations)) {
+        if (addressUpper.includes(` ${abbr} `) || addressUpper.includes(` ${abbr},`) || 
+            addressUpper.endsWith(` ${abbr}`) || addressUpper.includes(`${abbr} ${zipCode || ''}`)) {
+          state = fullName;
+          break;
+        }
+      }
+      
+      // Extraer ciudad (palabra antes del estado)
+      if (state) {
+        const stateAbbr = Object.keys(stateAbbreviations).find(abbr => stateAbbreviations[abbr] === state);
+        const beforeState = address.split(new RegExp(`\\s+${stateAbbr}\\s*`, 'i'))[0];
+        const cityMatch = beforeState.match(/([A-Za-z\s]+?)(?:\s*,?\s*)?$/);
+        if (cityMatch) {
+          city = cityMatch[1].trim().replace(/,$/, '');
+        }
+      }
+      
+      return { state, city, zipCode };
+    }
+
+    function updateStatsPanel(stateStats, totalClients) {
+      // Total de clientes removido del panel
+      
+      // Ordenar estados por número de clientes
+      const sortedStates = Object.entries(stateStats)
+        .sort(([,a], [,b]) => b.count - a.count); // Mostrar todos los estados
+      
+      const statsContainer = document.getElementById('states-stats');
+      statsContainer.innerHTML = '';
+      
+      sortedStates.forEach(([stateName, stats], index) => {
+        const percentage = ((stats.count / totalClients) * 100).toFixed(1);
+        const stateAbbr = getStateAbbreviation(stateName);
+        
+        const stateElement = document.createElement('div');
+        stateElement.className = 'state-item';
+        stateElement.innerHTML = `
+          <div class="state-info">
+            <div class="state-flag">${stateAbbr}</div>
+            <div class="state-details">
+              <div class="state-name">${stateName}</div>
+              <div class="state-code">${stats.cities.size} ciudades</div>
+            </div>
+          </div>
+          <div class="state-stats">
+            <div class="client-count">${stats.count}</div>
+            <div class="client-percentage">${percentage}%</div>
+          </div>
+        `;
+        
+        statsContainer.appendChild(stateElement);
+      });
+    }
+
+    function getStateAbbreviation(stateName) {
+      const stateAbbr = {
+        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+        'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+        'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+        'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+        'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+        'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+        'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+        'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+        'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+        'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+      };
+      return stateAbbr[stateName] || stateName.substring(0, 2).toUpperCase();
+    }
+
+    async function addMarkersToMap(locations) {
+      // Limpiar marcadores existentes
+      markersLayer.clearLayers();
+      
+      console.log('[Map] Agregando marcadores instantáneamente...');
+      
+      // Coordenadas predefinidas por estado para mostrar inmediatamente
+      const stateCoordinates = {
+        'Alabama': [32.806, -86.791], 'Alaska': [61.370, -152.404], 'Arizona': [33.729, -111.431], 
+        'Arkansas': [34.969, -92.373], 'California': [36.7783, -119.4179], 'Colorado': [39.059, -105.311],
+        'Connecticut': [41.767, -72.677], 'Delaware': [39.318, -75.507], 'Florida': [27.7663, -82.6404],
+        'Georgia': [33.76, -84.39], 'Hawaii': [21.094, -157.498], 'Idaho': [44.240, -114.478],
+        'Illinois': [40.3363, -89.0022], 'Indiana': [39.790, -86.147], 'Iowa': [42.011, -93.210],
+        'Kansas': [38.526, -96.726], 'Kentucky': [37.669, -84.670], 'Louisiana': [31.169, -91.867],
+        'Maine': [44.693, -69.381], 'Maryland': [39.063, -76.802], 'Massachusetts': [42.2352, -71.0275],
+        'Michigan': [43.3266, -84.5361], 'Minnesota': [45.694, -93.900], 'Mississippi': [32.741, -89.678],
+        'Missouri': [38.572, -92.189], 'Montana': [47.052, -109.633], 'Nebraska': [41.125, -98.268],
+        'Nevada': [38.313, -117.055], 'New Hampshire': [43.452, -71.563], 'New Jersey': [40.298, -74.521],
+        'New Mexico': [34.840, -106.248], 'New York': [42.1657, -74.9481], 'North Carolina': [35.771, -78.638],
+        'North Dakota': [47.528, -99.784], 'Ohio': [40.3888, -82.7649], 'Oklahoma': [35.482, -97.535],
+        'Oregon': [44.931, -121.129], 'Pennsylvania': [41.2033, -77.1945], 'Rhode Island': [41.680, -71.511],
+        'South Carolina': [33.836, -81.163], 'South Dakota': [44.299, -99.438], 'Tennessee': [35.747, -86.7816],
+        'Texas': [31.9686, -99.9018], 'Utah': [40.111, -111.892], 'Vermont': [44.045, -72.710],
+        'Virginia': [37.768, -78.2057], 'Washington': [47.042, -120.831], 'West Virginia': [38.491, -80.954],
+        'Wisconsin': [44.269, -89.616], 'Wyoming': [42.756, -107.302]
+      };
+      
+      // Agrupar ubicaciones por estado
+      const locationsByState = {};
+      locations.forEach(location => {
+        if (!locationsByState[location.state]) {
+          locationsByState[location.state] = [];
+        }
+        locationsByState[location.state].push(location);
+      });
+      
+      let totalMarkers = 0;
+      
+      // Agregar TODOS los marcadores inmediatamente usando coordenadas base del estado
+      Object.entries(locationsByState).forEach(([stateName, stateLocations]) => {
+        const baseCoords = stateCoordinates[stateName];
+        if (baseCoords) {
+          stateLocations.forEach((location, index) => {
+            // Distribuir marcadores alrededor del centro del estado
+            const offsetRadius = 1.5; // Radio de distribución en grados
+            const angle = (index / stateLocations.length) * 2 * Math.PI;
+            const radiusVariation = Math.random() * offsetRadius;
+            
+            const lat = baseCoords[0] + Math.cos(angle) * radiusVariation;
+            const lng = baseCoords[1] + Math.sin(angle) * radiusVariation;
+            
+            const marker = L.marker([lat, lng])
+              .bindPopup(`
+                <div style="font-family: 'Roboto', sans-serif;">
+                  <h4 style="margin: 0 0 8px 0; color: #1e293b;">${location.lead.nombre_cliente || 'Cliente'}</h4>
+                  <p style="margin: 0 0 4px 0; color: #64748b; font-size: 0.9rem;">
+                    <i class="fas fa-map-marker-alt" style="color: #3b82f6; margin-right: 6px;"></i>
+                    ${location.address}
+                  </p>
+                  <p style="margin: 0; color: #64748b; font-size: 0.85rem;">
+                    <i class="fas fa-phone" style="color: #10b981; margin-right: 6px;"></i>
+                    ${location.lead.telefono || 'N/A'}
+                  </p>
+                </div>
+              `);
+            
+            markersLayer.addLayer(marker);
+            totalMarkers++;
+          });
+        }
+      });
+      
+      console.log(`[Map] Agregados ${totalMarkers} marcadores instantáneamente en ${Object.keys(locationsByState).length} estados`);
+      
+      // Opcional: Geocodificación precisa en segundo plano (sin bloquear la UI)
+      setTimeout(() => {
+        console.log('[Map] Iniciando geocodificación precisa en segundo plano...');
+        geocodePreciseLocations(locations);
+      }, 2000);
+    }
+    
+    // Función opcional para geocodificación precisa en segundo plano
+    async function geocodePreciseLocations(locations) {
+      const maxPreciseLocations = Math.min(locations.length, 50); // Limitar para no saturar
+      
+      for (let i = 0; i < maxPreciseLocations; i++) {
+        try {
+          const location = locations[i];
+          const coords = await geocodeAddress(location.address);
+          
+          if (coords) {
+            // Actualizar marcador existente con ubicación precisa
+            // (esto es opcional y se ejecuta en segundo plano)
+          }
+          
+          // Pausa para no saturar el servicio
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (error) {
+          console.warn('[Map] Error en geocodificación precisa:', error);
+        }
+      }
+    }
+
+    // Cache para evitar geocodificar la misma dirección múltiples veces
+    const geocodeCache = new Map();
+
+    async function geocodeAddress(address) {
+      // Verificar cache primero
+      if (geocodeCache.has(address)) {
+        return geocodeCache.get(address);
+      }
+
+      try {
+        // Limpiar y formatear la dirección
+        const cleanAddress = address.trim().replace(/\s+/g, ' ');
+        
+        // Usar Nominatim (OpenStreetMap) para geocodificación
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(cleanAddress)}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'CRM-Dashboard/1.0'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          const result = {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon)
+          };
+          
+          // Guardar en cache
+          geocodeCache.set(address, result);
+          
+          return result;
+        } else {
+          console.warn('[Geocode] No se encontraron coordenadas para:', address);
+          geocodeCache.set(address, null);
+          return null;
+        }
+        
+      } catch (error) {
+        console.error('[Geocode] Error:', error);
+        geocodeCache.set(address, null);
+        return null;
+      }
+    }
+
+    // Inicializar el mapa cuando se cargue la página
+    document.addEventListener('DOMContentLoaded', function() {
+      // Esperar un poco para que se cargue todo el contenido
+      setTimeout(initializeClientMap, 1000);
+    });
   </script>
 </body>
 </html>
