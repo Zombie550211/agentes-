@@ -2727,35 +2727,56 @@
       
       for (const lead of leads) {
         const address = lead.direccion || lead.address || lead.ubicacion || '';
-        if (!address || address.trim().length < 5) continue;
+        if (!address || address.trim().length < 3) continue; // Reducir filtro mínimo
 
         try {
           // Extraer información de la dirección
           const locationInfo = parseAddress(address);
-          if (locationInfo.state) {
-            // Contar por estado
-            if (!stateStats[locationInfo.state]) {
-              stateStats[locationInfo.state] = {
-                count: 0,
-                cities: new Set(),
-                zipCodes: new Set()
-              };
-            }
-            
-            stateStats[locationInfo.state].count++;
-            if (locationInfo.city) stateStats[locationInfo.state].cities.add(locationInfo.city);
-            if (locationInfo.zipCode) stateStats[locationInfo.state].zipCodes.add(locationInfo.zipCode);
-            
-            validLocations.push({
-              address: address,
-              state: locationInfo.state,
-              city: locationInfo.city,
-              zipCode: locationInfo.zipCode,
-              lead: lead
-            });
+          
+          // Usar estado detectado o "Otros" para direcciones sin estado reconocido
+          const stateName = locationInfo.state || 'Otros/Internacional';
+          
+          // Contar TODAS las direcciones
+          if (!stateStats[stateName]) {
+            stateStats[stateName] = {
+              count: 0,
+              cities: new Set(),
+              zipCodes: new Set()
+            };
           }
+          
+          stateStats[stateName].count++;
+          if (locationInfo.city) stateStats[stateName].cities.add(locationInfo.city);
+          if (locationInfo.zipCode) stateStats[stateName].zipCodes.add(locationInfo.zipCode);
+          
+          validLocations.push({
+            address: address,
+            state: stateName,
+            city: locationInfo.city,
+            zipCode: locationInfo.zipCode,
+            lead: lead
+          });
+          
         } catch (error) {
           console.warn('[Map] Error procesando dirección:', address, error);
+          
+          // Incluso si hay error, agregar a "Otros"
+          if (!stateStats['Otros/Internacional']) {
+            stateStats['Otros/Internacional'] = {
+              count: 0,
+              cities: new Set(),
+              zipCodes: new Set()
+            };
+          }
+          stateStats['Otros/Internacional'].count++;
+          
+          validLocations.push({
+            address: address,
+            state: 'Otros/Internacional',
+            city: null,
+            zipCode: null,
+            lead: lead
+          });
         }
       }
 
@@ -2872,25 +2893,27 @@
       
       console.log('[Map] Agregando marcadores instantáneamente...');
       
-      // Coordenadas predefinidas por estado para mostrar inmediatamente
+      // Coordenadas corregidas del centro geográfico real de cada estado
       const stateCoordinates = {
-        'Alabama': [32.806, -86.791], 'Alaska': [61.370, -152.404], 'Arizona': [33.729, -111.431], 
-        'Arkansas': [34.969, -92.373], 'California': [36.7783, -119.4179], 'Colorado': [39.059, -105.311],
-        'Connecticut': [41.767, -72.677], 'Delaware': [39.318, -75.507], 'Florida': [27.7663, -82.6404],
-        'Georgia': [33.76, -84.39], 'Hawaii': [21.094, -157.498], 'Idaho': [44.240, -114.478],
-        'Illinois': [40.3363, -89.0022], 'Indiana': [39.790, -86.147], 'Iowa': [42.011, -93.210],
-        'Kansas': [38.526, -96.726], 'Kentucky': [37.669, -84.670], 'Louisiana': [31.169, -91.867],
-        'Maine': [44.693, -69.381], 'Maryland': [39.063, -76.802], 'Massachusetts': [42.2352, -71.0275],
-        'Michigan': [43.3266, -84.5361], 'Minnesota': [45.694, -93.900], 'Mississippi': [32.741, -89.678],
-        'Missouri': [38.572, -92.189], 'Montana': [47.052, -109.633], 'Nebraska': [41.125, -98.268],
-        'Nevada': [38.313, -117.055], 'New Hampshire': [43.452, -71.563], 'New Jersey': [40.298, -74.521],
-        'New Mexico': [34.840, -106.248], 'New York': [42.1657, -74.9481], 'North Carolina': [35.771, -78.638],
-        'North Dakota': [47.528, -99.784], 'Ohio': [40.3888, -82.7649], 'Oklahoma': [35.482, -97.535],
-        'Oregon': [44.931, -121.129], 'Pennsylvania': [41.2033, -77.1945], 'Rhode Island': [41.680, -71.511],
-        'South Carolina': [33.836, -81.163], 'South Dakota': [44.299, -99.438], 'Tennessee': [35.747, -86.7816],
-        'Texas': [31.9686, -99.9018], 'Utah': [40.111, -111.892], 'Vermont': [44.045, -72.710],
-        'Virginia': [37.768, -78.2057], 'Washington': [47.042, -120.831], 'West Virginia': [38.491, -80.954],
-        'Wisconsin': [44.269, -89.616], 'Wyoming': [42.756, -107.302]
+        'Alabama': [32.318, -86.902], 'Alaska': [64.0685, -152.2782], 'Arizona': [34.2744, -111.2847], 
+        'Arkansas': [35.2010, -92.4426], 'California': [36.7783, -119.4179], 'Colorado': [39.5501, -105.7821],
+        'Connecticut': [41.6032, -73.0877], 'Delaware': [38.9108, -75.5277], 'Florida': [27.7663, -81.6868],
+        'Georgia': [32.1656, -82.9001], 'Hawaii': [19.8968, -155.5828], 'Idaho': [44.0682, -114.7420],
+        'Illinois': [40.6331, -89.3985], 'Indiana': [40.2732, -86.1349], 'Iowa': [41.8780, -93.0977],
+        'Kansas': [38.5266, -96.7265], 'Kentucky': [37.8393, -84.2700], 'Louisiana': [30.9843, -91.9623],
+        'Maine': [45.2538, -69.4455], 'Maryland': [39.0458, -76.6413], 'Massachusetts': [42.4072, -71.3824],
+        'Michigan': [44.3467, -85.4102], 'Minnesota': [46.7296, -94.6859], 'Mississippi': [32.3547, -89.3985],
+        'Missouri': [37.9643, -91.8318], 'Montana': [47.0527, -109.6333], 'Nebraska': [41.4925, -99.9018],
+        'Nevada': [38.8026, -116.4194], 'New Hampshire': [43.1939, -71.5724], 'New Jersey': [40.0583, -74.4057],
+        'New Mexico': [34.5199, -105.8701], 'New York': [43.2994, -74.2179], 'North Carolina': [35.7596, -79.0193],
+        'North Dakota': [47.6201, -100.5407], 'Ohio': [40.4173, -82.9071], 'Oklahoma': [35.0078, -97.0929],
+        'Oregon': [43.8041, -120.5542], 'Pennsylvania': [41.2033, -77.1945], 'Rhode Island': [41.5801, -71.4774],
+        'South Carolina': [33.8361, -81.1637], 'South Dakota': [43.9695, -99.9018], 'Tennessee': [35.5175, -86.5804],
+        'Texas': [31.9686, -99.9018], 'Utah': [39.3210, -111.0937], 'Vermont': [44.2601, -72.5806],
+        'Virginia': [37.4316, -78.6569], 'Washington': [47.2529, -120.7401], 'West Virginia': [38.6409, -80.6227],
+        'Wisconsin': [43.7844, -88.7879], 'Wyoming': [43.0759, -107.2903],
+        // Coordenadas para direcciones internacionales/otras (centro de EE.UU.)
+        'Otros/Internacional': [39.8283, -98.5795]
       };
       
       // Agrupar ubicaciones por estado
@@ -2910,7 +2933,7 @@
         if (baseCoords) {
           stateLocations.forEach((location, index) => {
             // Distribuir marcadores alrededor del centro del estado
-            const offsetRadius = 1.5; // Radio de distribución en grados
+            const offsetRadius = 0.5; // Radio reducido para mantener marcadores dentro del estado
             const angle = (index / stateLocations.length) * 2 * Math.PI;
             const radiusVariation = Math.random() * offsetRadius;
             
