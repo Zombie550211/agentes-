@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2208,7 +2209,10 @@
         
         <div class="map-container">
           <!-- Mapa -->
-          <div class="map-wrapper">
+          <div class="map-wrapper" id="map-wrapper">
+            <button id="expand-map-btn" class="expand-map-btn" onclick="toggleMapFullscreen()" title="Expandir mapa">
+              <i class="fas fa-expand"></i>
+            </button>
             <div id="usa-map" class="map-canvas"></div>
           </div>
           
@@ -2611,6 +2615,7 @@
     .map-wrapper {
       flex: 2;
       position: relative;
+      transition: all 0.3s ease;
     }
 
     .map-canvas {
@@ -2816,9 +2821,100 @@
     .marker-cluster:hover {
       transform: scale(1.1);
     }
+
+    /* Botón de expandir mapa */
+    .expand-map-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 1000;
+      background: white;
+      border: none;
+      border-radius: 10px;
+      width: 45px;
+      height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      transition: all 0.3s ease;
+      font-size: 1.2rem;
+      color: #3b82f6;
+    }
+
+    .expand-map-btn:hover {
+      background: #3b82f6;
+      color: white;
+      transform: scale(1.1);
+    }
+
+    /* Modo fullscreen del mapa */
+    .map-wrapper.fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      background: white;
+      border-radius: 0 !important;
+    }
+
+    .map-wrapper.fullscreen .map-canvas {
+      height: 100vh !important;
+      border-radius: 0 !important;
+    }
+
+    .map-wrapper.fullscreen .expand-map-btn {
+      top: 20px;
+      right: 20px;
+      background: #ef4444;
+      color: white;
+    }
+
+    .map-wrapper.fullscreen .expand-map-btn:hover {
+      background: #dc2626;
+    }
   </style>
 
   <script>
+    // Función para expandir/contraer el mapa
+    function toggleMapFullscreen() {
+      const mapWrapper = document.getElementById('map-wrapper');
+      const btn = document.getElementById('expand-map-btn');
+      const icon = btn.querySelector('i');
+      
+      mapWrapper.classList.toggle('fullscreen');
+      
+      if (mapWrapper.classList.contains('fullscreen')) {
+        icon.className = 'fas fa-compress';
+        btn.title = 'Contraer mapa';
+        document.body.style.overflow = 'hidden';
+      } else {
+        icon.className = 'fas fa-expand';
+        btn.title = 'Expandir mapa';
+        document.body.style.overflow = '';
+      }
+      
+      // Invalidar tamaño del mapa para que se redibuje correctamente
+      if (clientMap) {
+        setTimeout(() => {
+          clientMap.invalidateSize();
+        }, 300);
+      }
+    }
+
+    // Cerrar fullscreen con tecla Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const mapWrapper = document.getElementById('map-wrapper');
+        if (mapWrapper && mapWrapper.classList.contains('fullscreen')) {
+          toggleMapFullscreen();
+        }
+      }
+    });
+
     // Inicializar mapa de clientes
     let clientMap = null;
     let markersLayer = null;
