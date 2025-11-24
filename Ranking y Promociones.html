@@ -2304,44 +2304,35 @@
               top3: { nombre: top3?.nombre, puntos: top3?.puntos, ventas: top3?.ventas }
             });
 
+            // Función para obtener puntuación
             const getScore = (item) => {
-              // Usar los valores EXACTOS sin redondeo
+              if (!item) return 0;
+              if (typeof item.sumPuntaje === 'number') return item.sumPuntaje;
+              if (typeof item.puntos === 'number') return item.puntos;
+              if (typeof item.promedio === 'number') return item.promedio;
+              return 0;
+            };
 
-          // Formatear evitando artefactos binarios (2.6999999999999997 -> 2.7)
-          function formatScore(n){
-            if (typeof n !== 'number' || !isFinite(n)) return '0';
-            
-            // Redondear a 2 decimales para evitar números largos
-            const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
-            
-            // Si es un número entero, mostrar sin decimales
-            if (rounded === Math.floor(rounded)) {
-              return rounded.toString();
+            // Formatear evitando artefactos binarios
+            function formatScore(n) {
+              if (typeof n !== 'number' || !isFinite(n)) return '0';
+              const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
+              if (rounded === Math.floor(rounded)) return rounded.toString();
+              return rounded.toFixed(2).replace(/\.?0+$/, '');
             }
-            
-            // Si tiene decimales, mostrar máximo 2 decimales y quitar ceros finales
-            return rounded.toFixed(2).replace(/\.?0+$/, '');
-          }
 
-          const setSlot = (selectorBase, item) => {
-            if (!item) return;
-            const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
-            const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
-            const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
-            if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
-            if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
-            // Si en el futuro llega imageUrl
-            if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
-          };
+            // Función para actualizar slot del podio
+            const setSlot = (selectorBase, item) => {
+              if (!item) return;
+              const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
               const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
               if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
-              // Si en el futuro llega imageUrl
               if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
             };
 
-            // Limpiar antes de pintar para evitar valores residuales
+            // Limpiar antes de pintar
             const clearSlot = (selectorBase) => {
               const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
               const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
@@ -2404,9 +2395,15 @@
               });
             }
 
-            // Configurar botón 'Ver todos' (refetch con all=1 al expandir)
+            // Configurar botón 'Ver todos' (solo visible para supervisores/admin/backoffice)
             const btn = document.getElementById('btn-open-full-ranking');
             if (btn) {
+              // Verificar rol del usuario para mostrar el botón
+              const currentUser = await getUser();
+              const userRole = ((currentUser && currentUser.role) || '').toLowerCase();
+              const canViewAll = ['admin','administrador','supervisor','supervisor team lineas','backoffice'].includes(userRole);
+              btn.style.display = canViewAll ? 'inline-block' : 'none';
+              
               btn.onclick = async () => {
                 window.__rankViewAll = !window.__rankViewAll;
                 btn.textContent = window.__rankViewAll ? 'Ver menos' : 'Ver todos';
