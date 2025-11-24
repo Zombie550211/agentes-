@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/sidebar-shared.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <!-- Scripts críticos que deben cargar primero (defer para no bloquear parseo) -->
   <script src="js/crm-config.js" defer></script>
@@ -2283,6 +2283,89 @@
   <script src="js/auth-logout.js" defer></script>
   <script src="js/user-info-updater.js" defer></script>
   <script src="js/sidebar-loader.js" defer></script>
+  
+  <!-- Script inmediato para normalizar multimedia -->
+  <script>
+    // Función global para normalizar multimedia
+    window.forceNormalizeMultimedia = function() {
+      console.log('🎬 [INICIO] Ejecutando normalización inmediata de multimedia...');
+      
+      const multimediaElements = document.querySelectorAll(
+        '.sidebar a[href*="multimedia"], .sidebar .btn-sidebar[href*="multimedia"], a[title*="Multimedia"]'
+      );
+      
+      console.log('🎬 [INICIO] Elementos multimedia encontrados:', multimediaElements.length);
+      
+      if (multimediaElements.length === 0) {
+        // Intentar con selectores más amplios
+        const allSidebarLinks = document.querySelectorAll('.sidebar a, .sidebar .btn-sidebar');
+        console.log('🎬 [INICIO] Total elementos sidebar:', allSidebarLinks.length);
+        
+        allSidebarLinks.forEach((el, i) => {
+          const text = el.textContent?.trim().toLowerCase();
+          const href = el.href || '';
+          if (text.includes('multimedia') || href.includes('multimedia')) {
+            console.log(`🎬 [INICIO] Encontrado multimedia por texto/href ${i}:`, el);
+            window.normalizeElement(el);
+          }
+        });
+      } else {
+        multimediaElements.forEach((el, i) => {
+          console.log(`🎬 [INICIO] Normalizando elemento ${i}:`, el);
+          window.normalizeElement(el);
+        });
+      }
+    };
+    
+    window.normalizeElement = function(element) {
+      // Remover estilos inline
+      element.style.cssText = '';
+      
+      // Normalizar el ícono
+      const icon = element.querySelector('i');
+      if (icon) {
+        icon.style.cssText = '';
+        icon.style.setProperty('font-weight', '900', 'important');
+        icon.style.setProperty('font-size', '1.1rem', 'important');
+        icon.style.setProperty('color', 'inherit', 'important');
+        icon.style.setProperty('text-shadow', 'none', 'important');
+        icon.style.setProperty('opacity', '1', 'important');
+        icon.style.setProperty('background', 'none', 'important');
+        icon.style.setProperty('border', 'none', 'important');
+        icon.style.setProperty('box-shadow', 'none', 'important');
+        icon.style.setProperty('filter', 'none', 'important');
+        
+        console.log('🎬 [INICIO] Ícono normalizado:', {
+          element: icon,
+          fontWeight: icon.style.fontWeight,
+          fontSize: icon.style.fontSize
+        });
+      }
+    };
+    
+    // Ejecutar inmediatamente y luego cada segundo hasta que funcione
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const intervalId = setInterval(() => {
+      attempts++;
+      console.log(`🎬 [INICIO] Intento ${attempts}/${maxAttempts}`);
+      
+      window.forceNormalizeMultimedia();
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        console.log('🎬 [INICIO] Máximo de intentos alcanzado');
+      }
+    }, 1000);
+    
+    // También ejecutar cuando se dispare el evento de sidebar cargado
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(window.forceNormalizeMultimedia, 2000);
+      setTimeout(window.forceNormalizeMultimedia, 5000);
+    });
+  </script>
+  
   <script>
     // KPIs y Gráfica: Productos vendidos en el mes
     (function(){
@@ -2469,6 +2552,9 @@
   <!-- Leaflet CSS y JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Funciones adicionales del mapa -->
+  <script src="map-functions.js"></script>
 
   <style>
     /* Estilos para la sección del mapa */
@@ -2710,50 +2796,201 @@
 
     async function loadClientLocations() {
       try {
-        // Obtener datos de leads (reutilizar la función existente)
-        const response = await fetch('/api/leads?page=1&limit=50000&allData=1&noDateFilter=1');
-        const data = await response.json();
+        console.log('[Map] 🗺️ Iniciando carga de ubicaciones de clientes...');
         
-        let leads = [];
-        if (Array.isArray(data)) {
-          leads = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          leads = data.data;
-        } else if (data.leads && Array.isArray(data.leads)) {
-          leads = data.leads;
+        // Obtener TODOS los datos de leads y customers - probando diferentes parámetros
+        console.log('[Map] 🔍 Probando diferentes endpoints para obtener TODOS los registros...');
+        
+        const [leadsResponse, customersResponse] = await Promise.all([
+          fetch('/api/leads?allData=true&noFilter=true&skipDate=true&limit=99999&page=1'),
+          fetch('/api/customers?allData=true&noFilter=true&skipDate=true&limit=99999&page=1')
+        ]);
+        
+        let allRecords = [];
+        
+        // Procesar leads
+        if (leadsResponse.ok) {
+          const leadsData = await leadsResponse.json();
+          console.log('[Map] 🔍 Estructura completa de respuesta leads:', leadsData);
+          let leads = [];
+          if (Array.isArray(leadsData)) {
+            leads = leadsData;
+          } else if (leadsData.data && Array.isArray(leadsData.data)) {
+            leads = leadsData.data;
+          } else if (leadsData.leads && Array.isArray(leadsData.leads)) {
+            leads = leadsData.leads;
+          }
+          allRecords = allRecords.concat(leads);
+          console.log('[Map] 📊 Cargados', leads.length, 'leads');
+          
+          // Verificar si hay información de paginación
+          if (leadsData.total) {
+            console.log('[Map] 📄 Total disponible en servidor:', leadsData.total);
+          }
+          if (leadsData.totalCount) {
+            console.log('[Map] 📄 Total count:', leadsData.totalCount);
+          }
+        } else {
+          console.log('[Map] ❌ Error en respuesta leads:', leadsResponse.status, leadsResponse.statusText);
+        }
+        
+        // Procesar customers con paginación
+        if (customersResponse.ok) {
+          const customersData = await customersResponse.json();
+          console.log('[Map] 🔍 Estructura de respuesta customers:', customersData);
+          
+          let customers = [];
+          if (Array.isArray(customersData)) {
+            customers = customersData;
+          } else if (customersData.data && Array.isArray(customersData.data)) {
+            customers = customersData.data;
+          } else if (customersData.customers && Array.isArray(customersData.customers)) {
+            customers = customersData.customers;
+          } else if (customersData.leads && Array.isArray(customersData.leads)) {
+            customers = customersData.leads; // ¡AQUÍ ESTABAN LOS DATOS!
+          }
+          
+          allRecords = allRecords.concat(customers);
+          console.log('[Map] 👥 Cargados', customers.length, 'customers de página 1');
+          
+          // Si hay más páginas, cargar todas
+          if (customersData.pages && customersData.pages > 1) {
+            console.log(`[Map] 📄 Detectadas ${customersData.pages} páginas, cargando páginas restantes...`);
+            
+            for (let page = 2; page <= customersData.pages; page++) {
+              try {
+                const pageResponse = await fetch(`/api/customers?allData=true&noFilter=true&skipDate=true&limit=99999&page=${page}`);
+                if (pageResponse.ok) {
+                  const pageData = await pageResponse.json();
+                  let pageCustomers = [];
+                  
+                  if (pageData.leads && Array.isArray(pageData.leads)) {
+                    pageCustomers = pageData.leads;
+                  } else if (pageData.data && Array.isArray(pageData.data)) {
+                    pageCustomers = pageData.data;
+                  }
+                  
+                  allRecords = allRecords.concat(pageCustomers);
+                  console.log(`[Map] 👥 Cargados ${pageCustomers.length} customers de página ${page}`);
+                }
+              } catch (error) {
+                console.error(`[Map] ❌ Error cargando página ${page}:`, error);
+              }
+            }
+          }
+        } else {
+          console.log('[Map] ❌ Error en respuesta customers:', customersResponse.status, customersResponse.statusText);
         }
 
-        console.log('[Map] Cargados', leads.length, 'leads para el mapa');
+        console.log('[Map] 📍 TOTAL DE REGISTROS CARGADOS:', allRecords.length);
         
-        // Procesar ubicaciones
-        await processClientLocations(leads);
+        // VERIFICAR QUE TENEMOS TODOS LOS DATOS
+        console.log('[Map] 🔍 VERIFICANDO COMPLETITUD DE DATOS...');
+        
+        // Usar los datos ya cargados para verificar totales
+        let expectedTotal = 0;
+        
+        // Re-fetch solo para obtener metadatos de totales
+        try {
+          const leadsMetaResponse = await fetch('/api/leads?allData=true&noFilter=true&skipDate=true&limit=1&page=1');
+          if (leadsMetaResponse.ok) {
+            const leadsMetaData = await leadsMetaResponse.json();
+            if (leadsMetaData.total) expectedTotal += leadsMetaData.total;
+          }
+          
+          const customersMetaResponse = await fetch('/api/customers?allData=true&noFilter=true&skipDate=true&limit=1&page=1');
+          if (customersMetaResponse.ok) {
+            const customersMetaData = await customersMetaResponse.json();
+            if (customersMetaData.total) expectedTotal += customersMetaData.total;
+          }
+        } catch (metaError) {
+          console.warn('[Map] ⚠️ No se pudieron obtener metadatos del servidor:', metaError);
+        }
+        
+        console.log('[Map] 📊 TOTAL ESPERADO DEL SERVIDOR:', expectedTotal);
+        console.log('[Map] 📊 TOTAL CARGADO:', allRecords.length);
+        
+        if (expectedTotal > 0) {
+          const completeness = ((allRecords.length / expectedTotal) * 100).toFixed(1);
+          console.log(`[Map] 📈 COMPLETITUD: ${completeness}% (${allRecords.length}/${expectedTotal})`);
+          
+          if (allRecords.length < expectedTotal) {
+            console.warn(`[Map] ⚠️ FALTAN ${expectedTotal - allRecords.length} REGISTROS`);
+          } else if (allRecords.length > expectedTotal) {
+            console.warn(`[Map] ⚠️ HAY ${allRecords.length - expectedTotal} REGISTROS EXTRA (posibles duplicados)`);
+          } else {
+            console.log('[Map] ✅ TODOS LOS REGISTROS CARGADOS CORRECTAMENTE');
+          }
+        }
+        
+        // INVESTIGAR DUPLICADOS
+        console.log('[Map] 🔍 INVESTIGANDO DUPLICADOS...');
+        const uniqueIds = new Set();
+        const duplicates = [];
+        
+        allRecords.forEach((record, index) => {
+          const id = record._id || record.id;
+          if (uniqueIds.has(id)) {
+            duplicates.push({ index, id, record });
+          } else {
+            uniqueIds.add(id);
+          }
+        });
+        
+        console.log('[Map] 📊 REGISTROS ÚNICOS:', uniqueIds.size);
+        console.log('[Map] 📊 DUPLICADOS ENCONTRADOS:', duplicates.length);
+        if (duplicates.length > 0) {
+          console.log('[Map] 🔍 Primeros 5 duplicados:', duplicates.slice(0, 5));
+          
+          // ELIMINAR DUPLICADOS
+          console.log('[Map] 🧹 Eliminando duplicados...');
+          const uniqueRecords = [];
+          const seenIds = new Set();
+          
+          allRecords.forEach(record => {
+            const id = record._id || record.id;
+            if (!seenIds.has(id)) {
+              seenIds.add(id);
+              uniqueRecords.push(record);
+            }
+          });
+          
+          allRecords = uniqueRecords;
+          console.log('[Map] ✅ Registros después de eliminar duplicados:', allRecords.length);
+        }
+        
+        // Procesar ubicaciones con geocodificación completa
+        await processClientLocationsComplete(allRecords);
         
       } catch (error) {
-        console.error('[Map] Error cargando ubicaciones:', error);
+        console.error('[Map] ❌ Error cargando ubicaciones:', error);
       }
     }
 
-    async function processClientLocations(leads) {
+    async function processClientLocationsComplete(allRecords) {
       const stateStats = {};
       const validLocations = [];
       
-      console.log('[Map] TOTAL LEADS RECIBIDOS:', leads.length);
+      console.log('[Map] 📊 TOTAL REGISTROS RECIBIDOS:', allRecords.length);
       let addressesFiltered = 0;
       let addressesProcessed = 0;
+      let geocodedCount = 0;
       
-      for (const lead of leads) {
-        const address = lead.direccion || lead.address || lead.ubicacion || '';
-        if (!address || address.trim().length < 3) {
+      // Cargar cache de geocodificación desde localStorage
+      loadGeocodeCache();
+      
+      // Procesar todas las direcciones
+      for (const record of allRecords) {
+        const address = record.direccion || record.address || record.ubicacion || '';
+        if (!address || address.trim().length < 5) {
           addressesFiltered++;
-          continue; // Reducir filtro mínimo
+          continue;
         }
         addressesProcessed++;
 
         try {
-          // Extraer información de la dirección
+          // Extraer información básica de la dirección
           const locationInfo = parseAddress(address);
-          
-          // Usar estado detectado o "Otros" para direcciones sin estado reconocido
           const stateName = locationInfo.state || 'Otros/Internacional';
           
           // Contar TODAS las direcciones
@@ -2774,7 +3011,9 @@
             state: stateName,
             city: locationInfo.city,
             zipCode: locationInfo.zipCode,
-            lead: lead
+            record: record,
+            geocoded: false,
+            coordinates: null
           });
           
         } catch (error) {
@@ -2795,35 +3034,51 @@
             state: 'Otros/Internacional',
             city: null,
             zipCode: null,
-            lead: lead
+            record: record,
+            geocoded: false,
+            coordinates: null
           });
         }
       }
 
-      console.log('[Map] RESUMEN FINAL:');
+      console.log('[Map] 📋 RESUMEN PROCESAMIENTO:');
       console.log('[Map] - Direcciones filtradas (muy cortas):', addressesFiltered);
       console.log('[Map] - Direcciones procesadas:', addressesProcessed);
       console.log('[Map] - Ubicaciones válidas creadas:', validLocations.length);
-      console.log('[Map] Estadísticas por estado:', stateStats);
       
       // Verificar suma total
       const totalFromStats = Object.values(stateStats).reduce((sum, stat) => sum + stat.count, 0);
       console.log('[Map] - SUMA TOTAL DE ESTADÍSTICAS:', totalFromStats);
-      console.log('[Map] - ¿Coincide con ubicaciones válidas?', totalFromStats === validLocations.length);
-
+      console.log('[Map] - DIFERENCIA:', allRecords.length - totalFromStats);
+      console.log('[Map] - DESGLOSE POR ESTADO:');
+      Object.entries(stateStats).forEach(([state, stats]) => {
+        console.log(`[Map]   ${state}: ${stats.count} direcciones`);
+      });
+      
+      // Mostrar resumen final
+      if (window.unparsedAddressCount) {
+        console.log(`[Map] ⚠️ TOTAL DE DIRECCIONES SIN ESTADO DETECTADO: ${window.unparsedAddressCount}`);
+      }
+      
       // Actualizar estadísticas en el panel lateral
       updateStatsPanel(stateStats, validLocations.length);
 
-      // Agregar marcadores al mapa (TODAS las ubicaciones)
-      addMarkersToMap(validLocations);
+      // Mostrar marcadores inmediatamente con coordenadas de estado
+      addMarkersImmediately(validLocations);
+      
+      // Geocodificación en segundo plano deshabilitada temporalmente para debugging
+      console.log('[Map] 🔍 Geocodificación en segundo plano deshabilitada temporalmente');
+      // setTimeout(() => {
+      //   geocodifyInBackground(validLocations);
+      // }, 5000);
     }
 
     function parseAddress(address) {
-      // Parser simple para direcciones de EE.UU.
+      // Parser mejorado para direcciones de EE.UU.
       const addressUpper = address.toUpperCase();
       
-      // Extraer código postal (5 dígitos al final)
-      const zipMatch = address.match(/\b(\d{5})\b/);
+      // Extraer código postal (5 dígitos)
+      const zipMatch = address.match(/\b(\d{5})(?:-\d{4})?\b/);
       const zipCode = zipMatch ? zipMatch[1] : null;
       
       // Estados de EE.UU. (abreviaciones comunes)
@@ -2843,22 +3098,50 @@
       let state = null;
       let city = null;
       
-      // Buscar abreviación de estado
+      // Buscar abreviación de estado con patrones mejorados
       for (const [abbr, fullName] of Object.entries(stateAbbreviations)) {
-        if (addressUpper.includes(` ${abbr} `) || addressUpper.includes(` ${abbr},`) || 
-            addressUpper.endsWith(` ${abbr}`) || addressUpper.includes(`${abbr} ${zipCode || ''}`)) {
+        // Patrones más flexibles para encontrar el estado
+        const patterns = [
+          new RegExp(`\\b${abbr}\\s+\\d{5}`, 'i'), // MA 01105
+          new RegExp(`\\s${abbr}\\s*$`, 'i'),      // termina con MA
+          new RegExp(`\\s${abbr}\\s+`, 'i'),       // MA seguido de espacio
+          new RegExp(`\\s${abbr},`, 'i'),          // MA,
+          new RegExp(`\\b${abbr}\\b`, 'i'),        // MA como palabra completa
+          new RegExp(`\\s${abbr}\\s+\\d{5}`, 'i')  // SAN JOSE CA 95112
+        ];
+        
+        if (patterns.some(pattern => addressUpper.match(pattern))) {
           state = fullName;
+          
+          // Extraer ciudad - buscar la palabra antes del estado
+          const stateRegex = new RegExp(`\\b${abbr}\\b`, 'i');
+          const beforeState = address.split(stateRegex)[0];
+          
+          // Buscar la última palabra/frase que parece una ciudad
+          const cityMatch = beforeState.match(/([A-Za-z\s]+?)(?:\s+APT\s+|\s+UNIT\s+|\s+#|\s*,?\s*)?$/i);
+          if (cityMatch) {
+            city = cityMatch[1].trim().replace(/,$/, '').replace(/\s+/g, ' ');
+          }
           break;
         }
       }
       
-      // Extraer ciudad (palabra antes del estado)
-      if (state) {
-        const stateAbbr = Object.keys(stateAbbreviations).find(abbr => stateAbbreviations[abbr] === state);
-        const beforeState = address.split(new RegExp(`\\s+${stateAbbr}\\s*`, 'i'))[0];
-        const cityMatch = beforeState.match(/([A-Za-z\s]+?)(?:\s*,?\s*)?$/);
-        if (cityMatch) {
-          city = cityMatch[1].trim().replace(/,$/, '');
+      // Si no se encontró estado, intentar con nombres completos
+      if (!state) {
+        for (const [abbr, fullName] of Object.entries(stateAbbreviations)) {
+          if (addressUpper.includes(fullName.toUpperCase())) {
+            state = fullName;
+            break;
+          }
+        }
+      }
+      
+      // Log para debugging
+      if (!state) {
+        if (!window.unparsedAddressCount) window.unparsedAddressCount = 0;
+        window.unparsedAddressCount++;
+        if (window.unparsedAddressCount <= 10) {
+          console.log(`[Map] 🔍 No se pudo detectar estado en (${window.unparsedAddressCount}):`, address);
         }
       }
       
@@ -2915,13 +3198,40 @@
       return stateAbbr[stateName] || stateName.substring(0, 2).toUpperCase();
     }
 
-    async function addMarkersToMap(locations) {
+    // Cache persistente para geocodificación
+    let geocodeCache = new Map();
+    
+    function loadGeocodeCache() {
+      try {
+        const cached = localStorage.getItem('geocodeCache');
+        if (cached) {
+          const data = JSON.parse(cached);
+          geocodeCache = new Map(data);
+          console.log('[Map] 💾 Cache cargado:', geocodeCache.size, 'direcciones');
+        }
+      } catch (error) {
+        console.warn('[Map] Error cargando cache:', error);
+        geocodeCache = new Map();
+      }
+    }
+    
+    function saveGeocodeCache() {
+      try {
+        const data = Array.from(geocodeCache.entries());
+        localStorage.setItem('geocodeCache', JSON.stringify(data));
+        console.log('[Map] 💾 Cache guardado:', geocodeCache.size, 'direcciones');
+      } catch (error) {
+        console.warn('[Map] Error guardando cache:', error);
+      }
+    }
+
+    async function addAllMarkersWithGeocoding(locations) {
       // Limpiar marcadores existentes
       markersLayer.clearLayers();
       
-      console.log('[Map] Agregando marcadores instantáneamente...');
+      console.log('[Map] 🗺️ Iniciando geocodificación completa de', locations.length, 'ubicaciones...');
       
-      // Coordenadas corregidas del centro geográfico real de cada estado
+      // Coordenadas de respaldo por estado
       const stateCoordinates = {
         'Alabama': [32.318, -86.902], 'Alaska': [64.0685, -152.2782], 'Arizona': [34.2744, -111.2847], 
         'Arkansas': [35.2010, -92.4426], 'California': [36.7783, -119.4179], 'Colorado': [39.5501, -105.7821],
@@ -2940,62 +3250,106 @@
         'Texas': [31.9686, -99.9018], 'Utah': [39.3210, -111.0937], 'Vermont': [44.2601, -72.5806],
         'Virginia': [37.4316, -78.6569], 'Washington': [47.2529, -120.7401], 'West Virginia': [38.6409, -80.6227],
         'Wisconsin': [43.7844, -88.7879], 'Wyoming': [43.0759, -107.2903],
-        // Coordenadas para direcciones internacionales/otras (centro de EE.UU.)
         'Otros/Internacional': [39.8283, -98.5795]
       };
       
-      // Agrupar ubicaciones por estado
-      const locationsByState = {};
-      locations.forEach(location => {
-        if (!locationsByState[location.state]) {
-          locationsByState[location.state] = [];
-        }
-        locationsByState[location.state].push(location);
-      });
-      
+      let geocodedCount = 0;
+      let fallbackCount = 0;
       let totalMarkers = 0;
       
-      // Agregar TODOS los marcadores inmediatamente usando coordenadas base del estado
-      Object.entries(locationsByState).forEach(([stateName, stateLocations]) => {
-        const baseCoords = stateCoordinates[stateName];
-        if (baseCoords) {
-          stateLocations.forEach((location, index) => {
-            // Distribuir marcadores alrededor del centro del estado
-            const offsetRadius = 0.5; // Radio reducido para mantener marcadores dentro del estado
-            const angle = (index / stateLocations.length) * 2 * Math.PI;
-            const radiusVariation = Math.random() * offsetRadius;
+      // Procesar en lotes más pequeños para no saturar la API
+      const batchSize = 3; // Reducir lotes para evitar rate limiting
+      const delay = 1000; // Aumentar delay entre requests (1 segundo)
+      
+      for (let i = 0; i < locations.length; i += batchSize) {
+        const batch = locations.slice(i, i + batchSize);
+        
+        // Procesar lote en paralelo
+        const batchPromises = batch.map(async (location, batchIndex) => {
+          try {
+            let coordinates = null;
             
-            const lat = baseCoords[0] + Math.cos(angle) * radiusVariation;
-            const lng = baseCoords[1] + Math.sin(angle) * radiusVariation;
+            // Intentar obtener coordenadas precisas
+            const cachedCoords = geocodeCache.get(location.address);
+            if (cachedCoords) {
+              coordinates = cachedCoords;
+              geocodedCount++;
+            } else {
+              // Geocodificar nueva dirección
+              coordinates = await geocodeAddressWithRetry(location.address);
+              if (coordinates) {
+                geocodeCache.set(location.address, coordinates);
+                geocodedCount++;
+              }
+            }
             
-            const marker = L.marker([lat, lng])
-              .bindPopup(`
-                <div style="font-family: 'Roboto', sans-serif;">
-                  <h4 style="margin: 0 0 8px 0; color: #1e293b;">${location.lead.nombre_cliente || 'Cliente'}</h4>
-                  <p style="margin: 0 0 4px 0; color: #64748b; font-size: 0.9rem;">
-                    <i class="fas fa-map-marker-alt" style="color: #3b82f6; margin-right: 6px;"></i>
-                    ${location.address}
-                  </p>
-                  <p style="margin: 0; color: #64748b; font-size: 0.85rem;">
-                    <i class="fas fa-phone" style="color: #10b981; margin-right: 6px;"></i>
-                    ${location.lead.telefono || 'N/A'}
-                  </p>
-                </div>
-              `);
+            // Si no se pudo geocodificar, usar coordenadas del estado
+            if (!coordinates) {
+              const stateCoords = stateCoordinates[location.state];
+              if (stateCoords) {
+                // Agregar variación aleatoria pequeña
+                const offset = 0.1;
+                coordinates = {
+                  lat: stateCoords[0] + (Math.random() - 0.5) * offset,
+                  lng: stateCoords[1] + (Math.random() - 0.5) * offset
+                };
+                fallbackCount++;
+              }
+            }
             
-            markersLayer.addLayer(marker);
-            totalMarkers++;
-          });
+            // Crear marcador si tenemos coordenadas
+            if (coordinates) {
+              const marker = L.marker([coordinates.lat, coordinates.lng])
+                .bindPopup(`
+                  <div style="font-family: 'Roboto', sans-serif; max-width: 250px;">
+                    <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 1rem;">
+                      ${location.record.nombre_cliente || location.record.name || 'Cliente'}
+                    </h4>
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 0.85rem;">
+                      <i class="fas fa-map-marker-alt" style="color: #3b82f6; margin-right: 6px;"></i>
+                      ${location.address}
+                    </p>
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 0.85rem;">
+                      <i class="fas fa-phone" style="color: #10b981; margin-right: 6px;"></i>
+                      ${location.record.telefono || location.record.phone || 'N/A'}
+                    </p>
+                    <p style="margin: 0; color: #64748b; font-size: 0.8rem;">
+                      <i class="fas fa-map" style="color: #f59e0b; margin-right: 6px;"></i>
+                      ${location.city ? location.city + ', ' : ''}${location.state}
+                    </p>
+                  </div>
+                `);
+              
+              markersLayer.addLayer(marker);
+              totalMarkers++;
+            }
+            
+          } catch (error) {
+            console.warn('[Map] Error procesando ubicación:', location.address, error);
+          }
+        });
+        
+        // Esperar a que termine el lote
+        await Promise.all(batchPromises);
+        
+        // Mostrar progreso
+        const progress = Math.min(i + batchSize, locations.length);
+        console.log(`[Map] 📍 Progreso: ${progress}/${locations.length} (${Math.round(progress/locations.length*100)}%)`);
+        
+        // Pausa entre lotes
+        if (i + batchSize < locations.length) {
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-      });
+      }
       
-      console.log(`[Map] Agregados ${totalMarkers} marcadores instantáneamente en ${Object.keys(locationsByState).length} estados`);
+      // Guardar cache actualizado
+      saveGeocodeCache();
       
-      // Opcional: Geocodificación precisa en segundo plano (sin bloquear la UI)
-      setTimeout(() => {
-        console.log('[Map] Iniciando geocodificación precisa en segundo plano...');
-        geocodePreciseLocations(locations);
-      }, 2000);
+      console.log('[Map] ✅ GEOCODIFICACIÓN COMPLETADA:');
+      console.log(`[Map] - Total marcadores: ${totalMarkers}`);
+      console.log(`[Map] - Geocodificados precisos: ${geocodedCount}`);
+      console.log(`[Map] - Coordenadas de respaldo: ${fallbackCount}`);
+      console.log(`[Map] - Cache total: ${geocodeCache.size} direcciones`);
     }
     
     // Función opcional para geocodificación precisa en segundo plano
@@ -3021,8 +3375,23 @@
       }
     }
 
-    // Cache para evitar geocodificar la misma dirección múltiples veces
-    const geocodeCache = new Map();
+    async function geocodeAddressWithRetry(address) {
+      // Función con reintentos para geocodificación
+      const maxRetries = 2;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const result = await geocodeAddress(address);
+          return result;
+        } catch (error) {
+          if (attempt === maxRetries - 1) {
+            console.warn('[Map] Geocodificación falló después de', maxRetries, 'intentos:', address);
+            return null;
+          }
+          // Esperar antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
 
     async function geocodeAddress(address) {
       // Verificar cache primero

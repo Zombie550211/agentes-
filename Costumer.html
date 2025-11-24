@@ -15,7 +15,7 @@ v   <html lang="es">
   <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251124">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <link rel="stylesheet" href="css/costumer-table-comments.css">`n  <link rel="stylesheet" href="css/costumer-calendar.css">
-  <link rel="stylesheet" href="css/sidebar-shared.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
   <!-- Guard temporal ANTES de cargar scripts: bloquear redirecciones a inicio -->
   <script>
     // Sincronizar barra espejo con la tabla
@@ -805,6 +805,103 @@ v   <html lang="es">
           window.debugThemeColors();
         }
       }, 2000);
+
+      // Debug para verificar elemento activo del sidebar
+      setTimeout(() => {
+        try {
+          const sidebar = document.querySelector('.sidebar');
+          const activeAttr = sidebar ? sidebar.getAttribute('data-active') : null;
+          const activeElements = document.querySelectorAll('.sidebar .btn-sidebar.is-active, .sidebar a.active');
+          
+          console.log(' [SIDEBAR DEBUG] data-active:', activeAttr);
+          console.log(' [SIDEBAR DEBUG] Elementos activos encontrados:', activeElements.length);
+          
+          activeElements.forEach((el, i) => {
+            console.log(` [SIDEBAR DEBUG] Elemento activo ${i}:`, {
+              text: el.textContent?.trim(),
+              classes: Array.from(el.classList),
+              styles: {
+                background: el.style.backgroundColor || getComputedStyle(el).backgroundColor,
+                color: el.style.color || getComputedStyle(el).color
+              }
+            });
+          });
+          
+          if (activeElements.length === 0) {
+            console.warn('⚠️ [SIDEBAR DEBUG] No se encontraron elementos activos. Verificar data-active y sidebar-loader.js');
+          }
+        } catch (e) {
+          console.warn('[SIDEBAR DEBUG] Error:', e);
+        }
+      }, 3000);
+
+      // Función para forzar normalización de multimedia
+      window.normalizeMultimediaElement = function() {
+        try {
+          const multimediaElements = document.querySelectorAll(
+            '.sidebar a[href*="multimedia"], .sidebar .btn-sidebar[href*="multimedia"]'
+          );
+          
+          console.log('🎬 [MULTIMEDIA DEBUG] Elementos multimedia encontrados:', multimediaElements.length);
+          
+          multimediaElements.forEach((element, i) => {
+            console.log(`🎬 [MULTIMEDIA DEBUG] Normalizando elemento ${i}:`, element);
+            
+            // Remover cualquier estilo inline que pueda estar causando diferencias
+            element.style.cssText = '';
+            
+            // Normalizar el ícono
+            const icon = element.querySelector('i');
+            if (icon) {
+              icon.style.cssText = '';
+              icon.style.setProperty('font-weight', '900', 'important');
+              icon.style.setProperty('font-size', '1.1rem', 'important');
+              icon.style.setProperty('color', 'inherit', 'important');
+              icon.style.setProperty('text-shadow', 'none', 'important');
+              icon.style.setProperty('opacity', '1', 'important');
+              icon.style.setProperty('background', 'none', 'important');
+              icon.style.setProperty('border', 'none', 'important');
+              icon.style.setProperty('box-shadow', 'none', 'important');
+              icon.style.setProperty('filter', 'none', 'important');
+              
+              console.log(`🎬 [MULTIMEDIA DEBUG] Ícono ${i} normalizado:`, {
+                fontWeight: icon.style.fontWeight,
+                fontSize: icon.style.fontSize,
+                color: icon.style.color
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('[MULTIMEDIA DEBUG] Error:', e);
+        }
+      };
+
+      // Ejecutar normalización después de que se cargue el sidebar
+      setTimeout(() => {
+        if (window.normalizeMultimediaElement) {
+          window.normalizeMultimediaElement();
+        }
+      }, 4000);
+
+      // Re-ejecutar normalización cada vez que se recargue el sidebar
+      const sidebarObserver = new MutationObserver(() => {
+        setTimeout(() => {
+          if (window.normalizeMultimediaElement) {
+            window.normalizeMultimediaElement();
+          }
+        }, 100);
+      });
+
+      // Observar cambios en el sidebar
+      setTimeout(() => {
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+          sidebarObserver.observe(sidebar, {
+            childList: true,
+            subtree: true
+          });
+        }
+      }, 1000);
     })();
   </script>
   <script>
@@ -855,6 +952,88 @@ v   <html lang="es">
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="js/sidebar-loader.js"></script>
+  
+  <!-- Script inmediato para normalizar multimedia -->
+  <script>
+    // Función global para normalizar multimedia
+    window.forceNormalizeMultimedia = function() {
+      console.log('🎬 [IMMEDIATE] Ejecutando normalización inmediata de multimedia...');
+      
+      const multimediaElements = document.querySelectorAll(
+        '.sidebar a[href*="multimedia"], .sidebar .btn-sidebar[href*="multimedia"], a[title*="Multimedia"]'
+      );
+      
+      console.log('🎬 [IMMEDIATE] Elementos multimedia encontrados:', multimediaElements.length);
+      
+      if (multimediaElements.length === 0) {
+        // Intentar con selectores más amplios
+        const allSidebarLinks = document.querySelectorAll('.sidebar a, .sidebar .btn-sidebar');
+        console.log('🎬 [IMMEDIATE] Total elementos sidebar:', allSidebarLinks.length);
+        
+        allSidebarLinks.forEach((el, i) => {
+          const text = el.textContent?.trim().toLowerCase();
+          const href = el.href || '';
+          if (text.includes('multimedia') || href.includes('multimedia')) {
+            console.log(`🎬 [IMMEDIATE] Encontrado multimedia por texto/href ${i}:`, el);
+            window.normalizeElement(el);
+          }
+        });
+      } else {
+        multimediaElements.forEach((el, i) => {
+          console.log(`🎬 [IMMEDIATE] Normalizando elemento ${i}:`, el);
+          window.normalizeElement(el);
+        });
+      }
+    };
+    
+    window.normalizeElement = function(element) {
+      // Remover estilos inline
+      element.style.cssText = '';
+      
+      // Normalizar el ícono
+      const icon = element.querySelector('i');
+      if (icon) {
+        icon.style.cssText = '';
+        icon.style.setProperty('font-weight', '900', 'important');
+        icon.style.setProperty('font-size', '1.1rem', 'important');
+        icon.style.setProperty('color', 'inherit', 'important');
+        icon.style.setProperty('text-shadow', 'none', 'important');
+        icon.style.setProperty('opacity', '1', 'important');
+        icon.style.setProperty('background', 'none', 'important');
+        icon.style.setProperty('border', 'none', 'important');
+        icon.style.setProperty('box-shadow', 'none', 'important');
+        icon.style.setProperty('filter', 'none', 'important');
+        
+        console.log('🎬 [IMMEDIATE] Ícono normalizado:', {
+          element: icon,
+          fontWeight: icon.style.fontWeight,
+          fontSize: icon.style.fontSize
+        });
+      }
+    };
+    
+    // Ejecutar inmediatamente y luego cada segundo hasta que funcione
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const intervalId = setInterval(() => {
+      attempts++;
+      console.log(`🎬 [IMMEDIATE] Intento ${attempts}/${maxAttempts}`);
+      
+      window.forceNormalizeMultimedia();
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        console.log('🎬 [IMMEDIATE] Máximo de intentos alcanzado');
+      }
+    }, 1000);
+    
+    // También ejecutar cuando se dispare el evento de sidebar cargado
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(window.forceNormalizeMultimedia, 2000);
+      setTimeout(window.forceNormalizeMultimedia, 5000);
+    });
+  </script>
   <!-- <script src="js/monthly-cutoff.js"></script> -->
   <!-- Date Formatter - DEBE CARGARSE ANTES DE TEAMS.JS -->
   <!-- <script src="js/date-formatter.js?v=20251024"></script> -->

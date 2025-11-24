@@ -265,6 +265,15 @@ body.auto-hide-sidebar .sidebar .btn-sidebar.is-active .menu-label { display: no
   font-weight: 600;
 }
 
+/* Elemento activo en tema oscuro */
+body.dark-theme .sidebar a.active {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  border-left-color: #1d4ed8 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 2px #1d4ed8 !important;
+}
+
 .sidebar a.logout-btn {
   color: #dc2626;
   margin-top: 10px;
@@ -274,6 +283,136 @@ body.auto-hide-sidebar .sidebar .btn-sidebar.is-active .menu-label { display: no
   background: #fee2e2;
   color: #b91c1c;
   border-left-color: #dc2626;
+}
+
+/* ===== TEMA CLARO PARA SIDEBAR ===== */
+body:not(.dark-theme) .sidebar {
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.06);
+}
+
+body:not(.dark-theme) .sidebar::-webkit-scrollbar-track {
+  background: #f3f7fb;
+}
+
+body:not(.dark-theme) .sidebar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+body:not(.dark-theme) .sidebar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* User Info Section - tema claro */
+body:not(.dark-theme) .user-info {
+  background: linear-gradient(180deg, #f1f8ff 0%, #eef6ff 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+body:not(.dark-theme) .user-name {
+  color: #1f2937;
+}
+
+body:not(.dark-theme) .user-role {
+  color: #64748b;
+}
+
+/* User Stats Section - tema claro */
+body:not(.dark-theme) .user-stats {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+body:not(.dark-theme) .stat-item {
+  color: #475569;
+}
+
+body:not(.dark-theme) .stat-value {
+  color: #1e293b;
+}
+
+body:not(.dark-theme) .stat-label {
+  color: #64748b;
+}
+
+/* Sidebar Heading - tema claro */
+body:not(.dark-theme) .sidebar h3 {
+  color: #0ea5e9;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Navigation Menu - tema claro */
+body:not(.dark-theme) .sidebar a {
+  color: #475569;
+}
+
+body:not(.dark-theme) .sidebar a:hover {
+  background: #e9f6ff;
+  color: #0f172a;
+  border-left-color: #0ea5e9;
+}
+
+body:not(.dark-theme) .sidebar a.active {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-left-color: #0284c7;
+}
+
+body:not(.dark-theme) .sidebar a.logout-btn {
+  color: #dc2626;
+}
+
+body:not(.dark-theme) .sidebar a.logout-btn:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-left-color: #dc2626;
+}
+
+/* ===== ANIMACIONES ESPECIALES PARA SIDEBAR ===== */
+/* Animación sutil de pulse para iconos */
+@keyframes iconPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes iconGlow {
+  0% { text-shadow: 0 0 5px rgba(34, 179, 236, 0.3); }
+  50% { text-shadow: 0 0 10px rgba(34, 179, 236, 0.6), 0 0 15px rgba(34, 179, 236, 0.4); }
+  100% { text-shadow: 0 0 5px rgba(34, 179, 236, 0.3); }
+}
+
+/* Aplicar animación sutil a todos los iconos del sidebar */
+.sidebar a i {
+  transition: all 0.3s ease;
+  animation: iconPulse 3s ease-in-out infinite;
+}
+
+/* Asegurar que multimedia se vea igual que los demás - sin animaciones especiales */
+.sidebar a[href*="multimedia"] i {
+  animation: iconPulse 3s ease-in-out infinite; /* Misma animación que todos */
+}
+
+/* Normalizar el ícono fa-photo-video para que se vea igual que los demás */
+.sidebar a i.fa-photo-video {
+  font-weight: 900 !important; /* Mismo peso que otros iconos */
+  font-size: inherit !important; /* Mismo tamaño que otros iconos */
+  color: inherit !important; /* Mismo color que otros iconos */
+  text-shadow: none !important; /* Sin sombras especiales */
+  opacity: 1 !important; /* Opacidad normal */
+}
+
+/* Pausar animación cuando se hace hover para mejor UX */
+.sidebar a:hover i {
+  animation-play-state: paused;
+  transform: scale(1.1);
+}
+
+/* Animación especial para elemento activo */
+.sidebar a.active i {
+  animation: iconGlow 1.5s ease-in-out infinite;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 }
 
 /* Responsive */
