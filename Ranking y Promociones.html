@@ -2306,27 +2306,33 @@
 
             const getScore = (item) => {
               // Usar los valores EXACTOS sin redondeo
-              if (typeof item?.puntos === 'number') return item.puntos;
-              if (typeof item?.promedio === 'number') return item.promedio;
-              return 0;
-            };
 
-            // Formatear evitando artefactos binarios (2.6999999999999997 -> 2.7)
-            function formatScore(n){
-              if (typeof n !== 'number' || !isFinite(n)) return '0';
-              // Si es prácticamente un número con 2 decimales exactos, normalizar a 2 decimales
-              const r2 = Math.round((n + Number.EPSILON) * 100) / 100;
-              if (Math.abs(n - r2) < 1e-9) n = r2;
-              let s = n.toString();
-              if (s.includes('e') || s.includes('E')) s = n.toFixed(12);
-              // Quitar ceros finales y punto si queda al final
-              s = s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
-              return s;
+          // Formatear evitando artefactos binarios (2.6999999999999997 -> 2.7)
+          function formatScore(n){
+            if (typeof n !== 'number' || !isFinite(n)) return '0';
+            
+            // Redondear a 2 decimales para evitar números largos
+            const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
+            
+            // Si es un número entero, mostrar sin decimales
+            if (rounded === Math.floor(rounded)) {
+              return rounded.toString();
             }
+            
+            // Si tiene decimales, mostrar máximo 2 decimales y quitar ceros finales
+            return rounded.toFixed(2).replace(/\.?0+$/, '');
+          }
 
-            const setSlot = (selectorBase, item) => {
-              if (!item) return;
-              const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
+          const setSlot = (selectorBase, item) => {
+            if (!item) return;
+            const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
+            const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
+            const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
+            if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
+            if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
+            // Si en el futuro llega imageUrl
+            if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
+          };
               const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
@@ -2661,7 +2667,15 @@
             const [top1, top2, top3] = [safe[0]||{}, safe[1]||{}, safe[2]||{}];
             const getScore = (it)=> (typeof it.sumPuntaje==='number'?it.sumPuntaje:(typeof it.puntos==='number'?it.puntos:(typeof it.promedio==='number'?it.promedio:0)));
             const fmt = (n)=>{
-              const v = Number(n)||0; let s = v.toString(); if(s.includes('e')||s.includes('E')) s=v.toFixed(12); return s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+              const v = Number(n)||0;
+              // Redondear a 2 decimales para evitar números largos
+              const rounded = Math.round((v + Number.EPSILON) * 100) / 100;
+              // Si es entero, mostrar sin decimales
+              if (rounded === Math.floor(rounded)) {
+                return rounded.toString();
+              }
+              // Si tiene decimales, mostrar máximo 2 y quitar ceros finales
+              return rounded.toFixed(2).replace(/\.?0+$/, '');
             };
             const setSlot=(sel,it)=>{
               const nameEl=document.querySelector(`${sel} .astronaut-name`);

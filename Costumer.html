@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 v   <html lang="es">
 <head>
@@ -11,7 +12,7 @@ v   <html lang="es">
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251024">
+  <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251124">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
   <link rel="stylesheet" href="css/costumer-table-comments.css">`n  <link rel="stylesheet" href="css/costumer-calendar.css">
   <link rel="stylesheet" href="css/sidebar-shared.css">
@@ -557,12 +558,27 @@ v   <html lang="es">
       function statusToColor(val){
         try{
           const t=String(val||'').trim().toLowerCase();
-          if(/cancel/.test(t)) return '#ffe7e7';
-          if(/hold/.test(t)) return '#fff8db';
-          if(/repro|resched/.test(t)) return '#f2e9ff';
-          if(/complete|active/.test(t)) return '#e9f9ee';
-          return '#f8fafc';
-        }catch{ return '#f8fafc'; }
+          const isDarkTheme = document.body.classList.contains('dark-theme');
+          
+          if (isDarkTheme) {
+            // Colores para tema oscuro
+            if(/cancel/.test(t)) return '#5b2121';
+            if(/hold/.test(t)) return '#5a3a1a';
+            if(/repro|resched/.test(t)) return '#4c1d95';
+            if(/complete|active/.test(t)) return '#164e3b';
+            return '#2c3a51'; // pending color for dark theme
+          } else {
+            // Colores para tema claro (originales)
+            if(/cancel/.test(t)) return '#ffe7e7';
+            if(/hold/.test(t)) return '#fff8db';
+            if(/repro|resched/.test(t)) return '#f2e9ff';
+            if(/complete|active/.test(t)) return '#e9f9ee';
+            return '#f8fafc';
+          }
+        }catch{ 
+          const isDarkTheme = document.body.classList.contains('dark-theme');
+          return isDarkTheme ? '#2c3a51' : '#f8fafc'; 
+        }
       }
       function applyRowClass(tr, statusVal){
         try{
@@ -613,8 +629,52 @@ v   <html lang="es">
         }catch{}
       }
 
+      // Función para forzar recoloreo completo (útil después de cambios de tema)
+      window.forceRecolorAllRows = function() {
+        try {
+          const tbody = document.getElementById('costumer-tbody');
+          if (!tbody) return;
+          
+          const rows = Array.from(tbody.querySelectorAll('tr')).filter(tr => 
+            !tr.classList.contains('costumer-month-separator')
+          );
+          
+          rcLog('forceRecolorAllRows: processing', rows.length, 'rows');
+          
+          rows.forEach(tr => {
+            const statusTd = tr.children[8]; // columna de status
+            if (!statusTd) return;
+            
+            let statusValue = '';
+            
+            // Obtener valor del status desde diferentes fuentes
+            const select = statusTd.querySelector('select');
+            if (select && select.value) {
+              statusValue = select.value;
+            } else if (statusTd.dataset.status) {
+              statusValue = statusTd.dataset.status;
+            } else {
+              statusValue = (statusTd.textContent || '').trim();
+            }
+            
+            if (statusValue) {
+              _statusPainting = true;
+              try {
+                applyRowClass(tr, statusValue);
+              } finally {
+                _statusPainting = false;
+              }
+            }
+          });
+          
+          rcLog('forceRecolorAllRows: completed');
+        } catch (e) {
+          console.warn('forceRecolorAllRows error:', e);
+        }
+      };
+
       // Exponer para uso externo si se requiere
-      window._statusRowHelpers = { statusToClass, applyRowClass, installStatusObserver };
+      window._statusRowHelpers = { statusToClass, applyRowClass, installStatusObserver, forceRecolorAllRows: window.forceRecolorAllRows };
 
       // Delegado: cuando cambie un select de STATUS dentro de la tabla, aplicar color inmediato
       document.addEventListener('change', function(ev){
@@ -675,6 +735,76 @@ v   <html lang="es">
         installStatusObserver();
         startKeepAliveInitial();
       }
+
+      // Observer para cambios de tema - recolorear filas cuando cambie el tema
+      try {
+        const themeObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+              const target = mutation.target;
+              if (target === document.body) {
+                // El tema cambió, recolorear todas las filas
+                rcLog('Theme change detected, recoloring rows');
+                setTimeout(() => {
+                  try {
+                    // Usar la función específica para recoloreo completo
+                    if (typeof window.forceRecolorAllRows === 'function') {
+                      window.forceRecolorAllRows();
+                    } else if (typeof window.applyRowStatusColors === 'function') {
+                      window.applyRowStatusColors();
+                    }
+                  } catch (e) {
+                    console.warn('Error recoloring after theme change:', e);
+                  }
+                }, 100);
+              }
+            }
+          });
+        });
+        
+        themeObserver.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['class']
+        });
+        
+        rcLog('Theme observer installed');
+      } catch (e) {
+        console.warn('Could not install theme observer:', e);
+      }
+
+      // Función de debug para verificar colores
+      window.debugThemeColors = function() {
+        console.log('=== DEBUG THEME COLORS ===');
+        console.log('Dark theme active:', document.body.classList.contains('dark-theme'));
+        console.log('statusToColor test (pending):', statusToColor('pending'));
+        console.log('statusToColor test (completed):', statusToColor('completed'));
+        console.log('statusToColor test (canceled):', statusToColor('canceled'));
+        
+        const tbody = document.getElementById('costumer-tbody');
+        if (tbody) {
+          const rows = tbody.querySelectorAll('tr');
+          console.log('Total rows found:', rows.length);
+          
+          Array.from(rows).slice(0, 3).forEach((row, i) => {
+            const statusTd = row.children[8];
+            if (statusTd) {
+              console.log(`Row ${i}:`, {
+                status: statusTd.textContent?.trim(),
+                backgroundColor: row.style.backgroundColor,
+                classes: Array.from(row.classList)
+              });
+            }
+          });
+        }
+        console.log('=== END DEBUG ===');
+      };
+
+      // Auto-ejecutar debug después de cargar
+      setTimeout(() => {
+        if (window.debugThemeColors) {
+          window.debugThemeColors();
+        }
+      }, 2000);
     })();
   </script>
   <script>
@@ -1816,6 +1946,10 @@ v   <html lang="es">
             <button id="bulk-excel-btn" class="action-btn" title="Actualizar status desde Excel" style="display:none; margin-left:6px;">
               <i class="fas fa-file-excel" style="color:#1f8a22;"></i>
             </button>
+            <!-- Botón temporal para debug de colores -->
+            <button id="debug-colors-btn" class="action-btn" title="Debug Colores - Forzar recoloreo" style="margin-left:6px; background:#ff6b35; color:white; font-weight:bold;">
+              <i class="fas fa-palette"></i> Debug
+            </button>
           </div>
         </div>
         
@@ -2760,6 +2894,7 @@ v   <html lang="es">
       const toggleBtn = document.getElementById('toggle-compact');
       const refreshBtn = document.getElementById('refresh-table');
       const forceAllBtn = document.getElementById('toggle-forceall');
+      const debugColorsBtn = document.getElementById('debug-colors-btn');
 
       if (toggleBtn) {
         toggleBtn.addEventListener('click', function() {
@@ -2781,6 +2916,54 @@ v   <html lang="es">
             }
           }
           finally { icon.className = prev; }
+        });
+      }
+
+      // Botón de debug para colores
+      if (debugColorsBtn) {
+        debugColorsBtn.addEventListener('click', function() {
+          console.log('🎨 === MANUAL DEBUG COLORS ===');
+          
+          // Mostrar estado actual
+          const isDark = document.body.classList.contains('dark-theme');
+          console.log('🌙 Tema oscuro activo:', isDark);
+          
+          // Contar filas
+          const tbody = document.getElementById('costumer-tbody');
+          const rows = tbody ? tbody.querySelectorAll('tr:not(.costumer-month-separator)') : [];
+          console.log('📊 Filas encontradas:', rows.length);
+          
+          // Ejecutar función de debug
+          if (typeof window.debugThemeColors === 'function') {
+            window.debugThemeColors();
+          }
+          
+          // Forzar recoloreo INMEDIATO
+          if (typeof window.forceRecolorAllRows === 'function') {
+            console.log('🔄 Ejecutando forceRecolorAllRows...');
+            window.forceRecolorAllRows();
+          }
+          
+          // Mostrar muestra de colores aplicados
+          setTimeout(() => {
+            const sampleRows = Array.from(rows).slice(0, 3);
+            sampleRows.forEach((row, i) => {
+              const statusTd = row.children[8];
+              if (statusTd) {
+                console.log(`🎯 Fila ${i}:`, {
+                  status: statusTd.textContent?.trim(),
+                  backgroundColor: row.style.backgroundColor,
+                  classes: Array.from(row.classList)
+                });
+              }
+            });
+            
+            // Cambiar el color del botón para indicar que se ejecutó
+            debugColorsBtn.style.background = isDark ? '#4ade80' : '#ef4444';
+            setTimeout(() => {
+              debugColorsBtn.style.background = '#ff6b35';
+            }, 1000);
+          }, 150);
         });
       }
 
@@ -5159,6 +5342,21 @@ v   <html lang="es">
           appendLeadRow(item);
         });
         try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
+        
+        // Aplicar colores automáticamente después del renderizado
+        setTimeout(() => {
+          try {
+            if (typeof window.forceRecolorAllRows === 'function') {
+              console.log('[renderWithMonthlySeparators] Aplicando colores automáticamente...');
+              window.forceRecolorAllRows();
+            } else if (typeof window.applyRowStatusColors === 'function') {
+              console.log('[renderWithMonthlySeparators] Aplicando colores (fallback)...');
+              window.applyRowStatusColors();
+            }
+          } catch (e) {
+            console.warn('[renderWithMonthlySeparators] Error aplicando colores:', e);
+          }
+        }, 100);
       }
 
       // Helper: obtener agente can¨®nico desde m¨²ltiples campos y escaneo amplio

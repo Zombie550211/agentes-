@@ -212,9 +212,19 @@ const corsOptions = {
     // Permitir solicitudes sin origen (navegación directa)
     if (!origin) return callback(null, true);
 
-    // Permitir localhost y 127.0.0.1 en cualquier puerto (incluye 3001)
+    // Permitir localhost y 127.0.0.1 en cualquier puerto (incluye 3001, 54056, etc.)
     const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?$/i;
     if (localhostRegex.test(origin)) return callback(null, true);
+    
+    // En desarrollo, permitir cualquier origen localhost
+    if (!isProduction && origin && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    // En desarrollo, permitir cualquier origen 127.0.0.1
+    if (!isProduction && origin && origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
 
     // Permitir el mismo host del servidor (mismo origen)
     try {
