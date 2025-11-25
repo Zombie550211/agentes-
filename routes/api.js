@@ -178,6 +178,47 @@ router.get('/leads', protect, async (req, res) => {
         query = { $and: andConditions };
     }
 
+    // ====== FILTRADO POR ROL SUPERVISOR ======
+    const role = (req.user?.role || '').toLowerCase();
+    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString() || '';
+    console.log(`[API /leads] Usuario: ${req.user?.username}, Rol: ${role}`);
+    
+    if (role === 'supervisor' || role.includes('supervisor')) {
+      console.log('[API /leads] Aplicando filtro de supervisor...');
+      // Obtener variantes del nombre del supervisor
+      const supNames = [req.user?.username, req.user?.name, req.user?.nombre, req.user?.fullName]
+        .filter(v => typeof v === 'string' && v.trim())
+        .map(v => v.trim());
+      
+      // Agregar partes del nombre (nombre, apellido)
+      const allVariants = [];
+      supNames.forEach(n => {
+        allVariants.push(n);
+        n.split(/\s+/).filter(p => p.length > 2).forEach(p => allVariants.push(p));
+      });
+      
+      console.log('[API /leads] Variantes de supervisor:', allVariants);
+      
+      // Crear regex para cada variante
+      const supRegexes = allVariants.map(n => new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+      
+      // Campos donde buscar el supervisor
+      const supervisorFields = ['supervisor', 'team', 'teamName', 'equipo', 'SUPERVISOR'];
+      const supervisorOr = supervisorFields.map(f => ({ [f]: { $in: supRegexes } }));
+      
+      // Agregar filtro de supervisor al query
+      if (query.$and) {
+        query.$and.push({ $or: supervisorOr });
+      } else if (Object.keys(query).length > 0) {
+        query = { $and: [query, { $or: supervisorOr }] };
+      } else {
+        query = { $or: supervisorOr };
+      }
+      
+      console.log('[API /leads] Filtro supervisor aplicado');
+    }
+    // ====== FIN FILTRADO SUPERVISOR ======
+
     const collection = db.collection('costumers');
     const leads = await collection.find(query).sort({ 
       dia_venta: -1,  // Primero por día de venta (más reciente primero)
@@ -628,6 +669,226 @@ router.get('/leads/check-dates', async (req, res) => {
     });
   } catch (error) {
     console.error('Error en check-dates:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route POST /api/fix-agent-names
+ * @desc Normalizar nombres de agentes duplicados (ej: Alejandramelara -> Alejandra Melara)
+ * @access Private (admin only)
+ */
+// Endpoint para verificar conteos por agente (MENSUAL)
+// Verificar registros específicos de un agente
+router.get('/verify-agent-detail', async (req, res) => {
+  try {
+    const db = getDb();
+    const agente = req.query.agente || 'Lucia Ferman';
+    const mes = req.query.mes || '2025-11';
+    const [year, month] = mes.split('-').map(Number);
+    
+    const collection = db.collection('costumers');
+    
+    // Buscar todos los registros del agente
+    const regexAgente = new RegExp(agente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const allRecords = await collection.find({
+      $or: [
+        { agenteNombre: regexAgente },
+        { agente: regexAgente },
+        { createdBy: regexAgente }
+      ]
+    }).toArray();
+    
+    // Filtrar por mes
+    const mesRecords = allRecords.filter(r => {
+      const dv = r.dia_venta || '';
+      if (dv.match(/^\d{4}-\d{2}/)) {
+        const [y, m] = dv.split('-').map(Number);
+        return y === year && m === month;
+      }
+      return false;
+    });
+    
+    res.json({
+      success: true,
+      agente,
+      mes,
+      totalTodosLosMeses: allRecords.length,
+      totalMesActual: mesRecords.length,
+      registrosMes: mesRecords.map(r => ({
+        _id: r._id,
+        nombre_cliente: r.nombre_cliente,
+        dia_venta: r.dia_venta,
+        status: r.status,
+        team: r.team,
+        supervisor: r.supervisor,
+        // Campos de agente para diagnóstico
+        agente: r.agente,
+        agenteNombre: r.agenteNombre,
+        agenteId: r.agenteId,
+        createdBy: r.createdBy
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/verify-agent-counts', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const collection = db.collection('costumers');
+    
+    // Mes actual: noviembre 2025
+    const mesActual = req.query.mes || '2025-11';
+    const [year, month] = mesActual.split('-').map(Number);
+    
+    // Filtro por mes en dia_venta
+    const mesFilter = {
+      $or: [
+        { dia_venta: { $regex: `^${year}-${String(month).padStart(2, '0')}` } },
+        { dia_venta: { $regex: `^[0-9]{2}/${String(month).padStart(2, '0')}/${year}` } }
+      ]
+    };
+    
+    // Contar por agenteNombre para el mes
+    const agenteNombreCounts = await collection.aggregate([
+      { $match: mesFilter },
+      { $group: { _id: "$agenteNombre", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]).toArray();
+
+    // Contar por team/supervisor
+    const teamCounts = await collection.aggregate([
+      { $match: mesFilter },
+      { $group: { _id: "$team", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]).toArray();
+
+    // Total del mes
+    const totalMes = await collection.countDocuments(mesFilter);
+
+    res.json({
+      success: true,
+      mes: mesActual,
+      totalMes,
+      porAgenteNombre: agenteNombreCounts,
+      porTeam: teamCounts
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Corregir team de Jonathan Morales (de ROBERTO a MARISOL)
+router.get('/fix-jonathan-team', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const collection = db.collection('costumers');
+    
+    // Buscar registros de Jonathan Morales
+    const jonathanRegex = /jonathan\s*morales/i;
+    
+    // Actualizar team y supervisor a MARISOL
+    const result = await collection.updateMany(
+      {
+        $or: [
+          { agenteNombre: jonathanRegex },
+          { agente: jonathanRegex },
+          { createdBy: jonathanRegex }
+        ]
+      },
+      {
+        $set: {
+          team: 'MARISOL',
+          supervisor: 'MARISOL',
+          equipo: 'MARISOL'
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `Jonathan Morales movido al team MARISOL`,
+      registrosActualizados: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/fix-agent-names', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    // Mapeo de nombres incorrectos -> nombre correcto
+    const NAME_FIXES = {
+      'Alejandramelara': 'Alejandra Melara',
+      'alejandramelara': 'Alejandra Melara',
+      'Melissaescobar': 'Melissa Escobar',
+      'melissaescobar': 'Melissa Escobar',
+      'Michelleleiva': 'Michelle Leiva',
+      'michelleleiva': 'Michelle Leiva',
+      'Eduardor': 'Eduardo R',
+      'eduardor': 'Eduardo R',
+      'abigail.bernal': 'Abigail Bernal',
+      'Abigail.Bernal': 'Abigail Bernal',
+      'jorge.segovia': 'Jorge Segovia',
+      'Jorge.Segovia': 'Jorge Segovia',
+      'JORGE.SEGOVIA': 'Jorge Segovia',
+      'nicole.cruz': 'Nicole Cruz',
+      'Nicole.Cruz': 'Nicole Cruz',
+      'mIguel Nunez': 'Miguel Nunez',
+      'johanna Santana': 'Johanna Santana',
+      'Fabricio Panameno': 'Fabricio Panameño',
+    };
+
+    const AGENT_FIELDS = ['agente', 'agenteNombre', 'createdBy', 'usuario', 'vendedor', 'asignadoA', 'assignedTo'];
+    const collection = db.collection('costumers');
+    
+    const results = [];
+    let totalUpdated = 0;
+
+    for (const [wrongName, correctName] of Object.entries(NAME_FIXES)) {
+      for (const field of AGENT_FIELDS) {
+        // Buscar con regex case-insensitive
+        const regexQuery = new RegExp(`^${wrongName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        const result = await collection.updateMany(
+          { [field]: regexQuery },
+          { $set: { [field]: correctName } }
+        );
+        
+        if (result.modifiedCount > 0) {
+          results.push({ field, from: wrongName, to: correctName, count: result.modifiedCount });
+          totalUpdated += result.modifiedCount;
+        }
+      }
+    }
+
+    console.log(`[FIX NAMES] Total actualizados: ${totalUpdated}`);
+    res.json({ 
+      success: true, 
+      message: `${totalUpdated} registros actualizados`,
+      details: results
+    });
+
+  } catch (error) {
+    console.error('Error en fix-agent-names:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

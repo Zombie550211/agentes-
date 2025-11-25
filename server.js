@@ -1701,7 +1701,8 @@ app.get('/api/customers', protect, async (req, res) => {
     if (req.user) {
       const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
       const role = (req.user.role || '').toLowerCase();
-      console.log(`[DEBUG] Usuario autenticado - ID: ${currentUserId}, Rol: ${role}, forceAll=${forceAll}`);
+      console.log(`[DEBUG] Usuario autenticado - ID: ${currentUserId}, Rol: "${role}", Rol original: "${req.user.role}", forceAll=${forceAll}`);
+      console.log(`[DEBUG] ¿Es supervisor? role === 'supervisor': ${role === 'supervisor'}, includes: ${role.includes('supervisor')}`);
 
       // Lista de posibles campos de asignación de agente en los documentos (IDs)
       const agentFieldCandidates = [
@@ -1770,7 +1771,7 @@ app.get('/api/customers', protect, async (req, res) => {
 
         query.$or = nameAndIfNoIds ? [...idOr, nameAndIfNoIds] : [...idOr];
         console.log('[DEBUG] Rol agent: forceAll ignorado. Filtro por IDs aplicado en:', agentFieldCandidates, ' y fallback por nombre en campos:', textFields, ' names:', nameCandidates);
-      } else if (role === 'supervisor') {
+      } else if (role === 'supervisor' || role.includes('supervisor')) {
         // Ver solo los de su equipo (soportar ObjectId y string) SIEMPRE
         // 1) Intentar por IDs de agentes que tengan supervisorId = currentUserId (string u ObjectId)
         let supOid = null;
@@ -1796,7 +1797,14 @@ app.get('/api/customers', protect, async (req, res) => {
         const seenSup = new Set();
         const supNameCandidates = supNameCandidatesRaw.filter(n => { const k = n.toLowerCase(); if (seenSup.has(k)) return false; seenSup.add(k); return true; });
         const normalize = (s) => s.replace(/\s+/g, ' ').trim();
-        const supRegexes = supNameCandidates.map(n => {
+        // Agregar variantes: partes del nombre (nombre, apellido) para coincidir con "ROBERTO" cuando el user es "Roberto Velasquez"
+        const allSupVariants = [];
+        supNameCandidates.forEach(n => {
+          allSupVariants.push(n);
+          n.split(/\s+/).filter(p => p.length > 2).forEach(p => allSupVariants.push(p));
+        });
+        console.log('[DEBUG] Supervisor variantes de búsqueda:', allSupVariants);
+        const supRegexes = allSupVariants.map(n => {
           try {
             const escaped = normalize(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             return new RegExp(escaped, 'i');
@@ -1886,7 +1894,7 @@ app.get('/api/customers', protect, async (req, res) => {
         console.log('[DEBUG] Rol supervisor: forceAll ignorado. Filtro aplicado. IDs agentes:', bothTypesArray.map(x=>x.toString()), ' | Campos supervisor:', supervisorTextFields, ' | Nombres sup:', supNameCandidates, ' | Campos agente:', agentTextFields, ' | Nombres agentes:', agentNameCandidates);
       } else {
         // Solo roles privilegiados ven todo; para cualquier otro rol, filtrar por su propio ID
-        const privileged = ['administrador','admin','backoffice','supervisor','supervisor team lineas'];
+        const privileged = ['administrador','admin','backoffice'];
         if (privileged.includes(role)) {
           console.log('[DEBUG] Rol privilegiado: sin filtro por agenteId');
         } else {

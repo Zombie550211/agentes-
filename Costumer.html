@@ -5699,14 +5699,40 @@ v   <html lang="es">
             return (teamsApi2FT && typeof teamsApi2FT.canonicalFromName==='function') ? teamsApi2FT.canonicalFromName(cand) : norm2FT(cand);
           };
           let listFT = [];
-          if (Array.isArray(leadsArray)) {
+          // IMPORTANTE: Usar TODOS los datos, no solo los paginados
+          const allLeadsFT = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : leadsArray;
+          console.log('[ForceTeam] Filtrando sobre TODOS los datos:', allLeadsFT.length, '(no paginados)');
+          if (Array.isArray(allLeadsFT)) {
             if (window.supervisorAgentFilter) {
               // Si hay agente seleccionado, filtrar directo por agente sobre todos los leads
               try { console.debug('[ForceTeam] Filtrado estricto por agente seleccionado'); } catch(_) {}
-              listFT = leadsArray.filter(l => matchSelectedAgent(l, window.supervisorAgentFilter));
+              // Usar comparación flexible para incluir variantes del nombre
+              const sel = window.supervisorAgentFilter;
+              const selNorm = (sel||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+              const selTokens = (sel||'').toLowerCase().split(/\s+/).filter(Boolean);
+              listFT = allLeadsFT.filter(l => {
+                try {
+                  const c = typeof getAgentCanonUniversal === 'function' ? getAgentCanonUniversal(l) : '';
+                  if (c === sel) return true;
+                  // Comparación flexible: sin espacios ni tildes
+                  const cNorm = (c||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+                  if (cNorm === selNorm) return true;
+                  // Comparación por tokens (nombre y apellido)
+                  if (selTokens.length > 1 && selTokens.every(t => c.toLowerCase().includes(t))) return true;
+                  // Comparación directa en campos del registro
+                  const campos = [l?.agenteNombre, l?.agente, l?.createdBy, l?._raw?.agenteNombre, l?._raw?.agente].filter(Boolean);
+                  for (const campo of campos) {
+                    const campoNorm = (campo||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+                    if (campoNorm === selNorm) return true;
+                    if (selTokens.every(t => campo.toLowerCase().includes(t))) return true;
+                  }
+                  return false;
+                } catch { return false; }
+              });
+              console.log('[ForceTeam] Filtrado flexible por agente:', sel, '-> Resultados:', listFT.length);
             } else {
               // Sin agente seleccionado, limitar por miembros del team
-              listFT = leadsArray.filter(l => {
+              listFT = allLeadsFT.filter(l => {
                 const c1 = getAgentCanonFT(l);
                 const c2 = tryCanonNameFT(l);
                 return teamAgentsFT.includes(c1) || teamAgentsFT.includes(c2);
@@ -5956,9 +5982,27 @@ v   <html lang="es">
                   const t = normTxt(st||'');
                   return t.includes('cancel') || t.includes('anulad') || t.includes('no instalado');
                 };
-                // Conteo total efectivo dentro del team
+                // Filtrar por mes actual
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth() + 1;
+                const isCurrentMonth = (l) => {
+                  const dv = l?.dia_venta || l?._raw?.dia_venta || '';
+                  if (!dv) return false;
+                  if (dv.match(/^\d{4}-\d{2}/)) {
+                    const [y, m] = dv.split('-').map(Number);
+                    return y === currentYear && m === currentMonth;
+                  }
+                  if (dv.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+                    const [d, m, y] = dv.split('/').map(Number);
+                    return y === currentYear && m === currentMonth;
+                  }
+                  return false;
+                };
+                // Conteo total efectivo dentro del team (solo mes actual)
                 const totalEfectivasTeam = (Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : []).reduce((acc,l)=>{
                   try {
+                    if (!isCurrentMonth(l)) return acc;
                     const c = getAgentCanonUniversal(l);
                     const inTeam = teamAgents.includes(c) || teamAgents.includes(normTxt(l?.agenteNombre||l?.nombreAgente||l?.agente||l?._raw?.agenteNombre||l?._raw?.nombreAgente||l?._raw?.agente||''));
                     if (!inTeam) return acc;
@@ -5976,7 +6020,7 @@ v   <html lang="es">
                 const display = (teamsApi && typeof teamsApi.getDisplayName === 'function')
                   ? teamsApi.getDisplayName(a)
                   : a.replace(/\b\w/g, c => c.toUpperCase());
-                // Calcular conteo de ventas efectivas por agente
+                // Calcular conteo de ventas efectivas por agente (solo mes actual)
                 let count = 0;
                 try {
                   const normTxt = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
@@ -5984,8 +6028,28 @@ v   <html lang="es">
                     const t = normTxt(st||'');
                     return t.includes('cancel') || t.includes('anulad') || t.includes('no instalado');
                   };
+                  // Filtrar por mes actual
+                  const now = new Date();
+                  const currentYear = now.getFullYear();
+                  const currentMonth = now.getMonth() + 1;
+                  const isCurrentMonth = (l) => {
+                    const dv = l?.dia_venta || l?._raw?.dia_venta || '';
+                    if (!dv) return false;
+                    // Formato YYYY-MM-DD
+                    if (dv.match(/^\d{4}-\d{2}/)) {
+                      const [y, m] = dv.split('-').map(Number);
+                      return y === currentYear && m === currentMonth;
+                    }
+                    // Formato DD/MM/YYYY
+                    if (dv.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+                      const [d, m, y] = dv.split('/').map(Number);
+                      return y === currentYear && m === currentMonth;
+                    }
+                    return false;
+                  };
                   count = (Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : []).reduce((acc,l)=>{
                     try {
+                      if (!isCurrentMonth(l)) return acc;
                       const c = getAgentCanonUniversal(l);
                       if (c !== a) return acc;
                       const st = l?.status || l?._raw?.status || '';
@@ -6081,7 +6145,10 @@ v   <html lang="es">
           } catch(e) { console.warn('[Supervisor] No se pudo preparar ID->Canon:', e); }
           // Construir la lista filtrada para la vista Supervisor
           let list = [];
-          if (Array.isArray(leadsArray)) {
+          // IMPORTANTE: Usar TODOS los datos, no solo los paginados
+          const allLeads = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : leadsArray;
+          console.log('[Supervisor] Filtrando sobre TODOS los datos:', allLeads.length, '(no paginados)');
+          if (Array.isArray(allLeads)) {
             if (window.supervisorAgentFilter) {
               // Si hay agente seleccionado, filtrar directo por agente sobre todos los leads
               try { console.debug('[Supervisor] Filtrado estricto por agente seleccionado'); } catch(_) {}
@@ -6090,10 +6157,33 @@ v   <html lang="es">
                 const normId = (v) => { if(!v) return ''; if (typeof v==='object') return String(v.$oid||v.id||v._id||v.value||''); const s=String(v); const m=s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/); return m?m[1]:s; };
                 const getAnyAgentId = (l) => normId(l?.ownerId) || normId(l?.agentId) || normId(l?.registeredById) || normId(l?.createdBy) || normId(l?.agenteId) || normId(l?.creadoPor) || normId(l?._raw?.ownerId) || normId(l?._raw?.agentId) || normId(l?._raw?.registeredById) || normId(l?._raw?.createdBy) || normId(l?._raw?.agenteId) || normId(l?._raw?.creadoPor);
                 const targetId = '68bb1ddd0d4d7cdcb6eb3605';
-                const countById = (leadsArray||[]).filter(l => getAnyAgentId(l) === targetId).length;
+                const countById = (allLeads||[]).filter(l => getAnyAgentId(l) === targetId).length;
                 console.log('[Supervisor][Diag eduardo rivas] leads con ID de Eduardo (antes de filtrar):', countById);
               } catch(_) {}
-              list = leadsArray.filter(l => matchSelectedAgent(l, window.supervisorAgentFilter));
+              // Usar comparación flexible para consistencia con el conteo de botones
+              const sel = window.supervisorAgentFilter;
+              const selNorm = (sel||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+              const selTokens = (sel||'').toLowerCase().split(/\s+/).filter(Boolean);
+              list = allLeads.filter(l => {
+                try {
+                  const c = typeof getAgentCanonUniversal === 'function' ? getAgentCanonUniversal(l) : '';
+                  if (c === sel) return true;
+                  // Comparación flexible: sin espacios ni tildes
+                  const cNorm = (c||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+                  if (cNorm === selNorm) return true;
+                  // Comparación por tokens (nombre y apellido)
+                  if (selTokens.length > 1 && selTokens.every(t => c.toLowerCase().includes(t))) return true;
+                  // Comparación directa en campos del registro
+                  const campos = [l?.agenteNombre, l?.agente, l?.createdBy, l?._raw?.agenteNombre, l?._raw?.agente].filter(Boolean);
+                  for (const campo of campos) {
+                    const campoNorm = (campo||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,'');
+                    if (campoNorm === selNorm) return true;
+                    if (selTokens.every(t => campo.toLowerCase().includes(t))) return true;
+                  }
+                  return false;
+                } catch { return false; }
+              });
+              console.log('[Supervisor] Filtrado flexible por agente:', sel, '-> Resultados:', list.length);
               // Preferir consultar al servidor antes que buscar por tokens locales
               const PREFER_SERVER_FALLBACK = true;
               // Fallback: si qued¨® vac¨ªo y NO preferimos servidor, intentar heur¨ªstica dentro del TEAM
