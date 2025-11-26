@@ -3975,8 +3975,14 @@ v   <html lang="es">
         ].filter(Boolean);
         const raw = candidates.length ? candidates[0] : null;
         if (!raw) return '';
+        
+        // Validar que el año esté en rango razonable (2024-2030)
+        const isValidYear = (y) => y >= 2024 && y <= 2030;
+        
         const toYMD = (d) => {
           const y = d.getFullYear();
+          // Solo aceptar fechas entre 2024 y 2030
+          if (!isValidYear(y)) return '';
           const m = String(d.getMonth() + 1).padStart(2, '0');
           const day = String(d.getDate()).padStart(2, '0');
           return `${y}-${m}-${day}`;
@@ -3990,7 +3996,10 @@ v   <html lang="es">
         if (typeof raw === 'string') {
           const s = raw.trim();
           // ISO puro YYYY-MM-DD
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            const year = parseInt(s.slice(0,4), 10);
+            return isValidYear(year) ? s : '';
+          }
           // ISO con hora
           if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
             const dt = new Date(s);
@@ -3999,12 +4008,13 @@ v   <html lang="es">
           // Formato D/M/YYYY o DD/MM/YYYY
           if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
             const [d, m, y] = s.split('/').map(n => parseInt(n, 10));
+            if (!isValidYear(y)) return '';
             const dt = new Date(y, m - 1, d);
             return isNaN(dt) ? '' : toYMD(dt);
           }
-          // Strings tipo Date.toString()
-          const dt = new Date(s);
-          return isNaN(dt) ? '' : toYMD(dt);
+          // NO parsear strings arbitrarios - causa fechas incorrectas
+          // Solo aceptar formatos reconocidos arriba
+          return '';
         }
         // Objetos Date
         if (raw instanceof Date) {
