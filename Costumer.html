@@ -2591,6 +2591,24 @@ v   <html lang="es">
             <button onclick="agregarNotaCliente()" style="position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
               <i class="fas fa-plus"></i> Agregar Nota
             </button>
+            <!-- Botones para adjuntar archivos -->
+            <div style="position: absolute; bottom: 10px; left: 10px; display: flex; gap: 8px;">
+              <input type="file" id="note-image-input" accept="image/*" style="display: none;" onchange="previewNoteAttachment(this, 'image')" />
+              <input type="file" id="note-audio-input" accept="audio/*" style="display: none;" onchange="previewNoteAttachment(this, 'audio')" />
+              <button type="button" onclick="document.getElementById('note-image-input').click()" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#3b82f6'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'" title="Adjuntar imagen">
+                <i class="fas fa-image"></i> Imagen
+              </button>
+              <button type="button" onclick="document.getElementById('note-audio-input').click()" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#8b5cf6'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'" title="Adjuntar audio">
+                <i class="fas fa-microphone"></i> Audio
+              </button>
+            </div>
+          </div>
+          <!-- Vista previa de archivos adjuntos -->
+          <div id="note-attachments-preview" style="display: none; margin-bottom: 15px; padding: 10px; background: #f1f5f9; border-radius: 8px; border: 1px dashed #cbd5e1;">
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 600;">
+              <i class="fas fa-paperclip"></i> Archivos adjuntos:
+            </div>
+            <div id="note-attachments-list" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
           </div>
           <!-- Contenedor de notas dinámico -->
           <div id="edit-notes-list" style="max-height: none; overflow-y: visible; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb;">
@@ -7311,6 +7329,14 @@ v   <html lang="es">
       const author = note.author || '';
       const date = note.at ? new Date(note.at).toLocaleString() : '';
       
+      // Obtener usuario actual para verificar si es el autor
+      const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const currentUsername = (currentUser.username || currentUser.name || currentUser.nombre || '').toLowerCase().trim();
+      const noteAuthor = (author || '').toLowerCase().trim();
+      const isOwner = currentUsername && noteAuthor && (currentUsername === noteAuthor || noteAuthor.includes(currentUsername) || currentUsername.includes(noteAuthor));
+      const isAdmin = (currentUser.role || '').toLowerCase() === 'administrador' || (currentUser.role || '').toLowerCase() === 'backoffice';
+      const canEditDelete = isOwner || isAdmin;
+      
       // Info de creación
       let metaInfo = '';
       if (author || date) {
@@ -7330,10 +7356,26 @@ v   <html lang="es">
         editInfo += `</div>`;
       }
       
-      div.innerHTML = `
-        <span class="note-text">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</span>
-        ${metaInfo}
-        ${editInfo}
+      // Mostrar archivos adjuntos (imágenes y audios)
+      let attachmentsHtml = '';
+      if (note.attachments && note.attachments.length > 0) {
+        attachmentsHtml = '<div class="note-attachments" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">';
+        note.attachments.forEach((att, attIdx) => {
+          if (att.type === 'image') {
+            attachmentsHtml += `<a href="${att.url}" target="_blank" class="note-attachment-img">
+              <img src="${att.url}" alt="Imagen adjunta" style="max-width: 120px; max-height: 80px; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer;" />
+            </a>`;
+          } else if (att.type === 'audio') {
+            attachmentsHtml += `<audio controls style="height: 32px; max-width: 200px;">
+              <source src="${att.url}" type="audio/mpeg">
+            </audio>`;
+          }
+        });
+        attachmentsHtml += '</div>';
+      }
+      
+      // Botones de editar/eliminar solo si es el autor o admin
+      const actionsHtml = canEditDelete ? `
         <div class="note-actions">
           <button class="note-btn note-btn-edit" onclick="editarNota(${index})" title="Editar nota">
             <i class="fas fa-pen"></i>
@@ -7342,6 +7384,14 @@ v   <html lang="es">
             <i class="fas fa-trash"></i>
           </button>
         </div>
+      ` : '';
+      
+      div.innerHTML = `
+        <span class="note-text">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</span>
+        ${attachmentsHtml}
+        ${metaInfo}
+        ${editInfo}
+        ${actionsHtml}
       `;
       return div;
     }
@@ -7494,13 +7544,98 @@ v   <html lang="es">
       }
     };
 
+    // ========== SISTEMA DE ARCHIVOS ADJUNTOS EN NOTAS ==========
+    window.__noteAttachments = []; // Array para almacenar archivos adjuntos temporalmente
+    
+    // Vista previa de archivo adjunto
+    window.previewNoteAttachment = function(input, type) {
+      const file = input.files[0];
+      if (!file) return;
+      
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('El archivo es muy grande. Máximo 5MB.');
+        input.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const attachment = {
+          type: type,
+          name: file.name,
+          data: e.target.result, // Base64
+          url: e.target.result   // Para vista previa
+        };
+        window.__noteAttachments.push(attachment);
+        updateAttachmentsPreview();
+      };
+      reader.readAsDataURL(file);
+      input.value = ''; // Reset input para permitir mismo archivo
+    };
+    
+    // Actualizar vista previa de archivos adjuntos
+    function updateAttachmentsPreview() {
+      const preview = document.getElementById('note-attachments-preview');
+      const list = document.getElementById('note-attachments-list');
+      if (!preview || !list) return;
+      
+      if (window.__noteAttachments.length === 0) {
+        preview.style.display = 'none';
+        return;
+      }
+      
+      preview.style.display = 'block';
+      list.innerHTML = '';
+      
+      window.__noteAttachments.forEach((att, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'position: relative; display: inline-block;';
+        
+        if (att.type === 'image') {
+          item.innerHTML = `
+            <img src="${att.url}" style="max-width: 80px; max-height: 60px; border-radius: 4px; border: 1px solid #cbd5e1;" />
+            <button onclick="removeNoteAttachment(${idx})" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+              <i class="fas fa-times"></i>
+            </button>
+          `;
+        } else if (att.type === 'audio') {
+          item.innerHTML = `
+            <div style="background: #e0e7ff; padding: 6px 10px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: #4338ca;">
+              <i class="fas fa-volume-up"></i>
+              <span style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${att.name}</span>
+              <button onclick="removeNoteAttachment(${idx})" style="background: #ef4444; color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: 4px;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          `;
+        }
+        list.appendChild(item);
+      });
+    }
+    
+    // Eliminar archivo adjunto
+    window.removeNoteAttachment = function(index) {
+      window.__noteAttachments.splice(index, 1);
+      updateAttachmentsPreview();
+    };
+    
+    // Limpiar archivos adjuntos
+    function clearNoteAttachments() {
+      window.__noteAttachments = [];
+      updateAttachmentsPreview();
+    }
+
     // Agregar nota desde el modal
     window.agregarNotaCliente = async function() {
       try {
         const textarea = document.getElementById('edit-nueva-nota');
         const list = document.getElementById('edit-notes-list');
         const text = (textarea?.value || '').trim();
-        if (!text) return alert('Escribe una nota');
+        const hasAttachments = window.__noteAttachments && window.__noteAttachments.length > 0;
+        
+        if (!text && !hasAttachments) return alert('Escribe una nota o adjunta un archivo');
+        
         const leadId = document.getElementById('edit-id').value;
         console.log('[NOTA] Lead ID obtenido del formulario:', leadId, 'longitud:', leadId?.length);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -7510,7 +7645,18 @@ v   <html lang="es">
         const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const author = u.username || u.name || u.nombre || u.fullName || u?.usuario?.name || u?.usuario?.nombre || u?.usuario?.username || 'Usuario';
         console.log('[NOTA] Autor detectado:', author, 'User object:', u);
-        const newNote = { text, author, at: new Date().toISOString() };
+        
+        // Crear nota con archivos adjuntos
+        const newNote = { 
+          text: text || '(Archivo adjunto)', 
+          author, 
+          at: new Date().toISOString(),
+          attachments: hasAttachments ? window.__noteAttachments.map(a => ({
+            type: a.type,
+            name: a.name,
+            url: a.data // Base64
+          })) : []
+        };
 
         // Obtener notas existentes y agregar la nueva al principio
         const current = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
@@ -7544,6 +7690,8 @@ v   <html lang="es">
                 list.innerHTML = '';
                 notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
               }
+              // Limpiar archivos adjuntos
+              clearNoteAttachments();
               console.log('[NOTA] Nota guardada exitosamente');
               // Notificación de Windows
               const clientName = window.__currentEditingLead?.nombre_cliente || window.__currentEditingLead?.nombre || 'Cliente';
