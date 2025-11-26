@@ -6,9 +6,9 @@ const { protect, authorize } = require('../middleware/auth');
 /**
  * @route GET /api/employees-of-month
  * @desc Obtener empleados del mes
- * @access Private
+ * @access Public (visible para todos)
  */
-router.get('/', protect, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const db = getDb();
     if (!db) {

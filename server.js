@@ -1666,7 +1666,11 @@ app.get('/api/customers', protect, async (req, res) => {
 
     // Obtener los parámetros de paginación y filtros
     const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const userRole = (req.user?.role || '').toLowerCase();
+    const isAdminOrBO = userRole === 'administrador' || userRole === 'backoffice' || userRole === 'admin';
+    // Administradores pueden ver hasta 10,000 registros, otros hasta 500
+    const maxLimit = isAdminOrBO ? 10000 : 500;
+    const limit = Math.min(parseInt(req.query.limit) || 200, maxLimit);
     const skip = (page - 1) * limit;
     const fechaInicio = req.query.fechaInicio ? new Date(req.query.fechaInicio) : null;
     const fechaFin = req.query.fechaFin ? new Date(req.query.fechaFin) : null;
@@ -1703,10 +1707,9 @@ app.get('/api/customers', protect, async (req, res) => {
     // - Agent: NUNCA puede ver "todos". Ignorar forceAll y filtrar por su propio agenteId.
     // - Supervisor: NUNCA puede ver "todos". Ignorar forceAll y filtrar por su equipo (agentes asignados a su supervisorId).
     // - Admin/Backoffice: pueden ver todos (sin filtro) y no necesitan forceAll.
-    const userRole = (req.user?.role || '').toLowerCase();
     if (req.user) {
       const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-      const role = (req.user.role || '').toLowerCase();
+      const role = req.user?.role || '';
       console.log(`[DEBUG] Usuario autenticado - ID: ${currentUserId}, Rol: "${role}", Rol original: "${req.user.role}", forceAll=${forceAll}`);
       console.log(`[DEBUG] ¿Es supervisor? role === 'supervisor': ${role === 'supervisor'}, includes: ${role.includes('supervisor')}`);
 

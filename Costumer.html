@@ -6804,11 +6804,38 @@ v   <html lang="es">
     };
 
     // Función para abrir el modal de edición
-    function abrirModalEdicion(lead) {
+    async function abrirModalEdicion(lead) {
       const modal = document.getElementById('editarModal');
       if (!modal) {
         console.error('Modal de edición no encontrado');
         return;
+      }
+
+      // Obtener ID del lead
+      const rawId = lead._id || lead.id || lead._raw?._id || '';
+      const leadId = typeof rawId === 'object' 
+        ? (rawId.$oid || rawId.toString?.() || String(rawId)) 
+        : String(rawId);
+
+      // IMPORTANTE: Recargar datos frescos del servidor para obtener notas actualizadas
+      if (leadId && /^[a-fA-F0-9]{24}$/.test(leadId)) {
+        try {
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          const res = await fetch(`/api/leads/${leadId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const freshLead = data.data || data.lead || data;
+            if (freshLead && (freshLead._id || freshLead.id)) {
+              // Mezclar datos frescos con los locales (priorizando frescos)
+              lead = { ...lead, ...freshLead };
+              console.log('[EDIT MODAL] Datos recargados del servidor, notas:', lead.notas?.length || 0);
+            }
+          }
+        } catch (e) {
+          console.warn('[EDIT MODAL] No se pudieron recargar datos frescos:', e.message);
+        }
       }
 
       // Debug: mostrar todos los campos del lead para diagnóstico
@@ -6825,12 +6852,7 @@ v   <html lang="es">
         return '';
       };
 
-      // Poblar campos del formulario - Normalizar ID
-      const rawId = lead._id || lead.id || lead._raw?._id || '';
-      // Convertir ObjectId o objeto {$oid: "..."} a string
-      const leadId = typeof rawId === 'object' 
-        ? (rawId.$oid || rawId.toString?.() || String(rawId)) 
-        : String(rawId);
+      // Poblar campos del formulario (leadId ya se calculó arriba)
       console.log('[abrirModalEdicion] Lead ID normalizado:', leadId);
       document.getElementById('edit-id').value = leadId;
       const idSpan = document.getElementById('edit-lead-id-display');
