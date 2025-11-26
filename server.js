@@ -11,9 +11,12 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const { ObjectId } = require('mongodb');
+const { ObjectId, GridFSBucket } = require('mongodb');
 const { Server } = require('socket.io');
 require('dotenv').config();
+
+// GridFS bucket para archivos
+let gridFSBucket = null;
 
 // Carga condicional de Helmet y Rate Limit (si están instalados)
 let helmet = null;
@@ -66,6 +69,10 @@ const app = express();
 // En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
 const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
 const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
+
+// IMPORTANTE: Configurar límites de body PRIMERO, antes de cualquier otro middleware
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
 // Variable para almacenar la referencia del servidor activo
 let activeServer = null;
@@ -159,6 +166,26 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Multer para archivos de notas (memoryStorage para subir a GridFS)
+const noteFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/ogg', 'audio/webm',
+    'video/mp4', 'video/webm', 'video/quicktime',
+    'application/pdf'
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido para notas'), false);
+  }
+};
+const noteUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: noteFileFilter,
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB max para archivos de notas (audios grandes)
 });
 
 // Helper para opciones de cookie dinámicas según request (soporte localhost:10000 en HTTP)
@@ -257,6 +284,12 @@ let db;
   db = await connectToMongoDB(); // La lógica de error y fallback ya está dentro.
   if (isConnected()) {
     console.log('[SERVER] Conexión a base de datos establecida.');
+    try {
+      gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      console.log('[SERVER] GridFS inicializado correctamente.');
+    } catch (e) {
+      console.error('[SERVER] Error inicializando GridFS:', e.message);
+    }
   } else {
     console.warn('[SERVER] Iniciando en modo OFFLINE. Las operaciones de base de datos fallarán.');
   }
@@ -264,8 +297,8 @@ let db;
 
 // Configuración de middlewares
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 if (cookieParser) {
   app.use(cookieParser());
 }
@@ -512,23 +545,181 @@ app.use(express.static(__dirname, {
   }
 }));
 
-// En caso de que esta ruta se evalúe después de static, servir igualmente a usuarios autenticados
-app.get('/Costumer.html', protect, (req, res) => {
-  return res.sendFile(path.join(__dirname, 'Costumer.html'));
-});
-
 // Handle CORS preflight for all routes
 app.options('*', cors(corsOptions));
 
-// El middleware de logueo para /api/leads ha sido eliminado ya que el endpoint duplicado fue deshabilitado.
+// ========== ENDPOINTS GRIDFS PARA ARCHIVOS DE NOTAS ==========
 
-// Usar rutas de autenticación (aplicar limiter suave al grupo si disponible)
-app.use('/api/auth', authLimiter, authRoutes);
-// Montar rutas de API públicas
+// Subir archivo a GridFS
+app.post('/api/files/upload', protect, noteUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
+    }
+    
+    if (!gridFSBucket) {
+      if (db) {
+        gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      } else {
+        return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+      }
+    }
+    
+    const { leadId } = req.body;
+    const file = req.file;
+    const filename = `${Date.now()}-${file.originalname}`;
+    
+    // Determinar tipo de archivo
+    let fileType = 'document';
+    if (file.mimetype.startsWith('image/')) fileType = 'image';
+    else if (file.mimetype.startsWith('audio/')) fileType = 'audio';
+    else if (file.mimetype.startsWith('video/')) fileType = 'video';
+    else if (file.mimetype === 'application/pdf') fileType = 'pdf';
+    
+    // Crear stream de subida a GridFS
+    const uploadStream = gridFSBucket.openUploadStream(filename, {
+      contentType: file.mimetype,
+      metadata: {
+        leadId: leadId || null,
+        uploadedBy: req.user?.username || 'unknown',
+        uploadedAt: new Date(),
+        originalName: file.originalname,
+        fileType: fileType
+      }
+    });
+    
+    uploadStream.write(file.buffer);
+    uploadStream.end();
+    
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+    
+    const fileId = uploadStream.id.toString();
+    console.log('[GridFS] Archivo subido:', filename, 'ID:', fileId);
+    
+    return res.json({
+      success: true,
+      data: {
+        fileId: fileId,
+        filename: filename,
+        originalName: file.originalname,
+        contentType: file.mimetype,
+        fileType: fileType,
+        size: file.size,
+        url: `/api/files/${fileId}`
+      }
+    });
+  } catch (error) {
+    console.error('[GridFS] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al subir archivo', error: error.message });
+  }
+});
+
+// Obtener archivo de GridFS (con soporte para streaming de audio/video)
+app.get('/api/files/:id', async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!gridFSBucket) {
+      if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+    }
+    
+    let objectId;
+    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
+    
+    const fileDoc = await db.collection('noteFiles.files').findOne({ _id: objectId });
+    if (!fileDoc) return res.status(404).json({ success: false, message: 'Archivo no encontrado' });
+    
+    const fileSize = fileDoc.length;
+    const contentType = fileDoc.contentType || 'application/octet-stream';
+    const range = req.headers.range;
+    
+    // Soporte para Range requests (streaming de audio/video)
+    if (range && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = (end - start) + 1;
+      
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType
+      });
+      
+      const downloadStream = gridFSBucket.openDownloadStream(objectId, { start, end: end + 1 });
+      downloadStream.pipe(res);
+    } else {
+      res.set('Content-Type', contentType);
+      res.set('Content-Length', fileSize);
+      res.set('Accept-Ranges', 'bytes');
+      res.set('Content-Disposition', `inline; filename="${fileDoc.filename}"`);
+      
+      const downloadStream = gridFSBucket.openDownloadStream(objectId);
+      downloadStream.pipe(res);
+    }
+  } catch (error) {
+    console.error('[GridFS GET] Error:', error);
+    if (!res.headersSent) return res.status(500).json({ success: false, message: 'Error', error: error.message });
+  }
+});
+
+// Descargar archivo de GridFS (forzar descarga)
+app.get('/api/files/:id/download', async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!gridFSBucket) {
+      if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+    }
+    
+    let objectId;
+    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
+    
+    const fileDoc = await db.collection('noteFiles.files').findOne({ _id: objectId });
+    if (!fileDoc) return res.status(404).json({ success: false, message: 'Archivo no encontrado' });
+    
+    const originalName = fileDoc.metadata?.originalName || fileDoc.filename;
+    res.set('Content-Type', fileDoc.contentType || 'application/octet-stream');
+    res.set('Content-Length', fileDoc.length);
+    res.set('Content-Disposition', `attachment; filename="${originalName}"`);
+    
+    const downloadStream = gridFSBucket.openDownloadStream(objectId);
+    downloadStream.pipe(res);
+  } catch (error) {
+    console.error('[GridFS DOWNLOAD] Error:', error);
+    if (!res.headersSent) return res.status(500).json({ success: false, message: 'Error', error: error.message });
+  }
+});
+
+// Eliminar archivo de GridFS
+app.delete('/api/files/:id', protect, async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!gridFSBucket) {
+      if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+    }
+    let objectId;
+    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
+    await gridFSBucket.delete(objectId);
+    return res.json({ success: true, message: 'Archivo eliminado' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error', error: error.message });
+  }
+});
+
+// ========== FIN ENDPOINTS GRIDFS ==========
+
+// Montar rutas de API
+app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/ranking', rankingRoutes);
-app.use('/api/employees-of-month', employeesOfMonthRoutes);
 app.use('/api/equipos', equipoRoutes);
+app.use('/api/employees-of-month', employeesOfMonthRoutes);
 
 // Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
 // Wrapper mínimo por compatibilidad con referencias existentes

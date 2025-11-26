@@ -7356,19 +7356,60 @@ v   <html lang="es">
         editInfo += `</div>`;
       }
       
-      // Mostrar archivos adjuntos (imágenes y audios)
+      // Mostrar archivos adjuntos (imágenes y audios con reproductor)
       let attachmentsHtml = '';
       if (note.attachments && note.attachments.length > 0) {
-        attachmentsHtml = '<div class="note-attachments" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">';
+        attachmentsHtml = '<div class="note-attachments" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">';
         note.attachments.forEach((att, attIdx) => {
+          const fileId = att.fileId || att.url?.split('/').pop() || '';
           if (att.type === 'image') {
-            attachmentsHtml += `<a href="${att.url}" target="_blank" class="note-attachment-img">
-              <img src="${att.url}" alt="Imagen adjunta" style="max-width: 120px; max-height: 80px; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer;" />
-            </a>`;
+            attachmentsHtml += `
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <a href="${att.url}" target="_blank" class="note-attachment-img">
+                  <img src="${att.url}" alt="Imagen adjunta" style="max-width: 150px; max-height: 100px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                </a>
+                <a href="${att.url}/download" download style="background: #f1f5f9; color: #475569; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                  <i class="fas fa-download"></i>
+                </a>
+              </div>`;
           } else if (att.type === 'audio') {
-            attachmentsHtml += `<audio controls style="height: 32px; max-width: 200px;">
-              <source src="${att.url}" type="audio/mpeg">
-            </audio>`;
+            attachmentsHtml += `
+              <div class="audio-player-container" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; max-width: 350px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                <button onclick="this.nextElementSibling.paused ? this.nextElementSibling.play() : this.nextElementSibling.pause(); this.innerHTML = this.nextElementSibling.paused ? '<i class=\\'fas fa-play\\'></i>' : '<i class=\\'fas fa-pause\\'></i>'" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(59,130,246,0.4);">
+                  <i class="fas fa-play"></i>
+                </button>
+                <audio src="${att.url}" preload="metadata" style="display: none;" onended="this.previousElementSibling.innerHTML='<i class=\\'fas fa-play\\'></i>'"></audio>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                  <div style="font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <i class="fas fa-microphone" style="margin-right: 4px; color: #3b82f6;"></i>${att.name || 'Audio'}
+                  </div>
+                  <input type="range" min="0" max="100" value="0" class="audio-progress" style="width: 100%; height: 4px; border-radius: 2px; cursor: pointer; accent-color: #3b82f6;" />
+                  <div style="display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
+                    <span class="audio-current">0:00</span>
+                    <span class="audio-duration">--:--</span>
+                  </div>
+                </div>
+                <a href="${att.url}/download" download style="width: 32px; height: 32px; border-radius: 8px; background: #e2e8f0; color: #475569; display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;" title="Descargar audio">
+                  <i class="fas fa-download" style="font-size: 12px;"></i>
+                </a>
+              </div>`;
+          } else if (att.type === 'video') {
+            attachmentsHtml += `
+              <div style="max-width: 300px;">
+                <video controls style="width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                  <source src="${att.url}" type="video/mp4">
+                </video>
+                <a href="${att.url}/download" download style="display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; background: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 11px; text-decoration: none;">
+                  <i class="fas fa-download"></i> Descargar video
+                </a>
+              </div>`;
+          } else if (att.type === 'pdf') {
+            attachmentsHtml += `
+              <a href="${att.url}/download" download style="display: flex; align-items: center; gap: 8px; background: #fef2f2; color: #991b1b; padding: 10px 14px; border-radius: 8px; text-decoration: none; max-width: fit-content;">
+                <i class="fas fa-file-pdf" style="font-size: 20px;"></i>
+                <span style="font-size: 12px;">${att.name || 'Documento PDF'}</span>
+                <i class="fas fa-download" style="margin-left: 8px;"></i>
+              </a>`;
           }
         });
         attachmentsHtml += '</div>';
@@ -7393,7 +7434,53 @@ v   <html lang="es">
         ${editInfo}
         ${actionsHtml}
       `;
+      // Inicializar controles de audio después de insertar en DOM
+      setTimeout(() => initAudioPlayers(div), 100);
       return div;
+    }
+    
+    // Inicializar reproductores de audio con barra de progreso
+    function initAudioPlayers(container) {
+      const players = container.querySelectorAll('.audio-player-container');
+      players.forEach(player => {
+        const audio = player.querySelector('audio');
+        const progress = player.querySelector('.audio-progress');
+        const currentTime = player.querySelector('.audio-current');
+        const duration = player.querySelector('.audio-duration');
+        
+        if (!audio || !progress) return;
+        
+        // Formatear tiempo
+        const formatTime = (secs) => {
+          if (isNaN(secs)) return '--:--';
+          const m = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60);
+          return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+        
+        // Cuando se carga metadata
+        audio.addEventListener('loadedmetadata', () => {
+          if (duration) duration.textContent = formatTime(audio.duration);
+          progress.max = Math.floor(audio.duration);
+        });
+        
+        // Actualizar progreso mientras reproduce
+        audio.addEventListener('timeupdate', () => {
+          if (currentTime) currentTime.textContent = formatTime(audio.currentTime);
+          progress.value = Math.floor(audio.currentTime);
+        });
+        
+        // Permitir seek con la barra
+        progress.addEventListener('input', (e) => {
+          audio.currentTime = e.target.value;
+        });
+        
+        // Si ya tiene duración, actualizar
+        if (audio.duration) {
+          if (duration) duration.textContent = formatTime(audio.duration);
+          progress.max = Math.floor(audio.duration);
+        }
+      });
     }
 
     // Función para editar una nota (usa el textarea de agregar nota)
@@ -7544,35 +7631,72 @@ v   <html lang="es">
       }
     };
 
-    // ========== SISTEMA DE ARCHIVOS ADJUNTOS EN NOTAS ==========
+    // ========== SISTEMA DE ARCHIVOS ADJUNTOS EN NOTAS (GridFS) ==========
     window.__noteAttachments = []; // Array para almacenar archivos adjuntos temporalmente
     
-    // Vista previa de archivo adjunto
+    // Vista previa de archivo adjunto (guarda File para subir a GridFS después)
     window.previewNoteAttachment = function(input, type) {
       const file = input.files[0];
       if (!file) return;
       
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('El archivo es muy grande. Máximo 5MB.');
+      // Validar tamaño (máximo 500MB para audios grandes)
+      const maxSize = 500 * 1024 * 1024; // 500MB
+      if (file.size > maxSize) {
+        alert('El archivo es muy grande. Máximo 500MB.');
         input.value = '';
         return;
       }
       
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const attachment = {
-          type: type,
-          name: file.name,
-          data: e.target.result, // Base64
-          url: e.target.result   // Para vista previa
-        };
-        window.__noteAttachments.push(attachment);
-        updateAttachmentsPreview();
+      // Crear URL temporal para vista previa
+      const previewUrl = URL.createObjectURL(file);
+      const attachment = {
+        type: type,
+        name: file.name,
+        file: file,        // Guardar archivo para subir a GridFS
+        previewUrl: previewUrl  // Para vista previa local
       };
-      reader.readAsDataURL(file);
-      input.value = ''; // Reset input para permitir mismo archivo
+      window.__noteAttachments.push(attachment);
+      updateAttachmentsPreview();
+      input.value = ''; // Reset input
     };
+    
+    // Subir archivos a GridFS y obtener URLs
+    async function uploadAttachmentsToGridFS(leadId) {
+      const uploadedFiles = [];
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      for (const att of window.__noteAttachments) {
+        try {
+          const formData = new FormData();
+          formData.append('file', att.file);
+          formData.append('leadId', leadId || '');
+          
+          const res = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.data) {
+              uploadedFiles.push({
+                type: data.data.fileType,
+                name: data.data.originalName,
+                url: data.data.url,
+                fileId: data.data.fileId
+              });
+              console.log('[GridFS] Archivo subido:', data.data.originalName);
+            }
+          } else {
+            console.error('[GridFS] Error subiendo:', att.name);
+          }
+        } catch (e) {
+          console.error('[GridFS] Error:', e);
+        }
+      }
+      return uploadedFiles;
+    }
     
     // Actualizar vista previa de archivos adjuntos
     function updateAttachmentsPreview() {
@@ -7591,10 +7715,11 @@ v   <html lang="es">
       window.__noteAttachments.forEach((att, idx) => {
         const item = document.createElement('div');
         item.style.cssText = 'position: relative; display: inline-block;';
+        const imgSrc = att.previewUrl || att.url;
         
         if (att.type === 'image') {
           item.innerHTML = `
-            <img src="${att.url}" style="max-width: 80px; max-height: 60px; border-radius: 4px; border: 1px solid #cbd5e1;" />
+            <img src="${imgSrc}" style="max-width: 80px; max-height: 60px; border-radius: 4px; border: 1px solid #cbd5e1;" />
             <button onclick="removeNoteAttachment(${idx})" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
               <i class="fas fa-times"></i>
             </button>
@@ -7646,16 +7771,20 @@ v   <html lang="es">
         const author = u.username || u.name || u.nombre || u.fullName || u?.usuario?.name || u?.usuario?.nombre || u?.usuario?.username || 'Usuario';
         console.log('[NOTA] Autor detectado:', author, 'User object:', u);
         
-        // Crear nota con archivos adjuntos
+        // Subir archivos adjuntos a GridFS si hay
+        let uploadedAttachments = [];
+        if (hasAttachments) {
+          console.log('[NOTA] Subiendo archivos a GridFS...');
+          uploadedAttachments = await uploadAttachmentsToGridFS(leadId);
+          console.log('[NOTA] Archivos subidos:', uploadedAttachments.length);
+        }
+        
+        // Crear nota con archivos adjuntos (URLs de GridFS)
         const newNote = { 
           text: text || '(Archivo adjunto)', 
           author, 
           at: new Date().toISOString(),
-          attachments: hasAttachments ? window.__noteAttachments.map(a => ({
-            type: a.type,
-            name: a.name,
-            url: a.data // Base64
-          })) : []
+          attachments: uploadedAttachments
         };
 
         // Obtener notas existentes y agregar la nueva al principio
