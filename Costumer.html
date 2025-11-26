@@ -2098,6 +2098,9 @@ v   <html lang="es">
             <button onclick="clearAllFilters()" class="action-btn" title="Limpiar todos los filtros" style="margin-left: 10px; padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
               <i class="fas fa-times"></i> Limpiar
             </button>
+            <button onclick="forceReloadData()" class="action-btn" title="Recargar datos del servidor" style="margin-left: 5px; padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              <i class="fas fa-sync-alt"></i> Recargar
+            </button>
             <label for="statusFilter">Status</label>
             <select id="statusFilter">
               <option value="all">Todos</option>
@@ -8387,7 +8390,7 @@ v   <html lang="es">
       };
       
       // Función para limpiar todos los filtros
-      window.clearAllFilters = function() {
+      window.clearAllFilters = function(forceReload = false) {
         try {
           const monthFilter = document.getElementById('monthFilter');
           const teamFilter = document.getElementById('teamFilter');
@@ -8398,6 +8401,11 @@ v   <html lang="es">
           if (teamFilter) teamFilter.value = '';
           if (agentFilter) agentFilter.value = '';
           if (statusFilter) statusFilter.value = 'all';
+          
+          // Limpiar filtros residuales de window
+          window.supervisorAgentFilter = null;
+          window.adminTeamFilter = null;
+          window.__page = 1;
           
           // Restaurar todos los agentes cuando se limpia el filtro de team
           if (agentFilter && window.__allAgents) {
@@ -8410,6 +8418,20 @@ v   <html lang="es">
               option.textContent = agent;
               agentFilter.appendChild(option);
             });
+          }
+          
+          // Si forceReload, limpiar caché y recargar datos
+          if (forceReload) {
+            console.log('[Filtros] Forzando recarga completa...');
+            localStorage.removeItem('costumer_cached_leads');
+            localStorage.removeItem('costumer_cache_time');
+            window.ultimaListaLeads = null;
+            if (typeof fetchLeadsAgente === 'function') {
+              fetchLeadsAgente(1);
+            } else {
+              location.reload();
+            }
+            return;
           }
           
           // Re-renderizar tabla
@@ -8426,6 +8448,27 @@ v   <html lang="es">
           console.log('[Filtros] Todos los filtros limpiados');
         } catch (e) {
           console.warn('[Filtros] Error limpiando filtros:', e);
+        }
+      };
+      
+      // Función para forzar recarga completa de datos
+      window.forceReloadData = function() {
+        console.log('[ForceReload] Limpiando caché y recargando...');
+        try {
+          // Limpiar localStorage relacionado con datos
+          localStorage.removeItem('costumer_cached_leads');
+          localStorage.removeItem('costumer_cache_time');
+          localStorage.removeItem('costumer_show_all_months');
+          // Limpiar variables de estado
+          window.ultimaListaLeads = null;
+          window.supervisorAgentFilter = null;
+          window.adminTeamFilter = null;
+          window.__page = 1;
+          // Recargar página
+          location.reload(true);
+        } catch (e) {
+          console.error('[ForceReload] Error:', e);
+          location.reload(true);
         }
       };
       
