@@ -2587,8 +2587,11 @@ v   <html lang="es">
         </div>
         <!-- Sección de Notas / Historial (dentro del contenedor principal) -->
         <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
-          <h4 style="margin: 0 0 15px; font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em;">
-            <i class="fas fa-sticky-note" style="margin-right: 8px; color: #10b981;"></i>Notas e Historial
+          <h4 style="margin: 0 0 15px; font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+            <span><i class="fas fa-sticky-note" style="margin-right: 8px; color: #10b981;"></i>Notas e Historial</span>
+            <button onclick="refrescarNotasLead()" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" title="Recargar notas del servidor">
+              <i class="fas fa-sync-alt"></i> Refrescar
+            </button>
           </h4>
           <!-- Input para nueva nota -->
           <div style="position: relative; margin-bottom: 15px;">
@@ -7847,6 +7850,65 @@ v   <html lang="es">
       } catch (e) {
         console.error('Error en agregarNotaCliente:', e);
         alert('Error al agregar la nota: ' + (e?.message || e));
+      }
+    };
+
+    // Función para refrescar notas desde el servidor
+    window.refrescarNotasLead = async function() {
+      try {
+        const leadId = document.getElementById('edit-id')?.value;
+        if (!leadId) {
+          alert('No hay lead abierto');
+          return;
+        }
+        
+        console.log('[RefrescarNotas] Recargando notas para lead:', leadId);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await fetch(`/api/leads/${leadId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        
+        if (!res.ok) {
+          throw new Error('Error al obtener datos: ' + res.status);
+        }
+        
+        const data = await res.json();
+        const freshLead = data.data || data.lead || data;
+        
+        // Actualizar notas en la UI
+        const list = document.getElementById('edit-notes-list');
+        if (list && freshLead) {
+          list.innerHTML = '';
+          let notas = Array.isArray(freshLead.notas) ? freshLead.notas
+            : Array.isArray(freshLead.notes) ? freshLead.notes
+            : [];
+          
+          // Ordenar por fecha descendente
+          notas = notas.slice().sort((a, b) => {
+            const dateA = new Date(a.at || a.fecha || a.createdAt || 0);
+            const dateB = new Date(b.at || b.fecha || b.createdAt || 0);
+            return dateB - dateA;
+          });
+          
+          if (notas.length) {
+            notas.forEach((n, idx) => {
+              const div = createNoteCard(n, idx);
+              list.appendChild(div);
+            });
+            console.log('[RefrescarNotas] Notas actualizadas:', notas.length);
+          } else {
+            list.innerHTML = '<p style="color: #9ca3af; text-align: center; padding: 20px;">Sin notas</p>';
+          }
+          
+          // Actualizar lead actual en memoria
+          if (window.__currentEditingLead) {
+            window.__currentEditingLead.notas = notas;
+          }
+        }
+        
+      } catch (e) {
+        console.error('[RefrescarNotas] Error:', e);
+        alert('Error al refrescar notas: ' + (e?.message || e));
       }
     };
 
