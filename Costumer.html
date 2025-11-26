@@ -2174,9 +2174,11 @@ v   <html lang="es">
             <label for="pageSizeSelect">Por página</label>
             <select id="pageSizeSelect">
               <option value="50">50</option>
-              <option value="100" selected>100</option>
+              <option value="100">100</option>
               <option value="200">200</option>
-              <option value="500">500</option>
+              <option value="500" selected>500</option>
+              <option value="1000">1000</option>
+              <option value="99999">Todos</option>
             </select>
           </div>
           <button id="toggleMonthsBtn" class="action-btn" title="Ver todo / Solo 2 meses" style="min-width:140px;">Solo 2 meses</button>
@@ -4035,7 +4037,7 @@ v   <html lang="es">
 
     // Cargar leads del agente desde backend y actualizar UI
     let __page = 1;
-    const __limit = 100;
+    // __limit se define en window.__limit para que el selector lo pueda modificar
     let __hasMore = true;
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
@@ -4773,7 +4775,7 @@ v   <html lang="es">
     }
 
     // Paginación por defecto
-    if (typeof window.__limit === 'undefined') window.__limit = 100;
+    if (typeof window.__limit === 'undefined') window.__limit = 500;
     if (typeof window.__page === 'undefined') window.__page = 1;
 
     // Función principal para renderizar la tabla de clientes
@@ -4891,7 +4893,7 @@ v   <html lang="es">
             if (window.__page > 1) { window.__page--; safeRepaint(); }
           });
           if (nextBtn) nextBtn.addEventListener('click', function(){
-            const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||100)));
+            const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||500)));
             if (window.__page < tp) { window.__page++; safeRepaint(); }
           });
           window.__pagingBound = true;
@@ -4903,7 +4905,7 @@ v   <html lang="es">
             const toggleBtn = document.getElementById('toggleMonthsBtn');
             // Restaurar page size
             try {
-              const savedSize = Number(localStorage.getItem('costumer_page_size')||'') || Number(pageSizeSel?.value||'100') || 100;
+              const savedSize = Number(localStorage.getItem('costumer_page_size')||'') || Number(pageSizeSel?.value||'500') || 500;
               window.__limit = savedSize;
               if (pageSizeSel) pageSizeSel.value = String(savedSize);
             } catch {}
