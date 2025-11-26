@@ -470,6 +470,172 @@ router.put('/leads/:id/status', protect, async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/leads/:id
+ * @desc Obtener un lead por ID
+ * @access Private
+ */
+router.get('/leads/:id', protect, async (req, res, next) => {
+  try {
+    const { id: recordId } = req.params;
+    
+    // Validar que el ID parezca un ObjectId válido (24 caracteres hex)
+    // Si no lo es, pasar al siguiente manejador (para rutas como /leads/check-dates)
+    if (!recordId || !/^[a-fA-F0-9]{24}$/.test(recordId)) {
+      return next();
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const collection = db.collection('costumers');
+    let objId = null;
+    try { objId = new ObjectId(recordId); } catch { objId = null; }
+    
+    // Buscar por ObjectId o por string
+    let lead = null;
+    if (objId) {
+      lead = await collection.findOne({ _id: objId });
+    }
+    if (!lead) {
+      lead = await collection.findOne({ _id: recordId });
+    }
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    return res.json({ success: true, data: lead, lead: lead });
+  } catch (error) {
+    console.error('[API GET LEAD] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+  }
+});
+
+/**
+ * @route PUT /api/leads/:id
+ * @desc Actualizar un lead completo
+ * @access Private
+ */
+router.put('/leads/:id', protect, async (req, res, next) => {
+  try {
+    const { id: recordId } = req.params;
+    
+    // Validar que el ID parezca un ObjectId válido (24 caracteres hex)
+    if (!recordId || !/^[a-fA-F0-9]{24}$/.test(recordId)) {
+      return next();
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const updateData = req.body || {};
+
+    // Remover campos que no deben actualizarse
+    delete updateData._id;
+    delete updateData.id;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
+    }
+
+    const collection = db.collection('costumers');
+    let objId = null;
+    try { objId = new ObjectId(recordId); } catch { objId = null; }
+    
+    // Intentar actualizar por ObjectId primero
+    let result = null;
+    if (objId) {
+      result = await collection.updateOne({ _id: objId }, { $set: updateData });
+    }
+    
+    // Si no se encontró, intentar por string
+    if (!result || result.matchedCount === 0) {
+      result = await collection.updateOne({ _id: recordId }, { $set: updateData });
+    }
+
+    if (!result || result.matchedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Lead actualizado correctamente', 
+      data: { id: recordId, ...updateData } 
+    });
+  } catch (error) {
+    console.error('[API UPDATE LEAD] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+  }
+});
+
+/**
+ * @route DELETE /api/leads/:id
+ * @desc Eliminar un lead (solo admin y backoffice)
+ * @access Private (admin/backoffice only)
+ */
+router.delete('/leads/:id', protect, async (req, res, next) => {
+  try {
+    const { id: recordId } = req.params;
+    
+    // Validar que el ID parezca un ObjectId válido (24 caracteres hex)
+    if (!recordId || !/^[a-fA-F0-9]{24}$/.test(recordId)) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    // Verificar permisos: solo admin y backoffice pueden eliminar
+    const user = req.user;
+    const role = (user?.role || '').toLowerCase();
+    const allowedRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
+    
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'No tienes permisos para eliminar registros. Solo Administradores y Backoffice pueden hacerlo.' 
+      });
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const collection = db.collection('costumers');
+    let objId = null;
+    try { objId = new ObjectId(recordId); } catch { objId = null; }
+    
+    // Intentar eliminar por ObjectId primero
+    let result = null;
+    if (objId) {
+      result = await collection.deleteOne({ _id: objId });
+    }
+    
+    // Si no se encontró, intentar por string
+    if (!result || result.deletedCount === 0) {
+      result = await collection.deleteOne({ _id: recordId });
+    }
+
+    if (!result || result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    console.log(`[API DELETE LEAD] Lead ${recordId} eliminado por usuario ${user?.username || user?.name || 'desconocido'} (${role})`);
+    
+    return res.json({ 
+      success: true, 
+      message: 'Lead eliminado correctamente', 
+      data: { id: recordId } 
+    });
+  } catch (error) {
+    console.error('[API DELETE LEAD] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+  }
+});
+
 router.get('/lineas-team', protect, async (req, res) => {
   try {
     const user = req.user;

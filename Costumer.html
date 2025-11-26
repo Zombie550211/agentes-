@@ -2286,45 +2286,144 @@ v   <html lang="es">
   </div>
 
   <!-- Modal para Editar Lead -->
-  <div id="editarModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); overflow: auto; padding: 24px;">
-    <div style="position: relative; margin: 0 auto; width: 100%; max-width: 1200px; background: linear-gradient(135deg, #a8d8ea 0%, #88c0d0 100%); border-radius: 20px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <style>
+    #editarModal input[type="text"],
+    #editarModal input[type="tel"],
+    #editarModal input[type="email"],
+    #editarModal input[type="date"],
+    #editarModal select,
+    #editarModal textarea {
+      background: #e5e7eb !important;
+      border: none !important;
+      border-radius: 22px !important;
+      padding: 12px 18px !important;
+      font-size: 13px !important;
+      color: #374151 !important;
+      width: 100% !important;
+      max-width: 260px !important;
+      height: 44px !important;
+      box-sizing: border-box !important;
+      transition: all 0.2s ease !important;
+      display: block !important;
+      margin: 0 auto !important;
+    }
+    #editarModal label {
+      text-align: center !important;
+    }
+    #editarModal .edit-grid > div {
+      text-align: center !important;
+    }
+    #editarModal .edit-grid > div:first-child {
+      text-align: left !important;
+    }
+    #editarModal .edit-grid > div:first-child label {
+      text-align: left !important;
+    }
+    #editarModal .edit-grid > div:first-child input,
+    #editarModal .edit-grid > div:first-child select {
+      margin: 0 !important;
+    }
+    #editarModal .edit-section-title {
+      text-align: center !important;
+    }
+    #editarModal .edit-grid > div:first-child .edit-section-title {
+      text-align: left !important;
+    }
+    #editarModal .note-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-left: 3px solid #10b981;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #374151;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      max-width: 100%;
+      line-height: 1.5;
+    }
+    #editarModal input[type="text"]:focus,
+    #editarModal input[type="tel"]:focus,
+    #editarModal input[type="email"]:focus,
+    #editarModal input[type="date"]:focus,
+    #editarModal select:focus,
+    #editarModal textarea:focus {
+      background: #c4c9d1 !important;
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+    }
+    #editarModal textarea {
+      border-radius: 14px !important;
+      min-height: 60px !important;
+      height: auto !important;
+      resize: vertical !important;
+    }
+    #editarModal #edit-nueva-nota {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: 150px !important;
+      height: auto !important;
+      padding: 15px !important;
+      font-size: 14px !important;
+      line-height: 1.6 !important;
+      border-radius: 12px !important;
+      margin: 0 !important;
+    }
+    #editarModal select {
+      cursor: pointer !important;
+      appearance: none !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 10px center !important;
+      background-size: 16px !important;
+      padding-right: 32px !important;
+    }
+  </style>
+  <div id="editarModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(59, 130, 246, 0.75) 50%, rgba(14, 165, 233, 0.7) 100%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow: auto; padding: 40px;">
+    <div style="position: relative; margin: 0 auto; width: calc(100% - 80px); max-width: none; height: calc(100vh - 80px); background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 30%, #7dd3fc 100%); border-radius: 24px; padding: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.4); display: flex; flex-direction: column; overflow: hidden;">
       <!-- Contenedor blanco interno con formulario -->
-      <div class="edit-modal-card" style="background: white; border-radius: 15px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+      <div class="edit-modal-card" style="background: white; border-radius: 18px; padding: 30px; flex: 1; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);">
         <!-- Header con ID del lead -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-          <h3 id="edit-lead-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #111;">
-            # LEAD <span id="edit-lead-id-display">00000</span>
-          </h3>
-          <button onclick="cerrarModalEdicion()" style="background: #e2e8f0; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; cursor: pointer; color: #64748b; transition: all 0.2s;" onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='#e2e8f0'">&times;</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+              <i class="fas fa-user-edit" style="color: white; font-size: 20px;"></i>
+            </div>
+            <div>
+              <h3 id="edit-lead-title" style="margin: 0; font-size: 22px; font-weight: 800; color: #1e293b;">
+                Editar Lead <span id="edit-lead-id-display" style="color: #3b82f6; font-weight: 600;">#00000</span>
+              </h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">Modifica los datos del cliente</p>
+            </div>
+          </div>
+          <button onclick="cerrarModalEdicion()" style="background: #f1f5f9; border: 1px solid #e2e8f0; width: 40px; height: 40px; border-radius: 10px; font-size: 22px; cursor: pointer; color: #64748b; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#ef4444'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">&times;</button>
         </div>
         
         <input type="hidden" id="edit-id">
         
-        <!-- Grid compacto 3 columnas -->
-        <div class="edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px 20px; font-size: 13px; align-items: start;">
-          <div>
-            <div class="edit-section-title">Datos del cliente</div>
-            <label style="display: block; margin-bottom: 4px; color: #111; font-weight: 600;">Teléfono</label>
-            <input type="tel" id="edit-telefono" style="width: 280px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Teléfono Alterno</label>
-            <input type="tel" id="edit-telefono-alt" style="width: 280px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Nombres</label>
-            <input type="text" id="edit-nombres" style="width: 340px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Apellidos</label>
-            <input type="text" id="edit-apellidos" style="width: 340px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Dirección</label>
-            <input type="text" id="edit-direccion" style="width: 420px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">ZIP</label>
-            <input type="text" id="edit-zip-code" style="width: 120px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 36px 0 4px; color: #111; font-weight: 600;">Documento</label>
-            <input type="text" id="edit-documento" style="width: 230px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 24px 0 4px; color: #111; font-weight: 600;">Email</label>
-            <input type="email" id="edit-email" style="width: 420px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
+        <!-- Grid compacto 3 columnas -->  
+        <div class="edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; font-size: 13px; align-items: stretch;">
+          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
+            <div class="edit-section-title" style="margin-bottom: 15px;">Datos del cliente</div>
+            <label style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Teléfono</label>
+            <input type="tel" id="edit-telefono" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Teléfono Alterno</label>
+            <input type="tel" id="edit-telefono-alt" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Nombres</label>
+            <input type="text" id="edit-nombres" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Apellidos</label>
+            <input type="text" id="edit-apellidos" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Dirección</label>
+            <input type="text" id="edit-direccion" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">ZIP</label>
+            <input type="text" id="edit-zip-code" style="width: 100%; max-width: 120px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
           </div>
-          <div>
-            <div class="edit-section-title">Servicios</div>
-            <label for="edit-servicios">Servicios</label>
-            <select id="edit-servicios" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block; margin: 0 0 8px;">
+          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
+            <div class="edit-section-title" style="margin-bottom: 15px;">Servicios</div>
+            <label for="edit-servicios" style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Servicios</label>
+            <select id="edit-servicios" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block; margin: 0 0 8px;">
               <option value="">Elige</option>
               <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
               <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
@@ -2371,41 +2470,35 @@ v   <html lang="es">
               <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
             </select>
             
-            <label style="margin-top:12px;">Autopago</label>
-            <select id="edit-autopago" style="width: 180px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Autopago</label>
+            <select id="edit-autopago" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
               <option value="">Seleccionar...</option>
               <option value="SI">Sí</option>
               <option value="NO">No</option>
             </select>
-            <label style="margin-top:12px;">Idioma</label>
-            <select id="edit-idioma" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
-              <option value="">Seleccionar...</option>
-              <option value="Español">Español</option>
-              <option value="English">English</option>
-            </select>
-            <label style="margin-top:12px;">Riesgo</label>
-            <select id="edit-riesgo" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Riesgo</label>
+            <select id="edit-riesgo" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
               <option value="">Elige</option>
               <option value="low">LOW</option>
               <option value="medium">MEDIUM</option>
               <option value="high">HIGH</option>
               <option value="na">N/A</option>
             </select>
-            <label style="margin-top:12px;">Status</label>
-            <select id="edit-status" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Status</label>
+            <select id="edit-status" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
               <option value="">Seleccionar...</option>
               <option value="PENDING">PENDING</option>
               <option value="ACTIVE">ACTIVE</option>
               <option value="CANCELED">CANCELED</option>
             </select>
-            <label style="margin-top:12px;">Sistema</label>
-            <select id="edit-sistema" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb; display:block;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Sistema</label>
+            <select id="edit-sistema" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
               <option value="">Seleccionar...</option>
               <option value="SARA">SARA</option>
               <option value="N/A">N/A</option>
             </select>
-            <label style="margin-top:12px;">Puntaje</label>
-            <select id="edit-puntaje" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Puntaje</label>
+            <select id="edit-puntaje" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
               <option value="">Elige puntaje</option>
               <option value="1.5">1.5</option>
               <option value="1.25">1.25</option>
@@ -2418,47 +2511,50 @@ v   <html lang="es">
               <option value="0.25">0.25</option>
             </select>
           </div>
-          <div>
-            <div class="edit-section-title">Administrativo</div>
-            <label style="display: block; margin-bottom: 4px; color: #111; font-weight: 600;">Mercado</label>
-            <input type="text" id="edit-mercado" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Representante</label>
-            <input type="text" id="edit-representante" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Sup</label>
-            <input type="text" id="edit-supervisor" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Fecha de Venta</label>
-            <input type="date" id="edit-dia-venta" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Fecha de Instalación</label>
-            <input type="date" id="edit-dia-instalacion" style="width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 24px 0 4px; color: #111; font-weight: 600;">ACCOUNT</label>
-            <input type="text" id="edit-numero-cuenta" style="width: 220px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Motivo de llamada</label>
-            <input type="text" id="edit-motivo-llamada" style="width: 320px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;">
-            <label style="display: block; margin: 12px 0 4px; color: #111; font-weight: 600;">Comentario</label>
-            <textarea id="edit-comentario" style="width: 100%; min-height: 70px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; background: #f9fafb;"></textarea>
+          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
+            <div class="edit-section-title" style="margin-bottom: 15px;">Administrativo</div>
+            <label style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Mercado</label>
+            <input type="text" id="edit-mercado" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Representante</label>
+            <input type="text" id="edit-representante" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Sup</label>
+            <input type="text" id="edit-supervisor" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Fecha de Venta</label>
+            <input type="date" id="edit-dia-venta" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Fecha de Instalación</label>
+            <input type="date" id="edit-dia-instalacion" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">ACCOUNT</label>
+            <input type="text" id="edit-numero-cuenta" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Motivo de llamada</label>
+            <input type="text" id="edit-motivo-llamada" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
+            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Comentario</label>
+            <textarea id="edit-comentario" style="width: 100%; min-height: 70px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;"></textarea>
           </div>
         </div>
-        <div class="edit-actions">
-          <button onclick="guardarCambiosLead()" class="btn-primary">Guardar cambios</button>
-        </div>
-      </div>
-      
-      <!-- Sección de Notas / Historial -->
-      <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Input para nueva nota (arriba fijo en la sección) -->
-        <div style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 15px;">
-          <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; min-height: 80px; resize: vertical; background: #f9fafb; font-family: inherit;"></textarea>
-          <button onclick="agregarNotaCliente()" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-            <i class="fas fa-plus"></i> Agregar Nota
+        <div class="edit-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <button onclick="cerrarModalEdicion()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Cancelar</button>
+          <button onclick="guardarCambiosLead()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: none; padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(59, 130, 246, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(59, 130, 246, 0.4)'">
+            <i class="fas fa-save" style="margin-right: 8px;"></i>Guardar cambios
           </button>
         </div>
-        <!-- Contenedor de notas que se llenará dinámicamente debajo (scroll interno) -->
-        <div id="edit-notas-container" style="margin-bottom: 15px; max-height: 360px; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 10px;">
-          <!-- Las notas se cargarán aquí dinámicamente -->
+        <!-- Sección de Notas / Historial (dentro del contenedor principal) -->
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+          <h4 style="margin: 0 0 15px; font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em;">
+            <i class="fas fa-sticky-note" style="margin-right: 8px; color: #10b981;"></i>Notas e Historial
+          </h4>
+          <!-- Input para nueva nota -->
+          <div style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 15px;">
+            <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="flex: 1; padding: 15px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; min-height: 180px; resize: vertical; background: #f9fafb; font-family: inherit; line-height: 1.5;"></textarea>
+            <button onclick="agregarNotaCliente()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
+              <i class="fas fa-plus"></i> Agregar Nota
+            </button>
+          </div>
+          <!-- Contenedor de notas dinámico -->
+          <div id="edit-notes-list" style="max-height: none; overflow-y: visible; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb;">
+            <!-- Las notas se cargarán aquí dinámicamente -->
+          </div>
         </div>
       </div>
-    </div>
-  </div>
     </div>
   </div>
 
@@ -6685,38 +6781,125 @@ v   <html lang="es">
         return;
       }
 
+      // Debug: mostrar todos los campos del lead para diagnóstico
+      console.log('[EDIT MODAL] Lead recibido:', lead);
+      console.log('[EDIT MODAL] Campos disponibles:', Object.keys(lead || {}));
+      if (lead._raw) console.log('[EDIT MODAL] Campos _raw:', Object.keys(lead._raw || {}));
+
+      // Helper para obtener valor de múltiples campos posibles (incluyendo _raw)
+      const getValue = (...keys) => {
+        for (const key of keys) {
+          if (lead[key] !== undefined && lead[key] !== null && lead[key] !== '') return lead[key];
+          if (lead._raw && lead._raw[key] !== undefined && lead._raw[key] !== null && lead._raw[key] !== '') return lead._raw[key];
+        }
+        return '';
+      };
+
       // Poblar campos del formulario
-      const leadId = lead._id || lead.id || '';
+      const leadId = lead._id || lead.id || lead._raw?._id || '';
       document.getElementById('edit-id').value = leadId;
       const idSpan = document.getElementById('edit-lead-id-display');
-      if (idSpan) idSpan.textContent = formatLeadIdShort(leadId);
+      if (idSpan) idSpan.textContent = '#' + formatLeadIdShort(leadId);
 
-      const fullName = (lead.nombre_cliente || '').trim();
+      const fullName = getValue('nombre_cliente', 'nombre', 'name', 'cliente').trim();
       const parts = fullName.split(' ');
       const nombres = parts.slice(0, Math.max(1, parts.length - 1)).join(' ');
       const apellidos = parts.length > 1 ? parts.slice(-1).join(' ') : '';
       document.getElementById('edit-nombres').value = nombres;
       document.getElementById('edit-apellidos').value = apellidos;
 
-      document.getElementById('edit-telefono').value = lead.telefono_principal || '';
-      document.getElementById('edit-telefono-alt').value = lead.telefono_alterno || '';
-      document.getElementById('edit-numero-cuenta').value = lead.numero_cuenta || '';
-      document.getElementById('edit-autopago').value = (lead.autopago || '').toString().toUpperCase();
-      document.getElementById('edit-direccion').value = lead.direccion || '';
-      // Servicios: nuevo select principal
-      const svc = lead.servicios || lead.tipo_servicios || lead.tipo_servicio || '';
-      const selSvc = document.getElementById('edit-servicios');
-      if (selSvc) selSvc.value = svc;
-      document.getElementById('edit-sistema').value = lead.sistema || '';
-      document.getElementById('edit-riesgo').value = String(lead.riesgo || '').toLowerCase();
-      document.getElementById('edit-dia-venta').value = (lead.dia_venta || '').slice(0,10);
-      document.getElementById('edit-dia-instalacion').value = (lead.dia_instalacion || '').slice(0,10);
-      document.getElementById('edit-status').value = lead.status || '';
-      document.getElementById('edit-mercado').value = lead.mercado || '';
-      document.getElementById('edit-supervisor').value = lead.supervisor || '';
-      document.getElementById('edit-comentario').value = lead.comentario || '';
-      document.getElementById('edit-motivo-llamada').value = lead.motivo_llamada || '';
-      const punt = parseFloat(lead.puntaje)||0;
+      // Datos del cliente
+      document.getElementById('edit-telefono').value = getValue('telefono_principal', 'telefono', 'phone', 'tel');
+      document.getElementById('edit-telefono-alt').value = getValue('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2');
+      document.getElementById('edit-numero-cuenta').value = getValue('numero_cuenta', 'account', 'cuenta', 'accountNumber');
+      document.getElementById('edit-direccion').value = getValue('direccion', 'address', 'domicilio');
+      
+      // Helper para seleccionar valor en select (busca coincidencia parcial si no encuentra exacta)
+      function setSelectValue(selectId, value) {
+        const sel = document.getElementById(selectId);
+        if (!sel || !value) return;
+        const valUpper = String(value).toUpperCase().trim();
+        const valLower = String(value).toLowerCase().trim();
+        // Primero intentar match exacto
+        for (let opt of sel.options) {
+          if (opt.value === value || opt.value === valUpper || opt.value === valLower) {
+            sel.value = opt.value;
+            return;
+          }
+        }
+        // Si no hay match exacto, buscar por contenido del texto
+        for (let opt of sel.options) {
+          const optText = opt.textContent.toUpperCase();
+          if (optText.includes(valUpper) || valUpper.includes(optText.replace(/\s+/g, ''))) {
+            sel.value = opt.value;
+            return;
+          }
+        }
+        // Último intento: agregar opción si tiene valor válido
+        if (value && value.length > 0) {
+          const newOpt = document.createElement('option');
+          newOpt.value = value;
+          newOpt.textContent = value;
+          sel.appendChild(newOpt);
+          sel.value = value;
+        }
+      }
+      
+      // Servicios
+      const svc = getValue('servicios', 'tipo_servicios', 'tipo_servicio', 'servicios_texto', 'service');
+      setSelectValue('edit-servicios', svc);
+      
+      // Autopago
+      const autopago = getValue('autopago', 'auto_pago', 'autopay').toString().toUpperCase();
+      setSelectValue('edit-autopago', autopago);
+      
+      // Sistema
+      const sistema = getValue('sistema', 'system');
+      setSelectValue('edit-sistema', sistema);
+      
+      // Riesgo
+      const riesgo = getValue('riesgo', 'risk').toString().toLowerCase();
+      setSelectValue('edit-riesgo', riesgo);
+      
+      // Status
+      const status = getValue('status', 'estado', 'state').toString().toUpperCase();
+      setSelectValue('edit-status', status);
+      
+      // Fechas - manejar diferentes formatos
+      function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+        const str = String(dateStr);
+        // Si ya es YYYY-MM-DD, retornar
+        if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+        // Si es DD/MM/YYYY, convertir
+        const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+          const [, d, m, y] = match;
+          return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        // Intentar parsear como Date
+        try {
+          const dt = new Date(str);
+          if (!isNaN(dt)) {
+            return dt.toISOString().slice(0, 10);
+          }
+        } catch {}
+        return str.slice(0, 10);
+      }
+      
+      document.getElementById('edit-dia-venta').value = formatDateForInput(getValue('dia_venta', 'fecha_venta', 'sale_date', 'fechaVenta'));
+      document.getElementById('edit-dia-instalacion').value = formatDateForInput(getValue('dia_instalacion', 'fecha_instalacion', 'install_date', 'fechaInstalacion'));
+      
+      // Administrativo
+      document.getElementById('edit-mercado').value = getValue('mercado', 'market');
+      document.getElementById('edit-representante').value = getValue('representante', 'agente', 'agenteNombre', 'agent', 'vendedor');
+      document.getElementById('edit-supervisor').value = getValue('supervisor', 'sup', 'team', 'equipo');
+      document.getElementById('edit-comentario').value = getValue('comentario', 'comment', 'comments', 'observaciones');
+      document.getElementById('edit-motivo-llamada').value = getValue('motivo_llamada', 'motivo', 'reason', 'motivoLlamada');
+      
+      // Puntaje
+      const puntajeVal = getValue('puntaje', 'score', 'puntuacion');
+      const punt = parseFloat(puntajeVal) || 0;
       try{
         const selP = document.getElementById('edit-puntaje');
         if (selP){
@@ -6745,14 +6928,20 @@ v   <html lang="es">
       }catch{}
       document.getElementById('edit-zip-code').value = (lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || '');
 
-      // Poblar notas existentes
+      // Poblar notas existentes (más recientes primero)
       try {
         const list = document.getElementById('edit-notes-list');
         if (list) {
           list.innerHTML = '';
-          const notas = Array.isArray(lead.notas) ? lead.notas
+          let notas = Array.isArray(lead.notas) ? lead.notas
             : Array.isArray(lead.notes) ? lead.notes
             : [];
+          // Ordenar por fecha descendente (más recientes primero)
+          notas = notas.slice().sort((a, b) => {
+            const dateA = new Date(a.at || a.fecha || a.createdAt || 0);
+            const dateB = new Date(b.at || b.fecha || b.createdAt || 0);
+            return dateB - dateA;
+          });
           if (notas.length) {
             notas.forEach(n => {
               const div = document.createElement('div');
@@ -6805,54 +6994,58 @@ v   <html lang="es">
         if (!text) return alert('Escribe una nota');
         const leadId = document.getElementById('edit-id').value;
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        // Obtener autor
+        const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const author = u.username || u.name || u.nombre || 'Usuario';
+        const newNote = { text, author, at: new Date().toISOString() };
 
+        // Obtener notas existentes y agregar la nueva al principio
+        const current = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
+        const notas = Array.isArray(current) ? [newNote, ...current] : [newNote];
+
+        // Render inmediato en UI (al principio de la lista)
+        const div = document.createElement('div');
+        div.className = 'note-card';
+        div.textContent = `${text} — ${author} (${new Date().toLocaleString()})`;
+        if (list) list.prepend(div);
+        if (textarea) textarea.value = '';
+
+        // Guardar en backend usando PUT
         let ok = false; let lastTxt = '';
         if (leadId) {
-          // Intentar endpoints de notas en customers y leads
-          for (const ep of [`/api/customers/${leadId}/notes`, `/api/leads/${leadId}/notes`]) {
-            try {
-              const r = await fetch(ep, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : undefined },
-                body: JSON.stringify({ text })
-              });
-              if (r.ok) { ok = true; break; }
-              try { lastTxt = await r.text(); } catch(_) {}
-            } catch(e) { lastTxt = e?.message || String(e); }
+          try {
+            console.log('[NOTA] Guardando nota para lead:', leadId, 'notas:', notas);
+            const putRes = await fetch(`/api/leads/${leadId}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': token ? `Bearer ${token}` : '' 
+              },
+              body: JSON.stringify({ notas })
+            });
+            console.log('[NOTA] Respuesta:', putRes.status, putRes.statusText);
+            if (putRes.ok) { 
+              ok = true; 
+              // Actualizar el objeto en memoria
+              if (window.__currentEditingLead) {
+                window.__currentEditingLead.notas = notas;
+              }
+              console.log('[NOTA] Nota guardada exitosamente');
+            } else {
+              try { lastTxt = await putRes.text(); } catch(_) {}
+              console.error('[NOTA] Error al guardar:', lastTxt);
+            }
+          } catch(e) { 
+            lastTxt = e?.message || String(e); 
+            console.error('[NOTA] Excepción:', e);
           }
         }
 
-        // Render inmediato en UI
-        const div = document.createElement('div');
-        div.className = 'note-card';
-        try {
-          const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-          const author = u.username || u.name || u.nombre || 'Usuario';
-          div.textContent = `${text} — ${author} (${new Date().toLocaleString()})`;
-        } catch { div.textContent = text; }
-        if (list) list.prepend(div); else textarea.insertAdjacentElement('afterend', div);
-        if (textarea) textarea.value = '';
-
         if (!ok && leadId) {
-          // Fallback: guardar dentro del documento usando PUT con campo notas
-          try {
-            const current = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
-            const notas = Array.isArray(current) ? current.slice() : [];
-            const author = (JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}').username) || 'Usuario';
-            notas.push({ text, author, at: new Date().toISOString() });
-            for (const uurl of [`/api/customers/${leadId}`, `/api/leads/${leadId}`]) {
-              const putRes = await fetch(uurl, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : undefined },
-                body: JSON.stringify({ notas })
-              });
-              if (putRes.ok) { ok = true; break; }
-              try { lastTxt = await putRes.text(); } catch(_) {}
-            }
-          } catch(e) { lastTxt = e?.message || String(e); }
+          console.error('[NOTA] No se pudo persistir la nota:', lastTxt);
+          alert('No se pudo persistir la nota: ' + (lastTxt || 'Error desconocido'));
         }
-
-        if (!ok && leadId) alert('No se pudo persistir la nota: ' + (lastTxt || 'Error desconocido'));
       } catch (e) {
         console.error('Error en agregarNotaCliente:', e);
         alert('Error al agregar la nota: ' + (e?.message || e));
@@ -6895,6 +7088,7 @@ v   <html lang="es">
           numero_cuenta: document.getElementById('edit-numero-cuenta').value,
           autopago: document.getElementById('edit-autopago').value,
           direccion: document.getElementById('edit-direccion').value,
+          representante: document.getElementById('edit-representante').value,
           // Compatibilidad: enviar ambos nombres de campo
           servicios: tipoServicio,
           tipo_servicio: tipoServicio,
@@ -6996,11 +7190,81 @@ v   <html lang="es">
       }
     };
 
-    window.eliminarLead = function(id) {
-      if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
-        console.log('Eliminar lead:', id);
-        alert('Función de eliminación - ID: ' + id + '\n\nEsta funcionalidad se implementará próximamente.');
-        // TODO: Implementar lógica de eliminación
+    window.eliminarLead = async function(id) {
+      // Verificar permisos: solo admin y backoffice pueden eliminar
+      function canDelete() {
+        try {
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const role = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
+          const allowedRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
+          return allowedRoles.includes(role);
+        } catch { return false; }
+      }
+
+      if (!canDelete()) {
+        alert('⛔ No tienes permisos para eliminar registros.\nSolo Administradores y Backoffice pueden hacerlo.');
+        return;
+      }
+
+      if (!id) {
+        alert('Error: ID de registro no válido');
+        return;
+      }
+
+      if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este registro?\n\nEsta acción no se puede deshacer.')) {
+        return;
+      }
+
+      try {
+        console.log('Eliminando lead:', id);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        const response = await fetch(`/api/leads/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || `Error ${response.status}`);
+        }
+
+        alert('✅ Registro eliminado correctamente');
+
+        // Eliminar la fila de la tabla
+        try {
+          const tbody = document.getElementById('costumer-tbody');
+          if (tbody) {
+            // Buscar la fila que contiene el botón de eliminar con este ID
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+              const deleteBtn = row.querySelector(`button[onclick*="eliminarLead('${id}')"]`);
+              if (deleteBtn) {
+                row.remove();
+              }
+            });
+          }
+          // También eliminar de la lista en memoria
+          if (Array.isArray(window.ultimaListaLeads)) {
+            window.ultimaListaLeads = window.ultimaListaLeads.filter(l => {
+              const leadId = (typeof getLeadId === 'function') ? getLeadId(l) : (l._id || l.id);
+              return leadId !== id;
+            });
+          }
+        } catch (e) {
+          console.warn('No se pudo actualizar la UI:', e);
+          // Recargar la página como fallback
+          location.reload();
+        }
+
+      } catch (error) {
+        console.error('Error al eliminar lead:', error);
+        alert('❌ Error al eliminar el registro: ' + (error.message || error));
       }
     };
   </script>
