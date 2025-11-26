@@ -2335,6 +2335,7 @@ v   <html lang="es">
       border-left: 3px solid #10b981;
       border-radius: 8px;
       padding: 12px 15px;
+      padding-right: 70px;
       margin-bottom: 10px;
       font-size: 13px;
       color: #374151;
@@ -2343,6 +2344,42 @@ v   <html lang="es">
       overflow-wrap: break-word;
       max-width: 100%;
       line-height: 1.5;
+      position: relative;
+    }
+    #editarModal .note-card .note-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 6px;
+    }
+    #editarModal .note-card .note-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    #editarModal .note-card .note-btn-edit {
+      background: #3b82f6;
+      color: white;
+    }
+    #editarModal .note-card .note-btn-edit:hover {
+      background: #2563eb;
+      transform: scale(1.1);
+    }
+    #editarModal .note-card .note-btn-delete {
+      background: #ef4444;
+      color: white;
+    }
+    #editarModal .note-card .note-btn-delete:hover {
+      background: #dc2626;
+      transform: scale(1.1);
     }
     #editarModal input[type="text"]:focus,
     #editarModal input[type="tel"]:focus,
@@ -2370,6 +2407,8 @@ v   <html lang="es">
       line-height: 1.6 !important;
       border-radius: 12px !important;
       margin: 0 !important;
+      resize: vertical !important;
+      overflow: auto !important;
     }
     #editarModal select {
       cursor: pointer !important;
@@ -2543,9 +2582,9 @@ v   <html lang="es">
             <i class="fas fa-sticky-note" style="margin-right: 8px; color: #10b981;"></i>Notas e Historial
           </h4>
           <!-- Input para nueva nota -->
-          <div style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 15px;">
-            <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="flex: 1; padding: 15px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; min-height: 180px; resize: vertical; background: #f9fafb; font-family: inherit; line-height: 1.5;"></textarea>
-            <button onclick="agregarNotaCliente()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
+          <div style="position: relative; margin-bottom: 15px;">
+            <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="width: 100%; padding: 15px; padding-right: 130px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; min-height: 150px; resize: vertical; background: #f9fafb; font-family: inherit; line-height: 1.5; box-sizing: border-box;"></textarea>
+            <button onclick="agregarNotaCliente()" style="position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
               <i class="fas fa-plus"></i> Agregar Nota
             </button>
           </div>
@@ -6710,20 +6749,7 @@ v   <html lang="es">
       }
 
       try {
-        // 1) Intentar obtener el objeto directamente de la lista renderizada
-        try {
-          const lista = (window.ultimaListaLeads || []);
-          const sameId = (v) => {
-            try { return extractLeadId(v) === id; } catch { return false; }
-          };
-          const localLead = lista.find(sameId);
-          if (localLead) {
-            abrirModalEdicion(localLead);
-            return;
-          }
-        } catch(_) {}
-
-        // 2) Fallback: intentar obtener el lead desde el backend (customers primero)
+        // SIEMPRE obtener el lead desde el backend para tener datos actualizados (incluyendo notas)
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const tryFetch = async (url) => {
           const res = await fetch(url, {
@@ -6795,8 +6821,13 @@ v   <html lang="es">
         return '';
       };
 
-      // Poblar campos del formulario
-      const leadId = lead._id || lead.id || lead._raw?._id || '';
+      // Poblar campos del formulario - Normalizar ID
+      const rawId = lead._id || lead.id || lead._raw?._id || '';
+      // Convertir ObjectId o objeto {$oid: "..."} a string
+      const leadId = typeof rawId === 'object' 
+        ? (rawId.$oid || rawId.toString?.() || String(rawId)) 
+        : String(rawId);
+      console.log('[abrirModalEdicion] Lead ID normalizado:', leadId);
       document.getElementById('edit-id').value = leadId;
       const idSpan = document.getElementById('edit-lead-id-display');
       if (idSpan) idSpan.textContent = '#' + formatLeadIdShort(leadId);
@@ -6943,16 +6974,14 @@ v   <html lang="es">
             return dateB - dateA;
           });
           if (notas.length) {
-            notas.forEach(n => {
-              const div = document.createElement('div');
-              div.className = 'note-card';
-              div.textContent = (n.text || n.comentario || n) + (n.author ? ` — ${n.author}` : '') + (n.at ? ` (${new Date(n.at).toLocaleString()})` : '');
+            notas.forEach((n, idx) => {
+              const div = createNoteCard(n, idx);
               list.appendChild(div);
             });
           } else if (lead.comentario) {
             const div = document.createElement('div');
             div.className = 'note-card';
-            div.textContent = lead.comentario;
+            div.innerHTML = `<span class="note-text">${lead.comentario}</span>`;
             list.appendChild(div);
           }
         }
@@ -6985,6 +7014,191 @@ v   <html lang="es">
       modal.style.display = 'block';
     }
 
+    // Función helper para crear una tarjeta de nota con botones
+    function createNoteCard(note, index) {
+      const div = document.createElement('div');
+      div.className = 'note-card';
+      div.dataset.noteIndex = index;
+      
+      const noteText = note.text || note.comentario || (typeof note === 'string' ? note : '');
+      const author = note.author || '';
+      const date = note.at ? new Date(note.at).toLocaleString() : '';
+      
+      // Info de creación
+      let metaInfo = '';
+      if (author || date) {
+        metaInfo = `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-size: 11px; color: #6b7280;">`;
+        metaInfo += `<i class="fas fa-user" style="margin-right: 4px;"></i> ${author || 'Usuario'}`;
+        if (date) metaInfo += ` <span style="margin-left: 8px;"><i class="fas fa-clock" style="margin-right: 4px;"></i>${date}</span>`;
+        metaInfo += `</div>`;
+      }
+      
+      // Info de edición (si fue editada)
+      let editInfo = '';
+      if (note.editedAt) {
+        const editDate = new Date(note.editedAt).toLocaleString();
+        const editor = note.editedBy || 'Usuario';
+        editInfo = `<div style="margin-top: 6px; font-size: 11px; color: #f59e0b;">`;
+        editInfo += `<i class="fas fa-edit" style="margin-right: 4px;"></i> Editado por ${editor} (${editDate})`;
+        editInfo += `</div>`;
+      }
+      
+      div.innerHTML = `
+        <span class="note-text">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</span>
+        ${metaInfo}
+        ${editInfo}
+        <div class="note-actions">
+          <button class="note-btn note-btn-edit" onclick="editarNota(${index})" title="Editar nota">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="note-btn note-btn-delete" onclick="eliminarNota(${index})" title="Eliminar nota">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
+      return div;
+    }
+
+    // Función para editar una nota (usa el textarea de agregar nota)
+    window.__editingNoteIndex = null;
+    
+    window.editarNota = function(index) {
+      const notas = window.__currentEditingLead?.notas || window.__currentEditingLead?.notes || [];
+      if (!notas[index]) return alert('Nota no encontrada');
+      
+      const nota = notas[index];
+      const textoOriginal = nota.text || nota.comentario || '';
+      
+      // Poner el texto en el textarea de agregar nota
+      const textarea = document.getElementById('edit-nueva-nota');
+      const btn = document.querySelector('[onclick="agregarNotaCliente()"]');
+      
+      if (textarea) {
+        textarea.value = textoOriginal;
+        textarea.focus();
+        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
+      // Cambiar botón a "Guardar Edición"
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar Edición';
+        btn.setAttribute('onclick', 'guardarEdicionNota()');
+        btn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+      }
+      
+      // Guardar índice de la nota que se está editando
+      window.__editingNoteIndex = index;
+    };
+
+    // Cancelar edición de nota (restaurar botón original)
+    window.cancelarEdicionNota = function() {
+      const textarea = document.getElementById('edit-nueva-nota');
+      const btn = document.querySelector('[onclick="guardarEdicionNota()"]');
+      
+      if (textarea) textarea.value = '';
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-plus"></i> Agregar Nota';
+        btn.setAttribute('onclick', 'agregarNotaCliente()');
+        btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+      }
+      window.__editingNoteIndex = null;
+    };
+
+    // Guardar edición de nota
+    window.guardarEdicionNota = async function() {
+      const index = window.__editingNoteIndex;
+      if (index === null || index === undefined) return alert('No hay nota en edición');
+      
+      const notas = window.__currentEditingLead?.notas || window.__currentEditingLead?.notes || [];
+      const textarea = document.getElementById('edit-nueva-nota');
+      
+      if (!textarea) return;
+      const nuevoTexto = textarea.value.trim();
+      if (!nuevoTexto) return alert('La nota no puede estar vacía');
+      
+      // Actualizar nota
+      notas[index].text = nuevoTexto;
+      notas[index].editedAt = new Date().toISOString();
+      // Obtener nombre del usuario que edita (buscar en múltiples propiedades)
+      const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const editorName = u.username || u.name || u.nombre || u.fullName || u?.usuario?.name || u?.usuario?.nombre || u?.usuario?.username || 'Usuario';
+      notas[index].editedBy = editorName;
+      console.log('[NOTA EDIT] Editor detectado:', editorName, 'User object:', u);
+      
+      // Guardar en backend
+      const leadId = document.getElementById('edit-id').value;
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      try {
+        const res = await fetch(`/api/leads/${leadId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+          body: JSON.stringify({ notas })
+        });
+        
+        if (res.ok) {
+          // Actualizar UI
+          const list = document.getElementById('edit-notes-list');
+          if (list) {
+            list.innerHTML = '';
+            notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
+          }
+          if (window.__currentEditingLead) window.__currentEditingLead.notas = notas;
+          
+          // Restaurar botón original
+          textarea.value = '';
+          const btn = document.querySelector('[onclick="guardarEdicionNota()"]');
+          if (btn) {
+            btn.innerHTML = '<i class="fas fa-plus"></i> Agregar Nota';
+            btn.setAttribute('onclick', 'agregarNotaCliente()');
+            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+          }
+          window.__editingNoteIndex = null;
+        } else {
+          alert('Error al guardar la nota editada');
+        }
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
+    // Función para eliminar una nota
+    window.eliminarNota = async function(index) {
+      if (!confirm('¿Estás seguro de eliminar esta nota?')) return;
+      
+      const notas = window.__currentEditingLead?.notas || window.__currentEditingLead?.notes || [];
+      if (!notas[index]) return alert('Nota no encontrada');
+      
+      // Eliminar nota del array
+      notas.splice(index, 1);
+      
+      // Guardar en backend
+      const leadId = document.getElementById('edit-id').value;
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      try {
+        const res = await fetch(`/api/leads/${leadId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+          body: JSON.stringify({ notas })
+        });
+        
+        if (res.ok) {
+          // Actualizar UI
+          const list = document.getElementById('edit-notes-list');
+          if (list) {
+            list.innerHTML = '';
+            notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
+          }
+          if (window.__currentEditingLead) window.__currentEditingLead.notas = notas;
+        } else {
+          alert('Error al eliminar la nota');
+        }
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+    };
+
     // Agregar nota desde el modal
     window.agregarNotaCliente = async function() {
       try {
@@ -6993,22 +7207,21 @@ v   <html lang="es">
         const text = (textarea?.value || '').trim();
         if (!text) return alert('Escribe una nota');
         const leadId = document.getElementById('edit-id').value;
+        console.log('[NOTA] Lead ID obtenido del formulario:', leadId, 'longitud:', leadId?.length);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        console.log('[NOTA] Token presente:', !!token);
         
-        // Obtener autor
+        // Obtener autor (buscar en múltiples propiedades)
         const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const author = u.username || u.name || u.nombre || 'Usuario';
+        const author = u.username || u.name || u.nombre || u.fullName || u?.usuario?.name || u?.usuario?.nombre || u?.usuario?.username || 'Usuario';
+        console.log('[NOTA] Autor detectado:', author, 'User object:', u);
         const newNote = { text, author, at: new Date().toISOString() };
 
         // Obtener notas existentes y agregar la nueva al principio
         const current = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
         const notas = Array.isArray(current) ? [newNote, ...current] : [newNote];
 
-        // Render inmediato en UI (al principio de la lista)
-        const div = document.createElement('div');
-        div.className = 'note-card';
-        div.textContent = `${text} — ${author} (${new Date().toLocaleString()})`;
-        if (list) list.prepend(div);
+        // Limpiar textarea
         if (textarea) textarea.value = '';
 
         // Guardar en backend usando PUT
@@ -7030,6 +7243,11 @@ v   <html lang="es">
               // Actualizar el objeto en memoria
               if (window.__currentEditingLead) {
                 window.__currentEditingLead.notas = notas;
+              }
+              // Actualizar UI con todas las notas (para índices correctos)
+              if (list) {
+                list.innerHTML = '';
+                notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
               }
               console.log('[NOTA] Nota guardada exitosamente');
             } else {

@@ -507,6 +507,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
+    console.log('[GET /leads/:id] Lead encontrado, tiene notas:', Array.isArray(lead.notas) ? lead.notas.length : 'no');
     return res.json({ success: true, data: lead, lead: lead });
   } catch (error) {
     console.error('[API GET LEAD] Error:', error);
@@ -523,8 +524,12 @@ router.put('/leads/:id', protect, async (req, res, next) => {
   try {
     const { id: recordId } = req.params;
     
+    console.log('[PUT /leads/:id] ID recibido:', recordId);
+    console.log('[PUT /leads/:id] Body:', JSON.stringify(req.body).substring(0, 500));
+    
     // Validar que el ID parezca un ObjectId válido (24 caracteres hex)
     if (!recordId || !/^[a-fA-F0-9]{24}$/.test(recordId)) {
+      console.log('[PUT /leads/:id] ID inválido, pasando al siguiente handler');
       return next();
     }
 
@@ -559,9 +564,11 @@ router.put('/leads/:id', protect, async (req, res, next) => {
     }
 
     if (!result || result.matchedCount === 0) {
+      console.log('[PUT /leads/:id] Lead no encontrado');
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
+    console.log('[PUT /leads/:id] Actualizado correctamente. matchedCount:', result.matchedCount, 'modifiedCount:', result.modifiedCount);
     return res.json({ 
       success: true, 
       message: 'Lead actualizado correctamente', 
