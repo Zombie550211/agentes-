@@ -6804,12 +6804,15 @@ v   <html lang="es">
     };
 
     // Función para abrir el modal de edición
-    async function abrirModalEdicion(lead) {
+    async function abrirModalEdicion(leadOriginal) {
       const modal = document.getElementById('editarModal');
       if (!modal) {
         console.error('Modal de edición no encontrado');
         return;
       }
+
+      // Copiar lead para poder modificarlo
+      let lead = { ...leadOriginal };
 
       // Obtener ID del lead
       const rawId = lead._id || lead.id || lead._raw?._id || '';
@@ -6820,18 +6823,25 @@ v   <html lang="es">
       // IMPORTANTE: Recargar datos frescos del servidor para obtener notas actualizadas
       if (leadId && /^[a-fA-F0-9]{24}$/.test(leadId)) {
         try {
+          console.log('[EDIT MODAL] Recargando datos frescos para lead:', leadId);
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           const res = await fetch(`/api/leads/${leadId}`, {
             headers: token ? { 'Authorization': `Bearer ${token}` } : {}
           });
           if (res.ok) {
             const data = await res.json();
+            console.log('[EDIT MODAL] Respuesta del servidor:', data);
             const freshLead = data.data || data.lead || data;
             if (freshLead && (freshLead._id || freshLead.id)) {
-              // Mezclar datos frescos con los locales (priorizando frescos)
+              // Usar datos frescos del servidor (priorizando frescos)
               lead = { ...lead, ...freshLead };
-              console.log('[EDIT MODAL] Datos recargados del servidor, notas:', lead.notas?.length || 0);
+              // Asegurar que las notas frescas se usen
+              if (freshLead.notas) lead.notas = freshLead.notas;
+              if (freshLead.notes) lead.notes = freshLead.notes;
+              console.log('[EDIT MODAL] Datos frescos aplicados, notas:', lead.notas?.length || lead.notes?.length || 0);
             }
+          } else {
+            console.warn('[EDIT MODAL] Error al recargar:', res.status, res.statusText);
           }
         } catch (e) {
           console.warn('[EDIT MODAL] No se pudieron recargar datos frescos:', e.message);
@@ -6839,8 +6849,8 @@ v   <html lang="es">
       }
 
       // Debug: mostrar todos los campos del lead para diagnóstico
-      console.log('[EDIT MODAL] Lead recibido:', lead);
-      console.log('[EDIT MODAL] Campos disponibles:', Object.keys(lead || {}));
+      console.log('[EDIT MODAL] Lead final:', lead);
+      console.log('[EDIT MODAL] Notas:', lead.notas || lead.notes || []);
       if (lead._raw) console.log('[EDIT MODAL] Campos _raw:', Object.keys(lead._raw || {}));
 
       // Helper para obtener valor de múltiples campos posibles (incluyendo _raw)
