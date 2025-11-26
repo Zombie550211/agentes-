@@ -7372,11 +7372,11 @@ v   <html lang="es">
           const fileId = att.fileId || att.url?.split('/').pop() || '';
           if (att.type === 'image') {
             attachmentsHtml += `
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <a href="${att.url}" target="_blank" class="note-attachment-img">
-                  <img src="${att.url}" alt="Imagen adjunta" style="max-width: 150px; max-height: 100px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
-                </a>
-                <a href="${att.url}/download" download style="background: #f1f5f9; color: #475569; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+              <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <div onclick="abrirImagenModal('${att.url}')" style="cursor: pointer;">
+                  <img src="${att.url}" alt="Imagen adjunta" style="max-width: 280px; max-height: 200px; border-radius: 10px; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" />
+                </div>
+                <a href="${att.url}/download" download style="background: #f1f5f9; color: #475569; border: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" title="Descargar imagen">
                   <i class="fas fa-download"></i>
                 </a>
               </div>`;
@@ -7918,6 +7918,45 @@ v   <html lang="es">
       if (modal) {
         modal.style.display = 'none';
       }
+    };
+
+    // Función para abrir imagen en modal grande
+    window.abrirImagenModal = function(imageUrl) {
+      // Crear modal si no existe
+      let modal = document.getElementById('imagenGrandeModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imagenGrandeModal';
+        modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; cursor: pointer;';
+        modal.innerHTML = `
+          <div style="position: relative; max-width: 90%; max-height: 90%;">
+            <img id="imagenGrandeImg" src="" style="max-width: 100%; max-height: 90vh; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);" />
+            <button onclick="cerrarImagenModal()" style="position: absolute; top: -15px; right: -15px; width: 40px; height: 40px; border-radius: 50%; border: none; background: #ef4444; color: white; font-size: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+              <i class="fas fa-times"></i>
+            </button>
+            <a id="imagenGrandeDownload" href="" download style="position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-download"></i> Descargar
+            </a>
+          </div>
+        `;
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) cerrarImagenModal();
+        });
+        document.body.appendChild(modal);
+      }
+      
+      // Mostrar imagen
+      const img = document.getElementById('imagenGrandeImg');
+      const downloadBtn = document.getElementById('imagenGrandeDownload');
+      if (img) img.src = imageUrl;
+      if (downloadBtn) downloadBtn.href = imageUrl + '/download';
+      modal.style.display = 'flex';
+    };
+
+    // Función para cerrar modal de imagen
+    window.cerrarImagenModal = function() {
+      const modal = document.getElementById('imagenGrandeModal');
+      if (modal) modal.style.display = 'none';
     };
 
     // Función para guardar los cambios
