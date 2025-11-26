@@ -2129,6 +2129,10 @@ v   <html lang="es">
             <button id="debug-colors-btn" class="action-btn" title="Debug Colores - Forzar recoloreo" style="margin-left:6px; background:#ff6b35; color:white; font-weight:bold;">
               <i class="fas fa-palette"></i> Debug
             </button>
+            <!-- Botón para activar notificaciones -->
+            <button id="enable-notifications-btn" class="action-btn" title="Activar Notificaciones" style="margin-left:6px; background:#6366f1; color:white;">
+              <i class="fas fa-bell"></i>
+            </button>
           </div>
         </div>
         
@@ -7014,6 +7018,202 @@ v   <html lang="es">
       modal.style.display = 'block';
     }
 
+    // ========== SOCKET.IO CLIENTE ==========
+    (function initSocketIO() {
+      // Cargar Socket.io cliente
+      const script = document.createElement('script');
+      script.src = '/socket.io/socket.io.js';
+      script.onload = function() {
+        console.log('[Socket.io] Cliente cargado');
+        
+        const socket = io();
+        window.socket = socket;
+        
+        // Obtener datos del usuario actual
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const identifier = userData.odigo || userData.agenteId || userData.username || userData.name;
+        
+        if (identifier) {
+          socket.emit('register', {
+            odigo: userData.odigo,
+            agenteId: userData.agenteId || userData._id,
+            username: userData.username || userData.name,
+            role: userData.role
+          });
+          console.log('[Socket.io] Registrado como:', identifier);
+        }
+        
+        // Escuchar notificaciones de notas
+        socket.on('note-added', (data) => {
+          console.log('[Socket.io] Notificación recibida:', data);
+          if (window.NotificationSystem) {
+            window.NotificationSystem.show('📝 Nueva Nota', {
+              body: `${data.author} agregó una nota a ${data.clientName}`,
+              onClick: () => {
+                // Opcional: abrir el modal del lead
+                if (data.leadId && typeof editarLead === 'function') {
+                  editarLead(data.leadId);
+                }
+              }
+            });
+          }
+        });
+        
+        socket.on('note-edited', (data) => {
+          console.log('[Socket.io] Nota editada:', data);
+          if (window.NotificationSystem) {
+            window.NotificationSystem.show('✏️ Nota Editada', {
+              body: `${data.author} editó una nota en ${data.clientName}`
+            });
+          }
+        });
+        
+        socket.on('note-deleted', (data) => {
+          console.log('[Socket.io] Nota eliminada:', data);
+          if (window.NotificationSystem) {
+            window.NotificationSystem.show('🗑️ Nota Eliminada', {
+              body: `Se eliminó una nota de ${data.clientName}`
+            });
+          }
+        });
+
+        socket.on('connect', () => console.log('[Socket.io] Conectado'));
+        socket.on('disconnect', () => console.log('[Socket.io] Desconectado'));
+      };
+      script.onerror = () => console.warn('[Socket.io] No se pudo cargar cliente');
+      document.head.appendChild(script);
+    })();
+
+    // ========== SISTEMA DE NOTIFICACIONES DE WINDOWS ==========
+    window.NotificationSystem = {
+      // Solicitar permiso para notificaciones
+      requestPermission: async function() {
+        if (!('Notification' in window)) {
+          console.warn('[Notificaciones] Este navegador no soporta notificaciones');
+          return false;
+        }
+        if (Notification.permission === 'granted') {
+          return true;
+        }
+        if (Notification.permission !== 'denied') {
+          const permission = await Notification.requestPermission();
+          return permission === 'granted';
+        }
+        return false;
+      },
+
+      // Mostrar notificación
+      show: function(title, options = {}) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') {
+          this.requestPermission();
+          return;
+        }
+        
+        const defaultOptions = {
+          icon: '/img/logo.png',
+          badge: '/img/logo.png',
+          vibrate: [200, 100, 200],
+          tag: 'crm-notification',
+          requireInteraction: false,
+          silent: false
+        };
+        
+        const notification = new Notification(title, { ...defaultOptions, ...options });
+        
+        // Auto-cerrar después de 5 segundos
+        setTimeout(() => notification.close(), 5000);
+        
+        // Click en la notificación
+        notification.onclick = function() {
+          window.focus();
+          notification.close();
+          if (options.onClick) options.onClick();
+        };
+        
+        return notification;
+      },
+
+      // Notificación de nota agregada
+      notifyNoteAdded: function(clientName, author) {
+        this.show('📝 Nueva Nota Agregada', {
+          body: `${author} agregó una nota a ${clientName}`,
+          tag: 'note-added'
+        });
+      },
+
+      // Notificación de nota editada
+      notifyNoteEdited: function(clientName, author) {
+        this.show('✏️ Nota Editada', {
+          body: `${author} editó una nota en ${clientName}`,
+          tag: 'note-edited'
+        });
+      },
+
+      // Notificación de nota eliminada
+      notifyNoteDeleted: function(clientName) {
+        this.show('🗑️ Nota Eliminada', {
+          body: `Se eliminó una nota de ${clientName}`,
+          tag: 'note-deleted'
+        });
+      }
+    };
+
+    // Configurar botón de notificaciones
+    (function() {
+      const btn = document.getElementById('enable-notifications-btn');
+      if (!btn) return;
+      
+      // Actualizar estado visual del botón
+      function updateButtonState() {
+        if (!('Notification' in window)) {
+          btn.style.background = '#9ca3af';
+          btn.title = 'Notificaciones no soportadas';
+          btn.disabled = true;
+          return;
+        }
+        if (Notification.permission === 'granted') {
+          btn.style.background = '#10b981';
+          btn.innerHTML = '<i class="fas fa-bell"></i> ✓';
+          btn.title = 'Notificaciones activadas';
+        } else if (Notification.permission === 'denied') {
+          btn.style.background = '#ef4444';
+          btn.innerHTML = '<i class="fas fa-bell-slash"></i>';
+          btn.title = 'Notificaciones bloqueadas - Actívalas en configuración del navegador';
+        } else {
+          btn.style.background = '#6366f1';
+          btn.innerHTML = '<i class="fas fa-bell"></i>';
+          btn.title = 'Click para activar notificaciones';
+        }
+      }
+      
+      // Click para solicitar permiso
+      btn.addEventListener('click', async function() {
+        if (Notification.permission === 'granted') {
+          // Enviar notificación de prueba
+          window.NotificationSystem.show('🔔 Notificaciones Activas', {
+            body: 'Las notificaciones están funcionando correctamente'
+          });
+          return;
+        }
+        
+        const granted = await window.NotificationSystem.requestPermission();
+        updateButtonState();
+        
+        if (granted) {
+          window.NotificationSystem.show('🔔 Notificaciones Activadas', {
+            body: 'Recibirás alertas cuando se agreguen o editen notas'
+          });
+        } else {
+          alert('Para activar notificaciones, habilítalas en la configuración de tu navegador (icono de candado en la barra de direcciones)');
+        }
+      });
+      
+      // Estado inicial
+      updateButtonState();
+      console.log('[Notificaciones] Estado actual:', Notification.permission);
+    })();
+
     // Función helper para crear una tarjeta de nota con botones
     function createNoteCard(note, index) {
       const div = document.createElement('div');
@@ -7154,6 +7354,11 @@ v   <html lang="es">
             btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
           }
           window.__editingNoteIndex = null;
+          // Notificación de Windows
+          const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const editor = u.username || u.name || u.nombre || 'Usuario';
+          const clientName = window.__currentEditingLead?.nombre_cliente || window.__currentEditingLead?.nombre || 'Cliente';
+          window.NotificationSystem?.notifyNoteEdited(clientName, editor);
         } else {
           alert('Error al guardar la nota editada');
         }
@@ -7191,6 +7396,9 @@ v   <html lang="es">
             notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
           }
           if (window.__currentEditingLead) window.__currentEditingLead.notas = notas;
+          // Notificación de Windows
+          const clientName = window.__currentEditingLead?.nombre_cliente || window.__currentEditingLead?.nombre || 'Cliente';
+          window.NotificationSystem?.notifyNoteDeleted(clientName);
         } else {
           alert('Error al eliminar la nota');
         }
@@ -7250,6 +7458,9 @@ v   <html lang="es">
                 notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
               }
               console.log('[NOTA] Nota guardada exitosamente');
+              // Notificación de Windows
+              const clientName = window.__currentEditingLead?.nombre_cliente || window.__currentEditingLead?.nombre || 'Cliente';
+              window.NotificationSystem?.notifyNoteAdded(clientName, author);
             } else {
               try { lastTxt = await putRes.text(); } catch(_) {}
               console.error('[NOTA] Error al guardar:', lastTxt);

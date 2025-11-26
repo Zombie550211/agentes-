@@ -568,6 +568,33 @@ router.put('/leads/:id', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
+    // Emitir notificación Socket.io si se actualizaron notas
+    if (updateData.notas && global.io) {
+      try {
+        // Obtener info del lead para saber quién es el dueño
+        const lead = await collection.findOne(objId ? { _id: objId } : { _id: recordId });
+        if (lead) {
+          const ownerId = lead.agenteId || lead.agente || lead.odigo || lead.createdBy;
+          const clientName = lead.nombre_cliente || lead.nombre || 'Cliente';
+          const author = req.user?.username || req.user?.name || 'Usuario';
+          
+          // Si quien edita NO es el dueño, notificar al dueño
+          const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
+          if (ownerId && ownerId !== currentUserId) {
+            global.io.to(`user:${ownerId}`).emit('note-added', {
+              leadId: recordId,
+              clientName,
+              author,
+              timestamp: new Date().toISOString()
+            });
+            console.log(`[Socket.io] Notificación enviada a ${ownerId}`);
+          }
+        }
+      } catch (socketErr) {
+        console.error('[Socket.io] Error al emitir notificación:', socketErr.message);
+      }
+    }
+
     console.log('[PUT /leads/:id] Actualizado correctamente. matchedCount:', result.matchedCount, 'modifiedCount:', result.modifiedCount);
     return res.json({ 
       success: true, 

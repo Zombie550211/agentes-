@@ -3,6 +3,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas de red.');
 
 const express = require('express');
+const http = require('http');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
@@ -11,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { ObjectId } = require('mongodb');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 // Carga condicional de Helmet y Rate Limit (si están instalados)
@@ -67,6 +69,10 @@ const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 
 
 // Variable para almacenar la referencia del servidor activo
 let activeServer = null;
+let io = null; // Socket.io instance
+
+// Crear servidor HTTP para Socket.io
+const httpServer = http.createServer(app);
 
 // Health check (definido ANTES de static para evitar redirecciones del front)
 app.get('/health', (req, res) => {
@@ -3201,44 +3207,98 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'lead.html'));
 });
 
-// Función para iniciar el servidor
+// Función para iniciar el servidor con Socket.io
 function startServer(port) {
-  const server = app.listen(port, () => {
-    console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
-    console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`[SERVER] URL: http://localhost:${port}`);
-  });
-
-  server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      console.error(`[SERVER] Error: El puerto ${port} ya está en uso`);
-      console.error('[SERVER] Intenta detener otros procesos que usen este puerto');
-      process.exit(1);
-    } else {
-      console.error('[SERVER] Error del servidor:', error);
+  // Configurar Socket.io
+  io = new Server(httpServer, {
+    cors: {
+      origin: (origin, callback) => {
+        if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          return callback(null, true);
+        }
+        if (whitelist.includes(origin)) return callback(null, true);
+        callback(null, true);
+      },
+      methods: ['GET', 'POST'],
+      credentials: true
     }
   });
 
-  activeServer = server;
-  return server;
+  // Mapa de usuarios conectados
+  const connectedUsers = new Map();
+
+  io.on('connection', (socket) => {
+    console.log('[Socket.io] Nueva conexión:', socket.id);
+
+    // Usuario se registra con su identificador
+    socket.on('register', (userData) => {
+      const { odigo, agenteId, username, role } = userData || {};
+      const identifier = odigo || agenteId || username;
+
+      if (identifier) {
+        socket.userId = identifier;
+        socket.userData = userData;
+        socket.join(`user:${identifier}`);
+        if (role) socket.join(`role:${role}`);
+
+        if (!connectedUsers.has(identifier)) {
+          connectedUsers.set(identifier, new Set());
+        }
+        connectedUsers.get(identifier).add(socket.id);
+        console.log(`[Socket.io] Usuario registrado: ${identifier}`);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      if (socket.userId) {
+        const userSockets = connectedUsers.get(socket.userId);
+        if (userSockets) {
+          userSockets.delete(socket.id);
+          if (userSockets.size === 0) connectedUsers.delete(socket.userId);
+        }
+        console.log(`[Socket.io] Desconectado: ${socket.userId}`);
+      }
+    });
+  });
+
+  // Hacer io disponible globalmente
+  app.set('io', io);
+  global.io = io;
+
+  httpServer.listen(port, () => {
+    console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
+    console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[SERVER] URL: http://localhost:${port}`);
+    console.log(`[Socket.io] WebSocket activo`);
+  });
+
+  httpServer.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`[SERVER] Puerto ${port} en uso`);
+      process.exit(1);
+    } else {
+      console.error('[SERVER] Error:', error);
+    }
+  });
+
+  activeServer = httpServer;
+  return httpServer;
 }
 
-// Arrancar servidor solo después de que la BD esté conectada
+// Arrancar servidor después de conectar BD
 (async () => {
-  // Esperar a que la conexión a la base de datos esté lista
   let retries = 0;
-  const maxRetries = 30; // 30 segundos máximo
+  const maxRetries = 30;
   while (!isConnected() && retries < maxRetries) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     retries++;
   }
-  
+
   if (isConnected()) {
     console.log('[SERVER] Base de datos lista, iniciando servidor...');
     startServer(PORT);
   } else {
-    console.error('[SERVER] No se pudo conectar a la base de datos después de 30 segundos');
-    console.error('[SERVER] Iniciando servidor de todos modos (modo degradado)');
+    console.error('[SERVER] BD no conectada, iniciando en modo degradado');
     startServer(PORT);
   }
 })();
@@ -3247,35 +3307,24 @@ function startServer(port) {
 process.on('SIGINT', async () => {
   console.log('\n[SHUTDOWN] Cerrando servidor...');
   try {
-    if (activeServer) {
-      activeServer.close(() => {
-        console.log('[SHUTDOWN] Servidor cerrado');
-      });
-    }
+    if (activeServer) activeServer.close(() => console.log('[SHUTDOWN] Servidor cerrado'));
     await closeConnection();
-    console.log('[SHUTDOWN] Conexión a la base de datos cerrada');
   } catch (error) {
-    console.error('[SHUTDOWN] Error cerrando conexión:', error);
+    console.error('[SHUTDOWN] Error:', error);
   }
   process.exit(0);
 });
 
-// Manejo de señales de terminación
 process.on('SIGTERM', async () => {
-  console.log('\n[SHUTDOWN] Recibida señal SIGTERM...');
+  console.log('\n[SHUTDOWN] Señal SIGTERM...');
   try {
-    if (activeServer) {
-      activeServer.close(() => {
-        console.log('[SHUTDOWN] Servidor cerrado');
-      });
-    }
+    if (activeServer) activeServer.close(() => console.log('[SHUTDOWN] Servidor cerrado'));
     await closeConnection();
-    console.log('[SHUTDOWN] Conexión a la base de datos cerrada');
   } catch (error) {
-    console.error('[SHUTDOWN] Error cerrando conexión:', error);
+    console.error('[SHUTDOWN] Error:', error);
   }
   process.exit(0);
 });
 
-// Exportar la aplicación
-module.exports = app;
+// Exportar
+module.exports = { app, getIo: () => io };
