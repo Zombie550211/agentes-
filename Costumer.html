@@ -7020,68 +7020,101 @@ v   <html lang="es">
 
     // ========== SOCKET.IO CLIENTE ==========
     (function initSocketIO() {
-      // Cargar Socket.io cliente
-      const script = document.createElement('script');
-      script.src = '/socket.io/socket.io.js';
-      script.onload = function() {
-        console.log('[Socket.io] Cliente cargado');
-        
-        const socket = io();
-        window.socket = socket;
-        
-        // Obtener datos del usuario actual
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const identifier = userData.odigo || userData.agenteId || userData.username || userData.name;
-        
-        if (identifier) {
-          socket.emit('register', {
-            odigo: userData.odigo,
-            agenteId: userData.agenteId || userData._id,
-            username: userData.username || userData.name,
-            role: userData.role
+      // Cargar Socket.io cliente desde CDN si no está disponible localmente
+      function loadSocketIO(src, fallback) {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = function() {
+          console.log('[Socket.io] Cliente cargado desde:', src);
+          initSocket();
+        };
+        script.onerror = function() {
+          console.warn('[Socket.io] No se pudo cargar desde:', src);
+          if (fallback) {
+            loadSocketIO(fallback, null);
+          } else {
+            console.error('[Socket.io] No se pudo cargar el cliente');
+          }
+        };
+        document.head.appendChild(script);
+      }
+      
+      function initSocket() {
+        try {
+          const socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            rememberUpgrade: true
           });
-          console.log('[Socket.io] Registrado como:', identifier);
-        }
-        
-        // Escuchar notificaciones de notas
-        socket.on('note-added', (data) => {
-          console.log('[Socket.io] Notificación recibida:', data);
-          if (window.NotificationSystem) {
-            window.NotificationSystem.show('📝 Nueva Nota', {
-              body: `${data.author} agregó una nota a ${data.clientName}`,
-              onClick: () => {
-                // Opcional: abrir el modal del lead
-                if (data.leadId && typeof editarLead === 'function') {
-                  editarLead(data.leadId);
+          window.socket = socket;
+          
+          // Obtener datos del usuario actual
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const identifier = userData.odigo || userData.agenteId || userData._id || userData.username || userData.name;
+          
+          socket.on('connect', () => {
+            console.log('[Socket.io] Conectado, ID:', socket.id);
+            
+            // Registrar usuario al conectar
+            if (identifier) {
+              socket.emit('register', {
+                odigo: userData.odigo,
+                agenteId: userData.agenteId || userData._id,
+                username: userData.username || userData.name,
+                role: userData.role
+              });
+              console.log('[Socket.io] Registrado como:', identifier);
+            }
+          });
+          
+          // Escuchar notificaciones de notas
+          socket.on('note-added', (data) => {
+            console.log('[Socket.io] Notificación recibida:', data);
+            if (window.NotificationSystem && Notification.permission === 'granted') {
+              window.NotificationSystem.show('📝 Nueva Nota', {
+                body: `${data.author} agregó una nota a ${data.clientName}`,
+                onClick: () => {
+                  window.focus();
+                  if (data.leadId && typeof editarLead === 'function') {
+                    editarLead(data.leadId);
+                  }
                 }
-              }
-            });
-          }
-        });
-        
-        socket.on('note-edited', (data) => {
-          console.log('[Socket.io] Nota editada:', data);
-          if (window.NotificationSystem) {
-            window.NotificationSystem.show('✏️ Nota Editada', {
-              body: `${data.author} editó una nota en ${data.clientName}`
-            });
-          }
-        });
-        
-        socket.on('note-deleted', (data) => {
-          console.log('[Socket.io] Nota eliminada:', data);
-          if (window.NotificationSystem) {
-            window.NotificationSystem.show('🗑️ Nota Eliminada', {
-              body: `Se eliminó una nota de ${data.clientName}`
-            });
-          }
-        });
+              });
+            }
+          });
+          
+          socket.on('note-edited', (data) => {
+            console.log('[Socket.io] Nota editada:', data);
+            if (window.NotificationSystem && Notification.permission === 'granted') {
+              window.NotificationSystem.show('✏️ Nota Editada', {
+                body: `${data.author} editó una nota en ${data.clientName}`
+              });
+            }
+          });
+          
+          socket.on('note-deleted', (data) => {
+            console.log('[Socket.io] Nota eliminada:', data);
+            if (window.NotificationSystem && Notification.permission === 'granted') {
+              window.NotificationSystem.show('🗑️ Nota Eliminada', {
+                body: `Se eliminó una nota de ${data.clientName}`
+              });
+            }
+          });
 
-        socket.on('connect', () => console.log('[Socket.io] Conectado'));
-        socket.on('disconnect', () => console.log('[Socket.io] Desconectado'));
-      };
-      script.onerror = () => console.warn('[Socket.io] No se pudo cargar cliente');
-      document.head.appendChild(script);
+          socket.on('disconnect', (reason) => {
+            console.log('[Socket.io] Desconectado:', reason);
+          });
+          
+          socket.on('connect_error', (error) => {
+            console.error('[Socket.io] Error de conexión:', error.message);
+          });
+        } catch (err) {
+          console.error('[Socket.io] Error inicializando:', err);
+        }
+      }
+      
+      // Intentar cargar desde servidor local, si falla usar CDN
+      loadSocketIO('/socket.io/socket.io.js', 'https://cdn.socket.io/4.7.2/socket.io.min.js');
     })();
 
     // ========== SISTEMA DE NOTIFICACIONES DE WINDOWS ==========
@@ -7159,10 +7192,16 @@ v   <html lang="es">
       }
     };
 
-    // Configurar botón de notificaciones
-    (function() {
+    // Configurar botón de notificaciones (esperar a DOM listo)
+    function initNotificationButton() {
       const btn = document.getElementById('enable-notifications-btn');
-      if (!btn) return;
+      if (!btn) {
+        console.warn('[Notificaciones] Botón no encontrado, reintentando en 500ms...');
+        setTimeout(initNotificationButton, 500);
+        return;
+      }
+      
+      console.log('[Notificaciones] Botón encontrado, configurando...');
       
       // Actualizar estado visual del botón
       function updateButtonState() {
@@ -7170,6 +7209,7 @@ v   <html lang="es">
           btn.style.background = '#9ca3af';
           btn.title = 'Notificaciones no soportadas';
           btn.disabled = true;
+          console.warn('[Notificaciones] API no soportada en este navegador');
           return;
         }
         if (Notification.permission === 'granted') {
@@ -7189,6 +7229,8 @@ v   <html lang="es">
       
       // Click para solicitar permiso
       btn.addEventListener('click', async function() {
+        console.log('[Notificaciones] Click en botón, permiso actual:', Notification.permission);
+        
         if (Notification.permission === 'granted') {
           // Enviar notificación de prueba
           window.NotificationSystem.show('🔔 Notificaciones Activas', {
@@ -7197,22 +7239,35 @@ v   <html lang="es">
           return;
         }
         
-        const granted = await window.NotificationSystem.requestPermission();
-        updateButtonState();
-        
-        if (granted) {
-          window.NotificationSystem.show('🔔 Notificaciones Activadas', {
-            body: 'Recibirás alertas cuando se agreguen o editen notas'
-          });
-        } else {
-          alert('Para activar notificaciones, habilítalas en la configuración de tu navegador (icono de candado en la barra de direcciones)');
+        try {
+          const granted = await window.NotificationSystem.requestPermission();
+          console.log('[Notificaciones] Resultado del permiso:', granted);
+          updateButtonState();
+          
+          if (granted) {
+            window.NotificationSystem.show('🔔 Notificaciones Activadas', {
+              body: 'Recibirás alertas cuando se agreguen o editen notas'
+            });
+          } else {
+            alert('Para activar notificaciones:\n1. Click en el icono del candado 🔒 en la barra de direcciones\n2. Busca "Notificaciones"\n3. Cambia a "Permitir"');
+          }
+        } catch (err) {
+          console.error('[Notificaciones] Error:', err);
+          alert('Error al solicitar permiso: ' + err.message);
         }
       });
       
       // Estado inicial
       updateButtonState();
       console.log('[Notificaciones] Estado actual:', Notification.permission);
-    })();
+    }
+    
+    // Ejecutar cuando DOM esté listo
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initNotificationButton);
+    } else {
+      setTimeout(initNotificationButton, 100);
+    }
 
     // Función helper para crear una tarjeta de nota con botones
     function createNoteCard(note, index) {
