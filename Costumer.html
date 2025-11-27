@@ -3927,22 +3927,32 @@ v   <html lang="es">
       return arr.map(normalizeLead);
     }
 
-    // Zona horaria de negocio (UTC-6). Ajusta si tu operaci¨®n usa otra TZ.
-    const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // Am¨¦rica Central (UTC-6)
+    // Zona horaria de negocio (America/Mexico_City = UTC-6)
+    const BUSINESS_TIMEZONE = 'America/Mexico_City';
 
-    // Helper: YYYY-MM-DD en TZ objetivo (no UTC/local del navegador)
+    // Helper: YYYY-MM-DD en TZ de negocio usando Intl.DateTimeFormat (más confiable)
     function toISOInTZ(date, tzOffsetMinutes) {
-      // convertir 'date' a UTC ms
-      const utcMs = date.getTime() + (date.getTimezoneOffset() * 60000);
-      // aplicar offset de la TZ objetivo
-      const target = new Date(utcMs + tzOffsetMinutes * 60000);
-      const y = target.getUTCFullYear();
-      const m = String(target.getUTCMonth() + 1).padStart(2, '0');
-      const d = String(target.getUTCDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
+      try {
+        const d = date instanceof Date ? date : new Date(date);
+        if (isNaN(d)) return '';
+        // Usar Intl.DateTimeFormat para obtener la fecha en la zona horaria correcta
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: BUSINESS_TIMEZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        return formatter.format(d); // Retorna 'YYYY-MM-DD'
+      } catch (e) {
+        console.warn('[toISOInTZ] Error:', e);
+        return '';
+      }
     }
 
-    // Wrapper: ISO YYYY-MM-DD usando la TZ de negocio definida (BUSINESS_TZ_OFFSET_MIN)
+    // Para compatibilidad con código existente
+    const BUSINESS_TZ_OFFSET_MIN = -6 * 60;
+
+    // Wrapper: ISO YYYY-MM-DD usando la TZ de negocio
     function toLocalISO(date) {
       try {
         if (!date) return '';
