@@ -70,9 +70,42 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { fechaInicio, fechaFin, status, month } = req.query;
+    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate } = req.query;
     let query = {};
     const andConditions = [];
+
+    // ===== SOLICITUD GLOBAL (para mapa, etc.) =====
+    const isGlobalRequest = (String(allData).toLowerCase() === 'true') ||
+                            (String(noFilter).toLowerCase() === 'true') ||
+                            (String(skipDate).toLowerCase() === 'true');
+
+    if (isGlobalRequest && !fechaInicio && !fechaFin && !month && !status) {
+      const collection = db.collection('costumers');
+      let leads = await collection.find({}).toArray();
+
+      // Intentar integrar también datos de TEAM_LINEAS
+      try {
+        const dbTL = getDbFor('TEAM_LINEAS');
+        if (dbTL) {
+          const collections = await dbTL.listCollections().toArray();
+          console.log('[API /leads] Integrando TEAM_LINEAS en mapa. Colecciones:', collections.map(c => c.name));
+
+          for (const coll of collections) {
+            const docs = await dbTL.collection(coll.name).find({}).toArray();
+            // Marcar origen para depuración futura
+            leads = leads.concat(docs.map(d => ({ ...d, __source: 'TEAM_LINEAS', __collection: coll.name })));
+          }
+        } else {
+          console.warn('[API /leads] TEAM_LINEAS no disponible para solicitud global');
+        }
+      } catch (e) {
+        console.warn('[API /leads] Error integrando TEAM_LINEAS en solicitud global:', e.message);
+      }
+
+      console.log(`[API /leads] Solicitud GLOBAL sin filtros (mapa u otros). Total combinado: ${leads.length}`);
+      return res.json({ success: true, data: leads, queryUsed: { global: true } });
+    }
+    // ===== FIN SOLICITUD GLOBAL =====
 
     // Filtro por status (si se proporciona)
     if (status && status.toLowerCase() !== 'todos') {
