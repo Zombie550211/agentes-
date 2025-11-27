@@ -100,9 +100,14 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
       if (mesIdx < 0 || mesIdx > 11) continue;
       const arr = ensureLen14(d.campos);
       const totalDia = toNumber(arr[9]); // índice 9 = columna 10 (TOTAL DEL DIA)
+      // Debug: mostrar primeros docs
+      if (totales[mesIdx] === 0 && totalDia > 0) {
+        console.log(`[FACT DEBUG] Mes ${mesIdx+1}, campos[9]="${arr[9]}", totalDia=${totalDia}`);
+      }
       totales[mesIdx] += totalDia;
     }
 
+    console.log('[FACT] Totales calculados:', totales);
     return res.json({ ok: true, totalesPorMes: totales });
   } catch (e) {
     console.error('[FACT] GET anual error detallado:', e.message, e.stack);

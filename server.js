@@ -49,6 +49,7 @@ const apiRoutes = require('./routes/api');
 const rankingRoutes = require('./routes/ranking');
 const equipoRoutes = require('./routes/equipoRoutes');
 const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
+const facturacionRoutes = require('./routes/facturacion');
 
 // Configuración de JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
@@ -710,21 +711,23 @@ app.delete('/api/files/:id', protect, async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Error', error: error.message });
   }
-});
+}); // Cerrar correctamente el app.delete
 
 // ========== FIN ENDPOINTS GRIDFS ==========
 
-// Montar rutas de API
+// Montar rutas de API (rutas específicas ANTES de la genérica /api)
 app.use('/api/auth', authRoutes);
-app.use('/api', apiRoutes);
+app.use('/api/facturacion', facturacionRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/equipos', equipoRoutes);
 app.use('/api/employees-of-month', employeesOfMonthRoutes);
+app.use('/api', apiRoutes); // Esta debe ir AL FINAL porque es la más genérica
 
 // Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
 // Wrapper mínimo por compatibilidad con referencias existentes
 const authenticateJWT = (req, res, next) => protect(req, res, next);
 
+// ... (rest of the code remains the same)
 // Favicon handler: servir un icono por defecto para evitar 404
 app.get('/favicon.ico', (req, res) => {
   try {
