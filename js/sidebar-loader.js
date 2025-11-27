@@ -308,9 +308,9 @@
     const r = (role == null ? '' : String(role)).trim().toLowerCase();
     if (!r) return 'agente';
     // equivalentes de agente
-    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales','lineas-agentes','lineas-agente','lineas agentes'].includes(r)) return 'agente';
     // equivalentes de supervisor
-    if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+    if (['supervisor','supervisora','supervisores','supervisor team lineas','supervisor lineas'].includes(r)) return 'supervisor';
     // equivalentes de admin
     if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
     // equivalentes de backoffice

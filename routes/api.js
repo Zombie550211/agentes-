@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, connectToMongoDB } = require('../config/db');
+const { getDb, getDbFor, connectToMongoDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
 const { protect } = require('../middleware/auth');
 
@@ -673,28 +673,57 @@ router.delete('/leads/:id', protect, async (req, res, next) => {
 router.get('/lineas-team', protect, async (req, res) => {
   try {
     const user = req.user;
+    const username = user?.username || '';
     const role = (user?.role || '').toLowerCase();
     const team = (user?.team || '').toLowerCase();
+    
+    console.log('[API /lineas-team] Usuario:', username, 'Rol:', role, 'Team:', team);
+    
     const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador';
     if (!isTeamLineas) {
       return res.status(403).json({ success: false, message: 'Acceso denegado' });
     }
+    
+    // Conectar a la base de datos TEAM_LINEAS
     const db = getDbFor('TEAM_LINEAS');
     if (!db) {
-      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+      console.error('[API /lineas-team] No se pudo conectar a TEAM_LINEAS');
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
     }
-    const collection = db.collection('team_lineas_leads');
-    let filter = {};
-    if (role === 'supervisor') {
-      filter = { supervisor: { $regex: new RegExp('^' + user.username + '$', 'i') } };
-    } else if (role === 'lineas-agentes') {
-      filter = { agenteAsignado: user.username };
+    
+    // Convertir nombre de usuario a nombre de colección (ej: "Edward Ramirez" -> "EDWARD_RAMIREZ")
+    const collectionName = username.toUpperCase().replace(/\s+/g, '_');
+    console.log('[API /lineas-team] Buscando en colección:', collectionName);
+    
+    let leads = [];
+    
+    if (role === 'admin' || role === 'administrador') {
+      // Admin ve todas las colecciones
+      const collections = await db.listCollections().toArray();
+      console.log('[API /lineas-team] Colecciones disponibles:', collections.map(c => c.name));
+      
+      for (const coll of collections) {
+        const docs = await db.collection(coll.name).find({}).toArray();
+        leads = leads.concat(docs.map(d => ({ ...d, _collectionName: coll.name })));
+      }
+    } else if (role === 'supervisor' || role === 'supervisor team lineas') {
+      // Supervisor ve todas las colecciones de su equipo
+      const collections = await db.listCollections().toArray();
+      for (const coll of collections) {
+        const docs = await db.collection(coll.name).find({}).toArray();
+        leads = leads.concat(docs.map(d => ({ ...d, _collectionName: coll.name })));
+      }
+    } else {
+      // Agente ve solo su colección
+      const collection = db.collection(collectionName);
+      leads = await collection.find({}).toArray();
     }
-    const leads = await collection.find(filter).toArray();
+    
+    console.log('[API /lineas-team] Leads encontrados:', leads.length);
     res.json({ success: true, data: leads });
   } catch (error) {
-    console.error('[API /lineas-team] Error:', error);
-    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    console.error('[API /lineas-team] Error:', error.message);
+    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
   }
 });
 
