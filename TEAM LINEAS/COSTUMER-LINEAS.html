@@ -36,6 +36,7 @@
       <div style="max-width:100%; margin:16px auto 0;">
         <h1 style="margin:0 0 12px;">Customer - Team Líneas</h1>
 
+        <!-- Barra de filtros principal -->
         <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
           <div style="display:flex; gap:8px; align-items:center;">
             <input id="q" class="form-control" placeholder="Buscar (nombre, teléfono, cuenta, dirección, ID)" style="min-width:320px;" />
@@ -52,27 +53,6 @@
             <button id="btn-seed-data" style="background-color: #dc2626; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">Crear Datos de Prueba</button>
           </div>
         </div>
-
-        <!-- Sin formularios: solo barra rápida arriba y tabla debajo -->
-
-        <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input id="q" class="form-control" placeholder="Buscar (nombre, teléfono, cuenta, dirección, ID)" style="min-width:320px;" />
-            <select id="qs" class="form-control" style="min-width:140px;">
-              <option value="">STATUS: Todos</option>
-              <option value="pending">PENDING</option>
-              <option value="repro">REPRO</option>
-            </select>
-            <select id="agentFilter" class="form-control" style="min-width:180px;">
-              <option value="">AGENTE: Todos</option>
-            </select>
-          </div>
-          <div id="admin-actions" style="display:none; margin-left: auto;">
-            <button id="btn-seed-data" style="background-color: #dc2626; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">Crear Datos de Prueba</button>
-          </div>
-        </div>
-
-        <!-- Sin formularios: solo barra rápida arriba y tabla debajo -->
 
         <section style="margin-top:16px;">
           <div class="costumer-table-container">
@@ -119,6 +99,14 @@
       const userRole = getUserRole();
       if (userRole === 'admin' || userRole === 'administrador') {
         document.getElementById('admin-actions').style.display = 'block';
+      }
+
+      // Para agentes de Team Líneas: ocultar filtros avanzados (STATUS / AGENTE)
+      if (!userRole.includes('supervisor')) {
+        try {
+          document.querySelectorAll('#qs').forEach(el => { el.style.display = 'none'; });
+          document.querySelectorAll('#agentFilter').forEach(el => { el.style.display = 'none'; });
+        } catch (_) {}
       }
 
       const $ = (s) => document.querySelector(s);
