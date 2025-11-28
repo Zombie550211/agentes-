@@ -66,7 +66,9 @@ async function getCostumerById(db, recordId) {
 router.get('/leads', protect, async (req, res) => {
   try {
     const db = getDb();
+    console.log('[USERS UPDATE ROLE] after getDb, db present?', !!db);
     if (!db) {
+      console.warn('[USERS UPDATE ROLE] No DB connection available');
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
@@ -1152,6 +1154,187 @@ router.get('/fix-agent-names', async (req, res) => {
   } catch (error) {
     console.error('Error en fix-agent-names:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ============================
+// Gestión de usuarios (solo admin)
+// ============================
+
+// Listar usuarios básicos para administración (sin password)
+router.get('/users/admin-list', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const role = (req.user?.role || '').toLowerCase();
+    const allowedAdminRoles = ['admin', 'administrador', 'administrativo', 'administrador general'];
+    if (!allowedAdminRoles.includes(role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado para listar usuarios' });
+    }
+
+    const users = await db.collection('users')
+      .find({}, { projection: { password: 0 } })
+      .sort({ username: 1 })
+      .toArray();
+
+    const sanitized = users.map(u => ({
+      id: u._id?.toString() || null,
+      username: u.username || null,
+      name: u.name || u.fullName || u.nombre || u.username || null,
+      role: u.role || null,
+      team: u.team || null,
+      supervisor: u.supervisor || null
+    }));
+
+    return res.json({ success: true, users: sanitized, agents: sanitized });
+  } catch (error) {
+    console.error('[ADMIN USERS LIST] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener usuarios', error: error.message });
+  }
+});
+
+// Actualizar rol y/o team de un usuario existente (y renombrar team si pasa a supervisor)
+router.put('/users/:id/role', protect, async (req, res) => {
+  try {
+    console.log('[ROUTE] PUT /api/users/:id/role called', { params: req.params, bodyPreview: req.body && Object.keys(req.body).length ? Object.fromEntries(Object.entries(req.body).slice(0,5)) : {}, user: req.user && req.user.username });
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const userRole = (req.user?.role || '').toLowerCase();
+    console.log('[USERS UPDATE ROLE] req.user.role normalized:', userRole);
+    const allowedAdminRoles = ['admin', 'administrador', 'administrativo', 'administrador general'];
+    if (!allowedAdminRoles.includes(userRole)) {
+      console.warn('[USERS UPDATE ROLE] userRole not allowed:', userRole);
+      return res.status(403).json({ success: false, message: 'No autorizado para actualizar usuarios' });
+    }
+
+    const userId = req.params.id;
+    const { role, team } = req.body || {};
+
+    if (!userId) {
+      console.warn('[USERS UPDATE ROLE] Missing userId in params');
+      return res.status(400).json({ success: false, message: 'ID de usuario requerido' });
+    }
+    if (!role) {
+      console.warn('[USERS UPDATE ROLE] Missing role in body');
+      return res.status(400).json({ success: false, message: 'Nuevo rol requerido' });
+    }
+
+    const allowedRoles = ['admin', 'Administrador', 'administrador', 'Administrativo', 'supervisor', 'vendedor', 'usuario', 'backoffice'];
+    console.log('[USERS UPDATE ROLE] requested new role:', role);
+    if (!allowedRoles.includes(role)) {
+      console.warn('[USERS UPDATE ROLE] requested role not allowed:', role);
+      return res.status(400).json({ success: false, message: 'Rol no permitido' });
+    }
+
+    const usersColl = db.collection('users');
+
+    let objectId = null;
+    try {
+      objectId = new ObjectId(String(userId));
+    } catch {
+      objectId = null;
+    }
+
+    const filter = objectId ? { _id: objectId } : { _id: String(userId) };
+
+    // Obtener usuario actual antes de cambios para conocer su nombre y team actual
+    console.log('[USERS UPDATE ROLE] about to findOne with filter:', filter);
+    const currentUser = await usersColl.findOne(filter);
+    console.log('[USERS UPDATE ROLE] findOne result present?', !!currentUser);
+    console.log('[USERS UPDATE ROLE] filter used:', filter);
+    if (!currentUser) {
+      console.warn('[USERS UPDATE ROLE] Usuario no encontrado con filter:', filter);
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const now = new Date();
+    let finalTeam = team || currentUser.team || null;
+
+    const isSupervisorRole = String(role).toLowerCase().includes('supervisor');
+
+    if (isSupervisorRole && finalTeam) {
+      // Construir nuevo nombre de team basado en el nombre del supervisor
+      const displayName = currentUser.name || currentUser.fullName || currentUser.nombre || currentUser.username || 'SUPERVISOR';
+      const newTeamName = `TEAM ${displayName}`.toUpperCase();
+
+      // Renombrar team para todos los usuarios que pertenecen a ese team
+      const renameResult = await usersColl.updateMany(
+        { team: finalTeam },
+        {
+          $set: {
+            team: newTeamName,
+            updatedAt: now,
+            updatedBy: req.user?.username || 'system'
+          }
+        }
+      );
+
+      console.log('[USERS UPDATE ROLE] Team renombrado', {
+        oldTeam: finalTeam,
+        newTeam: newTeamName,
+        modifiedCount: renameResult.modifiedCount
+      });
+
+      finalTeam = newTeamName;
+    }
+
+    const update = {
+      $set: {
+        role,
+        team: finalTeam,
+        updatedAt: now,
+        updatedBy: req.user?.username || 'system'
+      }
+    };
+
+    const result = await usersColl.findOneAndUpdate(filter, update, {
+      returnDocument: 'after',
+      projection: { password: 0 }
+    });
+
+    console.log('[USERS UPDATE ROLE] findOneAndUpdate raw result:', result && (result.value ? { id: result.value._id, username: result.value.username, role: result.value.role } : { value: !!result.value, lastErrorObject: result && result.lastErrorObject ? result.lastErrorObject : null }));
+
+    // Algunos entornos/versión de driver pueden devolver el documento directamente
+    // o devolver un objeto con la propiedad `value`. Si no hay `value`, intentar
+    // obtener el documento actualizado con findOne antes de responder 404.
+    let updatedUser = null;
+    if (result && result.value) {
+      updatedUser = result.value;
+    } else if (result && result._id) {
+      // En casos raros el resultado puede ser el documento mismo
+      updatedUser = result;
+    } else {
+      // Intentar leer el documento actualizado desde la DB
+      try {
+        updatedUser = await usersColl.findOne(filter, { projection: { password: 0 } });
+      } catch (e) {
+        console.warn('[USERS UPDATE ROLE] Error buscando usuario tras update:', e.message || e);
+        updatedUser = null;
+      }
+    }
+
+    if (!updatedUser) {
+      console.warn('[USERS UPDATE ROLE] Usuario no encontrado tras actualizar. findOneAndUpdate returned:', result);
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado tras actualizar' });
+    }
+
+    console.log('[USERS UPDATE ROLE] Usuario actualizado:', {
+      id: updatedUser._id,
+      username: updatedUser.username,
+      role: updatedUser.role,
+      team: updatedUser.team
+    });
+
+    return res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    console.error('[USERS UPDATE ROLE] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar rol/team de usuario' });
   }
 });
 

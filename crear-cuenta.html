@@ -431,6 +431,7 @@
                                 <option value="supervisor">Supervisor</option>
                                 <option value="vendedor">Vendedor</option>
                                 <option value="usuario">Usuario</option>
+                                <option value="backoffice">Backoffice</option>
                             </select>
                             <span class="input-icon">🎯</span>
                         </div>
@@ -469,9 +470,9 @@
                             <input 
                                 type="password" 
                                 id="password" 
-                                placeholder="Mínimo 6 caracteres"
+                                placeholder="Mínimo 8 caracteres"
                                 required
-                                minlength="6"
+                                minlength="8"
                             >
                             <span class="input-icon">🔑</span>
                         </div>
@@ -488,7 +489,7 @@
                                 id="confirmPassword" 
                                 placeholder="Repite la contraseña"
                                 required
-                                minlength="6"
+                                minlength="8"
                             >
                             <span class="input-icon">✓</span>
                         </div>
@@ -509,6 +510,62 @@
                 ✓ ¡Cuenta creada exitosamente!
             </div>
         </form>
+
+        <section id="editUserSection" style="margin-top: 40px; display: none;">
+            <h2>Editar rol y equipo de usuario</h2>
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="editUserSelect">Seleccionar usuario existente</label>
+                        <div class="input-wrapper">
+                            <select id="editUserSelect">
+                                <option value="" selected>— Seleccione un usuario —</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editRole">Nuevo rol</label>
+                        <div class="input-wrapper">
+                            <select id="editRole">
+                                <option value="" disabled selected>Seleccione un rol</option>
+                                <option value="administrador">Administrador</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="vendedor">Vendedor</option>
+                                <option value="usuario">Usuario</option>
+                                <option value="backoffice">Backoffice</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editTeam">Nuevo equipo</label>
+                        <div class="input-wrapper">
+                            <select id="editTeam">
+                                <option value="" selected>— Seleccione equipo —</option>
+                                <option value="TEAM IRANIA">TEAM IRANIA</option>
+                                <option value="TEAM BRYAN PLEITEZ">TEAM BRYAN PLEITEZ</option>
+                                <option value="TEAM MARISOL BELTRAN">TEAM MARISOL BELTRAN</option>
+                                <option value="TEAM ROBERTO VELASQUEZ">TEAM ROBERTO VELASQUEZ</option>
+                                <option value="TEAM JOHANA">TEAM JOHANA</option>
+                                <option value="TEAM RANDAL MARTINEZ">TEAM RANDAL MARTINEZ</option>
+                                <option value="TEAM LINEAS">TEAM LÍNEAS</option>
+                                <option value="Backoffice">Backoffice</option>
+                                <option value="Administración">Administración</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-submit" id="btnUpdateUserRole">
+                        Actualizar rol y equipo
+                    </button>
+                </div>
+            </div>
+        </section>
             </div>
         </main>
     </div>
@@ -522,6 +579,11 @@
         const confirmPassword = document.getElementById('confirmPassword');
         const strengthBar = document.getElementById('strengthBar');
         const successMessage = document.getElementById('successMessage');
+        const editUserSection = document.getElementById('editUserSection');
+        const editUserSelect = document.getElementById('editUserSelect');
+        const editRole = document.getElementById('editRole');
+        const editTeam = document.getElementById('editTeam');
+        const btnUpdateUserRole = document.getElementById('btnUpdateUserRole');
 
         // Validar fortaleza de contraseña
         password.addEventListener('input', function() {
@@ -550,8 +612,8 @@
             }
 
             // Validar longitud mínima de contraseña
-            if (password.value.length < 6) {
-                alert('⚠️ La contraseña debe tener al menos 6 caracteres.');
+            if (password.value.length < 8) {
+                alert('⚠️ La contraseña debe tener al menos 8 caracteres.');
                 password.focus();
                 return;
             }
@@ -594,6 +656,81 @@
                 alert('❌ Error de red o servidor: ' + err.message);
             });
         });
+
+        async function fetchWithAuth(url, options) {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const headers = Object.assign({}, (options && options.headers) || {}, {
+                'Content-Type': 'application/json'
+            });
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            const finalOptions = Object.assign({}, options || {}, { headers });
+            // Incluir credenciales (cookies) para que la autenticación por cookie funcione
+            finalOptions.credentials = finalOptions.credentials || 'include';
+            console.log('[fetchWithAuth] Request', { url, method: finalOptions.method || 'GET', headersPreview: Object.fromEntries(Object.keys(headers).slice(0,5).map(k=>[k, headers[k]])) });
+            return fetch(url, finalOptions);
+        }
+
+        async function initEditUserSection() {
+            try {
+                const meResp = await fetchWithAuth('/api/debug/user', { method: 'GET' });
+                if (!meResp.ok) return;
+                const meData = await meResp.json();
+                const role = (meData && meData.tokenUser && meData.tokenUser.role) || '';
+                const isAdmin = ['Administrador', 'admin', 'administrador', 'Administrativo'].includes(role);
+                if (!isAdmin) return;
+
+                editUserSection.style.display = 'block';
+
+                const agentsResp = await fetchWithAuth('/api/users/admin-list', { method: 'GET' });
+
+                if (!agentsResp.ok) return;
+                const agentsData = await agentsResp.json();
+                const agents = (agentsData && agentsData.agents) || [];
+
+                agents.forEach(u => {
+                    if (!u || !u.id) return;
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = (u.name || u.username || '') + (u.role ? ` (${u.role})` : '');
+                    editUserSelect.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('initEditUserSection error', e);
+            }
+        }
+
+        btnUpdateUserRole.addEventListener('click', async function() {
+            try {
+                const userId = editUserSelect.value;
+                const newRole = editRole.value;
+                const newTeam = editTeam.value;
+                if (!userId) {
+                    alert('Selecciona un usuario.');
+                    return;
+                }
+                if (!newRole) {
+                    alert('Selecciona un nuevo rol.');
+                    return;
+                }
+
+                const resp = await fetchWithAuth(`/api/users/${encodeURIComponent(userId)}/role`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ role: newRole, team: newTeam || null })
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    alert('❌ Error al actualizar usuario: ' + (data.message || 'Error desconocido'));
+                    return;
+                }
+                alert('✅ Usuario actualizado correctamente.');
+            } catch (e) {
+                alert('❌ Error al actualizar usuario: ' + e.message);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', initEditUserSection);
 
         function handleCancel() {
             if (confirm('¿Estás seguro de que deseas cancelar? Se perderán los datos ingresados.')) {

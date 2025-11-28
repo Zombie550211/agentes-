@@ -117,6 +117,14 @@ app.use(express.static(__dirname, {
   }
 }));
 
+// Middleware de debug: loguear todas las solicitudes a /api/* para depuración
+app.use('/api', (req, res, next) => {
+  try {
+    console.log('[API DEBUG] Incoming request', { method: req.method, url: req.originalUrl, headersPreview: Object.fromEntries(Object.keys(req.headers).slice(0,6).map(k=>[k, req.headers[k]])) });
+  } catch (e) { console.warn('[API DEBUG] Error logging request', e); }
+  next();
+});
+
 // La conexión de Mongoose ahora es gestionada centralmente por config/db.js
 // para permitir el fallback a una base de datos local y el modo offline.
 // Se ha eliminado el bloque de conexión duplicado de este archivo.
@@ -903,21 +911,36 @@ app.get('/api/supervisors/:team', protect, authorize('Administrador', 'admin', '
 app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), async (req, res) => {
   try {
     const { username, password, role, team, supervisor } = req.body;
-    
-    // Validaciones
+
+    // Validaciones básicas
     if (!username || !password || !role) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username, password y role son requeridos' 
+      return res.status(400).json({
+        success: false,
+        message: 'Username, password y role son requeridos'
       });
     }
-    
-    if (password.length < 8) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'La contraseña debe tener al menos 8 caracteres' 
+
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 8 caracteres'
       });
     }
+
+    // Normalizar el rol recibido a valores canónicos usados en la app
+    const normalizeRole = (r) => {
+      if (!r) return 'Usuario';
+      const rr = String(r).trim().toLowerCase();
+      if (['admin', 'administrador', 'administrator', 'administrativo'].includes(rr)) return 'Administrador';
+      if (['backoffice', 'back office', 'back_office', 'bo', 'b.o', 'b-o'].includes(rr)) return 'Backoffice';
+      if (['supervisor'].includes(rr)) return 'Supervisor';
+      if (['vendedor', 'agente', 'agentes', 'agent'].includes(rr)) return 'Agente';
+      if (['team lineas', 'team_lineas', 'teamlineas', 'lineas', 'lineas-agentes'].includes(rr)) return 'Team Lineas';
+      // Capitalizar la primera letra por defecto
+      return rr.charAt(0).toUpperCase() + rr.slice(1);
+    };
+
+    const canonicalRole = normalizeRole(role);
     
     // Crear el nuevo usuario
     if (!isConnected()) {
@@ -939,15 +962,31 @@ app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'adm
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    // Normalizar el team: si es Backoffice no asignar team (Backoffice ve todo)
+    let teamNormalized = team ? String(team).trim() : null;
+    if (canonicalRole === 'Backoffice') teamNormalized = null;
+
+    // Definir permisos por rol (coincidente con PERMISOS_POR_ROL.md)
+    const rolePermissions = {
+      'Administrador': ['read', 'write', 'delete', 'manage_users', 'manage_teams'],
+      'Backoffice': ['read', 'write', 'export', 'view_finance'],
+      'Supervisor': ['read_team', 'write_team', 'view_reports'],
+      'Agente': ['read_own', 'write_own'],
+      'Team Lineas': ['read_team:lineas', 'write_team:lineas']
+    };
+
+    const permissions = rolePermissions[canonicalRole] || ['read_own'];
+
     // Crear el nuevo usuario
     const newUser = {
-      username: username,
+      username: String(username).trim(),
       password: hashedPassword,
-      role: role,
-      team: team || null,
+      role: canonicalRole,
+      team: teamNormalized || null,
       supervisor: supervisor || null,
-      name: username, // Por defecto usar username como name
-      createdBy: req.user.username,
+      name: (req.body.name && String(req.body.name).trim()) || String(username).trim(),
+      permissions,
+      createdBy: req.user && req.user.username ? req.user.username : 'system',
       createdAt: new Date(),
       updatedAt: new Date()
     };
