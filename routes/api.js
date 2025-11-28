@@ -271,6 +271,8 @@ router.get('/leads', protect, async (req, res) => {
   }
 });
 
+module.exports = router;
+
 // Endpoint de diagnóstico para ver formatos de fecha
 router.get('/leads/debug-dates', protect, async (req, res) => {
   try {
@@ -1338,4 +1340,43 @@ router.put('/users/:id/role', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
+// DELETE /api/users/:id -> Eliminar usuario (solo Admins)
+// Nota: esta operación elimina SOLO el documento del usuario y NO toca leads/u otros documentos.
+// Se requiere rol administrador.
+router.delete('/users/:id', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+
+    const userRole = (req.user?.role || '').toLowerCase();
+    const allowedAdminRoles = ['admin', 'administrador', 'administrativo', 'administrador general'];
+    if (!allowedAdminRoles.includes(userRole)) {
+      return res.status(403).json({ success: false, message: 'No autorizado para eliminar usuarios' });
+    }
+
+    const userId = req.params.id;
+    if (!userId) return res.status(400).json({ success: false, message: 'ID de usuario requerido' });
+
+    // Evitar que un admin se borre a sí mismo por accidente
+    if (req.user && (req.user.id || req.user._id) && String(req.user.id || req.user._id) === String(userId)) {
+      return res.status(400).json({ success: false, message: 'No puedes eliminar tu propia cuenta' });
+    }
+
+    const usersColl = db.collection('users');
+    let objectId = null;
+    try { objectId = new ObjectId(String(userId)); } catch { objectId = null; }
+    const filter = objectId ? { _id: objectId } : { _id: String(userId) };
+
+    const existing = await usersColl.findOne(filter);
+    if (!existing) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+
+    // Borrar solo el documento del usuario
+    await usersColl.deleteOne(filter);
+
+    console.log('[USERS DELETE] Usuario eliminado:', { id: userId, deletedBy: req.user?.username || 'system' });
+    return res.json({ success: true, message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('[USERS DELETE] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar usuario' });
+  }
+});

@@ -563,6 +563,9 @@
                     <button type="button" class="btn btn-submit" id="btnUpdateUserRole">
                         Actualizar rol y equipo
                     </button>
+                    <button type="button" class="btn btn-cancel" id="btnDeleteUser" style="background:#ff4d4f;color:white;border:0;margin-left:10px;">
+                        Eliminar usuario
+                    </button>
                 </div>
             </div>
         </section>
@@ -727,6 +730,35 @@
                 alert('✅ Usuario actualizado correctamente.');
             } catch (e) {
                 alert('❌ Error al actualizar usuario: ' + e.message);
+            }
+        });
+
+        // Eliminar usuario seleccionado (solo admins)
+        const btnDeleteUser = document.getElementById('btnDeleteUser');
+        btnDeleteUser && btnDeleteUser.addEventListener('click', async function() {
+            try {
+                console.log('[UI] btnDeleteUser clicked');
+                const userId = editUserSelect.value;
+                console.log('[UI] selected userId:', userId);
+                if (!userId) { alert('Selecciona un usuario.'); return; }
+                if (!confirm('¿Confirmas que deseas ELIMINAR este usuario? Esta acción es irreversible (no afecta leads).')) return;
+
+                const resp = await fetchWithAuth(`/api/users/${encodeURIComponent(userId)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    alert('❌ Error al eliminar usuario: ' + (data.message || 'Error desconocido'));
+                    return;
+                }
+
+                // Remover opción del select
+                const opt = editUserSelect.querySelector(`option[value="${userId}"]`);
+                if (opt) opt.remove();
+                alert('✅ Usuario eliminado correctamente.');
+            } catch (e) {
+                alert('❌ Error al eliminar usuario: ' + e.message);
             }
         });
 
