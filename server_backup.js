@@ -2852,8 +2852,18 @@ app.post('/api/leads', protect, async (req, res) => {
       }]
     };
     
-    // Insertar en la base de datos
-    const result = await db.collection('costumers').insertOne(newLead);
+    // Decide target collection: per-agent collection if agenteId exists, else fallback to 'costumers'
+    const ownerIdRaw = newLead.agenteId || newLead.ownerId || null;
+    let targetCollection = 'costumers';
+    if (ownerIdRaw) {
+      const ownerStr = typeof ownerIdRaw === 'string' ? ownerIdRaw : String(ownerIdRaw);
+      const sanitized = ownerStr.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 120);
+      targetCollection = `costumers_${sanitized}`;
+    }
+    console.log('[POST /api/leads] inserting into collection:', targetCollection);
+
+    // Insertar en la base de datos (colección por agente o global)
+    const result = await db.collection(targetCollection).insertOne(newLead);
     
     console.log('Lead creado exitosamente con ID:', result.insertedId);
     

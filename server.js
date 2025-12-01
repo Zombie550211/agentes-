@@ -1914,9 +1914,49 @@ app.get('/api/customers', protect, async (req, res) => {
     const collections = await db.listCollections().toArray();
     console.log('Colecciones disponibles en crmagente:', collections.map(c => c.name));
 
-    // Usamos la colección 'costumers' específicamente
-    const collectionName = 'costumers';
-    console.log(`Intentando acceder a la colección: ${collectionName}`);
+    // Default collection name is 'costumers'. However this project stores per-agent
+    // collections like 'costumers_<agent>' and keeps a mapping in 'user_collections'.
+    // Prefer a mapped collection when available for the requested agent.
+    let collectionName = 'costumers';
+    console.log(`Intentando acceder a la colección (default): ${collectionName}`);
+
+    try {
+      // If the request comes from an authenticated user who is an agent, try to
+      // resolve their collection from the user_collections mapping.
+      const uc = db.collection('user_collections');
+      // Helper to fetch mapping by ownerId (string or ObjectId)
+      const resolveMappingById = async (id) => {
+        if (!id) return null;
+        const idStr = String(id);
+        const m = await uc.findOne({ $or: [ { ownerId: idStr }, { ownerId: { $in: [idStr] } }, { ownerId: id } ] });
+        return m && m.collectionName ? m.collectionName : null;
+      };
+
+      // If agent explicitly requested via query ?agenteId or ?agentId, honor mapping for that id
+      const agenteIdParamRaw = (req.query.agenteId || req.query.agentId || '').toString().trim();
+      if (agenteIdParamRaw) {
+        const mapped = await resolveMappingById(agenteIdParamRaw);
+        if (mapped) {
+          collectionName = mapped;
+          console.log('[INFO] Using mapped collection for agenteId param:', collectionName);
+        }
+      }
+
+      // If authenticated agent (role contains 'agente' or matches known agent roles), prefer their mapping
+      if (req.user) {
+        const roleLower = (req.user.role || '').toLowerCase();
+        if (roleLower.includes('agente') || roleLower.includes('agent') || roleLower.includes('lineas-agentes')) {
+          const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
+          const mapped = await resolveMappingById(currentUserId);
+          if (mapped) {
+            collectionName = mapped;
+            console.log('[INFO] Using mapped collection for current user:', collectionName);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[WARN] Could not resolve user_collections mapping:', e?.message);
+    }
     
     // Verificar si la colección existe
     const collectionExists = collections.some(c => c.name === collectionName);
@@ -2678,9 +2718,39 @@ app.get('/api/leads', protect, (req, res, next) => {
       }
       
       console.log('Consultando leads con filtro para gráfica:', JSON.stringify(filtro, null, 2));
-      
-      // Obtener los leads que coincidan con el filtro
-      const leads = await db.collection('costumers').find(filtro).toArray();
+
+        // Resolver colección objetivo según rol/usuario (agente -> su colección)
+        async function resolveCollectionForUser() {
+          function sanitizeName(s) {
+            if (!s) return '';
+            return String(s).trim().replace(/[^a-zA-Z0-9\s\-_.]/g, '').replace(/\s+/g, '_').replace(/__+/g, '_').slice(0, 90);
+          }
+          const ownerName = req.user?.username || req.user?.agenteNombre || req.user?.name || null;
+          const ownerId = req.user?.id || req.user?.agenteId || null;
+          // Only attempt per-agent collection for agents
+          const role = (req.user && req.user.role) ? String(req.user.role).toLowerCase() : '';
+          if (role === 'agent' || role === 'agente') {
+            if (ownerName) {
+              const sanitized = sanitizeName(ownerName);
+              const short = ownerId ? String(ownerId).replace(/[^a-zA-Z0-9]/g,'').slice(0,6) : null;
+              const candidates = [];
+              if (short) candidates.push(`costumers_${sanitized}_${short}`);
+              candidates.push(`costumers_${sanitized}`);
+              for (const c of candidates) {
+                const exists = await db.listCollections({ name: c }).hasNext ? (await db.listCollections({ name: c }).toArray()).length > 0 : (await db.listCollections({ name: c }).toArray()).length > 0;
+                if (exists) return c;
+              }
+            }
+            // fallback to costumers
+            return 'costumers';
+          }
+          // non-agents keep using global collection for now
+          return 'costumers';
+        }
+
+        const targetCollectionForGraph = await resolveCollectionForUser();
+        // Obtener los leads que coincidan con el filtro
+        const leads = await db.collection(targetCollectionForGraph).find(filtro).toArray();
       
       // Procesar los datos para la gráfica
       const datosGrafica = [];
@@ -2744,14 +2814,41 @@ app.get('/api/leads', protect, (req, res, next) => {
       }
     }
     
+    // Resolve target collection based on user role (agents -> their collection)
+    async function resolveCollectionForUserSimple() {
+      function sanitizeName(s) {
+        if (!s) return '';
+        return String(s).trim().replace(/[^a-zA-Z0-9\s\-_.]/g, '').replace(/\s+/g, '_').replace(/__+/g, '_').slice(0, 90);
+      }
+      const ownerName = req.user?.username || req.user?.agenteNombre || req.user?.name || null;
+      const ownerId = req.user?.id || req.user?.agenteId || null;
+      const role = (req.user && req.user.role) ? String(req.user.role).toLowerCase() : '';
+      if (role === 'agent' || role === 'agente') {
+        if (ownerName) {
+          const sanitized = sanitizeName(ownerName);
+          const short = ownerId ? String(ownerId).replace(/[^a-zA-Z0-9]/g,'').slice(0,6) : null;
+          const candidates = [];
+          if (short) candidates.push(`costumers_${sanitized}_${short}`);
+          candidates.push(`costumers_${sanitized}`);
+          for (const c of candidates) {
+            const exists = (await db.listCollections({ name: c }).toArray()).length > 0;
+            if (exists) return c;
+          }
+        }
+        return 'costumers';
+      }
+      return 'costumers';
+    }
+
+    const targetCollection = await resolveCollectionForUserSimple();
     const [leads, total] = await Promise.all([
-      db.collection('costumers')
+      db.collection(targetCollection)
         .find(query)
         .sort({ fecha_creacion: -1 })
         .skip(skip)
         .limit(parseInt(limit))
         .toArray(),
-      db.collection('costumers').countDocuments(query)
+      db.collection(targetCollection).countDocuments(query)
     ]);
     
     res.json({ 
@@ -3183,6 +3280,11 @@ app.post('/api/leads', protect, async (req, res) => {
     const leadData = req.body;
     console.log('=== NUEVA SOLICITUD EN /api/leads ===');
     console.log('Datos recibidos:', leadData);
+    // Extra guard: require authenticated user (protect should enforce this)
+    if (!req.user) {
+      console.warn('[POST /api/leads] solicitud sin usuario autenticado - rechazando');
+      return res.status(401).json({ success: false, message: 'Acceso denegado. Debes autenticarte para enviar leads.' });
+    }
     
     // Validar datos del lead
     const requiredFields = ['telefono_principal', 'direccion', 'tipo_servicio', 'nombre_cliente'];
@@ -3229,8 +3331,245 @@ app.post('/api/leads', protect, async (req, res) => {
       }]
     };
     
-    // Insertar en la base de datos
-    const result = await db.collection('costumers').insertOne(newLead);
+    // Canonical collection selection improved:
+    // 1) use a persistent mapping collection `user_collections` (ownerId -> collectionName) if present
+    // 2) otherwise try to find existing collections by shortId or by normalized display name
+    // 3) if none found, create deterministic canonical name using shortId + normalized display
+
+    // Normalize owner id input into a stable string (prefer hex ObjectId when possible)
+    function normalizeOwnerIdInput(v) {
+      try {
+        if (!v) return '';
+        // If it's already an object like {$oid: '...'}
+        if (typeof v === 'object') {
+          if (v.$oid) return String(v.$oid);
+          if (v.toHexString && typeof v.toHexString === 'function') return String(v.toHexString());
+          // fallback to string representation
+          const s = String(v);
+          const m = s.match(/([a-fA-F0-9]{24})/);
+          if (m) return m[1];
+          return s.trim();
+        }
+        const s = String(v).trim();
+        // match patterns like ObjectId('...') or raw 24-hex
+        const m1 = s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/);
+        if (m1) return m1[1];
+        const m2 = s.match(/^([a-fA-F0-9]{24})$/);
+        if (m2) return m2[1];
+        return s;
+      } catch (e) {
+        return String(v || '').trim();
+      }
+    }
+
+    const ownerId = normalizeOwnerIdInput(req.user?.id || newLead.agenteId || newLead.ownerId || '');
+    if (!ownerId) {
+      console.warn('[POST /api/leads] usuario autenticado sin id válido - rechazando');
+      return res.status(401).json({ success: false, message: 'Usuario sin id válido' });
+    }
+
+    // Ensure the lead stores a normalized agenteId so future scans match consistently
+    try { newLead.agenteId = ownerId; } catch (e) { /* noop */ }
+
+    const shortId = ownerId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+
+    function normalizeDisplay(s) {
+      if (!s) return '';
+      return String(s)
+        .normalize('NFD').replace(/[\u0000-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s\-_.]/g, '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .replace(/__+/g, '_')
+        .slice(0, 60);
+    }
+
+    const displayNorm = normalizeDisplay(req.user?.username || req.user?.name || newLead.agenteNombre || newLead.agente || '');
+
+    // 1) Check mapping collection first (do not overwrite an existing mapping)
+    let targetCollection = null;
+    let mappingExisted = false;
+    try {
+      // Try matching ownerId both as stored string and as ObjectId (some mappings were stored as ObjectId)
+      const orQuery = [{ ownerId: ownerId }];
+      if (/^[a-fA-F0-9]{24}$/.test(ownerId)) {
+        try { orQuery.push({ ownerId: new ObjectId(ownerId) }); } catch (e) { }
+      }
+      const mapping = await db.collection('user_collections').findOne({ $or: orQuery });
+      if (mapping && mapping.collectionName) {
+        targetCollection = mapping.collectionName;
+        mappingExisted = true;
+        console.log('[POST /api/leads] found mapping for ownerId ->', targetCollection);
+      }
+    } catch (e) {
+      console.warn('[POST /api/leads] error reading user_collections mapping:', e && e.message);
+    }
+
+    // If we have no target yet, scan candidate collections and pick the one with the
+    // highest count of documents having agenteId === ownerIdRaw. This prevents creating
+    // a new collection when the user's leads are already in another one.
+    if (!targetCollection) {
+      try {
+        // Helper: create a loose regex matching the name ignoring spaces/punctuation
+        function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+        function makeLooseNameRegex(n) {
+          try {
+            if (!n) return null;
+            const normalized = String(n).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+            // keep only alnum chars
+            const compact = normalized.replace(/[^a-z0-9]/g, '');
+            if (!compact) return null;
+            const parts = compact.split('');
+            const pattern = parts.map(ch => escapeRegex(ch)).join('[^a-z0-9]*');
+            return new RegExp('^' + pattern + '$', 'i');
+          } catch (e) { return null; }
+        }
+
+        const allCols = await db.listCollections().toArray();
+        const names = allCols.map(c => c.name).filter(Boolean);
+        let best = { name: null, score: 0, countId: 0, countName: 0 };
+        const username = req.user?.username || req.user?.name || '';
+        const usernameRegex = makeLooseNameRegex(username);
+        for (const n of names) {
+          if (!n.startsWith('costumers_')) continue;
+          try {
+            const c = db.collection(n);
+            // Match agenteId both as string and as ObjectId (if ownerIdRaw is a 24-hex)
+            let cntId = 0;
+            try {
+              const orClauses = [{ agenteId: ownerId }];
+              if (/^[a-fA-F0-9]{24}$/.test(ownerId)) {
+                try { orClauses.push({ agenteId: new ObjectId(ownerId) }); } catch (e) { }
+              }
+              cntId = await c.countDocuments({ $or: orClauses });
+            } catch (e) {
+              cntId = 0;
+            }
+            // also count documents that have the agent's display name but missing agenteId
+            let cntName = 0;
+            if (username) {
+              try {
+                if (usernameRegex) {
+                  const q = { $or: [] };
+                  q.$or.push({ agente: { $regex: usernameRegex } });
+                  q.$or.push({ agenteNombre: { $regex: usernameRegex } });
+                  q.$or.push({ createdBy: { $regex: usernameRegex } });
+                  cntName = await c.countDocuments(q);
+                } else {
+                  cntName = await c.countDocuments({ $or: [{ agente: username }, { agenteNombre: username }, { createdBy: username }] });
+                }
+              } catch (e) { cntName = 0; }
+            }
+            // Score: prefer exact agenteId matches, but also consider name matches
+            const score = (cntId * 100) + (cntName * 10);
+            if (score > best.score) best = { name: n, score, countId: cntId, countName: cntName };
+          } catch (e) {
+            // ignore per-collection errors
+          }
+        }
+        if (best.score > 0) {
+          // Prefer this existing collection which already contains leads for this agent
+          if (targetCollection !== best.name) {
+            console.log('[POST /api/leads] detected existing collection with agent docs:', best.name, 'countId:', best.countId, 'countName:', best.countName);
+            targetCollection = best.name;
+            // upsert mapping to point to the detected collection
+            try {
+              await db.collection('user_collections').updateOne(
+                { ownerId: ownerId },
+                { $set: { ownerId: ownerId, collectionName: targetCollection, updatedAt: new Date() } },
+                { upsert: true }
+              );
+              console.log('[POST /api/leads] user_collections mapping updated to', targetCollection);
+            } catch (e) {
+              console.warn('[POST /api/leads] error updating mapping to detected collection:', e && e.message);
+            }
+          }
+        }
+      } catch (e) {
+        // listing could fail, continue gracefully to other heuristics
+      }
+    }
+
+    // 2) If no mapping, look for existing collections that match shortId or normalized name
+    if (!targetCollection) {
+      try {
+        const allCols = await db.listCollections().toArray();
+        const names = allCols.map(c => c.name);
+
+        // Helper: normalize a string similar to normalizeDisplay but return alnum and underscores
+        function norm(s) {
+          if (!s) return '';
+          return String(s)
+            .normalize('NFD').replace(/[ -\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '_')
+            .replace(/__+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        }
+
+        const candidates = [];
+
+        // Score collections: higher score = better match
+        for (const n of names) {
+          if (!n.startsWith('costumers_')) continue;
+          const suffix = n.slice('costumers_'.length);
+          const parts = suffix.split('_').filter(Boolean).map(p => norm(p));
+          const fullNorm = norm(suffix);
+          let score = 0;
+
+          // exact costumers_<shortId>
+          if (n === `costumers_${shortId}`) score += 100;
+
+          // any part equals shortId
+          if (parts.includes(shortId)) score += 50;
+
+          // last part equals shortId (common pattern costumers_<display>_<shortId>)
+          if (parts.length > 0 && parts[parts.length - 1] === shortId) score += 25;
+
+          // display match
+          if (displayNorm && fullNorm.includes(norm(displayNorm))) score += 20;
+
+          // fallback small score if contains shortId substring
+          if (fullNorm.indexOf(shortId) !== -1) score += 5;
+
+          if (score > 0) candidates.push({ name: n, score });
+        }
+
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b.score - a.score);
+          targetCollection = candidates[0].name;
+        }
+      } catch (e) {
+        console.warn('[POST /api/leads] error listando colecciones:', e && e.message);
+      }
+    }
+
+    // 3) If still not found, create a deterministic canonical collection name using shortId
+    if (!targetCollection) {
+      targetCollection = displayNorm ? `costumers_${shortId}_${displayNorm}` : `costumers_${shortId}`;
+      console.log('[POST /api/leads] no existing collection found; will use canonical name:', targetCollection);
+    }
+
+    // Persist mapping for future requests (upsert) ONLY if there wasn't a mapping at the start
+    if (!mappingExisted) {
+      try {
+        await db.collection('user_collections').updateOne(
+          { ownerId: ownerId },
+          { $set: { ownerId: ownerId, collectionName: targetCollection, updatedAt: new Date() } },
+          { upsert: true }
+        );
+        console.log('[POST /api/leads] user_collections mapping upserted for', ownerId, '->', targetCollection);
+      } catch (e) {
+        console.warn('[POST /api/leads] error upserting user_collections mapping:', e && e.message);
+      }
+    } else {
+      console.log('[POST /api/leads] mapping existed; not overwriting user_collections for', ownerId);
+    }
+
+    console.log('[POST /api/leads] targetCollection (final):', targetCollection, 'shortId:', shortId, 'user:', req.user?.username);
+    // Insertar en la base de datos (colección por agente o global)
+    const result = await db.collection(targetCollection).insertOne(newLead);
     
     console.log('Lead creado exitosamente con ID:', result.insertedId);
     
