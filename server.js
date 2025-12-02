@@ -50,6 +50,18 @@ const rankingRoutes = require('./routes/ranking');
 const equipoRoutes = require('./routes/equipoRoutes');
 const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
 const facturacionRoutes = require('./routes/facturacion');
+let mediaProxy = null;
+try {
+  mediaProxy = require('./routes/mediaProxy');
+} catch (e) {
+  console.warn('[INIT] mediaProxy route not available:', e.message);
+}
+let debugRoutes = null;
+try {
+  debugRoutes = require('./routes/debug');
+} catch (e) {
+  console.warn('[INIT] debug route not available:', e.message);
+}
 
 // Configuración de JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
@@ -730,6 +742,10 @@ app.use('/api/ranking', rankingRoutes);
 app.use('/api/equipos', equipoRoutes);
 app.use('/api/employees-of-month', employeesOfMonthRoutes);
 app.use('/api', apiRoutes); // Esta debe ir AL FINAL porque es la más genérica
+// Proxy para recursos de Cloudinary (evita problemas con Tracking Prevention en clientes)
+if (mediaProxy) app.use('/media/proxy', mediaProxy);
+// Debug routes (solo lectura) para diagnóstico
+if (debugRoutes) app.use('/api/debug', debugRoutes);
 
 // Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
 // Wrapper mínimo por compatibilidad con referencias existentes

@@ -18,8 +18,14 @@ router.get('/', protect, async (req, res) => {
       });
     }
 
-    const { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
+    let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
+
+    // RANKING GLOBAL: siempre buscar en todas las colecciones sin filtrar por agente específico
+    // (a menos que se pase explícitamente el parámetro 'agente' en la query)
+    if (!all || String(all).trim() === '') {
+      all = '1'; // Forzar búsqueda en todas las colecciones costumers*
+    }
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -380,36 +386,109 @@ router.get('/', protect, async (req, res) => {
     console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipelineBase, null, 2));
     const matchStageDiaVenta = pipelineBase[0];
 
-    // Ejecutar consulta directamente en costumers (colección principal con datos reales)
+    // Ejecutar consulta: por defecto en 'costumers'. Si se pide `all`, agregar todas las colecciones costumers* y fusionar resultados
     let rankingResults = [];
     let usedCollection = 'costumers';
     const attempts = [];
-    
-    try {
-      console.log(`[RANKING] Consultando colección: costumers`);
-      rankingResults = await db.collection('costumers').aggregate(pipelineBase).toArray();
-      attempts.push({ collection: 'costumers', count: rankingResults.length });
-      console.log(`[RANKING] Datos encontrados en costumers: ${rankingResults.length} registros`);
-    } catch (e) {
-      console.error(`[RANKING] Error consultando costumers:`, e?.message);
-      attempts.push({ collection: 'costumers', error: e?.message||String(e) });
-      
-      // Fallback a otras colecciones solo si costumers falla
-      const fallbackCollections = ['Costumers','Lineas','leads'];
-      for (const col of fallbackCollections) {
-        try {
-          console.log(`[RANKING] Fallback a colección: ${col}`);
-          const arr = await db.collection(col).aggregate(pipelineBase).toArray();
-          attempts.push({ collection: col, count: Array.isArray(arr)?arr.length:0 });
-          if (Array.isArray(arr) && arr.length > 0) {
+
+    // Función auxiliar para ejecutar pipeline en una colección y retornar array (captura errores)
+    const runOnCollection = async (colName) => {
+      try {
+        const arr = await db.collection(colName).aggregate(pipelineBase).toArray();
+        attempts.push({ collection: colName, count: Array.isArray(arr) ? arr.length : 0 });
+        console.log(`[RANKING] Datos encontrados en colección: ${colName} -> ${Array.isArray(arr)?arr.length:0}`);
+        return Array.isArray(arr) ? arr : [];
+      } catch (err) {
+        console.warn(`[RANKING] Error consultando ${colName}:`, err?.message || String(err));
+        attempts.push({ collection: colName, error: err?.message || String(err) });
+        return [];
+      }
+    };
+
+    if (all) {
+      // Si solicitan 'all', buscar todas las colecciones que empiecen por 'costumers' (incluye variantes por agente)
+      try {
+        const collInfos = await db.listCollections().toArray();
+        let targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || /^costumers_/i.test(n));
+        // Añadir la colección por defecto si no está
+        if (!targetColls.includes('costumers')) targetColls.unshift('costumers');
+        console.log('[RANKING] Colecciones candidatas para ALL:', targetColls);
+
+        // Ejecutar pipeline en cada colección y concatenar resultados
+        let allResults = [];
+        for (const col of targetColls) {
+          const arr = await runOnCollection(col);
+          if (arr.length > 0) {
+            allResults = allResults.concat(arr);
+            usedCollection = usedCollection === 'costumers' ? col : usedCollection; // registro del primer hallazgo
+          }
+        }
+
+        // Fusionar resultados por _id normalizado (agrupación manual)
+        const mergeMap = new Map();
+        for (const item of allResults) {
+          const id = item._id || (item.nombre && String(item.nombre).toLowerCase()) || item.nombre;
+          if (!id) continue;
+          const key = String(id).toLowerCase();
+          const ventas = Number(item.ventas || 0);
+          const sumPuntaje = Number(item.sumPuntaje || 0);
+          const avgPuntaje = Number(item.avgPuntaje || 0);
+
+          if (!mergeMap.has(key)) {
+            mergeMap.set(key, {
+              id: key,
+              nombre: item.nombre || item.anyName || key,
+              ventas: ventas,
+              sumPuntaje: sumPuntaje,
+              weightedForAvg: avgPuntaje * ventas
+            });
+          } else {
+            const ex = mergeMap.get(key);
+            ex.ventas += ventas;
+            ex.sumPuntaje += sumPuntaje;
+            ex.weightedForAvg += avgPuntaje * ventas;
+            mergeMap.set(key, ex);
+          }
+        }
+
+        rankingResults = Array.from(mergeMap.values()).map(v => ({
+          _id: v.id,
+          nombre: v.nombre,
+          ventas: v.ventas,
+          sumPuntaje: v.sumPuntaje,
+          avgPuntaje: v.ventas ? (v.weightedForAvg / v.ventas) : 0,
+          puntos: v.sumPuntaje
+        })).sort((a, b) => {
+          // Ordenar descendente por puntos, luego por ventas, finalmente ascendente por nombre
+          if (b.puntos !== a.puntos) return b.puntos - a.puntos;
+          if (b.ventas !== a.ventas) return b.ventas - a.ventas;
+          return (a.nombre || '').localeCompare(b.nombre || '');
+        });
+
+      } catch (eAll) {
+        console.error('[RANKING] Error al listar/consultar colecciones para all:', eAll?.message || String(eAll));
+        attempts.push({ collection: 'listCollections', error: eAll?.message || String(eAll) });
+      }
+    } else {
+      // Modo por defecto: consultar la colección principal 'costumers' y fallback a un conjunto reducido
+      try {
+        console.log(`[RANKING] Consultando colección: costumers`);
+        rankingResults = await db.collection('costumers').aggregate(pipelineBase).toArray();
+        attempts.push({ collection: 'costumers', count: rankingResults.length });
+        console.log(`[RANKING] Datos encontrados en costumers: ${rankingResults.length} registros`);
+      } catch (e) {
+        console.error(`[RANKING] Error consultando costumers:`, e?.message);
+        attempts.push({ collection: 'costumers', error: e?.message||String(e) });
+
+        // Fallback a otras colecciones solo si costumers falla
+        const fallbackCollections = ['Costumers','Lineas','leads'];
+        for (const col of fallbackCollections) {
+          const arr = await runOnCollection(col);
+          if (arr.length > 0) {
             rankingResults = arr;
-            console.log(`[RANKING] Datos encontrados en colección: ${col} (count=${arr.length})`);
             usedCollection = col;
             break;
           }
-        } catch (e2) {
-          console.warn(`[RANKING] Error consultando ${col}:`, e2?.message);
-          attempts.push({ collection: col, error: e2?.message||String(e2) });
         }
       }
     }

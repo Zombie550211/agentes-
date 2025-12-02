@@ -2350,11 +2350,12 @@
             // Persistir lista completa en memoria local del módulo para 'Ver todos'
             window.__rankFullList = list;
 
-            // Renderizar "Otros Participantes" con el resto de la lista
+            // Renderizar "Otros Participantes" con el resto de la lista (posición 4 en adelante, o si hay < 4, mostrar todos)
             const container = document.getElementById('rank-list-dynamic');
             if (container) {
               const viewAll = !!window.__rankViewAll;
-              const rest = (viewAll ? list : list.slice(0, 10)).slice(3);
+              const topN = viewAll ? list : list.slice(0, 10);
+              const rest = topN.length > 3 ? topN.slice(3) : topN;
               container.innerHTML = '';
               rest.forEach((agent, idx) => {
                 const li = document.createElement('div');
@@ -2395,13 +2396,13 @@
               });
             }
 
-            // Configurar botón 'Ver todos' (solo visible para supervisores/admin/backoffice)
+            // Configurar botón 'Ver todos' (visible para supervisores/admin/backoffice/agente)
             const btn = document.getElementById('btn-open-full-ranking');
             if (btn) {
-              // Verificar rol del usuario para mostrar el botón
+              // Verificar rol del usuario para mostrar el botón (tolerante a variantes de nombre)
               const currentUser = await getUser();
-              const userRole = ((currentUser && currentUser.role) || '').toLowerCase();
-              const canViewAll = ['admin','administrador','supervisor','supervisor team lineas','backoffice'].includes(userRole);
+              const userRole = ((currentUser && (currentUser.role || currentUser.usuario?.role || currentUser.userRole)) || '').toString().toLowerCase();
+              const canViewAll = ['admin','administrador','supervisor','supervisor team lineas','backoffice','agente'].includes(userRole);
               btn.style.display = canViewAll ? 'inline-block' : 'none';
               
               btn.onclick = async () => {
@@ -2430,11 +2431,11 @@
                 }
 
                 const listSaved = window.__rankFullList || [];
-                // Render lista
+                // Render lista (show items 4+ or all if fewer than 4 items)
                 const container2 = document.getElementById('rank-list-dynamic');
                 if (container2) {
                   const source = window.__rankViewAll ? listSaved : listSaved.slice(0, 10);
-                  const rest2 = source.slice(3);
+                  const rest2 = source.length > 3 ? source.slice(3) : source;
                   container2.innerHTML = '';
                   rest2.forEach((agent, idx) => {
                     const li = document.createElement('div');
