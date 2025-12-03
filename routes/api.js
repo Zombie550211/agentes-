@@ -231,111 +231,53 @@ router.get('/leads', protect, async (req, res) => {
         query = { $and: andConditions };
     }
 
-    // ====== FILTRADO POR ROL SUPERVISOR ======
-    const role = (req.user?.role || '').toLowerCase();
-    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString() || '';
-    console.log(`[API /leads] Usuario: ${req.user?.username}, Rol: ${role}`);
-    
-    if (role === 'supervisor' || role.includes('supervisor')) {
-      console.log('[API /leads] Aplicando filtro de supervisor...');
-      // Obtener variantes del nombre del supervisor
-      const supNames = [req.user?.username, req.user?.name, req.user?.nombre, req.user?.fullName]
-        .filter(v => typeof v === 'string' && v.trim())
-        .map(v => v.trim());
-      
-      // Agregar partes del nombre (nombre, apellido)
-      const allVariants = [];
-      supNames.forEach(n => {
-        allVariants.push(n);
-        n.split(/\s+/).filter(p => p.length > 2).forEach(p => allVariants.push(p));
-      });
-      
-      console.log('[API /leads] Variantes de supervisor:', allVariants);
-      
-      // Crear regex para cada variante
-      const supRegexes = allVariants.map(n => new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-      
-      // Campos donde buscar el supervisor
-      const supervisorFields = ['supervisor', 'team', 'teamName', 'equipo', 'SUPERVISOR'];
-      const supervisorOr = supervisorFields.map(f => ({ [f]: { $in: supRegexes } }));
-      
-      // Agregar filtro de supervisor al query
-      if (query.$and) {
-        query.$and.push({ $or: supervisorOr });
-      } else if (Object.keys(query).length > 0) {
-        query = { $and: [query, { $or: supervisorOr }] };
-      } else {
-        query = { $or: supervisorOr };
-      }
-      
-      console.log('[API /leads] Filtro supervisor aplicado');
-    }
-    // ====== FIN FILTRADO SUPERVISOR ======
-
     // ====== AGREGACIÓN MULTI-COLECCIÓN ======
-    const allowedAdminRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
-    const isAdminOrBO = allowedAdminRoles.some(r => role.includes(r));
-    const isSupervisor = role === 'supervisor' || role.includes('supervisor');
-    
-    // Admin/Backoffice/Agentes ven todo, Supervisores solo su equipo (ya filtrado arriba)
-    const shouldAggregateAll = !isSupervisor;
+    // TODOS los usuarios ven datos agregados de todas las colecciones (sin filtro por rol)
+    console.log('[API /leads] Agregando de TODAS las colecciones costumers* para todos los usuarios');
     
     let leads = [];
     
-    if (shouldAggregateAll) {
-      console.log('[API /leads] Agregando de TODAS las colecciones costumers*');
-      
-      // Listar todas las colecciones
-      const collections = await db.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name);
-      
-      // Filtrar solo las colecciones que empiezan con 'costumers'
-      const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
-      console.log(`[API /leads] Colecciones a agregar: ${costumersCollections.length}`, costumersCollections);
-      
-      // Consultar cada colección y agregar resultados
-      for (const colName of costumersCollections) {
-        try {
-          const col = db.collection(colName);
-          const docs = await col.find(query).toArray();
-          
-          if (docs.length > 0) {
-            console.log(`[API /leads] ${colName}: ${docs.length} documentos`);
-          }
-          
-          leads = leads.concat(docs);
-        } catch (err) {
-          console.error(`[API /leads] Error consultando ${colName}:`, err.message);
-        }
-      }
-      
-      // Ordenar en memoria después de agregar todo
-      leads.sort((a, b) => {
-        // Primero por dia_venta (más reciente primero)
-        const dateA = a.dia_venta || '';
-        const dateB = b.dia_venta || '';
-        if (dateB !== dateA) {
-          return dateB.localeCompare(dateA);
+    // Listar todas las colecciones
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    // Filtrar solo las colecciones que empiezan con 'costumers'
+    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
+    console.log(`[API /leads] Colecciones a agregar: ${costumersCollections.length}`, costumersCollections);
+    
+    // Consultar cada colección y agregar resultados
+    for (const colName of costumersCollections) {
+      try {
+        const col = db.collection(colName);
+        const docs = await col.find(query).toArray();
+        
+        if (docs.length > 0) {
+          console.log(`[API /leads] ${colName}: ${docs.length} documentos`);
         }
         
-        // Luego por createdAt
-        const createdA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-        const createdB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-        return createdB - createdA;
-      });
-      
-      console.log(`[API /leads] Total documentos agregados: ${leads.length}`);
-      console.log(`[API /leads] Enviando respuesta con ${leads.length} leads`);
-    } else {
-      // Supervisores: consulta con su filtro ya aplicado en query
-      console.log('[API /leads] Supervisor: consultando con filtro de equipo');
-      const collection = db.collection('costumers');
-      leads = await collection.find(query).sort({ 
-        dia_venta: -1,
-        createdAt: -1
-      }).toArray();
-      console.log(`[API /leads] Supervisor - Resultados encontrados: ${leads.length}`);
+        leads = leads.concat(docs);
+      } catch (err) {
+        console.error(`[API /leads] Error consultando ${colName}:`, err.message);
+      }
     }
+    
+    // Ordenar en memoria después de agregar todo
+    leads.sort((a, b) => {
+      // Primero por dia_venta (más reciente primero)
+      const dateA = a.dia_venta || '';
+      const dateB = b.dia_venta || '';
+      if (dateB !== dateA) {
+        return dateB.localeCompare(dateA);
+      }
+      
+      // Luego por createdAt
+      const createdA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const createdB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return createdB - createdA;
+    });
+    
+    console.log(`[API /leads] Total documentos agregados: ${leads.length}`);
+    console.log(`[API /leads] Enviando respuesta con ${leads.length} leads`);
     // ====== FIN AGREGACIÓN MULTI-COLECCIÓN ======
 
     res.json({ success: true, data: leads, queryUsed: query });
