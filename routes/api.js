@@ -272,15 +272,18 @@ router.get('/leads', protect, async (req, res) => {
     }
     // ====== FIN FILTRADO SUPERVISOR ======
 
-    // ====== AGREGACIÓN MULTI-COLECCIÓN PARA TODOS LOS USUARIOS ======
-    // TODOS los usuarios ven datos agregados de todas las colecciones
-    console.log('[API /leads] Agregando de TODAS las colecciones costumers* para todos los usuarios');
+    // ====== AGREGACIÓN MULTI-COLECCIÓN ======
+    const allowedAdminRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
+    const isAdminOrBO = allowedAdminRoles.some(r => role.includes(r));
+    const isSupervisor = role === 'supervisor' || role.includes('supervisor');
+    
+    // Admin/Backoffice/Agentes ven todo, Supervisores solo su equipo (ya filtrado arriba)
+    const shouldAggregateAll = !isSupervisor;
     
     let leads = [];
     
-    // Siempre agregar de todas las colecciones
-    {
-      console.log('[API /leads] Usuario: agregando de TODAS las colecciones costumers*');
+    if (shouldAggregateAll) {
+      console.log('[API /leads] Agregando de TODAS las colecciones costumers*');
       
       // Listar todas las colecciones
       const collections = await db.listCollections().toArray();
@@ -323,6 +326,15 @@ router.get('/leads', protect, async (req, res) => {
       
       console.log(`[API /leads] Total documentos agregados: ${leads.length}`);
       console.log(`[API /leads] Enviando respuesta con ${leads.length} leads`);
+    } else {
+      // Supervisores: consulta con su filtro ya aplicado en query
+      console.log('[API /leads] Supervisor: consultando con filtro de equipo');
+      const collection = db.collection('costumers');
+      leads = await collection.find(query).sort({ 
+        dia_venta: -1,
+        createdAt: -1
+      }).toArray();
+      console.log(`[API /leads] Supervisor - Resultados encontrados: ${leads.length}`);
     }
     // ====== FIN AGREGACIÓN MULTI-COLECCIÓN ======
 

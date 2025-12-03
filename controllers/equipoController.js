@@ -311,12 +311,18 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     } catch(e) { console.warn('[EQUIPOS DEBUG] Error en test:', e.message); }
 
-    // Intentar múltiples colecciones posibles y UNIFICAR resultados
-    const collectionsToTry = ['costumers','Costumers','customers','leads','Leads','ventas'];
+    // Obtener TODAS las colecciones costumers* para agregar
+    const allCollections = await db.listCollections().toArray();
+    const allCollectionNames = allCollections.map(c => c.name);
+    const costumersCollections = allCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
+    
+    console.log(`[EQUIPOS] Agregando de ${costumersCollections.length} colecciones costumers*`);
+    
     let equiposData = [];
     let usedCollections = [];
     const mergeMap = new Map();
-    for (const colName of collectionsToTry) {
+    
+    for (const colName of costumersCollections) {
       try {
         const arr = await db.collection(colName).aggregate(pipeline).toArray();
         if (Array.isArray(arr) && arr.length > 0) {
@@ -498,11 +504,13 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
       equiposData = Array.from(merged.values()).filter(e => !EXCLUDED_TEAMS.has(baseName(e.TEAM)));
 
-      // 2) Construir lista completa de equipos conocidos desde todas las colecciones
-      const potentialCollections = ['costumers','Costumers','customers','leads','Leads','ventas'];
+      // 2) Construir lista completa de equipos conocidos desde TODAS las colecciones costumers*
+      const allCollectionsForTeams = await db.listCollections().toArray();
+      const allCollectionNamesForTeams = allCollectionsForTeams.map(c => c.name);
+      const costumersCollectionsForTeams = allCollectionNamesForTeams.filter(name => /^costumers(_|$)/i.test(name));
       const allTeamsSet = new Set();
 
-      for (const colName of potentialCollections) {
+      for (const colName of costumersCollectionsForTeams) {
         try {
           const teamAgg = await db.collection(colName).aggregate([
             { $addFields: { teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', ''] } } } } } },
@@ -606,16 +614,32 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $sort: { TEAM: 1 } }
           ];
 
-          for (const colName of ['costumers','Costumers','customers','leads','Leads','ventas']) {
+          // Obtener todas las colecciones costumers* y agregar resultados
+          const monthCollections = await db.listCollections().toArray();
+          const monthCollectionNames = monthCollections.map(c => c.name);
+          const costumersMonthCollections = monthCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
+          
+          const monthMergeMap = new Map();
+          for (const colName of costumersMonthCollections) {
             try {
               const arr = await db.collection(colName).aggregate(monthStringPipeline).toArray();
               if (Array.isArray(arr) && arr.length) {
-                equiposData = arr;
+                for (const r of arr) {
+                  const key = String(r.TEAM || '').toUpperCase();
+                  const cur = monthMergeMap.get(key) || { TEAM: key, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+                  cur.ICON += Number(r.ICON || 0);
+                  cur.ACTIVAS += Number(r.ACTIVAS || 0);
+                  cur.BAMO += Number(r.BAMO || 0);
+                  cur.Total += Number(r.Total || 0);
+                  cur.Puntaje += Number(r.Puntaje || 0);
+                  monthMergeMap.set(key, cur);
+                }
                 usedCollection = colName;
-                break;
               }
             } catch {}
           }
+          
+          equiposData = Array.from(monthMergeMap.values()).sort((a,b)=>a.TEAM.localeCompare(b.TEAM));
           total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
         }
       }
