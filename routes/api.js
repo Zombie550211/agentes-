@@ -82,35 +82,26 @@ router.get('/leads', protect, async (req, res) => {
                             (String(skipDate).toLowerCase() === 'true');
 
     if (isGlobalRequest && !fechaInicio && !fechaFin && !month && !status) {
-      // Determinar si es admin/backoffice para agregar de todas las colecciones
-      const role = (req.user?.role || '').toLowerCase();
-      const allowedAdminRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
-      const isAdminOrBO = allowedAdminRoles.some(r => role.includes(r));
+      // TODOS los usuarios ven datos agregados de todas las colecciones
+      console.log('[API /leads GLOBAL] Agregando de TODAS las colecciones costumers* para todos los usuarios');
       
       let leads = [];
       
-      if (isAdminOrBO) {
-        // Admin/Backoffice: agregar de TODAS las colecciones costumers*
-        console.log('[API /leads GLOBAL] Admin/Backoffice: agregando de TODAS las colecciones costumers*');
-        const collections = await db.listCollections().toArray();
-        const collectionNames = collections.map(c => c.name);
-        const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
-        
-        for (const colName of costumersCollections) {
-          try {
-            const docs = await db.collection(colName).find({}).toArray();
-            leads = leads.concat(docs);
-          } catch (err) {
-            console.error(`[API /leads GLOBAL] Error consultando ${colName}:`, err.message);
-          }
+      // Siempre agregar de todas las colecciones
+      const collections = await db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
+      
+      for (const colName of costumersCollections) {
+        try {
+          const docs = await db.collection(colName).find({}).toArray();
+          leads = leads.concat(docs);
+        } catch (err) {
+          console.error(`[API /leads GLOBAL] Error consultando ${colName}:`, err.message);
         }
-        
-        console.log(`[API /leads GLOBAL] Total de ${costumersCollections.length} colecciones costumers*, ${leads.length} documentos`);
-      } else {
-        // Agentes/Supervisores: solo colección principal
-        const collection = db.collection('costumers');
-        leads = await collection.find({}).toArray();
       }
+      
+      console.log(`[API /leads GLOBAL] Total de ${costumersCollections.length} colecciones costumers*, ${leads.length} documentos`);
 
       // Intentar integrar también datos de TEAM_LINEAS
       try {
@@ -281,18 +272,15 @@ router.get('/leads', protect, async (req, res) => {
     }
     // ====== FIN FILTRADO SUPERVISOR ======
 
-    // ====== AGREGACIÓN MULTI-COLECCIÓN PARA ADMIN/BACKOFFICE ======
-    const allowedAdminRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
-    const isAdminOrBO = allowedAdminRoles.some(r => role.includes(r));
-    
-    // Si es admin/backoffice y NO es supervisor (supervisor ya tiene su propio filtro),
-    // agregar de todas las colecciones costumers*
-    const shouldAggregateAll = isAdminOrBO && !(role === 'supervisor' || role.includes('supervisor'));
+    // ====== AGREGACIÓN MULTI-COLECCIÓN PARA TODOS LOS USUARIOS ======
+    // TODOS los usuarios ven datos agregados de todas las colecciones
+    console.log('[API /leads] Agregando de TODAS las colecciones costumers* para todos los usuarios');
     
     let leads = [];
     
-    if (shouldAggregateAll) {
-      console.log('[API /leads] Admin/Backoffice: agregando de TODAS las colecciones costumers*');
+    // Siempre agregar de todas las colecciones
+    {
+      console.log('[API /leads] Usuario: agregando de TODAS las colecciones costumers*');
       
       // Listar todas las colecciones
       const collections = await db.listCollections().toArray();
@@ -335,17 +323,6 @@ router.get('/leads', protect, async (req, res) => {
       
       console.log(`[API /leads] Total documentos agregados: ${leads.length}`);
       console.log(`[API /leads] Enviando respuesta con ${leads.length} leads`);
-      
-    } else {
-      // Consulta normal a colección única
-      const collection = db.collection('costumers');
-      leads = await collection.find(query).sort({ 
-        dia_venta: -1,  // Primero por día de venta (más reciente primero)
-        createdAt: -1   // Luego por fecha de creación
-      }).toArray();
-      
-      console.log(`[API /leads] Query ejecutado en colección única:`, JSON.stringify(query, null, 2));
-      console.log(`[API /leads] Resultados encontrados: ${leads.length}`);
     }
     // ====== FIN AGREGACIÓN MULTI-COLECCIÓN ======
 
