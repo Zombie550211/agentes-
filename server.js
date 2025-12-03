@@ -746,6 +746,14 @@ app.use('/api', apiRoutes); // Esta debe ir AL FINAL porque es la más genérica
 if (mediaProxy) app.use('/media/proxy', mediaProxy);
 // Debug routes (solo lectura) para diagnóstico
 if (debugRoutes) app.use('/api/debug', debugRoutes);
+// Migrate routes (solo admins) para migración de datos
+try {
+  const migrateRoutes = require('./routes/migrate');
+  app.use('/api/migrate', migrateRoutes);
+  console.log('[SERVER] Rutas de migración cargadas');
+} catch (e) {
+  console.warn('[SERVER] No se pudieron cargar rutas de migración:', e?.message);
+}
 
 // Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
 // Wrapper mínimo por compatibilidad con referencias existentes
@@ -1930,6 +1938,91 @@ app.get('/api/customers', protect, async (req, res) => {
     const collections = await db.listCollections().toArray();
     console.log('Colecciones disponibles en crmagente:', collections.map(c => c.name));
 
+    // ===== PARA ADMIN/BACKOFFICE: AGREGAR DE TODAS LAS COLECCIONES =====
+    const shouldAggregateAll = isAdminOrBO && !req.query.agenteId && !req.query.agentId;
+    
+    if (shouldAggregateAll) {
+      console.log('[INFO] Admin/Backoffice: agregando de TODAS las colecciones costumers*');
+      
+      // Obtener todas las colecciones costumers*
+      const costumersCollections = collections
+        .map(c => c.name)
+        .filter(name => /^costumers(_|$)/i.test(name));
+      
+      console.log(`[INFO] Colecciones a agregar: ${costumersCollections.length}`);
+      
+      let allCustomers = [];
+      
+      // Construir query base (sin filtros de agente)
+      let baseQuery = {};
+      
+      // Aplicar filtros de fecha si existen
+      if (fechaInicio && fechaFin) {
+        baseQuery.creadoEn = {
+          $gte: fechaInicio,
+          $lte: fechaFin
+        };
+      } else if (fechaInicio) {
+        baseQuery.creadoEn = { $gte: fechaInicio };
+      } else if (fechaFin) {
+        baseQuery.creadoEn = { $lte: fechaFin };
+      }
+      
+      // Aplicar filtros adicionales del query
+      if (req.query.status) {
+        baseQuery.status = req.query.status;
+      }
+      
+      console.log('[DEBUG] Query base para agregación:', JSON.stringify(baseQuery, null, 2));
+      
+      // Consultar cada colección
+      for (const colName of costumersCollections) {
+        try {
+          const docs = await db.collection(colName).find(baseQuery).toArray();
+          if (docs.length > 0) {
+            console.log(`[INFO] ${colName}: ${docs.length} documentos`);
+            allCustomers = allCustomers.concat(docs);
+          }
+        } catch (colErr) {
+          console.warn(`[WARN] Error consultando ${colName}:`, colErr.message);
+        }
+      }
+      
+      console.log(`[INFO] Total documentos agregados: ${allCustomers.length}`);
+      
+      // Ordenar y aplicar paginación
+      const sortField = req.query.sortBy || 'creadoEn';
+      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+      
+      allCustomers.sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        
+        if (aVal instanceof Date && bVal instanceof Date) {
+          return sortOrder * (aVal.getTime() - bVal.getTime());
+        }
+        
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return sortOrder * aVal.localeCompare(bVal);
+        }
+        
+        return sortOrder * ((aVal || 0) - (bVal || 0));
+      });
+      
+      // Aplicar paginación
+      const paginatedCustomers = allCustomers.slice(skip, skip + limit);
+      
+      console.log('Enviando respuesta con', paginatedCustomers.length, 'clientes');
+      return res.json({
+        success: true,
+        data: paginatedCustomers,
+        total: allCustomers.length,
+        page,
+        limit,
+        aggregatedFromCollections: costumersCollections.length
+      });
+    }
+
     // Default collection name is 'costumers'. However this project stores per-agent
     // collections like 'costumers_<agent>' and keeps a mapping in 'user_collections'.
     // Prefer a mapped collection when available for the requested agent.
@@ -3075,29 +3168,89 @@ app.post('/api/customers', protect, async (req, res) => {
     // Asegurarse de que no haya un _id en los datos para que MongoDB genere uno nuevo
     delete customerToSave._id;
 
+    // ===== DETERMINAR COLECCIÓN DESTINO BASADA EN MAPEO =====
+    let targetCollection = 'costumers'; // Fallback por defecto
+    
+    try {
+      // 1. Intentar obtener colección desde user_collections usando el userId
+      if (currentUserIdObj) {
+        const mapping = await db.collection('user_collections').findOne({ userId: currentUserIdObj });
+        if (mapping && mapping.collectionName) {
+          targetCollection = mapping.collectionName;
+          console.log('[POST /api/customers] Mapeo encontrado para userId:', currentUserIdObj, '-> colección:', targetCollection);
+        } else {
+          console.log('[POST /api/customers] No hay mapeo en user_collections para userId:', currentUserIdObj);
+        }
+      }
+      
+      // 2. Si no hay mapeo, intentar crear colección basada en el username
+      if (targetCollection === 'costumers' && req.user?.username) {
+        const displayName = req.user.username.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+        const proposedCollection = `costumers_${displayName}`;
+        
+        // Verificar si ya existe esta colección
+        const existingCollections = await db.listCollections({ name: proposedCollection }).toArray();
+        
+        if (existingCollections.length > 0) {
+          targetCollection = proposedCollection;
+          console.log('[POST /api/customers] Colección existente encontrada:', targetCollection);
+        } else {
+          // Crear nueva colección y mapeo
+          targetCollection = proposedCollection;
+          console.log('[POST /api/customers] Creando nueva colección:', targetCollection);
+          
+          // Crear el mapeo si tenemos ObjectId
+          if (currentUserIdObj) {
+            await db.collection('user_collections').updateOne(
+              { userId: currentUserIdObj },
+              { 
+                $set: { 
+                  collectionName: targetCollection,
+                  displayName: req.user.username,
+                  updatedAt: new Date()
+                },
+                $setOnInsert: { createdAt: new Date() }
+              },
+              { upsert: true }
+            );
+            console.log('[POST /api/customers] Mapeo creado en user_collections:', currentUserIdObj, '->', targetCollection);
+          }
+        }
+      }
+    } catch (mappingError) {
+      console.error('[POST /api/customers] Error al determinar colección destino:', mappingError);
+      // Continuar con colección por defecto
+    }
+
     try {
       console.log('=== INTENTANDO GUARDAR EN LA BASE DE DATOS ===');
-      console.log('Colección:', 'costumers');
+      console.log('Colección destino:', targetCollection);
+      console.log('Usuario:', req.user?.username);
       console.log('Datos a guardar:', JSON.stringify(customerToSave, null, 2));
       
-      // 1. Primero intentar eliminar el índice único si existe
-      await removeUniqueIndexIfExists();
+      // 1. Primero intentar eliminar el índice único si existe (solo para colección principal)
+      if (targetCollection === 'costumers') {
+        await removeUniqueIndexIfExists();
+      }
       
-      // 2. Intentar insertar el cliente
+      // 2. Intentar insertar el cliente en la colección determinada
       try {
-        const result = await db.collection('costumers').insertOne(customerToSave);
+        const result = await db.collection(targetCollection).insertOne(customerToSave);
         
         console.log('=== CLIENTE GUARDADO EXITOSAMENTE ===');
         console.log('ID del cliente:', result.insertedId);
+        console.log('Colección utilizada:', targetCollection);
         
         // Verificar que el cliente realmente se guardó
-        const clienteGuardado = await db.collection('costumers').findOne({ _id: result.insertedId });
+        const clienteGuardado = await db.collection(targetCollection).findOne({ _id: result.insertedId });
         console.log('Cliente verificado en la base de datos:', clienteGuardado ? 'ENCONTRADO' : 'NO ENCONTRADO');
         
         return res.status(201).json({
           success: true,
           message: 'Cliente creado exitosamente',
-          id: result.insertedId
+          id: result.insertedId,
+          collection: targetCollection,
+          agent: req.user?.username
         });
       } catch (insertError) {
         // Si hay un error de duplicado, intentar forzar la inserción
@@ -3109,14 +3262,16 @@ app.post('/api/customers', protect, async (req, res) => {
           customerToSave._id = new require('mongodb').ObjectId();
           console.log('Nuevo ID generado para evitar duplicado:', customerToSave._id);
           
-          // Intentar insertar con el nuevo ID
-          const result = await db.collection('costumers').insertOne(customerToSave);
-          console.log('Cliente guardado con nuevo ID:', result.insertedId);
+          // Intentar insertar con el nuevo ID en la colección correcta
+          const result = await db.collection(targetCollection).insertOne(customerToSave);
+          console.log('Cliente guardado con nuevo ID en colección:', targetCollection, '- ID:', result.insertedId);
           
           return res.status(201).json({
             success: true,
             message: 'Cliente creado exitosamente (se generó un nuevo ID único)',
             id: result.insertedId,
+            collection: targetCollection,
+            agent: req.user?.username,
             wasDuplicate: true
           });
         }
