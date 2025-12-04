@@ -652,6 +652,57 @@
     .filter-button:hover {
       background-color: #2563eb;
     }
+
+    /* Estilos para navegación de gráficos */
+    .chart-header-with-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .chart-nav-btn {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      min-width: 40px;
+      height: 36px;
+    }
+
+    .chart-nav-btn:hover {
+      background-color: #2563eb;
+      transform: scale(1.05);
+    }
+
+    .chart-nav-btn:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .chart-subtitle {
+      margin: 0;
+      flex: 1;
+      text-align: center;
+    }
+
+    body.dark-theme .chart-nav-btn {
+      background-color: #404040;
+      color: white;
+      border: 1px solid #555;
+    }
+
+    body.dark-theme .chart-nav-btn:hover {
+      background-color: #525252;
+    }
     
     /* Botones de navegación de día */
     .day-nav-btn,
@@ -826,7 +877,11 @@
           <div id="top-charts-inner">
             <!-- Gráfico izquierdo: Porcentaje de Activación -->
             <div class="top-chart-section porcentaje-section">
-              <h4 class="chart-subtitle"><i class="fas fa-percent"></i> Porcentaje de Activación</h4>
+              <div class="chart-header-with-nav">
+                <button id="porcentaje-prev" class="chart-nav-btn" title="Mes anterior">◀</button>
+                <h4 class="chart-subtitle"><i class="fas fa-percent"></i> Porcentaje de Activación (<span id="porcentaje-mes-titulo">12/2025</span>)</h4>
+                <button id="porcentaje-next" class="chart-nav-btn" title="Mes siguiente">▶</button>
+              </div>
               <div class="porcentaje-content">
                 <div class="porcentaje-left">
                   <div id="porc-team-list" ></div>
@@ -842,7 +897,11 @@
 
             <!-- Gráfico derecho: Ventas Activas -->
             <div class="top-chart-section ventas-activas-section">
-              <h4 class="chart-subtitle"><i class="fas fa-chart-bar"></i> Ventas Activas</h4>
+              <div class="chart-header-with-nav">
+                <button id="ventas-activas-prev" class="chart-nav-btn" title="Mes anterior">◀</button>
+                <h4 class="chart-subtitle"><i class="fas fa-chart-bar"></i> Ventas Activas (<span id="ventas-activas-mes-titulo">12/2025</span>)</h4>
+                <button id="ventas-activas-next" class="chart-nav-btn" title="Mes siguiente">▶</button>
+              </div>
               <div class="ventas-activas-content">
                 <div class="ventas-activas-left">
                   <div id="ventas-activas-team-list" ></div>
@@ -979,6 +1038,17 @@
           console.error('Error: No se proporcionÃ³ un elemento raÃ­z vÃ¡lido');
           return;
         }
+
+        // Eliminar cualquier botón de fallback heredado de renders anteriores
+        try {
+          const fallbackBtn = document.getElementById('btn-fallback-leads');
+          if (fallbackBtn && fallbackBtn.parentElement) {
+            const wrapper = fallbackBtn.parentElement;
+            if (wrapper && wrapper.parentElement) {
+              wrapper.parentElement.removeChild(wrapper);
+            }
+          }
+        } catch(_){ }
         
         // Verificar autenticaciÃ³n
         if (!checkAuth()) return;
@@ -986,17 +1056,14 @@
         // Mostrar indicador de carga
         root.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-2">Cargando datos de equipos...</p></div>';
         
-        // Leer parámetro ?m= si existe para navegación de mes
-        const urlParams = new URLSearchParams(location.search);
-        const mParam = urlParams.get('m');
+        // Usar la fecha de navegación global (ya inicializada desde URL si corresponde)
         let targetMonth;
-        if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
-          const [y,m] = mParam.split('-').map(Number);
-          targetMonth = new Date(y, m-1, 15, 12, 0, 0);
-          console.log('[ESTADISTICAS] Navegando a mes:', mParam, targetMonth);
+        if (window.__porcentajeFecha) {
+          targetMonth = new Date(window.__porcentajeFecha);
+          console.log('[TABLA DEBUG] Usando fecha de navegación global:', targetMonth, 'window.__porcentajeFecha=', window.__porcentajeFecha);
         } else {
+          console.warn('[TABLA DEBUG] window.__porcentajeFecha no disponible, usando fecha actual');
           targetMonth = new Date();
-          console.log('[ESTADISTICAS] Sin parámetro de mes, usando mes actual:', targetMonth);
         }
         // Rango del MES COMPLETO (desde día 1 hasta último día del mes)
         let fechaInicio = '';
@@ -1007,8 +1074,16 @@
           const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           fechaInicio = fmt(primerDiaMes);
           fechaFin = fmt(ultimoDiaMes);
-          console.log('[ESTADISTICAS] Rango mes completo:', { mes: `${targetMonth.getMonth()+1}/${targetMonth.getFullYear()}`, fechaInicio, fechaFin });
+          console.log('[ESTADISTICAS DEBUG] Mes objetivo:', { 
+            mes: `${targetMonth.getMonth()+1}/${targetMonth.getFullYear()}`, 
+            fechaInicio, 
+            fechaFin,
+            targetMonth: targetMonth.toISOString()
+          });
         }
+
+        const now = new Date();
+        const isCurrentMonth = targetMonth.getMonth() === now.getMonth() && targetMonth.getFullYear() === now.getFullYear();
         
         // Construir URL con parámetros
         let url = '/api/equipos/estadisticas';
@@ -1085,72 +1160,7 @@
           }));
         }
 
-        // Si la respuesta viene vacía/cero, mostrar botón para fallback manual
-        if (payloadEmpty || payloadZero) {
-          const fallbackBtnId = 'btn-fallback-leads';
-          if (!document.getElementById(fallbackBtnId)) {
-            const fallbackDiv = document.createElement('div');
-            fallbackDiv.style.textAlign = 'center';
-            fallbackDiv.style.margin = '24px 0';
-            fallbackDiv.innerHTML = `
-              <button id="${fallbackBtnId}" class="btn btn-warning">
-                Intentar cargar datos alternativos (leads)
-              </button>
-              <div id="fallback-leads-status" ></div>
-            `;
-            root.parentNode.insertBefore(fallbackDiv, root.nextSibling);
-            document.getElementById(fallbackBtnId).onclick = async function() {
-              const statusDiv = document.getElementById('fallback-leads-status');
-              statusDiv.innerHTML = 'Cargando datos alternativos...';
-              try {
-                const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
-                if (leadsResp && leadsResp.ok) {
-                  const leadsJson = await leadsResp.json();
-                  const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-                  const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch(_) { return undefined; } };
-                  const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
-                  const teamMap = new Map();
-                  const teamNameOf = (lead) => {
-                    const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
-                    const s = (t || '').toString().trim();
-                    return s || 'Sin equipo';
-                  };
-                  const isICON = (lead) => {
-                    const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                    return v.includes('ICON');
-                  };
-                  const isBAMO = (lead) => {
-                    const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                    return v.includes('BAMO');
-                  };
-                  const getPuntaje = (lead) => {
-                    const p = findFirst(lead, ['puntaje','score','puntos']);
-                    const n = typeof p === 'number' ? p : parseFloat(p);
-                    return isNaN(n) ? 0 : n;
-                  };
-                  leads.forEach(l => {
-                    const name = teamNameOf(l);
-                    if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
-                    const agg = teamMap.get(name);
-                    agg.Total += 1;
-                    if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
-                    agg.Puntaje += getPuntaje(l);
-                  });
-                  teamData = Array.from(teamMap.values());
-                  statusDiv.innerHTML = '<span >Datos alternativos cargados. Recargando tabla...</span>';
-                  // Recargar tabla con los nuevos datos
-                  renderConversionTable(root);
-                } else {
-                  statusDiv.innerHTML = '<span >No se pudo obtener datos alternativos.</span>';
-                }
-              } catch (fe) {
-                statusDiv.innerHTML = '<span >Error al cargar datos alternativos.</span>';
-              }
-            };
-          }
-          // Detener aquí para no seguir procesando con datos vacíos
-          return;
-        }
+        // Si la respuesta viene vacía/cero se resolverá automáticamente mediante la agregación local
         // Separar TEAM LINEAS a tabla aparte y mantener principal sin LINEA(S)
         const lineasData = Array.isArray(data.lineas) ? data.lineas.map(r => ({
           name: r.name || r.TEAM || 'SIN NOMBRE',
@@ -1159,108 +1169,175 @@
         const lineasTotalICON = typeof data.lineasTotalICON === 'number' ? data.lineasTotalICON : lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         const excludeNames = new Set(['TEAM LINEA','TEAM LINEAS']);
         let fallbackTeamData = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
-          // Nota: la verificación de "activas" era realizada en el cliente (consultando /api/leads).
-          // Se ha eliminado aquí para evitar llamadas redundantes y condiciones de carrera.
-          // El conteo autoritativo de ACTIVAS debe provenir del backend (`/api/equipos/estadisticas`).
-        // Fallback: si principal queda vacío o todos son cero, construir desde /api/leads con rango del DÍA efectivo
+        // Nota: la verificación de "activas" era realizada en el cliente (consultando /api/leads).
+        // Se ha eliminado aquí para evitar llamadas redundantes y condiciones de carrera.
+        // El conteo autoritativo de ACTIVAS debe provenir del backend (`/api/equipos/estadisticas`).
         const allZero = fallbackTeamData.length > 0 && fallbackTeamData.every(t => Number(t.Total||0) === 0 && Number(t.ICON||0) === 0 && Number(t.BAMO||0) === 0 && Number(t.Puntaje||0) === 0);
-        if (fallbackTeamData.length === 0 || allZero) {
+
+        let shouldUseFallback = fallbackTeamData.length === 0 || allZero;
+        const needsLeadsAggregation = !isCurrentMonth || shouldUseFallback;
+
+        const buildMonthlyLeadsAggregation = async () => {
           try {
-            console.warn('fallbackTeamData vacío. Construyendo desde /api/leads para el día efectivo...');
-            // Helpers locales
-            const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // ajustar si tu TZ cambia
-            const toISOInTZLocal = (date, tzOffsetMinutes) => {
-              const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
-              const y = target.getUTCFullYear();
-              const m = String(target.getUTCMonth() + 1).padStart(2, '0');
-              const d = String(target.getUTCDate()).padStart(2, '0');
-              return `${y}-${m}-${d}`;
-            };
+            const mesTexto = `${String(targetMonth.getMonth() + 1).padStart(2, '0')}/${targetMonth.getFullYear()}`;
+            console.log(`[LEADS MENSUAL] Construyendo datos desde /api/leads para ${mesTexto}`);
+
             const getByPath = (obj, path) => {
               try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; }
             };
             const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
             const tryDateFrom = (val) => {
-              if (!val) return null; if (typeof val === 'string') { const s = val.trim();
-                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y,m,d] = s.split('-').map(Number); return new Date(Date.UTC(y, m-1, d, 12, 0, 0)); }
-                if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const parts = s.split(/[\/\-]/).map(Number); const [d,m,y] = parts; return new Date(Date.UTC(y, m-1, d, 12, 0, 0)); }
+              if (!val) return null;
+              if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+              if (typeof val === 'number') {
+                const asDate = val < 1e12 ? new Date(val * 1000) : new Date(val);
+                return isNaN(asDate.getTime()) ? null : asDate;
               }
-              if (typeof val === 'number') return new Date(val < 1e12 ? val*1000 : val);
-              const dt = new Date(val); return isNaN(dt) ? null : dt;
+              const str = String(val).trim();
+              if (!str) return null;
+              if (/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(str)) {
+                const d = new Date(str.includes('T') ? str : `${str}T00:00:00.000Z`);
+                return isNaN(d.getTime()) ? null : d;
+              }
+              if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)) {
+                const [dd, mm, yyyy] = str.split(/[\/\-]/).map(Number);
+                const d = new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0, 0));
+                return isNaN(d.getTime()) ? null : d;
+              }
+              const d = new Date(str);
+              return isNaN(d.getTime()) ? null : d;
             };
 
-            // Rango día efectivo (mismo criterio que arriba)
-            const nowLocal = new Date();
-            const cutoffHour = 9, cutoffMinute = 30;
-            const isBeforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-            const effective = new Date(nowLocal);
-            if (isBeforeCutoff) effective.setDate(effective.getDate() - 1);
-            const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-            // SIEMPRE mostrar datos hasta las 9:30 AM del día siguiente (no cortar a la hora actual)
-            // Esto permite que los datos se mantengan visibles todo el día hasta el siguiente corte
-            const endExclusive = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-            const dayKey = toISOInTZLocal(effective, BUSINESS_TZ_OFFSET_MIN);
+            const startUTC = new Date(Date.UTC(targetMonth.getFullYear(), targetMonth.getMonth(), 1, 0, 0, 0, 0));
+            const endUTC = new Date(Date.UTC(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59, 999));
+            const fmt = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+            const startStr = fmt(startUTC);
+            const endStr = fmt(endUTC);
+            console.log(`[LEADS MENSUAL] Rango solicitado: ${startStr} → ${endStr}`);
 
-            // Obtener leads para el día efectivo (usar dayKey calculado arriba)
-            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${dayKey}&fechaFin=${dayKey}`);
-            if (leadsResp && leadsResp.ok) {
-              const leadsJson = await leadsResp.json();
-              let leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-              console.log(`[FALLBACK LEADS] Recibidos ${leads.length} registros`);
+            const matchesTargetMonth = (val) => {
+              const parsed = tryDateFrom(val);
+              return parsed ? (parsed >= startUTC && parsed <= endUTC) : false;
+            };
 
-              // Filtrar por día efectivo
-              const createdPaths = [
-                'dia_venta','diaVenta','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
-                '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
-                'metadata.createdAt','audit.createdAt','timestamps.createdAt'
-              ];
-
-              const inDay = leads.filter(l => {
-                const v = findFirst(l, createdPaths);
-                const dt = tryDateFrom(v);
-                const d = dt && new Date(dt);
-                return d && d >= startLocal && d < endExclusive;
-              });
-
-              // Agrupar por equipo e inferir métricas
-              const teamMap = new Map();
-              const teamNameOf = (lead) => {
-                const t = findFirst(lead, ['TEAM','team','equipo','grupo','department','team_name','Team']);
-                const s = (t || '').toString().trim();
-                return s || 'Sin equipo';
-              };
-              const isICON = (lead) => {
-                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                return v.includes('ICON');
-              };
-              const isBAMO = (lead) => {
-                const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-                return v.includes('BAMO');
-              };
-              const getPuntaje = (lead) => {
-                const p = findFirst(lead, ['puntaje','score','puntos']);
-                const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n;
-              };
-
-              inDay.forEach(l => {
-                const name = teamNameOf(l);
-                if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
-                const agg = teamMap.get(name);
-                agg.Total += 1;
-                if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
-                agg.Puntaje += getPuntaje(l);
-              });
-
-              fallbackTeamData = Array.from(teamMap.values()).filter(t => !excludeNames.has((t.name || '').toUpperCase()));
-              teamData = fallbackTeamData; // usar fallback también para totales
-              console.log('[FALLBACK LEADS] Construido fallbackTeamData y aplicado a teamData:', fallbackTeamData);
-            } else {
-              console.warn('No se pudo obtener /api/leads para fallback.');
+            const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}`);
+            if (!leadsResp || !leadsResp.ok) {
+              console.warn(`[LEADS MENSUAL] No se pudo obtener /api/leads (status: ${leadsResp ? leadsResp.status : 'sin respuesta'})`);
+              return [];
             }
-          } catch (fe) {
-            console.error('Error en fallback por leads:', fe);
+
+            const leadsJson = await leadsResp.json();
+            let leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
+            console.log(`[LEADS MENSUAL] Recibidos ${leads.length} registros ANTES del filtro por dia_venta`);
+
+            const inRange = leads.filter(lead => {
+              const diaVenta = findFirst(lead, ['dia_venta','diaVenta']);
+              if (!diaVenta) return false;
+              const parsed = tryDateFrom(diaVenta);
+              if (!parsed) return false;
+              return parsed >= startUTC && parsed <= endUTC;
+            });
+            console.log(`[LEADS MENSUAL] Filtrados ${inRange.length} registros DESPUÉS del filtro por dia_venta`);
+            if (inRange.length === 0) {
+              console.log(`[LEADS MENSUAL] No hay leads con dia_venta dentro del rango ${startStr} - ${endStr}`);
+            }
+
+            // Deduplicar por identificadores estables (numero_cuenta, telefono, dia_venta)
+            const sanitize = (value) => (value || '').toString().trim().toUpperCase();
+            const onlyDigits = (value) => (value || '').toString().replace(/\D+/g, '');
+            const dedupeKeyOf = (lead) => {
+              const numeroCuenta = sanitize(findFirst(lead, ['numero_cuenta','numeroCuenta','accountNumber']));
+              const telefono = onlyDigits(findFirst(lead, ['telefono_principal','telefonoPrincipal','telefono']));
+              const diaVenta = sanitize(findFirst(lead, ['dia_venta','diaVenta']));
+              const servicio = sanitize(findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']));
+              const parts = [numeroCuenta, telefono, diaVenta, servicio].filter(Boolean);
+              if (parts.length) return parts.join('|');
+              const fallbackId = sanitize(findFirst(lead, ['_id','id','uid']));
+              return fallbackId || JSON.stringify(lead);
+            };
+
+            const deduped = [];
+            const seenKeys = new Set();
+            for (const lead of inRange) {
+              const key = dedupeKeyOf(lead);
+              if (!key) {
+                deduped.push(lead);
+                continue;
+              }
+              if (seenKeys.has(key)) continue;
+              seenKeys.add(key);
+              deduped.push(lead);
+            }
+
+            if (deduped.length !== inRange.length) {
+              console.log(`[LEADS MENSUAL] Eliminados ${inRange.length - deduped.length} duplicados después del filtro del mes.`);
+            }
+
+            const teamMap = new Map();
+            const teamNameOf = (lead) => {
+              const t = findFirst(lead, ['TEAM','team','equipo','grupo','department','team_name','Team']);
+              const s = (t || '').toString().trim();
+              return s || 'Sin equipo';
+            };
+            const isICON = (lead) => {
+              const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+              return v.includes('ICON');
+            };
+            const isBAMO = (lead) => {
+              const v = (findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
+              return v.includes('BAMO');
+            };
+            const getPuntaje = (lead) => {
+              const p = findFirst(lead, ['puntaje','score','puntos']);
+              const n = typeof p === 'number' ? p : parseFloat(p);
+              return isNaN(n) ? 0 : n;
+            };
+            const isActiveLead = (lead) => {
+              try {
+                const rawStatus = (findFirst(lead, ['status','estado','estadoVenta','workflowStatus','state','saleStatus']) || '').toString().toLowerCase().trim();
+                const statusNorm = rawStatus.replace(/\s+/g, '');
+                const boolActive = (lead.activated === true || lead.sold === true || lead.isActive === true || lead.vendido === true || lead.activada === true);
+                const numericActive = ['1','true','sí','si'].includes(String(findFirst(lead, ['activated','sold','isActive','vendido','activada','activadas']) || '').toString().trim().toLowerCase());
+                if (boolActive || numericActive) return true;
+                if (!rawStatus) return false;
+                return /completed|completad|finaliz|vendid|vendido|activad|cerrad|ok/i.test(rawStatus) || ['completed','complete','done','finalizado','completado','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
+              } catch(_) { return false; }
+            };
+
+            deduped.forEach(l => {
+              const name = teamNameOf(l);
+              if (!teamMap.has(name)) teamMap.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, ACTIVAS: 0 });
+              const agg = teamMap.get(name);
+              agg.Total += 1;
+              if (isICON(l)) agg.ICON += 1; else if (isBAMO(l)) agg.BAMO += 1;
+              agg.Puntaje += getPuntaje(l);
+              if (isActiveLead(l)) agg.ACTIVAS += 1;
+            });
+
+            return Array.from(teamMap.values()).filter(t => !excludeNames.has((t.name || '').toUpperCase()));
+          } catch (err) {
+            console.error('[LEADS MENSUAL] Error construyendo aggregation mensual:', err);
+            return [];
           }
+        };
+
+        let leadsAggregation = [];
+        if (needsLeadsAggregation) {
+          leadsAggregation = await buildMonthlyLeadsAggregation();
         }
+
+        if (!isCurrentMonth) {
+          console.log(`[TABLA] Mes navegando ${String(targetMonth.getMonth() + 1).padStart(2,'0')}/${targetMonth.getFullYear()} no es el actual. Sobrescribiendo datos con aggregation por dia_venta (${leadsAggregation.length} registros).`);
+          fallbackTeamData = Array.isArray(leadsAggregation) ? leadsAggregation : [];
+          teamData = fallbackTeamData.slice();
+          shouldUseFallback = false;
+        } else if (shouldUseFallback) {
+          console.log(`[FALLBACK] Mes actual sin datos válidos. Usando aggregation por dia_venta (${leadsAggregation.length} registros).`);
+          fallbackTeamData = Array.isArray(leadsAggregation) ? leadsAggregation : [];
+          teamData = fallbackTeamData.slice();
+          shouldUseFallback = false;
+        }
+        
         
         // Visibilidad (MES): no filtrar por fin de semana; siempre considerar todos los equipos
         (function applyMonthVisibility(){
@@ -1315,8 +1392,9 @@
           ICON: acc.ICON + (r.ICON || 0),
           BAMO: acc.BAMO + (r.BAMO || 0),
           Total: acc.Total + (r.Total || 0),
-          Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
-        }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+          Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0),
+          ACTIVAS: acc.ACTIVAS + (r.ACTIVAS || 0)
+        }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, ACTIVAS: 0 });
 
         // Orden fijo MES: siempre mostrar todos los equipos en ORDER_ALL
         (function applyFinalOrdering(){
@@ -1337,7 +1415,7 @@
             let order = ORDER_ALL;
             const canonRows = (fallbackTeamData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
             const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
-            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0, ACTIVAS:0 };
             const ordered = order.map(ensureRow);
             const displayRows = ordered;
             fallbackTeamData = displayRows;
@@ -1352,8 +1430,9 @@
               ICON: acc.ICON + (r.ICON || 0),
               BAMO: acc.BAMO + (r.BAMO || 0),
               Total: acc.Total + (r.Total || 0),
-              Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0)
-            }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+              Puntaje: acc.Puntaje + parseFloat(r.Puntaje || 0),
+              ACTIVAS: acc.ACTIVAS + (r.ACTIVAS || 0)
+            }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, ACTIVAS: 0 });
             try { window.__statsDisplayRows = displayRows.slice(); } catch(_) {}
           } catch(e) { console.warn('[ESTADISTICAS] Final ordering error:', e); }
         })();
@@ -1517,27 +1596,53 @@
         try {
           // No extra handler here: the flip button's onclick above covers toggling and chart lifecycle
         } catch(_) {}
-        // Hook flechas navegación mes
+        // Hook flechas navegación mes - SIN recargar página
         try {
           const btnPrev = document.getElementById('month-prev');
           const btnNext = document.getElementById('month-next');
           if (btnPrev) {
-            btnPrev.onclick = () => { 
-              const d = new Date(targetMonth); 
-              d.setMonth(d.getMonth()-1); 
-              location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
-            };
-            console.log('[MES] Botón anterior conectado');
+            btnPrev.addEventListener('click', (e) => { 
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[TABLA] Navegando a mes anterior...');
+              
+              // Actualizar fecha global
+              window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() - 1);
+              window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+              
+              // Actualizar títulos de TODOS los gráficos y la tabla
+              updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+              updateChartTitle('ventas-activas-mes-titulo', window.__porcentajeFecha);
+              updateTableTitle(window.__porcentajeFecha);
+              updateURLWithMonth(window.__porcentajeFecha);
+              
+              // Recargar datos sin reload de página
+              loadPorcentajeForMonth(window.__porcentajeFecha);
+            });
+            console.log('[MES] Botón anterior conectado (sin reload)');
           } else {
             console.warn('[MES] Botón anterior NO encontrado');
           }
           if (btnNext) {
-            btnNext.onclick = () => { 
-              const d = new Date(targetMonth); 
-              d.setMonth(d.getMonth()+1); 
-              location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
-            };
-            console.log('[MES] Botón siguiente conectado');
+            btnNext.addEventListener('click', (e) => { 
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[TABLA] Navegando a mes siguiente...');
+              
+              // Actualizar fecha global
+              window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() + 1);
+              window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+              
+              // Actualizar títulos de TODOS los gráficos y la tabla
+              updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+              updateChartTitle('ventas-activas-mes-titulo', window.__porcentajeFecha);
+              updateTableTitle(window.__porcentajeFecha);
+              updateURLWithMonth(window.__porcentajeFecha);
+              
+              // Recargar datos sin reload de página
+              loadPorcentajeForMonth(window.__porcentajeFecha);
+            });
+            console.log('[MES] Botón siguiente conectado (sin reload)');
           } else {
             console.warn('[MES] Botón siguiente NO encontrado');
           }
@@ -1572,7 +1677,7 @@
           <div class="conversion-card">
             <div class="conversion-title-wrapper">
               <button id="month-prev" class="filter-button" title="Mes anterior">◀</button>
-              <div class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL MES</div>
+              <div id="tabla-mes-titulo" class="conversion-title">VENTAS POR MERCADO Y PUNTAJE DEL MES</div>
               <button id="month-next" class="filter-button" title="Mes siguiente">▶</button>
             </div>
             <div class="conv-two-col">
@@ -2009,28 +2114,11 @@
             const filtered = Array.from(mapByName.values());
             const labels = filtered.map(t => t.name);
             const dataVals = filtered.map(t => t.ACTIVAS);
-            // Si todos los valores son 0, mostrar mensaje de sin datos
-            if (dataVals.every(v => v === 0)) {
-              try { if (window.ventasActivasMesChart) { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } } catch(_){}
-              try {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                canvas.style.display = 'none';
-              } catch(_){}
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (!msg) {
-                msg = document.createElement('div');
-                msg.id = 'ventas-activas-no-data-msg';
-                msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
-                canvas.parentElement.appendChild(msg);
-              }
-              msg.textContent = 'Sin datos para este mes.';
-              showChartSpinner(canvas, false);
-              return;
-            } else {
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (msg) msg.remove();
-            }
+            // Asegurar que el canvas esté visible
+            canvas.style.display = 'block';
+            // Eliminar mensaje de sin datos si existe
+            let msg = document.getElementById('ventas-activas-no-data-msg');
+            if (msg) msg.remove();
             if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
             const ctx = canvas.getContext('2d');
             window.ventasActivasMesChart = new Chart(ctx, {
@@ -2859,15 +2947,38 @@
       };
 
       async function loadPorcentajeForMonth(date){
+        console.log('[LOADPORCENTAJE DEBUG] Función llamada con fecha:', date);
         try{
           try { window.__porcIsInitializing = true; } catch(_){}
           if (!date) date = (window.currentPorcMonth || new Date());
+          
+          // Actualizar la variable global solo si se recibe una fecha válida
+          if (date) {
+            window.__porcentajeFecha = new Date(date);
+            console.log('[LOADPORCENTAJE DEBUG] window.__porcentajeFecha actualizada a:', window.__porcentajeFecha);
+          }
+          
           const y = date.getFullYear();
           const m = String(date.getMonth()+1).padStart(2,'0');
+          
+          console.log(`[PORCENTAJE DEBUG] Cargando datos para mes: ${m}/${y}`);
           
           // Obtener primer y último día del mes actual
           const primer = `${y}-${m}-01`;
           const ultimo = `${y}-${m}-${String(new Date(y, date.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
+          
+          console.log(`[PORCENTAJE DEBUG] Rango de fechas: ${primer} a ${ultimo}`);
+
+          // Lanzar actualización de la tabla mensual en paralelo para mostrar spinner de inmediato
+          let tablePromise = null;
+          try {
+            const conversionTableRoot = document.getElementById('conversion-table');
+            if (conversionTableRoot) {
+              tablePromise = renderConversionTable(conversionTableRoot);
+            }
+          } catch (tableErr) {
+            console.warn('No se pudo inicializar actualización de tabla inmediatamente:', tableErr);
+          }
           
           // Calcular primer y último día del mes anterior para comparación
           const mesAnterior = new Date(y, date.getMonth()-1, 1);
@@ -2876,6 +2987,8 @@
           const primerAnt = `${yAnt}-${mAnt}-01`;
           const ultimoAnt = `${yAnt}-${mAnt}-${String(new Date(yAnt, mesAnterior.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
           const url = `/api/equipos/estadisticas?fechaInicio=${primer}&fechaFin=${ultimo}`;
+          
+          console.log(`[PORCENTAJE DEBUG] URL de API: ${url}`);
           const resp = await fetchWithAuth(url);
           let teamData = [];
           if (resp && resp.ok) {
@@ -2957,16 +3070,233 @@
           //   teamData = [];
           // }
 
+          // Esperar a que la tabla termine para evitar animaciones desfasadas
+          if (tablePromise) {
+            try {
+              await tablePromise;
+            } catch (e) {
+              console.warn('Error actualizando tabla de conversión:', e);
+            }
+          }
+
+          let donutData = teamData;
+          try {
+            const dedupRows = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
+            if (dedupRows.length) {
+              donutData = dedupRows.map(row => ({
+                name: row.name,
+                ICON: Number(row.ICON || 0),
+                ACTIVAS: Number(row.ACTIVAS || 0),
+                Total: Number(row.Total || 0),
+                porcentajeActivacion: Number(row.Total || 0) > 0 ? (Number(row.ACTIVAS || 0) / Number(row.Total || 0)) * 100 : 0,
+                Puntaje: Number(row.Puntaje || 0)
+              }));
+            }
+          } catch(_){ }
+
           // allow rendering now that data arrived
-          try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){}
-          renderPorcentajeTeams(teamData);
+          try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
+          renderPorcentajeTeams(donutData);
           
           // Renderizar también el gráfico de ventas activas con los mismos datos
-          renderVentasActivasMes(teamData);
+          renderVentasActivasMes(donutData);
         } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
         // ensure the initializing flag is cleared even on unexpected errors
         try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
       }
+
+      // ============ NAVEGACIÓN DE GRÁFICOS ============
+      
+      // Variables globales para navegación - inicializar según parámetro URL
+      function initializeDateFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mParam = urlParams.get('m');
+        
+        if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+          const [year, month] = mParam.split('-').map(Number);
+          const targetDate = new Date(year, month - 1, 15, 12, 0, 0);
+          console.log('[NAVEGACIÓN] Inicializando con fecha de URL:', mParam, '→', targetDate);
+          return targetDate;
+        } else {
+          console.log('[NAVEGACIÓN] Sin parámetro de mes válido, usando fecha actual');
+          return new Date();
+        }
+      }
+      
+      window.__porcentajeFecha = initializeDateFromURL();
+      window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+      
+      // Función para actualizar título de mes
+      function updateChartTitle(elementId, fecha) {
+        const element = document.getElementById(elementId);
+        if (element) {
+          const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+          const año = fecha.getFullYear();
+          element.textContent = `${mes}/${año}`;
+          console.log(`[NAVEGACIÓN] Título actualizado:`, elementId, '→', `${mes}/${año}`);
+        }
+      }
+      
+      // Función para actualizar título de la tabla
+      function updateTableTitle(fecha) {
+        const element = document.getElementById('tabla-mes-titulo');
+        if (element) {
+          const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+          const año = fecha.getFullYear();
+          const mesTexto = `${mes}/${año}`;
+          element.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${mesTexto})`;
+          console.log(`[NAVEGACIÓN] Título de tabla actualizado → ${mesTexto}`);
+        } else {
+          console.warn(`[NAVEGACIÓN] Elemento tabla-mes-titulo no encontrado`);
+        }
+      }
+      
+      // Función para actualizar URL con parámetro de mes
+      function updateURLWithMonth(fecha) {
+        try {
+          const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+          const año = fecha.getFullYear();
+          const newParam = `${año}-${mes}`;
+          
+          const url = new URL(window.location);
+          url.searchParams.set('m', newParam);
+          // Usar replaceState en lugar de pushState para evitar problemas de historial
+          window.history.replaceState({}, '', url);
+          console.log('[NAVEGACIÓN] URL actualizada (replaceState):', url.toString());
+        } catch (e) {
+          console.error('[NAVEGACIÓN] Error actualizando URL:', e);
+        }
+      }
+      
+      // Navegación para Porcentaje de Activación
+      function initPorcentajeNavigation() {
+        console.log('[NAVEGACION DEBUG] Iniciando initPorcentajeNavigation...');
+        const btnPrev = document.getElementById('porcentaje-prev');
+        const btnNext = document.getElementById('porcentaje-next');
+        
+        console.log('[NAVEGACION DEBUG] btnPrev encontrado:', btnPrev);
+        console.log('[NAVEGACION DEBUG] btnNext encontrado:', btnNext);
+        
+        if (btnPrev) {
+          console.log('[NAVEGACION DEBUG] Agregando event listener a btnPrev...');
+          btnPrev.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[NAVEGACION DEBUG] PREV CLICKED - Fecha actual antes:', window.__porcentajeFecha);
+            window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() - 1);
+            console.log('[NAVEGACION DEBUG] PREV CLICKED - Fecha actual después:', window.__porcentajeFecha);
+            // Sincronizar ambos gráficos
+            window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+            
+            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+            updateURLWithMonth(window.__porcentajeFecha);
+            
+            console.log('[PORCENTAJE] Navegando a mes anterior:', window.__porcentajeFecha);
+            console.log('[NAVEGACION DEBUG] Llamando loadPorcentajeForMonth con:', window.__porcentajeFecha);
+            loadPorcentajeForMonth(window.__porcentajeFecha);
+          });
+          console.log('[NAVEGACION DEBUG] Event listener PREV registrado correctamente');
+        } else {
+          console.error('[NAVEGACION DEBUG] NO SE ENCONTRÓ btnPrev');
+        }
+        
+        if (btnNext) {
+          console.log('[NAVEGACION DEBUG] Agregando event listener a btnNext...');
+          btnNext.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[NAVEGACION DEBUG] NEXT CLICKED - Fecha actual antes:', window.__porcentajeFecha);
+            window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() + 1);
+            console.log('[NAVEGACION DEBUG] NEXT CLICKED - Fecha actual después:', window.__porcentajeFecha);
+            // Sincronizar ambos gráficos
+            window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+            
+            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+            updateURLWithMonth(window.__porcentajeFecha);
+            
+            console.log('[PORCENTAJE] Navegando a mes siguiente:', window.__porcentajeFecha);
+            console.log('[NAVEGACION DEBUG] Llamando loadPorcentajeForMonth con:', window.__porcentajeFecha);
+            loadPorcentajeForMonth(window.__porcentajeFecha);
+          });
+          console.log('[NAVEGACION DEBUG] Event listener NEXT registrado correctamente');
+        } else {
+          console.error('[NAVEGACION DEBUG] NO SE ENCONTRÓ btnNext');
+        }
+        
+        // Inicializar títulos
+        updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+        updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+        updateTableTitle(window.__porcentajeFecha);
+      }
+      
+      // Navegación para Ventas Activas
+      function initVentasActivasNavigation() {
+        const btnPrev = document.getElementById('ventas-activas-prev');
+        const btnNext = document.getElementById('ventas-activas-next');
+        
+        if (btnPrev) {
+          btnPrev.onclick = async () => {
+            window.__ventasActivasFecha.setMonth(window.__ventasActivasFecha.getMonth() - 1);
+            // Sincronizar ambos gráficos
+            window.__porcentajeFecha = new Date(window.__ventasActivasFecha);
+            
+            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+            updateURLWithMonth(window.__ventasActivasFecha);
+            
+            console.log('[VENTAS-ACTIVAS] Navegando a mes anterior:', window.__ventasActivasFecha);
+            
+            // Cargar datos del mes seleccionado para ambos gráficos
+            loadPorcentajeForMonth(window.__ventasActivasFecha);
+          };
+        }
+        
+        if (btnNext) {
+          btnNext.onclick = async () => {
+            window.__ventasActivasFecha.setMonth(window.__ventasActivasFecha.getMonth() + 1);
+            // Sincronizar ambos gráficos  
+            window.__porcentajeFecha = new Date(window.__ventasActivasFecha);
+            
+            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+            updateURLWithMonth(window.__ventasActivasFecha);
+            
+            console.log('[VENTAS-ACTIVAS] Navegando a mes siguiente:', window.__ventasActivasFecha);
+            
+            // Cargar datos del mes seleccionado para ambos gráficos
+            loadPorcentajeForMonth(window.__ventasActivasFecha);
+          };
+        }
+        
+        // Inicializar títulos
+        updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+        updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
+        updateTableTitle(window.__porcentajeFecha);
+      }
+      
+      // Inicializar navegación cuando la página esté lista
+      document.addEventListener('DOMContentLoaded', () => {
+        // Usar un polling más robusto para asegurar que los elementos estén disponibles
+        function waitForElements() {
+          const btnPrev = document.getElementById('porcentaje-prev');
+          const btnNext = document.getElementById('porcentaje-next');
+          
+          if (btnPrev && btnNext) {
+            console.log('[NAVEGACIÓN] Elementos encontrados, inicializando navegación de gráficos...');
+            initPorcentajeNavigation();
+            initVentasActivasNavigation();
+          } else {
+            console.log('[NAVEGACIÓN] Esperando elementos...', { btnPrev: !!btnPrev, btnNext: !!btnNext });
+            setTimeout(waitForElements, 100);
+          }
+        }
+        
+        setTimeout(waitForElements, 500);
+      });
+      
+      // ============ FIN NAVEGACIÓN DE GRÁFICOS ============
 
       // Helpers: DOM-based external labels for porcentaje donuts (robust outside-canvas numeric labels)
       function cleanupPorcLabels(chart){
@@ -4063,28 +4393,73 @@
     }
 
     // Función para cargar y renderizar la tabla del Día con el mismo diseño que la del Mes
-    async function loadDayData() {
-      console.log('Cargando datos del día actual...');
+    async function loadDayData(targetDate = null, options = {}) {
+      console.log('Cargando datos del día...', targetDate);
       const container = document.getElementById('ventas-dia-card');
       if (!container) {
         console.error('No se encontró el contenedor #ventas-dia-card');
         return;
       }
 
-      // Leer parámetro ?d= si existe para navegación
-      const urlParams = new URLSearchParams(location.search);
-      const dParam = urlParams.get('d');
-      const cutoffHour = 9, cutoffMinute = 30;
-      let effective;
-      if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
-        const [y,m,d] = dParam.split('-').map(Number);
-        effective = new Date(y, m-1, d, 12, 0, 0);
-      } else {
+      const { skipHistory = false } = options || {};
+      const cutoffHour = 9;
+      const cutoffMinute = 30;
+
+      const computeDefaultDate = () => {
+        const params = new URLSearchParams(location.search);
+        const dParam = params.get('d');
+        if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
+          const [y, m, d] = dParam.split('-').map(Number);
+          return new Date(y, m - 1, d, 12, 0, 0);
+        }
         const nowLocal = new Date();
         const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-        effective = new Date(nowLocal);
-        if (beforeCutoff) effective.setDate(effective.getDate() - 1);
+        const base = new Date(nowLocal);
+        if (beforeCutoff) base.setDate(base.getDate() - 1);
+        return new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+      };
+
+      const normalizeTarget = (value) => {
+        if (!value) return null;
+        if (value instanceof Date) {
+          return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0);
+        }
+        if (typeof value === 'string') {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [y, m, d] = value.split('-').map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0);
+          }
+          const parsed = new Date(value);
+          if (!isNaN(parsed)) {
+            return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0);
+          }
+        }
+        const parsed = new Date(value);
+        if (!isNaN(parsed)) {
+          return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0);
+        }
+        return null;
+      };
+
+      let effective = normalizeTarget(targetDate) || computeDefaultDate();
+      if (!effective || isNaN(effective)) {
+        effective = computeDefaultDate();
       }
+
+      window.__currentDayDate = new Date(effective.getTime());
+      const formattedParam = `${effective.getFullYear()}-${String(effective.getMonth()+1).padStart(2,'0')}-${String(effective.getDate()).padStart(2,'0')}`;
+      if (targetDate) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('d', formattedParam);
+          if (!skipHistory) {
+            window.history.replaceState({}, '', url);
+          }
+        } catch (navErr) {
+          console.warn('No se pudo actualizar la URL para el día seleccionado:', navErr);
+        }
+      }
+
       const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
 
       // Placeholder de carga
@@ -4147,7 +4522,29 @@
           const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
           return (raw ? String(raw) : '').trim();
         };
-        const detailRows = inDay.map(l => {
+        const sanitize = (value) => (value || '').toString().trim().toUpperCase();
+        const onlyDigits = (value) => (value || '').toString().replace(/\D+/g, '');
+        const dedupeKeyOf = (lead) => {
+          const numeroCuenta = sanitize(findFirst(lead, ['numero_cuenta','numeroCuenta','accountNumber']));
+          const telefono = onlyDigits(findFirst(lead, ['telefono_principal','telefonoPrincipal','telefono']));
+          const diaVenta = sanitize(findFirst(lead, ['dia_venta','diaVenta','fecha_contratacion','fecha','createdAt','created_at']));
+          const servicio = sanitize(findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']));
+          const parts = [numeroCuenta, telefono, diaVenta, servicio].filter(Boolean);
+          if (parts.length) return parts.join('|');
+          const fallbackId = sanitize(findFirst(lead, ['_id','id','uid']));
+          return fallbackId || JSON.stringify(lead);
+        };
+
+        const dedupedDay = [];
+        const seenDayKeys = new Set();
+        for (const lead of inDay) {
+          const key = dedupeKeyOf(lead);
+          if (key && seenDayKeys.has(key)) continue;
+          if (key) seenDayKeys.add(key);
+          dedupedDay.push(lead);
+        }
+
+        const detailRows = dedupedDay.map(l => {
           const team = (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']) || '').toString().trim();
           const servicio = normalizeServicio(l);
           const mercado = (findFirst(l, ['mercado','market','producto','servicio','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
@@ -4225,7 +4622,7 @@
         if (preTeamData) {
           dayData = preTeamData;
         } else {
-          inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
+          dedupedDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
           dayData = Array.from(teamMap.values());
         }
 
@@ -4243,6 +4640,14 @@
         // Filtrar datos principales: excluir los nombres que están en lineasData
         const lineasNames = new Set(lineasData.map(l => String(l.name).toUpperCase()));
         let mainData = dayData.filter(t => !lineasNames.has(String(t.name).toUpperCase()));
+
+        try {
+          // Persist rows so other widgets (detalle/modal/LINEAS) reuse the deduplicated data without refetching
+          window.dayData = Array.isArray(mainData) ? mainData.slice() : [];
+          window.DayDisplayRows = window.dayData.slice();
+          window.DayRowsOriginal = window.dayData.slice();
+          window.DayLineasData = Array.isArray(lineasData) ? lineasData.slice() : [];
+        } catch(_) { /* ignore storage errors */ }
 
         // (removed duplicate ensureDayRows + porcentaje helper block) - functionality
         // moved to top-level to avoid nested IIFE interference and syntax issues.
@@ -4529,35 +4934,70 @@
         try {
           const btnPrev = document.getElementById('day-prev-alt');
           const btnNext = document.getElementById('day-next-alt');
+          const navigateDay = async (delta) => {
+            try {
+              if (window.__dayNavInFlight) return;
+              window.__dayNavInFlight = true;
+              const base = window.__currentDayDate ? new Date(window.__currentDayDate) : new Date(effective);
+              base.setDate(base.getDate() + delta);
+              await loadDayData(base, { skipHistory: false });
+            } catch (navErr) {
+              console.warn('No se pudo navegar al día solicitado:', navErr);
+            } finally {
+              window.__dayNavInFlight = false;
+            }
+          };
+
           if (btnPrev) {
-            btnPrev.onclick = () => { 
-              const d = new Date(effective); 
-              d.setDate(d.getDate()-1); 
-              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
-            };
+            btnPrev.addEventListener('click', (e) => {
+              try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+              navigateDay(-1);
+            });
             console.log('[DÍA] Botón anterior conectado');
           } else {
             console.warn('[DÍA] Botón anterior NO encontrado');
           }
           if (btnNext) {
-            btnNext.onclick = () => { 
-              const d = new Date(effective); 
-              d.setDate(d.getDate()+1); 
-              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
-            };
+            btnNext.addEventListener('click', (e) => {
+              try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+              navigateDay(1);
+            });
             console.log('[DÍA] Botón siguiente conectado');
           } else {
             console.warn('[DÍA] Botón siguiente NO encontrado');
           }
-        } catch(err) { 
-          console.error('[DÍA] Error al conectar flechas:', err); 
+
+          if (!window.__dayKeyboardBound) {
+            try {
+              document.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowLeft') {
+                  event.preventDefault();
+                  navigateDay(-1);
+                } else if (event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  navigateDay(1);
+                }
+              });
+              window.__dayKeyboardBound = true;
+            } catch(_) {}
+          }
+        } catch(err) {
+          console.error('[DÍA] Error al conectar flechas:', err);
         }
         // Tabs inline en tarjeta del Día
         try {
           const pad2 = (n)=> String(n).padStart(2,'0');
           const formatDMY = (d)=> `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
           const formatMY = (d)=> `${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
-          const today = new Date();
+          const resolveCurrentDate = () => {
+            try {
+              if (window.__currentDayDate) {
+                return new Date(window.__currentDayDate);
+              }
+            } catch(_){ }
+            return new Date(effective);
+          };
+          const today = resolveCurrentDate();
           const title = container.querySelector('.conversion-title');
           const table = container.querySelector('.sales-table');
           const btnDay = container.querySelector('#tab-dia-day');
@@ -4588,7 +5028,8 @@
                 setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
               }
             } catch(_){}
-            setActive('day'); if (title) title.textContent = `VENTAS DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
+            const current = resolveCurrentDate();
+            setActive('day'); if (title) title.textContent = `VENTAS DEL DÍA (${formatDMY(current)})`; renderTable(window.DayRowsOriginal||[]); };
           const showMonth = ()=>{ 
             try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
             try {
@@ -4599,7 +5040,8 @@
                 setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
               }
             } catch(_){}
-            setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(today)})`; renderTable(window.MonthDisplayRows||[]); };
+            const current = resolveCurrentDate();
+            setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(current)})`; renderTable(window.MonthDisplayRows||[]); };
           if (btnDay) btnDay.onclick = showDay;
           if (btnMonth) btnMonth.onclick = showMonth;
           // Selección por defecto: Día
@@ -4706,274 +5148,6 @@
         renderConversionTable(document.getElementById('conversion-table'));
       } else {
         console.error('No se encontrÃ³ el elemento con ID conversion-table');
-      }
-    }
-
-    // Función para cargar y renderizar la tabla del Día con el mismo diseño que la del Mes
-    async function loadDayData() {
-      console.log('Cargando datos del día actual...');
-      const container = document.getElementById('ventas-dia-card');
-      if (!container) {
-        console.error('No se encontró el contenedor #ventas-dia-card');
-        return;
-      }
-
-      // Leer parámetro ?d= si existe para navegación
-      const urlParams = new URLSearchParams(location.search);
-      const dParam = urlParams.get('d');
-      const cutoffHour = 9, cutoffMinute = 30;
-      let effective;
-      if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
-        const [y,m,d] = dParam.split('-').map(Number);
-        effective = new Date(y, m-1, d, 12, 0, 0);
-      } else {
-        const nowLocal = new Date();
-        const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-        effective = new Date(nowLocal);
-        if (beforeCutoff) effective.setDate(effective.getDate() - 1);
-      }
-      const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
-
-      // Placeholder de carga
-      container.innerHTML = `
-        <div class="text-center" style="padding: 12px; color:#666;">Cargando datos del día...</div>
-      `;
-
-      try {
-        // 1) Intentar primero el endpoint de equipos con fecha efectiva
-        const y = effective.getFullYear();
-        const m = String(effective.getMonth()+1).padStart(2,'0');
-        const d = String(effective.getDate()).padStart(2,'0');
-        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
-        // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
-        let dayData = [];
-        const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
-        // Si navegamos con ?d=, capturar TODO el día (00:00 a 23:59:59)
-        const urlParams2 = new URLSearchParams(location.search);
-        const isNavigating2 = urlParams2.has('d');
-        const endExclusive = isNavigating2 
-          ? new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, 0, 0, 0, 0)
-          : new Date(effective.getFullYear(), effective.getMonth(), effective.getDate() + 1, cutoffHour, cutoffMinute, 0, 0);
-        const leadsResp = await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&skipDate=1&t=${Date.now()}`);
-        if (!leadsResp) return;
-        const leadsJson = await leadsResp.json();
-        const leads = Array.isArray(leadsJson) ? leadsJson : (Array.isArray(leadsJson.data) ? leadsJson.data : (Array.isArray(leadsJson.leads) ? leadsJson.leads : []));
-        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
-        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
-        const tryDateFrom = (val) => { if (!val) return null; if (typeof val === 'string') { const s = val.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [yy,mm,dd] = s.split('-').map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) { const [dd,mm,yy] = s.split(/[\/\-]/).map(Number); return new Date(yy, mm-1, dd, 12, 0, 0); } } const dt = new Date(val); return isNaN(dt) ? null : dt; };
-        const createdPaths = ['dia_venta','diaVenta','fecha_contratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha'];
-        // Helpers para comparar el mismo día (mismos que el bloque superior)
-        const ymd = `${y}-${m}-${d}`;
-        const dmyNoPad = `${Number(d)}/${Number(m)}/${y}`;
-        const dmyPad = `${d}/${m}/${y}`;
-        const engMonth = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][effective.getMonth()];
-        const engRegex = new RegExp(`\\b${engMonth}\\b\\s+${Number(d)}\\s+${y}`, 'i');
-        const sameLocalDay = (dt) => dt && dt >= startLocal && dt < endExclusive;
-        const isSameDayAny = (val) => {
-          if (!val && val !== 0) return false;
-          if (val instanceof Date) return sameLocalDay(val);
-          if (typeof val === 'number') return sameLocalDay(new Date(val < 1e12 ? val*1000 : val));
-          const s = String(val).trim();
-          if (!s) return false;
-          if (s === ymd || s === dmyNoPad || s === dmyPad) return true;
-          if (engRegex.test(s)) return true;
-          const dt = tryDateFrom(s);
-          return sameLocalDay(dt);
-        };
-        const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); return isSameDayAny(v); });
-        // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
-        const normalizeServicio = (lead) => {
-          const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
-          if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).join(', ');
-          return (raw ? String(raw) : '').trim();
-        };
-        const normalizeAgente = (lead) => {
-          const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
-          return (raw ? String(raw) : '').trim();
-        };
-        const detailRows = inDay.map(l => {
-          const team = (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']) || '').toString().trim();
-          const servicio = normalizeServicio(l);
-          const mercado = (findFirst(l, ['mercado','market','producto','servicio','tipoProducto','producto.nombre']) || '').toString().toUpperCase();
-          const pRaw = findFirst(l, ['puntaje','score','puntos']);
-          const puntaje = typeof pRaw === 'number' ? pRaw : parseFloat(pRaw) || 0;
-          const agente = normalizeAgente(l);
-          const fechaFuente = findFirst(l, createdPaths);
-          return { team, agente, servicio, mercado, puntaje: Number(puntaje || 0), fecha: fechaFuente };
-        });
-        window.DayDetailRows = { fecha: `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`, rows: detailRows };
-
-        const teamMap = new Map();
-        const teamNameOf = (lead) => {
-          const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
-          const s = (t || '').toString().trim(); return s || 'Sin equipo';
-        };
-        const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
-        const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
-        inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
-        dayData = Array.from(teamMap.values());
-
-        // Separar LINEAS para panel derecho y excluirlas de la tabla principal
-        const isLinea = (n) => /LINEA/i.test(String(n || ''));
-        const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
-        const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-        const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
-        let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
-
-        // Completar equipos y fijar orden (siempre todos los equipos)
-        (function ensureDayRows(){
-          try {
-            const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
-            const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
-            const ORDER_A = ['Johana','Irania'];
-            const ORDER_B = ['Pleitez','Roberto','Marisol'];
-            const dow = effective.getDay();
-            let order = ORDER_ALL;
-            const map = new Map((mainData||[]).map(t=>[norm(t?.name), t]));
-            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
-            mainData = order.map(ensureRow);
-            try { window.DayDisplayRows = mainData.slice(); } catch(_) {}
-          } catch(e) { console.warn('[ESTADISTICAS][DAY-2] ensure rows error:', e); }
-        })();
-
-        // Construir HTML con el mismo diseño (conversion-card + sales-table) incluyendo panel LINEAS a la derecha
-        const tablaHtml = `
-            <div class="conversion-card">
-              <div class="conversion-title-wrapper">
-                <button id="day-prev-alt" class="day-nav-btn" title="Día anterior">◀</button>
-                <div class="conversion-title" >VENTAS Y PUNTAJE DEL DÍA (${diaTexto})</div>
-                <button id="day-next-alt" class="day-nav-btn" title="Día siguiente">▶</button>
-              </div>
-              <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-                <button id="btn-detalle-dia" class="filter-button">Ver detalle</button>
-              </div>
-              <div class="conv-two-col">
-                <div class="conv-left">
-                  <table class="sales-table">
-                    <thead>
-                      <tr>
-                        <th>EQUIPO</th>
-                        <th>ICON</th>
-                        <th>BAMO</th>
-                        <th>TOTAL</th>
-                        <th>PUNTAJE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${mainData.map(team => `
-                        <tr>
-                          <td>${team.name}</td>
-                          <td>${team.ICON || 0}</td>
-                          <td>${team.BAMO || 0}</td>
-                          <td>${team.Total || 0}</td>
-                          <td class="score-col">${parseFloat(team.Puntaje || 0).toFixed(2)}</td>
-                        </tr>
-                      `).join('')}
-                      <tr class="total-row">
-                        <td>TOTAL</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${mainData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="conv-right">
-                  <div class="mini-card">
-                    <table class="mini-table">
-                      <thead>
-                        <tr>
-                          <th>TEAM LINEAS</th>
-                          <th>ICON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${(lineasData || []).map(r => `
-                          <tr>
-                            <td>${r.name}</td>
-                            <td>${r.ICON || 0}</td>
-                          </tr>
-                        `).join('')}
-                        <tr class="total">
-                          <td>TOTAL</td>
-                          <td class="total-icon">${lineasTotalICON}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-
-  container.innerHTML = tablaHtml;
-  // Clear inline hidden styles just in case a previous flip left elements hidden
-  try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
-        // Helpers de animación (carrusel) para navegación con ?d=
-        const animateSwap = async (rootEl, direction, update) => {
-          try {
-            const card = container; // usar el propio contenedor
-            card.classList.add('slide-card');
-            card.classList.remove('slide-enter-from-left','slide-enter-from-right','slide-enter-active');
-            card.classList.add(direction === 'prev' ? 'slide-exit-right' : 'slide-exit-left');
-            await new Promise(r => setTimeout(r, 200));
-            card.classList.remove('slide-exit-right','slide-exit-left');
-            await update();
-            // Entrada
-            card.classList.add('slide-card','slide-enter-base', direction === 'prev' ? 'slide-enter-from-left' : 'slide-enter-from-right');
-            requestAnimationFrame(() => {
-              card.classList.add('slide-enter-active');
-              card.classList.remove('slide-enter-from-left','slide-enter-from-right');
-              setTimeout(()=>{ card.classList.remove('slide-card','slide-enter-base','slide-enter-active'); }, 280);
-            });
-          } catch(_) { await update(); }
-        };
-
-        // Hook flechas navegación día (alternativas)
-        try {
-          // Botones ya no existen, navegar con teclado (opcional) o programático
-          const btnPrevAlt = null;
-          const btnNextAlt = null;
-          document.addEventListener('keydown', async (e) => {
-            if (e.key === 'ArrowLeft') {
-              const d2 = new Date(effective); d2.setDate(d2.getDate()-1);
-              const newQ = `?d=${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
-              await animateSwap(container, 'prev', async () => { history.replaceState({}, '', newQ); await loadDayData(); });
-            } else if (e.key === 'ArrowRight') {
-              const d2 = new Date(effective); d2.setDate(d2.getDate()+1);
-              const newQ = `?d=${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}-${String(d2.getDate()).padStart(2,'0')}`;
-              await animateSwap(container, 'next', async () => { history.replaceState({}, '', newQ); await loadDayData(); });
-            }
-          });
-        } catch(_) {}
-      } catch (e) {
-        console.error('Error cargando datos del día:', e);
-        container.innerHTML = `
-          <div class="conversion-card">
-            <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
-            <div class="conv-two-col">
-              <div class="conv-left">
-                <table class="sales-table">
-                  <thead>
-                    <tr>
-                      <th>EQUIPO</th>
-                      <th>ICON</th>
-                      <th>BAMO</th>
-                      <th>TOTAL</th>
-                      <th>PUNTAJE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="5" style="text-align:center; padding:16px; color:#666; font-style:italic;">Error de conexión</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        `;
       }
     }
 
