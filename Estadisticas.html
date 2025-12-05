@@ -917,11 +917,7 @@
 </head>
 <body>
   <div class="layout">
-        </div>
-      </div>
-    </div>
-  </div>
-    <!-- SIDEBAR (cargado dinÃ¡micamente) -->
+    <!-- SIDEBAR (cargado dinámicamente) -->
     <nav class="sidebar sidebar-inicio" data-active="estadisticas"></nav>
 
     <main class="main-content">
@@ -1086,6 +1082,9 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -4776,8 +4775,49 @@
         const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
         
         // Filtrar datos principales: excluir los nombres que están en lineasData
-        const lineasNames = new Set(lineasData.map(l => String(l.name).toUpperCase()));
-        let mainData = dayData.filter(t => !lineasNames.has(String(t.name).toUpperCase()));
+        const norm = (value) => String(value || '').normalize('NFD').replace(/\p{Diacritic}+/gu, '').trim();
+        const canonicalTeam = (rawName) => {
+          const n = norm(rawName).toLowerCase().replace(/^team\s+/, '');
+          if (!n) return 'Sin equipo';
+          if (n.includes('pleitez')) return 'Pleitez';
+          if (n.includes('roberto')) return 'Roberto';
+          if (n.includes('marisol')) return 'Marisol';
+          if (n.includes('johana') || n.includes('johanna')) return 'Johana';
+          if (n.includes('irania')) return 'Irania';
+          return norm(rawName) || 'Sin equipo';
+        };
+
+        const lineasNames = new Set(lineasData.map(l => canonicalTeam(l.name).toLowerCase()));
+        const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
+        const orderKeys = new Set(ORDER_ALL.map(name => name.toLowerCase()));
+        const teamMap = new Map();
+        const extraTeams = [];
+
+        (dayData || []).forEach(team => {
+          const key = canonicalTeam(team.name);
+          if (lineasNames.has(key.toLowerCase())) return;
+          const record = {
+            ...team,
+            name: key,
+            ICON: Number(team.ICON) || 0,
+            BAMO: Number(team.BAMO) || 0,
+            Total: Number(team.Total) || 0,
+            Puntaje: Number(team.Puntaje) || 0
+          };
+          if (orderKeys.has(key.toLowerCase())) {
+            teamMap.set(key.toLowerCase(), record);
+          } else {
+            extraTeams.push(record);
+          }
+        });
+
+        let mainData = ORDER_ALL.map(name => {
+          const entry = teamMap.get(name.toLowerCase());
+          return entry || { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+        });
+        if (extraTeams.length) {
+          mainData = mainData.concat(extraTeams);
+        }
 
         try {
           // Persist rows so other widgets (detalle/modal/LINEAS) reuse the deduplicated data without refetching
