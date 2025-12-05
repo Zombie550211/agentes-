@@ -55,6 +55,14 @@
       }
     };
 
+    const formatMetricValue = (value, decimals = 2) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      if (Number.isInteger(num)) return String(num);
+      const fixed = num.toFixed(decimals);
+      return fixed.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+    };
+
     // Verificar que Chart.js está disponible
     if (typeof Chart === 'undefined') {
       console.error('Error: No se pudo cargar Chart.js');
@@ -85,6 +93,18 @@
               window.__chartDataLabelsPlugin = pluginCandidate;
               window.__chartDataLabelsRegistered = true;
               console.log('ChartDataLabels ya estaba registrado globalmente');
+            }
+
+            try {
+              if (Chart?.defaults?.plugins) {
+                const current = Chart.defaults.plugins.datalabels || {};
+                Chart.defaults.plugins.datalabels = {
+                  ...current,
+                  formatter: (value) => formatMetricValue(value)
+                };
+              }
+            } catch (cfgErr) {
+              console.warn('No se pudo configurar el formato global de datalabels:', cfgErr);
             }
           } catch (err) {
             console.warn('No se pudo registrar ChartDataLabels globalmente:', err);
@@ -2245,7 +2265,7 @@
                     },
                     offset: 4,
                     formatter: function(value, context) {
-                      return value;
+                      return formatMetricValue(value);
                     }
                   }
                 }
@@ -2462,7 +2482,7 @@
                   size: 13
                 },
                 formatter: function(value) {
-                  return value;
+                  return formatMetricValue(value);
                 }
               }
             },
@@ -2623,7 +2643,7 @@
                 size: 13
               },
               formatter: function(value) {
-                return value;
+                return formatMetricValue(value);
               }
             }
           },
@@ -2727,7 +2747,7 @@
                 size: 13
               },
               formatter: function(value) {
-                return value;
+                return formatMetricValue(value);
               }
             }
           },
@@ -6393,7 +6413,7 @@
               if (wrap) {
                 wrap.style.height = finalH + 'px';
                 wrap.style.maxHeight = finalH + 'px';
-                wrap.style.overflow = 'hidden';
+                wrap.style.overflow = 'visible';
                 // add bottom padding so x-axis labels and datalabels have room
                 wrap.style.paddingBottom = '28px';
               }
@@ -6414,17 +6434,20 @@
                 layout: { padding: { top: 12, bottom: 60 } },
                 plugins: {
                   legend: { display: true, position: 'top' },
-                      datalabels: {
-                        // place labels above the bar (outside the bar area)
-                        anchor: 'end',
-                        align: 'end',
-                        offset: -6,
-                        clamp: false,
-                        clip: false,
-                        color: '#0b1220',
-                        font: { weight: '600', size: 11 },
-                        formatter: v => (v == null ? '' : v)
-                      }
+                  datalabels: {
+                    anchor: 'end',
+                    align: 'end',
+                    offset: -6,
+                    clamp: false,
+                    color: '#0b1220',
+                    font: { weight: '600', size: 11 },
+                    display: (context) => {
+                      const raw = context?.dataset?.data?.[context.dataIndex];
+                      const n = Number(raw);
+                      return !Number.isNaN(n) && n !== 0;
+                    },
+                    formatter: (value) => formatMetricValue(value)
+                  }
                 },
                 scales: {
                   x: {
@@ -6690,7 +6713,12 @@
                 const vpH = (vp && vp.getBoundingClientRect && vp.getBoundingClientRect().height) || vp.clientHeight || 320;
                 const minH = 320;
                 const finalH = Math.max(vpH, minH);
-                if (wrap) { wrap.style.height = finalH + 'px'; wrap.style.maxHeight = finalH + 'px'; wrap.style.overflow = 'hidden'; wrap.style.paddingBottom = '28px'; }
+                if (wrap) {
+                  wrap.style.height = finalH + 'px';
+                  wrap.style.maxHeight = finalH + 'px';
+                  wrap.style.overflow = 'visible';
+                  wrap.style.paddingBottom = '28px';
+                }
               } catch(_){ }
                 try{ if (window.__dailyChart) { window.__dailyChart.destroy(); } } catch(_){ }
                 try { if (typeof window.__ensureHiDPICanvas === 'function') window.__ensureHiDPICanvas(canvas, finalH); } catch(_){}
@@ -6716,8 +6744,13 @@
                       clamp: false,
                       clip: false,
                       color: '#0b1220',
-                          font: { weight: '600', size: 12 },
-                      formatter: v => (v == null ? '' : v)
+                      font: { weight: '600', size: 12 },
+                      display: (context) => {
+                        const raw = context?.dataset?.data?.[context.dataIndex];
+                        const n = Number(raw);
+                        return !Number.isNaN(n) && n !== 0;
+                      },
+                      formatter: (value) => formatMetricValue(value)
                     }
                   },
                   scales: {
