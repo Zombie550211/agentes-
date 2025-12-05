@@ -1082,9 +1082,9 @@
 
           <div class="card chart-card">
             <div class="conversion-title-wrapper">
-              <button id="products-prev" class="filter-button" class="filter-button" title="Mes anterior">◀</button>
+              <button id="products-prev" class="products-nav-btn chart-nav-btn" title="Mes anterior" type="button">◀</button>
               <div id="products-month-title" class="conversion-title" >Productos vendidos en Noviembre 2025</div>
-              <button id="products-next" class="filter-button" class="filter-button" title="Mes siguiente">▶</button>
+              <button id="products-next" class="products-nav-btn chart-nav-btn" title="Mes siguiente" type="button">▶</button>
             </div>
             <div class="chart-wrapper">
               <canvas id="productsChart"></canvas>
@@ -2314,9 +2314,54 @@
     // --- Productos vendidos en el mes: helpers y gráfico ---
     const SOLD = new Set(['vendido','cerrado','aprobado','approved','sold','closed']);
     function pickDateForProduct(lead){
-      const cand = lead && (lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha || lead.created_at || lead.createdOn);
-      const d = cand ? new Date(cand) : null;
-      return d && !isNaN(d) ? d : new Date(0);
+      const cand = lead && (lead.dia_venta || lead.diaVenta || lead.fecha_venta || lead.fechaVenta || lead.fecha_contratacion || lead.fechaContrato || lead.fecha_registro || lead.fechaRegistro || lead.createdAt || lead.created_at || lead.createdOn || lead.created_on || lead.fecha || lead.date || lead.updatedAt || lead.updated_at);
+      if (!cand) return null;
+
+      const ensureMidday = (dt) => {
+        if (!(dt instanceof Date) || Number.isNaN(dt.getTime())) return null;
+        return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0, 0);
+      };
+
+      if (cand instanceof Date) {
+        return ensureMidday(cand);
+      }
+
+      if (typeof cand === 'number') {
+        // Diferenciar segundos vs milisegundos
+        const val = cand < 1e12 ? cand * 1000 : cand;
+        return ensureMidday(new Date(val));
+      }
+
+      const str = String(cand).trim();
+      if (!str) return null;
+
+      // yyyy-mm-dd
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const [y, m, d] = str.split('-').map(Number);
+        return new Date(y, m - 1, d, 12, 0, 0, 0);
+      }
+
+      // yyyy-mm-ddTHH:mm... (ISO)
+      if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+        const isoDate = new Date(str);
+        return ensureMidday(isoDate);
+      }
+
+      // dd/mm/yyyy o dd-mm-yyyy
+      if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)) {
+        const parts = str.split(/[\/\-]/).map(Number);
+        const [d, m, y] = parts;
+        return new Date(y, m - 1, d, 12, 0, 0, 0);
+      }
+
+      const parsed = new Date(str);
+      return ensureMidday(parsed);
+    }
+
+    function isInProductsMonth(date, referenceDate){
+      if (!(referenceDate instanceof Date) || Number.isNaN(referenceDate.getTime())) return false;
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+      return date.getFullYear() === referenceDate.getFullYear() && date.getMonth() === referenceDate.getMonth();
     }
 
     let productsChartRef = null;
@@ -2326,11 +2371,12 @@
       setTimeout(() => { // Simula carga asíncrona, reemplaza por fetch real si aplica
         try{
           leads = Array.isArray(leads) ? leads : [];
-          const now = new Date(); const M = now.getMonth(); const Y = now.getFullYear();
-          let monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y && SOLD.has(String(l.status||'').toLowerCase()); });
-          if (monthSales.length === 0) {
-            monthSales = leads.filter(l => { const d = pickDateForProduct(l); return d.getMonth()===M && d.getFullYear()===Y; });
-          }
+          const now = new Date();
+          now.setHours(12,0,0,0);
+          const monthSales = leads.filter(l => {
+            const d = pickDateForProduct(l);
+            return d ? isInProductsMonth(d, now) : false;
+          });
           const getProd = (l) => {
             const v = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || (l.producto && l.producto.nombre) || l.product || l.service || l.servicio || '';
             return v ? String(v).replace(/[-_]/g,' ').toUpperCase() : 'SIN PRODUCTO';
@@ -2377,6 +2423,14 @@
 
     // Variables para el control de navegación de productos por mes
     let currentProductsDate = new Date();
+    function normalizeCurrentProductsDate() {
+      if (!(currentProductsDate instanceof Date) || Number.isNaN(currentProductsDate.getTime())) {
+        currentProductsDate = new Date();
+      }
+      currentProductsDate.setDate(1);
+      currentProductsDate.setHours(12, 0, 0, 0);
+    }
+    normalizeCurrentProductsDate();
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
     async function loadProductsChart(){
@@ -2409,10 +2463,12 @@
         const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
         console.log(`Obtenidos ${leads.length} leads para el mes`);
 
-        // Filtrar ventas del mes seleccionado
+        // Filtrar ventas del mes seleccionado usando la zona operativa
+        const referenceDate = new Date(currentProductsDate);
+        referenceDate.setHours(12, 0, 0, 0);
         const monthSales = leads.filter(l => {
-          const d = new Date(l.dia_venta || l.fecha_contratacion || l.createdAt || l.fecha || l.created_at || l.createdOn);
-          return d.getMonth() === currentProductsDate.getMonth() && d.getFullYear() === currentProductsDate.getFullYear();
+          const d = pickDateForProduct(l);
+          return d ? isInProductsMonth(d, referenceDate) : false;
         });
         console.log(`Filtrados ${monthSales.length} ventas para el mes`);
 
@@ -2558,6 +2614,7 @@
       if (prevBtn) {
         prevBtn.addEventListener('click', () => {
           currentProductsDate.setMonth(currentProductsDate.getMonth() - 1);
+          normalizeCurrentProductsDate();
           loadProductsChart();
         });
       }
@@ -2565,6 +2622,7 @@
       if (nextBtn) {
         nextBtn.addEventListener('click', () => {
           currentProductsDate.setMonth(currentProductsDate.getMonth() + 1);
+          normalizeCurrentProductsDate();
           loadProductsChart();
         });
       }
@@ -3164,10 +3222,14 @@
           //   teamData = [];
           // }
 
+          const selectedMonthKey = `${y}-${m}`;
           let donutData = teamData;
           try {
             const dedupRows = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
-            if (dedupRows.length) {
+            const rangeStart = typeof window.__monthlyRange?.start === 'string' ? window.__monthlyRange.start : '';
+            const rangeKey = rangeStart.includes('-') ? rangeStart.slice(0, 7) : '';
+            const sameMonth = rangeKey === selectedMonthKey;
+            if (sameMonth && dedupRows.length) {
               donutData = dedupRows.map(row => ({
                 name: row.name,
                 ICON: Number(row.ICON || 0),
