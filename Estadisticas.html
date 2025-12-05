@@ -5678,6 +5678,21 @@
     async function actualizarGraficaVentasPuntaje(datos = null) {
       try {
         console.log('=== INICIANDO ACTUALIZACIÓN DE GRÁFICA DE VENTAS ===');
+
+        const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // UTC-6 fijo para todas las transformaciones
+        const isoLocalFromDate = (date) => {
+          if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        };
+        const isoToLocalMidday = (iso) => {
+          if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+          const [y, m, d] = iso.split('-').map(Number);
+          if (!y || !m || !d) return null;
+          return new Date(y, m - 1, d, 12, 0, 0, 0);
+        };
+        const todayLocal = new Date();
+        todayLocal.setHours(12, 0, 0, 0);
+        const hoyISO = isoLocalFromDate(todayLocal);
         
         // Si se proporcionan datos directamente, úsalos y omite la llamada al backend
         if (Array.isArray(datos) && datos.length) {
@@ -5712,6 +5727,15 @@
             console.info('[Filtro agente] (rol agent) Enviado en query a /api/leads:', agenteNombreQuery);
           } else {
             console.info('[Filtro agente] Rol privilegiado o Team Lineas detectado (', roleLower, team, '): endpoint maneja la lógica');
+          }
+          if (hoyISO) {
+            const fechaFinQuery = hoyISO;
+            const fechaInicioDate = new Date(todayLocal);
+            fechaInicioDate.setDate(fechaInicioDate.getDate() - 6);
+            const fechaInicioQuery = isoLocalFromDate(fechaInicioDate);
+            if (fechaInicioQuery) params.set('fechaInicio', fechaInicioQuery);
+            params.set('fechaFin', fechaFinQuery);
+            console.info('[Filtro fecha] Últimos 7 días enviados a /api/leads:', fechaInicioQuery, '→', fechaFinQuery);
           }
           const qs = params.toString();
           url = qs ? `${u.pathname}?${qs}` : `${u.pathname}`;
@@ -5768,35 +5792,8 @@
         }
 
         // Procesar datos para agrupar por día
-        const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // UTC-6 fijo
-        const toISOInTZ_local = (date, tzOffsetMinutes) => {
-          const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
-          const y = target.getUTCFullYear();
-          const m = String(target.getUTCMonth() + 1).padStart(2, '0');
-          const d = String(target.getUTCDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
-        };
-
-        // Helpers para construir una ventana de 7 días terminando en una fecha ancla (inclusive)
-        const buildWindowFor = (anchorISO) => {
-          const map = {};
-          const set = new Set();
-          if (!anchorISO || !/^\d{4}-\d{2}-\d{2}$/.test(anchorISO)) return { map, set };
-          const [ay, am, ad] = anchorISO.split('-').map(Number);
-          const anchorUTC = new Date(Date.UTC(ay, (am || 1) - 1, ad || 1, 12, 0, 0));
-          for (let i = 6; i >= 0; i--) {
-            const fechaUTC = new Date(anchorUTC);
-            // Recorremos hacia atrás 6 días para cubrir la ventana completa
-            fechaUTC.setUTCDate(anchorUTC.getUTCDate() - (6 - i));
-            const clave = toISOInTZ_local(fechaUTC, BUSINESS_TZ_OFFSET_MIN);
-            set.add(clave);
-            map[clave] = { ventas: 0, puntaje: 0 };
-          }
-          return { map, set };
-        };
-
-        const hoyISO = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
-        let { map: ventasPorDia, set: fechasUltimos7Dias } = buildWindowFor(hoyISO);
+        const ventanaDias = [];
+        const ventasPorDia = {};
 
         // Helpers para obtener fechas de los registros
         const getByPath = (obj, path) => {
@@ -5822,6 +5819,18 @@
             if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
               const [y,m,d] = s.split('-').map(Number);
               return new Date(Date.UTC(y, m-1, d, 12, 0, 0));
+            }
+            const isoDateTimeMatch = s.match(/^(\d{4}-\d{2}-\d{2})([T\s].*)$/);
+            if (isoDateTimeMatch) {
+              const dt = new Date(s);
+              if (!Number.isNaN(dt.getTime())) {
+                const utcMs = dt.getTime() + dt.getTimezoneOffset() * 60000;
+                const businessMs = utcMs + BUSINESS_TZ_OFFSET_MIN * 60000;
+                const businessDate = new Date(businessMs);
+                return new Date(businessDate.getFullYear(), businessDate.getMonth(), businessDate.getDate(), 12, 0, 0, 0);
+              }
+              const [y, m, d] = isoDateTimeMatch[1].split('-').map(Number);
+              return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
             }
             if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) {
               const parts = s.split(/[\/\-]/).map(Number);
@@ -5865,10 +5874,13 @@
 
         const createdPaths = [
           'creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
+          'fecha_contratacion','fechaContratacion','fecha_contrato','fechaContrato','fecha_captura','fechaCaptura',
+          'fecha_venta','fechaVenta','fecha_activacion','fechaActivacion','assignedAt','asignadoEn','asignadoEn.fecha',
           '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
-          'metadata.createdAt','audit.createdAt','timestamps.createdAt'
+          '_raw.fecha_contratacion','_raw.fechaContratacion','_raw.fecha_venta','_raw.fechaVenta',
+          'metadata.createdAt','metadata.fecha_contratacion','audit.createdAt','timestamps.createdAt'
         ];
-        const diaVentaPaths = ['dia_venta','diaVenta'];
+        const diaVentaPaths = ['dia_venta','diaVenta','diaVentaISO','fechaVentaDia'];
 
         const processedEntries = [];
         let maxFechaISOFromData = null;
@@ -5885,7 +5897,8 @@
               console.warn('[ESTADISTICAS][7D] Registro sin fecha válida omitido:', costumer && costumer._id);
               return;
             }
-            const fechaStr = toISOInTZ_local(fecha, BUSINESS_TZ_OFFSET_MIN);
+            const fechaStr = isoLocalFromDate(fecha);
+            if (!fechaStr) return;
             if (!maxFechaISOFromData || fechaStr > maxFechaISOFromData) {
               maxFechaISOFromData = fechaStr;
             }
@@ -5903,43 +5916,49 @@
           }
         });
 
-        const applyEntriesToWindow = (targetMap, allowedSet) => {
-          if (!targetMap || !allowedSet) return;
-          processedEntries.forEach(({ fechaStr, puntaje }) => {
-            if (!allowedSet.has(fechaStr)) return;
-            if (!targetMap[fechaStr]) targetMap[fechaStr] = { ventas: 0, puntaje: 0 };
-            targetMap[fechaStr].ventas += 1;
-            targetMap[fechaStr].puntaje += puntaje;
-          });
-        };
-
-        applyEntriesToWindow(ventasPorDia, fechasUltimos7Dias);
-
-        const totalVentasSemanaActual = Object.values(ventasPorDia || {}).reduce((acc, v) => acc + (Number(v.ventas) || 0), 0);
-        if (processedEntries.length && totalVentasSemanaActual === 0 && maxFechaISOFromData) {
-          console.warn('[ESTADISTICAS][7D] Reanclando ventana al último día con datos:', maxFechaISOFromData);
-          const reWindow = buildWindowFor(maxFechaISOFromData);
-          applyEntriesToWindow(reWindow.map, reWindow.set);
-          ventasPorDia = reWindow.map;
-          fechasUltimos7Dias = reWindow.set;
+        const anchorISO = maxFechaISOFromData || hoyISO;
+        const fallbackToday = new Date();
+        fallbackToday.setHours(12, 0, 0, 0);
+        const anchorDate = isoToLocalMidday(anchorISO) || isoToLocalMidday(hoyISO) || fallbackToday;
+        for (let offset = 6; offset >= 0; offset--) {
+          const dia = new Date(anchorDate);
+          dia.setDate(anchorDate.getDate() - offset);
+          const clave = isoLocalFromDate(dia);
+          if (!clave) continue;
+          ventanaDias.push(clave);
+          ventasPorDia[clave] = { ventas: 0, puntaje: 0 };
         }
+
+        processedEntries.forEach(({ fechaStr, puntaje }) => {
+          const fechaLocal = isoToLocalMidday(fechaStr);
+          if (!fechaLocal) return;
+          const clave = isoLocalFromDate(fechaLocal);
+          if (!clave || !(clave in ventasPorDia)) return;
+          const bucket = ventasPorDia[clave] || (ventasPorDia[clave] = { ventas: 0, puntaje: 0 });
+          bucket.ventas += 1;
+          bucket.puntaje += puntaje;
+        });
 
         try {
           window.__ventasUltimos7 = {
-            fechasVentana: Array.from(fechasUltimos7Dias || []),
+            fechasVentana: ventanaDias.slice(),
             registrosProcesados: processedEntries.length,
-            maxFechaISOFromData
+            maxFechaISOFromData,
+            procesadosPreview: processedEntries.slice(-20),
+            datosPrevios: processedEntries.length ? processedEntries.map(e => e.fechaStr).slice(-20) : []
           };
         } catch (_) {}
         
-        // Convertir el objeto a un array y ordenar por fecha
-        const datosFinales = Object.entries(ventasPorDia)
-          .map(([fecha, datos]) => ({
-            fecha,
-            ventas: datos.ventas,
-            puntaje: datos.puntaje
-          }))
-          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        const datosFinales = ventanaDias.map(fechaISO => ({
+          fecha: fechaISO,
+          ventas: ventasPorDia[fechaISO]?.ventas || 0,
+          puntaje: ventasPorDia[fechaISO]?.puntaje || 0
+        }));
+        try {
+          window.__ventasUltimos7 = Object.assign({}, window.__ventasUltimos7, {
+            datosFinales
+          });
+        } catch (_) {}
         
         console.log('Datos procesados para la gráfica:', datosFinales);
         
@@ -6262,7 +6281,13 @@
         };
 
         const canvasEl = document.getElementById('ventasPuntajeChart');
-        if (!canvasEl) throw new Error('Canvas ventasPuntajeChart no encontrado');
+        if (!canvasEl) {
+          window.__ventasUltimos7 = Object.assign({}, window.__ventasUltimos7, {
+            canvasMissing: true,
+            lastRenderError: 'Canvas ventasPuntajeChart no encontrado'
+          });
+          throw new Error('Canvas ventasPuntajeChart no encontrado');
+        }
         const ctx = canvasEl.getContext('2d');
         if (ventasPuntajeChart) {
           try { ventasPuntajeChart.destroy(); } catch (_) {}
@@ -6274,6 +6299,11 @@
         return true;
       } catch (error) {
         console.error('Error al procesar datos de la gráfica:', error);
+        try {
+          window.__ventasUltimos7 = Object.assign({}, window.__ventasUltimos7, {
+            lastRenderError: error && error.message ? error.message : String(error)
+          });
+        } catch (_) {}
         mostrarMensajeError('Error al procesar los datos de la gráfica');
         return false;
       }
