@@ -308,6 +308,26 @@ async function obtenerEstadisticasEquipos(req, res) {
         console.log('[EQUIPOS DEBUG] ✅ El registro SÍ pasa el filtro del pipeline');
       } else {
         console.log('[EQUIPOS DEBUG] ❌ El registro NO pasa el filtro del pipeline - quedó filtrado');
+        
+        // Debug adicional: revisar qué campos están fallando
+        console.log('[EQUIPOS DEBUG] Depurando filtros:');
+        console.log('- fechaInicio:', fechaInicio);
+        console.log('- fechaFin:', fechaFin);
+        console.log('- sUTC:', sUTC?.toISOString());
+        console.log('- eUTC:', eUTC?.toISOString());
+        
+        // Probar solo el registro sin filtros de fecha
+        const noDateFilter = pipeline.slice(0, -3); // Sin $match de fecha, $group, $project
+        const testNoDate = await db.collection('costumers').aggregate([
+          ...noDateFilter,
+          { $match: { _id: new ObjectId('690d45fec1c56f24f452ceb5') } }
+        ]).toArray();
+        console.log('[EQUIPOS DEBUG] Sin filtro de fecha:', testNoDate.length, testNoDate[0] ? {
+          saleDateRaw: testNoDate[0].saleDateRaw,
+          saleDateDate: testNoDate[0].saleDateDate,
+          teamNorm: testNoDate[0].teamNorm,
+          statusNorm: testNoDate[0].statusNorm
+        } : 'No encontrado');
       }
     } catch(e) { console.warn('[EQUIPOS DEBUG] Error en test:', e.message); }
 

@@ -11,14 +11,14 @@
   <link rel="stylesheet" href="css/estadisticas.css">
 
   <!-- LibrerÃ­as -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
   <!-- Scripts de app -->
   <!-- Cargar primero las dependencias -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/vendor/chartjs/chart.umd.min.js"></script>
   <!-- ChartDataLabels para mostrar totales en barras -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -29,16 +29,77 @@
   
   <!-- Script de inicializaciÃ³n de grÃ¡ficos -->
   <script>
+    const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // Zona horaria operativa (UTC-6)
+
+    const getBusinessSnapshot = (input) => {
+      try {
+        const base = input instanceof Date ? input : new Date(input);
+        const ms = base?.getTime?.();
+        if (Number.isNaN(ms)) return null;
+        const shifted = new Date(ms + BUSINESS_TZ_OFFSET_MIN * 60000);
+        return {
+          year: shifted.getUTCFullYear(),
+          month: shifted.getUTCMonth(),
+          day: shifted.getUTCDate(),
+          hours: shifted.getUTCHours(),
+          minutes: shifted.getUTCMinutes(),
+          seconds: shifted.getUTCSeconds()
+        };
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const debugBusinessDate = (label, date) => {
+      try {
+        const snap = getBusinessSnapshot(date);
+        console.log('[ESTADISTICAS][DIA]', label, {
+          original: date instanceof Date ? date.toISOString() : date,
+          snapshot: snap,
+          isoLocal: (date instanceof Date) ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` : date
+        });
+      } catch (e) {
+        console.warn('[ESTADISTICAS][DIA] debugBusinessDate error', label, e);
+      }
+    };
+
     // Verificar que Chart.js está disponible
     if (typeof Chart === 'undefined') {
       console.error('Error: No se pudo cargar Chart.js');
     } else {
       console.log('Chart.js cargado correctamente');
       
-      // NO registrar ChartDataLabels globalmente para evitar duplicados
-      // Lo agregaremos solo en las gráficas específicas que lo necesiten
       if (typeof ChartDataLabels !== 'undefined') {
-        console.log('ChartDataLabels disponible (no registrado globalmente)');
+        const pluginCandidate = (ChartDataLabels && typeof ChartDataLabels.id === 'string')
+          ? ChartDataLabels
+          : (ChartDataLabels && typeof ChartDataLabels.default === 'object')
+            ? ChartDataLabels.default
+            : null;
+
+        if (pluginCandidate) {
+          console.log('ChartDataLabels disponible');
+          try {
+            const alreadyRegistered = typeof Chart.registry?.plugins?.get === 'function'
+              ? !!Chart.registry.plugins.get('datalabels')
+              : !!ChartDataLabels.__registeredWithChart;
+
+            if (!alreadyRegistered) {
+              Chart.register(pluginCandidate);
+              pluginCandidate.__registeredWithChart = true;
+              window.__chartDataLabelsPlugin = pluginCandidate;
+              window.__chartDataLabelsRegistered = true;
+              console.log('ChartDataLabels registrado globalmente en Estadísticas');
+            } else {
+              window.__chartDataLabelsPlugin = pluginCandidate;
+              window.__chartDataLabelsRegistered = true;
+              console.log('ChartDataLabels ya estaba registrado globalmente');
+            }
+          } catch (err) {
+            console.warn('No se pudo registrar ChartDataLabels globalmente:', err);
+          }
+        } else {
+          console.warn('ChartDataLabels cargado pero no se pudo resolver el plugin (estructura inesperada)');
+        }
       } else {
         console.error('ChartDataLabels no disponible');
       }
@@ -856,6 +917,10 @@
 </head>
 <body>
   <div class="layout">
+        </div>
+      </div>
+    </div>
+  </div>
     <!-- SIDEBAR (cargado dinÃ¡micamente) -->
     <nav class="sidebar sidebar-inicio" data-active="estadisticas"></nav>
 
@@ -1021,9 +1086,6 @@
             </thead>
             <tbody></tbody>
           </table>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
@@ -1987,6 +2049,15 @@
         const ctx = canvas.getContext('2d');
         try { canvas.style.display = 'block'; } catch(_){}
         // Crear gráfico (sin número central) - mostramos sólo el donut
+        const donutPlugins = [];
+        if (window.__chartDataLabelsRegistered !== true) {
+          const candidate = window.__chartDataLabelsPlugin
+            || (typeof ChartDataLabels !== 'undefined' && (ChartDataLabels.default || ChartDataLabels));
+          if (candidate) {
+            donutPlugins.push(candidate);
+          }
+        }
+
         window.porcentajeActivacionChart = new Chart(ctx, {
           type: 'doughnut',
           data: {
@@ -2020,7 +2091,7 @@
               }
             }
           },
-          plugins: [ChartDataLabels]
+          plugins: donutPlugins
         });
 
         // Forzar resize por si el canvas parent cambió de tamaño
@@ -2154,7 +2225,11 @@
                     }
                   },
                   datalabels: {
-                    display: true,
+                    display: (context) => {
+                      const raw = context?.dataset?.data?.[context.dataIndex];
+                      const n = Number(raw);
+                      return !Number.isNaN(n) && n !== 0;
+                    },
                     anchor: 'end',
                     align: 'top',
                     color: '#1f3b63',
@@ -2172,7 +2247,7 @@
               plugins: [
                 {
                   id: 'barShadow3D',
-                  beforeDatasetsDraw: (chart) => {
+                  beforeDatasetDraw: (chart) => {
                     const ctx = chart.ctx;
                     ctx.save();
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -2180,11 +2255,10 @@
                     ctx.shadowOffsetX = 4;
                     ctx.shadowOffsetY = 4;
                   },
-                  afterDatasetsDraw: (chart) => {
+                  afterDatasetDraw: (chart) => {
                     chart.ctx.restore();
                   }
-                },
-                ChartDataLabels
+                }
               ]
             });
             // Forzar un resize para asegurar que el gráfico se renderice correctamente
@@ -4405,18 +4479,31 @@
       const cutoffHour = 9;
       const cutoffMinute = 30;
 
+      const getBusinessToday = () => {
+        const snapshot = getBusinessSnapshot(new Date());
+        if (!snapshot) return new Date();
+        const cutoffMinutesTotal = cutoffHour * 60 + cutoffMinute;
+        const minutesNow = snapshot.hours * 60 + snapshot.minutes;
+        const anchor = new Date(snapshot.year, snapshot.month, snapshot.day, 12, 0, 0);
+        if (minutesNow < cutoffMinutesTotal) anchor.setDate(anchor.getDate() - 1);
+        return anchor;
+      };
+
       const computeDefaultDate = () => {
+        const businessToday = getBusinessToday();
+        debugBusinessDate('businessToday', businessToday);
         const params = new URLSearchParams(location.search);
         const dParam = params.get('d');
         if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
           const [y, m, d] = dParam.split('-').map(Number);
-          return new Date(y, m - 1, d, 12, 0, 0);
+          const candidate = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+          debugBusinessDate('candidateFromURL', candidate);
+          if (!Number.isNaN(candidate.getTime()) && candidate.getTime() <= businessToday.getTime()) {
+            return candidate;
+          }
+          return new Date(businessToday.getTime());
         }
-        const nowLocal = new Date();
-        const beforeCutoff = (nowLocal.getHours() < cutoffHour) || (nowLocal.getHours() === cutoffHour && nowLocal.getMinutes() < cutoffMinute);
-        const base = new Date(nowLocal);
-        if (beforeCutoff) base.setDate(base.getDate() - 1);
-        return new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+        return new Date(businessToday.getTime());
       };
 
       const normalizeTarget = (value) => {
@@ -4441,23 +4528,35 @@
         return null;
       };
 
-      let effective = normalizeTarget(targetDate) || computeDefaultDate();
-      if (!effective || isNaN(effective)) {
+      let effective = normalizeTarget(targetDate);
+      const businessToday = getBusinessToday();
+      if (effective && !Number.isNaN(effective.getTime()) && effective.getTime() > businessToday.getTime()) {
+        try {
+          console.warn('[ESTADISTICAS][DIA] Fecha solicitada futura detectada, ajustando al día vigente', { requested: effective, businessToday });
+        } catch (_) {}
+        effective = new Date(businessToday.getTime());
+      }
+      if (!effective || Number.isNaN(effective.getTime())) {
         effective = computeDefaultDate();
+      }
+      debugBusinessDate('effectiveAfterNormalize', effective);
+      if (!effective || Number.isNaN(effective.getTime())) {
+        effective = computeDefaultDate();
+        debugBusinessDate('effectiveFallback', effective);
       }
 
       window.__currentDayDate = new Date(effective.getTime());
       const formattedParam = `${effective.getFullYear()}-${String(effective.getMonth()+1).padStart(2,'0')}-${String(effective.getDate()).padStart(2,'0')}`;
-      if (targetDate) {
-        try {
-          const url = new URL(window.location.href);
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('d') !== formattedParam) {
           url.searchParams.set('d', formattedParam);
           if (!skipHistory) {
             window.history.replaceState({}, '', url);
           }
-        } catch (navErr) {
-          console.warn('No se pudo actualizar la URL para el día seleccionado:', navErr);
         }
+      } catch (navErr) {
+        console.warn('No se pudo actualizar la URL para el día seleccionado:', navErr);
       }
 
       const diaTexto = `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`;
@@ -4522,6 +4621,12 @@
           const raw = findFirst(lead, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor']);
           return (raw ? String(raw) : '').trim();
         };
+        const teamNameOf = (lead) => {
+          const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+          const s = (t || '').toString().trim(); return s || 'Sin equipo';
+        };
+        const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
+        const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
         const sanitize = (value) => (value || '').toString().trim().toUpperCase();
         const onlyDigits = (value) => (value || '').toString().replace(/\D+/g, '');
         const dedupeKeyOf = (lead) => {
@@ -4544,6 +4649,18 @@
           dedupedDay.push(lead);
         }
 
+        try {
+          const sampleDates = dedupedDay.slice(0, 10).map((lead, idx) => ({
+            idx,
+            cuenta: sanitize(findFirst(lead, ['numero_cuenta','numeroCuenta','accountNumber'])),
+            diaVenta: findFirst(lead, ['dia_venta','diaVenta','fecha_contratacion','fecha']),
+            creadoEn: findFirst(lead, ['createdAt','created_at','creadoEn','fechaCreacion','fecha_creacion'])
+          }));
+          console.log('[ESTADISTICAS][DIA] Muestra de fechas procesadas para el día:', sampleDates);
+        } catch (sampleErr) {
+          console.warn('[ESTADISTICAS][DIA] No se pudo generar muestra de fechas', sampleErr);
+        }
+
         const detailRows = dedupedDay.map(l => {
           const team = (findFirst(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']) || '').toString().trim();
           const servicio = normalizeServicio(l);
@@ -4554,7 +4671,25 @@
           const fechaFuente = findFirst(l, createdPaths);
           return { team, agente, servicio, mercado, puntaje: Number(puntaje || 0), fecha: fechaFuente };
         });
+        try {
+          console.table(detailRows.map(r => ({ team: r.team, puntaje: r.puntaje, fecha: r.fecha })).slice(0, 10));
+        } catch (_) {}
         window.DayDetailRows = { fecha: `${String(effective.getDate()).padStart(2,'0')}/${String(effective.getMonth()+1).padStart(2,'0')}/${effective.getFullYear()}`, rows: detailRows };
+
+        const aggregatedFromLeads = (() => {
+          const map = new Map();
+          dedupedDay.forEach(l => {
+            const name = teamNameOf(l);
+            if (!map.has(name)) map.set(name, { name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+            const agg = map.get(name);
+            agg.Total += 1;
+            const mk = mercadoOf(l);
+            if (mk.includes('ICON')) agg.ICON += 1;
+            else if (mk.includes('BAMO')) agg.BAMO += 1;
+            agg.Puntaje += puntajeOf(l);
+          });
+          return Array.from(map.values());
+        })();
 
         // Intentar agregado del día desde backend (global)
         let preTeamData = null;
@@ -4599,7 +4734,7 @@
             const alt = await fetchWithAuth(`/api/equipos/estadisticas?scope=day&forceAll=1`);
             if (alt && alt.ok) {
               const dj2 = await alt.json();
-                if (dj2 && dj2.success && Array.isArray(dj2.data) && dj2.data.length) {
+              if (dj2 && dj2.success && Array.isArray(dj2.data) && dj2.data.length) {
                 preTeamData = dj2.data.map(equipo => ({
                   name: equipo.TEAM || equipo.team || 'Sin equipo',
                   ICON: parseFloat(((equipo.ACTIVAS !== undefined) ? equipo.ACTIVAS : equipo.ICON) || 0),
@@ -4612,18 +4747,21 @@
           }
         } catch(_) {}
 
-        const teamMap = new Map();
-        const teamNameOf = (lead) => {
-          const t = findFirst(lead, ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
-          const s = (t || '').toString().trim(); return s || 'Sin equipo';
-        };
-        const mercadoOf = (lead) => (String(findFirst(lead, ['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase());
-        const puntajeOf = (lead) => { const p = findFirst(lead, ['puntaje','score','puntos']); const n = typeof p === 'number' ? p : parseFloat(p); return isNaN(n) ? 0 : n; };
+        const sumTotals = (arr) => (arr || []).reduce((acc, r) => acc + (Number(r.Total) || 0), 0);
         if (preTeamData) {
-          dayData = preTeamData;
+          const backendTotal = sumTotals(preTeamData);
+          const leadTotal = sumTotals(aggregatedFromLeads);
+          if (leadTotal && Math.abs(leadTotal - backendTotal) >= 1) {
+            console.warn('[ESTADISTICAS][DIA] Desajuste entre backend y leads deduplicados. Usando agregados locales.', {
+              backendTotal,
+              leadTotal
+            });
+            dayData = aggregatedFromLeads;
+          } else {
+            dayData = preTeamData;
+          }
         } else {
-          dedupedDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
-          dayData = Array.from(teamMap.values());
+          dayData = aggregatedFromLeads;
         }
 
         // Usar datos de LINEAS del backend si están disponibles
@@ -4863,6 +5001,12 @@
         `;
 
   container.innerHTML = tablaHtml;
+  try {
+    const currentTitle = container.querySelector('.conversion-title');
+    console.log('[ESTADISTICAS][DIA] Título tras renderizar tabla:', diaTexto, currentTitle ? currentTitle.textContent : null);
+  } catch (e) {
+    console.warn('[ESTADISTICAS][DIA] No se pudo inspeccionar el título renderizado', e);
+  }
   // Clear any stray inline hidden styles that some browsers may have left behind
   try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
   // Ensure the flip button is injected after we render the day card
@@ -5030,6 +5174,12 @@
             } catch(_){}
             const current = resolveCurrentDate();
             setActive('day'); if (title) title.textContent = `VENTAS DEL DÍA (${formatDMY(current)})`; renderTable(window.DayRowsOriginal||[]); };
+          try {
+            console.log('[ESTADISTICAS][DIA] showDay() aplicado', {
+              resolved: resolveCurrentDate(),
+              title: title ? title.textContent : null
+            });
+          } catch (_) {}
           const showMonth = ()=>{ 
             try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
             try {
@@ -5187,6 +5337,20 @@
         container.style.width = '100%';
         container.style.height = '400px';
         
+        const extraPlugins = [];
+        try {
+          const candidate = window.__chartDataLabelsPlugin
+            || (typeof ChartDataLabels !== 'undefined' && (ChartDataLabels.default || ChartDataLabels));
+
+          if (candidate && window.__chartDataLabelsRegistered !== true) {
+            extraPlugins.push(candidate);
+          } else if (!candidate) {
+            console.warn('[VENTAS 7D] ChartDataLabels no está disponible para la gráfica (candidate null)');
+          }
+        } catch(regErr) {
+          console.warn('[VENTAS 7D] No se pudo determinar ChartDataLabels:', regErr);
+        }
+
         return new Chart(ctx, {
           type: 'bar',
           data: {
@@ -5200,12 +5364,25 @@
                 borderWidth: 1,
                 yAxisID: 'y',
                 datalabels: {
-                  anchor: 'end',
                   align: 'end',
-                  offset: 4,
-                  color: '#2c3e50',
-                  font: { weight: 'bold' },
-                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
+                  anchor: 'end',
+                  offset: 8,
+                  backgroundColor: 'rgba(37, 99, 235, 0.92)',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  font: { weight: '700', size: 11 },
+                  padding: { top: 3, bottom: 3, left: 6, right: 6 },
+                  display: (context) => {
+                    const raw = context?.dataset?.data?.[context.dataIndex];
+                    if (raw == null) return false;
+                    const n = Number(raw);
+                    return !Number.isNaN(n) && n !== 0;
+                  },
+                  formatter: (value) => {
+                    const n = Number(value);
+                    if (Number.isNaN(n) || n === 0) return '';
+                    return Math.round(n).toString();
+                  }
                 }
               },
               {
@@ -5217,14 +5394,23 @@
                 borderRadius: 4,
                 yAxisID: 'y1',
                 datalabels: {
-                  anchor: 'end',
                   align: 'end',
-                  offset: 4,
-                  color: '#7f1d1d',
-                  font: { weight: 'bold' },
-                  formatter: (v) => {
-                    if (v == null || isNaN(v) || Number(v) === 0) return '';
-                    const n = Number(v);
+                  anchor: 'end',
+                  offset: 8,
+                  backgroundColor: 'rgba(244, 63, 94, 0.92)',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  font: { weight: '700', size: 11 },
+                  padding: { top: 3, bottom: 3, left: 6, right: 6 },
+                  display: (context) => {
+                    const raw = context?.dataset?.data?.[context.dataIndex];
+                    if (raw == null) return false;
+                    const n = Number(raw);
+                    return !Number.isNaN(n) && n !== 0;
+                  },
+                  formatter: (value) => {
+                    const n = Number(value);
+                    if (Number.isNaN(n) || n === 0) return '';
                     return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
                   }
                 }
@@ -5254,9 +5440,7 @@
                 }
               },
               datalabels: {
-                display: false,
-                formatter: () => '',
-                clamp: true,
+                clamp: false,
                 clip: false
               }
             },
@@ -5291,8 +5475,8 @@
             elements: {
               point: { radius: 0, hoverRadius: 0 }
             }
-          }
-          // ChartDataLabels ya está registrado globalmente desde el CDN
+          },
+          plugins: extraPlugins
         });
       } catch (error) {
         console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
@@ -5505,20 +5689,26 @@
           return `${y}-${m}-${d}`;
         };
 
-        // Inicializar los últimos 7 días
-        const ventasPorDia = {};
-        const fechasUltimos7Dias = new Set();
+        // Helpers para construir una ventana de 7 días terminando en una fecha ancla (inclusive)
+        const buildWindowFor = (anchorISO) => {
+          const map = {};
+          const set = new Set();
+          if (!anchorISO || !/^\d{4}-\d{2}-\d{2}$/.test(anchorISO)) return { map, set };
+          const [ay, am, ad] = anchorISO.split('-').map(Number);
+          const anchorUTC = new Date(Date.UTC(ay, (am || 1) - 1, ad || 1, 12, 0, 0));
+          for (let i = 6; i >= 0; i--) {
+            const fechaUTC = new Date(anchorUTC);
+            // Recorremos hacia atrás 6 días para cubrir la ventana completa
+            fechaUTC.setUTCDate(anchorUTC.getUTCDate() - (6 - i));
+            const clave = toISOInTZ_local(fechaUTC, BUSINESS_TZ_OFFSET_MIN);
+            set.add(clave);
+            map[clave] = { ventas: 0, puntaje: 0 };
+          }
+          return { map, set };
+        };
+
         const hoyISO = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
-        const [hy, hm, hd] = hoyISO.split('-').map(Number);
-        const baseUTCNoon = new Date(Date.UTC(hy, hm - 1, hd, 12, 0, 0));
-        
-        for (let i = 6; i >= 0; i--) {
-          const fechaUTC = new Date(baseUTCNoon);
-          fechaUTC.setUTCDate(baseUTCNoon.getUTCDate() - i);
-          const clave = toISOInTZ_local(fechaUTC, BUSINESS_TZ_OFFSET_MIN);
-          fechasUltimos7Dias.add(clave);
-          ventasPorDia[clave] = { ventas: 0, puntaje: 0 };
-        }
+        let { map: ventasPorDia, set: fechasUltimos7Dias } = buildWindowFor(hoyISO);
 
         // Helpers para obtener fechas de los registros
         const getByPath = (obj, path) => {
@@ -5557,39 +5747,60 @@
           const dt = new Date(val); return isNaN(dt) ? null : dt;
         };
 
-        // Procesar los datos de los clientes
-        if (Array.isArray(costumers) && costumers.length > 0) {
-          costumers.forEach(costumer => {
-            // Elegir día de negocio priorizando dia_venta; si no, usar fechas de creación
-            const createdPaths = [
-              'creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
-              '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
-              'metadata.createdAt','audit.createdAt','timestamps.createdAt'
-            ];
-            const diaVentaPaths = ['dia_venta','diaVenta'];
+        // Deduplicar registros siguiendo la llave usada en las tablas (cuenta|teléfono|día|servicio)
+        const sanitize = (value) => (value || '').toString().trim().toUpperCase();
+        const onlyDigits = (value) => (value || '').toString().replace(/\D+/g, '');
+        const dedupeKeyOf = (lead) => {
+          const numeroCuenta = sanitize(findFirst(lead, ['numero_cuenta','numeroCuenta','accountNumber']));
+          const telefono = onlyDigits(findFirst(lead, ['telefono_principal','telefonoPrincipal','telefono']));
+          const diaVenta = sanitize(findFirst(lead, ['dia_venta','diaVenta','fecha_contratacion','fecha','createdAt','created_at']));
+          const servicio = sanitize(findFirst(lead, ['producto','servicio','market','mercado','tipoProducto','producto.nombre']));
+          const parts = [numeroCuenta, telefono, diaVenta, servicio].filter(Boolean);
+          if (parts.length) return parts.join('|');
+          const fallbackId = sanitize(findFirst(lead, ['_id','id','uid']));
+          return fallbackId || JSON.stringify(lead);
+        };
 
-            let fecha = null;
+        const dedupedCostumers = [];
+        const seenKeys = new Set();
+        for (const lead of costumers || []) {
+          const key = dedupeKeyOf(lead);
+          if (key && seenKeys.has(key)) continue;
+          if (key) seenKeys.add(key);
+          dedupedCostumers.push(lead);
+        }
+        if ((costumers || []).length !== dedupedCostumers.length) {
+          console.log(`[ESTADISTICAS][7D] Eliminados ${(costumers || []).length - dedupedCostumers.length} duplicados antes de agregar.`);
+        }
+
+        costumers = dedupedCostumers;
+
+        const createdPaths = [
+          'creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha',
+          '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
+          'metadata.createdAt','audit.createdAt','timestamps.createdAt'
+        ];
+        const diaVentaPaths = ['dia_venta','diaVenta'];
+
+        const processedEntries = [];
+        let maxFechaISOFromData = null;
+
+        (costumers || []).forEach(costumer => {
+          try {
             const diaVentaVal = findFirst(costumer, diaVentaPaths);
-            fecha = tryDateFrom(typeof diaVentaVal === 'string' ? diaVentaVal.trim() : diaVentaVal);
-            
+            let fecha = tryDateFrom(typeof diaVentaVal === 'string' ? diaVentaVal.trim() : diaVentaVal);
             if (!fecha) {
               const fechaCreacionVal = findFirst(costumer, createdPaths);
               fecha = tryDateFrom(fechaCreacionVal);
             }
-
-            let fechaStr = '';
-            if (fecha && !isNaN(fecha.getTime())) {
-              fechaStr = toISOInTZ_local(fecha, BUSINESS_TZ_OFFSET_MIN);
-            } else {
-              fechaStr = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
-            }
-            
-            // Contar solo si la fecha pertenece a los últimos 7 días inicializados
-            if (!fechasUltimos7Dias.has(fechaStr)) {
+            if (!fecha || isNaN(fecha.getTime())) {
+              console.warn('[ESTADISTICAS][7D] Registro sin fecha válida omitido:', costumer && costumer._id);
               return;
             }
-            
-            // Obtener el puntaje
+            const fechaStr = toISOInTZ_local(fecha, BUSINESS_TZ_OFFSET_MIN);
+            if (!maxFechaISOFromData || fechaStr > maxFechaISOFromData) {
+              maxFechaISOFromData = fechaStr;
+            }
             let puntaje = 0;
             if (typeof costumer.puntaje === 'number') {
               puntaje = costumer.puntaje;
@@ -5598,12 +5809,40 @@
             } else if (costumer.score) {
               puntaje = parseFloat(costumer.score) || 0;
             }
-            
-            // Contar la venta y sumar el puntaje
-            ventasPorDia[fechaStr].ventas += 1;
-            ventasPorDia[fechaStr].puntaje += puntaje;
+            processedEntries.push({ fechaStr, puntaje });
+          } catch (e) {
+            console.warn('[ESTADISTICAS][7D] Error procesando registro para la gráfica:', e);
+          }
+        });
+
+        const applyEntriesToWindow = (targetMap, allowedSet) => {
+          if (!targetMap || !allowedSet) return;
+          processedEntries.forEach(({ fechaStr, puntaje }) => {
+            if (!allowedSet.has(fechaStr)) return;
+            if (!targetMap[fechaStr]) targetMap[fechaStr] = { ventas: 0, puntaje: 0 };
+            targetMap[fechaStr].ventas += 1;
+            targetMap[fechaStr].puntaje += puntaje;
           });
+        };
+
+        applyEntriesToWindow(ventasPorDia, fechasUltimos7Dias);
+
+        const totalVentasSemanaActual = Object.values(ventasPorDia || {}).reduce((acc, v) => acc + (Number(v.ventas) || 0), 0);
+        if (processedEntries.length && totalVentasSemanaActual === 0 && maxFechaISOFromData) {
+          console.warn('[ESTADISTICAS][7D] Reanclando ventana al último día con datos:', maxFechaISOFromData);
+          const reWindow = buildWindowFor(maxFechaISOFromData);
+          applyEntriesToWindow(reWindow.map, reWindow.set);
+          ventasPorDia = reWindow.map;
+          fechasUltimos7Dias = reWindow.set;
         }
+
+        try {
+          window.__ventasUltimos7 = {
+            fechasVentana: Array.from(fechasUltimos7Dias || []),
+            registrosProcesados: processedEntries.length,
+            maxFechaISOFromData
+          };
+        } catch (_) {}
         
         // Convertir el objeto a un array y ordenar por fecha
         const datosFinales = Object.entries(ventasPorDia)
@@ -5783,10 +6022,19 @@
         const maxBoth = Math.max(maxVentas, maxPuntaje);
 
         // Configuración de la gráfica
+        const pluginList = [];
+        const pluginCandidate = window.__chartDataLabelsPlugin
+          || (typeof ChartDataLabels !== 'undefined' && (ChartDataLabels.default || ChartDataLabels));
+        if (pluginCandidate && window.__chartDataLabelsRegistered !== true) {
+          pluginList.push(pluginCandidate);
+        } else if (!pluginCandidate) {
+          console.warn('[VENTAS 7D] ChartDataLabels no está disponible al reconstruir la gráfica');
+        }
+
         const config = {
           type: 'bar',
           data: {
-            labels: labels,
+            labels,
             datasets: [
               {
                 label: 'Ventas',
@@ -5799,12 +6047,25 @@
                 categoryPercentage: 0.6,
                 barPercentage: 0.9,
                 datalabels: {
-                  anchor: 'end',
                   align: 'end',
-                  offset: 4,
-                  color: '#2c3e50',
-                  font: { weight: 'bold' },
-                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
+                  anchor: 'end',
+                  offset: 8,
+                  backgroundColor: 'rgba(37, 99, 235, 0.92)',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  font: { weight: '700', size: 11 },
+                  padding: { top: 3, bottom: 3, left: 6, right: 6 },
+                  display: (context) => {
+                    const raw = context?.dataset?.data?.[context.dataIndex];
+                    if (raw == null) return false;
+                    const n = Number(raw);
+                    return !Number.isNaN(n) && n !== 0;
+                  },
+                  formatter: (v) => {
+                    const n = Number(v);
+                    if (Number.isNaN(n) || n === 0) return '';
+                    return Math.round(n).toString();
+                  }
                 }
               },
               {
@@ -5819,14 +6080,23 @@
                 categoryPercentage: 0.6,
                 barPercentage: 0.9,
                 datalabels: {
-                  anchor: 'end',
                   align: 'end',
-                  offset: 4,
-                  color: '#7f1d1d',
-                  font: { weight: 'bold' },
+                  anchor: 'end',
+                  offset: 8,
+                  backgroundColor: 'rgba(244, 63, 94, 0.92)',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  font: { weight: '700', size: 11 },
+                  padding: { top: 3, bottom: 3, left: 6, right: 6 },
+                  display: (context) => {
+                    const raw = context?.dataset?.data?.[context.dataIndex];
+                    if (raw == null) return false;
+                    const n = Number(raw);
+                    return !Number.isNaN(n) && n !== 0;
+                  },
                   formatter: (v) => {
-                    if (v == null || isNaN(v) || Number(v) === 0) return '';
                     const n = Number(v);
+                    if (Number.isNaN(n) || n === 0) return '';
                     return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
                   }
                 }
@@ -5895,15 +6165,14 @@
               },
               datalabels: {
                 display: true,
-                // allow labels to render outside the bar area (above)
                 clamp: false,
                 clip: false
               }
             }
-          }
+          },
+          plugins: pluginList
         };
 
-        // Reconstruir la gráfica
         const canvasEl = document.getElementById('ventasPuntajeChart');
         if (!canvasEl) throw new Error('Canvas ventasPuntajeChart no encontrado');
         const ctx = canvasEl.getContext('2d');
@@ -5912,8 +6181,7 @@
           ventasPuntajeChart = null;
         }
         ventasPuntajeChart = new Chart(ctx, config);
-        // ChartDataLabels ya está registrado globalmente desde el CDN
-        
+
         console.log('Gráfica de ventas y puntaje actualizada correctamente');
         return true;
       } catch (error) {
