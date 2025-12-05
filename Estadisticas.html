@@ -62,65 +62,39 @@
       const fixed = num.toFixed(decimals);
       return fixed.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
     };
-
     // Verificar que Chart.js está disponible
     if (typeof Chart === 'undefined') {
       console.error('Error: No se pudo cargar Chart.js');
     } else {
-      console.log('Chart.js cargado correctamente');
-      
-      if (typeof ChartDataLabels !== 'undefined') {
-        const pluginCandidate = (ChartDataLabels && typeof ChartDataLabels.id === 'string')
-          ? ChartDataLabels
-          : (ChartDataLabels && typeof ChartDataLabels.default === 'object')
-            ? ChartDataLabels.default
-            : null;
+      try {
+        const candidate = window.__chartDataLabelsPlugin
+          || (typeof ChartDataLabels !== 'undefined' && (ChartDataLabels.default || ChartDataLabels));
+        const plugin = candidate && (candidate.id ? candidate : (candidate.default || candidate));
 
-        if (pluginCandidate) {
-          console.log('ChartDataLabels disponible');
-          try {
-            const alreadyRegistered = typeof Chart.registry?.plugins?.get === 'function'
-              ? !!Chart.registry.plugins.get('datalabels')
-              : !!ChartDataLabels.__registeredWithChart;
-
-            if (!alreadyRegistered) {
-              Chart.register(pluginCandidate);
-              pluginCandidate.__registeredWithChart = true;
-              window.__chartDataLabelsPlugin = pluginCandidate;
-              window.__chartDataLabelsRegistered = true;
-              console.log('ChartDataLabels registrado globalmente en Estadísticas');
-            } else {
-              window.__chartDataLabelsPlugin = pluginCandidate;
-              window.__chartDataLabelsRegistered = true;
-              console.log('ChartDataLabels ya estaba registrado globalmente');
-            }
-
-            try {
-              if (Chart?.defaults?.plugins) {
-                const current = Chart.defaults.plugins.datalabels || {};
-                Chart.defaults.plugins.datalabels = {
-                  ...current,
-                  formatter: (value) => formatMetricValue(value)
-                };
-              }
-            } catch (cfgErr) {
-              console.warn('No se pudo configurar el formato global de datalabels:', cfgErr);
-            }
-          } catch (err) {
-            console.warn('No se pudo registrar ChartDataLabels globalmente:', err);
+        if (plugin && typeof Chart.register === 'function') {
+          if (window.__chartDataLabelsRegistered !== true) {
+            Chart.register(plugin);
+            window.__chartDataLabelsPlugin = plugin;
+            window.__chartDataLabelsRegistered = true;
           }
-        } else {
+
+          try {
+            if (Chart.defaults?.plugins?.datalabels) {
+              Chart.defaults.plugins.datalabels.color = '#0f172a';
+              Chart.defaults.plugins.datalabels.font = { weight: '600', size: 11 };
+            }
+          } catch (cfgErr) {
+            console.warn('No se pudo configurar el formato global de datalabels:', cfgErr);
+          }
+        } else if (candidate) {
           console.warn('ChartDataLabels cargado pero no se pudo resolver el plugin (estructura inesperada)');
+        } else {
+          console.error('ChartDataLabels no disponible');
         }
-      } else {
-        console.error('ChartDataLabels no disponible');
+      } catch (err) {
+        console.warn('No se pudo registrar ChartDataLabels globalmente:', err);
       }
     }
-
-    // Marcar inicialización de porcentaje para evitar dibujar donuts provisionales
-    try { window.__porcIsInitializing = true; try { if (typeof showPorcSpinner === 'function') showPorcSpinner(true); } catch(_){} } catch(_){ }
-
-    // Lista/modal de equipos y render por equipo removidos: la vista por defecto es "Mostrar todos".
 
     const getMonthKey = (date) => {
       const year = date.getFullYear();
@@ -1544,6 +1518,21 @@
               ACTIVAS: acc.ACTIVAS + (r.ACTIVAS || 0)
             }), { ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, ACTIVAS: 0 });
             try { window.__statsDisplayRows = displayRows.slice(); } catch(_) {}
+            try {
+              const chartDate = (window.__porcentajeFecha instanceof Date && !Number.isNaN(window.__porcentajeFecha.getTime()))
+                ? window.__porcentajeFecha
+                : null;
+              const sameMonth = chartDate
+                && chartDate.getFullYear() === targetMonth.getFullYear()
+                && chartDate.getMonth() === targetMonth.getMonth();
+              if (sameMonth && typeof renderPorcentajeTeams === 'function') {
+                const clonedRows = displayRows.map(row => ({ ...row }));
+                try { window.__porcIsInitializing = false; } catch(_){ }
+                renderPorcentajeTeams(clonedRows);
+              }
+            } catch(syncErr) {
+              console.warn('[TABLA] No se pudo sincronizar Porcentaje de Activación con la tabla', syncErr);
+            }
           } catch(e) { console.warn('[ESTADISTICAS] Final ordering error:', e); }
         })();
 
