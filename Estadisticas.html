@@ -9,15 +9,7 @@
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/sidebar-shared.css">
   <link rel="stylesheet" href="css/estadisticas.css">
-
-  <!-- LibrerÃ­as -->
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-
-  <!-- Scripts de app -->
-  <!-- Cargar primero las dependencias -->
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
-  <!-- ChartDataLabels para mostrar totales en barras -->
   <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
@@ -109,6 +101,193 @@
     try { window.__porcIsInitializing = true; try { if (typeof showPorcSpinner === 'function') showPorcSpinner(true); } catch(_){} } catch(_){ }
 
     // Lista/modal de equipos y render por equipo removidos: la vista por defecto es "Mostrar todos".
+
+    const getMonthKey = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    };
+
+    window.__monthlyDataCache = window.__monthlyDataCache || new Map();
+
+    async function fetchMonthAggregates(date, options = {}) {
+      const safeDate = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
+      safeDate.setHours(12, 0, 0, 0);
+      const key = getMonthKey(safeDate);
+      const { force = false } = options || {};
+
+      if (!force && window.__monthlyDataCache.has(key)) {
+        const cached = window.__monthlyDataCache.get(key) || [];
+        return cached.map(row => ({ ...row }));
+      }
+
+      const year = safeDate.getFullYear();
+      const month = String(safeDate.getMonth() + 1).padStart(2, '0');
+      const firstDay = `${year}-${month}-01`;
+      const lastDay = `${year}-${month}-${String(new Date(year, safeDate.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+
+      let teamData = [];
+      try {
+        const url = `/api/equipos/estadisticas?fechaInicio=${firstDay}&fechaFin=${lastDay}`;
+        console.log(`[PORCENTAJE DEBUG] URL de API: ${url}`);
+        const resp = await fetchWithAuth(url);
+        if (resp && resp.ok) {
+          const json = await resp.json();
+          const mainData = Array.isArray(json?.data) ? json.data : [];
+          const lineasData = Array.isArray(json?.lineas) ? json.lineas : [];
+          teamData = [...mainData, ...lineasData];
+          if (!teamData.length) {
+            teamData = Array.isArray(json) ? json : (Array.isArray(json?.leads) ? json.leads : []);
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[PORCENTAJE] Error solicitando estadísticas mensuales:', apiErr);
+      }
+
+      const isDatasetEmpty = !Array.isArray(teamData) || !teamData.length || teamData.every(t => Number(t.Total || t.total || 0) === 0 && Number(t.ICON || 0) === 0);
+      if (isDatasetEmpty) {
+        try {
+          const leadsUrl = `/api/leads?fechaInicio=${firstDay}&fechaFin=${lastDay}`;
+          const r2 = await fetchWithAuth(leadsUrl);
+          let leads = [];
+          if (r2 && r2.ok) {
+            const j2 = await r2.json();
+            leads = Array.isArray(j2) ? j2 : (Array.isArray(j2?.data) ? j2.data : (Array.isArray(j2?.leads) ? j2.leads : []));
+          }
+
+          const aggregateMap = new Map();
+          (leads || []).forEach(ld => {
+            try {
+              const teamNameRaw = String(ld.team || ld.TEAM || ld.equipo || ld.group || ld.supervisor || ld.assignedTeam || ld.teamName || ld.nombreEquipo || 'Sin equipo').trim();
+              const teamName = teamNameRaw || 'Sin equipo';
+              const statusRaw = String(ld.status || ld.estado || ld.estadoVenta || ld.workflowStatus || ld.state || ld.saleStatus || '').toLowerCase().trim();
+              const statusNorm = statusRaw.replace(/\s+/g, '');
+              const boolActive = (ld.activated === true || ld.sold === true || ld.isActive === true || ld.vendido === true);
+              const numericActive = (String(ld.activated || ld.sold || ld.isActive || ld.vendido || '').trim() === '1');
+              const isActive = boolActive || numericActive || /completed|completad|finaliz|vendid|vendido/i.test(statusRaw) || ['completed','complete','done','finalizado','completado','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
+
+              if (!aggregateMap.has(teamName)) {
+                aggregateMap.set(teamName, { name: teamName, ICON: 0, ACTIVAS: 0, Total: 0, Puntaje: 0 });
+              }
+
+              const entry = aggregateMap.get(teamName);
+              entry.Total += 1;
+              if (isActive) entry.ACTIVAS += 1;
+            } catch (_) { /* ignorar registros con formato inesperado */ }
+          });
+
+          teamData = Array.from(aggregateMap.values());
+          console.log('fetchMonthAggregates: fallback /api/leads', teamData);
+        } catch (fallbackErr) {
+          console.warn('fallback aggregation desde /api/leads falló', fallbackErr);
+        }
+      }
+
+      const sanitized = (teamData || []).map(r => ({
+        name: String(r.name || r.TEAM || r.team || r.equipo || 'Sin equipo'),
+        ICON: Number(r.ICON || 0),
+        ACTIVAS: Number(r.ACTIVAS || r.activas || r.activadas || r.ACTIVADAS || 0),
+        Total: Number(r.Total || r.total || r.cantidad || 0),
+        Puntaje: Number(r.Puntaje || r.puntaje || 0)
+      }));
+
+      window.__monthlyDataCache.set(key, sanitized.map(row => ({ ...row })));
+      return sanitized.map(row => ({ ...row }));
+    }
+
+    async function loadVentasActivasForMonth(date){
+      const target = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
+      target.setHours(12, 0, 0, 0);
+      window.__ventasActivasFecha = new Date(target);
+      updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
+
+      try {
+        const start = new Date(target.getFullYear(), target.getMonth(), 1, 0, 0, 0, 0);
+        const end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999);
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${fmt(start)}&fechaFin=${fmt(end)}&scope=month&avoidCache=${Date.now()}`);
+        if (!resp || !resp.ok) {
+          console.warn('[VENTAS-ACTIVAS] API de leads no disponible, renderizando vacío');
+          renderVentasActivasMes([]);
+          return;
+        }
+
+        const json = await resp.json();
+        const leads = Array.isArray(json)
+          ? json
+          : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+
+        const aggregate = new Map();
+        const teamNameOf = (lead) => {
+          const raw = lead?.TEAM ?? lead?.team ?? lead?.equipo ?? lead?.group ?? lead?.supervisor ?? lead?.assignedTeam ?? lead?.teamName ?? lead?.nombreEquipo;
+          const name = (raw ?? '').toString().trim();
+          if (name) return name;
+          const supervisor = (lead?.supervisor ?? '').toString().trim();
+          if (supervisor) return supervisor;
+          const agent = (lead?.agente ?? lead?.agent ?? '').toString().trim();
+          return agent ? `TEAM ${agent}` : 'Sin equipo';
+        };
+        const normalizeTeam = (name) => {
+          const val = (name || '').toString().trim();
+          if (!val) return 'Sin equipo';
+          if (/linea/i.test(val)) return 'TEAM LINEAS';
+          return val;
+        };
+
+        for (const lead of leads) {
+          try {
+            const team = normalizeTeam(teamNameOf(lead));
+            if (!aggregate.has(team)) aggregate.set(team, { name: team, ACTIVAS: 0, Total: 0 });
+            const bucket = aggregate.get(team);
+            bucket.Total += 1;
+
+            const statusRaw = (lead?.status || lead?.estado || lead?.estadoVenta || lead?.workflowStatus || lead?.state || '').toString().toLowerCase();
+            const statusNorm = statusRaw.replace(/\s+/g, '');
+            const boolActive = lead?.activated === true || lead?.sold === true || lead?.isActive === true || lead?.vendido === true;
+            const numActive = ['1', 'true', 'sí', 'si'].includes(String(lead?.activated ?? lead?.sold ?? lead?.isActive ?? lead?.vendido ?? '').toLowerCase());
+            const isActive = boolActive
+              || numActive
+              || /completed|completad|finaliz|vendid|vendido|activad|cerrad|ok/.test(statusRaw)
+              || ['completed', 'complete', 'done', 'finalizado', 'completado', 'activada', 'activado', 'vendido', 'ok', 'cerrada', 'cerrado', 'v'].includes(statusNorm);
+            if (isActive) bucket.ACTIVAS += 1;
+          } catch (leadErr) {
+            console.warn('[VENTAS-ACTIVAS] Lead inesperado', leadErr, lead);
+          }
+        }
+
+        const dataset = Array.from(aggregate.values());
+        renderVentasActivasMes(dataset);
+      } catch (err) {
+        console.warn('loadVentasActivasForMonth error', err);
+        renderVentasActivasMes([]);
+      }
+    }
+
+    async function loadConversionTableForMonth(date, options = {}){
+      const root = document.getElementById('conversion-table');
+      if (!root) {
+        console.warn('[TABLA] Contenedor conversion-table no encontrado');
+        return;
+      }
+
+      const target = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
+      target.setHours(12, 0, 0, 0);
+      window.__tablaMesFecha = new Date(target);
+
+      const { updateUrl = true } = options || {};
+      if (updateUrl) {
+        updateURLWithMonth(window.__tablaMesFecha);
+      }
+
+      updateTableTitle(window.__tablaMesFecha);
+
+      try {
+        await renderConversionTable(root, window.__tablaMesFecha);
+      } catch (err) {
+        console.warn('[TABLA] Error al renderizar la tabla mensual:', err);
+      }
+    }
   </script>
   
   <style>
@@ -132,167 +311,8 @@
       justify-content: space-between;
       margin-bottom: 6px;
     }
-    .page-title { font-size: 1.8rem; font-weight: 800; margin: 0; }
-    .page-actions { display: flex; gap: 8px; }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 24px;
-      max-width: 95%;
-      margin: 0 auto;
-      padding: 0 20px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      padding: 24px;
-      box-sizing: border-box;
-      width: 100%;
-      margin: 0;
-    }
-
-    .chart-card { grid-column: span 12; }
-    @media (min-width: 900px) {
-      .chart-card.half { grid-column: span 6; }
-    }
-
-    .card h3 { margin: 0 0 12px 0; font-size: 1.05rem; color: #1e293b; }
-    /* Spinner overlay for porcentaje donut */
-    .porc-spinner-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 30;
-      pointer-events: none;
-      background: rgba(255,255,255,0.0);
-    }
-    .porc-spinner {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 4px solid rgba(16,24,40,0.08);
-      border-top-color: rgba(16,24,40,0.65);
-      animation: porc-spin 900ms linear infinite;
-      box-shadow: 0 2px 6px rgba(2,6,23,0.08);
-      pointer-events: none;
-    }
-    @keyframes porc-spin { to { transform: rotate(360deg); } }
-    
-    /* Estilos para la tabla de calificaciones */
-    .ventas-diarias-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-      margin-top: 10px;
-      width: 100%;
-    }
-    
-    .ventas-diarias-card {
-      background: white;
-      border-radius: 4px;
-      padding: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      width: 100%;
-    }
-    
-    .ventas-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      margin: 0 auto;
-    }
-    
-    .ventas-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.95rem;
-      table-layout: fixed;
-    }
-    
-    .ventas-table th,
-    .ventas-table td {
-      padding: 14px 20px;
-      text-align: left;
-      border: 1px solid #dee2e6;
-      font-family: Arial, sans-serif;
-      line-height: 1.5;
-    }
-    
-    .ventas-table th {
-      background: #1f3b63;
-      color: #fff;
-      font-weight: 700;
-      text-transform: uppercase;
-      text-align: center;
-      padding: 16px 20px;
-      font-size: 0.9rem;
-      letter-spacing: 0.5px;
-    }
-    
-    .ventas-table td:first-child {
-      width: 65%;
-      padding-left: 16px;
-    }
-    
-    .ventas-table td:last-child {
-      width: 35%;
-      text-align: center;
-      font-weight: bold;
-      padding-right: 16px;
-    }
-    .chart-wrapper { position: relative; height: 320px; }
-
-    /* Responsive para mÃ³vil: sidebar superior */
-    @media (max-width: 768px) {
-      .main-content { margin-left: 0; width: 100%; padding: 15px; margin-top: 70px; }
-    }
-    /* Tabla de conversiÃ³n por equipo */
-    .conversion-grid { 
-      display: grid; 
-      grid-template-columns: 2fr 1fr; 
-      gap: 8px; 
-      font-family: Arial, sans-serif;
-    }
-    .conversion-card { 
-      background: #fff; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1); 
-      padding: 12px; 
-      border: 1px solid #dee2e6;
-    }
-  /* Tabla de conversión visible por defecto (se muestra debajo de las gráficas) */
-    .conversion-title-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 6px 10px;
-      background: #fef3c7;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-    
-    .conversion-title-wrapper .conversion-title {
-      flex: 1;
-      margin: 0;
-      font-size: 0.8rem;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0;
-      background: transparent;
-      padding: 0;
-    }
-    
-    .conversion-title { 
+    .conversion-title {
       font-weight: 800; 
       margin: 0 0 8px 0; 
       color: #000; 
@@ -420,6 +440,7 @@
       font-weight: 800;
       font-size: 0.9rem;
     }
+    .day-nav-btn { min-width: 36px; font-weight: 700; }
     @media (max-width: 900px) { 
       .conversion-grid { 
         grid-template-columns: 1fr; 
@@ -1092,7 +1113,7 @@
     function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }  
     function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }  
 
-    async function renderConversionTable(root) {
+    async function renderConversionTable(root, explicitDate) {
       try {
         console.log('Iniciando renderConversionTable con root:', root);
         if (!root) {
@@ -1117,15 +1138,23 @@
         // Mostrar indicador de carga
         root.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-2">Cargando datos de equipos...</p></div>';
         
-        // Usar la fecha de navegación global (ya inicializada desde URL si corresponde)
+        // Determinar el mes objetivo sin depender del estado de otros módulos
         let targetMonth;
-        if (window.__porcentajeFecha) {
+        if (explicitDate instanceof Date && !Number.isNaN(explicitDate.getTime())) {
+          targetMonth = new Date(explicitDate);
+          console.log('[TABLA DEBUG] Usando fecha explÃ­cita para tabla:', targetMonth);
+        } else if (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime())) {
+          targetMonth = new Date(window.__tablaMesFecha);
+          console.log('[TABLA DEBUG] Usando window.__tablaMesFecha como respaldo:', targetMonth);
+        } else if (window.__porcentajeFecha instanceof Date && !Number.isNaN(window.__porcentajeFecha.getTime())) {
           targetMonth = new Date(window.__porcentajeFecha);
-          console.log('[TABLA DEBUG] Usando fecha de navegación global:', targetMonth, 'window.__porcentajeFecha=', window.__porcentajeFecha);
+          console.log('[TABLA DEBUG] Usando window.__porcentajeFecha como respaldo heredado:', targetMonth);
         } else {
-          console.warn('[TABLA DEBUG] window.__porcentajeFecha no disponible, usando fecha actual');
+          console.warn('[TABLA DEBUG] Sin fecha previa, usando fecha actual para tabla mensual');
           targetMonth = new Date();
         }
+        targetMonth.setHours(12, 0, 0, 0);
+        window.__tablaMesFecha = new Date(targetMonth);
         // Rango del MES COMPLETO (desde día 1 hasta último día del mes)
         let fechaInicio = '';
         let fechaFin = '';
@@ -1507,7 +1536,7 @@
           <div class="conversion-card">
             <div class="conversion-title-wrapper">
               <button id="month-prev" class="filter-button" class="filter-button" title="Mes anterior">◀</button>
-              <div class="conversion-title" >${encabezadoTitulo}</div>
+              <div id="tabla-mes-titulo" class="conversion-title">${encabezadoTitulo}</div>
               <button id="month-next" class="filter-button" class="filter-button" title="Mes siguiente">▶</button>
             </div>
             <div style="display:flex; justify-content:flex-end; margin:8px 0 6px; gap:8px;">
@@ -1662,59 +1691,34 @@
           const btnPrev = document.getElementById('month-prev');
           const btnNext = document.getElementById('month-next');
           if (btnPrev) {
-            btnPrev.addEventListener('click', (e) => { 
+            btnPrev.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
               console.log('[TABLA] Navegando a mes anterior...');
-              
-              // Actualizar fecha global
-              window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() - 1);
-              window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
-              
-              // Actualizar títulos de TODOS los gráficos y la tabla
-              updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-              updateChartTitle('ventas-activas-mes-titulo', window.__porcentajeFecha);
-              updateTableTitle(window.__porcentajeFecha);
-              updateURLWithMonth(window.__porcentajeFecha);
-              
-              // Recargar datos sin reload de página
-              loadPorcentajeForMonth(window.__porcentajeFecha);
+              const next = new Date(window.__tablaMesFecha || targetMonth);
+              next.setMonth(next.getMonth() - 1);
+              loadConversionTableForMonth(next);
             });
-            console.log('[MES] Botón anterior conectado (sin reload)');
+            console.log('[MES] Botón anterior conectado (independiente)');
           } else {
             console.warn('[MES] Botón anterior NO encontrado');
           }
           if (btnNext) {
-            btnNext.addEventListener('click', (e) => { 
+            btnNext.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
               console.log('[TABLA] Navegando a mes siguiente...');
-              
-              // Actualizar fecha global
-              window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() + 1);
-              window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
-              
-              // Actualizar títulos de TODOS los gráficos y la tabla
-              updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-              updateChartTitle('ventas-activas-mes-titulo', window.__porcentajeFecha);
-              updateTableTitle(window.__porcentajeFecha);
-              updateURLWithMonth(window.__porcentajeFecha);
-              
-              // Recargar datos sin reload de página
-              loadPorcentajeForMonth(window.__porcentajeFecha);
+              const next = new Date(window.__tablaMesFecha || targetMonth);
+              next.setMonth(next.getMonth() + 1);
+              loadConversionTableForMonth(next);
             });
-            console.log('[MES] Botón siguiente conectado (sin reload)');
+            console.log('[MES] Botón siguiente conectado (independiente)');
           } else {
             console.warn('[MES] Botón siguiente NO encontrado');
           }
-        } catch(err) { 
-          console.error('[MES] Error al conectar flechas:', err); 
+        } catch(err) {
+          console.error('[MES] Error al conectar flechas:', err);
         }
-
-  // Ahora, renderizar el gráfico de ventas activas del mes (barra).
-  // La gráfica de porcentaje (dona) se renderizará desde la carga asíncrona
-  // `loadPorcentajeForMonth` para evitar render duplicado durante inicialización.
-  try { renderVentasActivasMes(fallbackTeamData); } catch(_) { /* non-fatal */ }
         
         // Filtro eliminado: no se requiere manejar eventos de filtrado
       } catch (e) {
@@ -1858,7 +1862,10 @@
         const btnFiltrar = document.getElementById('btnFiltrarEquipos');
         if (btnFiltrar) {
           btnFiltrar.addEventListener('click', () => {
-            renderConversionTable(root);
+            const next = (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime()))
+              ? new Date(window.__tablaMesFecha)
+              : new Date();
+            loadConversionTableForMonth(next, { updateUrl: false });
           });
         }
       }
@@ -2781,8 +2788,8 @@
         if (fechaInicioInput) fechaInicioInput.valueAsDate = fechaInicio;
         if (fechaFinInput) fechaFinInput.valueAsDate = fechaFin;
         
-        // Cargar datos
-        renderConversionTable(convRoot);
+        // Cargar datos del mes actual sin mutar la URL
+        loadConversionTableForMonth(window.__tablaMesFecha, { updateUrl: false });
       }
 
       const rendCtx = document.getElementById('chart-rendimiento-mes');
@@ -2863,6 +2870,16 @@
     try { if (typeof window.injectPorcentajeNavButtons === 'function') window.injectPorcentajeNavButtons(); } catch(_){ }
     // mark porcentaje loader as initializing so we don't render placeholder charts
     try { window.__porcIsInitializing = true; } catch(_){}
+        // Cargar gráfico de Ventas Activas con navegación independiente
+        try {
+          if (typeof loadVentasActivasForMonth === 'function') {
+            loadVentasActivasForMonth(new Date());
+          } else {
+            console.error('[INIT] loadVentasActivasForMonth no está definida');
+          }
+        } catch (e) {
+          console.error('[INIT] Error cargando Ventas Activas:', e);
+        }
         // Asegurar barra de toggles del DÍA aún si el render cambió
         try { ensureDayTogglesFallback(); } catch(_){ }
         // Agregar tabs Día/Mes a ambas tarjetas
@@ -3029,6 +3046,7 @@
           if (date) {
             window.__porcentajeFecha = new Date(date);
             console.log('[LOADPORCENTAJE DEBUG] window.__porcentajeFecha actualizada a:', window.__porcentajeFecha);
+            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
           }
           
           const y = date.getFullYear();
@@ -3042,23 +3060,6 @@
           
           console.log(`[PORCENTAJE DEBUG] Rango de fechas: ${primer} a ${ultimo}`);
 
-          // Lanzar actualización de la tabla mensual en paralelo para mostrar spinner de inmediato
-          let tablePromise = null;
-          try {
-            const conversionTableRoot = document.getElementById('conversion-table');
-            if (conversionTableRoot) {
-              tablePromise = renderConversionTable(conversionTableRoot);
-            }
-          } catch (tableErr) {
-            console.warn('No se pudo inicializar actualización de tabla inmediatamente:', tableErr);
-          }
-          
-          // Calcular primer y último día del mes anterior para comparación
-          const mesAnterior = new Date(y, date.getMonth()-1, 1);
-          const yAnt = mesAnterior.getFullYear();
-          const mAnt = String(mesAnterior.getMonth()+1).padStart(2,'0');
-          const primerAnt = `${yAnt}-${mAnt}-01`;
-          const ultimoAnt = `${yAnt}-${mAnt}-${String(new Date(yAnt, mesAnterior.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
           const url = `/api/equipos/estadisticas?fechaInicio=${primer}&fechaFin=${ultimo}`;
           
           console.log(`[PORCENTAJE DEBUG] URL de API: ${url}`);
@@ -3143,15 +3144,6 @@
           //   teamData = [];
           // }
 
-          // Esperar a que la tabla termine para evitar animaciones desfasadas
-          if (tablePromise) {
-            try {
-              await tablePromise;
-            } catch (e) {
-              console.warn('Error actualizando tabla de conversión:', e);
-            }
-          }
-
           let donutData = teamData;
           try {
             const dedupRows = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
@@ -3170,9 +3162,6 @@
           // allow rendering now that data arrived
           try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
           renderPorcentajeTeams(donutData);
-          
-          // Renderizar también el gráfico de ventas activas con los mismos datos
-          renderVentasActivasMes(donutData);
         } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
         // ensure the initializing flag is cleared even on unexpected errors
         try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
@@ -3198,6 +3187,7 @@
       
       window.__porcentajeFecha = initializeDateFromURL();
       window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
+      window.__tablaMesFecha = new Date(window.__porcentajeFecha);
       
       // Función para actualizar título de mes
       function updateChartTitle(elementId, fecha) {
@@ -3258,11 +3248,7 @@
             console.log('[NAVEGACION DEBUG] PREV CLICKED - Fecha actual antes:', window.__porcentajeFecha);
             window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() - 1);
             console.log('[NAVEGACION DEBUG] PREV CLICKED - Fecha actual después:', window.__porcentajeFecha);
-            // Sincronizar ambos gráficos
-            window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
-            
             updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
             updateURLWithMonth(window.__porcentajeFecha);
             
             console.log('[PORCENTAJE] Navegando a mes anterior:', window.__porcentajeFecha);
@@ -3282,11 +3268,7 @@
             console.log('[NAVEGACION DEBUG] NEXT CLICKED - Fecha actual antes:', window.__porcentajeFecha);
             window.__porcentajeFecha.setMonth(window.__porcentajeFecha.getMonth() + 1);
             console.log('[NAVEGACION DEBUG] NEXT CLICKED - Fecha actual después:', window.__porcentajeFecha);
-            // Sincronizar ambos gráficos
-            window.__ventasActivasFecha = new Date(window.__porcentajeFecha);
-            
             updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-            updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
             updateURLWithMonth(window.__porcentajeFecha);
             
             console.log('[PORCENTAJE] Navegando a mes siguiente:', window.__porcentajeFecha);
@@ -3300,8 +3282,6 @@
         
         // Inicializar títulos
         updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-        updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
-        updateTableTitle(window.__porcentajeFecha);
       }
       
       // Navegación para Ventas Activas
@@ -3312,41 +3292,25 @@
         if (btnPrev) {
           btnPrev.onclick = async () => {
             window.__ventasActivasFecha.setMonth(window.__ventasActivasFecha.getMonth() - 1);
-            // Sincronizar ambos gráficos
-            window.__porcentajeFecha = new Date(window.__ventasActivasFecha);
-            
             updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
-            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
             updateURLWithMonth(window.__ventasActivasFecha);
-            
             console.log('[VENTAS-ACTIVAS] Navegando a mes anterior:', window.__ventasActivasFecha);
-            
-            // Cargar datos del mes seleccionado para ambos gráficos
-            loadPorcentajeForMonth(window.__ventasActivasFecha);
+            loadVentasActivasForMonth(window.__ventasActivasFecha);
           };
         }
         
         if (btnNext) {
           btnNext.onclick = async () => {
             window.__ventasActivasFecha.setMonth(window.__ventasActivasFecha.getMonth() + 1);
-            // Sincronizar ambos gráficos  
-            window.__porcentajeFecha = new Date(window.__ventasActivasFecha);
-            
             updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
-            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
             updateURLWithMonth(window.__ventasActivasFecha);
-            
             console.log('[VENTAS-ACTIVAS] Navegando a mes siguiente:', window.__ventasActivasFecha);
-            
-            // Cargar datos del mes seleccionado para ambos gráficos
-            loadPorcentajeForMonth(window.__ventasActivasFecha);
+            loadVentasActivasForMonth(window.__ventasActivasFecha);
           };
         }
         
-        // Inicializar títulos
+        // Inicializar título local
         updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
-        updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-        updateTableTitle(window.__porcentajeFecha);
       }
       
       // Inicializar navegación cuando la página esté lista
@@ -4447,22 +4411,22 @@
       } else {
         base = new Date();
       }
-      btnPrev.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()-1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
-      btnNext.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+      btnPrev.onclick = () => {
+        const next = (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime()))
+          ? new Date(window.__tablaMesFecha)
+          : new Date(base);
+        next.setMonth(next.getMonth() - 1);
+        loadConversionTableForMonth(next);
+      };
+      btnNext.onclick = () => {
+        const next = (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime()))
+          ? new Date(window.__tablaMesFecha)
+          : new Date(base);
+        next.setMonth(next.getMonth() + 1);
+        loadConversionTableForMonth(next);
+      };
       const convTwoCol = card.querySelector('.conv-two-col');
       if (convTwoCol) card.insertBefore(toolbar, convTwoCol); else card.appendChild(toolbar);
-    }
-
-    // FunciÃ³n para inicializar la tabla de conversiÃ³n
-    function initConversionTable() {
-      console.log('Inicializando tabla de conversiÃ³n...');
-      const convRoot = document.getElementById('conversion-table');
-      if (convRoot) {
-        console.log('Elemento conversion-table encontrado, renderizando...');
-        renderConversionTable(document.getElementById('conversion-table'));
-      } else {
-        console.error('No se encontrÃ³ el elemento con ID conversion-table');
-      }
     }
 
     // Función para cargar y renderizar la tabla del Día con el mismo diseño que la del Mes
@@ -4973,17 +4937,18 @@
 
         // Construir bloque del DÍA (título, flechas y panel derecho) SIN el contenedor externo
         const tablaHtml = `
-          <div class="conversion-title-wrapper">
-            <button id="day-prev-alt" class="day-nav-btn" title="Día anterior">◀</button>
-            <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
-            <button id="day-next-alt" class="day-nav-btn" title="Día siguiente">▶</button>
-          </div>
-          <div style="display:flex; justify-content:flex-end; margin:8px 0 6px;">
-            <button id="btn-detalle-dia" class="filter-button">Ver detalle</button>
-          </div>
-          <div class="conv-two-col slide-container">
-            <div class="conv-left">
-              <table class="sales-table" style="width:100%">
+          <div class="conversion-card">
+            <div class="conversion-title-wrapper">
+              <button id="day-prev-alt" class="filter-button day-nav-btn" title="Día anterior">◀</button>
+              <div class="conversion-title">VENTAS DEL DÍA (${diaTexto})</div>
+              <button id="day-next-alt" class="filter-button day-nav-btn" title="Día siguiente">▶</button>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin:8px 0 6px; gap:8px;">
+              <button id="btn-detalle-dia" class="filter-button">Ver detalle</button>
+            </div>
+            <div class="conv-two-col slide-container">
+              <div class="conv-left">
+                <table class="sales-table" style="width:100%">
                 <thead>
                   <tr>
                     <th>EQUIPO</th>
@@ -5037,6 +5002,7 @@
                 </table>
               </div>
             </div>
+          </div>
           </div>
         `;
 
@@ -5335,7 +5301,7 @@
       const convRoot = document.getElementById('conversion-table');
       if (convRoot) {
         console.log('Elemento conversion-table encontrado, renderizando...');
-        renderConversionTable(document.getElementById('conversion-table'));
+        loadConversionTableForMonth(window.__tablaMesFecha, { updateUrl: false });
       } else {
         console.error('No se encontrÃ³ el elemento con ID conversion-table');
       }
