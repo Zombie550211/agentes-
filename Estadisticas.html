@@ -4736,6 +4736,76 @@
           return Array.from(map.values());
         })();
 
+        const norm = (value) => String(value || '').normalize('NFD').replace(/\p{Diacritic}+/gu, '').trim();
+        const canonicalTeam = (rawName) => {
+          const n = norm(rawName).toLowerCase().replace(/^team\s+/, '');
+          if (!n) return 'Sin equipo';
+          if (n.includes('pleitez')) return 'Pleitez';
+          if (n.includes('roberto')) return 'Roberto';
+          if (n.includes('marisol')) return 'Marisol';
+          if (n.includes('johana') || n.includes('johanna')) return 'Johana';
+          if (n.includes('irania')) return 'Irania';
+          return norm(rawName) || 'Sin equipo';
+        };
+        const mapLineasRecord = (entry = {}) => {
+          const rawName = entry.name || entry.TEAM || entry.team || entry.supervisor || entry.Supervisor || 'Sin nombre';
+          const displayName = canonicalTeam(rawName);
+          const icon = Number(entry.ICON ?? entry.icon ?? 0) || 0;
+          const bamo = Number(entry.BAMO ?? entry.bamo ?? 0) || 0;
+          let total = Number(entry.Total ?? entry.total ?? entry.ICON ?? entry.icon ?? 0);
+          if (!Number.isFinite(total) || total === 0) total = icon + bamo;
+          let activas = Number(entry.ACTIVAS ?? entry.activas ?? entry.Activas ?? entry.activasTotales ?? 0);
+          if (!Number.isFinite(activas) || activas === 0) activas = total;
+          const puntajeRaw = entry.Puntaje ?? entry.puntaje ?? entry.score;
+          const puntaje = Number.isFinite(Number(puntajeRaw)) ? Number(puntajeRaw) : 0;
+          return {
+            name: displayName,
+            ACTIVAS: activas,
+            ICON: icon,
+            BAMO: bamo,
+            Total: total,
+            Puntaje: puntaje
+          };
+        };
+
+        const KNOWN_LINEAS_PATTERNS = ['linea','línea','teamlineas','team lineas','team linea','lineas','jonathan','luis g','luisg','jonathanf','jonathan f','supervisor team lineas'];
+        const normalizeForMatch = (value) => {
+          if (value == null) return '';
+          return value.toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '');
+        };
+        const isTeamLineasCandidate = (value) => {
+          const normalized = normalizeForMatch(value);
+          if (!normalized) return false;
+          return KNOWN_LINEAS_PATTERNS.some(pattern => normalized.includes(pattern));
+        };
+        const isTeamLineasLead = (lead) => {
+          const candidates = [
+            teamNameOf(lead),
+            findFirst(lead, ['lineaSupervisor','lineasSupervisor','supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']),
+            findFirst(lead, ['agenteNombre','agente','createdBy','usuario','owner','ownerName','username'])
+          ];
+          return candidates.some(isTeamLineasCandidate);
+        };
+        const aggregatedLineasFromLeads = (() => {
+          const map = new Map();
+          dedupedDay.forEach(lead => {
+            if (!isTeamLineasLead(lead)) return;
+            const supervisorRaw = findFirst(lead, ['lineaSupervisor','lineasSupervisor','supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team']);
+            const key = canonicalTeam(supervisorRaw || teamNameOf(lead));
+            if (!map.has(key)) {
+              map.set(key, { name: key, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0, ACTIVAS: 0 });
+            }
+            const agg = map.get(key);
+            agg.Total += 1;
+            agg.ACTIVAS += 1;
+            const mk = mercadoOf(lead);
+            if (mk.includes('ICON')) agg.ICON += 1;
+            else if (mk.includes('BAMO')) agg.BAMO += 1;
+            agg.Puntaje += puntajeOf(lead);
+          });
+          return Array.from(map.values()).map(mapLineasRecord);
+        })();
+
         // Intentar agregado del día desde backend (global)
         let preTeamData = null;
         let lineasDataFromBackend = [];
@@ -4761,10 +4831,7 @@
               }
               // Procesar datos de TEAM LINEAS (supervisores)
               if (Array.isArray(dj.lineas) && dj.lineas.length) {
-                lineasDataFromBackend = dj.lineas.map(sup => ({
-                  name: sup.name || sup.TEAM || 'Sin nombre',
-                  ICON: parseFloat(sup.ICON || sup.Total || 0)
-                }));
+                lineasDataFromBackend = dj.lineas.map(mapLineasRecord);
                 console.log('[DÍA] Datos LINEAS procesados:', lineasDataFromBackend);
               }
             }
@@ -4809,30 +4876,19 @@
           dayData = aggregatedFromLeads;
         }
 
-        // Usar datos de LINEAS del backend si están disponibles
-        let lineasData = lineasDataFromBackend.length > 0 ? lineasDataFromBackend : [];
-        
-        // Fallback: si no hay datos de lineas del backend, intentar filtrar por nombre (legacy)
-        if (lineasData.length === 0) {
-          const isLinea = (n) => /LINEA/i.test(String(n || ''));
-          lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
-        }
-        
-        const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-        
-        // Filtrar datos principales: excluir los nombres que están en lineasData
-        const norm = (value) => String(value || '').normalize('NFD').replace(/\p{Diacritic}+/gu, '').trim();
-        const canonicalTeam = (rawName) => {
-          const n = norm(rawName).toLowerCase().replace(/^team\s+/, '');
-          if (!n) return 'Sin equipo';
-          if (n.includes('pleitez')) return 'Pleitez';
-          if (n.includes('roberto')) return 'Roberto';
-          if (n.includes('marisol')) return 'Marisol';
-          if (n.includes('johana') || n.includes('johanna')) return 'Johana';
-          if (n.includes('irania')) return 'Irania';
-          return norm(rawName) || 'Sin equipo';
-        };
+        // Usar datos de LINEAS del backend si están disponibles, de lo contrario, construirlos desde los leads del día
+        let lineasData = lineasDataFromBackend.length > 0 ? lineasDataFromBackend : aggregatedLineasFromLeads;
 
+        const lineasTotals = { ACTIVAS: 0, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+        (lineasData || []).forEach(r => {
+          lineasTotals.ACTIVAS += Number(r.ACTIVAS) || 0;
+          lineasTotals.ICON += Number(r.ICON) || 0;
+          lineasTotals.BAMO += Number(r.BAMO) || 0;
+          lineasTotals.Total += Number(r.Total) || 0;
+          lineasTotals.Puntaje += Number(r.Puntaje) || 0;
+        });
+
+        // Filtrar datos principales: excluir los nombres que están en lineasData
         const lineasNames = new Set(lineasData.map(l => canonicalTeam(l.name).toLowerCase()));
         const ORDER_ALL = ['Pleitez','Roberto','Marisol','Johana','Irania'];
         const orderKeys = new Set(ORDER_ALL.map(name => name.toLowerCase()));
@@ -5065,21 +5121,27 @@
                 <table class="mini-table">
                   <thead>
                     <tr>
-                      <th>TEAM LINEAS</th>
+                      <th>SUPERVISOR</th>
                       <th>ICON</th>
                     </tr>
                   </thead>
                   <tbody>
-                    ${(lineasData || []).map(r => `
+                    ${(lineasData && lineasData.length) ? lineasData.map(r => `
                       <tr>
                         <td>${r.name}</td>
-                        <td>${r.ICON || 0}</td>
+                        <td>${Number(r.ICON || 0)}</td>
                       </tr>
-                    `).join('')}
-                    <tr class="total">
-                      <td>TOTAL</td>
-                      <td class="total-icon">${lineasTotalICON}</td>
-                    </tr>
+                    `).join('') : `
+                      <tr>
+                        <td colspan="2" class="empty-row">Sin datos de TEAM LINEAS para este día</td>
+                      </tr>
+                    `}
+                    ${(lineasData && lineasData.length) ? `
+                      <tr class="total">
+                        <td>TOTAL</td>
+                        <td class="total-icon">${lineasTotals.ICON}</td>
+                      </tr>
+                    ` : ''}
                   </tbody>
                 </table>
               </div>
