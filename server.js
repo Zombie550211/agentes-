@@ -17,6 +17,7 @@ require('dotenv').config();
 
 // GridFS bucket para archivos
 let gridFSBucket = null;
+let userAvatarsBucket = null;
 
 // Carga condicional de Helmet y Rate Limit (si están instalados)
 let helmet = null;
@@ -209,6 +210,21 @@ const noteUpload = multer({
   limits: { fileSize: 500 * 1024 * 1024 } // 500MB max para archivos de notas (audios grandes)
 });
 
+const avatarFileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Tipo de archivo no permitido para avatar'), false);
+  }
+};
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: avatarFileFilter,
+  limits: { fileSize: 4 * 1024 * 1024 } // 4MB para avatares de usuario
+});
+
 // Helper para opciones de cookie dinámicas según request (soporte localhost:10000 en HTTP)
 function cookieOptionsForReq(req, baseOpts) {
   const defaultOpts = baseOpts || {
@@ -310,6 +326,12 @@ let db;
       console.log('[SERVER] GridFS inicializado correctamente.');
     } catch (e) {
       console.error('[SERVER] Error inicializando GridFS:', e.message);
+    }
+    try {
+      userAvatarsBucket = new GridFSBucket(db, { bucketName: 'userAvatars' });
+      console.log('[SERVER] GridFS para avatares inicializado correctamente.');
+    } catch (e) {
+      console.error('[SERVER] Error inicializando GridFS de avatares:', e.message);
     }
   } else {
     console.warn('[SERVER] Iniciando en modo OFFLINE. Las operaciones de base de datos fallarán.');
@@ -733,6 +755,181 @@ app.delete('/api/files/:id', protect, async (req, res) => {
   }
 }); // Cerrar correctamente el app.delete
 
+// ========== ENDPOINTS GRIDFS PARA AVATARES DE USUARIO ==========
+
+async function ensureUserAvatarBucket() {
+  if (userAvatarsBucket) return userAvatarsBucket;
+  if (!db) db = getDb();
+  if (!db) throw new Error('GridFS no disponible');
+  userAvatarsBucket = new GridFSBucket(db, { bucketName: 'userAvatars' });
+  return userAvatarsBucket;
+}
+
+app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.user || !req.user.username) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
+    }
+
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible para guardar el avatar' });
+    }
+
+    if (!db) db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const bucket = await ensureUserAvatarBucket();
+    const usersCol = db.collection('users');
+
+    const existingUser = await usersCol.findOne(
+      { username: req.user.username },
+      { projection: { avatarFileId: 1 } }
+    );
+
+    const sanitizedName = req.file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const filename = `${Date.now()}-${sanitizedName}`;
+
+    const uploadStream = bucket.openUploadStream(filename, {
+      contentType: req.file.mimetype,
+      metadata: {
+        userId: req.user.id ? req.user.id.toString() : null,
+        username: req.user.username,
+        uploadedAt: new Date(),
+        originalName: req.file.originalname
+      }
+    });
+
+    uploadStream.end(req.file.buffer);
+
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+
+    const fileId = uploadStream.id.toString();
+    const avatarUrl = `/api/user-avatars/${fileId}`;
+
+    await usersCol.updateOne(
+      { username: req.user.username },
+      {
+        $set: {
+          avatarFileId: fileId,
+          avatarUrl,
+          avatarUpdatedAt: new Date()
+        }
+      }
+    );
+
+    if (existingUser && existingUser.avatarFileId && existingUser.avatarFileId !== fileId) {
+      try {
+        const oldId = new ObjectId(existingUser.avatarFileId);
+        await bucket.delete(oldId);
+      } catch (e) {
+        console.warn('[Avatar Upload] No se pudo eliminar el avatar anterior:', e?.message || e);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Avatar actualizado correctamente',
+      data: { url: avatarUrl, fileId }
+    });
+  } catch (error) {
+    console.error('[Avatar Upload] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el avatar', error: error.message });
+  }
+});
+
+app.get('/api/user-avatars/:id', async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const bucket = await ensureUserAvatarBucket();
+    const fileId = req.params.id;
+    let objectId;
+    try {
+      objectId = new ObjectId(fileId);
+    } catch {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const filesCollection = db.collection('userAvatars.files');
+    const fileDoc = await filesCollection.findOne({ _id: objectId });
+    if (!fileDoc) {
+      return res.status(404).json({ success: false, message: 'Avatar no encontrado' });
+    }
+
+    res.set('Content-Type', fileDoc.contentType || 'image/png');
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('Accept-Ranges', 'bytes');
+
+    const downloadStream = bucket.openDownloadStream(objectId);
+    downloadStream.on('error', (err) => {
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Error al leer el avatar', error: err.message });
+      }
+    });
+    downloadStream.pipe(res);
+  } catch (error) {
+    console.error('[Avatar Fetch] Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+    }
+  }
+});
+
+app.delete('/api/users/me/avatar', protect, async (req, res) => {
+  try {
+    if (!req.user || !req.user.username) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    if (!db) db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const bucket = await ensureUserAvatarBucket();
+    const usersCol = db.collection('users');
+    const user = await usersCol.findOne(
+      { username: req.user.username },
+      { projection: { avatarFileId: 1 } }
+    );
+
+    if (!user || !user.avatarFileId) {
+      return res.json({ success: true, message: 'No había avatar para eliminar', data: { url: null } });
+    }
+
+    try {
+      const objectId = new ObjectId(user.avatarFileId);
+      await bucket.delete(objectId);
+    } catch (error) {
+      console.warn('[Avatar Delete] No se pudo eliminar el archivo:', error?.message || error);
+    }
+
+    await usersCol.updateOne(
+      { username: req.user.username },
+      { $unset: { avatarFileId: '', avatarUrl: '', avatarUpdatedAt: '' } }
+    );
+
+    return res.json({ success: true, message: 'Avatar eliminado correctamente', data: { url: null } });
+  } catch (error) {
+    console.error('[Avatar Delete] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar el avatar', error: error.message });
+  }
+});
+
 // ========== FIN ENDPOINTS GRIDFS ==========
 
 // Montar rutas de API (rutas específicas ANTES de la genérica /api)
@@ -779,7 +976,7 @@ app.get('/api/protected', protect, (req, res) => {
 });
 
 // Endpoint para verificar autenticación desde el servidor (sin protección)
-app.get('/api/auth/verify-server', (req, res) => {
+app.get('/api/auth/verify-server', async (req, res) => {
   // Verificar si hay token en cookies
   const token = req.cookies?.token;
 
@@ -798,16 +995,46 @@ app.get('/api/auth/verify-server', (req, res) => {
     const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    if (!db) db = getDb();
+    let userDoc = null;
+    if (db) {
+      try {
+        userDoc = await db.collection('users').findOne(
+          { username: decoded.username },
+          { projection: { password: 0 } }
+        );
+      } catch (e) {
+        console.warn('[verify-server] No se pudo obtener usuario:', e?.message || e);
+      }
+    }
+
+    const userPayload = userDoc ? {
+      id: userDoc._id ? userDoc._id.toString() : decoded.id,
+      username: userDoc.username,
+      role: userDoc.role,
+      email: userDoc.email || null,
+      team: userDoc.team || null,
+      permissions: userDoc.permissions || decoded.permissions,
+      avatarUrl: userDoc.avatarUrl || null,
+      avatarFileId: userDoc.avatarFileId || null,
+      avatarUpdatedAt: userDoc.avatarUpdatedAt || null
+    } : {
+      id: decoded.id,
+      username: decoded.username,
+      role: decoded.role,
+      email: decoded.email || null,
+      team: decoded.team || null,
+      permissions: decoded.permissions,
+      avatarUrl: null,
+      avatarFileId: null,
+      avatarUpdatedAt: null
+    };
+
     res.json({
       success: true,
       message: 'Token válido',
       authenticated: true,
-      user: {
-        id: decoded.id,
-        username: decoded.username,
-        role: decoded.role,
-        permissions: decoded.permissions
-      }
+      user: userPayload
     });
   } catch (error) {
     res.json({

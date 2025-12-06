@@ -68,7 +68,10 @@ const protect = async (req, res, next) => {
         role: user.role,
         team: user.team,
         supervisor: user.supervisor,
-        name: user.name
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        avatarFileId: user.avatarFileId,
+        avatarUpdatedAt: user.avatarUpdatedAt
       };
 
       next();

@@ -597,6 +597,32 @@
       justify-content: center;
       color: white;
       font-size: 1.2rem;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .rank-item .agent-avatar img.avatar-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .avatar-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .astronaut-image.avatar-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      animation: none;
     }
 
     .agent-details h4 {
@@ -2240,6 +2266,113 @@
         console.log('🎯 Ranking y Promociones - Script cargado correctamente');
 
         // --- Funciones de utilidad y lógica de la página ---
+        const escapeHtml = (value) => String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+        const escapeAttr = (value) => escapeHtml(value).replace(/`/g, '&#96;');
+
+        const sanitizeAvatarUrl = (rawUrl) => {
+          const url = (rawUrl == null ? '' : String(rawUrl)).trim();
+          if (!url) return '';
+          if (/^data:image\//i.test(url)) return url;
+          if (/^https?:\/\//i.test(url)) return url;
+          if (/^\/\//.test(url)) {
+            try { return `${window.location.protocol}${url}`; } catch (_) { return `https:${url}`; }
+          }
+          if (url.startsWith('/')) return url;
+          if (/^uploads\//i.test(url)) return `/${url}`;
+          return '';
+        };
+
+        const maybeProxyMedia = (rawUrl) => {
+          const url = (rawUrl == null ? '' : String(rawUrl)).trim();
+          if (!url) return '';
+          if (/^data:/i.test(url)) return url;
+          if (/^\/media\/proxy/i.test(url)) return url;
+          if (/^https?:\/\//i.test(url)) {
+            if (/^https?:\/\/res\.cloudinary\.com\//i.test(url)) {
+              return `/media/proxy?url=${encodeURIComponent(url)}`;
+            }
+            return url;
+          }
+          if (url.startsWith('//')) {
+            const absolute = `${window.location.protocol}${url}`;
+            if (/^https?:\/\/res\.cloudinary\.com\//i.test(absolute)) {
+              return `/media/proxy?url=${encodeURIComponent(absolute)}`;
+            }
+            return absolute;
+          }
+          return url;
+        };
+
+        const toTimestamp = (value) => {
+          if (!value && value !== 0) return null;
+          if (typeof value === 'number' && Number.isFinite(value)) return value;
+          if (typeof value === 'object' && value !== null) {
+            if (value.$date) {
+              const parsed = Date.parse(value.$date);
+              return Number.isNaN(parsed) ? null : parsed;
+            }
+            if (value instanceof Date && Number.isFinite(value.getTime())) {
+              return value.getTime();
+            }
+          }
+          const parsed = Date.parse(value);
+          return Number.isNaN(parsed) ? null : parsed;
+        };
+
+        const buildAgentAvatarUrl = (agent) => {
+          if (!agent) return '';
+          const raw = agent.avatarUrl || agent.imageUrl || '';
+          const sanitized = sanitizeAvatarUrl(raw);
+          if (!sanitized) return '';
+          if (sanitized.includes('v=')) return maybeProxyMedia(sanitized);
+          const timestamp = toTimestamp(agent.avatarUpdatedAt || agent.avatarUpdatedAtMs);
+          let finalUrl = sanitized;
+          if (timestamp) {
+            const sep = sanitized.includes('?') ? '&' : '?';
+            finalUrl = `${sanitized}${sep}v=${timestamp}`;
+          }
+          return maybeProxyMedia(finalUrl);
+        };
+
+        const renderAvatarHtml = (agent, altText = 'Avatar') => {
+          const url = buildAgentAvatarUrl(agent);
+          if (url) {
+            return `<img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" class="avatar-photo" loading="lazy">`;
+          }
+          return '<i class="fas fa-user"></i>';
+        };
+
+        const applyAvatarToElement = (imgEl, agent) => {
+          if (!imgEl) return;
+          if (!imgEl.dataset.defaultSrc) {
+            imgEl.dataset.defaultSrc = imgEl.getAttribute('src') || '';
+          }
+          const url = buildAgentAvatarUrl(agent);
+          if (url) {
+            imgEl.src = url;
+            imgEl.loading = 'lazy';
+            imgEl.classList.add('avatar-photo');
+            imgEl.alt = agent?.nombre || agent?.name || 'Avatar';
+          } else {
+            imgEl.classList.remove('avatar-photo');
+            if (imgEl.dataset.defaultSrc) {
+              imgEl.src = imgEl.dataset.defaultSrc;
+            }
+          }
+        };
+
+        document.querySelectorAll('.astronaut-image').forEach((img) => {
+          if (!img.dataset.defaultSrc) {
+            img.dataset.defaultSrc = img.getAttribute('src') || '';
+          }
+        });
+
         async function getUser(){
           try {
             // Primero intentar obtener del storage (más rápido)
@@ -2329,15 +2462,17 @@
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = item.nombre || item.name || '—';
               if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
-              if (imgEl && item.imageUrl) imgEl.src = item.imageUrl;
+              if (imgEl) applyAvatarToElement(imgEl, item);
             };
 
             // Limpiar antes de pintar
             const clearSlot = (selectorBase) => {
               const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
               const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
+              const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = '—';
               if (scoreEl) scoreEl.textContent = '0';
+              if (imgEl) applyAvatarToElement(imgEl, null);
             };
             clearSlot('.first-pos');
             clearSlot('.second-pos');
@@ -2360,18 +2495,24 @@
               rest.forEach((agent, idx) => {
                 const li = document.createElement('div');
                 li.className = 'rank-item';
+                const position = agent.position || agent.posicion || (idx + 4);
+                const name = escapeHtml(agent.nombre || agent.name || '—');
+                const role = escapeHtml(agent.cargo || '');
+                const pointsValue = formatScore(getScore(agent));
+                const salesValue = Number(agent.ventas || 0);
+                const avatarMarkup = renderAvatarHtml(agent, agent.nombre || agent.name || 'Avatar');
                 li.innerHTML = `
-                  <span class="rank-number">${(agent.position || agent.posicion || (idx + 4))}</span>
+                  <span class="rank-number">${position}</span>
                   <div class="agent-info">
-                    <div class="agent-avatar"><i class="fas fa-user"></i></div>
+                    <div class="agent-avatar">${avatarMarkup}</div>
                     <div class="agent-details">
-                      <h4>${agent.nombre || agent.name || '—'}</h4>
-                      <p>${agent.cargo || ''}</p>
+                      <h4>${name}</h4>
+                      <p>${role}</p>
                     </div>
                   </div>
                   <div class="agent-stats">
-                    <span class="points">${formatScore((typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0)))} pts</span>
-                    <span class="sales">${agent.ventas || 0} ventas</span>
+                    <span class="points">${escapeHtml(pointsValue)} pts</span>
+                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>
                   </div>`;
                 container.appendChild(li);
               });
@@ -2388,7 +2529,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
+                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(agent.nombre || agent.name || '—')}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
                   <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
                 `;
@@ -2440,18 +2581,24 @@
                   rest2.forEach((agent, idx) => {
                     const li = document.createElement('div');
                     li.className = 'rank-item';
+                    const position = agent.position || agent.posicion || (idx + 4);
+                    const name = escapeHtml(agent.nombre || agent.name || '—');
+                    const role = escapeHtml(agent.cargo || '');
+                    const pointsValue = formatScore(getScore(agent));
+                    const salesValue = Number(agent.ventas || 0);
+                    const avatarMarkup = renderAvatarHtml(agent, agent.nombre || agent.name || 'Avatar');
                     li.innerHTML = `
-                      <span class="rank-number">${(agent.position || agent.posicion || (idx + 4))}</span>
+                      <span class="rank-number">${position}</span>
                       <div class="agent-info">
-                        <div class="agent-avatar"><i class="fas fa-user"></i></div>
+                        <div class="agent-avatar">${avatarMarkup}</div>
                         <div class="agent-details">
-                          <h4>${agent.nombre || agent.name || '—'}</h4>
-                          <p>${agent.cargo || ''}</p>
+                          <h4>${name}</h4>
+                          <p>${role}</p>
                         </div>
                       </div>
                       <div class="agent-stats">
-                        <span class="points">${formatScore((typeof agent.puntos === 'number' ? agent.puntos : (agent.promedio ?? 0)))} pts</span>
-                        <span class="sales">${agent.ventas || 0} ventas</span>
+                        <span class="points">${escapeHtml(pointsValue)} pts</span>
+                        <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>
                       </div>`;
                     container2.appendChild(li);
                   });
@@ -2466,7 +2613,7 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre || agent.name || '—'}</td>
+                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(agent.nombre || agent.name || '—')}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
                       <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
                     `;
@@ -2556,6 +2703,13 @@
             return;
           }
           const isVideo = (file.type||'').startsWith('video/');
+          const versionedUrl = (() => {
+            const base = file.url || '';
+            if (!base) return '';
+            const sep = base.includes('?') ? '&' : '?';
+            return `${base}${sep}t=${Date.now()}`;
+          })();
+          const mediaUrl = maybeProxyMedia(versionedUrl || file.url || '');
           const applyFit = (mediaEl, naturalW, naturalH) => {
             const box = container;
             const boxW = box.clientWidth || 1100;
@@ -2567,13 +2721,13 @@
 
           if (isVideo){
             const v = document.createElement('video');
-            v.src = file.url + `?t=${Date.now()}`; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true; v.controls = true;
+            v.src = mediaUrl || versionedUrl; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true; v.controls = true;
             v.addEventListener('loadedmetadata', () => applyFit(v, v.videoWidth, v.videoHeight));
             v.addEventListener('error', () => { container.innerHTML = '<div class="promo-placeholder">Archivo multimedia no disponible</div>'; });
             container.appendChild(v);
           } else {
             const img = document.createElement('img');
-            img.src = file.url + `?t=${Date.now()}`; img.alt = file.name || 'Promoción';
+            img.src = mediaUrl || versionedUrl; img.alt = file.name || 'Promoción';
             img.addEventListener('load', () => applyFit(img, img.naturalWidth, img.naturalHeight));
             img.addEventListener('error', () => { container.innerHTML = '<div class="promo-placeholder">Archivo multimedia no disponible</div>'; });
             container.appendChild(img);
@@ -2607,7 +2761,8 @@
               type: last.type
             });
             
-            const fileResponse = await fetch(last.url, { method: 'HEAD' });
+            const headUrl = maybeProxyMedia(last.url) || last.url;
+            const fileResponse = await fetch(headUrl, { method: 'HEAD' });
             if (!fileResponse.ok) {
               console.log('[PROMO] ❌ Archivo no accesible:', last.url);
               mediaBox.innerHTML = '<div class="promo-placeholder">📭 Archivo no encontrado</div>';
@@ -2679,15 +2834,17 @@
               const nameEl=document.querySelector(`${sel} .astronaut-name`);
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
               const imgEl=document.querySelector(`${sel} .astronaut-image`);
-              if(nameEl) nameEl.textContent = it.nombre||it.name||'—';
+              if(nameEl) nameEl.textContent = it?.nombre||it?.name||'—';
               if(scoreEl) scoreEl.textContent = fmt(getScore(it));
-              if(imgEl && it.imageUrl) imgEl.src = it.imageUrl;
+              if(imgEl) applyAvatarToElement(imgEl, it);
             };
             // limpiar
             ['.first-pos','.second-pos','.third-pos'].forEach(sel=>{
               const nameEl=document.querySelector(`${sel} .astronaut-name`);
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
+              const imgEl=document.querySelector(`${sel} .astronaut-image`);
               if(nameEl) nameEl.textContent='—'; if(scoreEl) scoreEl.textContent='0';
+              if(imgEl) applyAvatarToElement(imgEl, null);
             });
             // set top3
             setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
@@ -2700,18 +2857,24 @@
               rest.forEach((agent,idx)=>{
                 const li=document.createElement('div');
                 li.className='rank-item';
+                const position = agent.position||agent.posicion||(idx+4);
+                const name = escapeHtml(agent.nombre||agent.name||'—');
+                const role = escapeHtml(agent.cargo||'');
+                const pointsValue = fmt(getScore(agent));
+                const salesValue = Number(agent.ventas||0);
+                const avatarMarkup = renderAvatarHtml(agent, agent.nombre || agent.name || 'Avatar');
                 li.innerHTML=`
-                  <span class="rank-number">${agent.position||agent.posicion||(idx+4)}</span>
+                  <span class="rank-number">${position}</span>
                   <div class="agent-info">
-                    <div class="agent-avatar"><i class="fas fa-user"></i></div>
+                    <div class="agent-avatar">${avatarMarkup}</div>
                     <div class="agent-details">
-                      <h4>${agent.nombre||agent.name||'—'}</h4>
-                      <p>${agent.cargo||''}</p>
+                      <h4>${name}</h4>
+                      <p>${role}</p>
                     </div>
                   </div>
                   <div class="agent-stats">
-                    <span class="points">${fmt(getScore(agent))} pts</span>
-                    <span class="sales">${agent.ventas||0} ventas</span>
+                    <span class="points">${escapeHtml(pointsValue)} pts</span>
+                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>
                   </div>`;
                 container.appendChild(li);
               });
@@ -2727,7 +2890,7 @@
                   const tr=document.createElement('tr');
                   tr.innerHTML=`
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>
-                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.nombre||agent.name||'—'}</td>
+                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(agent.nombre||agent.name||'—')}</td>
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas??0}</td>
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`;
                   tbody.appendChild(tr);

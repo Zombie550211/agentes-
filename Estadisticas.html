@@ -104,6 +104,14 @@
 
     window.__monthlyDataCache = window.__monthlyDataCache || new Map();
 
+    const normalizeTeamRow = (row = {}) => ({
+      name: String(row.name || row.TEAM || row.team || row.equipo || 'Sin equipo'),
+      ICON: Number(row.ICON || 0),
+      ACTIVAS: Number(row.ACTIVAS || row.activas || row.activadas || row.ACTIVADAS || 0),
+      Total: Number(row.Total || row.total || row.cantidad || 0),
+      Puntaje: Number(row.Puntaje || row.puntaje || 0)
+    });
+
     async function fetchMonthAggregates(date, options = {}) {
       const safeDate = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
       safeDate.setHours(12, 0, 0, 0);
@@ -177,13 +185,7 @@
         }
       }
 
-      const sanitized = (teamData || []).map(r => ({
-        name: String(r.name || r.TEAM || r.team || r.equipo || 'Sin equipo'),
-        ICON: Number(r.ICON || 0),
-        ACTIVAS: Number(r.ACTIVAS || r.activas || r.activadas || r.ACTIVADAS || 0),
-        Total: Number(r.Total || r.total || r.cantidad || 0),
-        Puntaje: Number(r.Puntaje || r.puntaje || 0)
-      }));
+      const sanitized = (teamData || []).map(normalizeTeamRow);
 
       window.__monthlyDataCache.set(key, sanitized.map(row => ({ ...row })));
       return sanitized.map(row => ({ ...row }));
@@ -196,62 +198,40 @@
       updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
 
       try {
-        const start = new Date(target.getFullYear(), target.getMonth(), 1, 0, 0, 0, 0);
-        const end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999);
-        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const monthKey = getMonthKey(target);
+        let dataset = [];
 
-        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${fmt(start)}&fechaFin=${fmt(end)}&scope=month&avoidCache=${Date.now()}`);
-        if (!resp || !resp.ok) {
-          console.warn('[VENTAS-ACTIVAS] API de leads no disponible, renderizando vacío');
-          renderVentasActivasMes([]);
-          return;
-        }
-
-        const json = await resp.json();
-        const leads = Array.isArray(json)
-          ? json
-          : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
-
-        const aggregate = new Map();
-        const teamNameOf = (lead) => {
-          const raw = lead?.TEAM ?? lead?.team ?? lead?.equipo ?? lead?.group ?? lead?.supervisor ?? lead?.assignedTeam ?? lead?.teamName ?? lead?.nombreEquipo;
-          const name = (raw ?? '').toString().trim();
-          if (name) return name;
-          const supervisor = (lead?.supervisor ?? '').toString().trim();
-          if (supervisor) return supervisor;
-          const agent = (lead?.agente ?? lead?.agent ?? '').toString().trim();
-          return agent ? `TEAM ${agent}` : 'Sin equipo';
-        };
-        const normalizeTeam = (name) => {
-          const val = (name || '').toString().trim();
-          if (!val) return 'Sin equipo';
-          if (/linea/i.test(val)) return 'TEAM LINEAS';
-          return val;
-        };
-
-        for (const lead of leads) {
-          try {
-            const team = normalizeTeam(teamNameOf(lead));
-            if (!aggregate.has(team)) aggregate.set(team, { name: team, ACTIVAS: 0, Total: 0 });
-            const bucket = aggregate.get(team);
-            bucket.Total += 1;
-
-            const statusRaw = (lead?.status || lead?.estado || lead?.estadoVenta || lead?.workflowStatus || lead?.state || '').toString().toLowerCase();
-            const statusNorm = statusRaw.replace(/\s+/g, '');
-            const boolActive = lead?.activated === true || lead?.sold === true || lead?.isActive === true || lead?.vendido === true;
-            const numActive = ['1', 'true', 'sí', 'si'].includes(String(lead?.activated ?? lead?.sold ?? lead?.isActive ?? lead?.vendido ?? '').toLowerCase());
-            const isActive = boolActive
-              || numActive
-              || /completed|completad|finaliz|vendid|vendido|activad|cerrad|ok/.test(statusRaw)
-              || ['completed', 'complete', 'done', 'finalizado', 'completado', 'activada', 'activado', 'vendido', 'ok', 'cerrada', 'cerrado', 'v'].includes(statusNorm);
-            if (isActive) bucket.ACTIVAS += 1;
-          } catch (leadErr) {
-            console.warn('[VENTAS-ACTIVAS] Lead inesperado', leadErr, lead);
+        try {
+          dataset = await fetchMonthAggregates(target, { force: false });
+          if (!Array.isArray(dataset) || dataset.length === 0) {
+            dataset = await fetchMonthAggregates(target, { force: true });
           }
+        } catch(fetchErr) {
+          console.warn('[VENTAS-ACTIVAS] No se pudo obtener agregados mensuales', fetchErr);
         }
 
-        const dataset = Array.from(aggregate.values());
-        renderVentasActivasMes(dataset);
+        try {
+          const tableRows = Array.isArray(window.__statsDisplayRows) ? window.__statsDisplayRows : null;
+          const tableKey = (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime()))
+            ? getMonthKey(window.__tablaMesFecha)
+            : '';
+          if (tableRows && tableRows.length && tableKey === monthKey) {
+            dataset = tableRows.map(normalizeTeamRow);
+          }
+        } catch(syncErr) {
+          console.warn('[VENTAS-ACTIVAS] No se pudo sincronizar con la tabla mensual', syncErr);
+        }
+
+        if (!Array.isArray(dataset) || dataset.length === 0) {
+          try {
+            if (Array.isArray(window.__monthlyTeamData) && window.__monthlyTeamData.length) {
+              dataset = window.__monthlyTeamData.map(normalizeTeamRow);
+            }
+          } catch(_){ }
+        }
+
+        const sanitized = Array.isArray(dataset) ? dataset.map(normalizeTeamRow) : [];
+        renderVentasActivasMes(sanitized);
       } catch (err) {
         console.warn('loadVentasActivasForMonth error', err);
         renderVentasActivasMes([]);
@@ -3106,136 +3086,65 @@
       async function loadPorcentajeForMonth(date){
         console.log('[LOADPORCENTAJE DEBUG] Función llamada con fecha:', date);
         try{
-          try { window.__porcIsInitializing = true; } catch(_){}
-          if (!date) date = (window.currentPorcMonth || new Date());
-          
-          // Actualizar la variable global solo si se recibe una fecha válida
-          if (date) {
-            window.__porcentajeFecha = new Date(date);
-            console.log('[LOADPORCENTAJE DEBUG] window.__porcentajeFecha actualizada a:', window.__porcentajeFecha);
-            updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
-          }
-          
-          const y = date.getFullYear();
-          const m = String(date.getMonth()+1).padStart(2,'0');
-          
-          console.log(`[PORCENTAJE DEBUG] Cargando datos para mes: ${m}/${y}`);
-          
-          // Obtener primer y último día del mes actual
-          const primer = `${y}-${m}-01`;
-          const ultimo = `${y}-${m}-${String(new Date(y, date.getMonth()+1, 0).getDate()).padStart(2,'0')}`;
-          
-          console.log(`[PORCENTAJE DEBUG] Rango de fechas: ${primer} a ${ultimo}`);
+          try { window.__porcIsInitializing = true; } catch(_){ }
 
-          const url = `/api/equipos/estadisticas?fechaInicio=${primer}&fechaFin=${ultimo}`;
-          
-          console.log(`[PORCENTAJE DEBUG] URL de API: ${url}`);
-          const resp = await fetchWithAuth(url);
-          let teamData = [];
-          if (resp && resp.ok) {
-            const json = await resp.json();
-            console.log('🔍 RAW BACKEND RESPONSE:', JSON.stringify(json, null, 2));
-            
-            // Combinar datos principales (json.data) con supervisores de TEAM LINEAS (json.lineas)
-            const mainData = Array.isArray(json.data) ? json.data : [];
-            const lineasData = Array.isArray(json.lineas) ? json.lineas : [];
-            
-            // Unir ambos arrays
-            teamData = [...mainData, ...lineasData];
-            
-            // Si no hay datos en json.data/lineas, intentar otros campos
-            if (teamData.length === 0) {
-              teamData = Array.isArray(json) ? json : (Array.isArray(json.leads) ? json.leads : []);
-            }
-          } else {
-            teamData = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
-          }
-          // Normalize simple equipos payload (accept several field names)
-          teamData = (teamData||[]).map(r => {
-            const totalVentas = Number(r.Total || r.total || r.cantidad || 0);
-            const totalActivas = Number(r.ACTIVAS || r.activadas || r.activadas_count || r.ACTIVADAS || 0);
-            const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-            
-            return {
-              name: String(r.name || r.TEAM || r.team || r.equipo || 'Sin equipo'),
-              ICON: Number(r.ICON || 0),
-              ACTIVAS: totalActivas,
-              Total: totalVentas,
-              porcentajeActivacion: porcentaje // Porcentaje exacto sin redondeo
-            };
-          });
-          console.log('loadPorcentajeForMonth: equipos payload normalized', teamData && teamData.length ? teamData.slice(0,10) : teamData);
+          const baseDate = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
+          baseDate.setHours(12, 0, 0, 0);
+          try { window.currentPorcMonth = new Date(baseDate); } catch(_){ }
+          window.__porcentajeFecha = new Date(baseDate);
+          updateChartTitle('porcentaje-mes-titulo', window.__porcentajeFecha);
 
-          // If the equipos endpoint didn't return usable per-team stats, fallback to aggregating from /api/leads
-          const looksEmpty = !Array.isArray(teamData) || teamData.length === 0 || teamData.every(t => Number(t.Total || 0) === 0 && Number(t.ICON || 0) === 0);
-          if (looksEmpty) {
-            try {
-              const leadsUrl = `/api/leads?fechaInicio=${primer}&fechaFin=${ultimo}`;
-              const r2 = await fetchWithAuth(leadsUrl);
-              let leads = [];
-              if (r2 && r2.ok) {
-                const j2 = await r2.json();
-                leads = Array.isArray(j2) ? j2 : (Array.isArray(j2.data) ? j2.data : (Array.isArray(j2.leads) ? j2.leads : []));
-              }
+          const year = baseDate.getFullYear();
+          const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+          const monthKey = `${year}-${month}`;
 
-              // Aggregate by probable team field. Be permissive matching status and boolean markers
-              const map = Object.create(null);
-              (leads||[]).forEach(ld => {
-                try {
-                  const teamName = String(ld.team || ld.TEAM || ld.equipo || ld.group || ld.supervisor || ld.assignedTeam || ld.teamName || ld.nombreEquipo || 'Sin equipo').trim();
-                  const rawStatus = String(ld.status || ld.estado || ld.estadoVenta || ld.workflowStatus || ld.state || ld.saleStatus || '').toLowerCase().trim();
-                  const statusNorm = rawStatus.replace(/\s+/g, '');
-                  const boolActive = (ld.activated === true || ld.sold === true || ld.isActive === true || ld.vendido === true);
-                  const numericActive = (String(ld.activated || ld.sold || ld.isActive || ld.vendido || '').trim() === '1');
-                  // Consider as active primarily when status indicates 'completed' (or Spanish variants), or boolean flags are set
-                  const isActive = boolActive || numericActive || /completed|completad|finaliz|vendid|vendido/i.test(rawStatus) || ['completed','complete','done','finalizado','completado','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
-                  if (!map[teamName]) map[teamName] = { name: teamName, ICON: 0, ACTIVAS: 0, Total: 0 };
-                  map[teamName].Total += 1;
-                  // count verified "activas" separately from market ICON counts
-                  if (isActive) map[teamName].ACTIVAS += 1;
-                } catch(_){}
-              });
-
-              teamData = Object.keys(map).map(k => ({ name: map[k].name, ICON: Number(map[k].ICON||0), ACTIVAS: Number(map[k].ACTIVAS||0), Total: Number(map[k].Total||0) }));
-              console.log('loadPorcentajeForMonth: aggregated from leads (fallback)', teamData);
-              // Nota: se omite la verificación adicional en cliente para evitar llamadas redundantes.
-              // El conteo de ACTIVAS debe venir del backend (/api/equipos/estadisticas).
-            } catch(e){
-              console.warn('fallback aggregation from /api/leads failed', e);
-            }
-          }
-
-          // Comentado: ya no usar datos de prueba, usar datos reales del backend
-          // if (!Array.isArray(teamData) || teamData.length === 0) {
-          //   console.warn('No hay datos disponibles, usando datos de prueba para el gráfico de Porcentaje de Activación');
-          //   teamData = [];
-          // }
-
-          const selectedMonthKey = `${y}-${m}`;
-          let donutData = teamData;
+          let donutData = [];
           try {
-            const dedupRows = Array.isArray(window.__monthlyTeamData) ? window.__monthlyTeamData : [];
-            const rangeStart = typeof window.__monthlyRange?.start === 'string' ? window.__monthlyRange.start : '';
-            const rangeKey = rangeStart.includes('-') ? rangeStart.slice(0, 7) : '';
-            const sameMonth = rangeKey === selectedMonthKey;
-            if (sameMonth && dedupRows.length) {
-              donutData = dedupRows.map(row => ({
-                name: row.name,
-                ICON: Number(row.ICON || 0),
-                ACTIVAS: Number(row.ACTIVAS || 0),
-                Total: Number(row.Total || 0),
-                porcentajeActivacion: Number(row.Total || 0) > 0 ? (Number(row.ACTIVAS || 0) / Number(row.Total || 0)) * 100 : 0,
-                Puntaje: Number(row.Puntaje || 0)
-              }));
+            let aggregated = await fetchMonthAggregates(baseDate, { force: false });
+            if (!Array.isArray(aggregated) || aggregated.length === 0) {
+              try {
+                aggregated = await fetchMonthAggregates(baseDate, { force: true });
+              } catch(forceErr) {
+                console.warn('[PORCENTAJE] fetchMonthAggregates con force=true falló', forceErr);
+              }
+            }
+            if (Array.isArray(aggregated)) {
+              donutData = aggregated.map(normalizeTeamRow);
+            }
+          } catch(aggErr) {
+            console.warn('[PORCENTAJE] No se pudieron obtener agregados mensuales', aggErr);
+          }
+
+          try {
+            const tableRows = Array.isArray(window.__statsDisplayRows) ? window.__statsDisplayRows : null;
+            const tableDate = (window.__tablaMesFecha instanceof Date && !Number.isNaN(window.__tablaMesFecha.getTime()))
+              ? `${window.__tablaMesFecha.getFullYear()}-${String(window.__tablaMesFecha.getMonth() + 1).padStart(2, '0')}`
+              : '';
+            if (tableRows && tableRows.length && tableDate === monthKey) {
+              donutData = tableRows.map(normalizeTeamRow);
+            }
+          } catch(syncErr) {
+            console.warn('[PORCENTAJE] No se pudo sincronizar con la tabla mensual', syncErr);
+          }
+
+          try {
+            if ((!Array.isArray(donutData) || donutData.length === 0) && Array.isArray(window.__monthlyTeamData)) {
+              donutData = window.__monthlyTeamData.map(normalizeTeamRow);
             }
           } catch(_){ }
 
-          // allow rendering now that data arrived
-          try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
+          try {
+            const firstDay = `${year}-${month}-01`;
+            const lastDay = `${year}-${month}-${String(new Date(year, baseDate.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+            window.__monthlyTeamData = donutData.map(row => ({ ...row }));
+            window.__monthlyRange = { start: firstDay, end: lastDay };
+          } catch(_){ }
+
+          try { window.__porcIsInitializing = false; if (typeof showPorcSpinner === 'function') showPorcSpinner(false); } catch(_){ }
           renderPorcentajeTeams(donutData);
         } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
         // ensure the initializing flag is cleared even on unexpected errors
-        try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
+        try { window.__porcIsInitializing = false; if (typeof showPorcSpinner === 'function') showPorcSpinner(false); } catch(_){ }
       }
 
       // ============ NAVEGACIÓN DE GRÁFICOS ============

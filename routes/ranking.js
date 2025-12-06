@@ -354,29 +354,33 @@ router.get('/', protect, async (req, res) => {
       },
 
       // 4) Agrupar por agente normalizado (sin espacios, case-insensitive)
-      {
-        $group: {
-          _id: "$_nameNormLower",
-          // Ventas efectivas: excluir canceladas
-          ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
-          // Suma de puntaje efectivo: 0 si cancelado
-          sumPuntaje: { $sum: "$puntajeEfectivo" },
-          avgPuntaje: { $avg: "$puntaje" },
-          anyName: { $first: "$_nameNoSpaces" }
-        }
-      },
+          {
+            $group: {
+              _id: "$_nameNormLower",
+              // Ventas efectivas: excluir canceladas
+              ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+              // Suma de puntaje efectivo: 0 si cancelado
+              sumPuntaje: { $sum: "$puntajeEfectivo" },
+              avgPuntaje: { $avg: "$puntaje" },
+              anyName: { $first: "$_nameNoSpaces" },
+              anyOriginal: { $first: "$_agenteFuente" }
+            }
+          },
 
-      // 5) Formatear resultado
-      {
-        $project: {
-          _id: 0,
-          nombre: "$anyName",
-          ventas: 1,
-          sumPuntaje: "$sumPuntaje", // Sin redondeo - valor exacto
-          avgPuntaje: "$avgPuntaje", // Sin redondeo - valor exacto
-          puntos: "$sumPuntaje" // Usar suma como puntos principales - valor exacto
-        }
-      },
+          // 5) Formatear resultado
+          {
+            $project: {
+              _id: 0,
+              nombre: { $ifNull: ["$anyOriginal", "$anyName"] },
+              nombreOriginal: { $ifNull: ["$anyOriginal", "$anyName"] },
+              nombreLimpio: "$anyName",
+              nombreNormalizado: "$_id",
+              ventas: 1,
+              sumPuntaje: "$sumPuntaje", // Sin redondeo - valor exacto
+              avgPuntaje: "$avgPuntaje", // Sin redondeo - valor exacto
+              puntos: "$sumPuntaje" // Usar suma como puntos principales - valor exacto
+            }
+          },
 
       // 6) Ordenar por suma de puntaje descendente
       { $sort: { puntos: -1, ventas: -1, nombre: 1 } },
@@ -438,6 +442,9 @@ router.get('/', protect, async (req, res) => {
             mergeMap.set(key, {
               id: key,
               nombre: item.nombre || item.anyName || key,
+              nombreOriginal: item.nombreOriginal || item.nombre || item.anyName || key,
+              nombreLimpio: item.nombreLimpio || item.anyName || key,
+              nombreNormalizado: item.nombreNormalizado || key,
               ventas: ventas,
               sumPuntaje: sumPuntaje,
               weightedForAvg: avgPuntaje * ventas
@@ -454,6 +461,9 @@ router.get('/', protect, async (req, res) => {
         rankingResults = Array.from(mergeMap.values()).map(v => ({
           _id: v.id,
           nombre: v.nombre,
+          nombreOriginal: v.nombreOriginal,
+          nombreLimpio: v.nombreLimpio,
+          nombreNormalizado: v.nombreNormalizado,
           ventas: v.ventas,
           sumPuntaje: v.sumPuntaje,
           avgPuntaje: v.ventas ? (v.weightedForAvg / v.ventas) : 0,
@@ -504,9 +514,142 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Procesar datos reales y agregar posición
+    const normalizeNameKey = (value) => {
+      if (!value) return '';
+      return String(value)
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toLowerCase();
+    };
+
+    const humanizeName = (value) => {
+      const raw = (value || '').toString().trim();
+      if (!raw) return raw;
+      if (raw.includes(' ')) return raw;
+      const spaced = raw
+        .replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, '$1 $2')
+        .replace(/([A-ZÁÉÍÓÚÑ])([A-ZÁÉÍÓÚÑ][a-záéíóúñ])/g, '$1 $2');
+      return spaced.trim() || raw;
+    };
+
+    const sanitizeAvatarPath = (value) => {
+      const raw = (value == null ? '' : String(value)).trim();
+      if (!raw) return '';
+      if (/^data:image\//i.test(raw)) return raw;
+      if (/^https?:\/\//i.test(raw)) return raw;
+      if (/^\/\//.test(raw)) return `https:${raw}`;
+      if (raw.startsWith('/')) return raw;
+      if (/^uploads\//i.test(raw)) return `/${raw}`;
+      return '';
+    };
+
+    const buildAvatarInfo = (userDoc) => {
+      if (!userDoc) return { url: null, fileId: null, updatedAt: null };
+      const candidates = [];
+      if (userDoc.avatarFileId) {
+        candidates.push(`/api/user-avatars/${userDoc.avatarFileId}`);
+      }
+      candidates.push(
+        userDoc.avatarUrl,
+        userDoc.photoUrl,
+        userDoc.photo,
+        userDoc.imageUrl,
+        userDoc.picture,
+        userDoc.profilePhoto,
+        userDoc.avatar
+      );
+      let selected = '';
+      for (const c of candidates) {
+        const sanitized = sanitizeAvatarPath(c);
+        if (sanitized) {
+          selected = sanitized;
+          break;
+        }
+      }
+      const updatedAt = userDoc.avatarUpdatedAt instanceof Date
+        ? userDoc.avatarUpdatedAt.getTime()
+        : (userDoc.avatarUpdatedAt ? new Date(userDoc.avatarUpdatedAt).getTime() : null);
+      if (selected && updatedAt && Number.isFinite(updatedAt) && !selected.includes('v=')) {
+        const sep = selected.includes('?') ? '&' : '?';
+        selected = `${selected}${sep}v=${updatedAt}`;
+      }
+      return {
+        url: selected || null,
+        fileId: userDoc.avatarFileId ? String(userDoc.avatarFileId) : null,
+        updatedAt: updatedAt && Number.isFinite(updatedAt) ? updatedAt : null
+      };
+    };
+
+    let userMap = new Map();
+    try {
+      const usersCollection = db.collection('users');
+      const usersDocs = await usersCollection.find({}, {
+        projection: {
+          username: 1,
+          name: 1,
+          email: 1,
+          aliases: 1,
+          avatarUrl: 1,
+          avatarFileId: 1,
+          avatarUpdatedAt: 1,
+          photoUrl: 1,
+          photo: 1,
+          imageUrl: 1,
+          picture: 1,
+          profilePhoto: 1,
+          avatar: 1
+        }
+      }).toArray();
+      userMap = new Map();
+      for (const userDoc of usersDocs) {
+        const keys = new Set();
+        [userDoc.username, userDoc.name, userDoc.email && userDoc.email.split('@')[0]].forEach((val) => {
+          const key = normalizeNameKey(val);
+          if (key) keys.add(key);
+        });
+        if (Array.isArray(userDoc.aliases)) {
+          userDoc.aliases.forEach((alias) => {
+            const key = normalizeNameKey(alias);
+            if (key) keys.add(key);
+          });
+        }
+        keys.forEach((key) => {
+          if (!userMap.has(key)) {
+            userMap.set(key, userDoc);
+          }
+        });
+      }
+    } catch (userErr) {
+      console.warn('[RANKING] No se pudo enriquecer con usuarios:', userErr?.message || userErr);
+    }
+
     let rankingData = rankingResults.map((item, index) => {
+      const rawNames = [item.nombreOriginal, item.nombre, item.nombreLimpio].filter(Boolean);
+      const normCandidates = [item.nombreNormalizado, ...rawNames.map(normalizeNameKey)].filter(Boolean);
+      let matchedUser = null;
+      for (const candidate of normCandidates) {
+        if (!candidate) continue;
+        matchedUser = userMap.get(candidate);
+        if (matchedUser) break;
+      }
+
+      const avatarInfo = buildAvatarInfo(matchedUser);
+      const displayName = matchedUser?.name || matchedUser?.username || humanizeName(rawNames[0]) || humanizeName(item.nombreLimpio) || item.nombre || '—';
+      const nombreLimpio = humanizeName(item.nombreLimpio || rawNames[0]) || displayName;
+
       return {
         ...item,
+        nombre: displayName,
+        nombreOriginal: rawNames[0] || displayName,
+        nombreLimpio,
+        nombreNormalizado: normCandidates[0] || normalizeNameKey(displayName),
+        username: matchedUser?.username || null,
+        userId: matchedUser?._id ? String(matchedUser._id) : null,
+        avatarUrl: avatarInfo.url,
+        avatarFileId: avatarInfo.fileId,
+        avatarUpdatedAt: avatarInfo.updatedAt,
+        imageUrl: avatarInfo.url || item.imageUrl || null,
         promedio: item.avgPuntaje, // alias para frontend
         position: index + 1
       };

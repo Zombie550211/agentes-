@@ -5,13 +5,193 @@
 (function() {
   'use strict';
 
+  const ACTIVE_ALIASES = {
+    '': 'inicio',
+    'inicio': 'inicio',
+    'home': 'inicio',
+    'dashboard': 'inicio',
+    'lead': 'lead',
+    'leads': 'lead',
+    'nuevo-lead': 'lead',
+    'costumer': 'costumer',
+    'clientes': 'costumer',
+    'ranking': 'ranking',
+    'promociones': 'ranking',
+    'estadisticas': 'estadisticas',
+    'estadísticas': 'estadisticas',
+    'stats': 'estadisticas',
+    'facturacion': 'facturacion',
+    'facturación': 'facturacion',
+    'empleado': 'empleado',
+    'multimedia': 'multimedia',
+    'reglas': 'reglas',
+    'tabla': 'tabla-puntaje',
+    'tabla-puntaje': 'tabla-puntaje',
+    'tabla_de_puntaje': 'tabla-puntaje',
+    'tabla-de-puntaje': 'tabla-puntaje',
+    'puntaje': 'tabla-puntaje',
+    'tabla puntaje': 'tabla-puntaje',
+    'crearcuenta': 'crearcuenta',
+    'crear-cuenta': 'crearcuenta',
+    'register': 'crearcuenta',
+    'registro': 'crearcuenta'
+  };
+
+  const AVATAR_FIELD_CANDIDATES = [
+    'avatarUrl','avatar','photoUrl','photo','profilePhoto','profileImage','picture','imageUrl','image','foto','imagen','avatarURL'
+  ];
+  const LOCAL_AVATAR_STORE_KEY = 'sidebarUserPhotos';
+  const MAX_AVATAR_BYTES = 4 * 1024 * 1024; // 4 MB
+  const AVATAR_UPLOAD_ENDPOINT = '/api/users/me/avatar';
+  const AVATAR_DELETE_ENDPOINT = '/api/users/me/avatar';
+  const SERVER_AVATAR_FETCH_PREFIX = '/api/user-avatars/';
+  let __avatarFileInput = null;
+  let __avatarCurrentTarget = null;
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+
+  function sanitizeAvatarUrl(rawUrl) {
+    const url = (rawUrl == null ? '' : String(rawUrl)).trim();
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    if (/^\/\//.test(url)) {
+      try { return `${window.location.protocol}${url}`; } catch (_) { return `https:${url}`; }
+    }
+    if (/^\/?uploads\//i.test(url)) return url.startsWith('/') ? url : `/${url}`;
+    if (/^data:image\//i.test(url)) return url;
+    if (/^(\.\.\/|\.\/)/.test(url)) return url;
+    if (url.startsWith('/')) return url;
+    return '';
+  }
+
+  function safeJsonParse(str, fallback) {
+    try { return JSON.parse(str); } catch(_) { return fallback; }
+  }
+
+  function getUsernameKey(user) {
+    const uname = (user && user.username) ? String(user.username).trim() : '';
+    if (uname) return uname.toLowerCase();
+    const email = (user && user.email) ? String(user.email).trim() : '';
+    if (email) return email.toLowerCase();
+    return null;
+  }
+
+  function readAvatarStore() {
+    try {
+      const raw = localStorage.getItem(LOCAL_AVATAR_STORE_KEY);
+      const parsed = safeJsonParse(raw, {});
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch(_){}
+    return {};
+  }
+
+  function writeAvatarStore(map) {
+    try { localStorage.setItem(LOCAL_AVATAR_STORE_KEY, JSON.stringify(map)); } catch(_){}
+  }
+
+  function getStoredAvatar(user) {
+    const key = getUsernameKey(user);
+    if (!key) return '';
+    const store = readAvatarStore();
+    const entry = store[key];
+    if (typeof entry === 'string' && entry.startsWith('data:image/')) return entry;
+    return '';
+  }
+
+  function setStoredAvatar(user, dataUrl) {
+    const key = getUsernameKey(user);
+    if (!key) return;
+    const store = readAvatarStore();
+    store[key] = dataUrl;
+    writeAvatarStore(store);
+  }
+
+  function clearStoredAvatar(user) {
+    const key = getUsernameKey(user);
+    if (!key) return;
+    const store = readAvatarStore();
+    if (key in store) {
+      delete store[key];
+      writeAvatarStore(store);
+    }
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('No se pudo leer la imagen'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function normalizeActiveKey(rawKey) {
+    const raw = (rawKey == null ? '' : String(rawKey)).trim().toLowerCase();
+    if (ACTIVE_ALIASES[raw] !== undefined) return ACTIVE_ALIASES[raw];
+    return raw || 'inicio';
+  }
+
+  function guessActivePage() {
+    try {
+      const byBody = document.body?.getAttribute('data-active') || document.body?.dataset?.active;
+      if (byBody) return normalizeActiveKey(byBody);
+
+      if (window.__sidebarActive) return normalizeActiveKey(window.__sidebarActive);
+      if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
+
+      const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/estadistic/.test(path)) return 'estadisticas';
+      if (/factur/.test(path)) return 'facturacion';
+      if (/rank/.test(path)) return 'ranking';
+      if (/tabla/.test(path) && /puntaje/.test(path)) return 'tabla-puntaje';
+      if (/empleado/.test(path)) return 'empleado';
+      if (/multimedia/.test(path)) return 'multimedia';
+      if (/regla/.test(path)) return 'reglas';
+      if (/costumer/.test(path) || /cliente/.test(path)) return 'costumer';
+      if (/lead/.test(path)) return 'lead';
+      if (/crear/.test(path) && /cuenta/.test(path)) return 'crearcuenta';
+      if (/register/.test(path)) return 'crearcuenta';
+      if (/reset-password/.test(path)) return 'inicio';
+      if (/inicio/.test(path) || /index\.html?$/.test(path)) return 'inicio';
+    } catch (e) {
+      console.warn('No se pudo inferir data-active automáticamente', e);
+    }
+    return 'inicio';
+  }
+
+  function ensureSidebarElement() {
+    let sidebarElement = document.querySelector('.sidebar');
+    if (sidebarElement) return sidebarElement;
+
+    const inferredActive = guessActivePage();
+    sidebarElement = document.createElement('nav');
+    sidebarElement.className = 'sidebar sidebar-inicio';
+    sidebarElement.setAttribute('data-active', inferredActive);
+
+    const layout = document.querySelector('.layout');
+    if (layout) {
+      layout.insertBefore(sidebarElement, layout.firstElementChild || null);
+    } else {
+      document.body.insertBefore(sidebarElement, document.body.firstChild || null);
+    }
+    console.warn('Se creó dinámicamente el contenedor .sidebar; considera agregarlo al HTML para mayor control.');
+    return sidebarElement;
+  }
+
   // Función principal para cargar el sidebar
   window.loadSidebar = async function(forceReload = false) {
-    const sidebarElement = document.querySelector('.sidebar');
-    if (!sidebarElement) {
-      console.warn('No se encontró elemento .sidebar en la página');
-      return;
-    }
+    const sidebarElement = ensureSidebarElement();
 
     let loadedOk = false;
     try {
@@ -19,13 +199,16 @@
       const user = await getUserInfo();
       
       // Obtener página activa desde data-active
-      const activePage = sidebarElement.getAttribute('data-active') || 'inicio';
+      const rawActive = sidebarElement.getAttribute('data-active');
+      const activePage = normalizeActiveKey(rawActive || guessActivePage());
+      sidebarElement.setAttribute('data-active', activePage);
       
       // Generar HTML del sidebar
       const sidebarHTML = generateSidebarHTML(user, activePage);
       
       // Insertar HTML
       sidebarElement.innerHTML = sidebarHTML;
+      initializeSidebarAvatars(sidebarElement);
 
       // Fallback post-render: si el primer <ul.menu> no tiene items, inyectar menú de agente
       try {
@@ -64,6 +247,7 @@
       console.error('❌ Error cargando sidebar:', error);
       // Mostrar sidebar básico en caso de error
       sidebarElement.innerHTML = generateFallbackSidebar();
+      initializeSidebarAvatars(sidebarElement);
       // Emitir evento incluso en error para que otros listeners continúen
       try { document.dispatchEvent(new Event('sidebar:loaded')); } catch {}
     }
@@ -131,7 +315,8 @@
 
   // Generar HTML del sidebar
   function generateSidebarHTML(user, activePage) {
-  const initials = getInitials(user.username || 'U');
+  const displayName = getDisplayName(user);
+  const initials = getInitials(displayName || 'U');
   const normalizedRole = normalizeRole(user.role);
   const roleName = getRoleName(normalizedRole);
   // Detectar si el usuario pertenece a Team Líneas. Seguimos la misma lógica que el servidor (__isTeamLineas):
@@ -142,18 +327,44 @@
   const urole = String(user.role || '').toLowerCase();
   const uteam = String(user.team || '').toLowerCase();
   const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-');
+
+    const avatarInfo = resolveAvatar(user);
+    const avatarUrl = avatarInfo.url;
+    const avatarSource = avatarInfo.source;
+    const profileAvatar = avatarInfo.profile || '';
+    const serverAvatar = avatarInfo.server || '';
+    const avatarFileId = avatarInfo.fileId || '';
+    const photoState = avatarUrl ? 'loading' : 'fallback';
+    const avatarClasses = ['avatar'];
+    if (avatarUrl) avatarClasses.push('has-photo');
+    const usernameKey = escapeAttribute(getUsernameKey(user) || '');
+    const avatarHtml = `
+      <div class="${avatarClasses.join(' ')}" data-photo-state="${photoState}" data-avatar-source="${escapeAttribute(avatarSource || '')}" data-avatar-username="${usernameKey}" data-profile-avatar="${escapeAttribute(profileAvatar)}" data-server-avatar="${escapeAttribute(serverAvatar)}" data-avatar-file-id="${escapeAttribute(avatarFileId)}">
+        ${avatarUrl ? `<img src="${escapeAttribute(avatarUrl)}" alt="Foto de ${escapeAttribute(displayName)}" class="user-avatar-img" loading="lazy" decoding="async" data-avatar-img>` : ''}
+        <span class="user-avatar">${escapeHtml(initials)}</span>
+      </div>
+    `;
+    const avatarWrapper = `
+      <div class="avatar-wrapper" data-avatar-wrapper data-has-local="${avatarSource === 'local' ? 'true' : 'false'}" data-has-profile="${profileAvatar ? 'true' : 'false'}" data-has-server="${serverAvatar ? 'true' : 'false'}">
+        ${avatarHtml}
+        <button type="button" class="avatar-edit-btn" data-avatar-trigger title="Actualizar foto">
+          <i class="fas fa-camera"></i><span class="sr-only">Actualizar foto</span>
+        </button>
+        <button type="button" class="avatar-remove-btn" data-avatar-clear title="Eliminar foto guardada">
+          <i class="fas fa-trash"></i><span class="sr-only">Eliminar foto</span>
+        </button>
+      </div>
+    `;
     
     // Determinar menú según rol
-    const menuItems = getMenuItems(normalizedRole, activePage, { isLineas });
+    const menuItems = getMenuItems(normalizedRole, normalizeActiveKey(activePage), { isLineas });
 
     return `
       <!-- Usuario -->
       <div class="user-info">
         <div class="user-details">
-          <div class="avatar">
-            <span class="user-avatar">${initials}</span>
-          </div>
-          <span class="user-name" id="user-name">${user.username || 'Usuario'}</span>
+          ${avatarWrapper}
+          <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
           <span class="user-role" id="user-role">${roleName}</span>
         </div>
       </div>
@@ -177,7 +388,7 @@
         <div class="stat-item">
           <i class="fas fa-users"></i>
           <div class="stat-content">
-            <span class="stat-value" id="sidebar-user-team">${user.team || 'Sin equipo'}</span>
+            <span class="stat-value" id="sidebar-user-team">${escapeHtml(user.team || 'Sin equipo')}</span>
             <span class="stat-label">Equipo</span>
           </div>
         </div>
@@ -224,6 +435,42 @@
       .substring(0, 2);
   }
 
+  function getDisplayName(user) {
+    const candidates = [user?.fullName, user?.name, user?.displayName, user?.username, user?.email];
+    for (const candidate of candidates) {
+      const value = (candidate == null ? '' : String(candidate)).trim();
+      if (value) return value;
+    }
+    return 'Usuario';
+  }
+
+  function extractAvatarFromUser(user, options = {}) {
+    if (!user || typeof user !== 'object') return '';
+    const excludes = Array.isArray(options.excludeKeys) ? options.excludeKeys.map(k => String(k).toLowerCase()) : [];
+    for (const field of AVATAR_FIELD_CANDIDATES) {
+      if (excludes.includes(String(field).toLowerCase())) continue;
+      if (field in user) {
+        const sanitized = sanitizeAvatarUrl(user[field]);
+        if (sanitized) return sanitized;
+      }
+    }
+    if (user?.profile && typeof user.profile === 'object') {
+      const nested = sanitizeAvatarUrl(user.profile.avatar || user.profile.photo || user.profile.image);
+      if (nested) return nested;
+    }
+    return '';
+  }
+
+  function resolveAvatar(user) {
+    const server = sanitizeAvatarUrl(user?.avatarUrl || (user?.avatarFileId ? `${SERVER_AVATAR_FETCH_PREFIX}${user.avatarFileId}` : ''));
+    const profile = extractAvatarFromUser(user, { excludeKeys: ['avatarUrl'] });
+    const stored = getStoredAvatar(user);
+    if (server) return { url: server, source: 'server', profile, stored, server, fileId: user?.avatarFileId || '' };
+    if (stored) return { url: stored, source: 'local', profile, stored, server, fileId: user?.avatarFileId || '' };
+    if (profile) return { url: profile, source: 'profile', profile, stored, server, fileId: user?.avatarFileId || '' };
+    return { url: '', source: '', profile: profile || '', stored, server, fileId: user?.avatarFileId || '' };
+  }
+
   // Obtener nombre del rol
   function getRoleName(role) {
     const roles = {
@@ -240,6 +487,7 @@
   function getMenuItems(role, activePage, ctx = {}) {
     const normalizedRole = normalizeRole(role);
     console.log('🔍 Generando menú para rol bruto/normalizado:', role, '->', normalizedRole);
+    const normalizedActive = normalizeActiveKey(activePage);
     
     const allMenuItems = {
       // Use absolute path for Inicio to avoid resolving under subfolders like TEAM LINEAS/
@@ -250,6 +498,7 @@
       estadisticas: { icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor', 'agente'] },
       facturacion: { icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
       empleado: { icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      'tabla-puntaje': { icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       multimedia: { icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
       reglas: { icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       crearcuenta: { icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: ['admin'] }
@@ -271,7 +520,7 @@
       // Verificar si el rol tiene acceso a este item (usar rol normalizado)
       if (item.roles.includes(normalizedRole)) {
         visibleItems.push(item.text);
-        const isActive = key === activePage ? 'is-active' : '';
+        const isActive = key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
             <a href="${item.href}" class="btn btn-sidebar ${isActive}" title="${item.text}">
@@ -288,7 +537,7 @@
       const agentKeys = ['inicio','lead','costumer','ranking','estadisticas'];
       for (const key of agentKeys) {
         const item = allMenuItems[key];
-        const isActive = key === activePage ? 'is-active' : '';
+        const isActive = key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
             <a href="${item.href}" class="btn btn-sidebar ${isActive}">
@@ -323,8 +572,16 @@
     return `
       <div class="user-info">
         <div class="user-details">
-          <div class="avatar">
-            <span class="user-avatar">U</span>
+          <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
+            <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
+              <span class="user-avatar">U</span>
+            </div>
+            <button type="button" class="avatar-edit-btn" data-avatar-trigger title="Actualizar foto">
+              <i class="fas fa-camera"></i><span class="sr-only">Actualizar foto</span>
+            </button>
+            <button type="button" class="avatar-remove-btn" data-avatar-clear title="Eliminar foto guardada">
+              <i class="fas fa-trash"></i><span class="sr-only">Eliminar foto</span>
+            </button>
           </div>
           <span class="user-name">Usuario</span>
           <span class="user-role">Cargando...</span>
@@ -507,6 +764,301 @@
         // best-effort: create a new style tag if anything goes wrong
         try { const extra2 = DOC.createElement('style'); extra2.id = STYLE_ID + '-overrides-fallback'; extra2.textContent = css; DOC.head.appendChild(extra2); } catch(_){}
       }
+  }
+
+  function initializeSidebarAvatars(root) {
+    try {
+      const wrappers = root.querySelectorAll('[data-avatar-wrapper]');
+      wrappers.forEach(wrapper => {
+        const avatar = wrapper.querySelector('.avatar[data-photo-state]');
+        if (!avatar) return;
+
+        const img = avatar.querySelector('[data-avatar-img]');
+        const applyLoaded = () => {
+          try { avatar.setAttribute('data-photo-state', 'loaded'); } catch(_){ }
+        };
+        const applyFallback = () => {
+          try { avatar.setAttribute('data-photo-state', 'fallback'); } catch(_){ }
+          try { const existing = avatar.querySelector('[data-avatar-img]'); if (existing && existing.parentNode) existing.parentNode.removeChild(existing); } catch(_){ }
+          if (wrapper && avatar.getAttribute('data-avatar-source') === 'local') {
+            wrapper.setAttribute('data-has-local', 'false');
+          }
+        };
+
+        if (img) {
+          if (img.complete) {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              applyLoaded();
+            } else {
+              applyFallback();
+            }
+          } else {
+            img.addEventListener('load', applyLoaded, { once: true });
+            img.addEventListener('error', applyFallback, { once: true });
+          }
+        } else {
+          applyFallback();
+        }
+
+        const trigger = wrapper.querySelector('[data-avatar-trigger]');
+        const clearBtn = wrapper.querySelector('[data-avatar-clear]');
+
+        if (trigger && trigger.dataset.bound !== 'true') {
+          trigger.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            if (wrapper && wrapper.getAttribute('data-avatar-uploading') === 'true') return;
+            openAvatarPicker(avatar, wrapper);
+          });
+          trigger.dataset.bound = 'true';
+        }
+
+        if (clearBtn && clearBtn.dataset.bound !== 'true') {
+          clearBtn.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            if (wrapper && wrapper.getAttribute('data-avatar-uploading') === 'true') return;
+            if (clearBtn.dataset.busy === 'true') return;
+            clearBtn.dataset.busy = 'true';
+            clearBtn.disabled = true;
+            try {
+              await clearAvatarImage(avatar, wrapper);
+            } catch (error) {
+              console.warn('clearAvatarImage error', error);
+            } finally {
+              clearBtn.dataset.busy = 'false';
+              clearBtn.disabled = false;
+            }
+          });
+          clearBtn.dataset.bound = 'true';
+        }
+      });
+    } catch (err) {
+      console.warn('initializeSidebarAvatars error', err);
+    }
+  }
+
+  function ensureAvatarInput() {
+    if (__avatarFileInput) return __avatarFileInput;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', handleAvatarInputChange);
+    __avatarFileInput = input;
+    return input;
+  }
+
+  function openAvatarPicker(avatarEl, wrapper) {
+    if (!avatarEl) return;
+    const username = avatarEl.getAttribute('data-avatar-username') || '';
+    if (!username) {
+      alert('No se pudo identificar al usuario para actualizar la foto.');
+      return;
+    }
+    const input = ensureAvatarInput();
+    __avatarCurrentTarget = { avatar: avatarEl, wrapper, username };
+    input.value = '';
+    input.click();
+  }
+
+  function setAvatarUploading(wrapper, uploading) {
+    if (!wrapper) return;
+    if (uploading) {
+      wrapper.setAttribute('data-avatar-uploading', 'true');
+    } else {
+      wrapper.removeAttribute('data-avatar-uploading');
+    }
+    const trigger = wrapper.querySelector('[data-avatar-trigger]');
+    const clearBtn = wrapper.querySelector('[data-avatar-clear]');
+    if (trigger) {
+      trigger.disabled = !!uploading;
+    }
+    if (clearBtn) {
+      if (uploading) {
+        clearBtn.disabled = true;
+      } else if (clearBtn.dataset.busy !== 'true') {
+        clearBtn.disabled = false;
+      }
+    }
+  }
+
+  function syncUserAvatarCache(url, fileId) {
+    const storages = [window.localStorage, window.sessionStorage];
+    storages.forEach(storage => {
+      if (!storage) return;
+      try {
+        const raw = storage.getItem('user');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        if (url) parsed.avatarUrl = url; else delete parsed.avatarUrl;
+        if (fileId) parsed.avatarFileId = fileId; else delete parsed.avatarFileId;
+        if (url) parsed.avatarUpdatedAt = new Date().toISOString(); else delete parsed.avatarUpdatedAt;
+        storage.setItem('user', JSON.stringify(parsed));
+      } catch (err) {
+        console.warn('syncUserAvatarCache error', err);
+      }
+    });
+  }
+
+  async function uploadAvatarFile(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(AVATAR_UPLOAD_ENDPOINT, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+
+    let parsed = null;
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      try { parsed = await response.json(); } catch (_) { parsed = null; }
+    } else {
+      const text = await response.text();
+      try { parsed = JSON.parse(text); } catch (_) { parsed = { success: response.ok, message: text }; }
+    }
+
+    if (!response.ok || !parsed || parsed.success === false) {
+      const message = (parsed && parsed.message) ? parsed.message : `Error del servidor (${response.status})`;
+      throw new Error(message);
+    }
+
+    if (!parsed.data || !parsed.data.url) {
+      throw new Error('Respuesta inválida del servidor al subir el avatar');
+    }
+
+    return parsed.data;
+  }
+
+  async function deleteServerAvatar() {
+    const response = await fetch(AVATAR_DELETE_ENDPOINT, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    let parsed = null;
+    try { parsed = await response.json(); } catch (_) { parsed = null; }
+
+    if (!response.ok || !parsed || parsed.success === false) {
+      const message = (parsed && parsed.message) ? parsed.message : `Error del servidor (${response.status})`;
+      throw new Error(message);
+    }
+
+    return parsed.data || { url: null };
+  }
+
+  async function handleAvatarInputChange(event) {
+    try {
+      const context = __avatarCurrentTarget;
+      __avatarCurrentTarget = null;
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!context || !context.avatar || !file) return;
+      if (file.size > MAX_AVATAR_BYTES) {
+        alert(`La imagen es demasiado grande. El tamaño máximo es ${(MAX_AVATAR_BYTES / 1024 / 1024).toFixed(1)} MB.`);
+        return;
+      }
+      setAvatarUploading(context.wrapper, true);
+      try {
+        const result = await uploadAvatarFile(file);
+        clearStoredAvatar({ username: context.username });
+        syncUserAvatarCache(result.url || '', result.fileId || '');
+        context.avatar.setAttribute('data-server-avatar', result.url || '');
+        context.avatar.setAttribute('data-avatar-file-id', result.fileId || '');
+        applyAvatarImage(context.avatar, { url: result.url, source: 'server', wrapper: context.wrapper });
+      } finally {
+        setAvatarUploading(context.wrapper, false);
+      }
+    } catch (err) {
+      console.warn('No se pudo actualizar la foto del usuario', err);
+      const message = err && err.message ? err.message : 'Intenta con otro archivo de imagen.';
+      alert(`No se pudo actualizar la foto. ${message}`);
+    }
+  }
+
+  async function clearAvatarImage(avatarEl, wrapper) {
+    if (!avatarEl) return;
+    const username = avatarEl.getAttribute('data-avatar-username') || '';
+    if (!username) return;
+    clearStoredAvatar({ username });
+    const hadServer = wrapper && wrapper.getAttribute('data-has-server') === 'true';
+    if (hadServer) {
+      setAvatarUploading(wrapper, true);
+      try {
+        await deleteServerAvatar();
+        syncUserAvatarCache('', '');
+      } catch (error) {
+        console.warn('No se pudo eliminar el avatar del servidor', error);
+        alert(`No se pudo eliminar la foto: ${error?.message || 'Error desconocido'}`);
+        return;
+      } finally {
+        setAvatarUploading(wrapper, false);
+      }
+    }
+    const profile = avatarEl.getAttribute('data-profile-avatar') || '';
+    if (profile) {
+      applyAvatarImage(avatarEl, { url: profile, source: 'profile', wrapper });
+    } else {
+      applyAvatarImage(avatarEl, { url: '', source: '', wrapper });
+    }
+    avatarEl.setAttribute('data-server-avatar', '');
+    avatarEl.setAttribute('data-avatar-file-id', '');
+  }
+
+  function applyAvatarImage(avatarEl, options = {}) {
+    const wrapper = options.wrapper || avatarEl.closest('[data-avatar-wrapper]');
+    const url = options.url || '';
+    const source = options.source || '';
+
+    if (url) {
+      let img = avatarEl.querySelector('[data-avatar-img]');
+      if (!img) {
+        img = document.createElement('img');
+        img.setAttribute('data-avatar-img', '');
+        img.className = 'user-avatar-img';
+        img.alt = 'Foto de usuario';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        avatarEl.insertBefore(img, avatarEl.firstChild);
+      }
+      avatarEl.setAttribute('data-photo-state', 'loading');
+      avatarEl.setAttribute('data-avatar-source', source);
+      if (source === 'server') {
+        avatarEl.setAttribute('data-server-avatar', url);
+      }
+      img.onload = () => {
+        avatarEl.setAttribute('data-photo-state', 'loaded');
+        if (wrapper) {
+          wrapper.setAttribute('data-has-local', source === 'local' ? 'true' : 'false');
+          wrapper.setAttribute('data-has-profile', source === 'profile' ? 'true' : 'false');
+          wrapper.setAttribute('data-has-server', source === 'server' ? 'true' : 'false');
+        }
+      };
+      img.onerror = () => {
+        avatarEl.setAttribute('data-photo-state', 'fallback');
+        try { img.remove(); } catch(_){ }
+        if (wrapper) {
+          wrapper.setAttribute('data-has-local', 'false');
+          if (source === 'profile') wrapper.setAttribute('data-has-profile', 'false');
+          if (source === 'server') wrapper.setAttribute('data-has-server', 'false');
+        }
+      };
+      if (img.getAttribute('src') !== url) img.src = url;
+    } else {
+      const img = avatarEl.querySelector('[data-avatar-img]');
+      if (img) {
+        try { img.remove(); } catch(_){ }
+      }
+      avatarEl.setAttribute('data-photo-state', 'fallback');
+      avatarEl.setAttribute('data-avatar-source', '');
+      if (wrapper) {
+        wrapper.setAttribute('data-has-local', 'false');
+        wrapper.setAttribute('data-has-profile', 'false');
+        wrapper.setAttribute('data-has-server', 'false');
+      }
+    }
   }
 
   // Función para configurar el interruptor de tema

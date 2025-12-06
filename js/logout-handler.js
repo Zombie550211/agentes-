@@ -35,15 +35,26 @@
   }
 
   // Agregar event listener cuando el DOM esté listo
+  let retryCount = 0;
+  const MAX_RETRIES = 10;
+  const RETRY_DELAY_MS = 300;
+
   function initLogoutHandler() {
     // Buscar todos los botones de logout
     const logoutButtons = document.querySelectorAll('[data-logout-button], .btn-logout');
     
     if (logoutButtons.length === 0) {
-      console.warn('⚠️ No se encontraron botones de logout');
+      if (retryCount < MAX_RETRIES) {
+        retryCount += 1;
+        setTimeout(initLogoutHandler, RETRY_DELAY_MS);
+      } else {
+        console.warn('⚠️ No se encontraron botones de logout tras múltiples intentos');
+      }
       return;
     }
     
+    retryCount = 0;
+
     logoutButtons.forEach(button => {
       // Remover listeners previos para evitar duplicados
       button.removeEventListener('click', handleLogout);
