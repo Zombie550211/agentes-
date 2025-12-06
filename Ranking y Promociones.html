@@ -2350,7 +2350,7 @@
           return Number.isNaN(parsed) ? null : parsed;
         };
 
-        const avatarsEnabled = () => false;
+        const avatarsEnabled = () => true;
 
         const buildAgentAvatarUrl = (agent) => {
           if (!avatarsEnabled()) return '';
@@ -2407,16 +2407,27 @@
           return '<i class="fas fa-user"></i>';
         };
 
-        const applyAvatarToElement = (imgEl, agent) => {
+        const applyAvatarToElement = (imgEl, agent, options = {}) => {
+          const { allowPhoto = true } = options;
           if (!imgEl) return;
           if (!imgEl.dataset.defaultSrc) {
             imgEl.dataset.defaultSrc = imgEl.getAttribute('src') || '';
           }
-          if (!avatarsEnabled()) {
+          if (!imgEl.dataset.defaultAlt) {
+            imgEl.dataset.defaultAlt = imgEl.getAttribute('alt') || 'Avatar';
+          }
+          const shouldUsePhoto = allowPhoto && avatarsEnabled() && agent;
+          if (!shouldUsePhoto) {
             if (imgEl.dataset.defaultSrc) {
               imgEl.src = imgEl.dataset.defaultSrc;
             }
             imgEl.classList.remove('avatar-photo');
+            if (imgEl.dataset.defaultAlt) {
+              imgEl.alt = imgEl.dataset.defaultAlt;
+            }
+            if (!allowPhoto) {
+              imgEl.removeAttribute('loading');
+            }
             return;
           }
           const url = buildAgentAvatarUrl(agent);
@@ -2528,7 +2539,7 @@
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = resolveDisplayName(item);
               if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
-              if (imgEl) applyAvatarToElement(imgEl, item);
+              if (imgEl) applyAvatarToElement(imgEl, item, { allowPhoto: false });
             };
 
             // Limpiar antes de pintar
@@ -2538,7 +2549,7 @@
               const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
               if (nameEl) nameEl.textContent = '—';
               if (scoreEl) scoreEl.textContent = '0';
-              if (imgEl) applyAvatarToElement(imgEl, null);
+              if (imgEl) applyAvatarToElement(imgEl, null, { allowPhoto: false });
             };
             clearSlot('.first-pos');
             clearSlot('.second-pos');
@@ -2902,7 +2913,7 @@
               const imgEl=document.querySelector(`${sel} .astronaut-image`);
               if(nameEl) nameEl.textContent = resolveDisplayName(it);
               if(scoreEl) scoreEl.textContent = fmt(getScore(it));
-              if(imgEl) applyAvatarToElement(imgEl, it);
+              if(imgEl) applyAvatarToElement(imgEl, it, { allowPhoto: false });
             };
             // limpiar
             ['.first-pos','.second-pos','.third-pos'].forEach(sel=>{
@@ -2910,7 +2921,7 @@
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
               const imgEl=document.querySelector(`${sel} .astronaut-image`);
               if(nameEl) nameEl.textContent='—'; if(scoreEl) scoreEl.textContent='0';
-              if(imgEl) applyAvatarToElement(imgEl, null);
+              if(imgEl) applyAvatarToElement(imgEl, null, { allowPhoto: false });
             });
             // set top3
             setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
