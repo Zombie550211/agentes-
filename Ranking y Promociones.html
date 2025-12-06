@@ -618,11 +618,25 @@
     }
 
     .astronaut-image.avatar-photo {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 50%;
-      animation: none;
+      width: 240px !important;
+      height: 240px !important;
+      max-width: 65% !important;
+      max-height: 65% !important;
+      object-fit: cover !important;
+      border-radius: 50% !important;
+      border: 8px solid rgba(255, 255, 255, 0.9) !important;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.25) !important;
+      background: #fff !important;
+      animation: none !important;
+    }
+
+    .first-pos .astronaut-image.avatar-photo,
+    .second-pos .astronaut-image.avatar-photo,
+    .third-pos .astronaut-image.avatar-photo {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
     }
 
     .agent-details h4 {
@@ -2325,7 +2339,10 @@
           return Number.isNaN(parsed) ? null : parsed;
         };
 
+        const avatarsEnabled = () => false;
+
         const buildAgentAvatarUrl = (agent) => {
+          if (!avatarsEnabled()) return '';
           if (!agent) return '';
           const raw = agent.avatarUrl || agent.imageUrl || '';
           const sanitized = sanitizeAvatarUrl(raw);
@@ -2341,6 +2358,7 @@
         };
 
         const renderAvatarHtml = (agent, altText = 'Avatar') => {
+          if (!avatarsEnabled()) return '<i class="fas fa-user"></i>';
           const url = buildAgentAvatarUrl(agent);
           if (url) {
             return `<img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" class="avatar-photo" loading="lazy">`;
@@ -2352,6 +2370,13 @@
           if (!imgEl) return;
           if (!imgEl.dataset.defaultSrc) {
             imgEl.dataset.defaultSrc = imgEl.getAttribute('src') || '';
+          }
+          if (!avatarsEnabled()) {
+            if (imgEl.dataset.defaultSrc) {
+              imgEl.src = imgEl.dataset.defaultSrc;
+            }
+            imgEl.classList.remove('avatar-photo');
+            return;
           }
           const url = buildAgentAvatarUrl(agent);
           if (url) {

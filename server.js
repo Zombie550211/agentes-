@@ -4,6 +4,7 @@ console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas
 
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
@@ -13,6 +14,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { ObjectId, GridFSBucket } = require('mongodb');
 const { Server } = require('socket.io');
+const { Readable } = require('stream');
 require('dotenv').config();
 
 // GridFS bucket para archivos
@@ -157,6 +159,23 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
+
+const CLOUDINARY_HAS_CREDENTIALS = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+const CLOUDINARY_BG_REMOVAL_FLAG = String(process.env.CLOUDINARY_BG_REMOVAL || '').trim().toLowerCase();
+const CLOUDINARY_BG_REMOVAL_ENABLED = CLOUDINARY_HAS_CREDENTIALS && CLOUDINARY_BG_REMOVAL_FLAG !== '0' && CLOUDINARY_BG_REMOVAL_FLAG !== 'false';
+const CLOUDINARY_AVATAR_FOLDER = process.env.CLOUDINARY_AVATAR_FOLDER || 'dashboard/user-avatars';
+
+if (CLOUDINARY_BG_REMOVAL_ENABLED) {
+  console.log('[CLOUDINARY] Background removal habilitado para avatares (cloudinary_ai).');
+} else if (CLOUDINARY_HAS_CREDENTIALS) {
+  console.log('[CLOUDINARY] Background removal deshabilitado. Establece CLOUDINARY_BG_REMOVAL=1 para activarlo.');
+} else {
+  console.log('[CLOUDINARY] Credenciales no configuradas. Se omitirá el background removal.');
+}
 
 // Configuración de Multer para subida de archivos (diskStorage temporal antes de subir a Cloudinary)
 const storage = multer.diskStorage({
@@ -765,6 +784,145 @@ async function ensureUserAvatarBucket() {
   return userAvatarsBucket;
 }
 
+const IMAGE_MIME_EXTENSION_MAP = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
+
+function inferImageExtension(mimetype, fallback = 'png') {
+  if (!mimetype) return fallback;
+  const ext = IMAGE_MIME_EXTENSION_MAP[mimetype.toLowerCase()];
+  return ext || fallback;
+}
+
+function bufferToStream(buffer) {
+  return new Readable({
+    read() {
+      this.push(buffer);
+      this.push(null);
+    }
+  });
+}
+
+function downloadBufferFromUrl(url, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    try {
+      const target = url.startsWith('//') ? `https:${url}` : url;
+      const parsed = new URL(target);
+      const client = parsed.protocol === 'https:' ? https : http;
+      const request = client.get({
+        hostname: parsed.hostname,
+        path: `${parsed.pathname}${parsed.search}`,
+        protocol: parsed.protocol,
+        headers: {
+          'User-Agent': 'agentes-dashboard-avatar/1.0',
+          Accept: 'image/*,*/*;q=0.8'
+        }
+      }, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+          const nextUrl = new URL(res.headers.location, target).toString();
+          res.resume();
+          return resolve(downloadBufferFromUrl(nextUrl, redirectsLeft - 1));
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode} al descargar recurso (${target})`));
+        }
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+      request.on('error', reject);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function processAvatarWithCloudinary(inputBuffer, options = {}) {
+  if (!Buffer.isBuffer(inputBuffer)) {
+    throw new Error('Buffer de avatar inválido');
+  }
+
+  const { originalName = '', mimetype = 'image/png', username = '' } = options;
+  const details = {
+    backgroundRemoved: false,
+    processor: CLOUDINARY_BG_REMOVAL_ENABLED ? 'cloudinary_ai' : null,
+    bytesBefore: inputBuffer.length
+  };
+
+  if (!CLOUDINARY_BG_REMOVAL_ENABLED) {
+    details.bytesAfter = inputBuffer.length;
+    return {
+      buffer: inputBuffer,
+      contentType: mimetype || 'image/png',
+      extension: inferImageExtension(mimetype, 'png'),
+      details
+    };
+  }
+
+  const startedAt = Date.now();
+
+  try {
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadOptions = {
+        resource_type: 'image',
+        folder: CLOUDINARY_AVATAR_FOLDER,
+        background_removal: 'cloudinary_ai',
+        overwrite: true,
+        format: 'png',
+        use_filename: false,
+        unique_filename: true,
+        transformation: [{ width: 800, height: 800, crop: 'limit' }]
+      };
+
+      const uploadStream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+        if (error) return reject(error);
+        return resolve(result);
+      });
+
+      bufferToStream(inputBuffer).pipe(uploadStream);
+    });
+
+    const processedUrl = uploadResult?.secure_url || cloudinary.url(uploadResult.public_id, {
+      secure: true,
+      format: 'png'
+    });
+
+    const processedBuffer = await downloadBufferFromUrl(processedUrl);
+
+    details.backgroundRemoved = true;
+    details.processor = 'cloudinary_ai';
+    details.bytesAfter = processedBuffer.length;
+    details.processingMs = Date.now() - startedAt;
+    details.cloudinaryPublicId = uploadResult?.public_id || null;
+    details.cloudinaryAssetId = uploadResult?.asset_id || null;
+    details.cloudinaryVersion = uploadResult?.version || null;
+    details.secureUrl = processedUrl;
+    details.uploadedAt = uploadResult?.created_at ? new Date(uploadResult.created_at) : new Date();
+
+    return {
+      buffer: processedBuffer,
+      contentType: 'image/png',
+      extension: 'png',
+      details
+    };
+  } catch (error) {
+    details.processingError = error?.message || String(error);
+    details.bytesAfter = inputBuffer.length;
+    console.warn('[Avatar Upload] No se pudo procesar el avatar con Cloudinary:', details.processingError, { username, originalName });
+    return {
+      buffer: inputBuffer,
+      contentType: mimetype || 'image/png',
+      extension: inferImageExtension(mimetype, 'png'),
+      details
+    };
+  }
+}
+
 app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.user || !req.user.username) {
@@ -788,23 +946,49 @@ app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (
 
     const existingUser = await usersCol.findOne(
       { username: req.user.username },
-      { projection: { avatarFileId: 1 } }
+      { projection: { avatarFileId: 1, avatarCloudinaryPublicId: 1 } }
     );
 
-    const sanitizedName = req.file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const filename = `${Date.now()}-${sanitizedName}`;
+    const sanitizedNameRaw = req.file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_') || 'avatar.png';
+    const baseName = path.basename(sanitizedNameRaw, path.extname(sanitizedNameRaw)) || 'avatar';
 
-    const uploadStream = bucket.openUploadStream(filename, {
-      contentType: req.file.mimetype,
-      metadata: {
-        userId: req.user.id ? req.user.id.toString() : null,
-        username: req.user.username,
-        uploadedAt: new Date(),
-        originalName: req.file.originalname
-      }
+    const processing = await processAvatarWithCloudinary(req.file.buffer, {
+      originalName: sanitizedNameRaw,
+      mimetype: req.file.mimetype,
+      username: req.user.username
     });
 
-    uploadStream.end(req.file.buffer);
+    const finalExtension = processing.extension || inferImageExtension(req.file.mimetype, 'png');
+    const finalFilename = `${Date.now()}-${baseName}.${finalExtension}`;
+
+    const metadataRaw = {
+      userId: req.user.id ? req.user.id.toString() : null,
+      username: req.user.username,
+      uploadedAt: new Date(),
+      originalName: req.file.originalname,
+      originalMimeType: req.file.mimetype,
+      sanitizedFilename: sanitizedNameRaw,
+      backgroundRemoved: Boolean(processing.details?.backgroundRemoved),
+      backgroundProcessor: processing.details?.processor || null,
+      cloudinaryPublicId: processing.details?.cloudinaryPublicId || null,
+      cloudinaryAssetId: processing.details?.cloudinaryAssetId || null,
+      cloudinaryVersion: processing.details?.cloudinaryVersion || null,
+      cloudinarySecureUrl: processing.details?.secureUrl || null,
+      bytesOriginal: processing.details?.bytesBefore ?? req.file.size ?? (req.file.buffer ? req.file.buffer.length : null),
+      bytesProcessed: processing.details?.bytesAfter ?? null,
+      processingMs: processing.details?.processingMs ?? null,
+      processingError: processing.details?.processingError || null
+    };
+    const metadata = Object.fromEntries(
+      Object.entries(metadataRaw).filter(([, value]) => value !== undefined)
+    );
+
+    const uploadStream = bucket.openUploadStream(finalFilename, {
+      contentType: processing.contentType,
+      metadata
+    });
+
+    uploadStream.end(processing.buffer);
 
     await new Promise((resolve, reject) => {
       uploadStream.on('finish', resolve);
@@ -814,15 +998,41 @@ app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (
     const fileId = uploadStream.id.toString();
     const avatarUrl = `/api/user-avatars/${fileId}`;
 
+    const setPayload = {
+      avatarFileId: fileId,
+      avatarUrl,
+      avatarUpdatedAt: new Date(),
+      avatarBackgroundRemoved: Boolean(processing.details?.backgroundRemoved)
+    };
+
+    const unsetPayload = {};
+
+    if (processing.details?.backgroundRemoved && processing.details?.processor) {
+      setPayload.avatarProcessor = processing.details.processor;
+    } else {
+      unsetPayload.avatarProcessor = '';
+    }
+
+    if (processing.details?.cloudinaryPublicId) {
+      setPayload.avatarCloudinaryPublicId = processing.details.cloudinaryPublicId;
+      if (processing.details?.cloudinaryVersion != null) {
+        setPayload.avatarCloudinaryVersion = processing.details.cloudinaryVersion;
+      } else {
+        unsetPayload.avatarCloudinaryVersion = '';
+      }
+    } else {
+      unsetPayload.avatarCloudinaryPublicId = '';
+      unsetPayload.avatarCloudinaryVersion = '';
+    }
+
+    const updateDoc = { $set: setPayload };
+    if (Object.keys(unsetPayload).length > 0) {
+      updateDoc.$unset = unsetPayload;
+    }
+
     await usersCol.updateOne(
       { username: req.user.username },
-      {
-        $set: {
-          avatarFileId: fileId,
-          avatarUrl,
-          avatarUpdatedAt: new Date()
-        }
-      }
+      updateDoc
     );
 
     if (existingUser && existingUser.avatarFileId && existingUser.avatarFileId !== fileId) {
@@ -834,10 +1044,27 @@ app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (
       }
     }
 
+    if (
+      existingUser &&
+      existingUser.avatarCloudinaryPublicId &&
+      existingUser.avatarCloudinaryPublicId !== (processing.details?.cloudinaryPublicId || null) &&
+      CLOUDINARY_HAS_CREDENTIALS
+    ) {
+      try {
+        await cloudinary.uploader.destroy(existingUser.avatarCloudinaryPublicId, { invalidate: true });
+      } catch (e) {
+        console.warn('[Avatar Upload] No se pudo eliminar el avatar anterior en Cloudinary:', e?.message || e);
+      }
+    }
+
     return res.json({
       success: true,
       message: 'Avatar actualizado correctamente',
-      data: { url: avatarUrl, fileId }
+      data: {
+        url: avatarUrl,
+        fileId,
+        backgroundRemoved: Boolean(processing.details?.backgroundRemoved)
+      }
     });
   } catch (error) {
     console.error('[Avatar Upload] Error:', error);
