@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb, getDbFor, connectToMongoDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
 const { protect } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 // ============================
 // Funciones auxiliares
@@ -1203,6 +1204,7 @@ router.get('/users/admin-list', protect, async (req, res) => {
       id: u._id?.toString() || null,
       username: u.username || null,
       name: u.name || u.fullName || u.nombre || u.username || null,
+      email: u.email || null,
       role: u.role || null,
       team: u.team || null,
       supervisor: u.supervisor || null
@@ -1354,6 +1356,122 @@ router.put('/users/:id/role', protect, async (req, res) => {
   } catch (error) {
     console.error('[USERS UPDATE ROLE] Error:', error);
     return res.status(500).json({ success: false, message: 'Error al actualizar rol/team de usuario' });
+  }
+});
+
+// Actualizar credenciales (username y/o password) de un usuario existente (solo Admins)
+router.put('/users/:id/credentials', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+    }
+
+    const userRole = (req.user?.role || '').toLowerCase();
+    const allowedAdminRoles = ['admin', 'administrador', 'administrativo', 'administrador general'];
+    if (!allowedAdminRoles.includes(userRole)) {
+      return res.status(403).json({ success: false, message: 'No autorizado para actualizar credenciales' });
+    }
+
+    const userId = req.params.id;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'ID de usuario requerido' });
+    }
+
+    const body = req.body || {};
+    const rawUsername = typeof body.username === 'string' ? body.username.trim() : '';
+    const rawPassword = typeof body.password === 'string' ? body.password : '';
+
+    if (!rawUsername && !rawPassword) {
+      return res.status(400).json({ success: false, message: 'Proporciona un nuevo usuario o una nueva contraseña para continuar' });
+    }
+
+    const usersColl = db.collection('users');
+    let objectId = null;
+    try { objectId = new ObjectId(String(userId)); } catch { objectId = null; }
+    const filter = objectId ? { _id: objectId } : { _id: String(userId) };
+
+    const currentUser = await usersColl.findOne(filter);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const updateSet = {
+      updatedAt: new Date(),
+      updatedBy: req.user?.username || 'system'
+    };
+
+    let changed = false;
+    let changedUsername = false;
+    let changedPassword = false;
+
+    const usernameCandidate = rawUsername;
+    if (usernameCandidate) {
+      if (!/^[a-zA-Z0-9._-]{3,32}$/.test(usernameCandidate)) {
+        return res.status(400).json({ success: false, message: 'Nombre de usuario inválido. Usa de 3 a 32 caracteres alfanuméricos, punto, guion o guion bajo.' });
+      }
+      if (usernameCandidate !== currentUser.username) {
+        const excludeId = currentUser._id instanceof ObjectId ? currentUser._id : String(currentUser._id);
+        const usernameExists = await usersColl.findOne({
+          username: usernameCandidate,
+          _id: { $ne: excludeId }
+        });
+        if (usernameExists) {
+          return res.status(409).json({ success: false, message: 'El nombre de usuario ya está en uso' });
+        }
+        updateSet.username = usernameCandidate;
+        changed = true;
+        changedUsername = true;
+      }
+    }
+
+    if (rawPassword) {
+      if (rawPassword.length < 8) {
+        return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener al menos 8 caracteres' });
+      }
+      const salt = await bcrypt.genSalt(10);
+      const hashed = await bcrypt.hash(rawPassword, salt);
+      updateSet.password = hashed;
+      updateSet.passwordUpdatedAt = new Date();
+      changed = true;
+      changedPassword = true;
+    }
+
+    if (!changed) {
+      return res.status(400).json({ success: false, message: 'No hay cambios para aplicar' });
+    }
+
+    const updateResult = await usersColl.updateOne(filter, { $set: updateSet });
+    if (!updateResult || updateResult.matchedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const updatedUser = await usersColl.findOne(filter, { projection: { password: 0 } });
+    const responseUser = updatedUser ? {
+      id: updatedUser._id?.toString() || null,
+      username: updatedUser.username || null,
+      name: updatedUser.name || updatedUser.fullName || updatedUser.nombre || null,
+      email: updatedUser.email || null,
+      role: updatedUser.role || null,
+      team: updatedUser.team || null,
+      supervisor: updatedUser.supervisor || null
+    } : {
+      id: currentUser._id?.toString() || null,
+      username: updateSet.username || currentUser.username || null
+    };
+
+    return res.json({
+      success: true,
+      message: 'Credenciales actualizadas correctamente',
+      user: responseUser,
+      updated: {
+        username: changedUsername,
+        password: changedPassword
+      }
+    });
+  } catch (error) {
+    console.error('[USERS UPDATE CREDENTIALS] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar credenciales de usuario' });
   }
 });
 

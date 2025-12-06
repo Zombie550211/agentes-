@@ -19,7 +19,8 @@
             min-height: 100vh;
             padding: 40px 20px;
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         body::before {
@@ -352,6 +353,58 @@
         .form-group:hover .tooltip {
             opacity: 1;
         }
+
+        .section-description {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin: -6px 0 24px;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        .form-helper {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #7c828f;
+        }
+
+        .user-summary-card {
+            margin-top: 16px;
+            border-radius: 12px;
+            padding: 18px 20px;
+            background: rgba(102, 126, 234, 0.08);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .user-summary-card.show {
+            display: block;
+            opacity: 1;
+        }
+
+        .user-summary-card h4 {
+            margin-bottom: 10px;
+            font-size: 1rem;
+            color: #1f2937;
+        }
+
+        .user-summary-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px 20px;
+            font-size: 0.9rem;
+            color: #374151;
+        }
+
+        .user-summary-item strong {
+            display: block;
+            font-size: 0.8rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
     <style>
       /* Quitar fondo del área de contenido para que se vea el gradiente del body
@@ -525,6 +578,11 @@
                     </div>
                 </div>
 
+                <div class="user-summary-card" id="editUserSummary">
+                    <h4>Información actual del usuario</h4>
+                    <div class="user-summary-list"></div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="editRole">Nuevo rol</label>
@@ -569,6 +627,83 @@
                 </div>
             </div>
         </section>
+
+        <section id="editCredentialsSection" style="margin-top: 40px; display: none;">
+            <h2>Editar credenciales de usuario</h2>
+            <p class="section-description">Actualiza el nombre de usuario o restablece la contraseña sin eliminar la cuenta existente.</p>
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="editCredentialsUser">Seleccionar usuario</label>
+                        <div class="input-wrapper">
+                            <select id="editCredentialsUser">
+                                <option value="" disabled selected>— Seleccione un usuario —</option>
+                            </select>
+                            <span class="input-icon">👤</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-summary-card" id="editCredentialsSummary">
+                    <h4>Datos registrados</h4>
+                    <div class="user-summary-list"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editNewUsername">Nuevo usuario (opcional)</label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="text" 
+                                id="editNewUsername" 
+                                placeholder="ej: juan.perez"
+                            >
+                            <span class="input-icon">@</span>
+                        </div>
+                        <small class="form-helper">Se aplicará solo si ingresas un valor diferente al actual.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editNewPassword">Nueva contraseña (opcional)</label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="editNewPassword" 
+                                placeholder="Mínimo 8 caracteres"
+                                minlength="8"
+                            >
+                            <span class="input-icon">🔑</span>
+                        </div>
+                        <div class="password-strength">
+                            <div class="password-strength-bar" id="editStrengthBar"></div>
+                        </div>
+                        <small class="form-helper">Si la dejas vacía, la contraseña se mantiene igual.</small>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="editConfirmNewPassword">Confirmar nueva contraseña</label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="editConfirmNewPassword" 
+                                placeholder="Repite la nueva contraseña"
+                                minlength="8"
+                            >
+                            <span class="input-icon">✓</span>
+                        </div>
+                        <small class="form-helper">Necesario solo si escribes una nueva contraseña.</small>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-submit" id="btnUpdateCredentials">
+                        Guardar cambios de credenciales
+                    </button>
+                </div>
+            </div>
+        </section>
             </div>
         </main>
     </div>
@@ -587,22 +722,60 @@
         const editRole = document.getElementById('editRole');
         const editTeam = document.getElementById('editTeam');
         const btnUpdateUserRole = document.getElementById('btnUpdateUserRole');
+        const editCredentialsSection = document.getElementById('editCredentialsSection');
+        const editCredentialsUser = document.getElementById('editCredentialsUser');
+        const editNewUsername = document.getElementById('editNewUsername');
+        const editNewPassword = document.getElementById('editNewPassword');
+        const editConfirmNewPassword = document.getElementById('editConfirmNewPassword');
+        const editStrengthBar = document.getElementById('editStrengthBar');
+        const btnUpdateCredentials = document.getElementById('btnUpdateCredentials');
+        const editUserSummaryCard = document.getElementById('editUserSummary');
+        const editCredentialsSummaryCard = document.getElementById('editCredentialsSummary');
+
+        function updatePasswordStrength(barEl, value) {
+            if (!barEl) return;
+            const val = String(value || '');
+            barEl.className = 'password-strength-bar';
+            if (!val) return;
+            if (val.length < 6) {
+                barEl.classList.add('strength-weak');
+            } else if (val.length < 10) {
+                barEl.classList.add('strength-medium');
+            } else {
+                barEl.classList.add('strength-strong');
+            }
+        }
 
         // Validar fortaleza de contraseña
         password.addEventListener('input', function() {
-            const value = this.value;
-            strengthBar.className = 'password-strength-bar';
-            
-            if (value.length === 0) {
-                strengthBar.className = 'password-strength-bar';
-            } else if (value.length < 6) {
-                strengthBar.className = 'password-strength-bar strength-weak';
-            } else if (value.length < 10) {
-                strengthBar.className = 'password-strength-bar strength-medium';
-            } else {
-                strengthBar.className = 'password-strength-bar strength-strong';
-            }
+            updatePasswordStrength(strengthBar, this.value);
         });
+
+        if (editNewPassword) {
+            editNewPassword.addEventListener('input', function() {
+                updatePasswordStrength(editStrengthBar, this.value);
+                if (!this.value && editConfirmNewPassword) {
+                    editConfirmNewPassword.value = '';
+                    editConfirmNewPassword.setCustomValidity('');
+                } else if (editConfirmNewPassword && editConfirmNewPassword.value) {
+                    editConfirmNewPassword.dispatchEvent(new Event('input'));
+                }
+            });
+        }
+
+        if (editConfirmNewPassword) {
+            editConfirmNewPassword.addEventListener('input', function() {
+                if (!editNewPassword || !editNewPassword.value) {
+                    editConfirmNewPassword.setCustomValidity('');
+                    return;
+                }
+                if (editNewPassword.value !== editConfirmNewPassword.value) {
+                    editConfirmNewPassword.setCustomValidity('Las contraseñas no coinciden');
+                } else {
+                    editConfirmNewPassword.setCustomValidity('');
+                }
+            });
+        }
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -675,6 +848,125 @@
             return fetch(url, finalOptions);
         }
 
+        function populateUserSelect(selectEl, users) {
+            if (!selectEl) return;
+            selectEl.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '— Seleccione un usuario —';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            selectEl.appendChild(placeholder);
+
+            users.forEach((u) => {
+                if (!u || !u.id) return;
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                const baseName = u.name || u.username || 'Sin nombre';
+                const roleLabel = u.role ? ` (${u.role})` : '';
+                opt.textContent = `${baseName}${roleLabel}`;
+                opt.dataset.username = u.username || '';
+                opt.dataset.role = u.role || '';
+                opt.dataset.email = u.email || '';
+                opt.dataset.team = u.team || '';
+                opt.dataset.supervisor = u.supervisor || '';
+                selectEl.appendChild(opt);
+            });
+        }
+
+        function updateUserOptionLabel(userId) {
+            const cache = window.__adminUsersCache || [];
+            const target = cache.find(u => String(u.id) === String(userId));
+            if (!target) return;
+            const selects = [editUserSelect, editCredentialsUser];
+            const baseName = target.name || target.username || 'Sin nombre';
+            const roleLabel = target.role ? ` (${target.role})` : '';
+            selects.forEach((selectEl) => {
+                if (!selectEl) return;
+                const option = Array.from(selectEl.options || []).find(opt => String(opt.value) === String(userId));
+                if (!option) return;
+                option.textContent = `${baseName}${roleLabel}`;
+                option.dataset.username = target.username || '';
+                option.dataset.role = target.role || '';
+                option.dataset.email = target.email || '';
+                option.dataset.team = target.team || '';
+                option.dataset.supervisor = target.supervisor || '';
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function findCachedUser(userId) {
+            const cache = window.__adminUsersCache || [];
+            return cache.find(u => String(u.id) === String(userId)) || null;
+        }
+
+        function renderUserSummary(container, user) {
+            if (!container) return;
+            const listEl = container.querySelector('.user-summary-list');
+            if (!user) {
+                container.classList.remove('show');
+                if (listEl) listEl.innerHTML = '';
+                return;
+            }
+
+            const fields = [
+                { label: 'Nombre', value: user.name || user.username || '—' },
+                { label: 'Usuario', value: user.username || '—' },
+                { label: 'Correo', value: user.email || '—' },
+                { label: 'Rol', value: user.role || '—' },
+                { label: 'Equipo', value: user.team || '—' },
+                { label: 'Supervisor', value: user.supervisor || '—' }
+            ];
+
+            if (listEl) {
+                listEl.innerHTML = fields.map(item => `
+                    <div class="user-summary-item">
+                        <strong>${escapeHtml(item.label)}</strong>
+                        <span>${escapeHtml(item.value)}</span>
+                    </div>
+                `).join('');
+            }
+            container.classList.add('show');
+        }
+
+        function setSelectValueCaseInsensitive(selectEl, value) {
+            if (!selectEl) return;
+            if (!value) {
+                selectEl.selectedIndex = 0;
+                return;
+            }
+            const target = Array.from(selectEl.options || []).find(opt => String(opt.value).toLowerCase() === String(value).toLowerCase());
+            if (target) {
+                selectEl.value = target.value;
+            }
+        }
+
+        function refreshUserDisplays(userId) {
+            if (!userId) return;
+            const user = findCachedUser(userId);
+            if (editUserSelect && String(editUserSelect.value) === String(userId)) {
+                renderUserSummary(editUserSummaryCard, user);
+                if (user) {
+                    setSelectValueCaseInsensitive(editRole, user.role);
+                    setSelectValueCaseInsensitive(editTeam, user.team);
+                }
+            }
+            if (editCredentialsUser && String(editCredentialsUser.value) === String(userId)) {
+                renderUserSummary(editCredentialsSummaryCard, user);
+                if (editNewUsername) {
+                    editNewUsername.placeholder = user?.username || 'Nuevo usuario';
+                }
+            }
+        }
+
         async function initEditUserSection() {
             try {
                 const meResp = await fetchWithAuth('/api/debug/user', { method: 'GET' });
@@ -684,7 +976,8 @@
                 const isAdmin = ['Administrador', 'admin', 'administrador', 'Administrativo'].includes(role);
                 if (!isAdmin) return;
 
-                editUserSection.style.display = 'block';
+                if (editUserSection) editUserSection.style.display = 'block';
+                if (editCredentialsSection) editCredentialsSection.style.display = 'block';
 
                 const agentsResp = await fetchWithAuth('/api/users/admin-list', { method: 'GET' });
 
@@ -692,13 +985,22 @@
                 const agentsData = await agentsResp.json();
                 const agents = (agentsData && agentsData.agents) || [];
 
-                agents.forEach(u => {
-                    if (!u || !u.id) return;
-                    const opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.textContent = (u.name || u.username || '') + (u.role ? ` (${u.role})` : '');
-                    editUserSelect.appendChild(opt);
-                });
+                window.__adminUsersCache = agents.map(u => ({ ...u }));
+
+                populateUserSelect(editUserSelect, agents);
+                populateUserSelect(editCredentialsUser, agents);
+
+                renderUserSummary(editUserSummaryCard, null);
+                renderUserSummary(editCredentialsSummaryCard, null);
+
+                if (editUserSelect) {
+                    editUserSelect.selectedIndex = 0;
+                    editUserSelect.dispatchEvent(new Event('change'));
+                }
+                if (editCredentialsUser) {
+                    editCredentialsUser.selectedIndex = 0;
+                    editCredentialsUser.dispatchEvent(new Event('change'));
+                }
             } catch (e) {
                 console.warn('initEditUserSection error', e);
             }
@@ -727,11 +1029,122 @@
                     alert('❌ Error al actualizar usuario: ' + (data.message || 'Error desconocido'));
                     return;
                 }
+                const cache = window.__adminUsersCache || [];
+                const target = cache.find(u => String(u.id) === String(userId));
+                if (target) {
+                    target.role = newRole;
+                    target.team = newTeam || '';
+                }
+                updateUserOptionLabel(userId);
+                refreshUserDisplays(userId);
                 alert('✅ Usuario actualizado correctamente.');
             } catch (e) {
                 alert('❌ Error al actualizar usuario: ' + e.message);
             }
         });
+
+        if (btnUpdateCredentials) {
+            btnUpdateCredentials.addEventListener('click', async () => {
+                try {
+                    const userId = editCredentialsUser.value;
+                    if (!userId) {
+                        alert('Selecciona un usuario.');
+                        return;
+                    }
+
+                    const cachedUser = findCachedUser(userId);
+                    const requestedUsername = (editNewUsername?.value || '').trim();
+                    const newPassword = editNewPassword?.value || '';
+                    const confirmPasswordValue = editConfirmNewPassword?.value || '';
+
+                    if (!requestedUsername && !newPassword) {
+                        alert('Ingresa un nuevo usuario o una nueva contraseña para continuar.');
+                        return;
+                    }
+
+                    if (newPassword && newPassword.length < 8) {
+                        alert('La nueva contraseña debe tener al menos 8 caracteres.');
+                        return;
+                    }
+
+                    if (newPassword && newPassword !== confirmPasswordValue) {
+                        alert('Las contraseñas no coinciden.');
+                        return;
+                    }
+
+                    const payload = {};
+                    if (requestedUsername && (!cachedUser || requestedUsername !== cachedUser.username)) {
+                        payload.username = requestedUsername;
+                    }
+                    if (newPassword) {
+                        payload.password = newPassword;
+                    }
+
+                    if (Object.keys(payload).length === 0) {
+                        alert('No hay cambios por aplicar.');
+                        return;
+                    }
+
+                    const resp = await fetchWithAuth(`/api/users/${encodeURIComponent(userId)}/credentials`, {
+                        method: 'PUT',
+                        body: JSON.stringify(payload)
+                    });
+
+                    let data = null;
+                    try {
+                        data = await resp.json();
+                    } catch (err) {
+                        console.warn('Error parsing response JSON:', err);
+                    }
+
+                    if (!resp.ok || !data?.success) {
+                        const message = data?.message || 'Error desconocido al actualizar credenciales';
+                        alert('❌ ' + message);
+                        return;
+                    }
+
+                    const updatedInfo = data?.user || null;
+                    const cache = window.__adminUsersCache || [];
+                    const target = cache.find(u => String(u.id) === String(userId));
+                    if (target) {
+                        if (updatedInfo) {
+                            Object.assign(target, {
+                                username: updatedInfo.username ?? target.username,
+                                name: updatedInfo.name ?? target.name,
+                                email: updatedInfo.email ?? target.email,
+                                role: updatedInfo.role ?? target.role,
+                                team: updatedInfo.team ?? target.team,
+                                supervisor: updatedInfo.supervisor ?? target.supervisor
+                            });
+                        } else {
+                            if (payload.username) {
+                                target.username = payload.username;
+                            }
+                        }
+                    }
+
+                    updateUserOptionLabel(userId);
+                    refreshUserDisplays(userId);
+
+                    if (editNewUsername) {
+                        editNewUsername.value = '';
+                        editNewUsername.placeholder = updatedInfo?.username || payload.username || cachedUser?.username || 'Nuevo usuario';
+                    }
+                    if (editNewPassword) {
+                        editNewPassword.value = '';
+                        updatePasswordStrength(editStrengthBar, '');
+                    }
+                    if (editConfirmNewPassword) {
+                        editConfirmNewPassword.value = '';
+                        editConfirmNewPassword.setCustomValidity('');
+                    }
+
+                    alert('✅ Credenciales actualizadas correctamente.');
+                } catch (error) {
+                    alert('❌ Error al actualizar credenciales: ' + error.message);
+                }
+            });
+        }
 
         // Eliminar usuario seleccionado (solo admins)
         const btnDeleteUser = document.getElementById('btnDeleteUser');
@@ -753,14 +1166,60 @@
                     return;
                 }
 
-                // Remover opción del select
-                const opt = editUserSelect.querySelector(`option[value="${userId}"]`);
-                if (opt) opt.remove();
+                // Remover opción de ambos selects
+                [editUserSelect, editCredentialsUser].forEach((selectEl) => {
+                    if (!selectEl) return;
+                    const option = Array.from(selectEl.options || []).find(opt => String(opt.value) === String(userId));
+                    if (option) option.remove();
+                    if (String(selectEl.value) === String(userId)) {
+                        selectEl.selectedIndex = 0;
+                        selectEl.dispatchEvent(new Event('change'));
+                    }
+                });
+
+                if (Array.isArray(window.__adminUsersCache)) {
+                    window.__adminUsersCache = window.__adminUsersCache.filter(u => String(u.id) !== String(userId));
+                }
                 alert('✅ Usuario eliminado correctamente.');
             } catch (e) {
                 alert('❌ Error al eliminar usuario: ' + e.message);
             }
         });
+
+        if (editUserSelect) {
+            editUserSelect.addEventListener('change', () => {
+                const userId = editUserSelect.value;
+                const user = findCachedUser(userId);
+                renderUserSummary(editUserSummaryCard, user);
+                if (user) {
+                    setSelectValueCaseInsensitive(editRole, user.role);
+                    setSelectValueCaseInsensitive(editTeam, user.team);
+                } else {
+                    setSelectValueCaseInsensitive(editRole, '');
+                    setSelectValueCaseInsensitive(editTeam, '');
+                }
+            });
+        }
+
+        if (editCredentialsUser) {
+            editCredentialsUser.addEventListener('change', () => {
+                const userId = editCredentialsUser.value;
+                const user = findCachedUser(userId);
+                renderUserSummary(editCredentialsSummaryCard, user);
+                if (editNewUsername) {
+                    editNewUsername.value = '';
+                    editNewUsername.placeholder = user?.username || 'Nuevo usuario';
+                }
+                if (editNewPassword) {
+                    editNewPassword.value = '';
+                    updatePasswordStrength(editStrengthBar, '');
+                }
+                if (editConfirmNewPassword) {
+                    editConfirmNewPassword.value = '';
+                    editConfirmNewPassword.setCustomValidity('');
+                }
+            });
+        }
 
         document.addEventListener('DOMContentLoaded', initEditUserSection);
 
