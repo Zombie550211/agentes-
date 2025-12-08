@@ -332,6 +332,69 @@
     cleanHistoricalData
   };
 
+  // Compatibilidad: crear alias `window.Teams` con las funciones y utilidades esperadas
+  // Muchos scripts antiguos usan `window.Teams` mientras que la definición nueva expone `window.TeamsAPI`.
+  // Aquí añadimos wrappers mínimos y utilidades de normalización para mantener compatibilidad hacia atrás.
+  (function exposeLegacyTeams() {
+    const norm = (s) => {
+      try { return String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().replace(/\s+/g,' '); } catch { return String(s||'').toLowerCase().trim(); }
+    };
+    const canonicalFromName = (name) => {
+      try { return String(name||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'').replace(/[^a-z0-9]+/g,'').trim(); } catch { return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'').trim(); }
+    };
+
+    const getAgentsBySupervisor = (supCanon) => {
+      if (!supCanon) return [];
+      const teams = Object.values(TEAMS);
+      for (const t of teams) {
+        const supNames = [t.supervisorName, t.supervisor].filter(Boolean);
+        for (const s of supNames) {
+          if (canonicalFromName(s) === canonicalFromName(supCanon)) {
+            // Return only the agents array (exclude supervisor username itself)
+            return Array.isArray(t.agents) ? t.agents.slice() : [];
+          }
+        }
+      }
+      return [];
+    };
+
+    const getDisplayName = (canonName) => {
+      if (!canonName) return '';
+      // Buscar en teams por agente canonical y devolver nombre amigable si existe
+      for (const tName of Object.keys(TEAMS)) {
+        const t = TEAMS[tName];
+        if (Array.isArray(t.agents)) {
+          for (const a of t.agents) {
+            if (canonicalFromName(a) === canonicalFromName(canonName)) return a;
+          }
+        }
+      }
+      // fallback: devolver el input con capitalización básica
+      return String(canonName).split(' ').map(w => w ? (w[0].toUpperCase()+w.slice(1)) : '').join(' ');
+    };
+
+    const getTeamForUser = (user) => {
+      const uname = String(user || '').toLowerCase();
+      for (const [k, t] of Object.entries(TEAMS)) {
+        if (t.agents && t.agents.map(a => String(a||'').toLowerCase()).includes(uname)) return k;
+        if (String(t.supervisor||'').toLowerCase() === uname) return k;
+      }
+      return '';
+    };
+
+    // Exponer alias minimal
+    window.Teams = {
+      ...window.TeamsAPI,
+      norm,
+      canonicalFromName,
+      getAgentsBySupervisor,
+      getDisplayName,
+      getTeamForUser
+    };
+
+    console.log('[TEAMS] Wrapper legacy `window.Teams` expuesto (alias a TeamsAPI)');
+  })();
+
   console.log('[TEAMS] Sistema inicializado correctamente');
   console.log('[TEAMS] Equipos disponibles:', Object.keys(TEAMS).length);
 })();

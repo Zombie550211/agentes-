@@ -51,6 +51,7 @@ const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const rankingRoutes = require('./routes/ranking');
 const equipoRoutes = require('./routes/equipoRoutes');
+let teamsRoutes = null;
 const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
 const facturacionRoutes = require('./routes/facturacion');
 let mediaProxy = null;
@@ -64,6 +65,17 @@ try {
   debugRoutes = require('./routes/debug');
 } catch (e) {
   console.warn('[INIT] debug route not available:', e.message);
+}
+let debugNoAuthRoutes = null;
+try {
+  debugNoAuthRoutes = require('./routes/debug_noauth');
+} catch (e) {
+  console.warn('[INIT] debug_noauth route not available:', e.message);
+}
+try {
+  teamsRoutes = require('./routes/teams');
+} catch (e) {
+  console.warn('[INIT] teams route not available:', e.message);
 }
 
 // Configuración de JWT
@@ -139,6 +151,12 @@ app.use('/api', (req, res, next) => {
   } catch (e) { console.warn('[API DEBUG] Error logging request', e); }
   next();
 });
+
+// Montar ruta de teams (autenticada)
+if (teamsRoutes) {
+  app.use('/api/teams', teamsRoutes);
+  console.log('[INIT] Ruta /api/teams montada');
+}
 
 // La conexión de Mongoose ahora es gestionada centralmente por config/db.js
 // para permitir el fallback a una base de datos local y el modo offline.
@@ -1170,6 +1188,11 @@ app.use('/api', apiRoutes); // Esta debe ir AL FINAL porque es la más genérica
 if (mediaProxy) app.use('/media/proxy', mediaProxy);
 // Debug routes (solo lectura) para diagnóstico
 if (debugRoutes) app.use('/api/debug', debugRoutes);
+// Ruta temporal NO autenticada para debug local (solo si no estamos en producción)
+if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
+  app.use('/api/debug-noauth', debugNoAuthRoutes);
+  console.log('[SERVER] Ruta temporal /api/debug-noauth montada (solo NO production)');
+}
 // Migrate routes (solo admins) para migración de datos
 try {
   const migrateRoutes = require('./routes/migrate');
