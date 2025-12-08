@@ -467,21 +467,76 @@ v   <html lang="es">
                   }
                   return;
                 }
+                // Aplicar filtro por defecto: mostrar solo leads del mes actual
+                // Para ver todos los leads (comportamiento anterior) establecer `window.__renderShowAll = true` desde la consola o desde otra parte del frontend.
+                function _parseDateFromLead(l) {
+                  try {
+                    const s = String(l?.dia_venta || l?.fecha || l?.createdAt || l?.created_at || '').trim();
+                    if (!s) return null;
+                    // Formato ISO YYYY-MM-DD
+                    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (isoMatch) return new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00`);
+                    // Formato DD/MM/YYYY
+                    const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+                    if (dmy) return new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}T00:00:00`);
+                    // Try Date parse for other formats
+                    const dt = new Date(s);
+                    if (!isNaN(dt)) return dt;
+                  } catch(e){}
+                  return null;
+                }
+                function _isInCurrentMonth(l) {
+                  const d = _parseDateFromLead(l);
+                  if (!d) return false;
+                  const now = new Date();
+                  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                }
+
                 // Vista Team Líneas
                 try{
                   if (isTeamLineas()){
                     console.log('[Team Líneas] Aplicando vista Team Líneas');
                     applyHeader();
-                    const arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
+                    let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
+                    // Guardar lista completa para usos futuros
+                    try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
+                    // Si no se fuerza ver todo, filtrar al mes actual
+                    if (!window.__renderShowAll) {
+                      try {
+                        const filtered = Array.isArray(arr) ? arr.filter(_isInCurrentMonth) : [];
+                        window.ultimaListaLeads = filtered;
+                        arr = filtered;
+                      } catch(e) { console.warn('Error filtrando leads por mes actual', e); }
+                    } else {
+                      window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
+                    }
                     renderRows(arr);
                     return;
                   }
                 }catch(err){ console.warn('[Team Líneas render] error', err); }
                 // Fallback al render original si no está suspendido
                 if (typeof _renderFn === 'function') {
-                  const r = _renderFn(leads);
-                  setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
-                  return r;
+                  try {
+                    let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
+                    try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
+                    if (!window.__renderShowAll) {
+                      try {
+                        const filtered = Array.isArray(arr) ? arr.filter(_isInCurrentMonth) : [];
+                        window.ultimaListaLeads = filtered;
+                        arr = filtered;
+                      } catch(e) { console.warn('Error filtrando leads por mes actual (fallback)', e); }
+                    } else {
+                      window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
+                    }
+                    const r = _renderFn(arr);
+                    setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
+                    return r;
+                  } catch(e) {
+                    console.warn('[Render fallback] error applying default month filter', e);
+                    const r = _renderFn(leads);
+                    setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
+                    return r;
+                  }
                 }
               } catch(e){ console.warn('[Render wrapper] error', e); }
             }
@@ -5483,37 +5538,89 @@ v   <html lang="es">
           if (!ok) { throw lastErr || new Error('No se pudo actualizar el STATUS'); }
           // Actualizar SOLO la fila afectada y recolorear
           try {
-            // actualizar en memoria si existe
+            // PASO 0: Deshabilitar temporalmente el observer para evitar que se dispare durante nuestra actualización
+            const wasObservingBefore = _statusObserver ? true : false;
+            if (_statusObserver) {
+              try { _statusObserver.disconnect(); } catch {}
+              console.log('[STATUS] Observer deshabilitado temporalmente');
+            }
+            
+            // PASO 1: actualizar en memoria PRIMERO
             const lead = (window.ultimaListaLeads||[]).find(l=>String((typeof getLeadId==='function')?getLeadId(l):l.id)===String(id));
-            if (lead) { try { lead.status = newStatus; } catch(_) {} }
-            // localizar fila
+            if (lead) { try { lead.status = newStatus; console.log('[STATUS] Memoria actualizada:', { id, status: newStatus }); } catch(_) {} }
+            
+            // PASO 2: localizar fila
             const tr = document.querySelector(`tr[data-lead-id="${id}"]`) || (function(){
               try{
                 const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
                 return sel ? sel.closest('tr') : null;
               }catch{ return null; }
             })();
+            
             if (tr) {
-              // celda de STATUS (9na)
+              console.log('[STATUS] Actualizando fila DOM para ID:', id);
               const td = tr.children && tr.children[8] ? tr.children[8] : tr.querySelector('td.status-col, td:nth-child(9)');
-              if (td) { try { td.dataset.status = String(newStatus||''); } catch{} }
-              // sincronizar valor del select en UI
-              try {
-                const sel = tr.querySelector('select.status-select');
-                if (sel) sel.value = String(newStatus||'');
-              } catch {}
-              // aplicar clase/estilos
-              try { _statusPainting = true; applyRowClass(tr, newStatus); } finally { _statusPainting = false; }
+              
+              if (td) {
+                // PASO 3: Actualizar TODOS los atributos data-* de la celda
+                try { 
+                  td.dataset.status = String(newStatus||'').trim().toLowerCase();
+                  td.setAttribute('data-status', String(newStatus||'').trim().toLowerCase());
+                  console.log('[STATUS] Dataset actualizado:', { status: td.dataset.status });
+                } catch(e) { console.warn('[STATUS] Error actualizando dataset:', e); }
+                
+                // PASO 4: actualizar TODOS los selects en la celda (puede haber múltiples)
+                try {
+                  const sels = td.querySelectorAll('select.status-select');
+                  sels.forEach(sel => { 
+                    sel.value = String(newStatus||'').trim();
+                    sel.disabled = false;
+                    sel.removeAttribute('disabled');
+                    console.log('[STATUS] Select actualizado:', { value: sel.value });
+                  });
+                } catch(e) { console.warn('[STATUS] Error actualizando select:', e); }
+                
+                // PASO 5: Forzar reflow para asegurar que el DOM se actualice
+                void tr.offsetHeight;
+                
+                // PASO 6: Aplicar clase/estilos INLINE
+                try { 
+                  _statusPainting = true; 
+                  applyRowClass(tr, newStatus); 
+                  console.log('[STATUS] Clase y color aplicados:', newStatus);
+                } finally { 
+                  _statusPainting = false; 
+                }
+              }
             }
-            // reactivar select SIEMPRE
+            
+            // PASO 7: reactivar TODOS los selects en la fila por si acaso
             try{
               const row = document.querySelector(`tr[data-lead-id="${id}"]`) || document;
               const sels = row.querySelectorAll ? row.querySelectorAll('select.status-select') : [];
-              sels.forEach(s=>{ try{ s.disabled = false; s.removeAttribute('disabled'); }catch{} });
-            }catch{}
-            // mantener colores en el resto
-            try { if (typeof debouncedApply==='function') debouncedApply(); } catch{}
-          } catch(_) {}
+              sels.forEach(s=>{ 
+                try{ 
+                  s.disabled = false; 
+                  s.removeAttribute('disabled');
+                }catch{} 
+              });
+              console.log('[STATUS] Selects reactivados:', sels.length);
+            }catch(e){ console.warn('[STATUS] Error reactivando selects:', e); }
+            
+            // PASO 8: Re-habilitar el observer DESPUÉS de completar todos los cambios
+            if (wasObservingBefore && _statusObserver === null) {
+              setTimeout(() => {
+                try {
+                  installStatusObserver();
+                  console.log('[STATUS] Observer re-habilitado');
+                } catch(e) {
+                  console.warn('[STATUS] Error re-habilitando observer:', e);
+                }
+              }, 100);
+            }
+            
+            console.log('[STATUS] Actualización completada sin interferencia de observers');
+          } catch(e) { console.warn('[STATUS] Error en actualización POST-servidor:', e); }
         }catch(e){
           console.warn('[STATUS] Falló actualización:', e);
           alert('No se pudo actualizar el STATUS: ' + (e?.message||e));

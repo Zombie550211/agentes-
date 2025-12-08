@@ -1901,15 +1901,17 @@
         return;
       }
       
-      // Destruir gráfico existente si existe
-      if (salesChartRef) {
-        try {
-          salesChartRef.destroy();
-        } catch (e) {
-          console.warn('Error al destruir salesChart existente:', e);
+      // Destruir gráfico existente si existe (manejar registro interno de Chart.js)
+      try {
+        const existing = Chart.getChart(chartElement);
+        if (existing) {
+          existing.destroy();
         }
+      } catch (e) {
+        console.warn('Error al destruir gráfico salesChart desde registry:', e);
       }
-      
+      salesChartRef = null;
+
       const ctx = chartElement.getContext('2d');
       
       // Preparar datos por mes (últimos 6 meses)
@@ -1977,22 +1979,18 @@
         return;
       }
 
-      // Destruir gráfico existente si existe
-      if (chartElement.__chartInstance) {
-        try {
-          chartElement.__chartInstance.destroy();
-        } catch (e) {
-          console.warn('Error al destruir teamsChart existente:', e);
+      // Destruir gráfico existente si existe (usar Chart.getChart para cubrir todos los casos)
+      try {
+        const existing = Chart.getChart(chartElement);
+        if (existing) {
+          existing.destroy();
         }
+      } catch (e) {
+        console.warn('Error al destruir gráfico teamsChart desde registry:', e);
       }
-      if (teamsChartRefMain) {
-        try {
-          teamsChartRefMain.destroy();
-        } catch (e) {
-          console.warn('Error al destruir teamsChart existente:', e);
-        }
-        teamsChartRefMain = null;
-      }
+      // Limpieza de referencias locales
+      try { if (chartElement.__chartInstance) chartElement.__chartInstance = null; } catch(_) {}
+      try { if (teamsChartRefMain) { teamsChartRefMain = null; } } catch(_) {}
 
       const ctx = chartElement.getContext('2d');
 

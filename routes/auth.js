@@ -421,14 +421,14 @@ router.get('/me', protect, async (req, res) => {
  * @desc Verificar autenticación desde el servidor (sin protección)
  * @access Public
  */
-router.get('/verify-server', (req, res) => {
+router.get('/verify-server', async (req, res) => {
   console.log('[VERIFY-SERVER] Verificando autenticación...');
   console.log('[VERIFY-SERVER] Cookies:', req.cookies);
   console.log('[VERIFY-SERVER] Authorization header:', req.headers.authorization);
-  
+
   // Verificar si hay token en cookies o en el header Authorization
   let token = req.cookies?.token;
-  
+
   // Si no hay token en cookies, verificar en el header Authorization
   if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     token = req.headers.authorization.split(' ')[1];
@@ -450,18 +450,43 @@ router.get('/verify-server', (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('[VERIFY-SERVER] Token válido para usuario:', decoded.username);
 
+    // Construir respuesta con datos del JWT
+    const userData = {
+      id: decoded.id,
+      username: decoded.username,
+      role: decoded.role,
+      team: decoded.team,
+      supervisor: decoded.supervisor,
+      permissions: decoded.permissions || []
+    };
+
+    // Intentar obtener información adicional del usuario desde BD (avatar, etc.)
+    try {
+      const db = getDb();
+      if (!db) {
+        console.log('[VERIFY-SERVER] BD no disponible para obtener avatar');
+      } else {
+        const usersCollection = db.collection('users');
+        const userDoc = await usersCollection.findOne(
+          { username: decoded.username },
+          { projection: { avatarUrl: 1, avatarFileId: 1 } }
+        );
+
+        if (userDoc) {
+          if (userDoc.avatarUrl) userData.avatarUrl = userDoc.avatarUrl;
+          if (userDoc.avatarFileId) userData.avatarFileId = userDoc.avatarFileId;
+          console.log('[VERIFY-SERVER] Avatar cargado del servidor para usuario:', decoded.username);
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[VERIFY-SERVER] Error obteniendo avatar de BD:', dbErr.message);
+    }
+
     res.json({
       success: true,
       message: 'Token válido',
       authenticated: true,
-      user: {
-        id: decoded.id,
-        username: decoded.username,
-        role: decoded.role,
-        team: decoded.team,
-        supervisor: decoded.supervisor,
-        permissions: decoded.permissions || []
-      }
+      user: userData
     });
   } catch (error) {
     console.error('[VERIFY-SERVER] Error verificando token:', error.message);

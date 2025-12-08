@@ -508,17 +508,69 @@ router.put('/leads/:id/status', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'status requerido' });
     }
 
-    const collection = db.collection('costumers');
+    // Attempt to update across all collections named costumers* (some deployments split collections)
+    let updated = false;
+    let updatedCollection = null;
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
-    const filter = objId ? { _id: objId } : { _id: recordId };
-    const result = await collection.updateOne(filter, { $set: { status: newStatus } });
 
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+    // Candidate filters to try: by ObjectId or by string id field
+    const tryFiltersBase = objId ? [{ _id: objId }, { _id: recordId }, { id: recordId }] : [{ _id: recordId }, { id: recordId }];
+    // Añadir filtros alternativos comunes (id_cliente, leadId, clienteId, etc.)
+    const altKeys = ['leadId','lead_id','id_cliente','clienteId','cliente_id','clientId','client_id','cliente','idCliente'];
+    const tryFilters = tryFiltersBase.concat(altKeys.map(k => ({ [k]: recordId })));
+
+    // First try the canonical 'costumers' collection for speed, with verbose logging to aid debugging
+    try {
+      const primaryCol = db.collection('costumers');
+      for (const f of tryFilters) {
+        try {
+          const r = await primaryCol.updateOne(f, { $set: { status: newStatus } });
+          console.log('[API UPDATE STATUS] Tried primary costumers filter', f, 'matched:', r && r.matchedCount ? r.matchedCount : 0);
+          if (r && r.matchedCount && r.matchedCount > 0) {
+            updated = true; updatedCollection = 'costumers'; break;
+          }
+        } catch (innerE) {
+          console.warn('[API UPDATE STATUS] primaryCol.updateOne error with filter', f, innerE?.message || innerE);
+        }
+      }
+    } catch (e) {
+      console.warn('[API UPDATE STATUS] primary collection check failed:', e?.message || e);
+      // continue to multi-collection search
     }
 
-    return res.json({ success: true, message: 'Status actualizado', data: { id: recordId, status: newStatus } });
+    if (!updated) {
+      // Search other collections matching costumers*
+      const collections = await db.listCollections().toArray();
+      const colNames = collections.map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+      for (const colName of colNames) {
+        try {
+          const col = db.collection(colName);
+          for (const f of tryFilters) {
+            try {
+              const r = await col.updateOne(f, { $set: { status: newStatus } });
+              console.log('[API UPDATE STATUS] Tried', colName, 'filter', f, 'matched:', r && r.matchedCount ? r.matchedCount : 0);
+              if (r && r.matchedCount && r.matchedCount > 0) {
+                updated = true; updatedCollection = colName; break;
+              }
+            } catch (innerE) {
+              console.warn('[API UPDATE STATUS] updateOne error in', colName, 'filter', f, innerE?.message || innerE);
+            }
+          }
+        } catch (e) {
+          console.warn('[API UPDATE STATUS] Error accessing collection', colName, e?.message || e);
+        }
+        if (updated) break;
+      }
+    }
+
+    if (!updated) {
+      console.warn('[API UPDATE STATUS] No collection matched for id:', recordId, 'triedFiltersCount:', tryFilters.length);
+      // Devolver 404 con hint corto (no exponer datos internos)
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado', triedFilters: tryFilters.length });
+    }
+
+    return res.json({ success: true, message: 'Status actualizado', data: { id: recordId, status: newStatus, collection: updatedCollection } });
   } catch (error) {
     console.error('[API UPDATE STATUS] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
@@ -527,7 +579,7 @@ router.put('/leads/:id/status', protect, async (req, res) => {
 
 /**
  * @route GET /api/leads/:id
- * @desc Obtener un lead por ID
+ * @desc Obtener un lead por ID (busca en TODAS las colecciones costumers*)
  * @access Private
  */
 router.get('/leads/:id', protect, async (req, res, next) => {
@@ -545,25 +597,61 @@ router.get('/leads/:id', protect, async (req, res, next) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const collection = db.collection('costumers');
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
-    // Buscar por ObjectId o por string
+    // Buscar en TODAS las colecciones costumers* (no solo en 'costumers')
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
+    
+    console.log(`[GET /leads/:id] Buscando lead ${recordId} en ${costumersCollections.length} colecciones:`, costumersCollections);
+    
     let lead = null;
-    if (objId) {
-      lead = await collection.findOne({ _id: objId });
-    }
-    if (!lead) {
-      lead = await collection.findOne({ _id: recordId });
+    let foundInCollection = null;
+    
+    // Buscar en cada colección
+    for (const colName of costumersCollections) {
+      const collection = db.collection(colName);
+      
+      // Intenta buscar por ObjectId primero
+      if (objId) {
+        lead = await collection.findOne({ _id: objId });
+        if (lead) {
+          foundInCollection = colName;
+          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por ObjectId`);
+          break;
+        }
+      }
+      
+      // Luego por string ID
+      if (!lead) {
+        lead = await collection.findOne({ _id: recordId });
+        if (lead) {
+          foundInCollection = colName;
+          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por string ID`);
+          break;
+        }
+      }
+      
+      // También buscar por campo 'id' (por si acaso)
+      if (!lead) {
+        lead = await collection.findOne({ id: recordId });
+        if (lead) {
+          foundInCollection = colName;
+          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por campo 'id'`);
+          break;
+        }
+      }
     }
 
     if (!lead) {
+      console.warn(`[GET /leads/:id] Lead ${recordId} no encontrado en ninguna colección`);
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
-    console.log('[GET /leads/:id] Lead encontrado, tiene notas:', Array.isArray(lead.notas) ? lead.notas.length : 'no');
-    return res.json({ success: true, data: lead, lead: lead });
+    console.log(`[GET /leads/:id] Lead encontrado en ${foundInCollection}, tiene notas:`, Array.isArray(lead.notas) ? lead.notas.length : 'no');
+    return res.json({ success: true, data: lead, lead: lead, foundInCollection });
   } catch (error) {
     console.error('[API GET LEAD] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
@@ -603,23 +691,43 @@ router.put('/leads/:id', protect, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
     }
 
-    const collection = db.collection('costumers');
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
-    // Intentar actualizar por ObjectId primero
-    let result = null;
-    if (objId) {
-      result = await collection.updateOne({ _id: objId }, { $set: updateData });
-    }
+    // Buscar y actualizar en TODAS las colecciones costumers*
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
     
-    // Si no se encontró, intentar por string
-    if (!result || result.matchedCount === 0) {
-      result = await collection.updateOne({ _id: recordId }, { $set: updateData });
+    let result = null;
+    let updatedCollection = null;
+    
+    for (const colName of costumersCollections) {
+      const collection = db.collection(colName);
+      
+      // Intentar actualizar por ObjectId primero
+      if (objId) {
+        result = await collection.updateOne({ _id: objId }, { $set: updateData });
+        if (result && result.matchedCount > 0) {
+          updatedCollection = colName;
+          console.log(`[PUT /leads/:id] Lead actualizado en ${colName} por ObjectId`);
+          break;
+        }
+      }
+      
+      // Si no se encontró, intentar por string ID
+      if (!result || result.matchedCount === 0) {
+        result = await collection.updateOne({ _id: recordId }, { $set: updateData });
+        if (result && result.matchedCount > 0) {
+          updatedCollection = colName;
+          console.log(`[PUT /leads/:id] Lead actualizado en ${colName} por string ID`);
+          break;
+        }
+      }
     }
 
     if (!result || result.matchedCount === 0) {
-      console.log('[PUT /leads/:id] Lead no encontrado');
+      console.log('[PUT /leads/:id] Lead no encontrado en ninguna colección');
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
@@ -627,6 +735,7 @@ router.put('/leads/:id', protect, async (req, res, next) => {
     if (updateData.notas && global.io) {
       try {
         // Obtener info del lead para saber quién es el dueño
+        const collection = db.collection(updatedCollection || 'costumers');
         const lead = await collection.findOne(objId ? { _id: objId } : { _id: recordId });
         if (lead) {
           const ownerId = lead.agenteId || lead.agente || lead.odigo || lead.createdBy;
@@ -650,11 +759,12 @@ router.put('/leads/:id', protect, async (req, res, next) => {
       }
     }
 
-    console.log('[PUT /leads/:id] Actualizado correctamente. matchedCount:', result.matchedCount, 'modifiedCount:', result.modifiedCount);
+    console.log('[PUT /leads/:id] Actualizado correctamente en', updatedCollection, '. matchedCount:', result.matchedCount, 'modifiedCount:', result.modifiedCount);
     return res.json({ 
       success: true, 
       message: 'Lead actualizado correctamente', 
-      data: { id: recordId, ...updateData } 
+      data: { id: recordId, ...updateData },
+      updatedCollection
     });
   } catch (error) {
     console.error('[API UPDATE LEAD] Error:', error);
@@ -1513,5 +1623,89 @@ router.delete('/users/:id', protect, async (req, res) => {
   } catch (error) {
     console.error('[USERS DELETE] Error:', error);
     return res.status(500).json({ success: false, message: 'Error al eliminar usuario' });
+  }
+});
+
+// ========== ENDPOINT DE DIAGNÓSTICO TEMPORAL ==========
+// GET /api/debug/search-lead/:id
+// Búsqueda exhaustiva de un lead en todas las colecciones (para diagnosticar dónde está)
+router.get('/debug/search-lead/:id', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'No DB connection' });
+
+    const recordId = req.params.id;
+    if (!recordId) return res.status(400).json({ success: false, message: 'ID required' });
+
+    console.log('[DEBUG SEARCH] Buscando lead con id:', recordId);
+
+    // Preparar filtros a probar
+    let objId = null;
+    try { objId = new ObjectId(recordId); } catch { objId = null; }
+    const filters = objId
+      ? [{ _id: objId }, { _id: recordId }, { id: recordId }]
+      : [{ _id: recordId }, { id: recordId }];
+    const altKeys = ['leadId','lead_id','id_cliente','clienteId','cliente_id','clientId','client_id','cliente','idCliente','numero_cuenta','id_cuenta'];
+    filters.push(...altKeys.map(k => ({ [k]: recordId })));
+
+    const results = {
+      id: recordId,
+      found: false,
+      collection: null,
+      document: null,
+      searchedCollections: [],
+      filtersTried: filters.length,
+      details: []
+    };
+
+    // Listar todas las colecciones
+    const collections = await db.listCollections().toArray();
+    const colNames = collections.map(c => c.name);
+    console.log('[DEBUG SEARCH] Colecciones disponibles:', colNames);
+
+    // Buscar en todas las colecciones (costumers* primero, luego otras)
+    const costumerCols = colNames.filter(name => /^costumers(_|$)/i.test(name));
+    const otherCols = colNames.filter(name => !/^costumers(_|$)/i.test(name) && name !== 'users');
+    const searchOrder = [...costumerCols, ...otherCols];
+
+    for (const colName of searchOrder) {
+      try {
+        const col = db.collection(colName);
+        results.searchedCollections.push(colName);
+
+        for (const f of filters) {
+          try {
+            const found = await col.findOne(f);
+            if (found) {
+              results.found = true;
+              results.collection = colName;
+              results.document = {
+                _id: found._id ? found._id.toString ? found._id.toString() : found._id : null,
+                nombre_cliente: found.nombre_cliente || null,
+                numero_cuenta: found.numero_cuenta || null,
+                telefono_principal: found.telefono_principal || null,
+                status: found.status || null,
+                dia_venta: found.dia_venta || null,
+                agente: found.agente || found.agenteNombre || null
+              };
+              results.details.push(`Encontrado en ${colName} con filtro ${JSON.stringify(f)}`);
+              console.log('[DEBUG SEARCH] ✓ Encontrado en', colName);
+              return res.json({ success: true, ...results });
+            }
+          } catch (e) {
+            results.details.push(`Error en ${colName} filtro ${JSON.stringify(f)}: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        console.warn('[DEBUG SEARCH] Error accediendo colección', colName, e.message);
+        results.details.push(`Error accediendo ${colName}: ${e.message}`);
+      }
+    }
+
+    console.log('[DEBUG SEARCH] ✗ Lead NO ENCONTRADO en ninguna colección');
+    return res.json({ success: false, message: 'Lead no encontrado en ninguna colección', ...results });
+  } catch (error) {
+    console.error('[DEBUG SEARCH] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error en búsqueda', error: error.message });
   }
 });

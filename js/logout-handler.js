@@ -12,13 +12,31 @@
     
     // Confirmar logout
     if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      // Limpiar localStorage y sessionStorage
+      // Guardar los avatares locales ANTES de limpiar localStorage
+      let savedAvatars = null;
+      try {
+        const raw = localStorage.getItem('sidebarUserPhotos');
+        if (raw) {
+          savedAvatars = JSON.parse(raw);
+        }
+      } catch (_) {}
+      
+      // Limpiar localStorage de sesión/autenticación ÚNICAMENTE
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('username');
       localStorage.removeItem('role');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      
+      // Restaurar los avatares guardados para que persistan
+      if (savedAvatars) {
+        try {
+          localStorage.setItem('sidebarUserPhotos', JSON.stringify(savedAvatars));
+        } catch (_) {}
+      }
       
       // Limpiar cookies llamando al endpoint de logout
       fetch('/api/auth/logout', {

@@ -514,6 +514,25 @@
                     console.log('[LOGIN] Token guardado:', data.token.substring(0, 20) + '...');
                     console.log('[LOGIN] Usuario guardado:', userInfo);
 
+                    // Intentar obtener info completa del servidor (avatar, fileId) y actualizar almacenamiento
+                    try {
+                      const vs = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
+                      if (vs && vs.ok) {
+                        try {
+                          const vdata = await vs.json();
+                          if (vdata && vdata.user) {
+                            const merged = Object.assign({}, userInfo, vdata.user);
+                            storage.setItem('user', JSON.stringify(merged));
+                            console.log('[LOGIN] Información de usuario actualizada con datos del servidor', merged);
+                          }
+                        } catch(e) {
+                          console.warn('[LOGIN] No se pudo parsear respuesta de verify-server', e);
+                        }
+                      }
+                    } catch(e) {
+                      console.warn('[LOGIN] verify-server request failed', e);
+                    }
+
                     messageDiv.textContent = '¡Inicio de sesión exitoso! Redirigiendo...';
                     messageDiv.className = 'alert alert-success';
 
