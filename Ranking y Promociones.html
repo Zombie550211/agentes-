@@ -3052,5 +3052,160 @@
       if (next) next.addEventListener('click', () => document.dispatchEvent(new CustomEvent('rank-nav', { detail: { dir: 1 } })));
     });
   </script>
+
+  <!-- Barra inferior: Roles y Avatares (Backoffice / Supervisor / Administrador) -->
+  <style>
+    .role-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.98);
+      border: 1px solid #e6edf3;
+      box-shadow: 0 6px 30px rgba(2,6,23,0.06);
+      padding: 10px 14px;
+      border-radius: 12px;
+      z-index: 3000;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      max-width: calc(100% - 40px);
+      overflow: auto;
+    }
+    .role-group { display:flex; flex-direction:column; align-items:center; min-width:120px; }
+    .role-label { font-size:12px; color:#64748b; margin-bottom:6px; font-weight:600; text-transform:capitalize; }
+    .avatars-row { display:flex; gap:8px; align-items:center; }
+    .role-avatar { width:40px; height:40px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden; border:2px solid #fff; box-shadow:0 4px 10px rgba(2,6,23,0.06); }
+    .role-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .role-avatar .initials{ font-weight:700; color:#0b2447; }
+    .role-count { font-size:11px; color:#94a3b8; margin-top:6px; }
+    @media (max-width:600px){ .role-bar{ padding:8px; gap:10px; } .role-label{ font-size:11px } .role-avatar{ width:34px; height:34px } }
+  </style>
+  <div id="roleBar" class="role-bar" aria-hidden="false">
+    <div class="role-group" data-role="backoffice">
+      <div class="role-label">Backoffice</div>
+      <div class="avatars-row" id="backofficeAvatars"></div>
+      <div class="role-count" id="backofficeCount"></div>
+    </div>
+    <div class="role-group" data-role="supervisor">
+      <div class="role-label">Supervisor</div>
+      <div class="avatars-row" id="supervisorAvatars"></div>
+      <div class="role-count" id="supervisorCount"></div>
+    </div>
+    <div class="role-group" data-role="admin">
+      <div class="role-label">Administrador</div>
+      <div class="avatars-row" id="adminAvatars"></div>
+      <div class="role-count" id="adminCount"></div>
+    </div>
+  </div>
+
+  <script>
+    (async function renderRoleBar(){
+      try{
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const opts = { method: 'GET', credentials: 'include', headers: Object.assign({'Content-Type':'application/json'}, token?{ 'Authorization': `Bearer ${token}` }:{}) };
+
+        // Intentar obtener todos los usuarios (ruta admin-list) y filtrar por role
+        let users = [];
+        try {
+          const resp = await fetch('/api/users/admin-list', opts);
+          if (resp && resp.ok) {
+            const json = await resp.json();
+            users = Array.isArray(json.users) ? json.users : (Array.isArray(json.data) ? json.data : []);
+            console.log('[RoleBar] Usuarios cargados desde admin-list:', users.length, users.slice(0,2));
+          } else {
+            // si no permite admin-list, intentar obtener solo agentes y construir placeholders
+            const resp2 = await fetch('/api/users/agents', opts);
+            if (resp2 && resp2.ok) {
+              const j2 = await resp2.json();
+              users = Array.isArray(j2.agents) ? j2.agents : [];
+              console.log('[RoleBar] Usuarios cargados desde agents:', users.length);
+            }
+          }
+        } catch(e){ console.warn('[RoleBar] error fetching users', e); }
+
+        // Normalizar roles
+        const byRole = { backoffice: [], supervisor: [], admin: [] };
+        users.forEach(u => {
+          const role = (u.role||'').toString().toLowerCase();
+          if (role.includes('back')) byRole.backoffice.push(u);
+          else if (role.includes('supervisor')) byRole.supervisor.push(u);
+          else if (role.includes('admin')) byRole.admin.push(u);
+        });
+
+        // Si no hay admins en list (por ejemplo, no tuvimos permission), intentar mostrar el usuario actual
+        if (!byRole.admin.length) {
+          try{
+            const me = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+            if (me && (me.role||'').toString().toLowerCase().includes('admin')) byRole.admin.push({ id: me.id || me._id, username: me.username, name: me.name || me.username, avatarUrl: me.avatarUrl });
+          }catch(e){}
+        }
+
+        console.log('[RoleBar] Usuarios por rol:', { backoffice: byRole.backoffice.length, supervisor: byRole.supervisor.length, admin: byRole.admin.length });
+
+        // Render avatars helper
+        const renderAvatars = (elId, arr) => {
+          const container = document.getElementById(elId);
+          if (!container) return;
+          container.innerHTML = '';
+          arr.slice(0,8).forEach(u=>{
+            const a = document.createElement('div'); a.className='role-avatar';
+            // Buscar avatar en múltiples campos, priorizando avatarFileId
+            let url = null;
+            
+            // 1. Si tiene avatarFileId, construir URL desde GridFS
+            if (u.avatarFileId) {
+              url = `/api/user-avatars/${u.avatarFileId}`;
+            }
+            // 2. Intentar campos de URL directa
+            else if (u.avatarUrl || u.photo || u.picture || u.imageUrl || u.avatar) {
+              url = u.avatarUrl || u.photo || u.picture || u.imageUrl || u.avatar;
+            }
+            // 3. Si tiene un ID de usuario, intentar construir URL
+            else if (u._id || u.id) {
+              const uid = u._id || u.id;
+              url = `/api/user-avatars/${uid}`;
+            }
+            
+            if (url) {
+              const img = document.createElement('img'); 
+              img.src = url; 
+              img.alt = u.name || u.username || ''; 
+              img.onerror = function() { 
+                // Si falla la imagen, mostrar iniciales
+                this.style.display = 'none';
+                const initials = (u.name || u.username || '').split(/\s+/).map(s=>s[0]).join('').slice(0,2).toUpperCase();
+                const span = document.createElement('div'); 
+                span.className='initials'; 
+                span.textContent = initials || '?';
+                a.appendChild(span);
+              };
+              a.appendChild(img);
+            } else {
+              const initials = (u.name || u.username || '').split(/\s+/).map(s=>s[0]).join('').slice(0,2).toUpperCase();
+              const span = document.createElement('div'); span.className='initials'; span.textContent = initials || '?';
+              a.appendChild(span);
+            }
+            // Tooltip with name
+            a.title = u.name || u.username || '';
+            container.appendChild(a);
+          });
+          const countEl = document.getElementById(elId.replace('Avatars','Count'));
+          if (countEl) countEl.textContent = `${arr.length} usuarios`;
+        };
+
+        renderAvatars('backofficeAvatars', byRole.backoffice);
+        renderAvatars('supervisorAvatars', byRole.supervisor);
+        renderAvatars('adminAvatars', byRole.admin);
+
+        // If no data at all, hide bar to avoid empty UI
+        if (!byRole.backoffice.length && !byRole.supervisor.length && !byRole.admin.length) {
+          document.getElementById('roleBar').style.display = 'none';
+        }
+
+      }catch(err){ console.error('[RoleBar] error', err); }
+    })();
+  </script>
+
   </body>
 </html>
