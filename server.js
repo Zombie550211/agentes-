@@ -2477,6 +2477,152 @@ app.get('/api/customers', protect, async (req, res) => {
       });
     }
 
+    // ===== PARA SUPERVISOR: AGREGAR DE COLECCIONES DE SUS AGENTES =====
+    const isSupervisor = userRole === 'supervisor' || userRole.includes('supervisor');
+    const shouldAggregateSupervisor = isSupervisor && !req.query.agenteId && !req.query.agentId;
+    
+    if (shouldAggregateSupervisor) {
+      console.log('[INFO] Supervisor: agregando de colecciones de sus agentes');
+      
+      const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
+      
+      // 1. Obtener agentes asignados al supervisor
+      let agentIds = [];
+      let agentCollections = new Set();
+      
+      try {
+        // Buscar usuarios que tengan este supervisor asignado
+        let supOid = null;
+        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch {}
+        
+        const agentes = await db.collection('users').find({
+          $or: [
+            { supervisorId: currentUserId },
+            ...(supOid ? [{ supervisorId: supOid }] : [])
+          ]
+        }).toArray();
+        
+        console.log(`[INFO] Supervisor: encontrados ${agentes.length} agentes asignados`);
+        
+        // 2. Para cada agente, resolver su colección mapeada
+        const uc = db.collection('user_collections');
+        for (const agente of agentes) {
+          const agenteId = agente._id?.toString?.() || String(agente._id);
+          agentIds.push(agenteId);
+          
+          try {
+            const mapping = await uc.findOne({ $or: [ { ownerId: agenteId }, { ownerId: agente._id } ] });
+            if (mapping && mapping.collectionName) {
+              agentCollections.add(mapping.collectionName);
+              console.log(`[INFO] Agente ${agenteId} -> colección: ${mapping.collectionName}`);
+            }
+          } catch (e) {
+            console.warn(`[WARN] Error resolviendo colección para agente ${agenteId}:`, e?.message);
+          }
+        }
+      } catch (e) {
+        console.warn('[WARN] Error obteniendo agentes del supervisor:', e?.message);
+      }
+      
+      // Si no encontramos colecciones mapeadas, usar convención de nombres
+      if (agentCollections.size === 0) {
+        console.log('[INFO] No se encontraron colecciones mapeadas, intentando convención de nombres...');
+        const allCollections = collections.map(c => c.name);
+        
+        // Buscar colecciones costumers_* que correspondan a los agentes
+        for (const col of allCollections) {
+          if (/^costumers_/i.test(col)) {
+            agentCollections.add(col);
+          }
+        }
+      }
+      
+      if (agentCollections.size === 0) {
+        console.log('[WARN] Supervisor no tiene agentes asignados o no se encontraron colecciones');
+        return res.json({
+          success: true,
+          data: [],
+          total: 0,
+          page,
+          limit,
+          message: 'El supervisor no tiene agentes asignados'
+        });
+      }
+      
+      console.log(`[INFO] Colecciones a consultar para supervisor: ${Array.from(agentCollections).join(', ')}`);
+      
+      let allCustomers = [];
+      
+      // Construir query base
+      let baseQuery = {};
+      
+      // Aplicar filtros de fecha si existen
+      if (fechaInicio && fechaFin) {
+        baseQuery.creadoEn = {
+          $gte: fechaInicio,
+          $lte: fechaFin
+        };
+      } else if (fechaInicio) {
+        baseQuery.creadoEn = { $gte: fechaInicio };
+      } else if (fechaFin) {
+        baseQuery.creadoEn = { $lte: fechaFin };
+      }
+      
+      // Aplicar filtros adicionales
+      if (req.query.status) {
+        baseQuery.status = req.query.status;
+      }
+      
+      console.log('[DEBUG] Query base para supervisor:', JSON.stringify(baseQuery, null, 2));
+      
+      // Consultar cada colección del supervisor
+      for (const colName of agentCollections) {
+        try {
+          const docs = await db.collection(colName).find(baseQuery).toArray();
+          if (docs.length > 0) {
+            console.log(`[INFO] ${colName}: ${docs.length} documentos`);
+            allCustomers = allCustomers.concat(docs);
+          }
+        } catch (colErr) {
+          console.warn(`[WARN] Error consultando ${colName}:`, colErr.message);
+        }
+      }
+      
+      console.log(`[INFO] Total documentos agregados para supervisor: ${allCustomers.length}`);
+      
+      // Ordenar y aplicar paginación
+      const sortField = req.query.sortBy || 'creadoEn';
+      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+      
+      allCustomers.sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        
+        if (aVal instanceof Date && bVal instanceof Date) {
+          return sortOrder * (aVal.getTime() - bVal.getTime());
+        }
+        
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return sortOrder * aVal.localeCompare(bVal);
+        }
+        
+        return sortOrder * ((aVal || 0) - (bVal || 0));
+      });
+      
+      // Aplicar paginación
+      const paginatedCustomers = allCustomers.slice(skip, skip + limit);
+      
+      console.log('Enviando respuesta con', paginatedCustomers.length, 'clientes (supervisor)');
+      return res.json({
+        success: true,
+        data: paginatedCustomers,
+        total: allCustomers.length,
+        page,
+        limit,
+        aggregatedFromCollections: agentCollections.size
+      });
+    }
+
     // Default collection name is 'costumers'. However this project stores per-agent
     // collections like 'costumers_<agent>' and keeps a mapping in 'user_collections'.
     // Prefer a mapped collection when available for the requested agent.
