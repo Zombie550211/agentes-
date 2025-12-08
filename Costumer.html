@@ -500,16 +500,8 @@ v   <html lang="es">
                     let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
                     // Guardar lista completa para usos futuros
                     try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
-                    // Si no se fuerza ver todo, filtrar al mes actual
-                    if (!window.__renderShowAll) {
-                      try {
-                        const filtered = Array.isArray(arr) ? arr.filter(_isInCurrentMonth) : [];
-                        window.ultimaListaLeads = filtered;
-                        arr = filtered;
-                      } catch(e) { console.warn('Error filtrando leads por mes actual', e); }
-                    } else {
-                      window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
-                    }
+                    // Mostrar todos los meses por defecto (sin filtrar por mes actual)
+                    window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
                     renderRows(arr);
                     return;
                   }
@@ -519,15 +511,8 @@ v   <html lang="es">
                   try {
                     let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
                     try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
-                    if (!window.__renderShowAll) {
-                      try {
-                        const filtered = Array.isArray(arr) ? arr.filter(_isInCurrentMonth) : [];
-                        window.ultimaListaLeads = filtered;
-                        arr = filtered;
-                      } catch(e) { console.warn('Error filtrando leads por mes actual (fallback)', e); }
-                    } else {
-                      window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
-                    }
+                    // Mostrar todos los meses por defecto (sin filtrar por mes actual)
+                    window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
                     const r = _renderFn(arr);
                     setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
                     return r;
