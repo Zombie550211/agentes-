@@ -1732,30 +1732,29 @@
         
         if (dashboardData) {
           // Usar datos del init-dashboard (ya están en sessionStorage)
-          console.log('📊 Usando datos precargados del init-dashboard');
-          console.log('📊 Datos:', dashboardData);
+          console.log(`📊 Usando datos precargados (${dashboardData.loadTime}ms en servidor)`);
           
-          // Actualizar estadísticas del usuario con datos optimizados
+          // Mostrar KPIs instantáneamente
+          displayKPIsImmediately(dashboardData, user);
+          
+          // Actualizar estadísticas del usuario 
           await updateUserStats(dashboardData, user);
           
-          // Crear gráficos de forma diferida para no bloquear el primer render
-          const deferCharts = () => { 
+          // Crear gráficos SIN BLOQUEAR (en background)
+          setTimeout(() => {
             try { 
               createChartsFromInitData(dashboardData); 
-            } catch(_){} 
-          };
-          if ('requestIdleCallback' in window) { 
-            requestIdleCallback(deferCharts, { timeout: 1200 }); 
-          } else { 
-            setTimeout(deferCharts, 300); 
-          }
+            } catch(e) {
+              console.warn('Error creando gráficos:', e);
+            }
+          }, 100);  // Muy rápido para que no bloquee
           
           window.__dashboardLoaded = true;
           return;
         }
         
-        // FALLBACK: Si no hay datos precargados, hacer la petición antigua (compatible)
-        console.warn('⚠️  Datos precargados no disponibles, usando fallback a /api/leads');
+        // FALLBACK: Si no hay datos precargados, hacer la petición antigua
+        console.warn('⚠️  Datos precargados no disponibles, cargando...');
         
         const response = await fetch('/api/leads', {
           method: 'GET',
@@ -1766,25 +1765,57 @@
           const data = await response.json();
           const leads = data.data || [];
           
-          console.log('📊 Datos cargados desde costumers:', leads.length, 'registros');
-          console.log('📊 Estructura de datos:', leads[0] ? Object.keys(leads[0]) : 'Sin datos');
-          console.log('📊 Ejemplo de registro:', leads[0] || 'Sin datos');
+          console.log(`📊 Cargados ${leads.length} registros`);
           
-          // Actualizar estadísticas del usuario
+          // Mostrar KPIs con datos fallback
+          displayKPIsImmediately({ 
+            kpis: { ventas: leads.length, puntos: 0, mayor_vendedor: '-', canceladas: 0, pendientes: 0 },
+            userStats: { ventasUsuario: leads.length, puntosUsuario: 0 }
+          }, user);
+          
+          // Actualizar estadísticas
           await updateUserStats(leads, user);
           
-          // Crear gráficos de forma diferida para no bloquear el primer render
-          const deferCharts = () => { try { createCharts(leads); } catch(_){} };
-          if ('requestIdleCallback' in window) { requestIdleCallback(deferCharts, { timeout: 1200 }); }
-          else { setTimeout(deferCharts, 300); }
+          // Crear gráficos sin bloquear
+          setTimeout(() => { 
+            try { createCharts(leads); } catch(e) { console.warn('Error en gráficos:', e); }
+          }, 100);
           
         } else {
           console.error('Error cargando datos:', response.status);
         }
         window.__dashboardLoaded = true;
       } catch (error) {
-        console.error('Error en loadDashboardData:', error.message || error);
-        console.error('Stack trace:', error.stack);
+        console.error('Error en loadDashboardData:', error.message);
+        window.__dashboardLoaded = true;
+      }
+    }
+
+    // Nueva función para mostrar KPIs INSTANTÁNEAMENTE sin esperar gráficos
+    function displayKPIsImmediately(data, user) {
+      try {
+        const kpis = data.kpis || {};
+        const userStats = data.userStats || {};
+
+        // Actualizar números de KPI
+        const ventasEl = document.getElementById('user-sales-count');
+        if (ventasEl) ventasEl.textContent = userStats.ventasUsuario || kpis.ventas || 0;
+
+        const puntosEl = document.getElementById('user-points-total');
+        if (puntosEl) puntosEl.textContent = (userStats.puntosUsuario || kpis.puntos || 0).toFixed(2).replace(/\.00$/, '');
+
+        const equipo = document.getElementById('user-team-name');
+        if (equipo) equipo.textContent = userStats.equipoUsuario || user?.team || 'Sin equipo';
+
+        const canceladas = document.getElementById('cancelled-count');
+        if (canceladas) canceladas.textContent = kpis.canceladas || 0;
+
+        const pendientes = document.getElementById('pending-count');
+        if (pendientes) pendientes.textContent = kpis.pendientes || 0;
+
+        console.log('✅ KPIs mostrados instantáneamente');
+      } catch (e) {
+        console.warn('Error mostrando KPIs:', e);
       }
     }
 

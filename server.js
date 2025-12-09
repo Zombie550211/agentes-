@@ -1311,7 +1311,9 @@ app.get('/api/auth/verify-server', async (req, res) => {
 
 // ========== ENDPOINT INIT-DASHBOARD ==========
 // Carga todos los datos del dashboard en una sola petición (solución optimizada)
+// OPTIMIZADO: Endpoint ultra-rápido para cargar solo datos esenciales del dashboard
 app.get('/api/init-dashboard', protect, async (req, res) => {
+  const startTime = Date.now();
   try {
     const db = getDb();
     if (!db) {
@@ -1323,142 +1325,114 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     const userRole = (user?.role || '').toLowerCase();
     const isAdminOrBackoffice = ['admin', 'administrator', 'administrador', 'administradora', 'backoffice', 'bo', 'supervisor'].some(r => userRole.includes(r));
 
-    console.log(`[INIT-DASHBOARD] Cargando datos para: ${username} (${userRole})`);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 1);
 
-    // 1. OBTENER TODOS LOS LEADS
-    let leads = [];
-    try {
-      const leadsData = await db.collection('costumers').find({}).sort({ creadoEn: -1 }).limit(10000).toArray();
-      leads = leadsData || [];
-    } catch (e) {
-      console.warn('[INIT-DASHBOARD] Error al obtener leads:', e?.message);
-      leads = [];
-    }
+    console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole})`);
 
-    // 2. CALCULAR MÉTRICAS GENERALES Y POR USUARIO
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    // OPTIMIZACIÓN: Solo obtener datos del MES ACTUAL (no últimos 10,000 registros)
+    const filter = isAdminOrBackoffice 
+      ? { dia_venta: { $gte: monthStart, $lt: monthEnd } }
+      : { 
+          dia_venta: { $gte: monthStart, $lt: monthEnd },
+          agenteNombre: username
+        };
 
-    let kpis = {
-      ventas: 0,
-      puntos: 0,
+    // Usar projection para traer SOLO los campos necesarios
+    const projection = {
+      _id: 1,
+      agenteNombre: 1,
+      agente: 1,
+      usuario: 1,
+      servicios: 1,
+      puntaje: 1,
+      status: 1,
+      dia_venta: 1
+    };
+
+    // Una sola query optimizada
+    const leads = await db.collection('costumers')
+      .find(filter)
+      .project(projection)
+      .sort({ dia_venta: -1 })
+      .limit(2000)  // Reducido a 2000 del mes actual (no 10,000 históricos)
+      .toArray();
+
+    console.log(`[INIT-DASHBOARD] 📊 Registros obtenidos: ${leads.length}`);
+
+    // CÁLCULOS RÁPIDOS (datos ya filtrados por mes)
+    const kpis = {
+      ventas: leads.length,
+      puntos: leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0),
       mayor_vendedor: '-',
-      teamDestacado: '-',
-      canceladas: 0,
-      pendientes: 0
+      canceladas: leads.filter(l => (l.status || '').toLowerCase().includes('cancel')).length,
+      pendientes: leads.filter(l => (l.status || '').toLowerCase().includes('pend')).length
     };
 
-    let userStats = {
-      ventasUsuario: 0,
-      puntosUsuario: 0,
-      equipoUsuario: user?.team || 'Sin equipo',
-      rankingUsuario: 0
-    };
-
-    // Filtrar leads según rol
-    let relevantLeads = leads;
-    if (!isAdminOrBackoffice) {
-      const uname = username.toString().trim().toLowerCase();
-      relevantLeads = leads.filter(lead => {
-        const a = (lead.agenteNombre || '').toString().trim().toLowerCase();
-        const b = (lead.agente || '').toString().trim().toLowerCase();
-        const c = (lead.usuario || '').toString().trim().toLowerCase();
-        return a === uname || b === uname || c === uname;
+    // Mejor vendedor rápido (solo si admin)
+    if (isAdminOrBackoffice && leads.length > 0) {
+      const agents = {};
+      leads.forEach(l => {
+        const agent = l.agenteNombre || l.agente || '-';
+        agents[agent] = (agents[agent] || 0) + 1;
       });
+      const top = Object.entries(agents).sort((a, b) => b[1] - a[1])[0];
+      kpis.mayor_vendedor = top ? top[0] : '-';
     }
 
-    // Calcular ventas del mes actual
-    const monthlyLeads = relevantLeads.filter(lead => {
-      const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-      return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-    });
-
-    kpis.ventas = isAdminOrBackoffice ? monthlyLeads.length : monthlyLeads.length;
-    userStats.ventasUsuario = monthlyLeads.length;
-
-    // Calcular puntos
-    const totalPoints = monthlyLeads.reduce((sum, lead) => {
-      return sum + parseFloat(lead.puntaje || lead.points || 0);
-    }, 0);
-    kpis.puntos = totalPoints;
-    userStats.puntosUsuario = totalPoints;
-
-    // Mejor vendedor (solo si es admin)
-    if (isAdminOrBackoffice) {
-      const agentSales = {};
-      leads.forEach(lead => {
-        const agent = lead.agenteNombre || lead.agente || 'Desconocido';
-        agentSales[agent] = (agentSales[agent] || 0) + 1;
-      });
-      const topAgent = Object.entries(agentSales).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
-      kpis.mayor_vendedor = topAgent[0] || '-';
-    }
-
-    // Canceladas y pendientes (solo admin)
-    if (isAdminOrBackoffice) {
-      const cancelledMonthly = monthlyLeads.filter(lead => {
-        const status = (lead.status || '').toLowerCase();
-        return status.includes('cancel') || status.includes('anulad') || status === 'cancelado';
-      }).length;
-      const pendingMonthly = monthlyLeads.filter(lead => {
-        const status = (lead.status || '').toLowerCase();
-        return status.includes('pend') || status.includes('espera') || status === 'pendiente';
-      }).length;
-      kpis.canceladas = cancelledMonthly;
-      kpis.pendientes = pendingMonthly;
-    }
-
-    // 3. CREAR GRÁFICO DE VENDEDORES (primeros 5)
-    const agentLeads = {};
+    // Gráficos rápidos (top 5)
+    const agentMap = {};
+    const productMap = {};
     leads.forEach(lead => {
       const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
-      if (!agentLeads[agent]) agentLeads[agent] = 0;
-      agentLeads[agent]++;
+      agentMap[agent] = (agentMap[agent] || 0) + 1;
+
+      const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
+      services.forEach(s => {
+        if (s) productMap[s] = (productMap[s] || 0) + 1;
+      });
     });
-    const chartTeams = Object.entries(agentLeads)
+
+    const chartTeams = Object.entries(agentMap)
       .map(([nombre, count]) => ({ nombre, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // 4. CREAR GRÁFICO DE PRODUCTOS (primeros 5)
-    const productLeads = {};
-    leads.forEach(lead => {
-      const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
-      services.forEach(service => {
-        if (service) {
-          productLeads[service] = (productLeads[service] || 0) + 1;
-        }
-      });
-    });
-    const chartProductos = Object.entries(productLeads)
+    const chartProductos = Object.entries(productMap)
       .map(([servicio, count]) => ({ servicio, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // 5. PREPARAR RESPUESTA FINAL
-    const response = {
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-DASHBOARD] ✅ Completado en ${elapsed}ms`);
+
+    res.json({
       success: true,
       timestamp: new Date().toISOString(),
+      loadTime: elapsed,
       user: {
         username: user?.username,
         role: user?.role,
         team: user?.team || 'Sin equipo'
       },
       kpis: kpis,
-      userStats: userStats,
+      userStats: {
+        ventasUsuario: kpis.ventas,
+        puntosUsuario: kpis.puntos,
+        equipoUsuario: user?.team || 'Sin equipo'
+      },
       chartTeams: chartTeams,
       chartProductos: chartProductos,
-      leadsCount: leads.length,
       isAdminOrBackoffice: isAdminOrBackoffice,
       monthYear: `${currentMonth + 1}/${currentYear}`
-    };
-
-    // Guardar en sessionStorage en el cliente
-    console.log(`[INIT-DASHBOARD] Datos preparados para ${username}. Total leads: ${leads.length}`);
-    res.json(response);
+    });
 
   } catch (error) {
-    console.error('[INIT-DASHBOARD] Error:', error);
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-DASHBOARD] ❌ Error en ${elapsed}ms:`, error);
     res.status(500).json({
       success: false,
       message: 'Error al cargar datos del dashboard',
