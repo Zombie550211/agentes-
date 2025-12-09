@@ -1333,6 +1333,29 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
 
     console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole})`);
 
+    // Return cached response immediately when available (fast path)
+    try {
+      const cached = global.initDashboardCache && global.initDashboardCache.data;
+      const updatedAt = global.initDashboardCache && global.initDashboardCache.updatedAt;
+      if (cached) {
+        const age = Date.now() - (updatedAt || 0);
+        if (age < INIT_DASHBOARD_TTL) {
+          console.log(`[INIT-DASHBOARD] Devolviendo cache (age ${age}ms)`);
+          return res.json(cached);
+        }
+        // Si la cache existe pero está stale, devolvemos la cache STALE de inmediato
+        console.log(`[INIT-DASHBOARD] Devolviendo cache STALE (age ${age}ms) y refrescando en background`);
+        res.json(cached);
+        // refrescar en background sin bloquear la respuesta
+        (async () => {
+          try { await refreshInitDashboardCache(); } catch (e) { console.warn('[INIT-DASHBOARD] background refresh failed', e); }
+        })();
+        return;
+      }
+    } catch (e) {
+      console.warn('[INIT-DASHBOARD] Error leyendo cache:', e);
+    }
+
     // OPTIMIZACIÓN: Buscar por múltiples campos de fecha del mes actual
     // Algunos registros usan 'dia_venta', otros 'fecha_contratacion', 'creadoEn', 'createdAt' o 'fecha'
     const dateConditions = [
@@ -1423,7 +1446,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     const elapsed = Date.now() - startTime;
     console.log(`[INIT-DASHBOARD] ✅ Completado en ${elapsed}ms`);
 
-    res.json({
+    const response = {
       success: true,
       timestamp: new Date().toISOString(),
       loadTime: elapsed,
@@ -1442,7 +1465,18 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       chartProductos: chartProductos,
       isAdminOrBackoffice: isAdminOrBackoffice,
       monthYear: `${currentMonth + 1}/${currentYear}`
-    });
+    };
+
+    // Guardar en cache y notificar
+    try {
+      global.initDashboardCache.data = response;
+      global.initDashboardCache.updatedAt = Date.now();
+      if (global.broadcastDashboardUpdate) global.broadcastDashboardUpdate({ kpis, chartTeams, chartProductos, timestamp: response.timestamp });
+    } catch (e) {
+      console.warn('[INIT-DASHBOARD] Error guardando cache:', e);
+    }
+
+    res.json(response);
 
   } catch (error) {
     const elapsed = Date.now() - startTime;
