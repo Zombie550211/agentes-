@@ -23,6 +23,7 @@
   <!-- Scripts críticos que deben cargar primero (defer para no bloquear parseo) -->
   <script src="js/crm-config.js" defer></script>
   <script src="js/fetch-interceptor.js" defer></script>
+  <script src="js/dashboard-init.js" defer></script>
   <style>
     /* Estilos globales para eliminar scroll */
     * {
@@ -1726,7 +1727,36 @@
       try {
         console.log('🔄 Cargando datos del dashboard...');
         
-        // Obtener datos de la colección costumers (mismo endpoint que Costumer.html)
+        // OPTIMIZACIÓN: Intentar obtener datos ya precargados en login
+        let dashboardData = window.dashboardManager?.getDisplayData();
+        
+        if (dashboardData) {
+          // Usar datos del init-dashboard (ya están en sessionStorage)
+          console.log('📊 Usando datos precargados del init-dashboard');
+          console.log('📊 Datos:', dashboardData);
+          
+          // Actualizar estadísticas del usuario con datos optimizados
+          await updateUserStats(dashboardData, user);
+          
+          // Crear gráficos de forma diferida para no bloquear el primer render
+          const deferCharts = () => { 
+            try { 
+              createChartsFromInitData(dashboardData); 
+            } catch(_){} 
+          };
+          if ('requestIdleCallback' in window) { 
+            requestIdleCallback(deferCharts, { timeout: 1200 }); 
+          } else { 
+            setTimeout(deferCharts, 300); 
+          }
+          
+          window.__dashboardLoaded = true;
+          return;
+        }
+        
+        // FALLBACK: Si no hay datos precargados, hacer la petición antigua (compatible)
+        console.warn('⚠️  Datos precargados no disponibles, usando fallback a /api/leads');
+        
         const response = await fetch('/api/leads', {
           method: 'GET',
           credentials: 'include'
@@ -1739,15 +1769,6 @@
           console.log('📊 Datos cargados desde costumers:', leads.length, 'registros');
           console.log('📊 Estructura de datos:', leads[0] ? Object.keys(leads[0]) : 'Sin datos');
           console.log('📊 Ejemplo de registro:', leads[0] || 'Sin datos');
-          
-          // Calcular métricas generales - loadLeads() ya carga sus propios datos
-          // No necesitamos llamarla aquí ya que se ejecuta automáticamente
-          
-          // ÚNICA FUNCIÓN para actualizar el mejor vendedor
-          setTimeout(() => {
-            console.log('🎯 EJECUTANDO ÚNICA FUNCIÓN DE MEJOR VENDEDOR...');
-            updateBestSeller();
-          }, 1000);
           
           // Actualizar estadísticas del usuario
           await updateUserStats(leads, user);
@@ -1764,6 +1785,120 @@
       } catch (error) {
         console.error('Error en loadDashboardData:', error.message || error);
         console.error('Stack trace:', error.stack);
+      }
+    }
+
+    // Nueva función para crear gráficos desde datos del init-dashboard
+    function createChartsFromInitData(dashboardData) {
+      console.log('📈 Creando gráficos desde datos optimizados...');
+      
+      if (dashboardData.chartTeams && dashboardData.chartTeams.length > 0) {
+        createTeamsChartFromData(dashboardData.chartTeams);
+      }
+      
+      if (dashboardData.chartProductos && dashboardData.chartProductos.length > 0) {
+        createProductsChartFromData(dashboardData.chartProductos);
+      }
+      
+      console.log('✅ Gráficos creados desde datos optimizados');
+    }
+
+    // Función para crear gráfico de teams desde datos del init-dashboard
+    function createTeamsChartFromData(teamsData) {
+      try {
+        const chartElement = document.getElementById('teamsChart');
+        if (!chartElement) {
+          console.warn('⚠️  Elemento teamsChart no encontrado en el DOM');
+          return;
+        }
+
+        const labels = teamsData.map(t => t.nombre);
+        const counts = teamsData.map(t => t.count);
+
+        const ctx = chartElement.getContext('2d');
+
+        // Destruir gráfico anterior si existe
+        if (teamsChartRefMain && teamsChartRefMain.destroy) {
+          teamsChartRefMain.destroy();
+        }
+
+        const colors = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981'];
+        teamsChartRefMain = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: counts,
+              backgroundColor: colors.slice(0, counts.length),
+              borderColor: '#fff',
+              borderWidth: 2,
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: { size: 12 }, padding: 15 }
+              }
+            }
+          }
+        });
+        console.log('✅ Gráfico de teams creado');
+      } catch (e) {
+        console.error('Error creando gráfico de teams:', e);
+      }
+    }
+
+    // Función para crear gráfico de productos desde datos del init-dashboard
+    function createProductsChartFromData(productsData) {
+      try {
+        const chartElement = document.getElementById('salesChart');
+        if (!chartElement) {
+          console.warn('⚠️  Elemento salesChart no encontrado en el DOM');
+          return;
+        }
+
+        const labels = productsData.map(p => p.servicio);
+        const counts = productsData.map(p => p.count);
+
+        const ctx = chartElement.getContext('2d');
+
+        // Destruir gráfico anterior si existe
+        if (salesChartRef && salesChartRef.destroy) {
+          salesChartRef.destroy();
+        }
+
+        salesChartRef = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Productos Vendidos',
+              data: counts,
+              backgroundColor: '#4f46e5',
+              borderColor: '#3730a3',
+              borderWidth: 1,
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: { beginAtZero: true }
+            }
+          }
+        });
+        console.log('✅ Gráfico de productos creado');
+      } catch (e) {
+        console.error('Error creando gráfico de productos:', e);
       }
     }
 
@@ -1795,7 +1930,7 @@
     }
 
     // Función para actualizar estadísticas del usuario
-    async function updateUserStats(leads, user) {
+    async function updateUserStats(leadsOrDashboardData, user) {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
@@ -1816,66 +1951,87 @@
       if (cancelledCard) cancelledCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
       if (pendingCard) pendingCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
       
-      if (isAdminOrBackoffice) {
-        // Para Admin/Backoffice: calcular métricas globales
-        const allLeads = leads; // Usar todos los leads, no filtrar por usuario
+      // Detectar si son datos del init-dashboard o leads normales
+      const isInitData = leadsOrDashboardData && leadsOrDashboardData.kpis && !Array.isArray(leadsOrDashboardData);
+      
+      if (isInitData) {
+        // CASO 1: Datos del init-dashboard (optimizados)
+        console.log('✅ Usando datos optimizados del init-dashboard');
+        const dashData = leadsOrDashboardData;
         
-        // Ventas del mes actual (todas) - usando campos de costumers
-        const monthlySales = allLeads.filter(lead => {
-          const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-        }).length;
-        
-        // Canceladas del mes actual - usando campos de costumers
-        const cancelledSales = allLeads.filter(lead => {
-          const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-          const status = (lead.status || '').toLowerCase();
-          return isThisMonth && (status.includes('cancel') || status.includes('anulad') || status === 'cancelado');
-        }).length;
-        
-        // Pendientes del mes actual - usando campos de costumers
-        const pendingSales = allLeads.filter(lead => {
-          const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-          const status = (lead.status || '').toLowerCase();
-          return isThisMonth && (status.includes('pend') || status.includes('espera') || status === 'pendiente');
-        }).length;
-        
-        // Actualizar KPIs administrativos
-        document.getElementById('user-sales-count').textContent = monthlySales;
-        document.getElementById('cancelled-count').textContent = cancelledSales;
-        document.getElementById('pending-count').textContent = pendingSales;
-        
+        if (isAdminOrBackoffice) {
+          // Admin/Backoffice: usar datos precalculados
+          document.getElementById('user-sales-count').textContent = dashData.kpis.ventas;
+          document.getElementById('cancelled-count').textContent = dashData.kpis.canceladas;
+          document.getElementById('pending-count').textContent = dashData.kpis.pendientes;
+        } else {
+          // Agente: usar estadísticas personales
+          const el1=document.getElementById('user-sales-count'); 
+          if(el1) el1.textContent = dashData.userStats.ventasUsuario;
+          const el2=document.getElementById('user-points-total'); 
+          if(el2) el2.textContent = dashData.userStats.puntosUsuario.toFixed(2).replace(/\.00$/,'');
+          document.getElementById('user-team-name').textContent = dashData.userStats.equipoUsuario;
+          document.getElementById('user-ranking').textContent = dashData.userStats.rankingUsuario;
+        }
       } else {
-        // Para Agentes: calcular métricas personales
-        const uname = (user.username||'').toString().trim().toLowerCase();
-        const userLeads = leads.filter(lead => {
-          const a = (lead.agenteNombre||'').toString().trim().toLowerCase();
-          const b = (lead.agente||'').toString().trim().toLowerCase();
-          const c = (lead.usuario||'').toString().trim().toLowerCase();
-          return a===uname || b===uname || c===uname;
-        });
+        // CASO 2: Leads normales (fallback)
+        console.log('⚠️  Usando datos de leads normales (fallback)');
+        const leads = leadsOrDashboardData || [];
         
-        // Ventas del mes del agente - usando campos de costumers
-        const userMonthlySales = userLeads.filter(lead => {
-          const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-        }).length;
-        
-        const userTotalPoints = userLeads.reduce((sum, lead) => {
-          return sum + parseFloat(lead.puntaje || lead.points || 0);
-        }, 0);
-        
-        // Actualizar KPIs de agente
-        const el1=document.getElementById('user-sales-count'); if(el1) el1.textContent = userMonthlySales;
-        const el2=document.getElementById('user-points-total'); if(el2) el2.textContent = userTotalPoints.toFixed(2).replace(/\.00$/,'');
-        document.getElementById('user-team-name').textContent = user.team || 'Sin equipo';
-        
-        // Calcular ranking (simulado)
-        const allAgents = [...new Set(leads.map(lead => lead.agenteNombre || lead.agente).filter(Boolean))];
-        const userRanking = Math.floor(Math.random() * allAgents.length) + 1;
-        document.getElementById('user-ranking').textContent = `#${userRanking}`;
+        if (isAdminOrBackoffice) {
+          // Para Admin/Backoffice: calcular métricas globales
+          const allLeads = leads;
+          
+          const monthlySales = allLeads.filter(lead => {
+            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+            return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+          }).length;
+          
+          const cancelledSales = allLeads.filter(lead => {
+            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+            const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+            const status = (lead.status || '').toLowerCase();
+            return isThisMonth && (status.includes('cancel') || status.includes('anulad') || status === 'cancelado');
+          }).length;
+          
+          const pendingSales = allLeads.filter(lead => {
+            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+            const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+            const status = (lead.status || '').toLowerCase();
+            return isThisMonth && (status.includes('pend') || status.includes('espera') || status === 'pendiente');
+          }).length;
+          
+          document.getElementById('user-sales-count').textContent = monthlySales;
+          document.getElementById('cancelled-count').textContent = cancelledSales;
+          document.getElementById('pending-count').textContent = pendingSales;
+          
+        } else {
+          // Para Agentes: calcular métricas personales
+          const uname = (user.username||'').toString().trim().toLowerCase();
+          const userLeads = leads.filter(lead => {
+            const a = (lead.agenteNombre||'').toString().trim().toLowerCase();
+            const b = (lead.agente||'').toString().trim().toLowerCase();
+            const c = (lead.usuario||'').toString().trim().toLowerCase();
+            return a===uname || b===uname || c===uname;
+          });
+          
+          const userMonthlySales = userLeads.filter(lead => {
+            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+            return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+          }).length;
+          
+          const userTotalPoints = userLeads.reduce((sum, lead) => {
+            return sum + parseFloat(lead.puntaje || lead.points || 0);
+          }, 0);
+          
+          const el1=document.getElementById('user-sales-count'); if(el1) el1.textContent = userMonthlySales;
+          const el2=document.getElementById('user-points-total'); if(el2) el2.textContent = userTotalPoints.toFixed(2).replace(/\.00$/,'');
+          document.getElementById('user-team-name').textContent = user.team || 'Sin equipo';
+          
+          const allAgents = [...new Set(leads.map(lead => lead.agenteNombre || lead.agente).filter(Boolean))];
+          const userRanking = Math.floor(Math.random() * allAgents.length) + 1;
+          document.getElementById('user-ranking').textContent = `#${userRanking}`;
+        }
       }
       
       console.log(`🔍 KPIs configurados - Usuario: ${user.username}, Rol: ${userRole}, Admin/BO: ${isAdminOrBackoffice}`);

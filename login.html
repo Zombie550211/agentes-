@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRM Login - Connecting</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Script de inicialización del dashboard (carga optimizada) -->
+    <script src="js/dashboard-init.js" defer></script>
     <style>
         * {
             margin: 0;
@@ -533,8 +535,20 @@
                       console.warn('[LOGIN] verify-server request failed', e);
                     }
 
-                    messageDiv.textContent = '¡Inicio de sesión exitoso! Redirigiendo...';
+                    messageDiv.textContent = '¡Inicio de sesión exitoso! Preparando dashboard...';
                     messageDiv.className = 'alert alert-success';
+
+                    // NUEVO: Cargar todos los datos del dashboard en una sola petición
+                    try {
+                      console.log('📊 [LOGIN] Iniciando precarga del dashboard...');
+                      const dashboardData = await window.dashboardManager.initDashboard();
+                      console.log('✅ [LOGIN] Dashboard precargado:', dashboardData);
+                    } catch (dashError) {
+                      console.error('⚠️  [LOGIN] Error precargando dashboard (continuando):', dashError);
+                      // No bloquear el login si falla la precarga
+                    }
+
+                    messageDiv.textContent = '¡Redirigiendo...';
 
                     let finalRedirectUrl = getUrlParameter('redirect') || '/inicio.html';
 

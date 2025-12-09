@@ -1108,6 +1108,17 @@ app.get('/api/user-avatars/:id', async (req, res) => {
     const filesCollection = db.collection('userAvatars.files');
     const fileDoc = await filesCollection.findOne({ _id: objectId });
     if (!fileDoc) {
+      // Si no existe el avatar en GridFS, devolver una imagen por defecto en vez de 404
+      try {
+        const defaultPath = path.join(__dirname, 'images', 'avatar.png');
+        if (fs.existsSync(defaultPath)) {
+          res.type('png');
+          res.set('Cache-Control', 'public, max-age=86400');
+          return res.sendFile(defaultPath);
+        }
+      } catch (e) {
+        // si falla, caer a 404 JSON
+      }
       return res.status(404).json({ success: false, message: 'Avatar no encontrado' });
     }
 
@@ -1296,6 +1307,164 @@ app.get('/api/auth/verify-server', async (req, res) => {
       error: error.message
     });
   } // Fin del try/catch para /api/auth/verify-server
+});
+
+// ========== ENDPOINT INIT-DASHBOARD ==========
+// Carga todos los datos del dashboard en una sola petición (solución optimizada)
+app.get('/api/init-dashboard', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdminOrBackoffice = ['admin', 'administrator', 'administrador', 'administradora', 'backoffice', 'bo', 'supervisor'].some(r => userRole.includes(r));
+
+    console.log(`[INIT-DASHBOARD] Cargando datos para: ${username} (${userRole})`);
+
+    // 1. OBTENER TODOS LOS LEADS
+    let leads = [];
+    try {
+      const leadsData = await db.collection('costumers').find({}).sort({ creadoEn: -1 }).limit(10000).toArray();
+      leads = leadsData || [];
+    } catch (e) {
+      console.warn('[INIT-DASHBOARD] Error al obtener leads:', e?.message);
+      leads = [];
+    }
+
+    // 2. CALCULAR MÉTRICAS GENERALES Y POR USUARIO
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    let kpis = {
+      ventas: 0,
+      puntos: 0,
+      mayor_vendedor: '-',
+      teamDestacado: '-',
+      canceladas: 0,
+      pendientes: 0
+    };
+
+    let userStats = {
+      ventasUsuario: 0,
+      puntosUsuario: 0,
+      equipoUsuario: user?.team || 'Sin equipo',
+      rankingUsuario: 0
+    };
+
+    // Filtrar leads según rol
+    let relevantLeads = leads;
+    if (!isAdminOrBackoffice) {
+      const uname = username.toString().trim().toLowerCase();
+      relevantLeads = leads.filter(lead => {
+        const a = (lead.agenteNombre || '').toString().trim().toLowerCase();
+        const b = (lead.agente || '').toString().trim().toLowerCase();
+        const c = (lead.usuario || '').toString().trim().toLowerCase();
+        return a === uname || b === uname || c === uname;
+      });
+    }
+
+    // Calcular ventas del mes actual
+    const monthlyLeads = relevantLeads.filter(lead => {
+      const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+      return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+    });
+
+    kpis.ventas = isAdminOrBackoffice ? monthlyLeads.length : monthlyLeads.length;
+    userStats.ventasUsuario = monthlyLeads.length;
+
+    // Calcular puntos
+    const totalPoints = monthlyLeads.reduce((sum, lead) => {
+      return sum + parseFloat(lead.puntaje || lead.points || 0);
+    }, 0);
+    kpis.puntos = totalPoints;
+    userStats.puntosUsuario = totalPoints;
+
+    // Mejor vendedor (solo si es admin)
+    if (isAdminOrBackoffice) {
+      const agentSales = {};
+      leads.forEach(lead => {
+        const agent = lead.agenteNombre || lead.agente || 'Desconocido';
+        agentSales[agent] = (agentSales[agent] || 0) + 1;
+      });
+      const topAgent = Object.entries(agentSales).reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
+      kpis.mayor_vendedor = topAgent[0] || '-';
+    }
+
+    // Canceladas y pendientes (solo admin)
+    if (isAdminOrBackoffice) {
+      const cancelledMonthly = monthlyLeads.filter(lead => {
+        const status = (lead.status || '').toLowerCase();
+        return status.includes('cancel') || status.includes('anulad') || status === 'cancelado';
+      }).length;
+      const pendingMonthly = monthlyLeads.filter(lead => {
+        const status = (lead.status || '').toLowerCase();
+        return status.includes('pend') || status.includes('espera') || status === 'pendiente';
+      }).length;
+      kpis.canceladas = cancelledMonthly;
+      kpis.pendientes = pendingMonthly;
+    }
+
+    // 3. CREAR GRÁFICO DE VENDEDORES (primeros 5)
+    const agentLeads = {};
+    leads.forEach(lead => {
+      const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
+      if (!agentLeads[agent]) agentLeads[agent] = 0;
+      agentLeads[agent]++;
+    });
+    const chartTeams = Object.entries(agentLeads)
+      .map(([nombre, count]) => ({ nombre, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // 4. CREAR GRÁFICO DE PRODUCTOS (primeros 5)
+    const productLeads = {};
+    leads.forEach(lead => {
+      const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
+      services.forEach(service => {
+        if (service) {
+          productLeads[service] = (productLeads[service] || 0) + 1;
+        }
+      });
+    });
+    const chartProductos = Object.entries(productLeads)
+      .map(([servicio, count]) => ({ servicio, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // 5. PREPARAR RESPUESTA FINAL
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      user: {
+        username: user?.username,
+        role: user?.role,
+        team: user?.team || 'Sin equipo'
+      },
+      kpis: kpis,
+      userStats: userStats,
+      chartTeams: chartTeams,
+      chartProductos: chartProductos,
+      leadsCount: leads.length,
+      isAdminOrBackoffice: isAdminOrBackoffice,
+      monthYear: `${currentMonth + 1}/${currentYear}`
+    };
+
+    // Guardar en sessionStorage en el cliente
+    console.log(`[INIT-DASHBOARD] Datos preparados para ${username}. Total leads: ${leads.length}`);
+    res.json(response);
+
+  } catch (error) {
+    console.error('[INIT-DASHBOARD] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos del dashboard',
+      error: error.message
+    });
+  }
 });
 
 app.get('/api/auth/debug-storage', (req, res) => {
@@ -4595,6 +4764,7 @@ function startServer(port) {
 
   // Mapa de usuarios conectados
   const connectedUsers = new Map();
+  const dashboardSubscribers = new Set(); // Usuarios suscritos a actualizaciones del dashboard
 
   io.on('connection', (socket) => {
     console.log('[Socket.io] Nueva conexión:', socket.id);
@@ -4618,6 +4788,30 @@ function startServer(port) {
       }
     });
 
+    // ========== NUEVO: Suscripción a actualizaciones del dashboard ==========
+    socket.on('subscribe', (data) => {
+      const { channel, user } = data || {};
+      
+      if (channel === 'dashboard') {
+        socket.dashboardUser = user;
+        socket.join('dashboard-updates');
+        dashboardSubscribers.add(socket.id);
+        console.log(`[Dashboard WS] Usuario ${user} suscrito a actualizaciones (socket: ${socket.id})`);
+        
+        // Confirmar suscripción al cliente
+        socket.emit('subscribed', { 
+          success: true, 
+          message: 'Suscrito a actualizaciones del dashboard',
+          channel: 'dashboard'
+        });
+      }
+    });
+
+    // Recibir mensajes del dashboard (para logging)
+    socket.on('dashboard-message', (message) => {
+      console.log(`[Dashboard] Mensaje de ${socket.dashboardUser}:`, message);
+    });
+
     socket.on('disconnect', () => {
       if (socket.userId) {
         const userSockets = connectedUsers.get(socket.userId);
@@ -4627,8 +4821,26 @@ function startServer(port) {
         }
         console.log(`[Socket.io] Desconectado: ${socket.userId}`);
       }
+      
+      if (dashboardSubscribers.has(socket.id)) {
+        dashboardSubscribers.delete(socket.id);
+        console.log(`[Dashboard WS] Usuario desuscrito:`, socket.dashboardUser);
+      }
     });
   });
+
+  // Función para emitir actualizaciones del dashboard a todos los suscriptores
+  // Se puede llamar desde otros endpoints o intervalos
+  global.broadcastDashboardUpdate = (updateData) => {
+    if (io) {
+      console.log('[Dashboard Broadcast] Enviando actualización a', dashboardSubscribers.size, 'usuarios');
+      io.to('dashboard-updates').emit('message', {
+        type: 'dashboard-update',
+        data: updateData,
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
 
   // Hacer io disponible globalmente
   app.set('io', io);
