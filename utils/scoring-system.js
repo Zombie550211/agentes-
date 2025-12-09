@@ -32,7 +32,7 @@ const SCORING_TABLE = {
 
   // ========== AT&T AIR ==========
   'att-air': {
-    base: 0.35
+    base: 0.45
   },
 
   // ========== AT&T INTERNET ==========
@@ -63,7 +63,7 @@ const SCORING_TABLE = {
     base: 0.75
   },
   'xfinity-double-play': {
-    base: 0.95
+    base: 1.00
   },
   'xfinity-ultimate-tv': {
     base: 0.75
