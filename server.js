@@ -1333,13 +1333,23 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
 
     console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole})`);
 
-    // OPTIMIZACIÓN: Solo obtener datos del MES ACTUAL (no últimos 10,000 registros)
-    const filter = isAdminOrBackoffice 
-      ? { dia_venta: { $gte: monthStart, $lt: monthEnd } }
-      : { 
-          dia_venta: { $gte: monthStart, $lt: monthEnd },
-          agenteNombre: username
-        };
+    // OPTIMIZACIÓN: Buscar por múltiples campos de fecha del mes actual
+    // Algunos registros usan 'dia_venta', otros 'fecha_contratacion', 'creadoEn', 'createdAt' o 'fecha'
+    const dateConditions = [
+      { dia_venta: { $gte: monthStart, $lt: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
+      { creadoEn: { $gte: monthStart, $lt: monthEnd } },
+      { createdAt: { $gte: monthStart, $lt: monthEnd } },
+      { fecha: { $gte: monthStart, $lt: monthEnd } }
+    ];
+
+    let filter;
+    if (isAdminOrBackoffice) {
+      filter = { $or: dateConditions };
+    } else {
+      const userMatch = { $or: [ { agenteNombre: username }, { agente: username }, { usuario: username } ] };
+      filter = { $and: [ { $or: dateConditions }, userMatch ] };
+    }
 
     // Usar projection para traer SOLO los campos necesarios
     const projection = {
@@ -1350,7 +1360,11 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       servicios: 1,
       puntaje: 1,
       status: 1,
-      dia_venta: 1
+      dia_venta: 1,
+      creadoEn: 1,
+      createdAt: 1,
+      fecha_contratacion: 1,
+      fecha: 1
     };
 
     // Una sola query optimizada
