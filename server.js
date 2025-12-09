@@ -4868,12 +4868,34 @@ function startServer(port) {
   app.set('io', io);
   global.io = io;
 
-  httpServer.listen(port, () => {
-    console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
-    console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`[SERVER] URL: http://localhost:${port}`);
-    console.log(`[Socket.io] WebSocket activo`);
-  });
+  // Pre-warm init-dashboard cache once server is ready and schedule periodic refreshes
+  (async () => {
+    try {
+      await refreshInitDashboardCache(getDb());
+      console.log('[INIT-DASHBOARD] Cache pre-warmed on server start');
+    } catch (e) {
+      console.warn('[INIT-DASHBOARD] Pre-warm failed:', e?.message || e);
+    }
+
+    // Programar refresco periódico en background
+    try {
+      setInterval(() => {
+        try {
+          refreshInitDashboardCache(getDb()).catch(err => console.warn('[INIT-DASHBOARD] background refresh error', err));
+        } catch (inner) { console.warn('[INIT-DASHBOARD] background schedule error', inner); }
+      }, Math.max(10000, INIT_DASHBOARD_TTL));
+      console.log('[INIT-DASHBOARD] background refresh scheduled (ms):', INIT_DASHBOARD_TTL);
+    } catch (e) {
+      console.warn('[INIT-DASHBOARD] Could not schedule background refresh:', e?.message || e);
+    }
+
+    httpServer.listen(port, () => {
+      console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
+      console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`[SERVER] URL: http://localhost:${port}`);
+      console.log(`[Socket.io] WebSocket activo`);
+    });
+  })();
 
   httpServer.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
