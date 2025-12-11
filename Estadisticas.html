@@ -4584,13 +4584,24 @@
         };
 
         const dedupedDay = [];
-        const seenDayKeys = new Set();
+        // Use Map to prefer lead with higher puntaje, then newer fecha_creacion when duplicates found
+        const dedupeMap = new Map();
         for (const lead of inDay) {
           const key = dedupeKeyOf(lead);
-          if (key && seenDayKeys.has(key)) continue;
-          if (key) seenDayKeys.add(key);
-          dedupedDay.push(lead);
+          if (!key) { dedupedDay.push(lead); continue; }
+          const current = dedupeMap.get(key);
+          if (!current) { dedupeMap.set(key, lead); continue; }
+          try {
+            const scoreA = Number(current.puntaje || current.score || 0);
+            const scoreB = Number(lead.puntaje || lead.score || 0);
+            if (scoreB > scoreA) { dedupeMap.set(key, lead); continue; }
+            if (scoreB < scoreA) { continue; }
+            const dateA = new Date(current.fecha_creacion || current.creadoEn || current.createdAt || current.creado || 0).getTime() || 0;
+            const dateB = new Date(lead.fecha_creacion || lead.creadoEn || lead.createdAt || lead.creado || 0).getTime() || 0;
+            if (dateB >= dateA) { dedupeMap.set(key, lead); }
+          } catch (_) { /* ignore errors and keep current */ }
         }
+        for (const v of dedupeMap.values()) dedupedDay.push(v);
 
         try {
           const sampleDates = dedupedDay.slice(0, 10).map((lead, idx) => ({
