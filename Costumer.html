@@ -90,34 +90,47 @@
         return null;
       }
     };
-      document.body.classList.add('auto-hide-sidebar');
+      (function initSidebarAutoHide(){
+        const doInit = () => {
+          try {
+            if (document.body) document.body.classList.add('auto-hide-sidebar');
 
-      // Insertar zona de hover si no existe
-      if (!document.querySelector('.sidebar-hover-zone')) {
-        const zone = document.createElement('div');
-        zone.className = 'sidebar-hover-zone';
-        document.body.appendChild(zone);
-      }
+            // Insertar zona de hover si no existe
+            if (!document.querySelector('.sidebar-hover-zone')) {
+              const zoneEl = document.createElement('div');
+              zoneEl.className = 'sidebar-hover-zone';
+              if (document.body) document.body.appendChild(zoneEl);
+            }
 
-      const zone = document.querySelector('.sidebar-hover-zone');
-      const sidebar = document.querySelector('.sidebar');
-      let hideTO = null;
+            const zone = document.querySelector('.sidebar-hover-zone');
+            const sidebar = document.querySelector('.sidebar');
+            let hideTO = null;
 
-      const show = () => {
-        clearTimeout(hideTO);
-        document.body.classList.add('show-sidebar');
-      };
-      const scheduleHide = () => {
-        clearTimeout(hideTO);
-        hideTO = setTimeout(() => {
-          document.body.classList.remove('show-sidebar');
-        }, 200); // pequeño delay para evitar parpadeos
-      };
+            const show = () => {
+              clearTimeout(hideTO);
+              if (document.body) document.body.classList.add('show-sidebar');
+            };
+            const scheduleHide = () => {
+              clearTimeout(hideTO);
+              hideTO = setTimeout(() => {
+                if (document.body) document.body.classList.remove('show-sidebar');
+              }, 200); // pequeño delay para evitar parpadeos
+            };
 
-      zone?.addEventListener('mouseenter', show);
-      zone?.addEventListener('mouseleave', scheduleHide);
-      sidebar?.addEventListener('mouseenter', show);
-      sidebar?.addEventListener('mouseleave', scheduleHide);
+            zone?.addEventListener('mouseenter', show);
+            zone?.addEventListener('mouseleave', scheduleHide);
+            sidebar?.addEventListener('mouseenter', show);
+            sidebar?.addEventListener('mouseleave', scheduleHide);
+          } catch (e) {
+            console.warn('initSidebarAutoHide error', e);
+          }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', doInit);
+        } else {
+          doInit();
+        }
+      })();
     </script>
     <script>
       // Delegated handler: asegurar que los botones .date-filter-btn siempre abran el popup
@@ -900,41 +913,52 @@
           });
         });
         
-        themeObserver.observe(document.body, {
-          attributes: true,
-          attributeFilter: ['class']
-        });
-        
-        rcLog('Theme observer installed');
+        if (document.body) {
+          themeObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class']
+          });
+          rcLog('Theme observer installed');
+        } else {
+          document.addEventListener('DOMContentLoaded', function(){
+            try {
+              themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+              rcLog('Theme observer installed (delayed)');
+            } catch (e) { console.warn('Could not install theme observer after DOMContentLoaded:', e); }
+          });
+        }
       } catch (e) {
         console.warn('Could not install theme observer:', e);
       }
 
       // Función de debug para verificar colores
       window.debugThemeColors = function() {
-        console.log('=== DEBUG THEME COLORS ===');
-        console.log('Dark theme active:', document.body.classList.contains('dark-theme'));
-        console.log('statusToColor test (pending):', statusToColor('pending'));
-        console.log('statusToColor test (completed):', statusToColor('completed'));
-        console.log('statusToColor test (canceled):', statusToColor('canceled'));
-        
-        const tbody = document.getElementById('costumer-tbody');
-        if (tbody) {
-          const rows = tbody.querySelectorAll('tr');
-          console.log('Total rows found:', rows.length);
+        try {
+          console.log('=== DEBUG THEME COLORS ===');
+          const darkActive = (document.body && typeof document.body.classList !== 'undefined') ? document.body.classList.contains('dark-theme') : false;
+          console.log('Dark theme active:', darkActive);
+          console.log('statusToColor test (pending):', statusToColor('pending'));
+          console.log('statusToColor test (completed):', statusToColor('completed'));
+          console.log('statusToColor test (canceled):', statusToColor('canceled'));
           
-          Array.from(rows).slice(0, 3).forEach((row, i) => {
-            const statusTd = row.children[8];
-            if (statusTd) {
-              console.log(`Row ${i}:`, {
-                status: statusTd.textContent?.trim(),
-                backgroundColor: row.style.backgroundColor,
-                classes: Array.from(row.classList)
-              });
-            }
-          });
-        }
-        console.log('=== END DEBUG ===');
+          const tbody = document.getElementById('costumer-tbody');
+          if (tbody) {
+            const rows = tbody.querySelectorAll('tr');
+            console.log('Total rows found:', rows.length);
+            
+            Array.from(rows).slice(0, 3).forEach((row, i) => {
+              const statusTd = row.children[8];
+              if (statusTd) {
+                console.log(`Row ${i}:`, {
+                  status: statusTd.textContent?.trim(),
+                  backgroundColor: row.style.backgroundColor,
+                  classes: Array.from(row.classList)
+                });
+              }
+            });
+          }
+          console.log('=== END DEBUG ===');
+        } catch (e) { console.warn('debugThemeColors error', e); }
       };
 
       // Auto-ejecutar debug después de cargar
@@ -6153,6 +6177,11 @@
           // Mantener idioma tal como viene del select
           const payload = { status: newStatus };
           const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+          // Añadir Authorization si existe token en storage (compatibilidad con endpoints que usan Bearer token)
+          try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+          } catch(_) {}
           const opts = (method, body) => ({ method, credentials: 'include', headers, body: JSON.stringify(body) });
           // Endpoint real en backend
           const target = { url: `/api/leads/${encodeURIComponent(id)}/status`, method: 'PUT', body: payload };
@@ -6166,15 +6195,26 @@
           try{
             const res = await fetch(target.url, opts(target.method, target.body));
             console.log('[STATUS] Respuesta', target.method, target.url, res.status);
-            if (res.ok) ok = true; else lastErr = new Error(`HTTP ${res.status} @ ${target.url}`);
+            if (res.ok) ok = true;
+            else {
+              // Mejor diagnóstico de 401 (no autorizado)
+              if (res.status === 401) {
+                lastErr = new Error(`HTTP 401 Unauthorized @ ${target.url}`);
+                try { console.warn('[STATUS] 401 recibido. Posible token inválido/expirado o cookie ausente.'); } catch(_){}
+              } else {
+                lastErr = new Error(`HTTP ${res.status} @ ${target.url}`);
+              }
+            }
           }catch(e){ lastErr = e; }
           if (!ok) { throw lastErr || new Error('No se pudo actualizar el STATUS'); }
           // Actualizar SOLO la fila afectada y recolorear
           try {
             // PASO 0: Deshabilitar temporalmente el observer para evitar que se dispare durante nuestra actualización
-            const wasObservingBefore = _statusObserver ? true : false;
-            if (_statusObserver) {
-              try { _statusObserver.disconnect(); } catch {}
+            // Usar referencias seguras porque el observer puede estar declarado en un IIFE
+            const globalObserver = (typeof window._statusObserver !== 'undefined') ? window._statusObserver : (typeof _statusObserver !== 'undefined' ? _statusObserver : (window.__rowColorObserver || null));
+            const wasObservingBefore = !!globalObserver;
+            if (globalObserver && typeof globalObserver.disconnect === 'function') {
+              try { globalObserver.disconnect(); } catch {}
               console.log('[STATUS] Observer deshabilitado temporalmente');
             }
             
@@ -6241,10 +6281,10 @@
             }catch(e){ console.warn('[STATUS] Error reactivando selects:', e); }
             
             // PASO 8: Re-habilitar el observer DESPUÉS de completar todos los cambios
-            if (wasObservingBefore && _statusObserver === null) {
+            if (wasObservingBefore) {
               setTimeout(() => {
                 try {
-                  installStatusObserver();
+                  if (typeof installStatusObserver === 'function') installStatusObserver();
                   console.log('[STATUS] Observer re-habilitado');
                 } catch(e) {
                   console.warn('[STATUS] Error re-habilitando observer:', e);
