@@ -10,6 +10,8 @@ const { protect, authorize } = require('../middleware/auth');
  */
 router.get('/', protect, async (req, res) => {
   try {
+    // Simple in-memory cache para resultados de ranking por parámetros (se inicializa después de leer req.query)
+    if (!global.__rankingCache) global.__rankingCache = new Map();
     const db = getDb();
     if (!db) {
       return res.status(500).json({
@@ -21,11 +23,9 @@ router.get('/', protect, async (req, res) => {
     let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
 
-    // RANKING GLOBAL: siempre buscar en todas las colecciones sin filtrar por agente específico
-    // (a menos que se pase explícitamente el parámetro 'agente' en la query)
-    if (!all || String(all).trim() === '') {
-      all = '1'; // Forzar búsqueda en todas las colecciones costumers*
-    }
+    // RANKING: por defecto solo colección principal (más rápido)
+    // Solo buscar en todas las colecciones si se pasa explícitamente all=1
+    const useAllCollections = String(all).trim() === '1';
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -96,7 +96,20 @@ router.get('/', protect, async (req, res) => {
     };
 
     // Pipeline simplificado y optimizado para datos reales
-    const hardLimit = all ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 10);
+    const hardLimit = useAllCollections ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 100);
+
+    // Construir cacheKey solo ahora que disponemos de las variables de req.query y el rango calculado
+    const defaultCacheTtl = Number(process.env.RANKING_CACHE_TTL_MS || 30 * 1000); // 30s
+    const allCacheTtl = Number(process.env.RANKING_CACHE_ALL_TTL_MS || 5 * 60 * 1000); // 5min por defecto para all=1
+    const CACHE_TTL_MS = useAllCollections ? allCacheTtl : defaultCacheTtl;
+
+    const cacheKey = JSON.stringify({ fechaInicio: startDate, fechaFin: endDate, all: useAllCollections, limitParam, field, agente });
+    const cachedEntry = global.__rankingCache.get(cacheKey);
+    if (cachedEntry && (Date.now() - cachedEntry.ts) < CACHE_TTL_MS && String(debug) !== '1') {
+      console.log('[RANKING] ✓ Cache hit:', cacheKey, 'age_ms=', Date.now() - cachedEntry.ts, 'ttl_ms=', CACHE_TTL_MS);
+      return res.json(cachedEntry.response);
+    }
+    console.log('[RANKING] Cache miss or expired:', cacheKey, 'requestVars', { startDate, endDate, useAllCollections, limitParam, field, agente });
     
     // Preparar patrones y listas dinámicas por MES para strings de fecha
     // Importante: NO usar new Date('YYYY-MM-DD') porque interpreta en UTC y puede retroceder un mes en TZ -06:00.
@@ -340,6 +353,25 @@ router.get('/', protect, async (req, res) => {
         }
       },
 
+      // 3.3) Construir signature simple para identificar ventas únicas (numero_cuenta|telefono|nombre_cliente|dia_venta|puntaje)
+      {
+        $addFields: {
+          _saleSig: {
+            $concat: [
+              { $ifNull: [ "$numero_cuenta", "" ] }, "|",
+              { $ifNull: [ "$telefono", { $ifNull: [ "$telefono_principal", "" ] } ] }, "|",
+              { $ifNull: [ "$nombre_cliente", "" ] }, "|",
+              { $ifNull: [ { $dateToString: { format: "%Y-%m-%d", date: "$_diaParsed" } }, "" ] }, "|",
+              { $toString: { $ifNull: [ "$puntajeEfectivo", 0 ] } }
+            ]
+          },
+          _sigObj: {
+            sig: { $ifNull: ["$_saleSig", ""] },
+            p: { $ifNull: ["$puntajeEfectivo", 0] }
+          }
+        }
+      },
+
       {
         $addFields: {
           _nameNoSpaces: {
@@ -359,9 +391,10 @@ router.get('/', protect, async (req, res) => {
               _id: "$_nameNormLower",
               // Ventas efectivas: excluir canceladas
               ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
-              // Suma de puntaje efectivo: 0 si cancelado
+              // Suma de puntaje efectivo: se calculará por conjunto de signatures únicos
               sumPuntaje: { $sum: "$puntajeEfectivo" },
               avgPuntaje: { $avg: "$puntaje" },
+              signatures: { $addToSet: "$_sigObj" },
               anyName: { $first: "$_nameNoSpaces" },
               anyOriginal: { $first: "$_agenteFuente" }
             }
@@ -376,7 +409,8 @@ router.get('/', protect, async (req, res) => {
               nombreLimpio: "$anyName",
               nombreNormalizado: "$_id",
               ventas: 1,
-              sumPuntaje: "$sumPuntaje", // Sin redondeo - valor exacto
+              sumPuntaje: "$sumPuntaje", // Suma por colección (antes dedupe across collections)
+              signatures: "$signatures",
               avgPuntaje: "$avgPuntaje", // Sin redondeo - valor exacto
               puntos: "$sumPuntaje" // Usar suma como puntos principales - valor exacto
             }
@@ -401,6 +435,10 @@ router.get('/', protect, async (req, res) => {
         const arr = await db.collection(colName).aggregate(pipelineBase).toArray();
         attempts.push({ collection: colName, count: Array.isArray(arr) ? arr.length : 0 });
         console.log(`[RANKING] Datos encontrados en colección: ${colName} -> ${Array.isArray(arr)?arr.length:0}`);
+        // Marcar la colección origen en cada documento para diagnóstico y fusión
+        if (Array.isArray(arr)) {
+          arr.forEach((it) => { it._originCollection = colName; });
+        }
         return Array.isArray(arr) ? arr : [];
       } catch (err) {
         console.warn(`[RANKING] Error consultando ${colName}:`, err?.message || String(err));
@@ -409,14 +447,16 @@ router.get('/', protect, async (req, res) => {
       }
     };
 
-    if (all) {
-      // Si solicitan 'all', buscar todas las colecciones que empiecen por 'costumers' (incluye variantes por agente)
+    if (useAllCollections) {
+      // Si solicitan 'all=1', buscar todas las colecciones que empiecen por 'costumers' (incluye variantes por agente)
       try {
         const collInfos = await db.listCollections().toArray();
         let targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || /^costumers_/i.test(n));
         // Añadir la colección por defecto si no está
         if (!targetColls.includes('costumers')) targetColls.unshift('costumers');
         console.log('[RANKING] Colecciones candidatas para ALL:', targetColls);
+        // Memoizar las colecciones para los siguientes requests (evita lista por cada llamada)
+        if (!global.__rankingCollections) global.__rankingCollections = targetColls;
 
         // Ejecutar pipeline en cada colección y concatenar resultados
         let allResults = [];
@@ -431,9 +471,15 @@ router.get('/', protect, async (req, res) => {
         // Fusionar resultados por _id normalizado (agrupación manual)
         const mergeMap = new Map();
         for (const item of allResults) {
-          const id = item._id || (item.nombre && String(item.nombre).toLowerCase()) || item.nombre;
-          if (!id) continue;
-          const key = String(id).toLowerCase();
+          // Preferir la clave normalizada ya calculada por el pipeline
+          // Fallback a otras variantes y normalizar para asegurar coincidencias entre colecciones
+          const rawKey = item.nombreNormalizado || item.nombreOriginal || item.nombre || item.nombreLimpio || item.anyOriginal || item.anyName || item._id;
+          if (!rawKey) continue;
+          const key = String(rawKey)
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toLowerCase();
           const ventas = Number(item.ventas || 0);
           const sumPuntaje = Number(item.sumPuntaje || 0);
           const avgPuntaje = Number(item.avgPuntaje || 0);
@@ -447,17 +493,18 @@ router.get('/', protect, async (req, res) => {
               nombreNormalizado: item.nombreNormalizado || key,
               ventas: ventas,
               sumPuntaje: sumPuntaje,
-              weightedForAvg: avgPuntaje * ventas
+              weightedForAvg: avgPuntaje * ventas,
+              originCollections: new Set(item._originCollection ? [item._originCollection] : [])
             });
           } else {
             const ex = mergeMap.get(key);
             ex.ventas += ventas;
             ex.sumPuntaje += sumPuntaje;
             ex.weightedForAvg += avgPuntaje * ventas;
+            if (item._originCollection) ex.originCollections.add(item._originCollection);
             mergeMap.set(key, ex);
           }
         }
-
         rankingResults = Array.from(mergeMap.values()).map(v => ({
           _id: v.id,
           nombre: v.nombre,
@@ -467,7 +514,8 @@ router.get('/', protect, async (req, res) => {
           ventas: v.ventas,
           sumPuntaje: v.sumPuntaje,
           avgPuntaje: v.ventas ? (v.weightedForAvg / v.ventas) : 0,
-          puntos: v.sumPuntaje
+          puntos: v.sumPuntaje,
+          originCollections: Array.from(v.originCollections || [])
         })).sort((a, b) => {
           // Ordenar descendente por puntos, luego por ventas, finalmente ascendente por nombre
           if (b.puntos !== a.puntos) return b.puntos - a.puntos;
@@ -624,6 +672,85 @@ router.get('/', protect, async (req, res) => {
       console.warn('[RANKING] No se pudo enriquecer con usuarios:', userErr?.message || userErr);
     }
 
+    // Re-merge results prefiriendo usuarios canónicos cuando existan en userMap.
+    // Esto ayuda a consolidar entradas que existen en varias colecciones por agente.
+    if (userMap && userMap.size > 0 && Array.isArray(rankingResults) && rankingResults.length > 0) {
+      const finalMap = new Map();
+      for (const item of rankingResults) {
+        const rawNames = [item.nombreOriginal, item.nombre, item.nombreLimpio].filter(Boolean);
+        let matchedUser = null;
+        for (const n of rawNames) {
+          const k = normalizeNameKey(n);
+          if (k && userMap.has(k)) {
+            matchedUser = userMap.get(k);
+            break;
+          }
+        }
+        const canonicalKey = matchedUser && matchedUser._id ? `user:${String(matchedUser._id)}` : (item.nombreNormalizado || normalizeNameKey(item.nombre) || item._id);
+        const ventas = Number(item.ventas || 0);
+        const sumPuntaje = Number(item.sumPuntaje || 0);
+
+          if (!finalMap.has(canonicalKey)) {
+            const sigMap = new Map();
+            (item.signatures || []).forEach(s => { if (s && s.sig) sigMap.set(s.sig, Number(s.p || 0)); });
+            const initialSum = Array.from(sigMap.values()).reduce((a,b) => a + (Number(b)||0), 0);
+            const initialVentas = Array.from(sigMap.values()).filter(v => Number(v) > 0).length;
+            finalMap.set(canonicalKey, {
+              ...item,
+              ventas: initialVentas,
+              sumPuntaje: initialSum,
+              originCollections: new Set(item.originCollections || []),
+              matchedUsers: matchedUser ? [matchedUser] : [],
+              signaturesMap: sigMap
+            });
+        } else {
+            const ex = finalMap.get(canonicalKey);
+            // Merge signatures avoiding duplicates: add new unique signatures
+            (item.signatures || []).forEach(s => {
+              if (!s || !s.sig) return;
+              if (!ex.signaturesMap.has(s.sig)) {
+                ex.signaturesMap.set(s.sig, Number(s.p || 0));
+                if (Number(s.p || 0) > 0) ex.ventas += 1;
+                ex.sumPuntaje += Number(s.p || 0);
+              }
+            });
+            if (Array.isArray(item.originCollections)) {
+              item.originCollections.forEach(c => ex.originCollections.add(c));
+            }
+            if (matchedUser && !ex.matchedUsers.find(u => String(u._id) === String(matchedUser._id))) {
+              ex.matchedUsers.push(matchedUser);
+            }
+            finalMap.set(canonicalKey, ex);
+        }
+      }
+      rankingResults = Array.from(finalMap.values()).map(v => {
+        // If we stored signaturesMap, compute ventas and sumPuntaje from unique signatures
+        let sumP = 0;
+        let ventasCount = 0;
+        let signaturesArr = [];
+        if (v.signaturesMap instanceof Map) {
+          for (const [sig, p] of v.signaturesMap.entries()) {
+            sumP += Number(p || 0);
+            if (Number(p || 0) > 0) ventasCount += 1;
+            signaturesArr.push({ sig, p: Number(p || 0) });
+          }
+        } else {
+          sumP = Number(v.sumPuntaje || 0);
+          ventasCount = Number(v.ventas || 0);
+          signaturesArr = v.signatures || [];
+        }
+        return {
+          ...v,
+          originCollections: Array.from(v.originCollections || []),
+          signatures: signaturesArr,
+          ventas: ventasCount,
+          sumPuntaje: sumP,
+          avgPuntaje: v.avgPuntaje || (ventasCount ? (sumP / ventasCount) : 0),
+          puntos: sumP
+        };
+      });
+    }
+
     let rankingData = rankingResults.map((item, index) => {
       const rawNames = [item.nombreOriginal, item.nombre, item.nombreLimpio].filter(Boolean);
       const normCandidates = [item.nombreNormalizado, ...rawNames.map(normalizeNameKey)].filter(Boolean);
@@ -736,7 +863,7 @@ router.get('/', protect, async (req, res) => {
       }
     }
 
-    res.json({
+    const responseObj = {
       success: true,
       message: 'Datos de ranking obtenidos',
       ranking: rankingData,
@@ -758,7 +885,11 @@ router.get('/', protect, async (req, res) => {
         sampleDocs,
         matchedSamples
       }
-    });
+    };
+    // Guardar en cache con TTL indicado
+    try { global.__rankingCache.set(cacheKey, { ts: Date.now(), ttl: CACHE_TTL_MS, response: responseObj }); } catch(e) { /* ignore cache errors */ }
+    console.log('[RANKING] Cache saved:', cacheKey, 'ttl_ms=', CACHE_TTL_MS);
+    res.json(responseObj);
   } catch (error) {
     console.error('[RANKING] Error:', error);
     res.status(500).json({
@@ -867,6 +998,89 @@ router.get('/debug-lucia-data', async (req, res) => {
       success: false,
       message: 'Error en debug de Lucia Ferman'
     });
+  }
+});
+
+/**
+ * @route GET /api/ranking/debug-agent
+ * @desc Debug for a specific agent across collections
+ * @access Private
+ */
+router.get('/debug-agent', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'No DB connection' });
+
+    const { name, fechaInicio, fechaFin, all } = req.query;
+    if (!name) return res.status(400).json({ success: false, message: 'Missing name parameter' });
+
+    // Date range fallback to current month
+    let startDate = fechaInicio;
+    let endDate = fechaFin;
+    if (!startDate || !endDate) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-01`;
+      endDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+
+    const nameRegex = new RegExp(name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+    const useAll = String(all).trim() === '1';
+
+    // find candidate collections
+    let collections = ['costumers'];
+    if (useAll) {
+      const list = await db.listCollections().toArray();
+      collections = list.map(l => l.name).filter(n => /^costumers?(_|$)/i.test(n));
+    }
+
+    const results = [];
+    for (const coll of collections) {
+      try {
+        const pipeline = [
+          // Try parsing dia_venta simple variants
+          {
+            $addFields: {
+              _diaParsed: {
+                $cond: [
+                  { $eq: [{ $type: '$dia_venta' }, 'date'] }, '$dia_venta',
+                  { $cond: [ { $eq: [{ $type: '$dia_venta' }, 'string'] }, { $dateFromString: { dateString: '$dia_venta', timezone: '-06:00' } }, null ] }
+                ]
+              }
+            }
+          },
+          { $match: { $expr: { $and: [ { $gte: [ { $dateToString: { format: '%Y-%m-%d', date: { $ifNull: ['$_diaParsed', '$createdAt'] } } }, startDate ] }, { $lte: [ { $dateToString: { format: '%Y-%m-%d', date: { $ifNull: ['$_diaParsed', '$createdAt'] } } }, endDate ] } ] } } },
+          { $match: { $or: [ { agenteNombre: { $regex: nameRegex } }, { agente: { $regex: nameRegex } } ] } },
+          { $project: { _id: 1, agenteNombre: 1, agente: 1, puntaje: 1, status: 1, dia_venta: 1, createdAt: 1 } },
+          { $sort: { dia_venta: -1, createdAt: -1 } }
+        ];
+        const docs = await db.collection(coll).aggregate(pipeline).toArray();
+        if (docs && docs.length) {
+          let ventas = 0, cancels = 0, sum = 0;
+          docs.forEach(d => {
+            const isCancel = String((d.status || '')).toUpperCase().includes('CANCEL');
+            if (isCancel) cancels++;
+            else ventas++;
+            const val = (d.puntaje != null && !isNaN(d.puntaje)) ? Number(d.puntaje) : 0;
+            sum += val;
+          });
+          results.push({ collection: coll, count: docs.length, ventas, cancels, sum, docs: docs.slice(0, 25) });
+        }
+      } catch(e) {
+        // ignore collection errors but note
+        results.push({ collection: coll, error: String(e) });
+      }
+    }
+
+    // Final aggregated totals across collections
+    const totalVentas = results.reduce((acc, cur) => acc + (cur.ventas || 0), 0);
+    const totalCancels = results.reduce((acc, cur) => acc + (cur.cancels || 0), 0);
+    const totalSum = results.reduce((acc, cur) => acc + (cur.sum || 0), 0);
+
+    res.json({ success: true, name, startDate, endDate, debugCollections: results, totals: { totalVentas, totalCancels, totalSum } });
+  } catch (err) {
+    console.error('[RANKING DEBUG AGENT] Error:', err);
+    res.status(500).json({ success: false, message: 'Error interno', error: String(err) });
   }
 });
 

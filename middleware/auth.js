@@ -9,6 +9,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
  */
 const protect = async (req, res, next) => {
   try {
+    // Allow local public diagnostic endpoint without token (temporary)
+    try {
+      if (req && req.originalUrl && req.originalUrl.includes('/collection-counts-public')) return next();
+    } catch (e) { /* no-op */ }
     let token;
 
     // Verificar token en header Authorization

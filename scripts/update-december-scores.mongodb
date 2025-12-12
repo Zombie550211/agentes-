@@ -1,0 +1,148 @@
+// Script para actualizar puntajes en leads de Diciembre 2025
+// Cambios:
+// - XFINITY Double Play: 0.95 → 1.00
+// - AT&T Internet Air 90-300Mbps: 0.35 → 0.45
+
+use crm;
+
+
+const results = [];
+const yearToUpdate = 2025;
+const monthToUpdate = 12;
+
+// Rango de fechas para Diciembre
+const startDate = new Date(`${yearToUpdate}-12-01T00:00:00Z`);
+const endDate = new Date(`${yearToUpdate}-12-31T23:59:59Z`);
+
+console.log("================================");
+console.log("ACTUALIZACIÓN DE PUNTAJES - DICIEMBRE 2025");
+console.log("================================\n");
+
+// ===== ACTUALIZACIÓN 1: XFINITY Double Play =====
+console.log("1. Procesando: XFINITY Double Play (0.95 → 1.00)\n");
+
+// Buscar leads antes de actualizar para obtener información
+const xfinityLeads = db.leads.find({
+  service: "XFINITY Double Play",
+  "scores.base": 0.95,
+  createdAt: {
+    $gte: startDate,
+    $lt: endDate
+  }
+}).toArray();
+
+console.log("   Lista encontrada: " + xfinityLeads.length);
+
+if (xfinityLeads.length > 0) {
+  // Actualizar
+  const xfinityResult = db.leads.updateMany(
+    {
+      service: "XFINITY Double Play",
+      "scores.base": 0.95,
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate
+      }
+    },
+    {
+      $set: {
+        "scores.base": 1.00,
+        updatedAt: new Date(),
+        scoreUpdatedAt: new Date(),
+        scoreUpdateReason: "Actualización de puntaje: XFINITY Double Play (0.95 → 1.00)"
+      }
+    }
+  );
+
+  console.log("   Actualizados: " + xfinityResult.modifiedCount + " leads\n");
+
+  // Guardar información para reporte
+  xfinityLeads.forEach(lead => {
+    results.push({
+      agenteNombre: lead.agenteNombre || "Sin nombre",
+      fechaVenta: lead.createdAt ? lead.createdAt.toISOString().split('T')[0] : "Sin fecha",
+      servicio: lead.service,
+      puntajeAnterior: 0.95,
+      puntajeNuevo: 1.00
+    });
+  });
+} else {
+  console.log("   No se encontraron leads para actualizar\n");
+}
+
+// ===== ACTUALIZACIÓN 2: AT&T Internet Air 90-300Mbps =====
+console.log("2. Procesando: AT&T Internet Air 90-300Mbps (0.35 → 0.45)\n");
+
+// Buscar leads antes de actualizar
+const attLeads = db.leads.find({
+  service: "AT&T Internet Air 90-300Mbps",
+  "scores.base": 0.35,
+  createdAt: {
+    $gte: startDate,
+    $lt: endDate
+  }
+}).toArray();
+
+console.log(`   📋 Leads encontrados: ${attLeads.length}`);
+
+if (attLeads.length > 0) {
+  // Actualizar
+  const attResult = db.leads.updateMany(
+    {
+      service: "AT&T Internet Air 90-300Mbps",
+      "scores.base": 0.35,
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate
+      }
+    },
+    {
+      $set: {
+        "scores.base": 0.45,
+        updatedAt: new Date(),
+        scoreUpdatedAt: new Date(),
+        scoreUpdateReason: "Actualización de puntaje: AT&T Internet Air 90-300Mbps (0.35 → 0.45)"
+      }
+    }
+  );
+
+  console.log(`   ✅ ${attResult.modifiedCount} leads actualizados\n`);
+
+  // Guardar información para reporte
+  attLeads.forEach(lead => {
+    results.push({
+      agenteNombre: lead.agenteNombre || "Sin nombre",
+      fechaVenta: lead.createdAt ? lead.createdAt.toISOString().split('T')[0] : "Sin fecha",
+      servicio: lead.service,
+      puntajeAnterior: 0.35,
+      puntajeNuevo: 0.45
+    });
+  });
+} else {
+  console.log("   ⚠️  No se encontraron leads para actualizar\n");
+}
+
+// ===== REPORTE FINAL =====
+console.log("\n================================");
+console.log("✅ ACTUALIZACIÓN COMPLETADA");
+console.log("================================\n");
+
+const totalActualizados = xfinityLeads.length + attLeads.length;
+console.log(`Total de leads actualizados: ${totalActualizados}`);
+console.log(`Mes afectado: Diciembre ${yearToUpdate}\n`);
+
+if (results.length > 0) {
+  console.log("📊 LISTA DE LEADS ACTUALIZADOS\n");
+  console.log("AGENTE                          │ FECHA VENTA  │ SERVICIO                      │ PUNTAJE");
+  console.log("─────────────────────────────────┼──────────────┼────────────────────────────────┼──────────────");
+
+  results.forEach(item => {
+    const agente = (item.agenteNombre || "N/A").substring(0, 30).padEnd(30);
+    const fecha = (item.fechaVenta || "N/A").padEnd(12);
+    const servicio = (item.servicio || "N/A").substring(0, 30).padEnd(30);
+    const puntaje = `${item.puntajeAnterior} → ${item.puntajeNuevo}`;
+    console.log(`${agente} │ ${fecha} │ ${servicio} │ ${puntaje}`);
+  });
+}
+
+console.log("\n✓ Script finalizado\n");

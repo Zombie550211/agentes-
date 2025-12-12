@@ -1321,17 +1321,29 @@
             };
 
             const deduped = [];
-            const seenKeys = new Set();
+
+            // Deduplicación avanzada: conservar el lead con mayor puntaje y, en empate, el más reciente
+            const dedupMap = new Map();
             for (const lead of inRange) {
               const key = dedupeKeyOf(lead);
               if (!key) {
                 deduped.push(lead);
                 continue;
               }
-              if (seenKeys.has(key)) continue;
-              seenKeys.add(key);
-              deduped.push(lead);
+              const puntaje = getPuntaje(lead);
+              // Buscar fecha de creación o venta
+              const fechaVenta = findFirst(lead, ['dia_venta','diaVenta','fecha_venta','fechaVenta','createdAt','created_at','fecha','date']);
+              const fechaMs = fechaVenta ? (tryDateFrom(fechaVenta)?.getTime() || 0) : 0;
+              if (!dedupMap.has(key)) {
+                dedupMap.set(key, {lead, puntaje, fechaMs});
+              } else {
+                const actual = dedupMap.get(key);
+                if (puntaje > actual.puntaje || (puntaje === actual.puntaje && fechaMs > actual.fechaMs)) {
+                  dedupMap.set(key, {lead, puntaje, fechaMs});
+                }
+              }
             }
+            deduped.push(...Array.from(dedupMap.values()).map(x => x.lead));
 
             if (deduped.length !== inRange.length) {
               console.log(`[LEADS MENSUAL] Eliminados ${inRange.length - deduped.length} duplicados después del filtro del mes.`);

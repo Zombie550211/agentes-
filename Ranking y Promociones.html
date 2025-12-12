@@ -1254,7 +1254,7 @@
   .second-pos .astronaut-wrapper {
     margin-top: -40px;
   }
-  .second-pos .astronaut-image {
+  .second-pos .astronaut-image { 
     margin-top: -40px;
   }
   .ranking-podium-final {
@@ -2402,10 +2402,25 @@
           if (!avatarsEnabled()) return '<i class="fas fa-user"></i>';
           const url = buildAgentAvatarUrl(agent);
           if (url) {
-            return `<img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" class="avatar-photo" loading="lazy">`;
+            const fallbackSvg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="60" cy="45" r="26" fill="#f8fafc"/><rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/></svg>');
+            return `<img src="${escapeAttr(url)}" alt="${escapeAttr(altText)}" class="avatar-photo" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,${fallbackSvg}'">`;
           }
           return '<i class="fas fa-user"></i>';
         };
+
+        // Intersection Observer para lazy-load de avatares
+        const avatarObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              const src = img.dataset.src;
+              if (src && !img.src) {
+                img.src = src;
+              }
+              avatarObserver.unobserve(img);
+            }
+          });
+        }, { rootMargin: '50px' });
 
         const applyAvatarToElement = (imgEl, agent, options = {}) => {
           const { allowPhoto = true } = options;
@@ -2428,14 +2443,20 @@
             if (!allowPhoto) {
               imgEl.removeAttribute('loading');
             }
+            avatarObserver.unobserve(imgEl);
             return;
           }
           const url = buildAgentAvatarUrl(agent);
-          if (url) {
-            imgEl.src = url;
-            imgEl.loading = 'lazy';
-            imgEl.classList.add('avatar-photo');
+            if (url) {
+            // Usar lazy loading con intersection observer
+            imgEl.dataset.src = url;
             imgEl.alt = resolveDisplayName(agent) || 'Avatar';
+            imgEl.classList.add('avatar-photo');
+            imgEl.style.backgroundImage = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23e2e8f0" width="100" height="100"/></svg>')`;
+            avatarObserver.observe(imgEl);
+              // fallback por si la URL responde 404
+              const fallbackSvgStr = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="60" cy="45" r="26" fill="#f8fafc"/><rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/></svg>');
+              imgEl.onerror = function(){ this.onerror = null; this.src = fallbackSvgStr; };
           } else {
             imgEl.classList.remove('avatar-photo');
             if (imgEl.dataset.defaultSrc) {
@@ -2480,6 +2501,24 @@
         }
 
         // ====== RANKING: Cargar Top 3 desde backend ======
+        // Sistema de caché para ranking con TTL de 5 minutos
+        const RANKING_CACHE = new Map();
+        const RANKING_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+        
+        function getCachedRanking(key) {
+          const cached = RANKING_CACHE.get(key);
+          if (!cached) return null;
+          if (Date.now() - cached.timestamp > RANKING_CACHE_TTL) {
+            RANKING_CACHE.delete(key);
+            return null;
+          }
+          return cached.data;
+        }
+        
+        function setCachedRanking(key, data) {
+          RANKING_CACHE.set(key, { data, timestamp: Date.now() });
+        }
+
         async function loadRankingTop3(){
           try {
             console.log('[RANKING] 🔄 Solicitando top 3...');
@@ -2490,12 +2529,23 @@
             const d = String(now.getDate()).padStart(2, '0');
             const fechaInicio = `${y}-${m}-01`;
             const fechaFin = `${y}-${m}-${d}`;
-            const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
-            console.log('[RANKING] ⏱️ Rango aplicado:', { fechaInicio, fechaFin });
-            const res = await fetch(url, { credentials: 'include' });
-            if (!res.ok) throw new Error('Respuesta no OK en /api/ranking');
-            const data = await res.json();
-            console.log('[RANKING] 📦 Datos recibidos:', data);
+            
+            // Intentar caché primero
+            const cacheKey = `top3-${fechaInicio}`;
+            let data = getCachedRanking(cacheKey);
+            
+            if (!data) {
+              // Sin all=1 para reducir carga: solo colección principal
+              const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=50`;
+              console.log('[RANKING] ⏱️ Rango aplicado:', { fechaInicio, fechaFin });
+              const res = await fetch(url, { credentials: 'include' });
+              if (!res.ok) throw new Error('Respuesta no OK en /api/ranking');
+              data = await res.json();
+              setCachedRanking(cacheKey, data);
+              console.log('[RANKING] 📦 Datos recibidos (nueva consulta):', data);
+            } else {
+              console.log('[RANKING] ✓ Datos del caché (5 min)');
+            }
 
             const list = Array.isArray(data?.ranking) ? data.ranking : [];
             if (list.length === 0) {
@@ -2636,7 +2686,7 @@
                     const d = String(now.getDate()).padStart(2, '0');
                     const fechaInicio = `${y}-${m}-01`;
                     const fechaFin = `${y}-${m}-${d}`;
-                    const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
+                    const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
                     const resAll = await fetch(urlAll, { credentials: 'include' });
                     if (resAll.ok) {
                       const dataAll = await resAll.json();
@@ -2879,6 +2929,8 @@
         // Estado de mes visible (año/mes actuales por defecto)
         window.__rankYear = (new Date()).getFullYear();
         window.__rankMonth = (new Date()).getMonth(); // 0-11
+        // Asegurar estado inicial de 'Ver todos' en false para evitar que el UI muestre "Ver menos" por defecto
+        if (typeof window.__rankViewAll === 'undefined') window.__rankViewAll = false;
 
         function monthBounds(y, m){
           const start = new Date(y, m, 1);
@@ -2994,26 +3046,53 @@
           const {fechaInicio,fechaFin,isCurrent}=monthBounds(y,m);
           setPeriodLabel(y,m);
           try{
-            const fieldParam = isCurrent ? '' : '&field=createdAt';
-            const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}&t=${Date.now()}`;
-            const res=await fetch(url,{credentials:'include'});
-            if(!res.ok) throw new Error('HTTP '+res.status);
-            const data=await res.json();
+            // Caché para meses
+            const cacheKey = `month-${fechaInicio}`;
+            let data = getCachedRanking(cacheKey);
+            
+            if (!data) {
+              // Primero sin all=1 (más rápido); si pocos resultados, pedir all=1 después
+              const fieldParam = isCurrent ? '' : '&field=createdAt';
+              const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=100${fieldParam}`;
+              const res=await fetch(url,{credentials:'include'});
+              if(!res.ok) throw new Error('HTTP '+res.status);
+              data=await res.json();
+              
+              // Si hay muy pocos resultados (< 5), intentar all=1
+              const list=Array.isArray(data?.ranking)?data.ranking:[];
+              if (list.length < 5) {
+                const urlAll=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}`;
+                try {
+                  const resAll=await fetch(urlAll,{credentials:'include'});
+                  if(resAll.ok) data=await resAll.json();
+                } catch(e){ /* fallback a datos anteriores */ }
+              }
+              
+              setCachedRanking(cacheKey, data);
+              console.log('[RANKING] Mes cargado desde BD', {y,m,fechaInicio,fechaFin});
+            } else {
+              console.log('[RANKING] Mes cargado desde caché', {y,m});
+            }
+            
             const list=Array.isArray(data?.ranking)?data.ranking:[];
             updateRankingUI(list);
-            console.log('[RANKING] Mes cargado', {y,m,fechaInicio,fechaFin,items:list.length});
+            console.log('[RANKING] Mes actualizado UI', {y,m,items:list.length});
           }catch(e){ console.warn('[RANKING] No se pudo cargar mes', y,m,e); }
         }
 
+        let _rankNavT;
         document.addEventListener('rank-nav', (ev)=>{
-          const dir = Number(ev?.detail?.dir)||0;
-          if(!dir) return;
-          // mover mes
-          let y=window.__rankYear, m=window.__rankMonth;
-          m += dir;
-          if(m<0){ m=11; y-=1; } else if(m>11){ m=0; y+=1; }
-          window.__rankYear=y; window.__rankMonth=m;
-          loadRankingByMonth(y,m);
+          clearTimeout(_rankNavT);
+          _rankNavT = setTimeout(() => {
+            const dir = Number(ev?.detail?.dir)||0;
+            if(!dir) return;
+            // mover mes
+            let y=window.__rankYear, m=window.__rankMonth;
+            m += dir;
+            if(m<0){ m=11; y-=1; } else if(m>11){ m=0; y+=1; }
+            window.__rankYear=y; window.__rankMonth=m;
+            loadRankingByMonth(y,m);
+          }, 240);
         });
 
         // Cargar el mes actual al iniciar para sincronizar periodo/etiqueta
@@ -3081,6 +3160,7 @@
     .role-count { font-size:11px; color:#94a3b8; margin-top:6px; }
     @media (max-width:600px){ .role-bar{ padding:8px; gap:10px; } .role-label{ font-size:11px } .role-avatar{ width:34px; height:34px } }
   </style>
+
   <div id="roleBar" class="role-bar" aria-hidden="false">
     <div class="role-group" data-role="backoffice">
       <div class="role-label">Backoffice</div>

@@ -354,6 +354,135 @@ const corsOptions = {
 
 // Inicializar la conexión a la base de datos
 let db;
+// TTL para la cache del init-dashboard (ms). Por defecto 5 minutos
+const INIT_DASHBOARD_TTL = Number(process.env.INIT_DASHBOARD_TTL_MS) || (5 * 60 * 1000);
+
+// Estructura de cache en memoria para /api/init-dashboard
+global.initDashboardCache = global.initDashboardCache || { data: null, updatedAt: 0 };
+// Flag para evitar refrescos concurrentes
+global.initDashboardCacheRefreshing = global.initDashboardCacheRefreshing || false;
+
+// Función para refrescar la cache del init-dashboard en background.
+// Calcula los KPIs del mes actual (modo administrador) y actualiza global.initDashboardCache.
+async function refreshInitDashboardCache(_db) {
+  // Evitar refrescos concurrentes
+  if (global.initDashboardCacheRefreshing) {
+    console.log('[INIT-DASHBOARD] Refresco ya en curso — omitiendo nueva invocación');
+    return global.initDashboardCache.data;
+  }
+  global.initDashboardCacheRefreshing = true;
+  try {
+    if (!isConnected()) {
+      console.warn('[INIT-DASHBOARD] DB no está conectada — omitiendo refresh');
+      global.initDashboardCacheRefreshing = false;
+      return;
+    }
+    const startTime = Date.now();
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 1);
+
+    const dateConditions = [
+      { dia_venta: { $gte: monthStart, $lt: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
+      { creadoEn: { $gte: monthStart, $lt: monthEnd } },
+      { createdAt: { $gte: monthStart, $lt: monthEnd } },
+      { fecha: { $gte: monthStart, $lt: monthEnd } }
+    ];
+
+    const filter = { $or: dateConditions };
+
+    const projection = {
+      _id: 1,
+      agenteNombre: 1,
+      agente: 1,
+      usuario: 1,
+      servicios: 1,
+      puntaje: 1,
+      status: 1,
+      dia_venta: 1,
+      creadoEn: 1,
+      createdAt: 1,
+      fecha_contratacion: 1,
+      fecha: 1
+    };
+
+    if (!_db) _db = getDb();
+    const leads = await _db.collection('costumers')
+      .find(filter)
+      .project(projection)
+      .sort({ dia_venta: -1 })
+      .limit(2000)
+      .toArray();
+
+    const kpis = {
+      ventas: leads.length,
+      puntos: leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0),
+      mayor_vendedor: '-',
+      canceladas: leads.filter(l => (l.status || '').toLowerCase().includes('cancel')).length,
+      pendientes: leads.filter(l => (l.status || '').toLowerCase().includes('pend')).length
+    };
+
+    if (leads.length > 0) {
+      const agents = {};
+      leads.forEach(l => {
+        const agent = l.agenteNombre || l.agente || '-';
+        agents[agent] = (agents[agent] || 0) + 1;
+      });
+      const top = Object.entries(agents).sort((a, b) => b[1] - a[1])[0];
+      kpis.mayor_vendedor = top ? top[0] : '-';
+    }
+
+    const agentMap = {};
+    const productMap = {};
+    leads.forEach(lead => {
+      const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
+      agentMap[agent] = (agentMap[agent] || 0) + 1;
+
+      const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
+      services.forEach(s => {
+        if (s) productMap[s] = (productMap[s] || 0) + 1;
+      });
+    });
+
+    const chartTeams = Object.entries(agentMap)
+      .map(([nombre, count]) => ({ nombre, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const chartProductos = Object.entries(productMap)
+      .map(([servicio, count]) => ({ servicio, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const elapsed = Date.now() - startTime;
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: { username: null, role: 'system', team: 'Global' },
+      kpis,
+      userStats: { ventasUsuario: kpis.ventas, puntosUsuario: kpis.puntos, equipoUsuario: 'Global' },
+      chartTeams,
+      chartProductos,
+      isAdminOrBackoffice: true,
+      monthYear: `${currentMonth + 1}/${currentYear}`
+    };
+
+    global.initDashboardCache.data = response;
+    global.initDashboardCache.updatedAt = Date.now();
+    if (global.broadcastDashboardUpdate) global.broadcastDashboardUpdate({ kpis, chartTeams, chartProductos, timestamp: response.timestamp });
+    console.log(`[INIT-DASHBOARD] Cache refrescada correctamente (${elapsed}ms)`);
+    return response;
+  } catch (e) {
+    console.warn('[INIT-DASHBOARD] Error refrescando cache:', e);
+    throw e;
+  } finally {
+    global.initDashboardCacheRefreshing = false;
+  }
+}
 (async () => {
   db = await connectToMongoDB(); // La lógica de error y fallback ya está dentro.
   if (isConnected()) {
@@ -1108,7 +1237,7 @@ app.get('/api/user-avatars/:id', async (req, res) => {
     const filesCollection = db.collection('userAvatars.files');
     const fileDoc = await filesCollection.findOne({ _id: objectId });
     if (!fileDoc) {
-      // Si no existe el avatar en GridFS, devolver una imagen por defecto en vez de 404
+      // Si no existe el avatar en GridFS, intentar devolver una imagen por defecto en vez de 404
       try {
         const defaultPath = path.join(__dirname, 'images', 'avatar.png');
         if (fs.existsSync(defaultPath)) {
@@ -1117,9 +1246,18 @@ app.get('/api/user-avatars/:id', async (req, res) => {
           return res.sendFile(defaultPath);
         }
       } catch (e) {
-        // si falla, caer a 404 JSON
+        // si falla, caer al response inline fallback (SVG)
       }
-      return res.status(404).json({ success: false, message: 'Avatar no encontrado' });
+      // fallback: generar un svg simple que evite 404 en el cliente
+      try {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="60" cy="45" r="26" fill="#f8fafc"/><rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/></svg>`;
+        res.type('image/svg+xml');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(svg);
+      } catch (e) {
+        // último recurso: devolver 404 JSON
+        return res.status(404).json({ success: false, message: 'Avatar no encontrado' });
+      }
     }
 
     res.set('Content-Type', fileDoc.contentType || 'image/png');
@@ -1489,6 +1627,189 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
   }
 });
 
+// Pre-calentar datos de TODAS las páginas del mes actual para carga instantánea post-login
+// Retorna: dashboard, customers, leads, rankings, estadísticas (solo mes actual)
+app.get('/api/init-all-pages', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+    console.log(`[INIT-ALL-PAGES] ⚡ Inicio para ${username} (${userRole})`);
+
+    // Filtro de fecha para el mes actual
+    const dateConditions = [
+      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { creadoEn: { $gte: monthStart, $lte: monthEnd } },
+      { createdAt: { $gte: monthStart, $lte: monthEnd } },
+      { fecha: { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    // 1. DASHBOARD DATA (KPIs)
+    let dashboardData = null;
+    try {
+      dashboardData = global.initDashboardCache?.data || null;
+    } catch (e) {
+      console.warn('[INIT-ALL-PAGES] Error fetching dashboard cache:', e?.message);
+    }
+
+    // 2. CUSTOMERS para Costumer.html (primeros 200 del mes actual, proyección ligera)
+    let customers = [];
+    try {
+      const custColl = db.collection('costumers');
+      const custFilter = { $or: dateConditions };
+      customers = await custColl.find(custFilter)
+        .project({
+          _id: 1,
+          nombre_cliente: 1,
+          status: 1,
+          telefono_principal: 1,
+          numero_cuenta: 1,
+          agente: 1,
+          agenteNombre: 1,
+          supervisor: 1,
+          dia_venta: 1,
+          dia_instalacion: 1,
+          autopago: 1,
+          pin_seguridad: 1,
+          direccion: 1,
+          telefonos: 1,
+          cantidad_lineas: 1,
+          servicios: 1,
+          servicios_texto: 1,
+          producto: 1,
+          mercado: 1
+        })
+        .limit(200)
+        .toArray();
+      console.log(`[INIT-ALL-PAGES] Customers del mes: ${customers.length}`);
+    } catch (e) {
+      console.warn('[INIT-ALL-PAGES] Error fetching customers:', e?.message);
+    }
+
+    // 3. LEADS para estadísticas (primeros 100 del mes actual)
+    let leads = [];
+    try {
+      const leadsColl = db.collection('leads');
+      const leadFilter = { $or: dateConditions };
+      leads = await leadsColl.find(leadFilter)
+        .project({
+          _id: 1,
+          nombre: 1,
+          status: 1,
+          fecha: 1,
+          agente: 1,
+          agenteNombre: 1,
+          puntaje: 1,
+          servicios: 1,
+          empresa: 1
+        })
+        .limit(100)
+        .toArray();
+      console.log(`[INIT-ALL-PAGES] Leads del mes: ${leads.length}`);
+    } catch (e) {
+      console.warn('[INIT-ALL-PAGES] Error fetching leads:', e?.message);
+    }
+
+    // 4. RANKINGS (top 30)
+    let rankings = [];
+    try {
+      const rankColl = db.collection('rankings');
+      rankings = await rankColl.find({})
+        .project({
+          _id: 1,
+          agente: 1,
+          agenteNombre: 1,
+          puntaje: 1,
+          posicion: 1,
+          ventas: 1,
+          mes: 1
+        })
+        .limit(30)
+        .toArray();
+      console.log(`[INIT-ALL-PAGES] Rankings: ${rankings.length}`);
+    } catch (e) {
+      console.warn('[INIT-ALL-PAGES] Error fetching rankings:', e?.message);
+    }
+
+    // 5. ESTADÍSTICAS agregadas por equipo (mes actual)
+    let statsAgg = {};
+    try {
+      const statsColl = db.collection('estadisticas');
+      const statsFilter = { $or: dateConditions };
+      const agg = await statsColl.aggregate([
+        { $match: statsFilter },
+        { $group: {
+          _id: '$equipo',
+          totalLeads: { $sum: 1 },
+          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } },
+          promedio: { $avg: '$puntaje' }
+        }},
+        { $sort: { totalLeads: -1 } },
+        { $limit: 15 }
+      ]).toArray();
+      agg.forEach(s => {
+        statsAgg[s._id || 'general'] = {
+          totalLeads: s.totalLeads,
+          totalVentas: s.totalVentas,
+          promedio: Math.round(s.promedio || 0)
+        };
+      });
+      console.log(`[INIT-ALL-PAGES] Stats equipos: ${Object.keys(statsAgg).length}`);
+    } catch (e) {
+      console.warn('[INIT-ALL-PAGES] Error fetching stats:', e?.message);
+    }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-ALL-PAGES] ✅ Completado en ${elapsed}ms`);
+
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: {
+        username: user?.username,
+        role: user?.role,
+        team: user?.team || 'Sin equipo'
+      },
+      data: {
+        dashboard: dashboardData,
+        customers: customers,
+        leads: leads,
+        rankings: rankings,
+        stats: statsAgg,
+        monthYear: `${currentMonth + 1}/${currentYear}`,
+        note: 'Solo datos del mes actual. Para otros meses, filtrar en la página.'
+      },
+      ttl: 5 * 60 * 1000  // válido por 5 minutos
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-ALL-PAGES] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de páginas',
+      error: error.message
+    });
+  }
+});
+
 app.get('/api/auth/debug-storage', (req, res) => {
   res.json({
     success: true,
@@ -1502,6 +1823,37 @@ app.get('/api/auth/debug-storage', (req, res) => {
       '4. Los permisos se verificarán automáticamente'
     ]
   });
+});
+
+// Debug: Exponer cache de init-dashboard para pruebas rápidas (no protegido)
+app.get('/api/init-dashboard-debug', (req, res) => {
+  try {
+    const cache = global.initDashboardCache || { data: null, updatedAt: 0 };
+    return res.json({ success: true, cache });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Dev helper: emitir un token JWT de prueba para debugging local (NO en production)
+app.post('/api/auth/test-token', (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
+    const originIp = req.ip || req.connection && req.connection.remoteAddress || '';
+    // permitir solo llamadas desde localhost
+    if (!(originIp === '::1' || originIp === '127.0.0.1' || originIp.endsWith('::1') || originIp.startsWith('127.0.0.1'))) {
+      return res.status(403).json({ success: false, message: 'Allowed only from localhost' });
+    }
+
+    const body = req.body || {};
+    const username = body.username || body.user || 'dev.admin';
+    const role = body.role || 'Administrador';
+    const payload = { username, role };
+    const token = require('jsonwebtoken').sign(payload, process.env.JWT_SECRET || 'tu_clave_secreta_super_segura', { expiresIn: '2h' });
+    return res.json({ success: true, token, payload });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // Endpoint para obtener teams con supervisores asignados
@@ -2225,16 +2577,16 @@ app.post('/api/create-admin', async (req, res) => {
   }
 });
 
-// Listar agentes desde la colección de usuarios (para hidratar sidebar)
-app.get('/api/users/agents', protect, async (req, res) => {
+    // Listar agentes desde la colección de usuarios (para hidratar sidebar)
+    app.get('/api/users/agents', protect, async (req, res) => {
   try {
     if (!db) await connectToMongoDB();
     const usersColl = db.collection('users');
-    // Filtrar solo roles de agente
-    const roleFilter = { role: { $in: ['Agentes', 'Lineas-Agentes'] } };
+    // Filtrar roles que contengan 'agente' o 'vendedor' (case-insensitive)
+    const roleFilter = { role: { $regex: /(agente|vendedor)/i } };
     const users = await usersColl
       .find(roleFilter)
-      .project({ username: 1, name: 1, nombre: 1, fullName: 1, role: 1 })
+      .project({ username: 1, name: 1, nombre: 1, fullName: 1, role: 1, supervisor:1, supervisorName:1, supervisorId:1, team:1 })
       .toArray();
     const sanitized = users.map(u => ({
       id: (u._id && u._id.toString()) || null,

@@ -138,17 +138,33 @@ router.get('/leads', protect, async (req, res) => {
       let targetYear, targetMonth;
       
       if (month) {
-        // Usar mes específico del parámetro (formato: YYYY-MM)
-        const [year, monthNum] = month.split('-').map(Number);
-        targetYear = year;
-        targetMonth = monthNum;
-        console.log(`[API /leads] Filtro por mes específico: ${month}`);
+        // Soportar formatos: YYYY-MM OR MM (con ?year=YYYY)
+        if (/^\d{4}-\d{2}$/.test(month)) {
+          const [year, monthNum] = month.split('-').map(Number);
+          targetYear = year;
+          targetMonth = monthNum;
+          console.log(`[API /leads] Filtro por mes específico (YYYY-MM): ${month}`);
+        } else if (/^\d{1,2}$/.test(month) && req.query.year && /^\d{4}$/.test(String(req.query.year))) {
+          targetYear = Number(req.query.year);
+          targetMonth = Number(month);
+          console.log(`[API /leads] Filtro por mes específico (MM + year): ${targetYear}-${String(targetMonth).padStart(2,'0')}`);
+        } else {
+          console.warn('[API /leads] Parámetro month no reconocido, usando mes actual. month=', month, 'year=', req.query.year);
+        }
       } else {
         // Usar mes actual por defecto
         const now = new Date();
         targetYear = now.getFullYear();
         targetMonth = now.getMonth() + 1; // 1-12
         console.log(`[API /leads] Filtro automático por mes actual: ${targetYear}-${String(targetMonth).padStart(2, '0')}`);
+      }
+
+      // Validar que targetYear/targetMonth sean números válidos; si no, usar mes actual
+      if (!Number.isInteger(targetYear) || !Number.isInteger(targetMonth) || targetMonth < 1 || targetMonth > 12) {
+        const now = new Date();
+        targetYear = now.getFullYear();
+        targetMonth = now.getMonth() + 1;
+        console.warn('[API /leads] Valores de mes/año inválidos tras parseo; usando mes actual:', targetYear, targetMonth);
       }
       
       // Generar strings para todo el mes objetivo
@@ -232,56 +248,103 @@ router.get('/leads', protect, async (req, res) => {
         query = { $and: andConditions };
     }
 
-    // ====== AGREGACIÓN MULTI-COLECCIÓN ======
-    // TODOS los usuarios ven datos agregados de todas las colecciones (sin filtro por rol)
-    console.log('[API /leads] Agregando de TODAS las colecciones costumers* para todos los usuarios');
-    
-    let leads = [];
-    
-    // Listar todas las colecciones
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-    
-    // Filtrar solo las colecciones que empiezan con 'costumers'
-    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
-    console.log(`[API /leads] Colecciones a agregar: ${costumersCollections.length}`, costumersCollections);
-    
-    // Consultar cada colección y agregar resultados
-    for (const colName of costumersCollections) {
+    // ====== AGREGACIÓN MULTI-COLECCIÓN (PAGINADA) ======
+    // Implementamos paginación global a través de las colecciones costumers* (y TEAM_LINEAS si existe)
+    // Parámetros soportados: page, limit, fields (proyección CSV)
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    // Por defecto devolver 50 leads por página para evitar payloads grandes
+    const requestedLimit = parseInt(req.query.limit);
+    const defaultLimit = 50;
+    const maxLimit = 5000;
+    let limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : defaultLimit;
+    limit = Math.min(limit, maxLimit);
+    const offsetGlobal = Math.max(0, parseInt(req.query.offset) || ((page - 1) * limit));
+    const fieldsParam = (req.query.fields || '').toString().trim();
+    const projection = {};
+    if (fieldsParam) {
+      fieldsParam.split(',').map(f => f.trim()).filter(Boolean).forEach(f => { projection[f] = 1; });
+    }
+
+    // Recolectar todas las colecciones a iterar (incluye TEAM_LINEAS si existe)
+    const allCollections = [];
+    const collectionsList = await db.listCollections().toArray();
+    const collectionNamesList = collectionsList.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
+    collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
+
+    try {
+      const dbTL = getDbFor('TEAM_LINEAS');
+      if (dbTL) {
+        const tlcols = await dbTL.listCollections().toArray();
+        tlcols.map(c => ({ db: dbTL, name: c.name })).forEach(x => allCollections.push(x));
+      }
+    } catch (e) {
+      // silently continue
+    }
+
+    // Paginación a través de colecciones: calcular total y tomar la ventana [offsetGlobal, offsetGlobal+limit)
+    let remaining = limit;
+    let offset = offsetGlobal;
+    const collected = [];
+    let totalCount = 0;
+
+    for (const collInfo of allCollections) {
+      const colName = collInfo.name;
       try {
-        const col = db.collection(colName);
-        const docs = await col.find(query).toArray();
-        
-        if (docs.length > 0) {
-          console.log(`[API /leads] ${colName}: ${docs.length} documentos`);
+        const col = collInfo.db.collection(colName);
+        // Contar documentos que coinciden con la query en esta colección
+        const cnt = await col.countDocuments(query);
+        console.log(`[API /leads] Colección ${colName} -> count=${cnt}`);
+        totalCount += cnt;
+
+        if (offset >= cnt) {
+          // aún saltamos esta colección completa
+          console.log(`[API /leads] Saltando colección ${colName} (offset remaining=${offset} >= count=${cnt})`);
+          offset -= cnt;
+          continue;
         }
-        
-        leads = leads.concat(docs);
+
+        // calcular skip para esta colección
+        const skip = offset > 0 ? offset : 0;
+        const fetchLimit = Math.max(0, remaining);
+        console.log(`[API /leads] Preparando fetch en ${colName}: skip=${skip} limit=${fetchLimit} (remaining global=${remaining})`);
+
+        const cursor = col.find(query).sort({ createdAt: -1 }).skip(skip).limit(fetchLimit);
+        if (Object.keys(projection).length) cursor.project(projection);
+        const docs = await cursor.toArray();
+        console.log(`[API /leads] ${colName} -> docsFetched=${docs?.length||0}`);
+        if (docs && docs.length) {
+          collected.push(...docs);
+          remaining -= docs.length;
+        }
+
+        // reset offset una vez consumida la primera colección que requería skipping
+        offset = 0;
+        if (remaining <= 0) {
+          console.log('[API /leads] Ventana completada — remaining <= 0, deteniendo iteración de colecciones');
+          break;
+        }
       } catch (err) {
-        console.error(`[API /leads] Error consultando ${colName}:`, err.message);
+        console.warn(`[API /leads] Error consultando ${colName}:`, err?.message || err);
       }
     }
-    
-    // Ordenar en memoria después de agregar todo
-    leads.sort((a, b) => {
-      // Primero por dia_venta (más reciente primero)
+
+    // Si no se usó proyección o se pidió menos datos que el total, devolver resultados tal cual
+    // Calcular páginas totales
+    const pages = Math.max(1, Math.ceil(totalCount / limit));
+    console.log(`[API /leads] Paginación compuesta: page=${page} limit=${limit} offset=${offsetGlobal} total=${totalCount} pages=${pages} returned=${collected.length}`);
+
+    // Ordenar la ventana devuelta por dia_venta y createdAt para mantener consistencia de UI
+    collected.sort((a, b) => {
       const dateA = a.dia_venta || '';
       const dateB = b.dia_venta || '';
-      if (dateB !== dateA) {
-        return dateB.localeCompare(dateA);
-      }
-      
-      // Luego por createdAt
-      const createdA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const createdB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-      return createdB - createdA;
+      if (dateB !== dateA) return dateB.localeCompare(dateA);
+      const cA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const cB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return cB - cA;
     });
-    
-    console.log(`[API /leads] Total documentos agregados: ${leads.length}`);
-    console.log(`[API /leads] Enviando respuesta con ${leads.length} leads`);
-    // ====== FIN AGREGACIÓN MULTI-COLECCIÓN ======
 
-    res.json({ success: true, data: leads, queryUsed: query });
+    return res.json({ success: true, data: collected, total: totalCount, page, pages, queryUsed: query });
+    // ====== FIN AGREGACIÓN MULTI-COLECCIÓN (PAGINADA) ======
 
   } catch (error) {
     console.error('[API] Error en GET /api/leads:', error);
@@ -337,6 +400,143 @@ router.get('/leads/debug-dates', protect, async (req, res) => {
   } catch (error) {
     console.error('[DEBUG] Error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Endpoint temporal: devolver conteos por colección para un mes/rango dado
+router.get('/leads/collection-counts', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'No DB' });
+
+    const { month, fechaInicio, fechaFin } = req.query;
+    let andConditions = [];
+
+    // Construir query de fechas similar a /api/leads
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const dateStrings = [];
+      const dateRegexes = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = String(day).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        dateStrings.push(`${y}-${mm}-${d}`);
+        dateStrings.push(`${d}/${mm}/${y}`);
+        const dateObj = new Date(y, m - 1, day);
+        dateRegexes.push(new RegExp(`^${dateObj.toDateString()}`, 'i'));
+      }
+      const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(y, m - 1, daysInMonth, 23, 59, 59, 999);
+      const dateOr = [ { dia_venta: { $in: dateStrings } }, { createdAt: { $gte: monthStart, $lte: monthEnd } } ];
+      dateRegexes.forEach(r => dateOr.push({ dia_venta: { $regex: r.source, $options: 'i' } }));
+      andConditions.push({ $or: dateOr });
+    } else if (fechaInicio && fechaFin) {
+      const [ys, ms, ds] = fechaInicio.split('-').map(Number);
+      const [ye, me, de] = fechaFin.split('-').map(Number);
+      const start = new Date(ys, ms - 1, ds, 0, 0, 0, 0);
+      const end = new Date(ye, me - 1, de, 23, 59, 59, 999);
+      const dateOr = [ { createdAt: { $gte: start, $lte: end } } ];
+      andConditions.push({ $or: dateOr });
+    }
+
+    const query = andConditions.length ? { $and: andConditions } : {};
+
+    const collections = await db.listCollections().toArray();
+    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
+    const result = {};
+
+    for (const n of names) {
+      try {
+        const col = db.collection(n);
+        const cnt = await col.countDocuments(query);
+        result[n] = cnt;
+      } catch (e) {
+        result[n] = { error: e.message };
+      }
+    }
+
+    // Intentar TEAM_LINEAS si existe
+    try {
+      const dbTL = getDbFor('TEAM_LINEAS');
+      if (dbTL) {
+        const cols = await dbTL.listCollections().toArray();
+        const tlCounts = {};
+        for (const c of cols) {
+          try {
+            tlCounts[c.name] = await dbTL.collection(c.name).countDocuments(query);
+          } catch (e) { tlCounts[c.name] = { error: e.message }; }
+        }
+        return res.json({ success: true, collections: result, team_lineas: tlCounts, queryUsed: query });
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return res.json({ success: true, collections: result, queryUsed: query });
+  } catch (error) {
+    console.error('[API /leads/collection-counts] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Endpoint público temporal (sin auth) para diagnóstico rápido en entorno local
+router.get('/leads/collection-counts-public', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'No DB' });
+
+    const { month, fechaInicio, fechaFin } = req.query;
+    let andConditions = [];
+
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const [y, m] = month.split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const dateStrings = [];
+      const dateRegexes = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = String(day).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        dateStrings.push(`${y}-${mm}-${d}`);
+        dateStrings.push(`${d}/${mm}/${y}`);
+        const dateObj = new Date(y, m - 1, day);
+        dateRegexes.push(new RegExp(`^${dateObj.toDateString()}`, 'i'));
+      }
+      const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(y, m - 1, daysInMonth, 23, 59, 59, 999);
+      const dateOr = [ { dia_venta: { $in: dateStrings } }, { createdAt: { $gte: monthStart, $lte: monthEnd } } ];
+      dateRegexes.forEach(r => dateOr.push({ dia_venta: { $regex: r.source, $options: 'i' } }));
+      andConditions.push({ $or: dateOr });
+    } else if (fechaInicio && fechaFin) {
+      const [ys, ms, ds] = fechaInicio.split('-').map(Number);
+      const [ye, me, de] = fechaFin.split('-').map(Number);
+      const start = new Date(ys, ms - 1, ds, 0, 0, 0, 0);
+      const end = new Date(ye, me - 1, de, 23, 59, 59, 999);
+      const dateOr = [ { createdAt: { $gte: start, $lte: end } } ];
+      andConditions.push({ $or: dateOr });
+    }
+
+    const query = andConditions.length ? { $and: andConditions } : {};
+
+    const collections = await db.listCollections().toArray();
+    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
+    const result = {};
+    for (const n of names) {
+      try { result[n] = await db.collection(n).countDocuments(query); } catch (e) { result[n] = { error: e.message }; }
+    }
+    try {
+      const dbTL = getDbFor('TEAM_LINEAS');
+      if (dbTL) {
+        const cols = await dbTL.listCollections().toArray();
+        const tlCounts = {};
+        for (const c of cols) { try { tlCounts[c.name] = await dbTL.collection(c.name).countDocuments(query); } catch (e) { tlCounts[c.name] = { error: e.message }; } }
+        return res.json({ success: true, collections: result, team_lineas: tlCounts, queryUsed: query });
+      }
+    } catch (e) { /* ignore */ }
+    return res.json({ success: true, collections: result, queryUsed: query });
+  } catch (error) {
+    console.error('[API /leads/collection-counts-public] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 

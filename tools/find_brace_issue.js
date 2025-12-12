@@ -1,0 +1,3 @@
+const fs = require('fs');
+const s = fs.readFileSync('tmp_block5.js','utf8');
+let d=0; for(let i=0;i<s.length;i++){ const ch=s[i]; if(ch==='{') d++; if(ch==='}') { d--; if(d<0) { const before=s.slice(0,i); const line=before.split('\n').length; console.log('negative at index', i, 'line', line); const lines=s.split('\n'); const start=Math.max(0,line-8); for(let j=start;j<Math.min(lines.length, line+4); j++){ console.log((j+1)+': '+lines[j]); } process.exit(0);} }} console.log('final depth', d);

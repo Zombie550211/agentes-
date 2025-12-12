@@ -535,20 +535,66 @@
                       console.warn('[LOGIN] verify-server request failed', e);
                     }
 
-                    messageDiv.textContent = '¡Inicio de sesión exitoso! Preparando dashboard...';
+                    messageDiv.textContent = '¡Inicio de sesión exitoso! Redirigiendo...';
                     messageDiv.className = 'alert alert-success';
 
-                    // NUEVO: Cargar todos los datos del dashboard en una sola petición
-                    try {
-                      console.log('📊 [LOGIN] Iniciando precarga del dashboard...');
-                      const dashboardData = await window.dashboardManager.initDashboard();
-                      console.log('✅ [LOGIN] Dashboard precargado:', dashboardData);
-                    } catch (dashError) {
-                      console.error('⚠️  [LOGIN] Error precargando dashboard (continuando):', dashError);
-                      // No bloquear el login si falla la precarga
-                    }
+                    // ⚡ PRECARGA EN BACKGROUND: No esperar (no await) para que el usuario navegue inmediatamente
+                    // Mientras el usuario ve la página, los datos se cargan en segundo plano
+                    const preheatPages = async () => {
+                      try {
+                        console.log('[LOGIN-PREHEAT] 🔥 Iniciando precalentamiento de datos...');
+                        
+                        const token = data.token;
+                        const headers = {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        };
 
-                    messageDiv.textContent = '¡Redirigiendo...';
+                        // 1. Precalentar dashboard (KPIs)
+                        fetch('/api/init-dashboard', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('dashboardData', JSON.stringify(d));
+                              console.log('[LOGIN-PREHEAT] ✅ Dashboard cacheado en sessionStorage');
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Dashboard error:', e?.message));
+
+                        // 2. Precalentar TODAS las páginas (customers, leads, stats, rankings del mes actual)
+                        fetch('/api/init-all-pages', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('allPagesData', JSON.stringify(d.data));
+                              sessionStorage.setItem('allPagesTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Todas las páginas cacheadas:', {
+                                customers: d.data?.customers?.length || 0,
+                                leads: d.data?.leads?.length || 0,
+                                rankings: d.data?.rankings?.length || 0,
+                                stats: Object.keys(d.data?.stats || {}).length
+                              });
+                              // Emitir evento para que las páginas sepan que hay datos frescos
+                              window.dispatchEvent(new CustomEvent('allPagesPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ All-pages error:', e?.message));
+
+                      } catch (e) {
+                        console.warn('[LOGIN-PREHEAT] ⚠️ Precalentamiento fallido (no bloquea):', e?.message);
+                      }
+                    };
+
+                    // Iniciar precarga en background SIN esperar
+                    preheatPages();
 
                     let finalRedirectUrl = getUrlParameter('redirect') || '/inicio.html';
 

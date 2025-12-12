@@ -1,7 +1,6 @@
-
-
+ 
 <!DOCTYPE html>
-v   <html lang="es">
+<html lang="es">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -14,34 +13,30 @@ v   <html lang="es">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251124">
   <link rel="stylesheet" href="css/costumer-table-actions.css">
-  <link rel="stylesheet" href="css/costumer-table-comments.css">`n  <link rel="stylesheet" href="css/costumer-calendar.css">
+  <link rel="stylesheet" href="css/costumer-table-comments.css">
+  <link rel="stylesheet" href="css/costumer-calendar.css">
   <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+  <script src="scripts/measure_fetch_times.js"></script>
   <!-- Guard temporal ANTES de cargar scripts: bloquear redirecciones a inicio -->
+    <script>
+      // Delegated handler: asegurar que los botones .date-filter-btn siempre abran el popup
+      document.addEventListener('click', function(e){
+        try {
+          const btn = e.target.closest && e.target.closest('.date-filter-btn');
+          if (!btn) return;
+          e.preventDefault(); e.stopPropagation();
+          const field = btn.getAttribute('data-field');
+          const lsKey = btn.getAttribute('data-lskey');
+          if (typeof window.openDateFilterPopup === 'function') {
+            window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
+          } else {
+            console.warn('openDateFilterPopup no está disponible todavía');
+          }
+        } catch(err) { console.error('date-filter delegated click error', err); }
+      });
+    </script>
   <script>
-    // Sincronizar barra espejo con la tabla
-    (function(){
-      function initMirror(){
-        const wrap = document.querySelector('.table-responsive');
-        const table = document.querySelector('.costumer-table');
-        const mirror = document.getElementById('scrollbarMirror');
-        const inner = document.getElementById('scrollbarMirrorInner');
-        if(!wrap || !table || !mirror || !inner) return;
-        const updateWidth = () => {
-          const scrollW = Math.max(table.scrollWidth, 1);
-          inner.style.width = scrollW + 'px';
-          mirror.scrollLeft = wrap.scrollLeft;
-        };
-        // Sticky header builder
-        function rebuildStickyHead(){
-          try{
-            const container = document.querySelector('.costumer-table-container');
-            if(!container || !table) return;
-            // remove previous
-            const prev = container.querySelector('.sticky-head-wrapper');
-            if(prev) prev.remove();
-            // create wrapper and cloned head
-            const head = table.querySelector('thead');
-            if(!head) return;
+            function rebuildStickyHead(){ try {
             const wrapper = document.createElement('div');
             wrapper.className = 'sticky-head-wrapper';
             const headTable = document.createElement('table');
@@ -55,7 +50,12 @@ v   <html lang="es">
             const origTh = Array.from(head.querySelectorAll('th'));
             const cloneTh = Array.from(clonedHead.querySelectorAll('th'));
             const widths = origTh.map(th => th.getBoundingClientRect().width);
-            cloneTh.forEach((th,i)=>{ const w = widths[i]||160; th.style.minWidth = w+'px'; th.style.maxWidth = w+'px'; th.style.width = w+'px'; });
+            cloneTh.forEach((th, i) => {
+              const w = widths[i] || 160;
+              try { th.style.minWidth = w + 'px'; } catch(_) {}
+              try { th.style.maxWidth = w + 'px'; } catch(_) {}
+              try { th.style.width = w + 'px'; } catch(_) {}
+            });
             // ajustar ancho visible del wrapper al del contenedor con scroll
             const adjustWrapper = ()=>{ wrapper.style.width = wrap.clientWidth + 'px'; };
             adjustWrapper();
@@ -73,82 +73,23 @@ v   <html lang="es">
     // Edición por clave local cuando el lead no tiene _id/id (por ejemplo, datos inyectados temporalmente)
     window.editarLeadKey = function(key) {
       try {
-        if (!key) { alert('Error: No se proporcionó clave local'); return; }
-        const map = window.__leadKeyMap instanceof Map ? window.__leadKeyMap : null;
-        if (!map || !map.has(key)) { alert('Error: No se encontró el registro local'); return; }
+        if (!key) { alert('Error: No se proporcionó clave local'); return null; }
+        const map = (window.__leadKeyMap instanceof Map) ? window.__leadKeyMap : null;
+        if (!map) { console.warn('editarLeadKey: no hay mapa de leads locales'); return null; }
         const lead = map.get(key);
-        abrirModalEdicion(lead);
+        if (!lead) { alert('Error: No se encontró el registro local'); return null; }
+        // Intentar abrir modal de edición si la función existe
+        if (typeof abrirModalEdicion === 'function') {
+          try { abrirModalEdicion(lead); } catch (e) { console.warn('abrirModalEdicion error', e); }
+        } else {
+          console.log('editarLeadKey: abrirModalEdicion no disponible, mostrando en consola:', lead);
+        }
+        return lead;
       } catch (e) {
-        console.error('editarLeadKey error:', e);
-        alert('Error al abrir el registro local: ' + (e?.message || e));
+        console.warn('editarLeadKey error:', e);
+        return null;
       }
     };
-        const sync = (src, dst) => () => { dst.scrollLeft = src.scrollLeft; };
-        wrap.addEventListener('scroll', sync(wrap, mirror));
-        mirror.addEventListener('scroll', sync(mirror, wrap));
-        // Botones de desplazamiento
-        const btnL = document.getElementById('scroll-left');
-        const btnR = document.getElementById('scroll-right');
-        const step = 400; // px por clic
-        if (btnL) btnL.addEventListener('click', ()=>{ wrap.scrollLeft = Math.max(0, wrap.scrollLeft - step); });
-        if (btnR) btnR.addEventListener('click', ()=>{ wrap.scrollLeft = Math.min(wrap.scrollWidth, wrap.scrollLeft + step); });
-        // Rueda del mouse/trackpad: forzar desplazamiento horizontal
-        wrap.addEventListener('wheel', (e) => {
-          try {
-            const horiz = Math.abs(e.deltaX) > Math.abs(e.deltaY);
-            if (horiz || e.shiftKey) {
-              e.preventDefault();
-              wrap.scrollLeft += (horiz ? e.deltaX : e.deltaY);
-            }
-          } catch {}
-        }, { passive: false });
-        // Drag to scroll (click y arrastrar)
-        let isDown = false, startX = 0, startLeft = 0;
-        wrap.addEventListener('mousedown', (e) => {
-          isDown = true; startX = e.pageX; startLeft = wrap.scrollLeft; wrap.classList.add('grabbing');
-        });
-        window.addEventListener('mouseup', () => { isDown = false; wrap.classList.remove('grabbing'); });
-        window.addEventListener('mousemove', (e) => {
-          if (!isDown) return; e.preventDefault();
-          const dx = e.pageX - startX; wrap.scrollLeft = startLeft - dx;
-        });
-        window.addEventListener('resize', updateWidth);
-        // Evitar 'ResizeObserver loop' usando requestAnimationFrame y un flag de pendiente
-        let __roPending = false;
-        const roSafeCallback = () => {
-          if (__roPending) return;
-          __roPending = true;
-          requestAnimationFrame(() => { try { updateWidth(); } finally { __roPending = false; } });
-        };
-        const ro = window.ResizeObserver ? new ResizeObserver(roSafeCallback) : null;
-        if (ro) ro.observe(table);
-        updateWidth();
-        // build once
-        rebuildStickyHead();
-      }
-      window.addEventListener('DOMContentLoaded', initMirror);
-    })();
-  </script>
-  <script>
-    // Mostrar scroll vertical solo cuando el puntero está sobre el sidebar
-    document.addEventListener('DOMContentLoaded', () => {
-      const sidebar = document.querySelector('.sidebar');
-      if (!sidebar) return;
-      document.body.classList.add('hide-main-scroll');
-      sidebar.addEventListener('mouseenter', () => {
-        document.body.classList.add('show-main-scroll');
-        document.body.classList.remove('hide-main-scroll');
-      });
-      sidebar.addEventListener('mouseleave', () => {
-        document.body.classList.add('hide-main-scroll');
-        document.body.classList.remove('show-main-scroll');
-      });
-    });
-  </script>
-  <script>
-    // Auto-ocultar sidebar y mostrarlo al pasar por el borde izquierdo
-    document.addEventListener('DOMContentLoaded', () => {
-      // Añadir clase global para activar el modo auto-hide
       document.body.classList.add('auto-hide-sidebar');
 
       // Insertar zona de hover si no existe
@@ -177,35 +118,25 @@ v   <html lang="es">
       zone?.addEventListener('mouseleave', scheduleHide);
       sidebar?.addEventListener('mouseenter', show);
       sidebar?.addEventListener('mouseleave', scheduleHide);
-    });
-  </script>
-  
+    </script>
+    <script>
+      // Delegated handler: asegurar que los botones .date-filter-btn siempre abran el popup
+      document.addEventListener('click', function(e){
+        try {
+          const btn = e.target.closest && e.target.closest('.date-filter-btn');
+          if (!btn) return;
+          e.preventDefault(); e.stopPropagation();
+          const field = btn.getAttribute('data-field');
+          const lsKey = btn.getAttribute('data-lskey');
+          if (typeof window.openDateFilterPopup === 'function') {
+            window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
+          } else {
+            console.warn('openDateFilterPopup no está disponible todavía');
+          }
+        } catch(err) { console.error('date-filter delegated click error', err); }
+      });
+    </script>
   <script>
-    // Renderizador con soporte Team Líneas
-    (function(){
-      function isTeamLineas(){
-        try{
-          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-          const role = (user.role||user?.usuario?.role||'').toString().trim().toLowerCase();
-          const username = (user.username||user?.usuario?.username||'').toString().trim().toLowerCase();
-          
-          // Debug: mostrar valores para diagnosticar
-          console.log('[Team Líneas Debug] role:', role, 'username:', username, 'body.team-lineas:', document.body.classList.contains('team-lineas'));
-          
-          // Detectar Team Líneas por múltiples criterios
-          const isTeam = document.body.classList.contains('team-lineas') || 
-                        role==='teamlineas' || 
-                        username.startsWith('lineas-') ||
-                        username.includes('lineas') ||
-                        role.includes('lineas');
-          
-          console.log('[Team Líneas Debug] Resultado:', isTeam);
-          return isTeam;
-        }catch(e){ 
-          console.warn('[Team Líneas Debug] Error:', e);
-          return false; 
-        }
-      }
       function maskPin(v){
         const s = String(v || '');
         return s ? '•'.repeat(Math.min(4, s.length)) : '';
@@ -240,49 +171,97 @@ v   <html lang="es">
         return agentCanonicalName(raw);
       }
       function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
+      // Efficient renderer: uses batched rendering with DocumentFragment to avoid
+      // repeated reflows when inserting many rows. Renders in micro-batches so
+      // the main thread is not blocked for long periods.
       function renderRows(list){
-        const tbody=document.getElementById('costumer-tbody'); if(!tbody) return; tbody.innerHTML='';
-        (list||[]).forEach(l=>{
-          const autop=(l.autopay??l.autopago);
-          const autopTxt=typeof autop==='boolean'?(autop?'Sí':'No'):(String(autop||'').toUpperCase()==='SI'?'Sí':(String(autop||'').toUpperCase()==='NO'?'No':String(autop||'')));
-          const cant=(l.cantidad_lineas!=null)?l.cantidad_lineas:(Array.isArray(l.telefonos)?l.telefonos.length:'');
-          const statusRaw=(l.status||'').toString();
-          const statusNorm=statusRaw.trim().toLowerCase();
-          const idVal=(l.id_cliente||l._id||l.id||'');
-          const cells=[
-            l.nombre_cliente||'',
-            l.telefono_principal||'',
-            l.numero_cuenta||'',
-            autopTxt||'',
-            maskPin(l.pin_seguridad)||'',
-            l.direccion||'',
-            normDate(l.dia_venta||l.fecha_contratacion||l.fecha||''),
-            normDate(l.dia_instalacion||''),
+        const tbody = document.getElementById('costumer-tbody'); if(!tbody) return;
+        // Clear existing rows quickly
+        tbody.innerHTML = '';
+
+        const rows = Array.isArray(list) ? list : (Array.isArray(list?.leads) ? list.leads : []);
+        if (rows.length === 0) return;
+
+        const batchSize = 200; // tuneable: number of rows rendered per tick
+        let idx = 0;
+
+        function makeTrFromLead(l) {
+          const autop = (l.autopay ?? l.autopago);
+          const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : (String(autop || '').toUpperCase() === 'NO' ? 'No' : String(autop || '')));
+          const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : (Array.isArray(l.telefonos) ? l.telefonos.length : '');
+          const statusRaw = (l.status || '').toString();
+          const statusNorm = statusRaw.trim().toLowerCase();
+          const idVal = (l.id_cliente || l._id || l.id || '');
+
+          const values = [
+            l.nombre_cliente || '',
+            l.telefono_principal || '',
+            l.numero_cuenta || '',
+            autopTxt || '',
+            maskPin(l.pin_seguridad) || '',
+            l.direccion || '',
+            normDate(l.dia_venta || l.fecha_contratacion || l.fecha || ''),
+            normDate(l.dia_instalacion || ''),
             statusRaw.toUpperCase(),
-            cant||'',
-            serviciosResumen(l)||'',
+            cant || '',
+            serviciosResumen(l) || '',
             idVal,
-            l.supervisor||'',
-            l.mercado||''
+            l.supervisor || '',
+            l.mercado || ''
           ];
-          const tr=document.createElement('tr');
+
+          const tr = document.createElement('tr');
           if (idVal) tr.setAttribute('data-lead-id', String(idVal));
-          if(statusNorm){
-            let cls='row-status-';
-            if(/cancel/.test(statusNorm)) cls+='canceled';
-            else if(/hold/.test(statusNorm)) cls+='hold';
-            else if(/repro|resched/.test(statusNorm)) cls+='rescheduled';
-            else if(/complete|active/.test(statusNorm)) cls+='complete';
-            else cls+='pending';
+          if (statusNorm) {
+            let cls = 'row-status-';
+            if (/cancel/.test(statusNorm)) cls += 'canceled';
+            else if (/hold/.test(statusNorm)) cls += 'hold';
+            else if (/repro|resched/.test(statusNorm)) cls += 'rescheduled';
+            else if (/complete|active/.test(statusNorm)) cls += 'complete';
+            else cls += 'pending';
             tr.classList.add(cls);
           }
-          tr.innerHTML=cells.map(v=>`<td>${v==null?'':v}</td>`).join('');
-          try {
-            const tdStatus = tr.children[8];
-            if (tdStatus) tdStatus.dataset.status = statusNorm; // para CSS :has() y recolor persistente
-          } catch {}
-          tbody.appendChild(tr);
-        });
+
+          // Create TDs with textContent (safer and faster than innerHTML parsing)
+          for (let i = 0; i < values.length; i++) {
+            const td = document.createElement('td');
+            const v = values[i];
+            try { td.textContent = (v == null ? '' : v); } catch { td.textContent = '' + (v || ''); }
+            tr.appendChild(td);
+          }
+
+          // store status normalized for CSS and later coloring
+          try { const tdStatus = tr.children[8]; if (tdStatus) tdStatus.dataset.status = statusNorm; } catch {}
+          return tr;
+        }
+
+        function renderBatch() {
+          const fragment = document.createDocumentFragment();
+          const end = Math.min(idx + batchSize, rows.length);
+          for (; idx < end; idx++) {
+            try { fragment.appendChild(makeTrFromLead(rows[idx])); } catch (e) { /* ignore single-row errors */ }
+          }
+          tbody.appendChild(fragment);
+
+          if (idx < rows.length) {
+            // yield to the event loop to keep UI responsive
+            setTimeout(renderBatch, 0);
+          } else {
+            // finalization: ensure row IDs and coloring applied
+            try {
+              ensureRowIds();
+              syncStatusDatasets();
+              applyRowStatusColors();
+              if (typeof window.rebuildStickyHead === 'function') window.rebuildStickyHead();
+            } catch (e) { /* ignore */ }
+            try {
+              document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: rows.length } }));
+            } catch (e) { /* ignore */ }
+          }
+        }
+
+        // Start rendering asynchronously
+        renderBatch();
       }
       // Guardar referencia al renderizador anterior
       const originalRenderer = window.renderCostumerTable;
@@ -459,6 +438,7 @@ v   <html lang="es">
                           } catch(_) {}
                         };
                         tryApplyColors();
+                        try { setTimeout(()=>{ document.dispatchEvent(new CustomEvent('leads:rendered',{detail:{count: arr.length}})); }, 100); }catch(_){ }
                       } catch(_) {}
                       window.__initialPaintDone = true;
                     } catch(e){ console.warn('[Render] fallo en pintado inicial', e); }
@@ -633,6 +613,7 @@ v   <html lang="es">
                     
                     const r = _renderFn(arr);
                     setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
+                    try { setTimeout(()=>{ document.dispatchEvent(new CustomEvent('leads:rendered',{detail:{count: arr.length}})); }, 150); }catch(_){ }
                     return r;
                   } catch(e) {
                     console.warn('[Render fallback] error applying default month filter', e);
@@ -694,9 +675,7 @@ v   <html lang="es">
             }
           } catch {}
         });
-      } catch {}
-    })();
-  </script>
+      } catch {}</script>
   <script>
     // Helpers globales para colorear filas por STATUS inmediatamente
     (function(){
@@ -1452,6 +1431,19 @@ v   <html lang="es">
     .cancelled .card-icon {
       background: linear-gradient(135deg, #f44336, #ef5350);
     }
+
+    /* Nuevas tarjetas KPI */
+    .points-monthly .card-icon {
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+    }
+
+    .icon-market .card-icon {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+
+    .bamo-market .card-icon {
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+    }
     
     /* Estilos para la tabla de clientes */
     .costumer-table-container {
@@ -1805,6 +1797,25 @@ v   <html lang="es">
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
+    /* Loading overlay for long fetches/parsing */
+    .leads-loading-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.75);
+      z-index: 99999;
+      font-size: 16px;
+      color: #0f172a;
+      gap: 12px;
+    }
+    .leads-loading-overlay .spinner {
+      width: 34px; height: 34px; border-radius: 50%; border: 4px solid #e2e8f0; border-top-color: #2563eb; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+    
     
     .badge-success {
       background-color: #e6f7ed;
@@ -2226,6 +2237,54 @@ v   <html lang="es">
             </div>
           </div>
         </div>
+
+        <!-- Puntaje Mensual (NUEVO) -->
+        <div class="summary-card points-monthly">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-star"></i>
+              </div>
+              <h3 class="card-title">Puntaje Mensual</h3>
+            </div>
+            <div class="card-value" id="costumer-puntaje-mensual">0</div>
+            <div class="card-footer">
+              <i class="fas fa-check"></i> Vendidas
+            </div>
+          </div>
+        </div>
+
+        <!-- VENTAS ICON (NUEVO) -->
+        <div class="summary-card icon-market">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-map-marker-alt"></i>
+              </div>
+              <h3 class="card-title">ICON (Mercado)</h3>
+            </div>
+            <div class="card-value" id="costumer-icon-ventas">0</div>
+            <div class="card-footer">
+              <i class="fas fa-percentage"></i> <span id="costumer-icon-percent">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- VENTAS BAMO (NUEVO) -->
+        <div class="summary-card bamo-market">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-bullseye"></i>
+              </div>
+              <h3 class="card-title">BAMO (Mercado)</h3>
+            </div>
+            <div class="card-value" id="costumer-bamo-ventas">0</div>
+            <div class="card-footer">
+              <i class="fas fa-percentage"></i> <span id="costumer-bamo-percent">0%</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tabla de Clientes -->
@@ -2252,6 +2311,12 @@ v   <html lang="es">
             <label for="agentFilter">Agente</label>
             <select id="agentFilter" style="min-width: 140px;">
               <option value="">Todos los agentes</option>
+            </select>
+            <label for="mercadoFilter">Mercado</label>
+            <select id="mercadoFilter" style="min-width: 120px;">
+              <option value="">Todos los mercados</option>
+              <option value="ICON">ICON</option>
+              <option value="BAMO">BAMO</option>
             </select>
             <button onclick="clearAllFilters()" class="action-btn" title="Limpiar todos los filtros" style="margin-left: 10px; padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
               <i class="fas fa-times"></i> Limpiar
@@ -3901,7 +3966,23 @@ v   <html lang="es">
     function toISODateString(d) {
       try {
         if (!d) return '';
+        // Date object
         if (d instanceof Date) return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)).toISOString().split('T')[0];
+        // Número timestamp (ms)
+        if (typeof d === 'number') {
+          const dt = new Date(d);
+          if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
+        }
+        // Objetos que contienen fechas en campos comunes (Mongo { $date: ... }, createdAt, fecha)
+        if (typeof d === 'object') {
+          try {
+            const cand = d.$date || d.date || d.createdAt || d.created_at || d.fecha || d.value;
+            if (cand) {
+              const dt = (typeof cand === 'number') ? new Date(cand) : new Date(cand);
+              if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
+            }
+          } catch (_) {}
+        }
         if (typeof d === 'string') {
           // Intentar YYYY-MM-DD
           if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
@@ -4228,9 +4309,98 @@ v   <html lang="es">
     let __page = 1;
     // __limit se define en window.__limit para que el selector lo pueda modificar
     let __hasMore = true;
+    
+    // Helper para intentar cargar datos pre-calentados del login
+    async function tryLoadFromPrecachedData() {
+      try {
+        const cached = sessionStorage.getItem('allPagesData');
+        const cachedTime = sessionStorage.getItem('allPagesTimestamp');
+        
+        if (!cached || !cachedTime) {
+          console.log('[COSTUMER-CACHE] No hay datos precacheados disponibles');
+          return null;
+        }
+
+        // Loading overlay helpers (non-blocking UI indicator)
+        function showLoadingOverlay(msg) {
+          try {
+            let el = document.getElementById('leadsLoadingOverlay');
+            if (!el) {
+              el = document.createElement('div');
+              el.id = 'leadsLoadingOverlay';
+              el.className = 'leads-loading-overlay';
+              el.innerHTML = '<div class="spinner" aria-hidden="true"></div><div class="leads-loading-msg"></div>';
+              document.body.appendChild(el);
+            }
+            const m = el.querySelector('.leads-loading-msg');
+            if (m) m.textContent = msg || 'Cargando...';
+            el.style.display = 'flex';
+          } catch (e) { /* noop */ }
+        }
+        function updateLoadingOverlay(msg) {
+          try { const el = document.getElementById('leadsLoadingOverlay'); if (el) { const m = el.querySelector('.leads-loading-msg'); if (m) m.textContent = msg || m.textContent; } } catch(e){}
+        }
+        function hideLoadingOverlay() {
+          try { const el = document.getElementById('leadsLoadingOverlay'); if (el) el.style.display = 'none'; } catch(e){}
+        }
+
+        const now = new Date();
+        const cachedDate = new Date(cachedTime);
+        const ttl = 5 * 60 * 1000; // 5 minutos
+        
+        if ((now - cachedDate) > ttl) {
+          console.log('[COSTUMER-CACHE] Cache expirado, ignorando');
+          return null;
+        }
+
+        const data = JSON.parse(cached);
+        if (!data.customers || !Array.isArray(data.customers)) {
+          console.log('[COSTUMER-CACHE] Datos precacheados inválidos');
+          return null;
+        }
+
+        console.log('[COSTUMER-CACHE] ✅ Usando datos precacheados:', {
+          customers: data.customers.length,
+          timestamp: cachedTime,
+          age: Math.round((now - cachedDate) / 1000) + 's'
+        });
+
+        return data.customers;
+      } catch (e) {
+        console.warn('[COSTUMER-CACHE] Error leyendo cache:', e?.message);
+        return null;
+      }
+    }
+
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       try {
+        // FAST PATH: Intentar cargar desde cache precalentado en login
+        const cachedCustomers = await tryLoadFromPrecachedData();
+        if (cachedCustomers && cachedCustomers.length > 0) {
+          console.log('[fetchLeadsAgente] 🚀 Renderizando desde cache precalentado');
+          // Usar los datos precacheados directamente
+          let leadsRaw = cachedCustomers;
+          let normalizedLeads = normalizeLeads(leadsRaw);
+          console.log('[fetchLeadsAgente] normalizedLeads.length =', (normalizedLeads && normalizedLeads.length) || 0);
+          
+          // Renderizar inmediatamente
+          if (typeof renderCostumerTable === 'function') {
+            renderCostumerTable(normalizedLeads);
+          }
+          
+          // Cargar columnas adicionales si están disponibles
+          try {
+            if (typeof initializeSpecialColumns === 'function') initializeSpecialColumns();
+          } catch (e) { /* no-op */ }
+
+          console.log('[fetchLeadsAgente] ✅ Datos renderizados desde cache');
+          return; // ✅ NO hacer request al servidor
+        }
+
+        // FALLBACK: Si no hay cache, hacer request normal al servidor
+        console.log('[fetchLeadsAgente] Cache no disponible, fetching desde servidor...');
+        
         // Usar cookies para autenticación (método actual del sistema)
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const fetchOptions = {
@@ -4258,17 +4428,77 @@ v   <html lang="es">
         // Traemos un lote más grande y filtramos en frontend
         // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
         __page = Math.max(1, Number(page)||1);
-        // Traer TODOS los datos sin filtro de fecha para que el filtro frontend funcione
-        const apiLimit = 50000;
-        let url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31&allData=1&noDateFilter=1`;
+        // Traer datos por defecto: SOLO mes actual para reducir carga
+        // Reducir límite para evitar payloads enormes que bloqueen parseo
+        const apiLimit = (window.__apiLimit && Number(window.__apiLimit)) || 5000;
+        const fetchTimeoutMs = 12000; // abort if server takes longer than this (ms)
+        // Determinar mes/año actuales
+        const nowDt = new Date();
+        const currentMonth = String(nowDt.getMonth() + 1).padStart(2, '0');
+        const currentYear = nowDt.getFullYear();
+        // Si el selector de mes está presente y vacío, mostrar el mes actual para evitar confusión
+        try {
+          const monthSelect = document.getElementById('monthFilter');
+          if (monthSelect && (!monthSelect.value || monthSelect.value === '')) {
+            // valor en formato YYYY-MM
+            monthSelect.value = `${currentYear}-${currentMonth}`;
+          }
+        } catch (e) { /* no-op */ }
         let alreadyFilteredByAgent = false;
-        
-        console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
-        console.log(`[fetchLeadsAgente] URL: ${url}`);
 
         // Obtener parámetros URL
         const urlParams = new URLSearchParams(window.location.search);
-        const forceAll = urlParams.get('forceAll') === '1' || urlParams.get('forceAll') === 'true';
+        const forceAll = (window.__forceAllOverride === true) || urlParams.get('forceAll') === '1' || urlParams.get('forceAll') === 'true';
+
+        // Si se fuerza ver todos (forceAll=1) usamos la consulta histórica completa;
+        // por defecto pedimos solo el mes actual para reducir payload y tiempo.
+        let url;
+        if (forceAll) {
+          url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=${currentYear}-01-01&fechaFin=${currentYear}-12-31&allData=1&noDateFilter=1`;
+        } else {
+          // Preferir el valor del selector de mes si existe (debe ser YYYY-MM).
+          let monthParam = null;
+          try {
+            const monthElem = document.getElementById('monthFilter');
+            if (monthElem && monthElem.value) {
+              const v = String(monthElem.value).trim();
+              if (/^\d{4}-\d{2}$/.test(v)) {
+                monthParam = v;
+              } else {
+                // Intentar parsear formatos comunes: "Noviembre 2025", "11/2025", "2025/11"
+                const norm = (s) => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                const m1 = v.match(/^([A-Za-zÀ-ÿ]+)\s+(\d{4})$/i);
+                if (m1) {
+                  const monthNames = {
+                    enero:'01', february:'02', feb:'02', febrero:'02', mar:'03', marzo:'03', april:'04', abril:'04', may:'05', mayo:'05', june:'06', junio:'06', july:'07', julio:'07', august:'08', agosto:'08', september:'09', septiembre:'09', oct:'10', october:'10', octubre:'10', nov:'11', november:'11', noviembre:'11', dec:'12', december:'12', diciembre:'12'
+                  };
+                  const name = norm(m1[1]);
+                  const mm = monthNames[name] || monthNames[name.slice(0,3)];
+                  if (mm) monthParam = `${m1[2]}-${mm}`;
+                }
+                if (!monthParam) {
+                  const m2 = v.match(/^(\d{1,2})[\/\-](\d{4})$/);
+                  if (m2) {
+                    monthParam = `${m2[2]}-${String(m2[1]).padStart(2,'0')}`;
+                  }
+                }
+                if (!monthParam) {
+                  const m3 = v.match(/^(\d{4})[\/\-](\d{1,2})$/);
+                  if (m3) {
+                    monthParam = `${m3[1]}-${String(m3[2]).padStart(2,'0')}`;
+                  }
+                }
+              }
+            }
+          } catch (e) { /* no-op */ }
+          if (!monthParam) {
+            monthParam = `${currentYear}-${currentMonth}`;
+          }
+          url = `/api/leads?month=${encodeURIComponent(monthParam)}&page=${__page}&limit=${apiLimit}&skipDate=1`;
+        }
+
+        console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
+        console.log(`[fetchLeadsAgente] URL: ${url}`);
 
         // Para usuarios no Team Líneas: NO filtrar por agente en backend, se hará en frontend
         if (!isTeamLineasUser) {
@@ -4277,7 +4507,26 @@ v   <html lang="es">
 
         if (forceAll) console.warn('[fetchLeadsAgente] forceAll=1 activo: NO se aplica filtrado por agente (backend ni frontend)');
         console.log('[fetchLeadsAgente] URL solicitada:', url, 'alreadyFilteredByAgent=', alreadyFilteredByAgent, 'forceAll=', forceAll);
-        let response = await fetch(url, fetchOptions);
+        // Mostrar overlay de carga
+        try { showLoadingOverlay('Cargando clientes...'); } catch(_){}
+
+        // AbortController para timeout
+        const controller = new AbortController();
+        fetchOptions.signal = controller.signal;
+        const to = setTimeout(()=>{ try{ controller.abort(); }catch(_){ } }, fetchTimeoutMs);
+        let response = null;
+        try {
+          response = await fetch(url, fetchOptions);
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            console.warn('[fetchLeadsAgente] Fetch aborted due to timeout');
+            try { hideLoadingOverlay(); } catch(_){}
+            return;
+          }
+          throw err;
+        } finally {
+          clearTimeout(to);
+        }
         if (response.status === 429) { await new Promise(r=>setTimeout(r, 600)); response = await fetch(url, fetchOptions); }
         console.log(`[fetchLeadsAgente] Response status: ${response.status}, headers:`, response.headers);
         
@@ -4288,163 +4537,265 @@ v   <html lang="es">
         }
         
         let data = null;
+        // Medir tiempo de parseo (response.json()/JSON.parse)
+        let parseStart = null, parseEnd = null;
         try {
+          try { updateLoadingOverlay('Parseando respuesta...'); } catch(_){}
           const ct = (response.headers.get('content-type')||'').toLowerCase();
-          if (ct.includes('application/json')) {
-            data = await response.json();
-          } else {
-            const responseText = await response.text();
-            console.log('[fetchLeadsAgente] Response text (first 200 chars):', responseText.substring(0, 200));
-            data = JSON.parse(responseText);
+          parseStart = (performance && performance.now) ? performance.now() : Date.now();
+          // Usar Web Worker para parsear JSON y evitar bloquear el hilo principal
+          let responseText = null;
+          try {
+            responseText = await response.text();
+          } catch (e) {
+            console.warn('[fetchLeadsAgente] No se pudo leer response.text():', e?.message);
           }
+
+          try { updateLoadingOverlay('Parseando respuesta (worker)...'); } catch(_){ }
+
+          try {
+            // Intentar parseo en worker
+            let parsedFromWorker = null;
+            let workerError = null;
+            let metaFromWorker = null;
+            if (typeof Worker !== 'undefined') {
+              const worker = new Worker('/js/parseWorker.js');
+              const parsedAccum = [];
+              await new Promise((resolve) => {
+                const onMsg = (ev) => {
+                  const d = ev.data || {};
+                  if (d.type === 'chunk' && Array.isArray(d.chunk)) {
+                    parsedAccum.push(...d.chunk);
+                    try { updateLoadingOverlay(`Parseado ${parsedAccum.length} items...`); } catch(_){ }
+                  } else if (d.type === 'meta') {
+                    metaFromWorker = d.meta || null;
+                  } else if (d.type === 'done') {
+                    worker.removeEventListener('message', onMsg);
+                    try { worker.terminate(); } catch(_){}
+                    parsedFromWorker = parsedAccum;
+                    resolve();
+                  } else if (d.type === 'error') {
+                    worker.removeEventListener('message', onMsg);
+                    try { worker.terminate(); } catch(_){}
+                    workerError = d.message || 'worker error';
+                    resolve();
+                  }
+                };
+                worker.addEventListener('message', onMsg);
+                worker.postMessage({ text: responseText });
+              });
+            }
+
+            if (workerError) {
+              console.warn('[fetchLeadsAgente] Worker parse error:', workerError);
+              try { data = JSON.parse(responseText); } catch (e) { data = parsedFromWorker || null; }
+            } else if (parsedFromWorker !== null) {
+              data = parsedFromWorker;
+            } else {
+              try { data = JSON.parse(responseText); } catch (e) { data = null; }
+            }
+          } catch (e) {
+            console.warn('[fetchLeadsAgente] Error usando Web Worker para parseo:', e?.message);
+            try { data = responseText ? JSON.parse(responseText) : null; } catch (pe) { data = null; }
+          }
+
+          parseEnd = (performance && performance.now) ? performance.now() : Date.now();
+          try { hideLoadingOverlay(); } catch(_){ }
         } catch (e) {
           console.warn('[fetchLeadsAgente] No se pudo parsear JSON de respuesta:', e?.message);
+          parseEnd = (performance && performance.now) ? performance.now() : Date.now();
+          try { hideLoadingOverlay(); } catch(_){}
         }
-        console.log('[fetchLeadsAgente] Datos recibidos (resumen):', {
-          tipo: Array.isArray(data) ? 'array' : typeof data,
-          len: Array.isArray(data) ? data.length : (data && Array.isArray(data.data) ? data.data.length : 0)
-        });
-        
-        // Debug específico para octubre usando getDateFromLead
+        // Normalizar respuesta: el worker puede haber devuelto un array y meta en `metaFromWorker`
+        let apiArray = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.leads) ? data.leads : []));
+        let apiMeta = null;
         if (Array.isArray(data)) {
-          const datesByMonth = {};
-          data.forEach(item => {
-            const iso = getDateFromLead(item);
-            const ym = iso ? iso.slice(0,7) : 'sin-fecha';
-            datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
-          });
-          console.log('[fetchLeadsAgente] DATOS DE API - Conteo por mes:', datesByMonth);
-          console.log('[fetchLeadsAgente] DATOS DE API - Octubre 2025:', datesByMonth['2025-10'] || 0, 'registros');
-          console.log('[fetchLeadsAgente] DATOS DE API - Marzo 2025:', datesByMonth['2025-03'] || 0, 'registros');
+          apiMeta = (typeof metaFromWorker !== 'undefined' && metaFromWorker) ? metaFromWorker : null;
+        } else if (data && typeof data === 'object') {
+          apiMeta = { page: data.page || data.pagination?.page || 1, pages: data.pages || data.pagination?.totalPages || 1, total: data.total || data.pagination?.total || (Array.isArray(data.data) ? data.data.length : 0) };
         }
-        
-        // Extraer datos según el endpoint
+
+        console.log('[fetchLeadsAgente] Datos recibidos (resumen):', { tipo: Array.isArray(apiArray) ? 'array' : typeof data, len: apiArray.length, meta: apiMeta });
+
+        // Exponer metadatos de paginación en window para que la UI pueda usar paginación del servidor
+        try {
+          const meta = apiMeta || {};
+          window.__apiPage = Number(meta.page) || Number(data?.page) || __page || 1;
+          window.__totalPages = Number(meta.pages) || Number(data?.pages) || 1;
+          window.__totalCount = Number(meta.total) || Number(data?.total) || (Array.isArray(apiArray) ? apiArray.length : 0);
+        } catch(_) {
+          window.__apiPage = __page || 1;
+          window.__totalPages = 1;
+          window.__totalCount = Array.isArray(apiArray) ? apiArray.length : 0;
+        }
+
+          // Debug específico: conteo por mes (para diagnóstico) — usar campo precomputado si existe
+          if (Array.isArray(apiArray)) {
+            const datesByMonth = {};
+            apiArray.forEach(item => {
+              const iso = item && item.__isoDate ? item.__isoDate : getDateFromLead(item);
+              const ym = iso ? iso.slice(0,7) : 'sin-fecha';
+              datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
+            });
+            console.log('[fetchLeadsAgente] DATOS DE API - Conteo por mes:', datesByMonth);
+          }
+
+        // Extraer datos según el endpoint (usaremos apiArray)
         let leadsRaw = [];
         const extractArray = (d) => Array.isArray(d)
             ? d
             : (Array.isArray(d?.data) ? d.data : (Array.isArray(d?.leads) ? d.leads : []));
         if (isTeamLineasUser) {
           // /api/lineas suele responder en data.data
-          leadsRaw = extractArray(data);
+          leadsRaw = apiArray.slice();
         } else {
           // /api/customers o /api/leads pueden responder en data, leads o array directo
-          leadsRaw = extractArray(data);
+          leadsRaw = apiArray.slice();
         }
 
-        // NUEVO: también cargar /api/customers (sin filtro por mes) y unificar con leadsRaw
+        // Si la respuesta incluye metadata de paginación, solicitar páginas adicionales (hasta un tope)
         try {
-          const custRes = await fetch(`/api/customers?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=2025-01-01&fechaFin=2025-12-31&allData=1&noDateFilter=1`, fetchOptions);
-          if (custRes.ok) {
-            const custJson = await custRes.json();
-            const customers = extractArray(custJson);
-            if (Array.isArray(customers) && customers.length) {
-              const seen = new Set();
-              const normId = (v) => {
-                try { if (!v) return ''; if (typeof v === 'object') return String(v.$oid||v._id||v.id||v.value||''); return String(v); } catch { return String(v||''); }
-              };
-              const out = [];
-              for (const a of (leadsRaw||[])) {
-                const key = normId(a._id)||normId(a.id)||JSON.stringify(a).length;
-                if (!seen.has(key)) { seen.add(key); out.push(a); }
-              }
-              for (const b of customers) {
-                const key = normId(b._id)||normId(b.id)||JSON.stringify(b).length;
-                if (!seen.has(key)) { seen.add(key); out.push(b); }
-              }
-              leadsRaw = out;
-              console.log('[unify customers] Unificados leads+customers ->', leadsRaw.length);
-              
-              // Debug después de unificar
-              const datesByMonthUnified = {};
-              leadsRaw.forEach(item => {
-                const iso = getDateFromLead(item);
-                const ym = iso ? iso.slice(0,7) : 'sin-fecha';
-                datesByMonthUnified[ym] = (datesByMonthUnified[ym] || 0) + 1;
-              });
-              console.log('[unify customers] DESPUÉS DE UNIFICAR - Conteo por mes:', datesByMonthUnified);
-            }
-          } else {
-            console.warn('[unify customers] /api/customers no OK:', custRes.status);
-          }
-        } catch (e) {
-          console.warn('[unify customers] error:', e?.message);
-        }
-
-        // Unificar fuentes: intentar endpoints alternos solo si no llegaron datos
-        if (!isTeamLineasUser && (!Array.isArray(leadsRaw) || leadsRaw.length === 0)) {
-          try {
-            const altUrls = [
-              '/api/leads?page=1&limit=1000',
-              '/api/leads?page=1&limit=1000&skipDate=1'
-            ];
-            let extra = [];
-            for (const alt of altUrls) {
+          const meta = apiMeta || null;
+          if (meta && meta.pages && (meta.pages > (meta.page || 1))) {
+            const maxPages = (window.__maxPages && Number(window.__maxPages)) || 10;
+            const startPage = meta.page || 1;
+            const endPage = Math.min(meta.pages, startPage + maxPages - 1);
+            const buildUrlForPage = (p) => {
               try {
-                const r = await fetch(alt, fetchOptions);
-                if (!r.ok) { console.warn('[unify fetch] no OK para', alt, r.status); continue; }
-                const d = await r.json();
-                const arr = extractArray(d);
-                console.log('[unify fetch] Resultado', alt, '->', Array.isArray(arr)?arr.length:0);
-                if (Array.isArray(arr) && arr.length) { extra = arr; break; }
-              } catch (e) { console.warn('[unify fetch] error', alt, e?.message); }
-            }
-            // Combinar únicos por _id/id
-            const seen = new Set();
-            const normId = (v) => {
-              try { if (!v) return ''; if (typeof v === 'object') return String(v.$oid||v._id||v.id||v.value||''); return String(v); } catch { return String(v||''); }
+                if (url.match(/([?&])page=\d+/)) return url.replace(/page=\d+/, `page=${p}`);
+                if (url.includes('?')) return `${url}&page=${p}`;
+                return `${url}?page=${p}`;
+              } catch (_) { return url; }
             };
-            const out = [];
-            for (const a of (leadsRaw||[])) {
-              const key = normId(a._id)||normId(a.id)||JSON.stringify(a).length;
-              if (!seen.has(key)) { seen.add(key); out.push(a); }
+
+            for (let p = startPage + 1; p <= endPage; p++) {
+              try {
+                try { updateLoadingOverlay(`Cargando página ${p}/${meta.pages}...`); } catch(_){ }
+                const pageUrl = buildUrlForPage(p);
+                const controller2 = new AbortController();
+                const to2 = setTimeout(()=>{ try{ controller2.abort(); }catch(_){ } }, fetchTimeoutMs);
+                let resp = null;
+                try {
+                  resp = await fetch(pageUrl, Object.assign({}, fetchOptions, { signal: controller2.signal }));
+                } catch (err) {
+                  if (err.name === 'AbortError') { console.warn('[fetchLeadsAgente] Fetch pagina abortada', p); clearTimeout(to2); continue; }
+                  clearTimeout(to2);
+                  console.warn('[fetchLeadsAgente] Error fetching page', p, err);
+                  continue;
+                } finally { clearTimeout(to2); }
+
+                if (!resp || !resp.ok) { console.warn('[fetchLeadsAgente] Página', p, 'respuesta no OK', resp && resp.status); continue; }
+                const text = await resp.text();
+                // parsear en worker si es posible
+                try {
+                  if (typeof Worker !== 'undefined') {
+                    const worker2 = new Worker('/js/parseWorker.js');
+                    const parsedAccum2 = [];
+                    await new Promise((resolve) => {
+                      const onMsg2 = (ev) => {
+                        const d = ev.data || {};
+                        if (d.type === 'chunk' && Array.isArray(d.chunk)) parsedAccum2.push(...d.chunk);
+                        else if (d.type === 'done') { worker2.removeEventListener('message', onMsg2); try{worker2.terminate();}catch(_){}; resolve(); }
+                      };
+                      worker2.addEventListener('message', onMsg2);
+                      worker2.postMessage({ text });
+                    });
+                    leadsRaw.push(...parsedAccum2);
+                  } else {
+                    const parsed = JSON.parse(text);
+                    const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.leads) ? parsed.leads : []));
+                    leadsRaw.push(...arr);
+                  }
+                } catch (e) {
+                  try { const parsed = JSON.parse(text); const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.leads) ? parsed.leads : [])); leadsRaw.push(...arr); } catch(_) { console.warn('[fetchLeadsAgente] No se pudo parsear pagina', p); }
+                }
+              } catch (e) {
+                console.warn('[fetchLeadsAgente] Error iterando páginas adicionales:', e?.message || e);
+              }
             }
-            for (const b of (extra||[])) {
-              const key = normId(b._id)||normId(b.id)||JSON.stringify(b).length;
-              if (!seen.has(key)) { seen.add(key); out.push(b); }
+          }
+        } catch (e) { console.warn('[fetchLeadsAgente] Error procesando paginación adicional:', e?.message || e); }
+
+        // Debug adicional: si no hay leads, volcar un resumen de la respuesta para diagnóstico
+        try {
+          const maybeCount = Array.isArray(leadsRaw) ? leadsRaw.length : (Array.isArray(data?.data)?data.data.length:(Array.isArray(data?.leads)?data.leads.length:0));
+          if (!maybeCount) {
+            try { console.warn('[fetchLeadsAgente][DEBUG] respuesta vacía. url=', url, 'responseStatus=', response && response.status); } catch(_){}
+            try { console.warn('[fetchLeadsAgente][DEBUG] data sample:', JSON.stringify(data).slice(0,500)); } catch(_){}
+          }
+        } catch(_){}
+
+        // Preparar medición de render: escuchamos evento 'leads:rendered' disparado por renderRows
+        const renderStart = (performance && performance.now) ? performance.now() : Date.now();
+        const onRendered = () => {
+          const renderEnd = (performance && performance.now) ? performance.now() : Date.now();
+          try{
+            window.__fetchTimings = window.__fetchTimings || [];
+            window.__fetchTimings.push({
+              url,
+              type: 'detailed',
+              parseMs: (parseStart != null && parseEnd != null) ? Math.round((parseEnd-parseStart)*100)/100 : null,
+              renderMs: Math.round((renderEnd-renderStart)*100)/100,
+              count: Array.isArray(leadsRaw) ? leadsRaw.length : (Array.isArray(data?.data)?data.data.length:(Array.isArray(data?.leads)?data.leads.length:0)),
+              time: (new Date()).toISOString()
+            });
+          }catch(_){}
+          try{ document.removeEventListener('leads:rendered', onRendered); }catch(_){}
+        };
+        document.addEventListener('leads:rendered', onRendered);
+
+        // OPTIMIZACIÓN: /api/leads ya retorna los clientes, no necesita segundo request
+        console.log('[fetchLeadsAgente] Usando datos de /api/leads únicamente (sin /api/customers duplicado)');
+
+        // OPTIMIZACIÓN: Si /api/leads?limit=50000 no retorna datos, es un problema real
+        // No recurrir a fallbacks con limits menores (si no hay datos con 50k, no habrá con 1k)
+        if (!isTeamLineasUser && (!Array.isArray(leadsRaw) || leadsRaw.length === 0)) {
+          console.log('[fetchLeadsAgente] ⚠️ No hay datos en /api/leads. Fallback final: intento por user ID/name únicamente');
+          try {
+            const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+            const ids = [userData._id, userData.id, userData.userId, userData.uid, userData?.usuario?._id, userData?.usuario?.id]
+              .map(v => (v && String(v).trim()) || '')
+              .filter(Boolean);
+            const names = [userData.username, userData.name, userData.nombre, userData?.usuario?.username, userData?.usuario?.name, userData?.usuario?.nombre]
+              .map(v => (v && String(v).trim()) || '')
+              .filter(Boolean);
+            let acc = [];
+            
+            // Fallback ÚNICO: intentar por ID primero (más confiable)
+            if (ids.length > 0) {
+              for (const id of ids) {
+                const byId = await fetchLeadsByAgentId(id);
+                if (Array.isArray(byId) && byId.length) { acc = byId; break; }
+              }
             }
-            leadsRaw = out;
-            console.log('[unify fetch] Unificados customers+leads ->', leadsRaw.length);
-          } catch (e) { console.warn('[unify fetch] bloque error', e?.message); }
+            
+            // Si no encontró por ID, intentar por nombre (último resort)
+            if (!acc.length && names.length > 0) {
+              for (const nm of names) {
+                const byName = await fetchLeadsByAgentName(nm);
+                if (Array.isArray(byName) && byName.length) { acc = byName; break; }
+              }
+            }
+            
+            if (acc.length) {
+              console.warn('[fetchLeadsAgente] Fallback ID/nombre aplicado. Leads recuperados:', acc.length);
+              normalizedLeads = normalizeLeads(acc);
+            }
+          } catch (e) {
+            console.warn('[fetchLeadsAgente] Error en fallback ID/nombre:', e?.message);
+          }
         }
 
-        // Paginación: si el backend reporta más páginas, descargarlas y combinarlas
+        // OPTIMIZACIÓN: Con limit=50000, el backend retorna TODO en una sola página
+        // Si totalPages > 1, algo está mal en el backend (exceso de datos)
+        // No hacer paginación manual: es un anti-patrón
         try {
           const totalPages = Number(data?.pages || data?.pagination?.totalPages || 1);
           const currentPage = Number(data?.page || data?.pagination?.page || 1);
-          const limit = Number(data?.limit || data?.pagination?.limit || 100);
-          if (totalPages > currentPage) {
-            console.log(`[fetchLeadsAgente] Se detectaron ${totalPages} páginas. Descargando páginas restantes...`);
-            const u = new URL(url, window.location.origin);
-            const baseParams = new URLSearchParams(u.search);
-            baseParams.set('limit', String(limit || 100));
-            for (let p = currentPage + 1; p <= totalPages; p++) {
-              baseParams.set('page', String(p));
-              const pageUrl = `${u.pathname}?${baseParams.toString()}`;
-              try {
-                const r = await fetch(pageUrl, fetchOptions);
-                if (!r.ok) {
-                  let errTxt = '';
-                  try { errTxt = await r.text(); } catch (_) {}
-                  console.warn(`[fetchLeadsAgente] Página ${p} no OK:`, r.status, errTxt);
-                  continue;
-                }
-                const d = await r.json();
-                const arr = Array.isArray(d)
-                  ? d
-                  : (Array.isArray(d.data) ? d.data
-                    : (Array.isArray(d.data) ? d.data
-                      : (Array.isArray(d.data) ? d.data : [])));
-                console.log(`[fetchLeadsAgente] Página ${p} retornó ${arr.length} registros`);
-                leadsRaw = leadsRaw.concat(arr);
-              } catch (e) {
-                console.warn(`[fetchLeadsAgente] Error descargando página ${p}:`, e?.message);
-              }
-            }
-            console.log('[fetchLeadsAgente] Total acumulado tras paginación:', leadsRaw.length);
+          if (totalPages > 1) {
+            console.warn(`[fetchLeadsAgente] API retorna ${totalPages} páginas. Backend debe aumentar limit. Usando página 1 solamente.`);
           }
-        } catch (e) {
-          console.warn('[fetchLeadsAgente] Error manejando paginación:', e?.message);
-        }
+        } catch (e) { /* no-op */ }
 
         // FALLBACK DESHABILITADO: Ya no se usan datos de prueba
         // Solo se muestran datos reales de la base de datos
@@ -4486,54 +4837,80 @@ v   <html lang="es">
           }
         } catch (e) { console.warn('[fallback stefani] error', e?.message); }
 
-        // Fallback: si no hay datos, intentar por agenteId y por nombre usando helpers
+        // Si no hay datos detectados para el mes actual: NO ejecutar múltiples fallbacks
+        // Mostrar al usuario un botón explícito para "Cargar todos" (forceAll)
         if ((!Array.isArray(normalizedLeads) || normalizedLeads.length === 0) && !forceAll) {
           try {
-            const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-            const ids = [userData._id, userData.id, userData.userId, userData.uid, userData?.usuario?._id, userData?.usuario?.id]
-              .map(v => (v && String(v).trim()) || '')
-              .filter(Boolean);
-            const names = [userData.username, userData.name, userData.nombre, userData?.usuario?.username, userData?.usuario?.name, userData?.usuario?.nombre]
-              .map(v => (v && String(v).trim()) || '')
-              .filter(Boolean);
-            let acc = [];
-            // 1) Reintentar contra /api/leads con variantes de clave
-            const variantKeys = ['agenteId','agentId','agente','agenteNombre','nombreAgente'];
-            for (const key of variantKeys) {
-              for (const v of (key.endsWith('Id') ? ids : names)) {
+            const actions = document.querySelector('.costumer-table-actions');
+            if (actions) {
+              // eliminar controles previos si existen
+              const prevBtn = document.getElementById('btnLoadAllLeads');
+              const prevNote = document.getElementById('noteLoadAllLeads');
+              if (prevBtn) prevBtn.remove();
+              if (prevNote) prevNote.remove();
+
+              const note = document.createElement('div');
+              note.id = 'noteLoadAllLeads';
+              note.className = 'load-all-notice';
+              note.style.marginLeft = '12px';
+              note.style.display = 'inline-flex';
+              note.style.alignItems = 'center';
+              note.innerHTML = '<span style="color:#b00;margin-right:8px">No hay registros en el mes seleccionado.</span>';
+
+              const btn = document.createElement('button');
+              btn.id = 'btnLoadAllLeads';
+              btn.className = 'btn btn-sm btn-outline-primary';
+              btn.style.marginLeft = '6px';
+              btn.textContent = 'Cargar todos';
+              btn.addEventListener('click', () => {
                 try {
-                  const u = `/api/leads?page=1&limit=100&${key}=${encodeURIComponent(v)}`;
-                  const r = await fetch(u, fetchOptions);
-                  if (!r.ok) { continue; }
-                  const d = await r.json();
-                  const arr = Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
-                  if (arr.length) {
-                    console.log(`[fallback /api/leads] ${key}=${v} -> ${arr.length}`);
-                    acc = acc.concat(arr);
-                    break; // siguiente key
-                  }
-                } catch (_) {}
+                  window.__forceAllOverride = true;
+                  // limpiar mensaje y botón
+                  const n = document.getElementById('noteLoadAllLeads'); if (n) n.remove();
+                  const b = document.getElementById('btnLoadAllLeads'); if (b) b.remove();
+                  // reintentar carga con forceAll
+                  fetchLeadsAgente(1);
+                } catch (e) { console.error('Error al activar Cargar todos:', e); }
+              });
+
+              actions.appendChild(note);
+              actions.appendChild(btn);
+            }
+
+            // Además, insertar banner visible en el header para asegurar visibilidad
+            try {
+              const header = document.querySelector('.costumer-table-header');
+              if (header) {
+                const prevBanner = document.getElementById('loadAllBanner');
+                if (prevBanner) prevBanner.remove();
+                const banner = document.createElement('div');
+                banner.id = 'loadAllBanner';
+                banner.style.marginTop = '8px';
+                banner.style.padding = '8px 12px';
+                banner.style.background = '#fff3f3';
+                banner.style.border = '1px solid #f1c0c0';
+                banner.style.borderRadius = '6px';
+                banner.style.display = 'flex';
+                banner.style.alignItems = 'center';
+                banner.innerHTML = `<div style="flex:1;color:#8b0000">No hay registros en el mes seleccionado.</div>`;
+                const b2 = document.createElement('button');
+                b2.textContent = 'Cargar todos';
+                b2.className = 'btn btn-sm btn-primary';
+                b2.style.marginLeft = '8px';
+                b2.addEventListener('click', () => {
+                  try {
+                    window.__forceAllOverride = true;
+                    const nb = document.getElementById('loadAllBanner'); if (nb) nb.remove();
+                    const n = document.getElementById('noteLoadAllLeads'); if (n) n.remove();
+                    const b = document.getElementById('btnLoadAllLeads'); if (b) b.remove();
+                    fetchLeadsAgente(1);
+                  } catch (e) { console.error(e); }
+                });
+                banner.appendChild(b2);
+                header.appendChild(banner);
               }
-            }
-            for (const id of ids) {
-              const byId = await fetchLeadsByAgentId(id);
-              if (Array.isArray(byId) && byId.length) acc = acc.concat(byId);
-            }
-            if (!acc.length) {
-              for (const nm of names) {
-                const byName = await fetchLeadsByAgentName(nm);
-                if (Array.isArray(byName) && byName.length) { acc = acc.concat(byName); break; }
-              }
-            }
-            if (acc.length) {
-              console.warn('[fetchLeadsAgente] Fallback aplicado. Leads recuperados por id/nombre =', acc.length);
-              normalizedLeads = normalizeLeads(acc);
-            } else {
-              console.warn('[fetchLeadsAgente] Fallback por id/nombre no encontró resultados');
-            }
-          } catch (e) {
-            console.warn('[fetchLeadsAgente] Error en fallback por id/nombre:', e?.message);
-          }
+            } catch (e) { /* no-op */ }
+          } catch (e) { console.warn('[fetchLeadsAgente] Error mostrando botón Cargar todos:', e?.message); }
         }
 
         // Filtro por mes en frontend desactivado (el backend ya aplica filtro robusto)
@@ -5102,6 +5479,20 @@ v   <html lang="es">
         }
       } catch (e) { console.warn('[Costumer Filter] error applying status filter', e); }
 
+      // Aplicar filtro por mercado (ICON / BAMO) si el select existe
+      try {
+        const mercadoSel = document.getElementById('mercadoFilter');
+        if (mercadoSel && mercadoSel.value && mercadoSel.value !== '') {
+          const mercadoValue = String(mercadoSel.value).trim().toUpperCase();
+          const predicate = (l) => {
+            const lMercado = String(l?.mercado || '').trim().toUpperCase();
+            return lMercado === mercadoValue;
+          };
+          try { leadsArray = leadsArray.filter(predicate); } catch(_) {}
+          console.log('[Costumer Filter] Filtro de mercado aplicado:', mercadoValue, '-> Resultados:', leadsArray.length);
+        }
+      } catch (e) { console.warn('[Costumer Filter] error applying mercado filter', e); }
+
       // Aplicar filtros de fecha (Día de venta / Día de instalación) si existen inputs
       try {
         // Read selected dates arrays from localStorage (stored as JSON arrays). Backwards compatible with single-string values.
@@ -5141,8 +5532,31 @@ v   <html lang="es">
           leadsArray = leadsArray.slice(start, end);
           console.log('[Paginación] Aplicada - Página:', window.__page, 'Mostrando:', start, 'a', end, 'de', total);
         } else {
-          console.log('[Paginación] DESHABILITADA por filtro de mes activo:', monthFilter.value);
-          console.log('[Paginación] Datos sin paginar - Total disponible:', leadsArray.length);
+          // Soporte para paginación por servidor cuando hay filtro de mes activo
+          try {
+            const serverPage = Number(window.__apiPage || 1);
+            const serverPages = Math.max(1, Number(window.__totalPages || 1));
+            const total = Number(window.__totalCount || leadsArray.length);
+            if (info) info.textContent = `Página ${serverPage} de ${serverPages} — ${total} clientes`;
+            if (prevBtn) prevBtn.disabled = (serverPage <= 1);
+            if (nextBtn) nextBtn.disabled = (serverPage >= serverPages);
+
+            // Bind server-side pagination clicks once
+            try {
+              if (prevBtn && !prevBtn.dataset.serverBound) {
+                prevBtn.addEventListener('click', function(){ if ((window.__apiPage||1) > 1) fetchLeadsAgente(Number(window.__apiPage||1) - 1); });
+                prevBtn.dataset.serverBound = '1';
+              }
+              if (nextBtn && !nextBtn.dataset.serverBound) {
+                nextBtn.addEventListener('click', function(){ const tp = Number(window.__totalPages||1); if ((window.__apiPage||1) < tp) fetchLeadsAgente(Number(window.__apiPage||1) + 1); });
+                nextBtn.dataset.serverBound = '1';
+              }
+            } catch(_) {}
+            console.log('[Paginación] Habilitada paginación por servidor -', info ? info.textContent : 'info missing');
+          } catch(e) {
+            console.log('[Paginación] DESHABILITADA por filtro de mes activo:', monthFilter.value);
+            console.log('[Paginación] Datos sin paginar - Total disponible:', leadsArray.length);
+          }
         }
         // Actualizar controles UI
         const info = document.getElementById('pageInfo');
@@ -5171,12 +5585,28 @@ v   <html lang="es">
               window.__suspendRender = prevSuspend;
             }
           };
+          const monthFilterEl = document.getElementById('monthFilter');
+          const hasMonthFilterLocal = !!(monthFilterEl && monthFilterEl.value && monthFilterEl.value !== '');
+
           if (prevBtn) prevBtn.addEventListener('click', function(){
+            // Si hay filtro de mes activo, usar paginación del servidor
+            if (hasMonthFilterLocal || (window.__totalPages && window.__totalPages > 1)) {
+              const cur = Number(window.__apiPage || window.__page || 1);
+              if (cur > 1) fetchLeadsAgente(Math.max(1, cur - 1));
+              return;
+            }
             if (window.__page > 1) { window.__page--; safeRepaint(); }
           });
+
           if (nextBtn) nextBtn.addEventListener('click', function(){
-            const tp = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||500)));
-            if (window.__page < tp) { window.__page++; safeRepaint(); }
+            if (hasMonthFilterLocal || (window.__totalPages && window.__totalPages > 1)) {
+              const cur = Number(window.__apiPage || window.__page || 1);
+              const tp = Math.max(1, Number(window.__totalPages || Math.ceil((window.__totalCount||0) / (Number(window.__apiLimit||window.__limit||500)||500))));
+              if (cur < tp) fetchLeadsAgente(Math.min(tp, cur + 1));
+              return;
+            }
+            const tpLocal = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||500)));
+            if (window.__page < tpLocal) { window.__page++; safeRepaint(); }
           });
           window.__pagingBound = true;
         }
@@ -5199,12 +5629,25 @@ v   <html lang="es">
             // Eventos
             if (pageSizeSel) {
               pageSizeSel.addEventListener('change', function(){
-                const v = Number(this.value||'100')||100;
+                let v = Number(this.value||'100')||100;
+                // Si hay filtro de mes activo, no permitir 'Todos' como page size; clonar a un valor razonable
+                const monthSel = document.getElementById('monthFilter');
+                const hasMonth = !!(monthSel && monthSel.value && monthSel.value !== '');
+                if (hasMonth && v >= 99999) {
+                  v = 500; // valor por defecto razonable para paginación servidor
+                }
                 localStorage.setItem('costumer_page_size', String(v));
                 window.__limit = v;
+                // también informar al backend del nuevo límite cuando haya filtro de mes
+                window.__apiLimit = v;
                 window.__page = 1;
-                // repaint seguro
-                const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+                if (hasMonth) {
+                  // Reconsultar al servidor usando paginación
+                  fetchLeadsAgente(1);
+                } else {
+                  // repaint seguro en cliente
+                  const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
+                }
               });
             }
             // bind status filter and date filters (venta / instalacion)
@@ -5888,9 +6331,9 @@ v   <html lang="es">
             });
             console.log('[DEBUG MESES] Conteo por mes disponible:', datesByMonth);
             console.log('[DEBUG MESES] Buscando mes:', selectedMonth, 'Disponible:', datesByMonth[selectedMonth] || 0);
-            // Filtrado optimizado sin logs por cada item
+            // Filtrado optimizado sin logs por cada item — usar campos precomputados cuando estén
             list = list.filter(item => {
-              const iso = getDateFromLead(item); // 'YYYY-MM-DD'
+              const iso = item && item.__isoDate ? item.__isoDate : getDateFromLead(item); // 'YYYY-MM-DD'
               if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
               const ym = iso.slice(0,7); // 'YYYY-MM'
               return ym === selectedMonth;
@@ -5979,8 +6422,8 @@ v   <html lang="es">
         
         // Ordenar por fecha descendente usando getDateFromLead (YYYY-MM-DD)
         const sorted = (Array.isArray(list) ? list.slice() : []).sort((a,b) => {
-          const da = getDateFromLead(a); // 'YYYY-MM-DD' o ''
-          const db = getDateFromLead(b);
+          const da = (a && a.__isoDate) ? a.__isoDate : getDateFromLead(a); // 'YYYY-MM-DD' o ''
+          const db = (b && b.__isoDate) ? b.__isoDate : getDateFromLead(b);
           const ta = da ? Date.parse(da) : 0;
           const tb = db ? Date.parse(db) : 0;
           return tb - ta; // descendente
@@ -6014,6 +6457,24 @@ v   <html lang="es">
           appendLeadRow(item);
         });
         try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
+
+        // Debug visual: comprobar que se añadieron filas y mostrar propiedades del primer registro
+        setTimeout(() => {
+          try {
+            const totalRows = tbodyLoc.querySelectorAll('tr').length;
+            console.log('[RENDER DEBUG] total TRs en tbody:', totalRows);
+            const firstRow = tbodyLoc.querySelector('tr:not(.costumer-month-separator)');
+            if (firstRow) {
+              try {
+                console.log('[RENDER DEBUG] firstRow innerHTML (slice):', firstRow.innerHTML.slice(0,300));
+                const cs = window.getComputedStyle(firstRow);
+                console.log('[RENDER DEBUG] firstRow styles:', { display: cs.display, visibility: cs.visibility, color: cs.color, background: cs.backgroundColor, offsetHeight: firstRow.offsetHeight });
+              } catch(e){ console.warn('[RENDER DEBUG] error leyendo estilos firstRow', e); }
+            } else {
+              console.warn('[RENDER DEBUG] No se encontró primera fila no-separador');
+            }
+          } catch(e) { console.warn('[RENDER DEBUG] error conteo filas:', e); }
+        }, 250);
         
         // Aplicar colores automáticamente después del renderizado
         setTimeout(() => {
@@ -6924,6 +7385,9 @@ v   <html lang="es">
       let ventasMes = 0;
       let pendientes = 0;
       let cancelados = 0;
+      // Fecha de referencia para KPIs (siempre disponible aunque no haya leads)
+      const todayISO = toISOInTZ(new Date(), BUSINESS_TZ_OFFSET_MIN); // YYYY-MM-DD
+      const [yNow, mNow] = todayISO.split('-').map(Number);
       
       // Verificar si hay datos para procesar
       if (!leads || !Array.isArray(leads) || leads.length === 0) {
@@ -6939,8 +7403,7 @@ v   <html lang="es">
         console.log('Fecha actual:', hoy.toLocaleDateString());
         
         // Normalizar fechas con la misma l¨®gica de las gr¨¢ficas (zona horaria de negocio)
-        const todayISO = toISOInTZ(new Date(), BUSINESS_TZ_OFFSET_MIN); // YYYY-MM-DD
-        const [yNow, mNow] = todayISO.split('-').map(Number);
+        // (las variables todayISO, yNow y mNow ya están definidas arriba)
 
         // Procesar cada lead
         leads.forEach(lead => {
@@ -7027,6 +7490,77 @@ v   <html lang="es">
       if (canceladosElement) {
         canceladosElement.textContent = cancelados.toString();
         console.log('Actualizado cancelados en el DOM');
+      }
+
+      // --- Calcular nuevos KPIs (Puntaje Mensual, ICON, BAMO) ---
+      try {
+        // Puntaje mensual: suma acumulada de puntaje hasta el día de hoy
+        // Si hay un mes seleccionado en el selector, usar ese mes;
+        // en caso contrario usar el mes actual.
+        const monthSelect = document.getElementById('monthFilter');
+        const selectedMonth = monthSelect && monthSelect.value ? monthSelect.value : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
+        const todayISOcmp = todayISO; // YYYY-MM-DD
+        let puntajeMensual = 0;
+        leads.forEach(l => {
+          try {
+            const status = normalizarTexto(l.status || '');
+            const isCancel = status.includes('cancel') || status.includes('anulad');
+            if (isCancel) return;
+            const leadISO = getDateFromLead(l);
+            if (!leadISO) return;
+            const leadMonth = leadISO.slice(0,7); // YYYY-MM
+            if (leadMonth !== selectedMonth) return;
+            // Si el mes seleccionado es el mes actual, solo sumar hasta hoy
+            if (selectedMonth === `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`) {
+              if (leadISO > todayISOcmp) return;
+            }
+            const p = parseFloat(l.puntaje || l.puntaje_calculado || 0) || 0;
+            puntajeMensual += p;
+          } catch (e) { /* noop */ }
+        });
+        // Redondear a entero si es prácticamente entero
+        puntajeMensual = Math.round(puntajeMensual * 100) / 100;
+
+        const iconVentas = leads.filter(l => {
+          const mercado = String(l.mercado || '').trim().toUpperCase();
+          const status = normalizarTexto(l.status || '');
+          const isCancel = status.includes('cancel') || status.includes('anulad');
+          const leadISO = getDateFromLead(l);
+          if (!leadISO) return false;
+          const [yL, mL] = leadISO.split('-').map(Number);
+          return mercado === 'ICON' && yL === yNow && mL === mNow && !isCancel;
+        }).length;
+
+        const bamoVentas = leads.filter(l => {
+          const mercado = String(l.mercado || '').trim().toUpperCase();
+          const status = normalizarTexto(l.status || '');
+          const isCancel = status.includes('cancel') || status.includes('anulad');
+          const leadISO = getDateFromLead(l);
+          if (!leadISO) return false;
+          const [yL, mL] = leadISO.split('-').map(Number);
+          return mercado === 'BAMO' && yL === yNow && mL === mNow && !isCancel;
+        }).length;
+
+        const totalMercados = iconVentas + bamoVentas;
+        const iconPercent = totalMercados > 0 ? ((iconVentas / totalMercados) * 100).toFixed(1) : 0;
+        const bamoPercent = totalMercados > 0 ? ((bamoVentas / totalMercados) * 100).toFixed(1) : 0;
+
+        // Actualizar DOM
+        const puntajeMensualEl = document.getElementById('costumer-puntaje-mensual');
+        const iconVentasEl = document.getElementById('costumer-icon-ventas');
+        const bamoVentasEl = document.getElementById('costumer-bamo-ventas');
+        const iconPercentEl = document.getElementById('costumer-icon-percent');
+        const bamoPercentEl = document.getElementById('costumer-bamo-percent');
+
+        if (puntajeMensualEl) puntajeMensualEl.textContent = puntajeMensual.toString();
+        if (iconVentasEl) iconVentasEl.textContent = iconVentas.toString();
+        if (bamoVentasEl) bamoVentasEl.textContent = bamoVentas.toString();
+        if (iconPercentEl) iconPercentEl.textContent = iconPercent + '%';
+        if (bamoPercentEl) bamoPercentEl.textContent = bamoPercent + '%';
+
+        console.log('[KPI] Metricas calculadas:', { puntajeMensual, iconVentas, bamoVentas, iconPercent, bamoPercent });
+      } catch (err) {
+        console.error('[KPI] Error calculando KPIs:', err);
       }
       
       // Datos para el gr¨¢fico de ventas por semana (fechas locales)
@@ -8825,11 +9359,13 @@ v   <html lang="es">
           const teamFilter = document.getElementById('teamFilter');
           const agentFilter = document.getElementById('agentFilter');
           const statusFilter = document.getElementById('statusFilter');
+          const mercadoFilter = document.getElementById('mercadoFilter');
           
           if (monthFilter) monthFilter.value = '';
           if (teamFilter) teamFilter.value = '';
           if (agentFilter) agentFilter.value = '';
           if (statusFilter) statusFilter.value = 'all';
+          if (mercadoFilter) mercadoFilter.value = '';
           
           // Limpiar filtros residuales de window
           window.supervisorAgentFilter = null;
@@ -8925,29 +9461,16 @@ v   <html lang="es">
               statusIndicator.style.display = 'inline';
             }
             
-            // IMPORTANTE: Re-poblar filtros de Team y Agente cuando cambie el mes
-            if (window.ultimaListaLeads && typeof window.populateTeamAndAgentFilters === 'function') {
-              // Resetear filtros de team y agente antes de re-poblarlos
-              const teamFilter = document.getElementById('teamFilter');
-              const agentFilter = document.getElementById('agentFilter');
-              if (teamFilter) teamFilter.value = '';
-              if (agentFilter) agentFilter.value = '';
-              
-              window.populateTeamAndAgentFilters(window.ultimaListaLeads);
-            }
-            
-            if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
-              const prevSuspend = window.__suspendRender;
-              try {
-                window.__suspendRender = false; // permitir este render
-                window.renderCostumerTable(window.ultimaListaLeads);
-              } finally {
-                window.__suspendRender = prevSuspend;
+            // Cuando cambia el mes, siempre re-consultar al backend con el mes seleccionado
+            // para evitar filtrar la caché local (puede contener sólo el mes anterior).
+            try {
+              if (typeof fetchLeadsAgente === 'function') {
+                fetchLeadsAgente().catch(err => console.error('[MONTH FILTER] Error cargando datos:', err));
+              } else {
+                console.warn('[MONTH FILTER] fetchLeadsAgente no disponible, no se puede recargar datos');
               }
-            } else if (typeof fetchLeadsAgente === 'function') {
-              fetchLeadsAgente().catch(err => {
-                console.error('[MONTH FILTER] Error cargando datos:', err);
-              });
+            } catch (e) {
+              console.error('[MONTH FILTER] Error ejecutando fetchLeadsAgente:', e);
             }
           }, 100); // 100ms delay para mejor UX
         });
@@ -9009,6 +9532,25 @@ v   <html lang="es">
       if (agentFilter) {
         agentFilter.addEventListener('change', function() {
           console.log('[AGENT FILTER] Cambiando a agente:', this.value || 'Todos los agentes');
+          
+          // Re-renderizar tabla
+          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false;
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          }
+        });
+      }
+      
+      // Configurar filtro de mercado
+      const mercadoFilter = document.getElementById('mercadoFilter');
+      if (mercadoFilter) {
+        mercadoFilter.addEventListener('change', function() {
+          console.log('[MERCADO FILTER] Cambiando a mercado:', this.value || 'Todos los mercados');
           
           // Re-renderizar tabla
           if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
@@ -9263,3 +9805,4 @@ v   <html lang="es">
   </script>
 </body>
 </html>
+ 

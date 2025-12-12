@@ -1356,6 +1356,18 @@
                     <option value="JONATHAN">JONATHAN</option>
                   </select>
                 </div>
+
+                <!-- Asignación de agente (visible para supervisores). Contiene select y fallback manual -->
+                <div class="form-group" id="assignWrapSupervisor" style="display:none;">
+                  <label for="agentAssign">Asignar a agente</label>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="agentAssign" name="agentAssign" class="form-control">
+                      <option value="">(Ninguno)</option>
+                    </select>
+                    <input id="agentAssignManual" placeholder="Ingresar agente manual" class="form-control" style="display:none; max-width:220px;" />
+                  </div>
+                  <div style="font-size:12px; color:#64748b; margin-top:6px;">Si la lista no aparece, escribe el nombre del agente y se enviará como asignación.</div>
+                </div>
                 
                 <!-- Comentario -->
                 <div class="form-group" data-field="comentario">
@@ -3434,6 +3446,28 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Asegurarse de que los datos tengan el formato correcto
             const customerDataToSend = { ...customerData };
+
+            // Si el selector de asignación está presente (supervisor), incluir agente asignado en los datos
+            try {
+              const agentAssignEl = document.getElementById('agentAssign');
+              if (agentAssignEl) {
+                let selectedAgent = (agentAssignEl.value || '').toString().trim();
+                // If manual input is visible and filled, prefer it
+                const manualEl = document.getElementById('agentAssignManual');
+                if ((!selectedAgent || selectedAgent === '') && manualEl && manualEl.style.display !== 'none') {
+                  const m = (manualEl.value || '').toString().trim();
+                  if (m) selectedAgent = m;
+                }
+                if (selectedAgent) {
+                  const rawAgent = selectedAgent;
+                  const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
+                  leadData.agente = rawAgent;
+                  leadData.agenteAsignado = normalizedAgent;
+                  customerDataToSend.agente = rawAgent;
+                  customerDataToSend.agenteAsignado = normalizedAgent;
+                }
+              }
+            } catch(e){ console.warn('[assign] no se pudo leer agentAssign', e); }
             
             // Asegurar que el teléfono esté en el formato correcto
             if (customerDataToSend.telefono && !customerDataToSend.telefono_principal) {
@@ -3517,6 +3551,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 supervisor: (getVal(elSupervisor) || getTextUpper(elSupervisor)),
               };
 
+              // Incluir agente asignado (si supervisor seleccionó uno o lo ingresó manualmente)
+              try {
+                const agentAssignEl = document.getElementById('agentAssign');
+                let selectedAgent = agentAssignEl ? (agentAssignEl.value || '').toString().trim() : '';
+                const manualEl = document.getElementById('agentAssignManual');
+                if ((!selectedAgent || selectedAgent === '') && manualEl && manualEl.style.display !== 'none') {
+                  const m = (manualEl.value || '').toString().trim();
+                  if (m) selectedAgent = m;
+                }
+                if (selectedAgent) {
+                  const rawAgent = selectedAgent;
+                  const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
+                  lineasData.agenteAsignado = normalizedAgent;
+                  lineasData.agente = rawAgent; // opcional: reflejar en campo agente
+                }
+              } catch (e) { console.warn('[lineas] no se pudo leer agentAssign', e); }
+
               // Enviar a /api/lineas
               customerResponse = await makeRequest('/api/lineas', lineasData);
             } else {
@@ -3579,6 +3630,131 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       // Agregar el manejador de eventos al formulario
+      // Inicializar asignación de agentes para supervisores
+      async function initSupervisorAssign() {
+        try {
+          const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+          const user = JSON.parse(userStr || '{}');
+          const roleLc = (user.role || '').toString().toLowerCase();
+          if (!roleLc.includes('supervisor')) return;
+
+          const assignWrap = document.getElementById('assignWrapSupervisor');
+          const agentAssign = document.getElementById('agentAssign');
+          if (!assignWrap || !agentAssign) return;
+
+          // Intentar obtener lista de agentes desde endpoints disponibles
+          let agents = [];
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+          const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+          try {
+            let resp = await fetch('/api/users/admin-list', { method: 'GET', credentials: 'include', headers: Object.assign({'Content-Type':'application/json'}, headers) });
+            if (resp && resp.ok) {
+              const j = await resp.json();
+              agents = Array.isArray(j.users) ? j.users : (Array.isArray(j.data) ? j.data : []);
+            } else {
+              // Log non-ok response for diagnosis
+              try { const t = await resp.text().catch(()=>null); console.warn('[initSupervisorAssign] /api/users/admin-list status', resp.status, t); } catch(_){}
+
+              const resp2 = await fetch('/api/users/agents', { method: 'GET', credentials: 'include', headers: Object.assign({'Content-Type':'application/json'}, headers) });
+              if (resp2 && resp2.ok) {
+                const j2 = await resp2.json();
+                agents = Array.isArray(j2.agents) ? j2.agents : [];
+              } else {
+                try { const t2 = await resp2.text().catch(()=>null); console.warn('[initSupervisorAssign] /api/users/agents status', resp2.status, t2); } catch(_){}
+                // If forbidden, show hint in the assign wrapper
+                try {
+                  const assignWrapDbg = document.getElementById('assignWrapSupervisor');
+                  if (assignWrapDbg && (resp.status === 403 || resp2.status === 403)) {
+                    let msg = 'No autorizado para listar agentes (403).';
+                    msg += ' Si crees que es un error, contacta al administrador.';
+                    const existing = assignWrapDbg.querySelector('.assign-error');
+                    if (!existing) {
+                      const errEl = document.createElement('div');
+                      errEl.className = 'assign-error';
+                      errEl.style.color = '#b91c1c';
+                      errEl.style.fontSize = '12px';
+                      errEl.style.marginTop = '6px';
+                      errEl.textContent = msg;
+                      assignWrapDbg.appendChild(errEl);
+                      // make manual input visible so supervisor can type agent
+                      const manual = document.getElementById('agentAssignManual');
+                      if (manual) manual.style.display = 'block';
+                      assignWrapDbg.style.display = 'block';
+                    }
+                  }
+                } catch(_){}
+              }
+            }
+          } catch (e) { console.warn('[initSupervisorAssign] fetch error', e); }
+
+          // Debug: log agents fetched (trimmed) to help diagnose missing agents for a supervisor
+          try {
+            console.log('[initSupervisorAssign] agents fetched count:', Array.isArray(agents) ? agents.length : 0);
+            if (Array.isArray(agents) && agents.length) console.log('[initSupervisorAssign] agents sample:', agents.slice(0,5).map(a=>({username:a.username, name:a.name, supervisor:a.supervisor, supervisorName:a.supervisorName, supervisorId:a.supervisorId, team:a.team}))); 
+          } catch(_){}
+
+          const supervisorName = (user.name || user.username || '').toString().toLowerCase().trim();
+          const filtered = agents.filter(a => {
+            const sup = (a.supervisor || a.supervisorName || a.manager || '').toString().toLowerCase();
+            const supId = (a.supervisorId || a.managerId || '').toString();
+            return (sup && sup.includes(supervisorName)) || (supId && String(supId) === String(user.id));
+          });
+
+          if (!filtered.length) {
+            // fallback: intentar usar Teams helper si existe
+            try {
+              if (window.Teams && typeof window.Teams.getAgentsBySupervisor === 'function') {
+                const supIdentifier = (user.username || user.name || '').toString();
+                const teamAgents = window.Teams.getAgentsBySupervisor(supIdentifier) || [];
+                if (teamAgents.length) {
+                  agentAssign.innerHTML = '<option value="">(Ninguno)</option>' + teamAgents.map(a=>{
+                    const label = String(a || '').toString();
+                    const val = String(label).replace(/\s+/g,'_').toUpperCase();
+                    return `<option value="${val}">${label}</option>`;
+                  }).join('');
+                  assignWrap.style.display = 'block';
+                  document.getElementById('agentAssignManual').style.display = 'none';
+                  return;
+                }
+              }
+            } catch(_){}
+
+            // Si no obtuvimos agents desde la API ni Teams: usar mapping local conocido (fallback) o mostrar campo manual
+            const uname = (user.username||user.name||'').toString().trim().toUpperCase();
+            const agentsMap = {
+              'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ'],
+              'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
+            };
+            const mapped = agentsMap[uname] || [];
+            if (mapped.length) {
+              agentAssign.innerHTML = '<option value="">(Ninguno)</option>' + mapped.map(a=>{
+                const label = String(a || '');
+                const val = label.replace(/\s+/g,'_').toUpperCase();
+                return `<option value="${val}">${label}</option>`;
+              }).join('');
+              assignWrap.style.display = 'block';
+              document.getElementById('agentAssignManual').style.display = 'none';
+              return;
+            }
+
+            // Mostrar fallback: select vacío + input manual visible
+            agentAssign.innerHTML = '<option value="">(Ninguno)</option>';
+            assignWrap.style.display = 'block';
+            const manual = document.getElementById('agentAssignManual');
+            if (manual) manual.style.display = 'block';
+            return;
+          }
+
+          agentAssign.innerHTML = '<option value="">(Ninguno)</option>' + filtered.map(a => {
+            const raw = a.username || a.name || a._id || a.id || '';
+            const label = (a.name || a.username || a._id || a.id || '').toString();
+            const val = String(raw).toString().replace(/\s+/g,'_').toUpperCase();
+            return `<option value="${String(val).replace(/\"/g,'')}">${String(label).replace(/\"/g,'')}</option>`;
+          }).join('');
+          assignWrap.style.display = 'block';
+          document.getElementById('agentAssignManual').style.display = 'none';
+        } catch (err) { console.warn('[initSupervisorAssign] error', err); }
+      }
       function initializeForm() {
         const crmForm = document.getElementById('crmForm');
         if (crmForm) {
@@ -3650,10 +3826,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('DOMContentLoaded', () => {
           initializeForm();
           setupCantidadLineasLogic();
+          // Inicializar asignación de agentes para supervisores
+          initSupervisorAssign();
         });
       } else {
         initializeForm();
         setupCantidadLineasLogic();
+        // Inicializar asignación de agentes para supervisores
+        initSupervisorAssign();
       }
     } // Cierre de la función principal
     
