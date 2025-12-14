@@ -574,8 +574,10 @@
                           .then(r => r.json())
                           .then(d => {
                             if (d.success) {
+                              const userId = d.user?._id || d.user?.id || 'unknown';
                               sessionStorage.setItem('allPagesData', JSON.stringify(d.data));
                               sessionStorage.setItem('allPagesTimestamp', d.timestamp);
+                              sessionStorage.setItem('allPagesUserId', String(userId));
                               console.log('[LOGIN-PREHEAT] ✅ Todas las páginas cacheadas:', {
                                 customers: d.data?.customers?.length || 0,
                                 leads: d.data?.leads?.length || 0,

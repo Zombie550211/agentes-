@@ -4333,10 +4333,30 @@
       try {
         const cached = sessionStorage.getItem('allPagesData');
         const cachedTime = sessionStorage.getItem('allPagesTimestamp');
+        const cachedUserId = sessionStorage.getItem('allPagesUserId');
         
         if (!cached || !cachedTime) {
           console.log('[COSTUMER-CACHE] No hay datos precacheados disponibles');
           return null;
+        }
+
+        // Validar que el usuario no haya cambiado
+        try {
+          const currentUserRes = await fetch('/api/auth/verify', { credentials: 'include' });
+          if (currentUserRes.ok) {
+            const currentUserData = await currentUserRes.json();
+            const currentUserId = currentUserData.user?._id || currentUserData.user?.id || 'unknown';
+            if (cachedUserId && cachedUserId !== String(currentUserId)) {
+              console.log('[COSTUMER-CACHE] ⚠️ Usuario cambió, limpiando cache', { antes: cachedUserId, ahora: currentUserId });
+              sessionStorage.removeItem('allPagesData');
+              sessionStorage.removeItem('allPagesTimestamp');
+              sessionStorage.removeItem('allPagesUserId');
+              return null;
+            }
+          }
+        } catch (e) {
+          console.warn('[COSTUMER-CACHE] Error validando usuario:', e?.message);
+          // En caso de error, permitir usar el cache de todas formas
         }
 
         // Loading overlay helpers (non-blocking UI indicator)
@@ -4392,6 +4412,25 @@
 
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
+      
+      // ⚠️ VALIDACIÓN CRÍTICA: Limpiar cache si el usuario cambió
+      try {
+        const currentUser = (JSON.parse(localStorage.getItem('user') || '{}') || {}).nombre || 
+                           (JSON.parse(sessionStorage.getItem('user') || '{}') || {}).nombre || 'unknown';
+        const cachedUser = sessionStorage.getItem('__cachedUser');
+        if (cachedUser && cachedUser !== currentUser) {
+          console.warn('[fetchLeadsAgente] ⚠️ USUARIO CAMBIÓ de', cachedUser, 'a', currentUser);
+          console.log('[fetchLeadsAgente] 🗑️ Limpiando cache completo...');
+          sessionStorage.removeItem('allPagesData');
+          sessionStorage.removeItem('__cachedUser');
+          localStorage.removeItem('allPagesData');
+        } else if (!cachedUser && currentUser !== 'unknown') {
+          sessionStorage.setItem('__cachedUser', currentUser);
+        }
+      } catch (e) {
+        console.warn('[fetchLeadsAgente] Error validando usuario:', e);
+      }
+      
       try {
         // FAST PATH: Intentar cargar desde cache precalentado en login
         const cachedCustomers = await tryLoadFromPrecachedData();
@@ -4406,6 +4445,9 @@
           if (typeof renderCostumerTable === 'function') {
             renderCostumerTable(normalizedLeads);
           }
+          
+          // Actualizar los KPIs con los datos del cache
+          updateSummaryCards(normalizedLeads);
           
           // Cargar columnas adicionales si están disponibles
           try {
@@ -5231,6 +5273,25 @@
     // Funci¨®n para cargar los datos iniciales
     async function cargarDatosIniciales() {
       console.log('[DEBUG] Iniciando cargarDatosIniciales...');
+      
+      // ✅ VALIDACIÓN CRÍTICA: Limpiar cache si el usuario cambió
+      try {
+        const currentUser = await getCurrentUser();
+        const currentUserId = currentUser?.id || currentUser?._id || 'unknown';
+        const cachedUserId = sessionStorage.getItem('costumerCacheUserId');
+        
+        if (cachedUserId && cachedUserId !== currentUserId) {
+          console.log('[DEBUG] ⚠️ Usuario cambió:', { anterior: cachedUserId, actual: currentUserId });
+          console.log('[DEBUG] 🧹 Limpiando cache de sesión anterior...');
+          sessionStorage.removeItem('allPagesData');
+          sessionStorage.removeItem('costumerCacheUserId');
+        } else if (!cachedUserId) {
+          sessionStorage.setItem('costumerCacheUserId', currentUserId);
+        }
+      } catch(e) {
+        console.warn('[DEBUG] Error validando usuario en cache:', e);
+      }
+      
       // Mostrar indicador de carga si existe
       const loadingIndicator = document.getElementById('loading-indicator');
       

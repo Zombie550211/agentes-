@@ -31,6 +31,11 @@
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       
+      // ✅ LIMPIAR CACHE DE DATOS (MUY IMPORTANTE para evitar que se cargue cache de otro usuario)
+      sessionStorage.removeItem('allPagesData');
+      sessionStorage.removeItem('costumerCacheUserId');
+      sessionStorage.clear(); // Limpiar TODO el sessionStorage para asegurar que no queden datos del usuario anterior
+      
       // Restaurar los avatares guardados para que persistan
       if (savedAvatars) {
         try {
