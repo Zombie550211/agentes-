@@ -61,6 +61,22 @@
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
 
+  // Construye un href seguro: normaliza a ruta absoluta y codifica cada segmento una sola vez.
+  function safeHref(hrefRaw) {
+    try {
+      if (!hrefRaw) return '';
+      let s = String(hrefRaw || '');
+      // eliminar prefijo relativo accidental
+      if (s.startsWith('http://') || s.startsWith('https://')) return s;
+      if (s.startsWith('/')) s = s.slice(1);
+      // dividir por '/' y encodar cada segmento evitando doble-encode
+      const parts = s.split('/').map(p => encodeURIComponent(decodeURIComponent(String(p))));
+      return '/' + parts.join('/');
+    } catch (e) {
+      try { return '/' + encodeURIComponent(String(hrefRaw)); } catch (_) { return String(hrefRaw); }
+    }
+  }
+
   function sanitizeAvatarUrl(rawUrl) {
     const url = (rawUrl == null ? '' : String(rawUrl)).trim();
     if (!url) return '';
@@ -224,7 +240,7 @@
           ];
             firstMenu.innerHTML = items.map(it => `
               <li>
-                <a href="${it.href}" class="btn btn-sidebar" title="${it.text}">
+                <a href="${safeHref(it.href)}" class="btn btn-sidebar" title="${it.text}">
                   <i class="fas ${it.icon}"></i><span class="menu-label">${it.text}</span>
                 </a>
               </li>
@@ -523,7 +539,7 @@
         const isActive = key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
-            <a href="${item.href}" class="btn btn-sidebar ${isActive}" title="${item.text}">
+            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}" title="${item.text}">
               <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
             </a>
           </li>
@@ -540,7 +556,7 @@
         const isActive = key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
-            <a href="${item.href}" class="btn btn-sidebar ${isActive}">
+            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}">
               <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
             </a>
           </li>
@@ -1109,5 +1125,32 @@
       window.loadSidebar(true);
     }, 100);
   });
+
+  // Quick-fix: ensure clicking Ranking link always navigates (workaround for potential interceptors)
+  document.addEventListener('click', function forceRankingNav(ev) {
+    try {
+      const a = ev.target && ev.target.closest ? ev.target.closest('a.btn-sidebar') : null;
+      if (!a) return;
+      const href = (a.getAttribute && a.getAttribute('href')) || '';
+      const text = (a.textContent || '') || '';
+      if (/ranking/i.test(href) || /ranking/i.test(text)) {
+        // Allow normal navigation if href is a full absolute URL
+        const dest = href || '/Ranking%20y%20Promociones.html';
+        // Force navigation to avoid other handlers preventing default
+        try { ev.preventDefault(); } catch(_) {}
+        // If dest appears percent-encoded already, decode then set to avoid double-encoding
+        try {
+          const decoded = decodeURIComponent(dest);
+          window.location.href = decoded;
+        } catch (e) {
+          window.location.href = dest;
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, true);
+
+  // NOTE: debug interceptor removed — sidebar will now allow normal navigation to pages
 
 })();

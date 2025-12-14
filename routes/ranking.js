@@ -10,16 +10,14 @@ const { protect, authorize } = require('../middleware/auth');
  */
 router.get('/', protect, async (req, res) => {
   try {
-    // Simple in-memory cache para resultados de ranking por parámetros (se inicializa después de leer req.query)
-    if (!global.__rankingCache) global.__rankingCache = new Map();
+    // Obtener conexión a BD
     const db = getDb();
     if (!db) {
-      return res.status(500).json({
-        success: false,
-        message: 'Error de conexión a la base de datos'
-      });
+      console.error('[RANKING] No DB connection (getDb returned null)');
+      return res.status(500).json({ success: false, message: 'Error de conexión a la base de datos' });
     }
-
+    // Simple in-memory cache para resultados de ranking por parámetros (se inicializa después de leer req.query)
+    if (!global.__rankingCache) global.__rankingCache = new Map();
     let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
 
@@ -393,7 +391,7 @@ router.get('/', protect, async (req, res) => {
               ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
               // Suma de puntaje efectivo: se calculará por conjunto de signatures únicos
               sumPuntaje: { $sum: "$puntajeEfectivo" },
-              avgPuntaje: { $avg: "$puntaje" },
+              avgPuntaje: { $avg: "$puntajeEfectivo" },
               signatures: { $addToSet: "$_sigObj" },
               anyName: { $first: "$_nameNoSpaces" },
               anyOriginal: { $first: "$_agenteFuente" }
@@ -693,8 +691,15 @@ router.get('/', protect, async (req, res) => {
           if (!finalMap.has(canonicalKey)) {
             const sigMap = new Map();
             (item.signatures || []).forEach(s => { if (s && s.sig) sigMap.set(s.sig, Number(s.p || 0)); });
-            const initialSum = Array.from(sigMap.values()).reduce((a,b) => a + (Number(b)||0), 0);
-            const initialVentas = Array.from(sigMap.values()).filter(v => Number(v) > 0).length;
+            let initialSum = 0;
+            let initialVentas = 0;
+            if (sigMap && sigMap.size > 0) {
+              initialSum = Array.from(sigMap.values()).reduce((a,b) => a + (Number(b)||0), 0);
+              initialVentas = Array.from(sigMap.values()).filter(v => Number(v) > 0).length;
+            } else {
+              initialSum = Number(item.sumPuntaje || 0);
+              initialVentas = Number(item.ventas || 0);
+            }
             finalMap.set(canonicalKey, {
               ...item,
               ventas: initialVentas,
@@ -728,7 +733,7 @@ router.get('/', protect, async (req, res) => {
         let sumP = 0;
         let ventasCount = 0;
         let signaturesArr = [];
-        if (v.signaturesMap instanceof Map) {
+        if (v.signaturesMap instanceof Map && v.signaturesMap.size > 0) {
           for (const [sig, p] of v.signaturesMap.entries()) {
             sumP += Number(p || 0);
             if (Number(p || 0) > 0) ventasCount += 1;

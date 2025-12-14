@@ -132,6 +132,36 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'agentes')));
 
 // Servir archivos HTML
+// Middleware: soportar peticiones con doble-encoding en la URL (p. ej. %2520)
+// Esto detecta rutas que contienen '%25' (el caracter '%' codificado) y prueba
+// a decodificarlas y servir el archivo correspondiente si existe en disco.
+app.use((req, res, next) => {
+  try {
+    if (req.path && /%25|%20|%2[0-9A-Fa-f]/.test(req.path)) {
+      // intentar decodificar varias veces para manejar %2520 -> %20 -> ' '
+      let decoded = req.path;
+      for (let i = 0; i < 5; i++) {
+        try {
+          const once = decodeURIComponent(decoded);
+          if (once === decoded) break;
+          decoded = once;
+        } catch (e) {
+          break;
+        }
+      }
+      // normalizar y construir ruta de archivo
+      const candidateRelative = decoded.replace(/^\/+/, '');
+      const candidate = path.join(__dirname, candidateRelative);
+      if (candidate && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return res.sendFile(candidate);
+      }
+    }
+  } catch (e) {
+    // ignore and continue to next middleware
+  }
+  next();
+});
+
 app.use(express.static(__dirname, {
   extensions: ['html', 'htm'],
   index: false,
