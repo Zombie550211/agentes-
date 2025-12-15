@@ -1507,6 +1507,48 @@
     }
   </style>
   <script>
+    // ========== PRECALENTAMIENTO DE RANKINGS (FAST PATH) ==========
+    function tryLoadFromPrecachedRankings() {
+      try {
+        const storedData = sessionStorage.getItem('rankingsData');
+        const storedTimestamp = sessionStorage.getItem('rankingsTimestamp');
+        
+        if (!storedData || !storedTimestamp) {
+          console.log('[PRECACHE-RANKINGS-INICIO] ℹ️ Sin datos en caché, usando API');
+          return null;
+        }
+
+        // Validar que el caché no esté expirado (5 minutos = 300000ms)
+        const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+        const TTL = 5 * 60 * 1000;
+        
+        if (cacheAge > TTL) {
+          console.log(`[PRECACHE-RANKINGS-INICIO] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s > ${Math.round(TTL/1000)}s)`);
+          sessionStorage.removeItem('rankingsData');
+          sessionStorage.removeItem('rankingsTimestamp');
+          return null;
+        }
+
+        const data = JSON.parse(storedData);
+        console.log('[PRECACHE-RANKINGS-INICIO] ✅ Usando datos cacheados:', {
+          topRankings: data.topRankings?.length || 0,
+          monthRankings: data.monthRankings?.length || 0,
+          dayRankings: data.dayRankings?.length || 0,
+          age: `${Math.round(cacheAge/1000)}s`
+        });
+
+        return {
+          success: true,
+          data: data,
+          fromCache: true,
+          loadTime: 0
+        };
+      } catch (e) {
+        console.warn('[PRECACHE-RANKINGS-INICIO] ⚠️ Error procesando caché:', e?.message);
+        return null;
+      }
+    }
+
     // Verificar autenticación al cargar la página
     document.addEventListener('DOMContentLoaded', async function() {
       try {
@@ -1528,6 +1570,15 @@
         });
         
         console.log('📦 Datos completos recibidos del servidor:', JSON.stringify(data, null, 2));
+        
+        // FAST PATH: Intentar cargar rankings del caché
+        const cachedRankings = tryLoadFromPrecachedRankings();
+        if (cachedRankings) {
+          console.log('[INICIO-INIT] ⚡ FAST PATH: Usando rankings precacheados');
+          window.__precachedRankingsData = cachedRankings.data;
+        } else {
+          console.log('[INICIO-INIT] 🔄 SLOW PATH: Cargando rankings desde API cuando sea necesario');
+        }
         
         // Verificar si el usuario está autenticado
         if (!data.authenticated || !data.user) {
@@ -1654,6 +1705,13 @@
         console.error('Error verificando autenticación:', e);
         window.location.href = 'login.html';
       }
+    });
+
+    // Escuchar evento de precalentamiento de rankings desde login.html
+    window.addEventListener('rankingsPreheated', (event) => {
+      console.log('[RANKINGS-PREHEATED-INICIO] 🎯 Datos precalculados recibidos:', event.detail);
+      sessionStorage.setItem('rankingsData', JSON.stringify(event.detail));
+      window.__precachedRankingsData = event.detail;
     });
 
     // Función para cargar estadísticas personales del usuario para el sidebar
@@ -1936,21 +1994,33 @@
     // Función para actualizar el mejor vendedor
     async function updateBestSeller() {
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = { 'Accept': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        // Usar el endpoint de ranking para garantizar el mismo primer lugar que ven los administradores
-        const res = await fetch('/api/ranking?limit=1', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
-        if (!res.ok) {
-          console.warn('[KPI][BestSeller] ranking no OK', res.status, res.statusText);
-          return;
+        // FAST PATH: Intentar usar datos precacheados primero
+        const cachedResponse = tryLoadFromPrecachedRankings();
+        let rankingData = null;
+        
+        if (cachedResponse && cachedResponse.data && cachedResponse.data.topRankings) {
+          console.log('[INICIO][BestSeller] ⚡ Usando rankings precacheados');
+          rankingData = cachedResponse.data.topRankings;
+        } else {
+          // SLOW PATH: Cargar desde API
+          console.log('[INICIO][BestSeller] 🔄 Cargando rankings desde API');
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          const headers = { 'Accept': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          // Usar el endpoint de ranking para garantizar el mismo primer lugar que ven los administradores
+          const res = await fetch('/api/ranking?limit=1', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          if (!res.ok) {
+            console.warn('[KPI][BestSeller] ranking no OK', res.status, res.statusText);
+            return;
+          }
+          rankingData = await res.json().catch(() => ({}));
         }
-        const data = await res.json().catch(() => ({}));
+        
         // Soportar diferentes formatos: {ranking:[]}, {data:{ranking:[]}}, o array directo
         let arr = [];
-        if (Array.isArray(data)) arr = data;
-        else if (Array.isArray(data.ranking)) arr = data.ranking;
-        else if (data && data.data && Array.isArray(data.data.ranking)) arr = data.data.ranking;
+        if (Array.isArray(rankingData)) arr = rankingData;
+        else if (Array.isArray(rankingData.ranking)) arr = rankingData.ranking;
+        else if (rankingData && rankingData.data && Array.isArray(rankingData.data.ranking)) arr = rankingData.data.ranking;
 
         const top = Array.isArray(arr) && arr.length ? (arr[0].nombre || arr[0].name || '-') : '-';
         const el = document.getElementById('best-seller-name');
