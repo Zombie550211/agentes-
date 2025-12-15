@@ -590,6 +590,29 @@
                           })
                           .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ All-pages error:', e?.message));
 
+                        // 3. Precalentar ESTADÍSTICAS (datos específicos para gráficos)
+                        fetch('/api/init-estadisticas', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('estadisticasData', JSON.stringify(d.data));
+                              sessionStorage.setItem('estadisticasTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Estadísticas cacheadas:', {
+                                teamsData: d.data?.teamsData?.length || 0,
+                                agentsData: d.data?.agentsData?.length || 0,
+                                leadsChartData: d.data?.leadsChartData?.length || 0,
+                                statusSummary: Object.keys(d.data?.statusSummary || {}).length
+                              });
+                              // Emitir evento para que Estadísticas.html sepa que hay datos frescos
+                              window.dispatchEvent(new CustomEvent('estadisticasPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Estadísticas error:', e?.message));
+
                       } catch (e) {
                         console.warn('[LOGIN-PREHEAT] ⚠️ Precalentamiento fallido (no bloquea):', e?.message);
                       }

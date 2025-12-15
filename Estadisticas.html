@@ -3305,8 +3305,65 @@
         updateChartTitle('ventas-activas-mes-titulo', window.__ventasActivasFecha);
       }
       
+      // ========== PRECALENTAMIENTO DE ESTADÍSTICAS (FAST PATH) ==========
+      function tryLoadFromPrecachedEstadisticas() {
+        try {
+          const storedData = sessionStorage.getItem('estadisticasData');
+          const storedTimestamp = sessionStorage.getItem('estadisticasTimestamp');
+          
+          if (!storedData || !storedTimestamp) {
+            console.log('[PRECACHE-ESTADISTICAS] ℹ️ Sin datos en caché, usando API');
+            return null;
+          }
+
+          // Validar que el caché no esté expirado (5 minutos = 300000ms)
+          const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+          const TTL = 5 * 60 * 1000;
+          
+          if (cacheAge > TTL) {
+            console.log(`[PRECACHE-ESTADISTICAS] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s > ${Math.round(TTL/1000)}s)`);
+            sessionStorage.removeItem('estadisticasData');
+            sessionStorage.removeItem('estadisticasTimestamp');
+            return null;
+          }
+
+          const data = JSON.parse(storedData);
+          console.log('[PRECACHE-ESTADISTICAS] ✅ Usando datos cacheados:', {
+            teamsData: data.teamsData?.length || 0,
+            agentsData: data.agentsData?.length || 0,
+            leadsChartData: data.leadsChartData?.length || 0,
+            statusSummary: Object.keys(data.statusSummary || {}).length,
+            age: `${Math.round(cacheAge/1000)}s`
+          });
+
+          // Retornar los datos cacheados para usar en la página
+          return {
+            success: true,
+            data: data,
+            fromCache: true,
+            loadTime: 0
+          };
+        } catch (e) {
+          console.warn('[PRECACHE-ESTADISTICAS] ⚠️ Error procesando caché:', e?.message);
+          return null;
+        }
+      }
+      
       // Inicializar navegación cuando la página esté lista
       document.addEventListener('DOMContentLoaded', () => {
+        // FAST PATH: Intentar cargar datos del caché primero
+        const precachedResponse = tryLoadFromPrecachedEstadisticas();
+        
+        if (precachedResponse) {
+          console.log('[ESTADISTICAS-INIT] ⚡ FAST PATH: Usando datos precacheados');
+          // Aquí se pueden usar los datos del caché para inicializar gráficos rápidamente
+          // Los datos están disponibles en precachedResponse.data
+          window.__precachedEstadisticasData = precachedResponse.data;
+        } else {
+          console.log('[ESTADISTICAS-INIT] 🔄 SLOW PATH: Cargando datos desde API');
+          // La página cargará datos normalmente desde la API cuando sea necesario
+        }
+        
         // Usar un polling más robusto para asegurar que los elementos estén disponibles
         function waitForElements() {
           const btnPrev = document.getElementById('porcentaje-prev');
@@ -3323,6 +3380,13 @@
         }
         
         setTimeout(waitForElements, 500);
+      });
+
+      // Escuchar evento de precalentamiento desde login.html
+      window.addEventListener('estadisticasPreheated', (event) => {
+        console.log('[ESTADISTICAS-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
+        sessionStorage.setItem('estadisticasData', JSON.stringify(event.detail));
+        window.__precachedEstadisticasData = event.detail;
       });
       
       // ============ FIN NAVEGACIÓN DE GRÁFICOS ============

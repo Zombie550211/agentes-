@@ -1840,6 +1840,182 @@ app.get('/api/init-all-pages', protect, async (req, res) => {
   }
 });
 
+// Endpoint específico para precalentamiento de Estadísticas
+app.get('/api/init-estadisticas', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+    console.log(`[INIT-ESTADISTICAS] ⚡ Inicio para ${username} (${userRole})`);
+
+    const dateConditions = [
+      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { creadoEn: { $gte: monthStart, $lte: monthEnd } },
+      { createdAt: { $gte: monthStart, $lte: monthEnd } },
+      { fecha: { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    // 1. Datos de equipos (para gráfico de porcentaje/estadísticas por equipo)
+    let teamsData = [];
+    try {
+      const statsColl = db.collection('estadisticas');
+      const statsFilter = { $or: dateConditions };
+      const agg = await statsColl.aggregate([
+        { $match: statsFilter },
+        { $group: {
+          _id: '$equipo',
+          totalLeads: { $sum: 1 },
+          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } },
+          promedio: { $avg: '$puntaje' },
+          ACTIVAS: { $sum: { $cond: [{ $eq: ['$status', 'Activa'] }, 1, 0] } }
+        }},
+        { $sort: { totalLeads: -1 } },
+        { $limit: 20 }
+      ]).toArray();
+      teamsData = agg.map(s => ({
+        name: s._id || 'Sin equipo',
+        equipo: s._id || 'Sin equipo',
+        Total: s.totalLeads,
+        totalVentas: s.totalVentas,
+        Puntaje: Math.round(s.promedio || 0),
+        ACTIVAS: s.ACTIVAS,
+        porcentaje: 0 // se calcula en el front
+      }));
+      console.log(`[INIT-ESTADISTICAS] Teams datos: ${teamsData.length}`);
+    } catch (e) {
+      console.warn('[INIT-ESTADISTICAS] Error fetching teams:', e?.message);
+    }
+
+    // 2. Agentes con estadísticas (para conversion table y rankings)
+    let agentsData = [];
+    try {
+      const costumersColl = db.collection('costumers');
+      const custFilter = { $or: dateConditions };
+      const agg = await costumersColl.aggregate([
+        { $match: custFilter },
+        { $group: {
+          _id: '$agenteNombre',
+          totalClientes: { $sum: 1 },
+          agente: { $first: '$agente' },
+          supervisor: { $first: '$supervisor' }
+        }},
+        { $sort: { totalClientes: -1 } },
+        { $limit: 30 }
+      ]).toArray();
+      agentsData = agg.map(a => ({
+        nombre: a._id || 'Sin asignar',
+        agente: a.agente || '',
+        totalClientes: a.totalClientes,
+        supervisor: a.supervisor || ''
+      }));
+      console.log(`[INIT-ESTADISTICAS] Agents datos: ${agentsData.length}`);
+    } catch (e) {
+      console.warn('[INIT-ESTADISTICAS] Error fetching agents:', e?.message);
+    }
+
+    // 3. Datos de leads para gráficos de ventas (últimos 60 días)
+    let leadsChartData = [];
+    try {
+      const leadsColl = db.collection('leads');
+      const pastDays = 60;
+      const dateFrom = new Date(now);
+      dateFrom.setDate(dateFrom.getDate() - pastDays);
+      const leadsFilter = { fecha: { $gte: dateFrom, $lte: now } };
+      
+      const leadsAgg = await leadsColl.aggregate([
+        { $match: leadsFilter },
+        { $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$fecha', timezone: 'America/Costa_Rica' }
+          },
+          count: { $sum: 1 },
+          completados: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } }
+        }},
+        { $sort: { _id: 1 } },
+        { $limit: 60 }
+      ]).toArray();
+      
+      leadsChartData = leadsAgg.map(l => ({
+        fecha: l._id,
+        count: l.count,
+        completados: l.completados || 0
+      }));
+      console.log(`[INIT-ESTADISTICAS] Leads chart data: ${leadsChartData.length} days`);
+    } catch (e) {
+      console.warn('[INIT-ESTADISTICAS] Error fetching leads chart:', e?.message);
+    }
+
+    // 4. Resumen rápido por estado
+    let statusSummary = {};
+    try {
+      const custColl = db.collection('costumers');
+      const custFilter = { $or: dateConditions };
+      const statusAgg = await custColl.aggregate([
+        { $match: custFilter },
+        { $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }},
+        { $sort: { count: -1 } }
+      ]).toArray();
+      statusAgg.forEach(s => {
+        statusSummary[s._id || 'Sin estado'] = s.count;
+      });
+      console.log(`[INIT-ESTADISTICAS] Status summary: ${Object.keys(statusSummary).length} estados`);
+    } catch (e) {
+      console.warn('[INIT-ESTADISTICAS] Error fetching status summary:', e?.message);
+    }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-ESTADISTICAS] ✅ Completado en ${elapsed}ms`);
+
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: {
+        username: user?.username,
+        role: user?.role,
+        team: user?.team || 'Sin equipo'
+      },
+      data: {
+        teamsData: teamsData,
+        agentsData: agentsData,
+        leadsChartData: leadsChartData,
+        statusSummary: statusSummary,
+        monthYear: `${currentMonth + 1}/${currentYear}`,
+        note: 'Datos precalculados para Estadísticas.html'
+      },
+      ttl: 5 * 60 * 1000
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-ESTADISTICAS] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de estadísticas',
+      error: error.message
+    });
+  }
+});
+
 app.get('/api/auth/debug-storage', (req, res) => {
   res.json({
     success: true,
