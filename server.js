@@ -2016,6 +2016,424 @@ app.get('/api/init-estadisticas', protect, async (req, res) => {
   }
 });
 
+// Endpoint específico para precalentamiento de Rankings
+app.get('/api/init-rankings', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+    console.log(`[INIT-RANKINGS] ⚡ Inicio para ${username} (${userRole})`);
+
+    // 1. Ranking del MES ACTUAL (para mostrar Top 3)
+    let currentMonthRanking = [];
+    try {
+      const rankColl = db.collection('rankings');
+      const rankingData = await rankColl.find({})
+        .project({
+          _id: 1,
+          agente: 1,
+          agenteNombre: 1,
+          nombre: 1,
+          puntos: 1,
+          puntaje: 1,
+          sumPuntaje: 1,
+          ventas: 1,
+          posicion: 1,
+          position: 1,
+          mes: 1
+        })
+        .sort({ sumPuntaje: -1, puntos: -1 })
+        .limit(30)
+        .toArray();
+      
+      currentMonthRanking = rankingData.map((r, idx) => ({
+        agente: r.agente,
+        nombre: r.agenteNombre || r.nombre,
+        puntos: r.sumPuntaje || r.puntos || 0,
+        puntaje: r.sumPuntaje || r.puntaje || 0,
+        promedio: r.sumPuntaje || r.puntaje || 0,
+        ventas: r.ventas || 0,
+        posicion: r.position || r.posicion || (idx + 1),
+        position: r.position || r.posicion || (idx + 1),
+        mes: r.mes
+      }));
+      console.log(`[INIT-RANKINGS] Ranking mes actual: ${currentMonthRanking.length} agentes`);
+    } catch (e) {
+      console.warn('[INIT-RANKINGS] Error fetching current month ranking:', e?.message);
+    }
+
+    // 2. Ranking histórico por mes (últimos 6 meses)
+    let monthlyRankings = {};
+    try {
+      const rankColl = db.collection('rankings');
+      const months = [];
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(currentYear, currentMonth - i, 1);
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const y = d.getFullYear();
+        months.push(`${y}-${m}`);
+      }
+
+      for (const monthKey of months) {
+        try {
+          const rankData = await rankColl.find({ mes: monthKey })
+            .project({
+              _id: 1,
+              agente: 1,
+              agenteNombre: 1,
+              nombre: 1,
+              puntos: 1,
+              puntaje: 1,
+              sumPuntaje: 1,
+              ventas: 1,
+              position: 1,
+              posicion: 1,
+              mes: 1
+            })
+            .sort({ sumPuntaje: -1, puntos: -1 })
+            .limit(15)
+            .toArray();
+
+          monthlyRankings[monthKey] = rankData.map((r, idx) => ({
+            agente: r.agente,
+            nombre: r.agenteNombre || r.nombre,
+            puntos: r.sumPuntaje || r.puntos || 0,
+            ventas: r.ventas || 0,
+            position: r.position || r.posicion || (idx + 1),
+            mes: r.mes
+          }));
+        } catch (e) {
+          console.warn(`[INIT-RANKINGS] Error fetching ranking for ${monthKey}:`, e?.message);
+          monthlyRankings[monthKey] = [];
+        }
+      }
+      console.log(`[INIT-RANKINGS] Ranking histórico: ${Object.keys(monthlyRankings).length} meses`);
+    } catch (e) {
+      console.warn('[INIT-RANKINGS] Error fetching monthly rankings:', e?.message);
+    }
+
+    // 3. Top 3 actual (para podio)
+    let topThree = {
+      first: currentMonthRanking[0] || null,
+      second: currentMonthRanking[1] || null,
+      third: currentMonthRanking[2] || null
+    };
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-RANKINGS] ✅ Completado en ${elapsed}ms`);
+
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: {
+        username: user?.username,
+        role: user?.role,
+        team: user?.team || 'Sin equipo'
+      },
+      data: {
+        currentMonthRanking: currentMonthRanking,
+        topThree: topThree,
+        monthlyRankings: monthlyRankings,
+        monthYear: `${currentMonth + 1}/${currentYear}`,
+        note: 'Datos precalculados para Ranking y Promociones.html'
+      },
+      ttl: 5 * 60 * 1000
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-RANKINGS] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de rankings',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint específico para precalentamiento de Lead
+app.get('/api/init-lead', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+    console.log(`[INIT-LEAD] ⚡ Inicio para ${username}`);
+
+    const dateConditions = [
+      { fecha: { $gte: monthStart, $lte: monthEnd } },
+      { createdAt: { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    // Leads del mes actual
+    let leadsData = [];
+    try {
+      const leadsColl = db.collection('leads');
+      leadsData = await leadsColl.find({ $or: dateConditions })
+        .project({
+          _id: 1,
+          nombre: 1,
+          status: 1,
+          fecha: 1,
+          agente: 1,
+          agenteNombre: 1,
+          puntaje: 1,
+          servicios: 1,
+          empresa: 1
+        })
+        .limit(200)
+        .toArray();
+      console.log(`[INIT-LEAD] Leads del mes: ${leadsData.length}`);
+    } catch (e) {
+      console.warn('[INIT-LEAD] Error fetching leads:', e?.message);
+    }
+
+    // Resumen por status
+    let statusSummary = {};
+    try {
+      const statusAgg = await db.collection('leads').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }},
+        { $sort: { count: -1 } }
+      ]).toArray();
+      statusAgg.forEach(s => {
+        statusSummary[s._id || 'Sin estado'] = s.count;
+      });
+    } catch (e) {
+      console.warn('[INIT-LEAD] Error fetching status:', e?.message);
+    }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-LEAD] ✅ Completado en ${elapsed}ms`);
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: {
+        leadsData: leadsData,
+        statusSummary: statusSummary,
+        monthYear: `${currentMonth + 1}/${currentYear}`
+      },
+      ttl: 5 * 60 * 1000
+    });
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-LEAD] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de leads',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint específico para precalentamiento de Facturación
+app.get('/api/init-facturacion', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+    console.log(`[INIT-FACTURACION] ⚡ Inicio para ${username}`);
+
+    const dateConditions = [
+      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { createdAt: { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    // Datos de facturación
+    let facturacionData = [];
+    try {
+      const custColl = db.collection('costumers');
+      facturacionData = await custColl.find({ $or: dateConditions })
+        .project({
+          _id: 1,
+          nombre_cliente: 1,
+          numero_cuenta: 1,
+          status: 1,
+          agente: 1,
+          agenteNombre: 1,
+          dia_venta: 1,
+          dia_instalacion: 1,
+          cantidad_lineas: 1,
+          autopago: 1
+        })
+        .limit(150)
+        .toArray();
+      console.log(`[INIT-FACTURACION] Registros del mes: ${facturacionData.length}`);
+    } catch (e) {
+      console.warn('[INIT-FACTURACION] Error fetching facturacion:', e?.message);
+    }
+
+    // Resumen de ingresos
+    let ingresosSummary = { total: 0, completadas: 0 };
+    try {
+      const agg = await db.collection('costumers').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: {
+          _id: null,
+          totalCount: { $sum: 1 },
+          completadas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } }
+        }}
+      ]).toArray();
+      if (agg.length > 0) {
+        ingresosSummary.total = agg[0].totalCount || 0;
+        ingresosSummary.completadas = agg[0].completadas || 0;
+      }
+    } catch (e) {
+      console.warn('[INIT-FACTURACION] Error fetching summary:', e?.message);
+    }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-FACTURACION] ✅ Completado en ${elapsed}ms`);
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: {
+        facturacionData: facturacionData,
+        ingresosSummary: ingresosSummary,
+        monthYear: `${currentMonth + 1}/${currentYear}`
+      },
+      ttl: 5 * 60 * 1000
+    });
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-FACTURACION] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de facturación',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint específico para precalentamiento de Multimedia
+app.get('/api/init-multimedia', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+
+    console.log(`[INIT-MULTIMEDIA] ⚡ Inicio para ${username}`);
+
+    // Archivos multimedia recientes
+    let multimediaData = [];
+    try {
+      const mediaColl = db.collection('media');
+      multimediaData = await mediaColl.find({})
+        .project({
+          _id: 1,
+          fileName: 1,
+          fileType: 1,
+          uploadedBy: 1,
+          uploadedAt: 1,
+          fileSize: 1
+        })
+        .sort({ uploadedAt: -1 })
+        .limit(100)
+        .toArray();
+      console.log(`[INIT-MULTIMEDIA] Archivos: ${multimediaData.length}`);
+    } catch (e) {
+      console.warn('[INIT-MULTIMEDIA] Error fetching media:', e?.message);
+    }
+
+    // Resumen por tipo
+    let typeSummary = {};
+    try {
+      const typeAgg = await db.collection('media').aggregate([
+        { $group: {
+          _id: '$fileType',
+          count: { $sum: 1 }
+        }},
+        { $sort: { count: -1 } }
+      ]).toArray();
+      typeAgg.forEach(t => {
+        typeSummary[t._id || 'desconocido'] = t.count;
+      });
+    } catch (e) {
+      console.warn('[INIT-MULTIMEDIA] Error fetching type summary:', e?.message);
+    }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[INIT-MULTIMEDIA] ✅ Completado en ${elapsed}ms`);
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: {
+        multimediaData: multimediaData,
+        typeSummary: typeSummary
+      },
+      ttl: 5 * 60 * 1000
+    });
+
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[INIT-MULTIMEDIA] ❌ Error en ${elapsed}ms:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar datos de multimedia',
+      error: error.message
+    });
+  }
+});
+
 app.get('/api/auth/debug-storage', (req, res) => {
   res.json({
     success: true,

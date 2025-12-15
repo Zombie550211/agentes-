@@ -140,8 +140,58 @@
 <script src="/js/logout-handler.js"></script>
 <script src="js/user-info.js"></script>
 <script>
+  // ========== PRECALENTAMIENTO DE FACTURACIÓN (FAST PATH) ==========
+  function tryLoadFromPrecachedFacturacion() {
+    try {
+      const storedData = sessionStorage.getItem('facturacionData');
+      const storedTimestamp = sessionStorage.getItem('facturacionTimestamp');
+      
+      if (!storedData || !storedTimestamp) {
+        console.log('[PRECACHE-FACTURACION] ℹ️ Sin datos en caché, usando API');
+        return null;
+      }
+
+      const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+      const TTL = 5 * 60 * 1000;
+      
+      if (cacheAge > TTL) {
+        console.log(`[PRECACHE-FACTURACION] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s)`);
+        sessionStorage.removeItem('facturacionData');
+        sessionStorage.removeItem('facturacionTimestamp');
+        return null;
+      }
+
+      const data = JSON.parse(storedData);
+      console.log('[PRECACHE-FACTURACION] ✅ Usando datos cacheados:', {
+        facturacionData: data.facturacionData?.length || 0,
+        ingresosSummary: !!data.ingresosSummary,
+        age: `${Math.round(cacheAge/1000)}s`
+      });
+
+      return { success: true, data: data, fromCache: true, loadTime: 0 };
+    } catch (e) {
+      console.warn('[PRECACHE-FACTURACION] ⚠️ Error procesando caché:', e?.message);
+      return null;
+    }
+  }
+
+  window.addEventListener('facturacionPreheated', (event) => {
+    console.log('[FACTURACION-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
+    sessionStorage.setItem('facturacionData', JSON.stringify(event.detail));
+    window.__precachedFacturacionData = event.detail;
+  });
+</script>
+
+<script>
 (async function guardAdmin() {
   try {
+    // Intentar cargar datos del caché primero
+    const cachedFacturacion = tryLoadFromPrecachedFacturacion();
+    if (cachedFacturacion) {
+      console.log('[FACTURACION-INIT] ⚡ FAST PATH: Usando facturación data precacheado');
+      window.__precachedFacturacionData = cachedFacturacion.data;
+    }
+    
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;

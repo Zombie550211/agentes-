@@ -613,6 +613,88 @@
                           })
                           .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Estadísticas error:', e?.message));
 
+                        // 4. Precalentar RANKINGS (datos del top 3 y ranking del mes)
+                        fetch('/api/init-rankings', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('rankingsData', JSON.stringify(d.data));
+                              sessionStorage.setItem('rankingsTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Rankings cacheados:', {
+                                currentMonthRanking: d.data?.currentMonthRanking?.length || 0,
+                                topThree: !!d.data?.topThree,
+                                monthlyRankings: Object.keys(d.data?.monthlyRankings || {}).length
+                              });
+                              // Emitir evento para que Ranking y Promociones.html sepa que hay datos frescos
+                              window.dispatchEvent(new CustomEvent('rankingsPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Rankings error:', e?.message));
+
+                        // 5. Precalentar LEADS
+                        fetch('/api/init-lead', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('leadData', JSON.stringify(d.data));
+                              sessionStorage.setItem('leadTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Leads cacheados:', {
+                                leadsData: d.data?.leadsData?.length || 0,
+                                statusSummary: Object.keys(d.data?.statusSummary || {}).length
+                              });
+                              window.dispatchEvent(new CustomEvent('leadPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Lead error:', e?.message));
+
+                        // 6. Precalentar FACTURACIÓN
+                        fetch('/api/init-facturacion', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('facturacionData', JSON.stringify(d.data));
+                              sessionStorage.setItem('facturacionTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Facturación cacheada:', {
+                                facturacionData: d.data?.facturacionData?.length || 0,
+                                ingresosSummary: !!d.data?.ingresosSummary
+                              });
+                              window.dispatchEvent(new CustomEvent('facturacionPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Facturación error:', e?.message));
+
+                        // 7. Precalentar MULTIMEDIA
+                        fetch('/api/init-multimedia', { 
+                          method: 'GET',
+                          headers: headers, 
+                          credentials: 'include' 
+                        })
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) {
+                              sessionStorage.setItem('multimediaData', JSON.stringify(d.data));
+                              sessionStorage.setItem('multimediaTimestamp', d.timestamp);
+                              console.log('[LOGIN-PREHEAT] ✅ Multimedia cacheado:', {
+                                multimediaData: d.data?.multimediaData?.length || 0,
+                                typeSummary: Object.keys(d.data?.typeSummary || {}).length
+                              });
+                              window.dispatchEvent(new CustomEvent('multimediaPreheated', { detail: d.data }));
+                            }
+                          })
+                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Multimedia error:', e?.message));
+
                       } catch (e) {
                         console.warn('[LOGIN-PREHEAT] ⚠️ Precalentamiento fallido (no bloquea):', e?.message);
                       }

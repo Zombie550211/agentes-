@@ -544,12 +544,60 @@
   <script src="js/sidebar-loader.js"></script>
 
   <script>
+    // ========== PRECALENTAMIENTO DE MULTIMEDIA (FAST PATH) ==========
+    function tryLoadFromPrecachedMultimedia() {
+      try {
+        const storedData = sessionStorage.getItem('multimediaData');
+        const storedTimestamp = sessionStorage.getItem('multimediaTimestamp');
+        
+        if (!storedData || !storedTimestamp) {
+          console.log('[PRECACHE-MULTIMEDIA] ℹ️ Sin datos en caché, usando API');
+          return null;
+        }
+
+        const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+        const TTL = 5 * 60 * 1000;
+        
+        if (cacheAge > TTL) {
+          console.log(`[PRECACHE-MULTIMEDIA] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s)`);
+          sessionStorage.removeItem('multimediaData');
+          sessionStorage.removeItem('multimediaTimestamp');
+          return null;
+        }
+
+        const data = JSON.parse(storedData);
+        console.log('[PRECACHE-MULTIMEDIA] ✅ Usando datos cacheados:', {
+          multimediaData: data.multimediaData?.length || 0,
+          typeSummary: Object.keys(data.typeSummary || {}).length,
+          age: `${Math.round(cacheAge/1000)}s`
+        });
+
+        return { success: true, data: data, fromCache: true, loadTime: 0 };
+      } catch (e) {
+        console.warn('[PRECACHE-MULTIMEDIA] ⚠️ Error procesando caché:', e?.message);
+        return null;
+      }
+    }
+
+    window.addEventListener('multimediaPreheated', (event) => {
+      console.log('[MULTIMEDIA-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
+      sessionStorage.setItem('multimediaData', JSON.stringify(event.detail));
+      window.__precachedMultimediaData = event.detail;
+    });
+
     // Variables globales
     let uploadedFiles = [];
     let currentFilter = 'all';
 
     // Inicialización
     document.addEventListener('DOMContentLoaded', function() {
+      // Intentar cargar datos del caché primero
+      const cachedMultimedia = tryLoadFromPrecachedMultimedia();
+      if (cachedMultimedia) {
+        console.log('[MULTIMEDIA-INIT] ⚡ FAST PATH: Usando multimedia data precacheado');
+        window.__precachedMultimediaData = cachedMultimedia.data;
+      }
+      
       initializeUpload();
       loadGallery();
       initializeFilters();

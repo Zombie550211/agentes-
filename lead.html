@@ -1502,8 +1502,58 @@
   </script>
 
 <script>
+  // ========== PRECALENTAMIENTO DE LEAD (FAST PATH) ==========
+  function tryLoadFromPrecachedLead() {
+    try {
+      const storedData = sessionStorage.getItem('leadData');
+      const storedTimestamp = sessionStorage.getItem('leadTimestamp');
+      
+      if (!storedData || !storedTimestamp) {
+        console.log('[PRECACHE-LEAD] ℹ️ Sin datos en caché, usando API');
+        return null;
+      }
+
+      const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+      const TTL = 5 * 60 * 1000;
+      
+      if (cacheAge > TTL) {
+        console.log(`[PRECACHE-LEAD] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s)`);
+        sessionStorage.removeItem('leadData');
+        sessionStorage.removeItem('leadTimestamp');
+        return null;
+      }
+
+      const data = JSON.parse(storedData);
+      console.log('[PRECACHE-LEAD] ✅ Usando datos cacheados:', {
+        leadsData: data.leadsData?.length || 0,
+        statusSummary: Object.keys(data.statusSummary || {}).length,
+        age: `${Math.round(cacheAge/1000)}s`
+      });
+
+      return { success: true, data: data, fromCache: true, loadTime: 0 };
+    } catch (e) {
+      console.warn('[PRECACHE-LEAD] ⚠️ Error procesando caché:', e?.message);
+      return null;
+    }
+  }
+
+  window.addEventListener('leadPreheated', (event) => {
+    console.log('[LEAD-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
+    sessionStorage.setItem('leadData', JSON.stringify(event.detail));
+    window.__precachedLeadData = event.detail;
+  });
+</script>
+
+<script>
 // Forzar la visualización del sidebar
 document.addEventListener('DOMContentLoaded', function() {
+  // Intentar cargar datos del caché primero
+  const cachedLead = tryLoadFromPrecachedLead();
+  if (cachedLead) {
+    console.log('[LEAD-INIT] ⚡ FAST PATH: Usando lead data precacheado');
+    window.__precachedLeadData = cachedLead.data;
+  }
+  
   // Asegurarse de que el sidebar esté visible
   const sidebar = document.querySelector('.sidebar.sidebar-inicio');
   if (sidebar) {
