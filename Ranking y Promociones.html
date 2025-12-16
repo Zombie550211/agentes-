@@ -83,6 +83,7 @@
   <script src="js/crm-config.js"></script>
   <script src="js/inactivity-manager.js"></script>
   <script src="js/crm-init.js"></script>
+  <script src="js/ranking-page.js?v=20251215-02"></script>
   <style>
     /* Estilos globales para eliminar scroll */
     * {
@@ -1825,10 +1826,66 @@
     }
   </style>
   <script>
-    // La verificaci├│n de autenticaci├│n se maneja por auth-check.js
-    // Este script solo maneja la l├│gica espec├¡fica de la p├ígina
+    // La verificación de autenticación se maneja por auth-check.js
+    // Este script solo maneja la lógica específica de la página
+
+    // ========== PRECALENTAMIENTO DE RANKINGS (FAST PATH) ==========
+    function tryLoadFromPrecachedRankings() {
+      try {
+        const storedData = sessionStorage.getItem('rankingsData');
+        const storedTimestamp = sessionStorage.getItem('rankingsTimestamp');
+        
+        if (!storedData || !storedTimestamp) {
+          console.log('[PRECACHE-RANKINGS] ℹ️ Sin datos en caché, usando API');
+          return null;
+        }
+
+        // Validar que el caché no esté expirado (5 minutos = 300000ms)
+        const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+        const TTL = 5 * 60 * 1000;
+        
+        if (cacheAge > TTL) {
+          console.log(`[PRECACHE-RANKINGS] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s > ${Math.round(TTL/1000)}s)`);
+          sessionStorage.removeItem('rankingsData');
+          sessionStorage.removeItem('rankingsTimestamp');
+          return null;
+        }
+
+        const data = JSON.parse(storedData);
+        console.log('[PRECACHE-RANKINGS] ✅ Usando datos cacheados:', {
+          currentMonthRanking: data.currentMonthRanking?.length || 0,
+          topThree: !!data.topThree,
+          monthlyRankings: Object.keys(data.monthlyRankings || {}).length,
+          age: `${Math.round(cacheAge/1000)}s`
+        });
+
+        // Retornar los datos cacheados para usar en la página
+        return {
+          success: true,
+          data: data,
+          fromCache: true,
+          loadTime: 0
+        };
+      } catch (e) {
+        console.warn('[PRECACHE-RANKINGS] ⚠️ Error procesando caché:', e?.message);
+        return null;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', async function() {
-      // Esperar a que auth-check.js termine su verificaci├│n
+      // FAST PATH: Intentar cargar datos del caché primero
+      const precachedResponse = tryLoadFromPrecachedRankings();
+      
+      if (precachedResponse) {
+        console.log('[RANKING-INIT] ⚡ FAST PATH: Usando datos precacheados');
+        // Los datos están disponibles en precachedResponse.data
+        window.__precachedRankingsData = precachedResponse.data;
+      } else {
+        console.log('[RANKING-INIT] 🔄 SLOW PATH: Cargando datos desde API');
+        // La página cargará datos normalmente desde la API cuando sea necesario
+      }
+      
+      // Esperar a que auth-check.js termine su verificación
       await new Promise(resolve => setTimeout(resolve, 100));
       
       try {
@@ -2251,7 +2308,10 @@
               <div class="other-ranks">
                 <div class="other-ranks-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                   <h3 style="margin:0;">Otros Participantes</h3>
-                  <button id="btn-open-full-ranking" type="button" style="background:#111827; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer;">Ver todos</button>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="btn-open-full-ranking" type="button" style="background:#111827; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer;">Ver todos</button>
+                    <button id="btn-toggle-force-all" type="button" style="background:#6b7280; color:#fff; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; display:none; font-size:.85rem;">Forzar: OFF</button>
+                  </div>
                 </div>
                 <div class="rank-list" id="rank-list-dynamic">
                   <!-- Se llena din├ímicamente con datos reales del endpoint /api/ranking -->
@@ -2479,230 +2539,32 @@
           }
         }
 
-        // ====== RANKING: Cargar Top 3 desde backend ======
+        // ====== RANKING: delegate to external implementation ======
+        // The full `loadRankingTop3` logic lives in `js/ranking-page.js` to avoid
+        // duplicate definitions. Here we call the external implementation if
+        // available, or poll briefly until it is defined.
         async function loadRankingTop3(){
           try {
-            console.log('[RANKING] ­ƒöä Solicitando top 3...');
-            // Calcular rango del MES ACTUAL (local)
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const fechaInicio = `${y}-${m}-01`;
-            const fechaFin = `${y}-${m}-${d}`;
-            const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
-            console.log('[RANKING] ÔÅ▒´©Å Rango aplicado:', { fechaInicio, fechaFin });
-            const res = await fetch(url, { credentials: 'include' });
-            if (!res.ok) throw new Error('Respuesta no OK en /api/ranking');
-            const data = await res.json();
-            console.log('[RANKING] ­ƒôª Datos recibidos:', data);
-
-            const list = Array.isArray(data?.ranking) ? data.ranking : [];
-            if (list.length === 0) {
-              console.warn('[RANKING] ÔØù No hay datos de ranking');
+            if (typeof window.loadRankingTop3 === 'function' && window.loadRankingTop3 !== loadRankingTop3) {
+              // External implementation already available
+              await window.loadRankingTop3();
               return;
             }
 
-            // Asegurar top3
-            const top1 = list[0];
-            const top2 = list[1];
-            const top3 = list[2];
-
-            console.log('[RANKING] Top3 recibidos:', {
-              top1: { nombre: top1?.nombre, puntos: top1?.puntos, ventas: top1?.ventas },
-              top2: { nombre: top2?.nombre, puntos: top2?.puntos, ventas: top2?.ventas },
-              top3: { nombre: top3?.nombre, puntos: top3?.puntos, ventas: top3?.ventas }
-            });
-
-            // Funci├│n para obtener puntuaci├│n
-            const getScore = (item) => {
-              if (!item) return 0;
-              if (typeof item.sumPuntaje === 'number') return item.sumPuntaje;
-              if (typeof item.puntos === 'number') return item.puntos;
-              if (typeof item.promedio === 'number') return item.promedio;
-              return 0;
-            };
-
-            // Formatear evitando artefactos binarios
-            function formatScore(n) {
-              if (typeof n !== 'number' || !isFinite(n)) return '0';
-              const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
-              if (rounded === Math.floor(rounded)) return rounded.toString();
-              return rounded.toFixed(2).replace(/\.?0+$/, '');
-            }
-
-            // Funci├│n para actualizar slot del podio
-            const setSlot = (selectorBase, item) => {
-              if (!item) return;
-              const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
-              const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
-              const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
-              if (nameEl) nameEl.textContent = resolveDisplayName(item);
-              if (scoreEl) scoreEl.textContent = formatScore(getScore(item));
-              if (imgEl) applyAvatarToElement(imgEl, item, { allowPhoto: false });
-            };
-
-            // Limpiar antes de pintar
-            const clearSlot = (selectorBase) => {
-              const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
-              const scoreEl = document.querySelector(`${selectorBase} .astronaut-score`);
-              const imgEl = document.querySelector(`${selectorBase} .astronaut-image`);
-              if (nameEl) nameEl.textContent = 'ÔÇö';
-              if (scoreEl) scoreEl.textContent = '0';
-              if (imgEl) applyAvatarToElement(imgEl, null, { allowPhoto: false });
-            };
-            clearSlot('.first-pos');
-            clearSlot('.second-pos');
-            clearSlot('.third-pos');
-
-            setSlot('.first-pos', top1);
-            setSlot('.second-pos', top2);
-            setSlot('.third-pos', top3);
-
-            // Persistir lista completa en memoria local del m├│dulo para 'Ver todos'
-            window.__rankFullList = list;
-
-            // Renderizar "Otros Participantes" con el resto de la lista (posici├│n 4 en adelante, o si hay < 4, mostrar todos)
-            const container = document.getElementById('rank-list-dynamic');
-            if (container) {
-              const viewAll = !!window.__rankViewAll;
-              const topN = viewAll ? list : list.slice(0, 10);
-              const rest = topN.length > 3 ? topN.slice(3) : topN;
-              container.innerHTML = '';
-              rest.forEach((agent, idx) => {
-                const li = document.createElement('div');
-                li.className = 'rank-item';
-                const position = agent.position || agent.posicion || (idx + 4);
-                const name = escapeHtml(resolveDisplayName(agent));
-                const role = escapeHtml(agent.cargo || '');
-                const pointsValue = formatScore(getScore(agent));
-                const salesValue = Number(agent.ventas || 0);
-                const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
-                li.innerHTML = `
-                  <span class="rank-number">${position}</span>
-                  <div class="agent-info">
-                    <div class="agent-avatar">${avatarMarkup}</div>
-                    <div class="agent-details">
-                      <h4>${name}</h4>
-                      <p>${role}</p>
-                    </div>
-                  </div>
-                  <div class="agent-stats">
-                    <span class="points">${escapeHtml(pointsValue)} pts</span>
-                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>
-                  </div>`;
-                container.appendChild(li);
-              });
-            }
-
-            // Renderizar TABLA de puntajes con todos los agentes del ranking
-            const table = document.getElementById('full-rank-table');
-            if (table) {
-              const tbody = table.querySelector('tbody');
-              tbody.innerHTML = '';
-              const viewAll = !!window.__rankViewAll;
-              const dataForTable = viewAll ? list : list.slice(0, 10);
-              dataForTable.forEach((agent, idx) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
-                `;
-                tbody.appendChild(tr);
-              });
-            }
-
-            // Configurar bot├│n 'Ver todos' (visible para supervisores/admin/backoffice/agente)
-            const btn = document.getElementById('btn-open-full-ranking');
-            if (btn) {
-              // Verificar rol del usuario para mostrar el bot├│n (tolerante a variantes de nombre)
-              const currentUser = await getUser();
-              const userRole = ((currentUser && (currentUser.role || currentUser.usuario?.role || currentUser.userRole)) || '').toString().toLowerCase();
-              const canViewAll = ['admin','administrador','supervisor','supervisor team lineas','backoffice','agente'].includes(userRole);
-              btn.style.display = canViewAll ? 'inline-block' : 'none';
-              
-              btn.onclick = async () => {
-                window.__rankViewAll = !window.__rankViewAll;
-                btn.textContent = window.__rankViewAll ? 'Ver menos' : 'Ver todos';
-
-                // Si se va a ver todo, pedir al backend toda la lista (all=1)
-                if (window.__rankViewAll) {
-                  try {
-                    const now = new Date();
-                    const y = now.getFullYear();
-                    const m = String(now.getMonth() + 1).padStart(2, '0');
-                    const d = String(now.getDate()).padStart(2, '0');
-                    const fechaInicio = `${y}-${m}-01`;
-                    const fechaFin = `${y}-${m}-${d}`;
-                    const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&t=${Date.now()}`;
-                    const resAll = await fetch(urlAll, { credentials: 'include' });
-                    if (resAll.ok) {
-                      const dataAll = await resAll.json();
-                      const full = Array.isArray(dataAll?.ranking) ? dataAll.ranking : [];
-                      window.__rankFullList = full.length ? full : (window.__rankFullList || []);
-                    }
-                  } catch (e) {
-                    console.warn('[RANKING] No se pudo obtener lista completa:', e);
-                  }
-                }
-
-                const listSaved = window.__rankFullList || [];
-                // Render lista (show items 4+ or all if fewer than 4 items)
-                const container2 = document.getElementById('rank-list-dynamic');
-                if (container2) {
-                  const source = window.__rankViewAll ? listSaved : listSaved.slice(0, 10);
-                  const rest2 = source.length > 3 ? source.slice(3) : source;
-                  container2.innerHTML = '';
-                  rest2.forEach((agent, idx) => {
-                    const li = document.createElement('div');
-                    li.className = 'rank-item';
-                    const position = agent.position || agent.posicion || (idx + 4);
-                    const name = escapeHtml(resolveDisplayName(agent));
-                    const role = escapeHtml(agent.cargo || '');
-                    const pointsValue = formatScore(getScore(agent));
-                    const salesValue = Number(agent.ventas || 0);
-                    const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
-                    li.innerHTML = `
-                      <span class="rank-number">${position}</span>
-                      <div class="agent-info">
-                        <div class="agent-avatar">${avatarMarkup}</div>
-                        <div class="agent-details">
-                          <h4>${name}</h4>
-                          <p>${role}</p>
-                        </div>
-                      </div>
-                      <div class="agent-stats">
-                        <span class="points">${escapeHtml(pointsValue)} pts</span>
-                        <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>
-                      </div>`;
-                    container2.appendChild(li);
-                  });
-                }
-                // Render tabla
-                const table2 = document.getElementById('full-rank-table');
-                if (table2) {
-                  const tbody2 = table2.querySelector('tbody');
-                  tbody2.innerHTML = '';
-                  const data2 = window.__rankViewAll ? listSaved : listSaved.slice(0, 10);
-                  data2.forEach((agent, idx) => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>
-                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>
-                    `;
-                    tbody2.appendChild(tr);
-                  });
-                }
+            // Poll for the external function for up to 3s
+            const start = Date.now();
+            while (Date.now() - start < 3000) {
+              if (typeof window.loadRankingTop3 === 'function' && window.loadRankingTop3 !== loadRankingTop3) {
+                await window.loadRankingTop3();
+                return;
               }
+              // small delay
+              await new Promise(r => setTimeout(r, 150));
             }
 
-            console.log('[RANKING] Ô£à Podio actualizado desde BD');
+            console.warn('[RANKING] External loadRankingTop3 not found; skipping init.');
           } catch (err) {
-            console.error('[RANKING] ÔØî Error cargando top 3:', err);
+            console.error('[RANKING] Error delegating loadRankingTop3:', err);
           }
         }
 
@@ -2873,7 +2735,9 @@
         console.log('[PROMO] Ô£à Carga inicial completada');
 
         // Cargar ranking siempre (independiente del rol)
-        try { await loadRankingTop3(); } catch(e){ console.warn('[RANKING] No se pudo cargar el top 3 en init:', e); }
+        try { 
+          await loadRankingTop3(); 
+        } catch(e){ console.warn('[RANKING] No se pudo cargar el top 3 en init:', e); }
 
         // === Navegaci├│n mensual del ranking con flechas ===
         // Estado de mes visible (a├▒o/mes actuales por defecto)
@@ -2990,34 +2854,24 @@
           label.textContent = `Ranking ÔÇö ${monthNames[m]} ${y}`;
         }
 
+        // Delegate monthly loader to external implementation in `js/ranking-page.js`
         async function loadRankingByMonth(y,m){
-          const {fechaInicio,fechaFin,isCurrent}=monthBounds(y,m);
-          setPeriodLabel(y,m);
-          try{
-            const fieldParam = isCurrent ? '' : '&field=createdAt';
-            const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}&t=${Date.now()}`;
-            const res=await fetch(url,{credentials:'include'});
-            if(!res.ok) throw new Error('HTTP '+res.status);
-            const data=await res.json();
-            const list=Array.isArray(data?.ranking)?data.ranking:[];
-            updateRankingUI(list);
-            console.log('[RANKING] Mes cargado', {y,m,fechaInicio,fechaFin,items:list.length});
-          }catch(e){ console.warn('[RANKING] No se pudo cargar mes', y,m,e); }
+          try {
+            if (typeof window.loadRankingByMonth === 'function' && window.loadRankingByMonth !== loadRankingByMonth) {
+              await window.loadRankingByMonth(y,m);
+              return;
+            }
+            const start = Date.now();
+            while (Date.now() - start < 3000) {
+              if (typeof window.loadRankingByMonth === 'function' && window.loadRankingByMonth !== loadRankingByMonth) {
+                await window.loadRankingByMonth(y,m);
+                return;
+              }
+              await new Promise(r => setTimeout(r, 150));
+            }
+            console.warn('[RANKING] External loadRankingByMonth not found; skipping month load.');
+          } catch (e) { console.warn('[RANKING] Error delegating loadRankingByMonth:', e); }
         }
-
-        document.addEventListener('rank-nav', (ev)=>{
-          const dir = Number(ev?.detail?.dir)||0;
-          if(!dir) return;
-          // mover mes
-          let y=window.__rankYear, m=window.__rankMonth;
-          m += dir;
-          if(m<0){ m=11; y-=1; } else if(m>11){ m=0; y+=1; }
-          window.__rankYear=y; window.__rankMonth=m;
-          loadRankingByMonth(y,m);
-        });
-
-        // Cargar el mes actual al iniciar para sincronizar periodo/etiqueta
-        loadRankingByMonth(window.__rankYear, window.__rankMonth);
 
         // --- L├│gica de Resize ---
         let _resizeT;
@@ -3039,6 +2893,13 @@
           }, 200);
         });
 
+      });
+
+      // Escuchar evento de precalentamiento desde login.html
+      window.addEventListener('rankingsPreheated', (event) => {
+        console.log('[RANKING-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
+        sessionStorage.setItem('rankingsData', JSON.stringify(event.detail));
+        window.__precachedRankingsData = event.detail;
       });
   </script>
   <!-- Flechas laterales para navegaci├│n del ranking -->

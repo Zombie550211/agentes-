@@ -2037,11 +2037,19 @@ app.get('/api/init-rankings', protect, async (req, res) => {
 
     console.log(`[INIT-RANKINGS] ⚡ Inicio para ${username} (${userRole})`);
 
-    // 1. Ranking del MES ACTUAL (para mostrar Top 3)
+    // 1. Ranking del MES ACTUAL (para mostrar Top 3) - buscar en costumers por rango de fecha
     let currentMonthRanking = [];
     try {
-      const rankColl = db.collection('rankings');
-      const rankingData = await rankColl.find({})
+      const custColl = db.collection('costumers');
+      
+      // Buscar en costumers por rango de fecha del mes actual
+      const rankingData = await custColl.find({
+        $or: [
+          { createdAt: { $gte: monthStart, $lte: monthEnd } },
+          { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+          { fecha: { $gte: monthStart, $lte: monthEnd } }
+        ]
+      })
         .project({
           _id: 1,
           agente: 1,
@@ -2068,9 +2076,9 @@ app.get('/api/init-rankings', protect, async (req, res) => {
         ventas: r.ventas || 0,
         posicion: r.position || r.posicion || (idx + 1),
         position: r.position || r.posicion || (idx + 1),
-        mes: r.mes
+        mes: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
       }));
-      console.log(`[INIT-RANKINGS] Ranking mes actual: ${currentMonthRanking.length} agentes`);
+      console.log(`[INIT-RANKINGS] Ranking mes actual (${monthStart.toISOString()} - ${monthEnd.toISOString()}): ${currentMonthRanking.length} agentes`);
     } catch (e) {
       console.warn('[INIT-RANKINGS] Error fetching current month ranking:', e?.message);
     }
@@ -2078,49 +2086,63 @@ app.get('/api/init-rankings', protect, async (req, res) => {
     // 2. Ranking histórico por mes (últimos 6 meses)
     let monthlyRankings = {};
     try {
-      const rankColl = db.collection('rankings');
+      // Buscar SOLO en la colección principal 'costumers' para evitar duplicados de agentes en colecciones individuales
+      const costumersColl = db.collection('costumers');
       const months = [];
       for (let i = 0; i < 6; i++) {
         const d = new Date(currentYear, currentMonth - i, 1);
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const y = d.getFullYear();
-        months.push(`${y}-${m}`);
+        months.push({ key: `${y}-${m}`, year: y, month: parseInt(m, 10) });
       }
 
-      for (const monthKey of months) {
+      for (const monthInfo of months) {
         try {
-          const rankData = await rankColl.find({ mes: monthKey })
-            .project({
-              _id: 1,
-              agente: 1,
-              agenteNombre: 1,
-              nombre: 1,
-              puntos: 1,
-              puntaje: 1,
-              sumPuntaje: 1,
-              ventas: 1,
-              position: 1,
-              posicion: 1,
-              mes: 1
-            })
-            .sort({ sumPuntaje: -1, puntos: -1 })
-            .limit(15)
+          const { key: monthKey, year: y, month: m } = monthInfo;
+          const monthStart = new Date(y, m - 1, 1);
+          const monthEnd = new Date(y, m, 0, 23, 59, 59);
+          
+          console.log(`[INIT-RANKINGS] Consultando mes ${monthKey} desde costumers collection`);
+          
+          // Usar agregación para agrupar por agente y evitar duplicados
+          const rankData = await costumersColl
+            .aggregate([
+              {
+                $match: {
+                  createdAt: { $gte: monthStart, $lte: monthEnd }
+                }
+              },
+              {
+                $group: {
+                  _id: { $toLower: { $trim: { input: '$agente' } } },
+                  agenteNombre: { $first: '$agente' },
+                  nombre: { $first: '$agente' },
+                  ventas: { $sum: { $cond: [{ $in: ['$status', ['vendido', 'cerrado', 'completado']] }, 1, 0] } },
+                  sumPuntaje: { $sum: { $toDouble: { $ifNull: ['$puntaje', 0] } } },
+                  count: { $sum: 1 }
+                }
+              },
+              { $sort: { sumPuntaje: -1, ventas: -1 } },
+              { $limit: 15 }
+            ])
             .toArray();
-
+          
           monthlyRankings[monthKey] = rankData.map((r, idx) => ({
-            agente: r.agente,
+            agente: r._id,
             nombre: r.agenteNombre || r.nombre,
-            puntos: r.sumPuntaje || r.puntos || 0,
+            puntos: Number((r.sumPuntaje || 0).toFixed(2)),
             ventas: r.ventas || 0,
-            position: r.position || r.posicion || (idx + 1),
-            mes: r.mes
+            position: idx + 1,
+            mes: monthKey
           }));
+          
+          console.log(`[INIT-RANKINGS] ${monthKey}: ${rankData.length} agentes encontrados`);
         } catch (e) {
-          console.warn(`[INIT-RANKINGS] Error fetching ranking for ${monthKey}:`, e?.message);
-          monthlyRankings[monthKey] = [];
+          console.warn(`[INIT-RANKINGS] Error fetching ranking for ${monthInfo.key}:`, e?.message);
+          monthlyRankings[monthInfo.key] = [];
         }
       }
-      console.log(`[INIT-RANKINGS] Ranking histórico: ${Object.keys(monthlyRankings).length} meses`);
+      console.log(`[INIT-RANKINGS] Ranking histórico: ${Object.keys(monthlyRankings).length} meses cargados`);
     } catch (e) {
       console.warn('[INIT-RANKINGS] Error fetching monthly rankings:', e?.message);
     }

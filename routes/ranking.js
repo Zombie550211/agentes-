@@ -389,10 +389,10 @@ router.get('/', protect, async (req, res) => {
               _id: "$_nameNormLower",
               // Ventas efectivas: excluir canceladas
               ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
-              // Suma de puntaje efectivo: se calculará por conjunto de signatures únicos
+              // Suma de puntaje efectivo
               sumPuntaje: { $sum: "$puntajeEfectivo" },
               avgPuntaje: { $avg: "$puntajeEfectivo" },
-              signatures: { $addToSet: "$_sigObj" },
+              signatures: { $push: { sig: "$_saleSig", p: "$puntajeEfectivo" } }, // TODAS las firmas por colección (deduplicar entre colecciones)
               anyName: { $first: "$_nameNoSpaces" },
               anyOriginal: { $first: "$_agenteFuente" }
             }
@@ -424,6 +424,8 @@ router.get('/', protect, async (req, res) => {
 
     // Ejecutar consulta: por defecto en 'costumers'. Si se pide `all`, agregar todas las colecciones costumers* y fusionar resultados
     let rankingResults = [];
+    // Variable para muestreo de firmas (se llena solo cuando useAllCollections y debug=1)
+    let debugSignaturesSample = null;
     let usedCollection = 'costumers';
     const attempts = [];
 
@@ -450,11 +452,8 @@ router.get('/', protect, async (req, res) => {
       try {
         const collInfos = await db.listCollections().toArray();
         let targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || /^costumers_/i.test(n));
-        // Añadir la colección por defecto si no está
         if (!targetColls.includes('costumers')) targetColls.unshift('costumers');
         console.log('[RANKING] Colecciones candidatas para ALL:', targetColls);
-        // Memoizar las colecciones para los siguientes requests (evita lista por cada llamada)
-        if (!global.__rankingCollections) global.__rankingCollections = targetColls;
 
         // Ejecutar pipeline en cada colección y concatenar resultados
         let allResults = [];
@@ -462,64 +461,99 @@ router.get('/', protect, async (req, res) => {
           const arr = await runOnCollection(col);
           if (arr.length > 0) {
             allResults = allResults.concat(arr);
-            usedCollection = usedCollection === 'costumers' ? col : usedCollection; // registro del primer hallazgo
+            usedCollection = usedCollection === 'costumers' ? col : usedCollection;
           }
         }
 
-        // Fusionar resultados por _id normalizado (agrupación manual)
+        console.log('[RANKING] Total resultados antes de merge:', allResults.length);
+
+        // Merge con deduplicación por firma normalizada
         const mergeMap = new Map();
         for (const item of allResults) {
-          // Preferir la clave normalizada ya calculada por el pipeline
-          // Fallback a otras variantes y normalizar para asegurar coincidencias entre colecciones
           const rawKey = item.nombreNormalizado || item.nombreOriginal || item.nombre || item.nombreLimpio || item.anyOriginal || item.anyName || item._id;
           if (!rawKey) continue;
-          const key = String(rawKey)
-            .normalize('NFKD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-zA-Z0-9]/g, '')
-            .toLowerCase();
-          const ventas = Number(item.ventas || 0);
-          const sumPuntaje = Number(item.sumPuntaje || 0);
-          const avgPuntaje = Number(item.avgPuntaje || 0);
+          const key = String(rawKey).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
           if (!mergeMap.has(key)) {
+            // Inicializar con mapa de firmas normalizadas
+            const sigMap = new Map();
+            if (Array.isArray(item.signatures)) {
+              for (const sig of item.signatures) {
+                if (sig && sig.sig) {
+                  // Normalizar firma: remover espacios, acentos, caracteres especiales
+                  const normalized = String(sig.sig)
+                    .normalize('NFKD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase();
+                  const existing = sigMap.get(normalized);
+                  const p = Number(sig.p || 0);
+                  if (existing == null || p > existing) sigMap.set(normalized, p);
+                }
+              }
+            }
             mergeMap.set(key, {
               id: key,
               nombre: item.nombre || item.anyName || key,
               nombreOriginal: item.nombreOriginal || item.nombre || item.anyName || key,
               nombreLimpio: item.nombreLimpio || item.anyName || key,
               nombreNormalizado: item.nombreNormalizado || key,
-              ventas: ventas,
-              sumPuntaje: sumPuntaje,
-              weightedForAvg: avgPuntaje * ventas,
+              signatureMap: sigMap,
               originCollections: new Set(item._originCollection ? [item._originCollection] : [])
             });
           } else {
             const ex = mergeMap.get(key);
-            ex.ventas += ventas;
-            ex.sumPuntaje += sumPuntaje;
-            ex.weightedForAvg += avgPuntaje * ventas;
+            // Fusionar firmas normalizadas: evitar dobles
+            if (Array.isArray(item.signatures)) {
+              for (const sig of item.signatures) {
+                if (sig && sig.sig) {
+                  const normalized = String(sig.sig)
+                    .normalize('NFKD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase();
+                  const existing = ex.signatureMap.get(normalized);
+                  const p = Number(sig.p || 0);
+                  if (existing == null || p > existing) ex.signatureMap.set(normalized, p);
+                }
+              }
+            }
             if (item._originCollection) ex.originCollections.add(item._originCollection);
             mergeMap.set(key, ex);
           }
         }
-        rankingResults = Array.from(mergeMap.values()).map(v => ({
-          _id: v.id,
-          nombre: v.nombre,
-          nombreOriginal: v.nombreOriginal,
-          nombreLimpio: v.nombreLimpio,
-          nombreNormalizado: v.nombreNormalizado,
-          ventas: v.ventas,
-          sumPuntaje: v.sumPuntaje,
-          avgPuntaje: v.ventas ? (v.weightedForAvg / v.ventas) : 0,
-          puntos: v.sumPuntaje,
-          originCollections: Array.from(v.originCollections || [])
-        })).sort((a, b) => {
-          // Ordenar descendente por puntos, luego por ventas, finalmente ascendente por nombre
+
+        // Construir resultados finales: sumar puntajes de firmas ÚNICAS deduplicadas
+        rankingResults = Array.from(mergeMap.values()).map(v => {
+          let totalP = 0;
+          let totalVentas = 0;
+          if (v.signatureMap && v.signatureMap.size > 0) {
+            for (const p of v.signatureMap.values()) {
+              totalP += Number(p || 0);
+              totalVentas += 1;
+            }
+          }
+          return {
+            _id: v.id,
+            nombre: v.nombre,
+            nombreOriginal: v.nombreOriginal,
+            nombreLimpio: v.nombreLimpio,
+            nombreNormalizado: v.nombreNormalizado,
+            ventas: totalVentas,
+            sumPuntaje: totalP,
+            avgPuntaje: totalVentas > 0 ? (totalP / totalVentas) : 0,
+            puntos: totalP,
+            originCollections: Array.from(v.originCollections || [])
+          };
+        }).sort((a, b) => {
           if (b.puntos !== a.puntos) return b.puntos - a.puntos;
           if (b.ventas !== a.ventas) return b.ventas - a.ventas;
           return (a.nombre || '').localeCompare(b.nombre || '');
         });
+
+        if (String(debug) === '1') {
+          debugSignaturesSample = { note: `Merged ${allResults.length} results from ${targetColls.length} collections`, collections: targetColls };
+        }
 
       } catch (eAll) {
         console.error('[RANKING] Error al listar/consultar colecciones para all:', eAll?.message || String(eAll));
@@ -670,91 +704,7 @@ router.get('/', protect, async (req, res) => {
       console.warn('[RANKING] No se pudo enriquecer con usuarios:', userErr?.message || userErr);
     }
 
-    // Re-merge results prefiriendo usuarios canónicos cuando existan en userMap.
-    // Esto ayuda a consolidar entradas que existen en varias colecciones por agente.
-    if (userMap && userMap.size > 0 && Array.isArray(rankingResults) && rankingResults.length > 0) {
-      const finalMap = new Map();
-      for (const item of rankingResults) {
-        const rawNames = [item.nombreOriginal, item.nombre, item.nombreLimpio].filter(Boolean);
-        let matchedUser = null;
-        for (const n of rawNames) {
-          const k = normalizeNameKey(n);
-          if (k && userMap.has(k)) {
-            matchedUser = userMap.get(k);
-            break;
-          }
-        }
-        const canonicalKey = matchedUser && matchedUser._id ? `user:${String(matchedUser._id)}` : (item.nombreNormalizado || normalizeNameKey(item.nombre) || item._id);
-        const ventas = Number(item.ventas || 0);
-        const sumPuntaje = Number(item.sumPuntaje || 0);
 
-          if (!finalMap.has(canonicalKey)) {
-            const sigMap = new Map();
-            (item.signatures || []).forEach(s => { if (s && s.sig) sigMap.set(s.sig, Number(s.p || 0)); });
-            let initialSum = 0;
-            let initialVentas = 0;
-            if (sigMap && sigMap.size > 0) {
-              initialSum = Array.from(sigMap.values()).reduce((a,b) => a + (Number(b)||0), 0);
-              initialVentas = Array.from(sigMap.values()).filter(v => Number(v) > 0).length;
-            } else {
-              initialSum = Number(item.sumPuntaje || 0);
-              initialVentas = Number(item.ventas || 0);
-            }
-            finalMap.set(canonicalKey, {
-              ...item,
-              ventas: initialVentas,
-              sumPuntaje: initialSum,
-              originCollections: new Set(item.originCollections || []),
-              matchedUsers: matchedUser ? [matchedUser] : [],
-              signaturesMap: sigMap
-            });
-        } else {
-            const ex = finalMap.get(canonicalKey);
-            // Merge signatures avoiding duplicates: add new unique signatures
-            (item.signatures || []).forEach(s => {
-              if (!s || !s.sig) return;
-              if (!ex.signaturesMap.has(s.sig)) {
-                ex.signaturesMap.set(s.sig, Number(s.p || 0));
-                if (Number(s.p || 0) > 0) ex.ventas += 1;
-                ex.sumPuntaje += Number(s.p || 0);
-              }
-            });
-            if (Array.isArray(item.originCollections)) {
-              item.originCollections.forEach(c => ex.originCollections.add(c));
-            }
-            if (matchedUser && !ex.matchedUsers.find(u => String(u._id) === String(matchedUser._id))) {
-              ex.matchedUsers.push(matchedUser);
-            }
-            finalMap.set(canonicalKey, ex);
-        }
-      }
-      rankingResults = Array.from(finalMap.values()).map(v => {
-        // If we stored signaturesMap, compute ventas and sumPuntaje from unique signatures
-        let sumP = 0;
-        let ventasCount = 0;
-        let signaturesArr = [];
-        if (v.signaturesMap instanceof Map && v.signaturesMap.size > 0) {
-          for (const [sig, p] of v.signaturesMap.entries()) {
-            sumP += Number(p || 0);
-            if (Number(p || 0) > 0) ventasCount += 1;
-            signaturesArr.push({ sig, p: Number(p || 0) });
-          }
-        } else {
-          sumP = Number(v.sumPuntaje || 0);
-          ventasCount = Number(v.ventas || 0);
-          signaturesArr = v.signatures || [];
-        }
-        return {
-          ...v,
-          originCollections: Array.from(v.originCollections || []),
-          signatures: signaturesArr,
-          ventas: ventasCount,
-          sumPuntaje: sumP,
-          avgPuntaje: v.avgPuntaje || (ventasCount ? (sumP / ventasCount) : 0),
-          puntos: sumP
-        };
-      });
-    }
 
     let rankingData = rankingResults.map((item, index) => {
       const rawNames = [item.nombreOriginal, item.nombre, item.nombreLimpio].filter(Boolean);
@@ -888,7 +838,8 @@ router.get('/', protect, async (req, res) => {
         attempts,
         scoreFieldStats,
         sampleDocs,
-        matchedSamples
+        matchedSamples,
+        debugSignaturesSample
       }
     };
     // Guardar en cache con TTL indicado

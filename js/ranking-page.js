@@ -2,6 +2,7 @@
 // This file contains helpers, ranking loaders, promo media handlers and init logic
 (function(){
   'use strict';
+  try { console.log('[RANKING] loaded external ranking-page.js v=20251215-02'); } catch(e){}
 
   // Utilities
   const escapeHtml = (value) => String(value == null ? '' : value)
@@ -244,13 +245,49 @@
       const d = String(now.getDate()).padStart(2, '0');
       const fechaInicio = `${y}-${m}-01`;
       const fechaFin = `${y}-${m}-${d}`;
-      const cacheKey = `top3-${fechaInicio}`;
+      const baseCacheKey = `top3-${fechaInicio}`;
+      let cacheKey = baseCacheKey;
       let data = getCachedRanking(cacheKey);
       if (!data) {
-        const url = `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=50`;
+        // Decidir dinámicamente si solicitamos all=1:
+        // - En localhost/dev se permite por defecto
+        // - En producción solo si se fuerza con window.__forceAllRanking (botón)
+        const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const forceFlag = !!window.__forceAllRanking;
+        // Calcular duración del rango (días)
+        const startTs = Date.parse(fechaInicio);
+        const endTs = Date.parse(fechaFin);
+        const rangeDays = isFinite(startTs) && isFinite(endTs) ? Math.round((endTs - startTs) / (1000*60*60*24)) + 1 : 0;
+        // Forzar all=1 si estamos en localhost, si se fuerza con la flag, o si el rango es amplio (>=14 días)
+        const useAll = isLocalhost || forceFlag || rangeDays >= 14;
+        const url = useAll
+          ? `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=500`
+          : `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=50`;
         const res = await fetch(url, { credentials: 'include' });
         if (!res.ok) throw new Error('Respuesta no OK en /api/ranking');
         data = await res.json();
+
+        // Si la respuesta es sospechosamente corta (ej. menos de 3), reintentar pidiendo todas las colecciones
+        let list = Array.isArray(data?.ranking) ? data.ranking : [];
+        if (list.length < 3) {
+          try {
+            console.warn('[RANKING] Respuesta inicial corta; reintentando con all=1 para incluir todas las colecciones');
+            const urlAll = url + '&all=1';
+            const resAll = await fetch(urlAll, { credentials: 'include' });
+            if (resAll && resAll.ok) {
+              const dataAll = await resAll.json();
+              const fullList = Array.isArray(dataAll?.ranking) ? dataAll.ranking : [];
+              if (fullList.length > list.length) {
+                data = dataAll; // sustituir por la versión completa
+                cacheKey = baseCacheKey + ':all';
+                console.log('[RANKING] all=1 devolvió más registros:', { original: list.length, expanded: fullList.length });
+              }
+            }
+          } catch (e) {
+            console.warn('[RANKING] Reintento all=1 falló:', e?.message || e);
+          }
+        }
+
         setCachedRanking(cacheKey, data);
       }
       const list = Array.isArray(data?.ranking) ? data.ranking : [];
@@ -373,6 +410,23 @@
     } catch (err) { console.error('[RANKING] ❌ Error cargando top 3:', err); }
   }
 
+  // Exponer la función para usar desde la consola o desde el botón UI
+  try { window.loadRankingTop3 = loadRankingTop3; } catch(e) {}
+
+  // Registrar botón de forzar ranking completo si existe en la página
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btn-toggle-force-all');
+    if (!btn) return;
+    btn.style.display = 'inline-block';
+    btn.textContent = window.__forceAllRanking ? 'Forzar: ON' : 'Forzar: OFF';
+    btn.addEventListener('click', () => {
+      window.__forceAllRanking = !window.__forceAllRanking;
+      btn.textContent = window.__forceAllRanking ? 'Forzar: ON' : 'Forzar: OFF';
+      // Recargar ranking con la nueva configuración
+      loadRankingTop3().catch(e => console.warn('loadRankingTop3 error', e));
+    });
+  });
+
   // Additional helpers and period/month navigation
   function monthBounds(y, m){
     const start = new Date(y, m, 1);
@@ -388,18 +442,43 @@
   async function loadRankingByMonth(y,m){
     const {fechaInicio,fechaFin,isCurrent}=monthBounds(y,m);
     try{
-      const cacheKey = `month-${fechaInicio}`;
-      let data = getCachedRanking(cacheKey);
+      const cacheKeyBase = `month-${fechaInicio}`;
+      // Prefer cached ':all' variant when using all=1, otherwise use base cache
+      let cacheKey = cacheKeyBase;
+      const startTs = Date.parse(fechaInicio);
+      const endTs = Date.parse(fechaFin);
+      const rangeDays = isFinite(startTs) && isFinite(endTs) ? Math.round((endTs - startTs) / (1000*60*60*24)) + 1 : 0;
+      const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      const forceFlag = !!window.__forceAllRanking;
+      const useAll = isLocalhost || forceFlag || rangeDays >= 14;
+
+      // If we should use all, prefer the ':all' cache entry; otherwise prefer base
+      let data = null;
+      if (useAll) {
+        data = getCachedRanking(cacheKeyBase + ':all') || null;
+      }
       if (!data) {
+        // Decidir si solicitamos all=1 por defecto para rangos largos o si se fuerza
+        const startTs = Date.parse(fechaInicio);
+        const endTs = Date.parse(fechaFin);
+        const rangeDays = isFinite(startTs) && isFinite(endTs) ? Math.round((endTs - startTs) / (1000*60*60*24)) + 1 : 0;
+        const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const forceFlag = !!window.__forceAllRanking;
+        const useAll = isLocalhost || forceFlag || rangeDays >= 14;
         const fieldParam = isCurrent ? '' : '&field=createdAt';
-        const url=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=100${fieldParam}`;
+        const url = useAll
+          ? `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=500${fieldParam}`
+          : `/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=100${fieldParam}`;
+
         const res=await fetch(url,{credentials:'include'});
         if(!res.ok) throw new Error('HTTP '+res.status);
         data=await res.json();
         const list=Array.isArray(data?.ranking)?data.ranking:[];
-        if (list.length < 5) {
-          const urlAll=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}`;
-          try { const resAll=await fetch(urlAll,{credentials:'include'}); if(resAll.ok) data=await resAll.json(); } catch(e){}
+        if (list.length < 5 && !useAll) {
+          // fallback: reintentar pidiendo all=1 si la respuesta es corta
+          try { const urlAll=`/api/ranking?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&all=1${fieldParam}`; const resAll=await fetch(urlAll,{credentials:'include'}); if(resAll && resAll.ok){ const dataAll=await resAll.json(); const fullList=Array.isArray(dataAll?.ranking)?dataAll.ranking:[]; if(fullList.length>list.length){ data=dataAll; cacheKey = cacheKeyBase + ':all'; } } } catch(e){}
+        } else if (useAll) {
+          cacheKey = cacheKeyBase + ':all';
         }
         setCachedRanking(cacheKey, data);
       }
