@@ -21,9 +21,13 @@ router.get('/', protect, async (req, res) => {
     let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
 
-    // RANKING: por defecto solo colección principal (más rápido)
-    // Solo buscar en todas las colecciones si se pasa explícitamente all=1
-    const useAllCollections = String(all).trim() === '1';
+    // RANKING: SIEMPRE buscar en todas las colecciones costumers_* 
+    // porque los registros pueden estar distribuidos entre la colección principal y las colecciones por agente
+    // Buscar en todas las colecciones si:
+    // 1. Se pasa explícitamente all=1
+    // 2. O se busca un agente específico (para incluir su colección personal)
+    // 3. O SIEMPRE (para asegurar que no falten registros)
+    const useAllCollections = true; // Cambio importante: SIEMPRE buscar en todas las colecciones
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -462,6 +466,7 @@ router.get('/', protect, async (req, res) => {
           if (arr.length > 0) {
             allResults = allResults.concat(arr);
             usedCollection = usedCollection === 'costumers' ? col : usedCollection;
+            
           }
         }
 
@@ -499,11 +504,14 @@ router.get('/', protect, async (req, res) => {
               nombreLimpio: item.nombreLimpio || item.anyName || key,
               nombreNormalizado: item.nombreNormalizado || key,
               signatureMap: sigMap,
+              sumPuntajeCollections: [Number(item.sumPuntaje || 0)], // Acumular sumPuntaje de colecciones
+              sumPuntajeTotal: Number(item.sumPuntaje || 0),
+              ventas: Number(item.ventas || 0),
               originCollections: new Set(item._originCollection ? [item._originCollection] : [])
             });
           } else {
             const ex = mergeMap.get(key);
-            // Fusionar firmas normalizadas: evitar dobles
+            // Fusionar firmas normalizadas: SUMAR puntajes de firmas duplicadas
             if (Array.isArray(item.signatures)) {
               for (const sig of item.signatures) {
                 if (sig && sig.sig) {
@@ -514,25 +522,31 @@ router.get('/', protect, async (req, res) => {
                     .toLowerCase();
                   const existing = ex.signatureMap.get(normalized);
                   const p = Number(sig.p || 0);
-                  if (existing == null || p > existing) ex.signatureMap.set(normalized, p);
+                  // SUMAR en lugar de reemplazar: permite contar registros duplicados
+                  if (existing == null) {
+                    ex.signatureMap.set(normalized, p);
+                  } else {
+                    ex.signatureMap.set(normalized, existing + p);
+                  }
                 }
               }
             }
+            // Acumular puntajes de colecciones
+            ex.sumPuntajeCollections.push(Number(item.sumPuntaje || 0));
+            ex.sumPuntajeTotal += Number(item.sumPuntaje || 0);
+            ex.ventas += Number(item.ventas || 0);
             if (item._originCollection) ex.originCollections.add(item._originCollection);
             mergeMap.set(key, ex);
           }
         }
 
-        // Construir resultados finales: sumar puntajes de firmas ÚNICAS deduplicadas
+        // Construir resultados finales: usar la suma acumulada de colecciones
         rankingResults = Array.from(mergeMap.values()).map(v => {
-          let totalP = 0;
-          let totalVentas = 0;
-          if (v.signatureMap && v.signatureMap.size > 0) {
-            for (const p of v.signatureMap.values()) {
-              totalP += Number(p || 0);
-              totalVentas += 1;
-            }
-          }
+          // IMPORTANTE: Usar SIEMPRE sumPuntajeTotal que viene del pipeline
+          // NO usar la suma de firmas porque eso causa duplicación y pérdida de datos
+          const totalP = v.sumPuntajeTotal || 0;
+          const totalVentas = v.ventas || 0;
+          
           return {
             _id: v.id,
             nombre: v.nombre,
