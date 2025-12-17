@@ -120,16 +120,18 @@ async function closeConnection() {
   }
 }
 
+// Handlers para señales de cierre - NO llamar a process.exit() automáticamente
+// Permitir que el servidor continúe ejecutándose
 process.on('SIGINT', async () => {
-  console.log('[DB] Recibida señal de cierre, cerrando conexión...');
+  console.log('[DB] Recibida señal SIGINT, limpiando conexiones...');
   await closeConnection();
-  process.exit(0);
+  // No llamar a process.exit() - dejar que el servidor continúe
 });
 
 process.on('SIGTERM', async () => {
-  console.log('[DB] Recibida señal de terminación, cerrando conexión...');
+  console.log('[DB] Recibida señal SIGTERM, limpiando conexiones...');
   await closeConnection();
-  process.exit(0);
+  // No llamar a process.exit() - dejar que el servidor continúe
 });
 
 module.exports = {

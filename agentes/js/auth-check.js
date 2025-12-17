@@ -9,6 +9,10 @@
           console.warn('[auth-check] Usuario no verificado (stub).');
         } else {
           console.log('[auth-check] Usuario verificado:', data.user?.username);
+          // Guardar información del usuario en localStorage
+          localStorage.setItem('userName', data.user?.username || 'Usuario');
+          localStorage.setItem('userRole', data.user?.role || 'usuario');
+          localStorage.setItem('userTeam', data.user?.team || 'Sin equipo');
           document.dispatchEvent(new CustomEvent('user:authenticated', { detail: data.user }));
         }
       })

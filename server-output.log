@@ -1,0 +1,3825 @@
+[INIT] DNS forzado a los servidores de Google para evitar problemas de red.
+[INIT] Helmet cargado correctamente
+[INIT] Rate limit cargado correctamente
+[INIT] Ruta /api/teams montada
+[CLOUDINARY] Background removal habilitado para avatares (cloudinary_ai).
+[CORS] Lista blanca final: [
+  'http://localhost:3000',
+  'https://tudominio.com',
+  'http://localhost:10000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:10000',
+  'https://agentes-49dr.onrender.com',
+  'https://agentes-frontend.onrender.com'
+]
+[DB] Intentando conectar a MongoDB Atlas...
+[SERVER] Ruta temporal /api/debug-noauth montada (solo NO production)
+[SERVER] Rutas de migración cargadas
+[DB] Conexión nativa a MongoDB Atlas establecida.
+[SERVER] Conexión a base de datos establecida.
+[SERVER] GridFS inicializado correctamente.
+[SERVER] GridFS para avatares inicializado correctamente.
+[Mongoose] Conectado a Atlas
+[SERVER] Base de datos lista, iniciando servidor...
+[Dashboard Broadcast] Enviando actualización a 0 usuarios
+[INIT-DASHBOARD] Cache refrescada correctamente (66ms)
+[INIT-DASHBOARD] Cache pre-warmed on server start
+[INIT-DASHBOARD] background refresh scheduled (ms): 300000
+[SERVER] Servidor corriendo en el puerto 3000
+[SERVER] Entorno: development
+[SERVER] URL: http://localhost:3000
+[Socket.io] WebSocket activo
+[API DEBUG] Incoming request {
+  method: 'POST',
+  url: '/api/auth/login',
+  headersPreview: {
+    'content-type': 'application/json',
+    accept: '*/*',
+    'content-length': '42',
+    'user-agent': 'node-fetch/1.0 (+https://github.com/bitinn/node-fetch)',
+    'accept-encoding': 'gzip,deflate',
+    host: 'localhost:3000'
+  }
+}
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/ranking?all=1&fechaInicio=2025-12-01&fechaFin=2025-12-31&limit=10000&debug=1',
+  headersPreview: {
+    authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZGYwNTFmYTQ3NGRkYmY0YWM0NDk2NyIsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiQWRtaW5pc3RyYWRvciIsImlhdCI6MTc2NjAwNzY5MywiZXhwIjoxNzY2NjEyNDkzfQ.ihMShyidFT87a-ZJ32puy207IlASoMoE9ykyjAUgDgc',
+    accept: '*/*',
+    'user-agent': 'node-fetch/1.0 (+https://github.com/bitinn/node-fetch)',
+    'accept-encoding': 'gzip,deflate',
+    host: 'localhost:3000',
+    connection: 'keep-alive'
+  }
+}
+[AUTH] Token desde Authorization header: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[RANKING] Parámetros recibidos: {
+  fechaInicio: '2025-12-01',
+  fechaFin: '2025-12-31',
+  all: '1',
+  limitParam: '10000',
+  debug: '1',
+  skipDate: undefined,
+  agente: undefined,
+  field: 'createdAt'
+}
+[RANGOS] Efectivo { startDate: '2025-12-01', endDate: '2025-12-31' }
+[RANKING] Cache miss or expired: {"fechaInicio":"2025-12-01","fechaFin":"2025-12-31","all":true,"limitParam":"10000","field":"createdAt"} requestVars {
+  startDate: '2025-12-01',
+  endDate: '2025-12-31',
+  useAllCollections: true,
+  limitParam: '10000',
+  field: 'createdAt',
+  agente: undefined
+}
+[RANKING] Pipeline de agregación: [
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$eq": [
+              {
+                "$type": "$createdAt"
+              },
+              "date"
+            ]
+          },
+          "$createdAt",
+          {
+            "$cond": [
+              {
+                "$eq": [
+                  {
+                    "$type": "$createdAt"
+                  },
+                  "string"
+                ]
+              },
+              {
+                "$dateFromString": {
+                  "dateString": {
+                    "$toString": "$createdAt"
+                  },
+                  "timezone": "-06:00"
+                }
+              },
+              null
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$eq": [
+              {
+                "$type": "$dia_venta"
+              },
+              "date"
+            ]
+          },
+          "$dia_venta",
+          {
+            "$let": {
+              "vars": {
+                "s": {
+                  "$toString": "$dia_venta"
+                }
+              },
+              "in": {
+                "$cond": [
+                  {
+                    "$regexMatch": {
+                      "input": "$$s",
+                      "regex": {}
+                    }
+                  },
+                  {
+                    "$dateFromString": {
+                      "dateString": "$$s",
+                      "format": "%Y-%m-%d",
+                      "timezone": "-06:00"
+                    }
+                  },
+                  {
+                    "$cond": [
+                      {
+                        "$regexMatch": {
+                          "input": "$$s",
+                          "regex": {}
+                        }
+                      },
+                      {
+                        "$let": {
+                          "vars": {
+                            "parts": {
+                              "$split": [
+                                "$$s",
+                                "/"
+                              ]
+                            }
+                          },
+                          "in": {
+                            "$dateFromParts": {
+                              "year": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    2
+                                  ]
+                                }
+                              },
+                              "month": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    1
+                                  ]
+                                }
+                              },
+                              "day": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    0
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "$cond": [
+                          {
+                            "$regexMatch": {
+                              "input": "$$s",
+                              "regex": {}
+                            }
+                          },
+                          {
+                            "$dateFromString": {
+                              "dateString": "$$s",
+                              "timezone": "-06:00"
+                            }
+                          },
+                          {
+                            "$dateFromString": {
+                              "dateString": "$$s",
+                              "timezone": "-06:00"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$ne": [
+              "$_diaParsed",
+              null
+            ]
+          },
+          "$_diaParsed",
+          {
+            "$let": {
+              "vars": {
+                "s": {
+                  "$toString": "$dia_venta"
+                }
+              },
+              "in": {
+                "$cond": [
+                  {
+                    "$regexMatch": {
+                      "input": "$$s",
+                      "regex": {}
+                    }
+                  },
+                  {
+                    "$let": {
+                      "vars": {
+                        "parts": {
+                          "$split": [
+                            "$$s",
+                            "/"
+                          ]
+                        }
+                      },
+                      "in": {
+                        "$dateFromParts": {
+                          "year": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                2
+                              ]
+                            }
+                          },
+                          "month": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                1
+                              ]
+                            }
+                          },
+                          "day": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  null
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$ne": [
+              "$_diaParsed",
+              null
+            ]
+          },
+          "$_diaParsed",
+          {
+            "$cond": [
+              {
+                "$eq": [
+                  {
+                    "$type": "$createdAt"
+                  },
+                  "date"
+                ]
+              },
+              "$createdAt",
+              {
+                "$cond": [
+                  {
+                    "$eq": [
+                      {
+                        "$type": "$createdAt"
+                      },
+                      "string"
+                    ]
+                  },
+                  {
+                    "$dateFromString": {
+                      "dateString": {
+                        "$toString": "$createdAt"
+                      },
+                      "timezone": "-06:00"
+                    }
+                  },
+                  null
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "_diaParsed": {
+        "$ne": null
+      },
+      "$expr": {
+        "$and": [
+          {
+            "$gte": [
+              "$_diaParsed",
+              "2025-12-01T06:00:00.000Z"
+            ]
+          },
+          {
+            "$lt": [
+              "$_diaParsed",
+              "2026-01-01T06:00:00.000Z"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "$or": [
+        {
+          "agenteNombre": {
+            "$exists": true,
+            "$ne": ""
+          }
+        },
+        {
+          "agente": {
+            "$exists": true,
+            "$ne": ""
+          }
+        }
+      ],
+      "excluirDeReporte": {
+        "$ne": true
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_statusStr": {
+        "$toUpper": {
+          "$trim": {
+            "input": {
+              "$ifNull": [
+                "$status",
+                ""
+              ]
+            }
+          }
+        }
+      },
+      "_agenteFuente": {
+        "$ifNull": [
+          "$agenteNombre",
+          "$agente"
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_statusNorm": {
+        "$cond": [
+          {
+            "$regexMatch": {
+              "input": "$_statusStr",
+              "regex": {}
+            }
+          },
+          "CANCEL",
+          {
+            "$cond": [
+              {
+                "$regexMatch": {
+                  "input": "$_statusStr",
+                  "regex": {}
+                }
+              },
+              "PENDING",
+              "$_statusStr"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "isCancel": {
+        "$eq": [
+          "$_statusNorm",
+          "CANCEL"
+        ]
+      },
+      "puntajeEfectivo": {
+        "$cond": [
+          {
+            "$eq": [
+              "$_statusNorm",
+              "CANCEL"
+            ]
+          },
+          0,
+          {
+            "$toDouble": {
+              "$ifNull": [
+                "$puntaje",
+                0
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_saleSig": {
+        "$concat": [
+          {
+            "$ifNull": [
+              "$numero_cuenta",
+              ""
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              "$telefono",
+              {
+                "$ifNull": [
+                  "$telefono_principal",
+                  ""
+                ]
+              }
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              "$nombre_cliente",
+              ""
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              {
+                "$dateToString": {
+                  "format": "%Y-%m-%d",
+                  "date": "$_diaParsed"
+                }
+              },
+              ""
+            ]
+          },
+          "|",
+          {
+            "$toString": {
+              "$ifNull": [
+                "$puntajeEfectivo",
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "_sigObj": {
+        "sig": {
+          "$ifNull": [
+            "$_saleSig",
+            ""
+          ]
+        },
+        "p": {
+          "$ifNull": [
+            "$puntajeEfectivo",
+            0
+          ]
+        }
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_nameNoSpaces": {
+        "$replaceAll": {
+          "input": {
+            "$replaceAll": {
+              "input": {
+                "$replaceAll": {
+                  "input": "$_agenteFuente",
+                  "find": "_",
+                  "replacement": ""
+                }
+              },
+              "find": ".",
+              "replacement": ""
+            }
+          },
+          "find": " ",
+          "replacement": ""
+        }
+      },
+      "_nameNormLower": {
+        "$toLower": {
+          "$replaceAll": {
+            "input": {
+              "$replaceAll": {
+                "input": {
+                  "$replaceAll": {
+                    "input": "$_agenteFuente",
+                    "find": "_",
+                    "replacement": ""
+                  }
+                },
+                "find": ".",
+                "replacement": ""
+              }
+            },
+            "find": " ",
+            "replacement": ""
+          }
+        }
+      }
+    }
+  },
+  {
+    "$group": {
+      "_id": "$_nameNormLower",
+      "ventas": {
+        "$sum": {
+          "$cond": [
+            "$isCancel",
+            0,
+            1
+          ]
+        }
+      },
+      "sumPuntaje": {
+        "$sum": "$puntajeEfectivo"
+      },
+      "avgPuntaje": {
+        "$avg": "$puntajeEfectivo"
+      },
+      "signatures": {
+        "$push": {
+          "sig": "$_saleSig",
+          "p": "$puntajeEfectivo"
+        }
+      },
+      "anyName": {
+        "$first": "$_nameNoSpaces"
+      },
+      "anyOriginal": {
+        "$first": "$_agenteFuente"
+      }
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "nombre": {
+        "$ifNull": [
+          "$anyOriginal",
+          "$anyName"
+        ]
+      },
+      "nombreOriginal": {
+        "$ifNull": [
+          "$anyOriginal",
+          "$anyName"
+        ]
+      },
+      "nombreLimpio": "$anyName",
+      "nombreNormalizado": "$_id",
+      "ventas": 1,
+      "sumPuntaje": "$sumPuntaje",
+      "signatures": "$signatures",
+      "avgPuntaje": "$avgPuntaje",
+      "puntos": "$sumPuntaje"
+    }
+  },
+  {
+    "$sort": {
+      "puntos": -1,
+      "ventas": -1,
+      "nombre": 1
+    }
+  },
+  {
+    "$limit": 10000
+  }
+]
+[RANKING] Colecciones candidatas para ALL: [
+  'costumers_691b86',
+  'costumers_Fernanda_Castillo',
+  'costumers_Jonathan_Morales',
+  'costumers_Lucia_Ferman',
+  'costumers_Carlos_Grande',
+  'costumers_68ba19',
+  'costumers_6904e7',
+  'costumers_Nelson_Ceren',
+  'costumers_Luis_Chavarria',
+  'costumers_68af41d0c61c405e2bb7b0c8',
+  'costumers_Anderson_Guzman',
+  'costumers_Melissa_Escobar',
+  'costumers_Evelin_Garcia',
+  'costumers_Fabricio_Panameo',
+  'costumers_Daniela_Bonilla',
+  'costumers_Roxana_Martinez',
+  'costumers_Josue_Renderos',
+  'costumers_Diego_Mejia',
+  'costumers_Eduardo_R',
+  'costumers_Francisco_Aguilar',
+  'costumers_68e6e788e878e212dc64e8c4',
+  'costumers_Alexander_Rivera',
+  'costumers_Miguel_Nunez',
+  'costumers_Katerine_Gomez',
+  'costumers_Kimberly_Iglesias',
+  'costumers_Abigail_Galdamez',
+  'costumers_Tatiana_Ayala',
+  'costumers_Giselle_Diaz',
+  'costumers_692371',
+  'costumers_692e09',
+  'costumers_Priscila_Hernandez',
+  'costumers_69385a',
+  'costumers_Steven_Varela',
+  'costumers_Riquelmi_Torres',
+  'costumers',
+  'costumers_Johanna_Santana',
+  'costumers_Cindy_Flores',
+  'costumers_Lisbeth_Cortez',
+  'costumers_Alejandra_Melara',
+  'costumers_Julio_Chavez'
+]
+[RANKING] Datos encontrados en colección: costumers_691b86 -> 1
+[RANKING] Datos encontrados en colección: costumers_Fernanda_Castillo -> 1
+[RANKING] Datos encontrados en colección: costumers_Jonathan_Morales -> 1
+[RANKING] Datos encontrados en colección: costumers_Lucia_Ferman -> 1
+[RANKING] Datos encontrados en colección: costumers_Carlos_Grande -> 0
+[RANKING] Datos encontrados en colección: costumers_68ba19 -> 0
+[RANKING] Datos encontrados en colección: costumers_6904e7 -> 1
+[RANKING] Datos encontrados en colección: costumers_Nelson_Ceren -> 1
+[RANKING] Datos encontrados en colección: costumers_Luis_Chavarria -> 1
+[RANKING] Datos encontrados en colección: costumers_68af41d0c61c405e2bb7b0c8 -> 1
+[RANKING] Datos encontrados en colección: costumers_Anderson_Guzman -> 1
+[RANKING] Datos encontrados en colección: costumers_Melissa_Escobar -> 0
+[RANKING] Datos encontrados en colección: costumers_Evelin_Garcia -> 1
+[RANKING] Datos encontrados en colección: costumers_Fabricio_Panameo -> 0
+[RANKING] Datos encontrados en colección: costumers_Daniela_Bonilla -> 1
+[RANKING] Datos encontrados en colección: costumers_Roxana_Martinez -> 1
+[RANKING] Datos encontrados en colección: costumers_Josue_Renderos -> 1
+[RANKING] Datos encontrados en colección: costumers_Diego_Mejia -> 1
+[RANKING] Datos encontrados en colección: costumers_Eduardo_R -> 1
+[RANKING] Datos encontrados en colección: costumers_Francisco_Aguilar -> 1
+[RANKING] Datos encontrados en colección: costumers_68e6e788e878e212dc64e8c4 -> 0
+[RANKING] Datos encontrados en colección: costumers_Alexander_Rivera -> 1
+[RANKING] Datos encontrados en colección: costumers_Miguel_Nunez -> 1
+[RANKING] Datos encontrados en colección: costumers_Katerine_Gomez -> 1
+[RANKING] Datos encontrados en colección: costumers_Kimberly_Iglesias -> 1
+[RANKING] Datos encontrados en colección: costumers_Abigail_Galdamez -> 0
+[RANKING] Datos encontrados en colección: costumers_Tatiana_Ayala -> 1
+[RANKING] Datos encontrados en colección: costumers_Giselle_Diaz -> 1
+[RANKING] Datos encontrados en colección: costumers_692371 -> 1
+[RANKING] Datos encontrados en colección: costumers_692e09 -> 1
+[RANKING DEBUG] Colección costumers_692e09 tiene 1 entrada(s) para INGRID:
+  - INGRID.GARCIA: sumPuntaje=15.15, ventas=21
+[RANKING] Datos encontrados en colección: costumers_Priscila_Hernandez -> 1
+[RANKING] Datos encontrados en colección: costumers_69385a -> 1
+[RANKING] Datos encontrados en colección: costumers_Steven_Varela -> 1
+[RANKING] Datos encontrados en colección: costumers_Riquelmi_Torres -> 1
+[RANKING] Datos encontrados en colección: costumers -> 13
+[RANKING] Datos encontrados en colección: costumers_Johanna_Santana -> 0
+[RANKING] Datos encontrados en colección: costumers_Cindy_Flores -> 1
+[RANKING] Datos encontrados en colección: costumers_Lisbeth_Cortez -> 1
+[RANKING] Datos encontrados en colección: costumers_Alejandra_Melara -> 1
+[RANKING] Datos encontrados en colección: costumers_Julio_Chavez -> 1
+[RANKING] Total resultados antes de merge: 45
+[RANKING DEBUG] Encontrado agente con "ingrid" en key: "ingridgarcia" -> normalizado a "ingridgarcia", sumPuntaje=15.15
+[RANKING DEBUG] NICOLE.CRUZ desde múltiples colecciones: sumPuntajeTotal=5.4, ventas=7, collections=3.9,1.5
+[RANKING DEBUG] Lucia Ferman desde múltiples colecciones: sumPuntajeTotal=10.049999999999999, ventas=16, collections=9.7,0.35
+[RANKING DEBUG] abigail.bernal desde múltiples colecciones: sumPuntajeTotal=4.3, ventas=7, collections=3.6,0.7
+[RANKING DEBUG] Stefani Martinez desde múltiples colecciones: sumPuntajeTotal=5.6, ventas=6, collections=5.25,0.35
+[RANKING DEBUG] Anderson Guzman desde múltiples colecciones: sumPuntajeTotal=20.55, ventas=23, collections=19.8,0.75
+[RANKING DEBUG] Diego Mejia desde múltiples colecciones: sumPuntajeTotal=15.1, ventas=16, collections=13.6,1.5
+[RANKING DEBUG] Francisco Aguilar desde múltiples colecciones: sumPuntajeTotal=13.55, ventas=17, collections=12.55,1
+[RANKING DEBUG] Alexander Rivera desde múltiples colecciones: sumPuntajeTotal=6.45, ventas=5, collections=4.95,1.5
+[RANKING DEBUG] Katerine Gomez desde múltiples colecciones: sumPuntajeTotal=13.4, ventas=17, collections=12.05,1.35
+[RANKING DEBUG] Kimberly Iglesias desde múltiples colecciones: sumPuntajeTotal=2.7, ventas=4, collections=1.2,1.5
+[RANKING DEBUG] Julio Chavez desde múltiples colecciones: sumPuntajeTotal=25.6, ventas=29, collections=2,23.6
+[RANKING DEBUG] Cindy Flores desde múltiples colecciones: sumPuntajeTotal=8.65, ventas=13, collections=1,7.65
+[RANKING DEBUG] Lisbeth Cortez desde múltiples colecciones: sumPuntajeTotal=15.1, ventas=20, collections=0.75,14.35
+[RANKING] Resultados de la consulta: [
+  {
+    _id: 'juliochavez',
+    nombre: 'Julio Chavez',
+    nombreOriginal: 'Julio Chavez',
+    nombreLimpio: 'JulioChavez',
+    nombreNormalizado: 'juliochavez',
+    ventas: 29,
+    sumPuntaje: 25.6,
+    avgPuntaje: 0.8827586206896553,
+    puntos: 25.6,
+    originCollections: [ 'costumers', 'costumers_Julio_Chavez' ]
+  },
+  {
+    _id: 'andersonguzman',
+    nombre: 'Anderson Guzman',
+    nombreOriginal: 'Anderson Guzman',
+    nombreLimpio: 'AndersonGuzman',
+    nombreNormalizado: 'andersonguzman',
+    ventas: 23,
+    sumPuntaje: 20.55,
+    avgPuntaje: 0.8934782608695653,
+    puntos: 20.55,
+    originCollections: [ 'costumers_Anderson_Guzman', 'costumers' ]
+  },
+  {
+    _id: 'roxanamartinez',
+    nombre: 'Roxana Martinez',
+    nombreOriginal: 'Roxana Martinez',
+    nombreLimpio: 'RoxanaMartinez',
+    nombreNormalizado: 'roxanamartinez',
+    ventas: 27,
+    sumPuntaje: 18.25,
+    avgPuntaje: 0.6759259259259259,
+    puntos: 18.25,
+    originCollections: [ 'costumers_Roxana_Martinez' ]
+  },
+  {
+    _id: 'luischavarria',
+    nombre: 'Luis Chavarria',
+    nombreOriginal: 'Luis Chavarria',
+    nombreLimpio: 'LuisChavarria',
+    nombreNormalizado: 'luischavarria',
+    ventas: 21,
+    sumPuntaje: 17.2,
+    avgPuntaje: 0.819047619047619,
+    puntos: 17.2,
+    originCollections: [ 'costumers_Luis_Chavarria' ]
+  },
+  {
+    _id: 'lisbethcortez',
+    nombre: 'Lisbeth Cortez',
+    nombreOriginal: 'Lisbeth Cortez',
+    nombreLimpio: 'LisbethCortez',
+    nombreNormalizado: 'lisbethcortez',
+    ventas: 20,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.755,
+    puntos: 15.1,
+    originCollections: [ 'costumers', 'costumers_Lisbeth_Cortez' ]
+  },
+  {
+    _id: 'diegomejia',
+    nombre: 'Diego Mejia',
+    nombreOriginal: 'Diego Mejia',
+    nombreLimpio: 'DiegoMejia',
+    nombreNormalizado: 'diegomejia',
+    ventas: 16,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.94375,
+    puntos: 15.1,
+    originCollections: [ 'costumers_Diego_Mejia', 'costumers' ]
+  },
+  {
+    _id: 'ingridgarcia',
+    nombre: 'INGRID.GARCIA',
+    nombreOriginal: 'INGRID.GARCIA',
+    nombreLimpio: 'INGRIDGARCIA',
+    nombreNormalizado: 'ingridgarcia',
+    ventas: 20,
+    sumPuntaje: 13.65,
+    avgPuntaje: 0.6825,
+    puntos: 13.65,
+    originCollections: [ 'costumers_692e09' ]
+  },
+  {
+    _id: 'franciscoaguilar',
+    nombre: 'Francisco Aguilar',
+    nombreOriginal: 'Francisco Aguilar',
+    nombreLimpio: 'FranciscoAguilar',
+    nombreNormalizado: 'franciscoaguilar',
+    ventas: 17,
+    sumPuntaje: 13.55,
+    avgPuntaje: 0.7970588235294118,
+    puntos: 13.55,
+    originCollections: [ 'costumers_Francisco_Aguilar', 'costumers' ]
+  },
+  {
+    _id: 'katerinegomez',
+    nombre: 'Katerine Gomez',
+    nombreOriginal: 'Katerine Gomez',
+    nombreLimpio: 'KaterineGomez',
+    nombreNormalizado: 'katerinegomez',
+    ventas: 17,
+    sumPuntaje: 13.4,
+    avgPuntaje: 0.788235294117647,
+    puntos: 13.4,
+    originCollections: [ 'costumers_Katerine_Gomez', 'costumers' ]
+  },
+  {
+    _id: 'riquelmitorres',
+    nombre: 'Riquelmi Torres',
+    nombreOriginal: 'Riquelmi Torres',
+    nombreLimpio: 'RiquelmiTorres',
+    nombreNormalizado: 'riquelmitorres',
+    ventas: 17,
+    sumPuntaje: 11.4,
+    avgPuntaje: 0.6705882352941177,
+    puntos: 11.4,
+    originCollections: [ 'costumers_Riquelmi_Torres' ]
+  },
+  {
+    _id: 'luciaferman',
+    nombre: 'Lucia Ferman',
+    nombreOriginal: 'Lucia Ferman',
+    nombreLimpio: 'LuciaFerman',
+    nombreNormalizado: 'luciaferman',
+    ventas: 16,
+    sumPuntaje: 10.049999999999999,
+    avgPuntaje: 0.6281249999999999,
+    puntos: 10.049999999999999,
+    originCollections: [ 'costumers_Lucia_Ferman', 'costumers' ]
+  },
+  {
+    _id: 'miguelnunez',
+    nombre: 'Miguel Nunez',
+    nombreOriginal: 'Miguel Nunez',
+    nombreLimpio: 'MiguelNunez',
+    nombreNormalizado: 'miguelnunez',
+    ventas: 11,
+    sumPuntaje: 9.95,
+    avgPuntaje: 0.9045454545454544,
+    puntos: 9.95,
+    originCollections: [ 'costumers_Miguel_Nunez' ]
+  },
+  {
+    _id: 'nelsonceren',
+    nombre: 'Nelson Ceren',
+    nombreOriginal: 'Nelson Ceren',
+    nombreLimpio: 'NelsonCeren',
+    nombreNormalizado: 'nelsonceren',
+    ventas: 11,
+    sumPuntaje: 9.1,
+    avgPuntaje: 0.8272727272727273,
+    puntos: 9.1,
+    originCollections: [ 'costumers_Nelson_Ceren' ]
+  },
+  {
+    _id: 'fernandacastillo',
+    nombre: 'Fernanda Castillo',
+    nombreOriginal: 'Fernanda Castillo',
+    nombreLimpio: 'FernandaCastillo',
+    nombreNormalizado: 'fernandacastillo',
+    ventas: 10,
+    sumPuntaje: 8.9,
+    avgPuntaje: 0.89,
+    puntos: 8.9,
+    originCollections: [ 'costumers_Fernanda_Castillo' ]
+  },
+  {
+    _id: 'cindyflores',
+    nombre: 'Cindy Flores',
+    nombreOriginal: 'Cindy Flores',
+    nombreLimpio: 'CindyFlores',
+    nombreNormalizado: 'cindyflores',
+    ventas: 13,
+    sumPuntaje: 8.65,
+    avgPuntaje: 0.6653846153846155,
+    puntos: 8.65,
+    originCollections: [ 'costumers', 'costumers_Cindy_Flores' ]
+  },
+  {
+    _id: 'danielabonilla',
+    nombre: 'Daniela Bonilla',
+    nombreOriginal: 'Daniela Bonilla',
+    nombreLimpio: 'DanielaBonilla',
+    nombreNormalizado: 'danielabonilla',
+    ventas: 10,
+    sumPuntaje: 7.800000000000001,
+    avgPuntaje: 0.78,
+    puntos: 7.800000000000001,
+    originCollections: [ 'costumers_Daniela_Bonilla' ]
+  },
+  {
+    _id: 'priscilahernandez',
+    nombre: 'Priscila Hernandez',
+    nombreOriginal: 'Priscila Hernandez',
+    nombreLimpio: 'PriscilaHernandez',
+    nombreNormalizado: 'priscilahernandez',
+    ventas: 10,
+    sumPuntaje: 7.050000000000001,
+    avgPuntaje: 0.7050000000000001,
+    puntos: 7.050000000000001,
+    originCollections: [ 'costumers_Priscila_Hernandez' ]
+  },
+  {
+    _id: 'alexanderrivera',
+    nombre: 'Alexander Rivera',
+    nombreOriginal: 'Alexander Rivera',
+    nombreLimpio: 'AlexanderRivera',
+    nombreNormalizado: 'alexanderrivera',
+    ventas: 5,
+    sumPuntaje: 6.45,
+    avgPuntaje: 1.29,
+    puntos: 6.45,
+    originCollections: [ 'costumers_Alexander_Rivera', 'costumers' ]
+  },
+  {
+    _id: 'eduardor',
+    nombre: 'EduardoR',
+    nombreOriginal: 'EduardoR',
+    nombreLimpio: 'EduardoR',
+    nombreNormalizado: 'eduardor',
+    ventas: 8,
+    sumPuntaje: 6.2,
+    avgPuntaje: 0.775,
+    puntos: 6.2,
+    originCollections: [ 'costumers_Eduardo_R' ]
+  },
+  {
+    _id: 'evelingarcia',
+    nombre: 'Evelin Garcia',
+    nombreOriginal: 'Evelin Garcia',
+    nombreLimpio: 'EvelinGarcia',
+    nombreNormalizado: 'evelingarcia',
+    ventas: 8,
+    sumPuntaje: 6,
+    avgPuntaje: 0.75,
+    puntos: 6,
+    originCollections: [ 'costumers_Evelin_Garcia' ]
+  },
+  {
+    _id: 'stevenvarela',
+    nombre: 'Steven Varela',
+    nombreOriginal: 'Steven Varela',
+    nombreLimpio: 'StevenVarela',
+    nombreNormalizado: 'stevenvarela',
+    ventas: 7,
+    sumPuntaje: 5.800000000000001,
+    avgPuntaje: 0.8285714285714286,
+    puntos: 5.800000000000001,
+    originCollections: [ 'costumers_Steven_Varela' ]
+  },
+  {
+    _id: 'tatianaayala',
+    nombre: 'Tatiana Ayala',
+    nombreOriginal: 'Tatiana Ayala',
+    nombreLimpio: 'TatianaAyala',
+    nombreNormalizado: 'tatianaayala',
+    ventas: 7,
+    sumPuntaje: 5.6000000000000005,
+    avgPuntaje: 0.8,
+    puntos: 5.6000000000000005,
+    originCollections: [ 'costumers_Tatiana_Ayala' ]
+  },
+  {
+    _id: 'stefanimartinez',
+    nombre: 'Stefani Martinez',
+    nombreOriginal: 'Stefani Martinez',
+    nombreLimpio: 'StefaniMartinez',
+    nombreNormalizado: 'stefanimartinez',
+    ventas: 6,
+    sumPuntaje: 5.6,
+    avgPuntaje: 0.9333333333333332,
+    puntos: 5.6,
+    originCollections: [ 'costumers_68af41d0c61c405e2bb7b0c8', 'costumers' ]
+  },
+  {
+    _id: 'nicolecruz',
+    nombre: 'NICOLE.CRUZ',
+    nombreOriginal: 'NICOLE.CRUZ',
+    nombreLimpio: 'NICOLECRUZ',
+    nombreNormalizado: 'nicolecruz',
+    ventas: 7,
+    sumPuntaje: 5.4,
+    avgPuntaje: 0.7714285714285715,
+    puntos: 5.4,
+    originCollections: [ 'costumers_691b86', 'costumers' ]
+  },
+  {
+    _id: 'jorgesegovia',
+    nombre: 'JORGE.SEGOVIA',
+    nombreOriginal: 'JORGE.SEGOVIA',
+    nombreLimpio: 'JORGESEGOVIA',
+    nombreNormalizado: 'jorgesegovia',
+    ventas: 8,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.65,
+    puntos: 5.2,
+    originCollections: [ 'costumers_692371' ]
+  },
+  {
+    _id: 'jonathanmorales',
+    nombre: 'Jonathan Morales',
+    nombreOriginal: 'Jonathan Morales',
+    nombreLimpio: 'JonathanMorales',
+    nombreNormalizado: 'jonathanmorales',
+    ventas: 6,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.8666666666666667,
+    puntos: 5.2,
+    originCollections: [ 'costumers_Jonathan_Morales' ]
+  },
+  {
+    _id: 'josuerenderos',
+    nombre: 'Josue Renderos',
+    nombreOriginal: 'Josue Renderos',
+    nombreLimpio: 'JosueRenderos',
+    nombreNormalizado: 'josuerenderos',
+    ventas: 6,
+    sumPuntaje: 4.8500000000000005,
+    avgPuntaje: 0.8083333333333335,
+    puntos: 4.8500000000000005,
+    originCollections: [ 'costumers_Josue_Renderos' ]
+  },
+  {
+    _id: 'abigailbernal',
+    nombre: 'abigail.bernal',
+    nombreOriginal: 'abigail.bernal',
+    nombreLimpio: 'abigailbernal',
+    nombreNormalizado: 'abigailbernal',
+    ventas: 7,
+    sumPuntaje: 4.3,
+    avgPuntaje: 0.6142857142857142,
+    puntos: 4.3,
+    originCollections: [ 'costumers_6904e7', 'costumers' ]
+  },
+  {
+    _id: 'alejandramelara',
+    nombre: 'alejandraMelara',
+    nombreOriginal: 'alejandraMelara',
+    nombreLimpio: 'alejandraMelara',
+    nombreNormalizado: 'alejandramelara',
+    ventas: 5,
+    sumPuntaje: 3.9000000000000004,
+    avgPuntaje: 0.78,
+    puntos: 3.9000000000000004,
+    originCollections: [ 'costumers_Alejandra_Melara' ]
+  },
+  {
+    _id: 'gisellediaz',
+    nombre: 'Giselle Diaz',
+    nombreOriginal: 'Giselle Diaz',
+    nombreLimpio: 'GiselleDiaz',
+    nombreNormalizado: 'gisellediaz',
+    ventas: 5,
+    sumPuntaje: 3.6500000000000004,
+    avgPuntaje: 0.7300000000000001,
+    puntos: 3.6500000000000004,
+    originCollections: [ 'costumers_Giselle_Diaz' ]
+  },
+  {
+    _id: 'jairoflores',
+    nombre: 'Jairo.Flores',
+    nombreOriginal: 'Jairo.Flores',
+    nombreLimpio: 'JairoFlores',
+    nombreNormalizado: 'jairoflores',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_69385a' ]
+  },
+  {
+    _id: 'kimberlyiglesias',
+    nombre: 'Kimberly Iglesias',
+    nombreOriginal: 'Kimberly Iglesias',
+    nombreLimpio: 'KimberlyIglesias',
+    nombreNormalizado: 'kimberlyiglesias',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_Kimberly_Iglesias', 'costumers' ]
+  }
+]
+[RANKING] Valores exactos de puntajes:
+1. Julio Chavez: sumPuntaje=25.6 (tipo: number), avgPuntaje=0.8827586206896553 (tipo: number), puntos=25.6 (tipo: number)
+2. Anderson Guzman: sumPuntaje=20.55 (tipo: number), avgPuntaje=0.8934782608695653 (tipo: number), puntos=20.55 (tipo: number)
+3. Roxana Martinez: sumPuntaje=18.25 (tipo: number), avgPuntaje=0.6759259259259259 (tipo: number), puntos=18.25 (tipo: number)
+4. Luis Chavarria: sumPuntaje=17.2 (tipo: number), avgPuntaje=0.819047619047619 (tipo: number), puntos=17.2 (tipo: number)
+5. Lisbeth Cortez: sumPuntaje=15.1 (tipo: number), avgPuntaje=0.755 (tipo: number), puntos=15.1 (tipo: number)
+6. Diego Mejia: sumPuntaje=15.1 (tipo: number), avgPuntaje=0.94375 (tipo: number), puntos=15.1 (tipo: number)
+7. INGRID.GARCIA: sumPuntaje=13.65 (tipo: number), avgPuntaje=0.6825 (tipo: number), puntos=13.65 (tipo: number)
+8. Francisco Aguilar: sumPuntaje=13.55 (tipo: number), avgPuntaje=0.7970588235294118 (tipo: number), puntos=13.55 (tipo: number)
+9. Katerine Gomez: sumPuntaje=13.4 (tipo: number), avgPuntaje=0.788235294117647 (tipo: number), puntos=13.4 (tipo: number)
+10. Riquelmi Torres: sumPuntaje=11.4 (tipo: number), avgPuntaje=0.6705882352941177 (tipo: number), puntos=11.4 (tipo: number)
+11. Lucia Ferman: sumPuntaje=10.049999999999999 (tipo: number), avgPuntaje=0.6281249999999999 (tipo: number), puntos=10.049999999999999 (tipo: number)
+12. Miguel Nunez: sumPuntaje=9.95 (tipo: number), avgPuntaje=0.9045454545454544 (tipo: number), puntos=9.95 (tipo: number)
+13. Nelson Ceren: sumPuntaje=9.1 (tipo: number), avgPuntaje=0.8272727272727273 (tipo: number), puntos=9.1 (tipo: number)
+14. Fernanda Castillo: sumPuntaje=8.9 (tipo: number), avgPuntaje=0.89 (tipo: number), puntos=8.9 (tipo: number)
+15. Cindy Flores: sumPuntaje=8.65 (tipo: number), avgPuntaje=0.6653846153846155 (tipo: number), puntos=8.65 (tipo: number)
+16. Daniela Bonilla: sumPuntaje=7.800000000000001 (tipo: number), avgPuntaje=0.78 (tipo: number), puntos=7.800000000000001 (tipo: number)
+17. Priscila Hernandez: sumPuntaje=7.050000000000001 (tipo: number), avgPuntaje=0.7050000000000001 (tipo: number), puntos=7.050000000000001 (tipo: number)
+18. Alexander Rivera: sumPuntaje=6.45 (tipo: number), avgPuntaje=1.29 (tipo: number), puntos=6.45 (tipo: number)
+19. EduardoR: sumPuntaje=6.2 (tipo: number), avgPuntaje=0.775 (tipo: number), puntos=6.2 (tipo: number)
+20. Evelin Garcia: sumPuntaje=6 (tipo: number), avgPuntaje=0.75 (tipo: number), puntos=6 (tipo: number)
+21. Steven Varela: sumPuntaje=5.800000000000001 (tipo: number), avgPuntaje=0.8285714285714286 (tipo: number), puntos=5.800000000000001 (tipo: number)
+22. Tatiana Ayala: sumPuntaje=5.6000000000000005 (tipo: number), avgPuntaje=0.8 (tipo: number), puntos=5.6000000000000005 (tipo: number)
+23. Stefani Martinez: sumPuntaje=5.6 (tipo: number), avgPuntaje=0.9333333333333332 (tipo: number), puntos=5.6 (tipo: number)
+24. NICOLE.CRUZ: sumPuntaje=5.4 (tipo: number), avgPuntaje=0.7714285714285715 (tipo: number), puntos=5.4 (tipo: number)
+25. JORGE.SEGOVIA: sumPuntaje=5.2 (tipo: number), avgPuntaje=0.65 (tipo: number), puntos=5.2 (tipo: number)
+26. Jonathan Morales: sumPuntaje=5.2 (tipo: number), avgPuntaje=0.8666666666666667 (tipo: number), puntos=5.2 (tipo: number)
+27. Josue Renderos: sumPuntaje=4.8500000000000005 (tipo: number), avgPuntaje=0.8083333333333335 (tipo: number), puntos=4.8500000000000005 (tipo: number)
+28. abigail.bernal: sumPuntaje=4.3 (tipo: number), avgPuntaje=0.6142857142857142 (tipo: number), puntos=4.3 (tipo: number)
+29. alejandraMelara: sumPuntaje=3.9000000000000004 (tipo: number), avgPuntaje=0.78 (tipo: number), puntos=3.9000000000000004 (tipo: number)
+30. Giselle Diaz: sumPuntaje=3.6500000000000004 (tipo: number), avgPuntaje=0.7300000000000001 (tipo: number), puntos=3.6500000000000004 (tipo: number)
+31. Jairo.Flores: sumPuntaje=2.7 (tipo: number), avgPuntaje=0.675 (tipo: number), puntos=2.7 (tipo: number)
+32. Kimberly Iglesias: sumPuntaje=2.7 (tipo: number), avgPuntaje=0.675 (tipo: number), puntos=2.7 (tipo: number)
+[RANKING] Devolviendo datos: [
+  {
+    _id: 'juliochavez',
+    nombre: 'Julio Chavez',
+    nombreOriginal: 'Julio Chavez',
+    nombreLimpio: 'Julio Chavez',
+    nombreNormalizado: 'juliochavez',
+    ventas: 29,
+    sumPuntaje: 25.6,
+    avgPuntaje: 0.8827586206896553,
+    puntos: 25.6,
+    originCollections: [ 'costumers', 'costumers_Julio_Chavez' ],
+    username: 'Julio Chavez',
+    userId: '68af545cc61c405e2bb7b0de',
+    avatarUrl: '/api/user-avatars/6942fbe213520bd27d7bf491?v=1765997538722',
+    avatarFileId: '6942fbe213520bd27d7bf491',
+    avatarUpdatedAt: 1765997538722,
+    imageUrl: '/api/user-avatars/6942fbe213520bd27d7bf491?v=1765997538722',
+    promedio: 0.8827586206896553,
+    position: 1
+  },
+  {
+    _id: 'andersonguzman',
+    nombre: 'Anderson Guzman',
+    nombreOriginal: 'Anderson Guzman',
+    nombreLimpio: 'Anderson Guzman',
+    nombreNormalizado: 'andersonguzman',
+    ventas: 23,
+    sumPuntaje: 20.55,
+    avgPuntaje: 0.8934782608695653,
+    puntos: 20.55,
+    originCollections: [ 'costumers_Anderson_Guzman', 'costumers' ],
+    username: 'Anderson Guzman',
+    userId: '68af53edc61c405e2bb7b0db',
+    avatarUrl: '/api/user-avatars/693726e9266cc6166ea6e864?v=1765222122053',
+    avatarFileId: '693726e9266cc6166ea6e864',
+    avatarUpdatedAt: 1765222122053,
+    imageUrl: '/api/user-avatars/693726e9266cc6166ea6e864?v=1765222122053',
+    promedio: 0.8934782608695653,
+    position: 2
+  },
+  {
+    _id: 'roxanamartinez',
+    nombre: 'Roxana Martinez',
+    nombreOriginal: 'Roxana Martinez',
+    nombreLimpio: 'Roxana Martinez',
+    nombreNormalizado: 'roxanamartinez',
+    ventas: 27,
+    sumPuntaje: 18.25,
+    avgPuntaje: 0.6759259259259259,
+    puntos: 18.25,
+    originCollections: [ 'costumers_Roxana_Martinez' ],
+    username: 'Roxana Martinez',
+    userId: '68af457bc61c405e2bb7b0ce',
+    avatarUrl: '/api/user-avatars/6936019dd39b28a431d56508?v=1765147037636',
+    avatarFileId: '6936019dd39b28a431d56508',
+    avatarUpdatedAt: 1765147037636,
+    imageUrl: '/api/user-avatars/6936019dd39b28a431d56508?v=1765147037636',
+    promedio: 0.6759259259259259,
+    position: 3
+  },
+  {
+    _id: 'luischavarria',
+    nombre: 'Luis Chavarria',
+    nombreOriginal: 'Luis Chavarria',
+    nombreLimpio: 'Luis Chavarria',
+    nombreNormalizado: 'luischavarria',
+    ventas: 21,
+    sumPuntaje: 17.2,
+    avgPuntaje: 0.819047619047619,
+    puntos: 17.2,
+    originCollections: [ 'costumers_Luis_Chavarria' ],
+    username: 'Luis Chavarria',
+    userId: '68af5079c61c405e2bb7b0d9',
+    avatarUrl: '/api/user-avatars/69347ccb785b2d6c56e376e2?v=1765047499068',
+    avatarFileId: '69347ccb785b2d6c56e376e2',
+    avatarUpdatedAt: 1765047499068,
+    imageUrl: '/api/user-avatars/69347ccb785b2d6c56e376e2?v=1765047499068',
+    promedio: 0.819047619047619,
+    position: 4
+  },
+  {
+    _id: 'lisbethcortez',
+    nombre: 'Lisbeth Cortez',
+    nombreOriginal: 'Lisbeth Cortez',
+    nombreLimpio: 'Lisbeth Cortez',
+    nombreNormalizado: 'lisbethcortez',
+    ventas: 20,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.755,
+    puntos: 15.1,
+    originCollections: [ 'costumers', 'costumers_Lisbeth_Cortez' ],
+    username: 'Lisbeth Cortez',
+    userId: '68af5651c61c405e2bb7b0e6',
+    avatarUrl: '/api/user-avatars/69360708d39b28a431d5651a?v=1765148424602',
+    avatarFileId: '69360708d39b28a431d5651a',
+    avatarUpdatedAt: 1765148424602,
+    imageUrl: '/api/user-avatars/69360708d39b28a431d5651a?v=1765148424602',
+    promedio: 0.755,
+    position: 5
+  },
+  {
+    _id: 'diegomejia',
+    nombre: 'Diego Mejia',
+    nombreOriginal: 'Diego Mejia',
+    nombreLimpio: 'Diego Mejia',
+    nombreNormalizado: 'diegomejia',
+    ventas: 16,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.94375,
+    puntos: 15.1,
+    originCollections: [ 'costumers_Diego_Mejia', 'costumers' ],
+    username: 'Diego Mejia',
+    userId: '68b09e0e16d4bc737513f501',
+    avatarUrl: '/api/user-avatars/6941fbd379471cf76e6c4e63?v=1765931987611',
+    avatarFileId: '6941fbd379471cf76e6c4e63',
+    avatarUpdatedAt: 1765931987611,
+    imageUrl: '/api/user-avatars/6941fbd379471cf76e6c4e63?v=1765931987611',
+    promedio: 0.94375,
+    position: 6
+  },
+  {
+    _id: 'ingridgarcia',
+    nombre: 'INGRID VANESSA REYES GARCIA',
+    nombreOriginal: 'INGRID.GARCIA',
+    nombreLimpio: 'INGRIDGARCIA',
+    nombreNormalizado: 'ingridgarcia',
+    ventas: 20,
+    sumPuntaje: 13.65,
+    avgPuntaje: 0.6825,
+    puntos: 13.65,
+    originCollections: [ 'costumers_692e09' ],
+    username: 'INGRID.GARCIA',
+    userId: '692e0993f1f32c7fa6f49838',
+    avatarUrl: '/api/user-avatars/6940aa4dde36e43252423cb7?v=1765845581372',
+    avatarFileId: '6940aa4dde36e43252423cb7',
+    avatarUpdatedAt: 1765845581372,
+    imageUrl: '/api/user-avatars/6940aa4dde36e43252423cb7?v=1765845581372',
+    promedio: 0.6825,
+    position: 7
+  },
+  {
+    _id: 'franciscoaguilar',
+    nombre: 'Francisco Aguilar',
+    nombreOriginal: 'Francisco Aguilar',
+    nombreLimpio: 'Francisco Aguilar',
+    nombreNormalizado: 'franciscoaguilar',
+    ventas: 17,
+    sumPuntaje: 13.55,
+    avgPuntaje: 0.7970588235294118,
+    puntos: 13.55,
+    originCollections: [ 'costumers_Francisco_Aguilar', 'costumers' ],
+    username: 'Francisco Aguilar',
+    userId: '68af5623c61c405e2bb7b0e4',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.7970588235294118,
+    position: 8
+  },
+  {
+    _id: 'katerinegomez',
+    nombre: 'Katerine Gomez',
+    nombreOriginal: 'Katerine Gomez',
+    nombreLimpio: 'Katerine Gomez',
+    nombreNormalizado: 'katerinegomez',
+    ventas: 17,
+    sumPuntaje: 13.4,
+    avgPuntaje: 0.788235294117647,
+    puntos: 13.4,
+    originCollections: [ 'costumers_Katerine_Gomez', 'costumers' ],
+    username: 'Katerine Gomez',
+    userId: '68af418dc61c405e2bb7b0c5',
+    avatarUrl: '/api/user-avatars/69371693266cc6166ea6e840?v=1765217939992',
+    avatarFileId: '69371693266cc6166ea6e840',
+    avatarUpdatedAt: 1765217939992,
+    imageUrl: '/api/user-avatars/69371693266cc6166ea6e840?v=1765217939992',
+    promedio: 0.788235294117647,
+    position: 9
+  },
+  {
+    _id: 'riquelmitorres',
+    nombre: 'Riquelmi Torres',
+    nombreOriginal: 'Riquelmi Torres',
+    nombreLimpio: 'Riquelmi Torres',
+    nombreNormalizado: 'riquelmitorres',
+    ventas: 17,
+    sumPuntaje: 11.4,
+    avgPuntaje: 0.6705882352941177,
+    puntos: 11.4,
+    originCollections: [ 'costumers_Riquelmi_Torres' ],
+    username: 'Riquelmi Torres',
+    userId: '68af5551c61c405e2bb7b0e1',
+    avatarUrl: '/api/user-avatars/69418f2c79471cf76e6c4e1c?v=1765904172434',
+    avatarFileId: '69418f2c79471cf76e6c4e1c',
+    avatarUpdatedAt: 1765904172434,
+    imageUrl: '/api/user-avatars/69418f2c79471cf76e6c4e1c?v=1765904172434',
+    promedio: 0.6705882352941177,
+    position: 10
+  },
+  {
+    _id: 'luciaferman',
+    nombre: 'Lucia Ferman',
+    nombreOriginal: 'Lucia Ferman',
+    nombreLimpio: 'Lucia Ferman',
+    nombreNormalizado: 'luciaferman',
+    ventas: 16,
+    sumPuntaje: 10.049999999999999,
+    avgPuntaje: 0.6281249999999999,
+    puntos: 10.049999999999999,
+    originCollections: [ 'costumers_Lucia_Ferman', 'costumers' ],
+    username: 'Lucia Ferman',
+    userId: '68af566cc61c405e2bb7b0e7',
+    avatarUrl: '/api/user-avatars/69360b01d39b28a431d5652c?v=1765149441752',
+    avatarFileId: '69360b01d39b28a431d5652c',
+    avatarUpdatedAt: 1765149441752,
+    imageUrl: '/api/user-avatars/69360b01d39b28a431d5652c?v=1765149441752',
+    promedio: 0.6281249999999999,
+    position: 11
+  },
+  {
+    _id: 'miguelnunez',
+    nombre: 'Miguel Nunez',
+    nombreOriginal: 'Miguel Nunez',
+    nombreLimpio: 'Miguel Nunez',
+    nombreNormalizado: 'miguelnunez',
+    ventas: 11,
+    sumPuntaje: 9.95,
+    avgPuntaje: 0.9045454545454544,
+    puntos: 9.95,
+    originCollections: [ 'costumers_Miguel_Nunez' ],
+    username: 'Miguel Nunez',
+    userId: '68af453bc61c405e2bb7b0cd',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.9045454545454544,
+    position: 12
+  },
+  {
+    _id: 'nelsonceren',
+    nombre: 'Nelson Ceren',
+    nombreOriginal: 'Nelson Ceren',
+    nombreLimpio: 'Nelson Ceren',
+    nombreNormalizado: 'nelsonceren',
+    ventas: 11,
+    sumPuntaje: 9.1,
+    avgPuntaje: 0.8272727272727273,
+    puntos: 9.1,
+    originCollections: [ 'costumers_Nelson_Ceren' ],
+    username: 'Nelson Ceren',
+    userId: '68af568bc61c405e2bb7b0e8',
+    avatarUrl: '/api/user-avatars/693b5d73a584613b366ca050?v=1765498227099',
+    avatarFileId: '693b5d73a584613b366ca050',
+    avatarUpdatedAt: 1765498227099,
+    imageUrl: '/api/user-avatars/693b5d73a584613b366ca050?v=1765498227099',
+    promedio: 0.8272727272727273,
+    position: 13
+  },
+  {
+    _id: 'fernandacastillo',
+    nombre: 'Fernanda Castillo',
+    nombreOriginal: 'Fernanda Castillo',
+    nombreLimpio: 'Fernanda Castillo',
+    nombreNormalizado: 'fernandacastillo',
+    ventas: 10,
+    sumPuntaje: 8.9,
+    avgPuntaje: 0.89,
+    puntos: 8.9,
+    originCollections: [ 'costumers_Fernanda_Castillo' ],
+    username: 'Fernanda Castillo',
+    userId: '68af40a1c61c405e2bb7b0c1',
+    avatarUrl: '/api/user-avatars/69383288c08b03c6ed22de17?v=1765290632981',
+    avatarFileId: '69383288c08b03c6ed22de17',
+    avatarUpdatedAt: 1765290632981,
+    imageUrl: '/api/user-avatars/69383288c08b03c6ed22de17?v=1765290632981',
+    promedio: 0.89,
+    position: 14
+  },
+  {
+    _id: 'cindyflores',
+    nombre: 'Cindy Flores',
+    nombreOriginal: 'Cindy Flores',
+    nombreLimpio: 'Cindy Flores',
+    nombreNormalizado: 'cindyflores',
+    ventas: 13,
+    sumPuntaje: 8.65,
+    avgPuntaje: 0.6653846153846155,
+    puntos: 8.65,
+    originCollections: [ 'costumers', 'costumers_Cindy_Flores' ],
+    username: 'Cindy Flores',
+    userId: '68af55fec61c405e2bb7b0e2',
+    avatarUrl: '/api/user-avatars/6939dea39062280e0772d5be?v=1765400227851',
+    avatarFileId: '6939dea39062280e0772d5be',
+    avatarUpdatedAt: 1765400227851,
+    imageUrl: '/api/user-avatars/6939dea39062280e0772d5be?v=1765400227851',
+    promedio: 0.6653846153846155,
+    position: 15
+  },
+  {
+    _id: 'danielabonilla',
+    nombre: 'Daniela Bonilla',
+    nombreOriginal: 'Daniela Bonilla',
+    nombreLimpio: 'Daniela Bonilla',
+    nombreNormalizado: 'danielabonilla',
+    ventas: 10,
+    sumPuntaje: 7.800000000000001,
+    avgPuntaje: 0.78,
+    puntos: 7.800000000000001,
+    originCollections: [ 'costumers_Daniela_Bonilla' ],
+    username: 'Daniela Bonilla',
+    userId: '68af5610c61c405e2bb7b0e3',
+    avatarUrl: '/api/user-avatars/6934bce9f2acfd94bbd84544?v=1765063913701',
+    avatarFileId: '6934bce9f2acfd94bbd84544',
+    avatarUpdatedAt: 1765063913701,
+    imageUrl: '/api/user-avatars/6934bce9f2acfd94bbd84544?v=1765063913701',
+    promedio: 0.78,
+    position: 16
+  },
+  {
+    _id: 'priscilahernandez',
+    nombre: 'Priscila Hernandez',
+    nombreOriginal: 'Priscila Hernandez',
+    nombreLimpio: 'Priscila Hernandez',
+    nombreNormalizado: 'priscilahernandez',
+    ventas: 10,
+    sumPuntaje: 7.050000000000001,
+    avgPuntaje: 0.7050000000000001,
+    puntos: 7.050000000000001,
+    originCollections: [ 'costumers_Priscila_Hernandez' ],
+    username: 'Priscila Hernandez',
+    userId: '68af546cc61c405e2bb7b0df',
+    avatarUrl: '/api/user-avatars/6941921579471cf76e6c4e32?v=1765904917146',
+    avatarFileId: '6941921579471cf76e6c4e32',
+    avatarUpdatedAt: 1765904917146,
+    imageUrl: '/api/user-avatars/6941921579471cf76e6c4e32?v=1765904917146',
+    promedio: 0.7050000000000001,
+    position: 17
+  },
+  {
+    _id: 'alexanderrivera',
+    nombre: 'Alexander Rivera',
+    nombreOriginal: 'Alexander Rivera',
+    nombreLimpio: 'Alexander Rivera',
+    nombreNormalizado: 'alexanderrivera',
+    ventas: 5,
+    sumPuntaje: 6.45,
+    avgPuntaje: 1.29,
+    puntos: 6.45,
+    originCollections: [ 'costumers_Alexander_Rivera', 'costumers' ],
+    username: 'Alexander Rivera',
+    userId: '68af4f8cc61c405e2bb7b0d4',
+    avatarUrl: '/api/user-avatars/6939eaef44e19104feffa636?v=1765403375796',
+    avatarFileId: '6939eaef44e19104feffa636',
+    avatarUpdatedAt: 1765403375796,
+    imageUrl: '/api/user-avatars/6939eaef44e19104feffa636?v=1765403375796',
+    promedio: 1.29,
+    position: 18
+  },
+  {
+    _id: 'eduardor',
+    nombre: 'EduardoR',
+    nombreOriginal: 'EduardoR',
+    nombreLimpio: 'Eduardo R',
+    nombreNormalizado: 'eduardor',
+    ventas: 8,
+    sumPuntaje: 6.2,
+    avgPuntaje: 0.775,
+    puntos: 6.2,
+    originCollections: [ 'costumers_Eduardo_R' ],
+    username: 'EduardoR',
+    userId: '68ba19a7c0605d2b8a29fff1',
+    avatarUrl: '/api/user-avatars/6942ecbf13520bd27d7bf48d?v=1765993663590',
+    avatarFileId: '6942ecbf13520bd27d7bf48d',
+    avatarUpdatedAt: 1765993663590,
+    imageUrl: '/api/user-avatars/6942ecbf13520bd27d7bf48d?v=1765993663590',
+    promedio: 0.775,
+    position: 19
+  },
+  {
+    _id: 'evelingarcia',
+    nombre: 'Evelin Garcia',
+    nombreOriginal: 'Evelin Garcia',
+    nombreLimpio: 'Evelin Garcia',
+    nombreNormalizado: 'evelingarcia',
+    ventas: 8,
+    sumPuntaje: 6,
+    avgPuntaje: 0.75,
+    puntos: 6,
+    originCollections: [ 'costumers_Evelin_Garcia' ],
+    username: 'Evelin Garcia',
+    userId: '68b1dea61449d766c75b586a',
+    avatarUrl: '/api/user-avatars/6941d3d779471cf76e6c4e43?v=1765921751594',
+    avatarFileId: '6941d3d779471cf76e6c4e43',
+    avatarUpdatedAt: 1765921751594,
+    imageUrl: '/api/user-avatars/6941d3d779471cf76e6c4e43?v=1765921751594',
+    promedio: 0.75,
+    position: 20
+  },
+  {
+    _id: 'stevenvarela',
+    nombre: 'Steven Varela',
+    nombreOriginal: 'Steven Varela',
+    nombreLimpio: 'Steven Varela',
+    nombreNormalizado: 'stevenvarela',
+    ventas: 7,
+    sumPuntaje: 5.800000000000001,
+    avgPuntaje: 0.8285714285714286,
+    puntos: 5.800000000000001,
+    originCollections: [ 'costumers_Steven_Varela' ],
+    username: 'Steven Varela',
+    userId: '68af9c745a007ea8f2e9838a',
+    avatarUrl: '/api/user-avatars/693b35e667eac50e6273356c?v=1765488102405',
+    avatarFileId: '693b35e667eac50e6273356c',
+    avatarUpdatedAt: 1765488102405,
+    imageUrl: '/api/user-avatars/693b35e667eac50e6273356c?v=1765488102405',
+    promedio: 0.8285714285714286,
+    position: 21
+  },
+  {
+    _id: 'tatianaayala',
+    nombre: 'Tatiana Ayala',
+    nombreOriginal: 'Tatiana Ayala',
+    nombreLimpio: 'Tatiana Ayala',
+    nombreNormalizado: 'tatianaayala',
+    ventas: 7,
+    sumPuntaje: 5.6000000000000005,
+    avgPuntaje: 0.8,
+    puntos: 5.6000000000000005,
+    originCollections: [ 'costumers_Tatiana_Ayala' ],
+    username: 'Tatiana Ayala',
+    userId: '68af4597c61c405e2bb7b0cf',
+    avatarUrl: '/api/user-avatars/69372542266cc6166ea6e852?v=1765221698033',
+    avatarFileId: '69372542266cc6166ea6e852',
+    avatarUpdatedAt: 1765221698033,
+    imageUrl: '/api/user-avatars/69372542266cc6166ea6e852?v=1765221698033',
+    promedio: 0.8,
+    position: 22
+  },
+  {
+    _id: 'stefanimartinez',
+    nombre: 'Stefani Martinez',
+    nombreOriginal: 'Stefani Martinez',
+    nombreLimpio: 'Stefani Martinez',
+    nombreNormalizado: 'stefanimartinez',
+    ventas: 6,
+    sumPuntaje: 5.6,
+    avgPuntaje: 0.9333333333333332,
+    puntos: 5.6,
+    originCollections: [ 'costumers_68af41d0c61c405e2bb7b0c8', 'costumers' ],
+    username: 'Stefani Martinez',
+    userId: '68af41d0c61c405e2bb7b0c8',
+    avatarUrl: '/api/user-avatars/6937277d266cc6166ea6e869?v=1765222269826',
+    avatarFileId: '6937277d266cc6166ea6e869',
+    avatarUpdatedAt: 1765222269826,
+    imageUrl: '/api/user-avatars/6937277d266cc6166ea6e869?v=1765222269826',
+    promedio: 0.9333333333333332,
+    position: 23
+  },
+  {
+    _id: 'nicolecruz',
+    nombre: 'TATIANA NICOLE CRUZ ',
+    nombreOriginal: 'NICOLE.CRUZ',
+    nombreLimpio: 'NICOLECRUZ',
+    nombreNormalizado: 'nicolecruz',
+    ventas: 7,
+    sumPuntaje: 5.4,
+    avgPuntaje: 0.7714285714285715,
+    puntos: 5.4,
+    originCollections: [ 'costumers_691b86', 'costumers' ],
+    username: 'NICOLE.CRUZ',
+    userId: '691b8628af8026f685d8d6ba',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.7714285714285715,
+    position: 24
+  },
+  {
+    _id: 'jorgesegovia',
+    nombre: 'JORGE LUIS SEGOVIA RIVERA ',
+    nombreOriginal: 'JORGE.SEGOVIA',
+    nombreLimpio: 'JORGESEGOVIA',
+    nombreNormalizado: 'jorgesegovia',
+    ventas: 8,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.65,
+    puntos: 5.2,
+    originCollections: [ 'costumers_692371' ],
+    username: 'Jorge.Segovia',
+    userId: '6923718377e18836bf2d47d0',
+    avatarUrl: '/api/user-avatars/693b0a84d5b27ddaee5278aa?v=1765476996168',
+    avatarFileId: '693b0a84d5b27ddaee5278aa',
+    avatarUpdatedAt: 1765476996168,
+    imageUrl: '/api/user-avatars/693b0a84d5b27ddaee5278aa?v=1765476996168',
+    promedio: 0.65,
+    position: 25
+  },
+  {
+    _id: 'jonathanmorales',
+    nombre: 'Jonathan Morales',
+    nombreOriginal: 'Jonathan Morales',
+    nombreLimpio: 'Jonathan Morales',
+    nombreNormalizado: 'jonathanmorales',
+    ventas: 6,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.8666666666666667,
+    puntos: 5.2,
+    originCollections: [ 'costumers_Jonathan_Morales' ],
+    username: 'Jonathan Morales',
+    userId: '68af40c1c61c405e2bb7b0c2',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.8666666666666667,
+    position: 26
+  },
+  {
+    _id: 'josuerenderos',
+    nombre: 'Josue Renderos',
+    nombreOriginal: 'Josue Renderos',
+    nombreLimpio: 'Josue Renderos',
+    nombreNormalizado: 'josuerenderos',
+    ventas: 6,
+    sumPuntaje: 4.8500000000000005,
+    avgPuntaje: 0.8083333333333335,
+    puntos: 4.8500000000000005,
+    originCollections: [ 'costumers_Josue_Renderos' ],
+    username: 'Josue Renderos',
+    userId: '68af44efc61c405e2bb7b0cc',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.8083333333333335,
+    position: 27
+  },
+  {
+    _id: 'abigailbernal',
+    nombre: 'abigail.bernal',
+    nombreOriginal: 'abigail.bernal',
+    nombreLimpio: 'abigailbernal',
+    nombreNormalizado: 'abigailbernal',
+    ventas: 7,
+    sumPuntaje: 4.3,
+    avgPuntaje: 0.6142857142857142,
+    puntos: 4.3,
+    originCollections: [ 'costumers_6904e7', 'costumers' ],
+    username: 'abigail.bernal',
+    userId: '6904e7d694628f99ad2a4d26',
+    avatarUrl: '/api/user-avatars/69418ff679471cf76e6c4e28?v=1765904374449',
+    avatarFileId: '69418ff679471cf76e6c4e28',
+    avatarUpdatedAt: 1765904374449,
+    imageUrl: '/api/user-avatars/69418ff679471cf76e6c4e28?v=1765904374449',
+    promedio: 0.6142857142857142,
+    position: 28
+  },
+  {
+    _id: 'alejandramelara',
+    nombre: 'alejandraMelara',
+    nombreOriginal: 'alejandraMelara',
+    nombreLimpio: 'alejandra Melara',
+    nombreNormalizado: 'alejandramelara',
+    ventas: 5,
+    sumPuntaje: 3.9000000000000004,
+    avgPuntaje: 0.78,
+    puntos: 3.9000000000000004,
+    originCollections: [ 'costumers_Alejandra_Melara' ],
+    username: 'alejandraMelara',
+    userId: '68e976e7bb7e9fa2bb73f483',
+    avatarUrl: '/api/user-avatars/693b1444074b048f1190fa27?v=1765479492437',
+    avatarFileId: '693b1444074b048f1190fa27',
+    avatarUpdatedAt: 1765479492437,
+    imageUrl: '/api/user-avatars/693b1444074b048f1190fa27?v=1765479492437',
+    promedio: 0.78,
+    position: 29
+  },
+  {
+    _id: 'gisellediaz',
+    nombre: 'Giselle Diaz',
+    nombreOriginal: 'Giselle Diaz',
+    nombreLimpio: 'Giselle Diaz',
+    nombreNormalizado: 'gisellediaz',
+    ventas: 5,
+    sumPuntaje: 3.6500000000000004,
+    avgPuntaje: 0.7300000000000001,
+    puntos: 3.6500000000000004,
+    originCollections: [ 'costumers_Giselle_Diaz' ],
+    username: 'Giselle Diaz',
+    userId: '68af44c3c61c405e2bb7b0cb',
+    avatarUrl: '/api/user-avatars/6942bcf24ddf9b3a60cb9530?v=1765981426723',
+    avatarFileId: '6942bcf24ddf9b3a60cb9530',
+    avatarUpdatedAt: 1765981426723,
+    imageUrl: '/api/user-avatars/6942bcf24ddf9b3a60cb9530?v=1765981426723',
+    promedio: 0.7300000000000001,
+    position: 30
+  },
+  {
+    _id: 'jairoflores',
+    nombre: 'JAIRO IVAN FLORES PINO',
+    nombreOriginal: 'Jairo.Flores',
+    nombreLimpio: 'Jairo Flores',
+    nombreNormalizado: 'jairoflores',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_69385a' ],
+    username: 'Jairo.Flores',
+    userId: '69385a58347f17591c8aeb44',
+    avatarUrl: '/api/user-avatars/6941c76f79471cf76e6c4e40?v=1765918575127',
+    avatarFileId: '6941c76f79471cf76e6c4e40',
+    avatarUpdatedAt: 1765918575127,
+    imageUrl: '/api/user-avatars/6941c76f79471cf76e6c4e40?v=1765918575127',
+    promedio: 0.675,
+    position: 31
+  },
+  {
+    _id: 'kimberlyiglesias',
+    nombre: 'Kimberly Iglesias',
+    nombreOriginal: 'Kimberly Iglesias',
+    nombreLimpio: 'Kimberly Iglesias',
+    nombreNormalizado: 'kimberlyiglesias',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_Kimberly_Iglesias', 'costumers' ],
+    username: 'Kimberly Iglesias',
+    userId: '68af4175c61c405e2bb7b0c3',
+    avatarUrl: '/api/user-avatars/693727f8266cc6166ea6e86c?v=1765222392332',
+    avatarFileId: '693727f8266cc6166ea6e86c',
+    avatarUpdatedAt: 1765222392332,
+    imageUrl: '/api/user-avatars/693727f8266cc6166ea6e86c?v=1765222392332',
+    promedio: 0.675,
+    position: 32
+  }
+]
+[RANKING] Datos finales enviados al frontend:
+1. Julio Chavez: puntos=25.6, sumPuntaje=25.6, avgPuntaje=0.8827586206896553, promedio=0.8827586206896553
+2. Anderson Guzman: puntos=20.55, sumPuntaje=20.55, avgPuntaje=0.8934782608695653, promedio=0.8934782608695653
+3. Roxana Martinez: puntos=18.25, sumPuntaje=18.25, avgPuntaje=0.6759259259259259, promedio=0.6759259259259259
+4. Luis Chavarria: puntos=17.2, sumPuntaje=17.2, avgPuntaje=0.819047619047619, promedio=0.819047619047619
+5. Lisbeth Cortez: puntos=15.1, sumPuntaje=15.1, avgPuntaje=0.755, promedio=0.755
+6. Diego Mejia: puntos=15.1, sumPuntaje=15.1, avgPuntaje=0.94375, promedio=0.94375
+7. INGRID VANESSA REYES GARCIA: puntos=13.65, sumPuntaje=13.65, avgPuntaje=0.6825, promedio=0.6825
+8. Francisco Aguilar: puntos=13.55, sumPuntaje=13.55, avgPuntaje=0.7970588235294118, promedio=0.7970588235294118
+9. Katerine Gomez: puntos=13.4, sumPuntaje=13.4, avgPuntaje=0.788235294117647, promedio=0.788235294117647
+10. Riquelmi Torres: puntos=11.4, sumPuntaje=11.4, avgPuntaje=0.6705882352941177, promedio=0.6705882352941177
+11. Lucia Ferman: puntos=10.049999999999999, sumPuntaje=10.049999999999999, avgPuntaje=0.6281249999999999, promedio=0.6281249999999999
+12. Miguel Nunez: puntos=9.95, sumPuntaje=9.95, avgPuntaje=0.9045454545454544, promedio=0.9045454545454544
+13. Nelson Ceren: puntos=9.1, sumPuntaje=9.1, avgPuntaje=0.8272727272727273, promedio=0.8272727272727273
+14. Fernanda Castillo: puntos=8.9, sumPuntaje=8.9, avgPuntaje=0.89, promedio=0.89
+15. Cindy Flores: puntos=8.65, sumPuntaje=8.65, avgPuntaje=0.6653846153846155, promedio=0.6653846153846155
+16. Daniela Bonilla: puntos=7.800000000000001, sumPuntaje=7.800000000000001, avgPuntaje=0.78, promedio=0.78
+17. Priscila Hernandez: puntos=7.050000000000001, sumPuntaje=7.050000000000001, avgPuntaje=0.7050000000000001, promedio=0.7050000000000001
+18. Alexander Rivera: puntos=6.45, sumPuntaje=6.45, avgPuntaje=1.29, promedio=1.29
+19. EduardoR: puntos=6.2, sumPuntaje=6.2, avgPuntaje=0.775, promedio=0.775
+20. Evelin Garcia: puntos=6, sumPuntaje=6, avgPuntaje=0.75, promedio=0.75
+21. Steven Varela: puntos=5.800000000000001, sumPuntaje=5.800000000000001, avgPuntaje=0.8285714285714286, promedio=0.8285714285714286
+22. Tatiana Ayala: puntos=5.6000000000000005, sumPuntaje=5.6000000000000005, avgPuntaje=0.8, promedio=0.8
+23. Stefani Martinez: puntos=5.6, sumPuntaje=5.6, avgPuntaje=0.9333333333333332, promedio=0.9333333333333332
+24. TATIANA NICOLE CRUZ : puntos=5.4, sumPuntaje=5.4, avgPuntaje=0.7714285714285715, promedio=0.7714285714285715
+25. JORGE LUIS SEGOVIA RIVERA : puntos=5.2, sumPuntaje=5.2, avgPuntaje=0.65, promedio=0.65
+26. Jonathan Morales: puntos=5.2, sumPuntaje=5.2, avgPuntaje=0.8666666666666667, promedio=0.8666666666666667
+27. Josue Renderos: puntos=4.8500000000000005, sumPuntaje=4.8500000000000005, avgPuntaje=0.8083333333333335, promedio=0.8083333333333335
+28. abigail.bernal: puntos=4.3, sumPuntaje=4.3, avgPuntaje=0.6142857142857142, promedio=0.6142857142857142
+29. alejandraMelara: puntos=3.9000000000000004, sumPuntaje=3.9000000000000004, avgPuntaje=0.78, promedio=0.78
+30. Giselle Diaz: puntos=3.6500000000000004, sumPuntaje=3.6500000000000004, avgPuntaje=0.7300000000000001, promedio=0.7300000000000001
+31. JAIRO IVAN FLORES PINO: puntos=2.7, sumPuntaje=2.7, avgPuntaje=0.675, promedio=0.675
+32. Kimberly Iglesias: puntos=2.7, sumPuntaje=2.7, avgPuntaje=0.675, promedio=0.675
+[RANKING] Cache saved: {"fechaInicio":"2025-12-01","fechaFin":"2025-12-31","all":true,"limitParam":"10000","field":"createdAt"} ttl_ms= 300000
+[Dashboard Broadcast] Enviando actualización a 0 usuarios
+[INIT-DASHBOARD] Cache refrescada correctamente (66ms)
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/users/admin-list',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"'
+  }
+}
+[AUTH] Token desde Authorization header: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/auth/verify-server',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-mobile': '?0'
+  }
+}
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/media?category=marketing&limit=1&sort=desc&orderBy=uploadDate&t=1766008193140',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-mobile': '?0'
+  }
+}
+[VERIFY-SERVER] Verificando autenticación...
+[VERIFY-SERVER] Cookies: {
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk'
+}
+[VERIFY-SERVER] Authorization header: undefined
+[VERIFY-SERVER] Token válido para usuario: Daniel Martinez
+[AUTH] Token desde cookies: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/media?category=marketing&limit=1&sort=desc&orderBy=uploadDate&t=1766008193142',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-mobile': '?0'
+  }
+}
+[AUTH] Token desde cookies: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[MEDIA] Solicitud a /api/media recibida
+[MEDIA] Ejecutando consulta a mediafiles con orden: {"uploadDate":-1}
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/users/admin-list',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"'
+  }
+}
+[AUTH] Token desde Authorization header: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[MEDIA] Encontrados 1 archivos en BD
+[MEDIA] ✓ Archivo Cloudinary: VÃ­deo FelicitaciÃ³n Familiar Navidad AÃ±o Nuevo Christmas ClÃ¡sico MÃ¡gico Azul (2).mp4
+[MEDIA] Devolviendo 1 archivos válidos
+[VERIFY-SERVER] Avatar cargado del servidor para usuario: Daniel Martinez
+[MEDIA] Solicitud a /api/media recibida
+[MEDIA] Ejecutando consulta a mediafiles con orden: {"uploadDate":-1}
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/auth/verify-server',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    accept: 'application/json'
+  }
+}
+[VERIFY-SERVER] Verificando autenticación...
+[VERIFY-SERVER] Cookies: {
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk'
+}
+[VERIFY-SERVER] Authorization header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk
+[VERIFY-SERVER] Token válido para usuario: Daniel Martinez
+[MEDIA] Encontrados 1 archivos en BD
+[MEDIA] ✓ Archivo Cloudinary: VÃ­deo FelicitaciÃ³n Familiar Navidad AÃ±o Nuevo Christmas ClÃ¡sico MÃ¡gico Azul (2).mp4
+[MEDIA] Devolviendo 1 archivos válidos
+[VERIFY-SERVER] Avatar cargado del servidor para usuario: Daniel Martinez
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/leads?month=12&year=2025',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YWYzZTI4YzYxYzQwNWUyYmI3YjBiZCIsInVzZXJuYW1lIjoiRGFuaWVsIE1hcnRpbmV6Iiwicm9sZSI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjYwMDU3NzcsImV4cCI6MTc2NjYxMDU3N30.GpAvIFKuuYqFvWYfo4D2kACtqdDmnOM8R6sL7iCN4kk',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    accept: 'application/json'
+  }
+}
+[AUTH] Token desde Authorization header: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[USERS UPDATE ROLE] after getDb, db present? true
+[API /leads] Filtro por mes específico (MM + year): 2025-12
+[API /leads] Colección costumers_691b86 -> count=6
+[API /leads] Preparando fetch en costumers_691b86: skip=0 limit=50 (remaining global=50)
+[API /leads] costumers_691b86 -> docsFetched=6
+[API /leads] Colección costumers_Fernanda_Castillo -> count=10
+[API /leads] Preparando fetch en costumers_Fernanda_Castillo: skip=0 limit=44 (remaining global=44)
+[API /leads] costumers_Fernanda_Castillo -> docsFetched=10
+[API /leads] Colección costumers_Jonathan_Morales -> count=7
+[API /leads] Preparando fetch en costumers_Jonathan_Morales: skip=0 limit=34 (remaining global=34)
+[API /leads] costumers_Jonathan_Morales -> docsFetched=7
+[API /leads] Colección costumers_Lucia_Ferman -> count=15
+[API /leads] Preparando fetch en costumers_Lucia_Ferman: skip=0 limit=27 (remaining global=27)
+[API /leads] costumers_Lucia_Ferman -> docsFetched=15
+[API /leads] Colección costumers_Carlos_Grande -> count=0
+[API /leads] Saltando colección costumers_Carlos_Grande (offset remaining=0 >= count=0)
+[API /leads] Colección costumers_68ba19 -> count=0
+[API /leads] Saltando colección costumers_68ba19 (offset remaining=0 >= count=0)
+[API /leads] Colección costumers_6904e7 -> count=5
+[API /leads] Preparando fetch en costumers_6904e7: skip=0 limit=12 (remaining global=12)
+[API /leads] costumers_6904e7 -> docsFetched=5
+[API /leads] Colección costumers_Nelson_Ceren -> count=11
+[API /leads] Preparando fetch en costumers_Nelson_Ceren: skip=0 limit=7 (remaining global=7)
+[API /leads] costumers_Nelson_Ceren -> docsFetched=7
+[API /leads] Ventana completada — remaining <= 0, deteniendo iteración de colecciones
+[API /leads] Paginación compuesta: page=1 limit=50 offset=0 total=54 pages=2 returned=50
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/ranking?all=1&fechaInicio=2025-12-01&fechaFin=2025-12-17&limit=500',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-mobile': '?0'
+  }
+}
+[AUTH] Token desde cookies: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[RANKING] Parámetros recibidos: {
+  fechaInicio: '2025-12-01',
+  fechaFin: '2025-12-17',
+  all: '1',
+  limitParam: '500',
+  debug: undefined,
+  skipDate: undefined,
+  agente: undefined,
+  field: 'createdAt'
+}
+[RANGOS] Efectivo { startDate: '2025-12-01', endDate: '2025-12-17' }
+[RANKING] Cache miss or expired: {"fechaInicio":"2025-12-01","fechaFin":"2025-12-17","all":true,"limitParam":"500","field":"createdAt"} requestVars {
+  startDate: '2025-12-01',
+  endDate: '2025-12-17',
+  useAllCollections: true,
+  limitParam: '500',
+  field: 'createdAt',
+  agente: undefined
+}
+[RANKING] Pipeline de agregación: [
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$eq": [
+              {
+                "$type": "$createdAt"
+              },
+              "date"
+            ]
+          },
+          "$createdAt",
+          {
+            "$cond": [
+              {
+                "$eq": [
+                  {
+                    "$type": "$createdAt"
+                  },
+                  "string"
+                ]
+              },
+              {
+                "$dateFromString": {
+                  "dateString": {
+                    "$toString": "$createdAt"
+                  },
+                  "timezone": "-06:00"
+                }
+              },
+              null
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$eq": [
+              {
+                "$type": "$dia_venta"
+              },
+              "date"
+            ]
+          },
+          "$dia_venta",
+          {
+            "$let": {
+              "vars": {
+                "s": {
+                  "$toString": "$dia_venta"
+                }
+              },
+              "in": {
+                "$cond": [
+                  {
+                    "$regexMatch": {
+                      "input": "$$s",
+                      "regex": {}
+                    }
+                  },
+                  {
+                    "$dateFromString": {
+                      "dateString": "$$s",
+                      "format": "%Y-%m-%d",
+                      "timezone": "-06:00"
+                    }
+                  },
+                  {
+                    "$cond": [
+                      {
+                        "$regexMatch": {
+                          "input": "$$s",
+                          "regex": {}
+                        }
+                      },
+                      {
+                        "$let": {
+                          "vars": {
+                            "parts": {
+                              "$split": [
+                                "$$s",
+                                "/"
+                              ]
+                            }
+                          },
+                          "in": {
+                            "$dateFromParts": {
+                              "year": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    2
+                                  ]
+                                }
+                              },
+                              "month": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    1
+                                  ]
+                                }
+                              },
+                              "day": {
+                                "$toInt": {
+                                  "$arrayElemAt": [
+                                    "$$parts",
+                                    0
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "$cond": [
+                          {
+                            "$regexMatch": {
+                              "input": "$$s",
+                              "regex": {}
+                            }
+                          },
+                          {
+                            "$dateFromString": {
+                              "dateString": "$$s",
+                              "timezone": "-06:00"
+                            }
+                          },
+                          {
+                            "$dateFromString": {
+                              "dateString": "$$s",
+                              "timezone": "-06:00"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$ne": [
+              "$_diaParsed",
+              null
+            ]
+          },
+          "$_diaParsed",
+          {
+            "$let": {
+              "vars": {
+                "s": {
+                  "$toString": "$dia_venta"
+                }
+              },
+              "in": {
+                "$cond": [
+                  {
+                    "$regexMatch": {
+                      "input": "$$s",
+                      "regex": {}
+                    }
+                  },
+                  {
+                    "$let": {
+                      "vars": {
+                        "parts": {
+                          "$split": [
+                            "$$s",
+                            "/"
+                          ]
+                        }
+                      },
+                      "in": {
+                        "$dateFromParts": {
+                          "year": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                2
+                              ]
+                            }
+                          },
+                          "month": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                1
+                              ]
+                            }
+                          },
+                          "day": {
+                            "$toInt": {
+                              "$arrayElemAt": [
+                                "$$parts",
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  null
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_diaParsed": {
+        "$cond": [
+          {
+            "$ne": [
+              "$_diaParsed",
+              null
+            ]
+          },
+          "$_diaParsed",
+          {
+            "$cond": [
+              {
+                "$eq": [
+                  {
+                    "$type": "$createdAt"
+                  },
+                  "date"
+                ]
+              },
+              "$createdAt",
+              {
+                "$cond": [
+                  {
+                    "$eq": [
+                      {
+                        "$type": "$createdAt"
+                      },
+                      "string"
+                    ]
+                  },
+                  {
+                    "$dateFromString": {
+                      "dateString": {
+                        "$toString": "$createdAt"
+                      },
+                      "timezone": "-06:00"
+                    }
+                  },
+                  null
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "_diaParsed": {
+        "$ne": null
+      },
+      "$expr": {
+        "$and": [
+          {
+            "$gte": [
+              "$_diaParsed",
+              "2025-12-01T06:00:00.000Z"
+            ]
+          },
+          {
+            "$lt": [
+              "$_diaParsed",
+              "2026-01-01T06:00:00.000Z"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "$or": [
+        {
+          "agenteNombre": {
+            "$exists": true,
+            "$ne": ""
+          }
+        },
+        {
+          "agente": {
+            "$exists": true,
+            "$ne": ""
+          }
+        }
+      ],
+      "excluirDeReporte": {
+        "$ne": true
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_statusStr": {
+        "$toUpper": {
+          "$trim": {
+            "input": {
+              "$ifNull": [
+                "$status",
+                ""
+              ]
+            }
+          }
+        }
+      },
+      "_agenteFuente": {
+        "$ifNull": [
+          "$agenteNombre",
+          "$agente"
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_statusNorm": {
+        "$cond": [
+          {
+            "$regexMatch": {
+              "input": "$_statusStr",
+              "regex": {}
+            }
+          },
+          "CANCEL",
+          {
+            "$cond": [
+              {
+                "$regexMatch": {
+                  "input": "$_statusStr",
+                  "regex": {}
+                }
+              },
+              "PENDING",
+              "$_statusStr"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "isCancel": {
+        "$eq": [
+          "$_statusNorm",
+          "CANCEL"
+        ]
+      },
+      "puntajeEfectivo": {
+        "$cond": [
+          {
+            "$eq": [
+              "$_statusNorm",
+              "CANCEL"
+            ]
+          },
+          0,
+          {
+            "$toDouble": {
+              "$ifNull": [
+                "$puntaje",
+                0
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_saleSig": {
+        "$concat": [
+          {
+            "$ifNull": [
+              "$numero_cuenta",
+              ""
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              "$telefono",
+              {
+                "$ifNull": [
+                  "$telefono_principal",
+                  ""
+                ]
+              }
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              "$nombre_cliente",
+              ""
+            ]
+          },
+          "|",
+          {
+            "$ifNull": [
+              {
+                "$dateToString": {
+                  "format": "%Y-%m-%d",
+                  "date": "$_diaParsed"
+                }
+              },
+              ""
+            ]
+          },
+          "|",
+          {
+            "$toString": {
+              "$ifNull": [
+                "$puntajeEfectivo",
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "_sigObj": {
+        "sig": {
+          "$ifNull": [
+            "$_saleSig",
+            ""
+          ]
+        },
+        "p": {
+          "$ifNull": [
+            "$puntajeEfectivo",
+            0
+          ]
+        }
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "_nameNoSpaces": {
+        "$replaceAll": {
+          "input": {
+            "$replaceAll": {
+              "input": {
+                "$replaceAll": {
+                  "input": "$_agenteFuente",
+                  "find": "_",
+                  "replacement": ""
+                }
+              },
+              "find": ".",
+              "replacement": ""
+            }
+          },
+          "find": " ",
+          "replacement": ""
+        }
+      },
+      "_nameNormLower": {
+        "$toLower": {
+          "$replaceAll": {
+            "input": {
+              "$replaceAll": {
+                "input": {
+                  "$replaceAll": {
+                    "input": "$_agenteFuente",
+                    "find": "_",
+                    "replacement": ""
+                  }
+                },
+                "find": ".",
+                "replacement": ""
+              }
+            },
+            "find": " ",
+            "replacement": ""
+          }
+        }
+      }
+    }
+  },
+  {
+    "$group": {
+      "_id": "$_nameNormLower",
+      "ventas": {
+        "$sum": {
+          "$cond": [
+            "$isCancel",
+            0,
+            1
+          ]
+        }
+      },
+      "sumPuntaje": {
+        "$sum": "$puntajeEfectivo"
+      },
+      "avgPuntaje": {
+        "$avg": "$puntajeEfectivo"
+      },
+      "signatures": {
+        "$push": {
+          "sig": "$_saleSig",
+          "p": "$puntajeEfectivo"
+        }
+      },
+      "anyName": {
+        "$first": "$_nameNoSpaces"
+      },
+      "anyOriginal": {
+        "$first": "$_agenteFuente"
+      }
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "nombre": {
+        "$ifNull": [
+          "$anyOriginal",
+          "$anyName"
+        ]
+      },
+      "nombreOriginal": {
+        "$ifNull": [
+          "$anyOriginal",
+          "$anyName"
+        ]
+      },
+      "nombreLimpio": "$anyName",
+      "nombreNormalizado": "$_id",
+      "ventas": 1,
+      "sumPuntaje": "$sumPuntaje",
+      "signatures": "$signatures",
+      "avgPuntaje": "$avgPuntaje",
+      "puntos": "$sumPuntaje"
+    }
+  },
+  {
+    "$sort": {
+      "puntos": -1,
+      "ventas": -1,
+      "nombre": 1
+    }
+  },
+  {
+    "$limit": 500
+  }
+]
+[RANKING] Colecciones candidatas para ALL: [
+  'costumers_691b86',
+  'costumers_Fernanda_Castillo',
+  'costumers_Jonathan_Morales',
+  'costumers_Lucia_Ferman',
+  'costumers_Carlos_Grande',
+  'costumers_68ba19',
+  'costumers_6904e7',
+  'costumers_Nelson_Ceren',
+  'costumers_Luis_Chavarria',
+  'costumers_68af41d0c61c405e2bb7b0c8',
+  'costumers_Anderson_Guzman',
+  'costumers_Melissa_Escobar',
+  'costumers_Evelin_Garcia',
+  'costumers_Fabricio_Panameo',
+  'costumers_Daniela_Bonilla',
+  'costumers_Roxana_Martinez',
+  'costumers_Josue_Renderos',
+  'costumers_Diego_Mejia',
+  'costumers_Eduardo_R',
+  'costumers_Francisco_Aguilar',
+  'costumers_68e6e788e878e212dc64e8c4',
+  'costumers_Alexander_Rivera',
+  'costumers_Miguel_Nunez',
+  'costumers_Katerine_Gomez',
+  'costumers_Kimberly_Iglesias',
+  'costumers_Abigail_Galdamez',
+  'costumers_Tatiana_Ayala',
+  'costumers_Giselle_Diaz',
+  'costumers_692371',
+  'costumers_692e09',
+  'costumers_Priscila_Hernandez',
+  'costumers_69385a',
+  'costumers_Steven_Varela',
+  'costumers_Riquelmi_Torres',
+  'costumers',
+  'costumers_Johanna_Santana',
+  'costumers_Cindy_Flores',
+  'costumers_Lisbeth_Cortez',
+  'costumers_Alejandra_Melara',
+  'costumers_Julio_Chavez'
+]
+[RANKING] Datos encontrados en colección: costumers_691b86 -> 1
+[RANKING] Datos encontrados en colección: costumers_Fernanda_Castillo -> 1
+[RANKING] Datos encontrados en colección: costumers_Jonathan_Morales -> 1
+[RANKING] Datos encontrados en colección: costumers_Lucia_Ferman -> 1
+[RANKING] Datos encontrados en colección: costumers_Carlos_Grande -> 0
+[RANKING] Datos encontrados en colección: costumers_68ba19 -> 0
+[RANKING] Datos encontrados en colección: costumers_6904e7 -> 1
+[RANKING] Datos encontrados en colección: costumers_Nelson_Ceren -> 1
+[RANKING] Datos encontrados en colección: costumers_Luis_Chavarria -> 1
+[RANKING] Datos encontrados en colección: costumers_68af41d0c61c405e2bb7b0c8 -> 1
+[RANKING] Datos encontrados en colección: costumers_Anderson_Guzman -> 1
+[RANKING] Datos encontrados en colección: costumers_Melissa_Escobar -> 0
+[RANKING] Datos encontrados en colección: costumers_Evelin_Garcia -> 1
+[RANKING] Datos encontrados en colección: costumers_Fabricio_Panameo -> 0
+[RANKING] Datos encontrados en colección: costumers_Daniela_Bonilla -> 1
+[RANKING] Datos encontrados en colección: costumers_Roxana_Martinez -> 1
+[RANKING] Datos encontrados en colección: costumers_Josue_Renderos -> 1
+[RANKING] Datos encontrados en colección: costumers_Diego_Mejia -> 1
+[RANKING] Datos encontrados en colección: costumers_Eduardo_R -> 1
+[RANKING] Datos encontrados en colección: costumers_Francisco_Aguilar -> 1
+[RANKING] Datos encontrados en colección: costumers_68e6e788e878e212dc64e8c4 -> 0
+[RANKING] Datos encontrados en colección: costumers_Alexander_Rivera -> 1
+[RANKING] Datos encontrados en colección: costumers_Miguel_Nunez -> 1
+[RANKING] Datos encontrados en colección: costumers_Katerine_Gomez -> 1
+[RANKING] Datos encontrados en colección: costumers_Kimberly_Iglesias -> 1
+[RANKING] Datos encontrados en colección: costumers_Abigail_Galdamez -> 0
+[RANKING] Datos encontrados en colección: costumers_Tatiana_Ayala -> 1
+[RANKING] Datos encontrados en colección: costumers_Giselle_Diaz -> 1
+[RANKING] Datos encontrados en colección: costumers_692371 -> 1
+[RANKING] Datos encontrados en colección: costumers_692e09 -> 1
+[RANKING DEBUG] Colección costumers_692e09 tiene 1 entrada(s) para INGRID:
+  - INGRID.GARCIA: sumPuntaje=15.15, ventas=21
+[RANKING] Datos encontrados en colección: costumers_Priscila_Hernandez -> 1
+[RANKING] Datos encontrados en colección: costumers_69385a -> 1
+[RANKING] Datos encontrados en colección: costumers_Steven_Varela -> 1
+[RANKING] Datos encontrados en colección: costumers_Riquelmi_Torres -> 1
+[RANKING] Datos encontrados en colección: costumers -> 13
+[RANKING] Datos encontrados en colección: costumers_Johanna_Santana -> 0
+[RANKING] Datos encontrados en colección: costumers_Cindy_Flores -> 1
+[RANKING] Datos encontrados en colección: costumers_Lisbeth_Cortez -> 1
+[RANKING] Datos encontrados en colección: costumers_Alejandra_Melara -> 1
+[RANKING] Datos encontrados en colección: costumers_Julio_Chavez -> 1
+[RANKING] Total resultados antes de merge: 45
+[RANKING DEBUG] Encontrado agente con "ingrid" en key: "ingridgarcia" -> normalizado a "ingridgarcia", sumPuntaje=15.15
+[RANKING DEBUG] NICOLE.CRUZ desde múltiples colecciones: sumPuntajeTotal=5.4, ventas=7, collections=3.9,1.5
+[RANKING DEBUG] Lucia Ferman desde múltiples colecciones: sumPuntajeTotal=10.049999999999999, ventas=16, collections=9.7,0.35
+[RANKING DEBUG] abigail.bernal desde múltiples colecciones: sumPuntajeTotal=4.3, ventas=7, collections=3.6,0.7
+[RANKING DEBUG] Stefani Martinez desde múltiples colecciones: sumPuntajeTotal=5.6, ventas=6, collections=5.25,0.35
+[RANKING DEBUG] Anderson Guzman desde múltiples colecciones: sumPuntajeTotal=20.55, ventas=23, collections=19.8,0.75
+[RANKING DEBUG] Diego Mejia desde múltiples colecciones: sumPuntajeTotal=15.1, ventas=16, collections=13.6,1.5
+[RANKING DEBUG] Francisco Aguilar desde múltiples colecciones: sumPuntajeTotal=13.55, ventas=17, collections=12.55,1
+[RANKING DEBUG] Alexander Rivera desde múltiples colecciones: sumPuntajeTotal=6.45, ventas=5, collections=4.95,1.5
+[RANKING DEBUG] Katerine Gomez desde múltiples colecciones: sumPuntajeTotal=13.4, ventas=17, collections=12.05,1.35
+[RANKING DEBUG] Kimberly Iglesias desde múltiples colecciones: sumPuntajeTotal=2.7, ventas=4, collections=1.2,1.5
+[RANKING DEBUG] Julio Chavez desde múltiples colecciones: sumPuntajeTotal=25.6, ventas=29, collections=2,23.6
+[RANKING DEBUG] Cindy Flores desde múltiples colecciones: sumPuntajeTotal=8.65, ventas=13, collections=1,7.65
+[RANKING DEBUG] Lisbeth Cortez desde múltiples colecciones: sumPuntajeTotal=15.1, ventas=20, collections=0.75,14.35
+[RANKING] Resultados de la consulta: [
+  {
+    _id: 'juliochavez',
+    nombre: 'Julio Chavez',
+    nombreOriginal: 'Julio Chavez',
+    nombreLimpio: 'JulioChavez',
+    nombreNormalizado: 'juliochavez',
+    ventas: 29,
+    sumPuntaje: 25.6,
+    avgPuntaje: 0.8827586206896553,
+    puntos: 25.6,
+    originCollections: [ 'costumers', 'costumers_Julio_Chavez' ]
+  },
+  {
+    _id: 'andersonguzman',
+    nombre: 'Anderson Guzman',
+    nombreOriginal: 'Anderson Guzman',
+    nombreLimpio: 'AndersonGuzman',
+    nombreNormalizado: 'andersonguzman',
+    ventas: 23,
+    sumPuntaje: 20.55,
+    avgPuntaje: 0.8934782608695653,
+    puntos: 20.55,
+    originCollections: [ 'costumers_Anderson_Guzman', 'costumers' ]
+  },
+  {
+    _id: 'roxanamartinez',
+    nombre: 'Roxana Martinez',
+    nombreOriginal: 'Roxana Martinez',
+    nombreLimpio: 'RoxanaMartinez',
+    nombreNormalizado: 'roxanamartinez',
+    ventas: 27,
+    sumPuntaje: 18.25,
+    avgPuntaje: 0.6759259259259259,
+    puntos: 18.25,
+    originCollections: [ 'costumers_Roxana_Martinez' ]
+  },
+  {
+    _id: 'luischavarria',
+    nombre: 'Luis Chavarria',
+    nombreOriginal: 'Luis Chavarria',
+    nombreLimpio: 'LuisChavarria',
+    nombreNormalizado: 'luischavarria',
+    ventas: 21,
+    sumPuntaje: 17.2,
+    avgPuntaje: 0.819047619047619,
+    puntos: 17.2,
+    originCollections: [ 'costumers_Luis_Chavarria' ]
+  },
+  {
+    _id: 'lisbethcortez',
+    nombre: 'Lisbeth Cortez',
+    nombreOriginal: 'Lisbeth Cortez',
+    nombreLimpio: 'LisbethCortez',
+    nombreNormalizado: 'lisbethcortez',
+    ventas: 20,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.755,
+    puntos: 15.1,
+    originCollections: [ 'costumers', 'costumers_Lisbeth_Cortez' ]
+  },
+  {
+    _id: 'diegomejia',
+    nombre: 'Diego Mejia',
+    nombreOriginal: 'Diego Mejia',
+    nombreLimpio: 'DiegoMejia',
+    nombreNormalizado: 'diegomejia',
+    ventas: 16,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.94375,
+    puntos: 15.1,
+    originCollections: [ 'costumers_Diego_Mejia', 'costumers' ]
+  },
+  {
+    _id: 'ingridgarcia',
+    nombre: 'INGRID.GARCIA',
+    nombreOriginal: 'INGRID.GARCIA',
+    nombreLimpio: 'INGRIDGARCIA',
+    nombreNormalizado: 'ingridgarcia',
+    ventas: 20,
+    sumPuntaje: 13.65,
+    avgPuntaje: 0.6825,
+    puntos: 13.65,
+    originCollections: [ 'costumers_692e09' ]
+  },
+  {
+    _id: 'franciscoaguilar',
+    nombre: 'Francisco Aguilar',
+    nombreOriginal: 'Francisco Aguilar',
+    nombreLimpio: 'FranciscoAguilar',
+    nombreNormalizado: 'franciscoaguilar',
+    ventas: 17,
+    sumPuntaje: 13.55,
+    avgPuntaje: 0.7970588235294118,
+    puntos: 13.55,
+    originCollections: [ 'costumers_Francisco_Aguilar', 'costumers' ]
+  },
+  {
+    _id: 'katerinegomez',
+    nombre: 'Katerine Gomez',
+    nombreOriginal: 'Katerine Gomez',
+    nombreLimpio: 'KaterineGomez',
+    nombreNormalizado: 'katerinegomez',
+    ventas: 17,
+    sumPuntaje: 13.4,
+    avgPuntaje: 0.788235294117647,
+    puntos: 13.4,
+    originCollections: [ 'costumers_Katerine_Gomez', 'costumers' ]
+  },
+  {
+    _id: 'riquelmitorres',
+    nombre: 'Riquelmi Torres',
+    nombreOriginal: 'Riquelmi Torres',
+    nombreLimpio: 'RiquelmiTorres',
+    nombreNormalizado: 'riquelmitorres',
+    ventas: 17,
+    sumPuntaje: 11.4,
+    avgPuntaje: 0.6705882352941177,
+    puntos: 11.4,
+    originCollections: [ 'costumers_Riquelmi_Torres' ]
+  },
+  {
+    _id: 'luciaferman',
+    nombre: 'Lucia Ferman',
+    nombreOriginal: 'Lucia Ferman',
+    nombreLimpio: 'LuciaFerman',
+    nombreNormalizado: 'luciaferman',
+    ventas: 16,
+    sumPuntaje: 10.049999999999999,
+    avgPuntaje: 0.6281249999999999,
+    puntos: 10.049999999999999,
+    originCollections: [ 'costumers_Lucia_Ferman', 'costumers' ]
+  },
+  {
+    _id: 'miguelnunez',
+    nombre: 'Miguel Nunez',
+    nombreOriginal: 'Miguel Nunez',
+    nombreLimpio: 'MiguelNunez',
+    nombreNormalizado: 'miguelnunez',
+    ventas: 11,
+    sumPuntaje: 9.95,
+    avgPuntaje: 0.9045454545454544,
+    puntos: 9.95,
+    originCollections: [ 'costumers_Miguel_Nunez' ]
+  },
+  {
+    _id: 'nelsonceren',
+    nombre: 'Nelson Ceren',
+    nombreOriginal: 'Nelson Ceren',
+    nombreLimpio: 'NelsonCeren',
+    nombreNormalizado: 'nelsonceren',
+    ventas: 11,
+    sumPuntaje: 9.1,
+    avgPuntaje: 0.8272727272727273,
+    puntos: 9.1,
+    originCollections: [ 'costumers_Nelson_Ceren' ]
+  },
+  {
+    _id: 'fernandacastillo',
+    nombre: 'Fernanda Castillo',
+    nombreOriginal: 'Fernanda Castillo',
+    nombreLimpio: 'FernandaCastillo',
+    nombreNormalizado: 'fernandacastillo',
+    ventas: 10,
+    sumPuntaje: 8.9,
+    avgPuntaje: 0.89,
+    puntos: 8.9,
+    originCollections: [ 'costumers_Fernanda_Castillo' ]
+  },
+  {
+    _id: 'cindyflores',
+    nombre: 'Cindy Flores',
+    nombreOriginal: 'Cindy Flores',
+    nombreLimpio: 'CindyFlores',
+    nombreNormalizado: 'cindyflores',
+    ventas: 13,
+    sumPuntaje: 8.65,
+    avgPuntaje: 0.6653846153846155,
+    puntos: 8.65,
+    originCollections: [ 'costumers', 'costumers_Cindy_Flores' ]
+  },
+  {
+    _id: 'danielabonilla',
+    nombre: 'Daniela Bonilla',
+    nombreOriginal: 'Daniela Bonilla',
+    nombreLimpio: 'DanielaBonilla',
+    nombreNormalizado: 'danielabonilla',
+    ventas: 10,
+    sumPuntaje: 7.800000000000001,
+    avgPuntaje: 0.78,
+    puntos: 7.800000000000001,
+    originCollections: [ 'costumers_Daniela_Bonilla' ]
+  },
+  {
+    _id: 'priscilahernandez',
+    nombre: 'Priscila Hernandez',
+    nombreOriginal: 'Priscila Hernandez',
+    nombreLimpio: 'PriscilaHernandez',
+    nombreNormalizado: 'priscilahernandez',
+    ventas: 10,
+    sumPuntaje: 7.050000000000001,
+    avgPuntaje: 0.7050000000000001,
+    puntos: 7.050000000000001,
+    originCollections: [ 'costumers_Priscila_Hernandez' ]
+  },
+  {
+    _id: 'alexanderrivera',
+    nombre: 'Alexander Rivera',
+    nombreOriginal: 'Alexander Rivera',
+    nombreLimpio: 'AlexanderRivera',
+    nombreNormalizado: 'alexanderrivera',
+    ventas: 5,
+    sumPuntaje: 6.45,
+    avgPuntaje: 1.29,
+    puntos: 6.45,
+    originCollections: [ 'costumers_Alexander_Rivera', 'costumers' ]
+  },
+  {
+    _id: 'eduardor',
+    nombre: 'EduardoR',
+    nombreOriginal: 'EduardoR',
+    nombreLimpio: 'EduardoR',
+    nombreNormalizado: 'eduardor',
+    ventas: 8,
+    sumPuntaje: 6.2,
+    avgPuntaje: 0.775,
+    puntos: 6.2,
+    originCollections: [ 'costumers_Eduardo_R' ]
+  },
+  {
+    _id: 'evelingarcia',
+    nombre: 'Evelin Garcia',
+    nombreOriginal: 'Evelin Garcia',
+    nombreLimpio: 'EvelinGarcia',
+    nombreNormalizado: 'evelingarcia',
+    ventas: 8,
+    sumPuntaje: 6,
+    avgPuntaje: 0.75,
+    puntos: 6,
+    originCollections: [ 'costumers_Evelin_Garcia' ]
+  },
+  {
+    _id: 'jonathanmorales',
+    nombre: 'Jonathan Morales',
+    nombreOriginal: 'Jonathan Morales',
+    nombreLimpio: 'JonathanMorales',
+    nombreNormalizado: 'jonathanmorales',
+    ventas: 7,
+    sumPuntaje: 5.95,
+    avgPuntaje: 0.85,
+    puntos: 5.95,
+    originCollections: [ 'costumers_Jonathan_Morales' ]
+  },
+  {
+    _id: 'stevenvarela',
+    nombre: 'Steven Varela',
+    nombreOriginal: 'Steven Varela',
+    nombreLimpio: 'StevenVarela',
+    nombreNormalizado: 'stevenvarela',
+    ventas: 7,
+    sumPuntaje: 5.800000000000001,
+    avgPuntaje: 0.8285714285714286,
+    puntos: 5.800000000000001,
+    originCollections: [ 'costumers_Steven_Varela' ]
+  },
+  {
+    _id: 'tatianaayala',
+    nombre: 'Tatiana Ayala',
+    nombreOriginal: 'Tatiana Ayala',
+    nombreLimpio: 'TatianaAyala',
+    nombreNormalizado: 'tatianaayala',
+    ventas: 7,
+    sumPuntaje: 5.6000000000000005,
+    avgPuntaje: 0.8,
+    puntos: 5.6000000000000005,
+    originCollections: [ 'costumers_Tatiana_Ayala' ]
+  },
+  {
+    _id: 'stefanimartinez',
+    nombre: 'Stefani Martinez',
+    nombreOriginal: 'Stefani Martinez',
+    nombreLimpio: 'StefaniMartinez',
+    nombreNormalizado: 'stefanimartinez',
+    ventas: 6,
+    sumPuntaje: 5.6,
+    avgPuntaje: 0.9333333333333332,
+    puntos: 5.6,
+    originCollections: [ 'costumers_68af41d0c61c405e2bb7b0c8', 'costumers' ]
+  },
+  {
+    _id: 'nicolecruz',
+    nombre: 'NICOLE.CRUZ',
+    nombreOriginal: 'NICOLE.CRUZ',
+    nombreLimpio: 'NICOLECRUZ',
+    nombreNormalizado: 'nicolecruz',
+    ventas: 7,
+    sumPuntaje: 5.4,
+    avgPuntaje: 0.7714285714285715,
+    puntos: 5.4,
+    originCollections: [ 'costumers_691b86', 'costumers' ]
+  },
+  {
+    _id: 'jorgesegovia',
+    nombre: 'JORGE.SEGOVIA',
+    nombreOriginal: 'JORGE.SEGOVIA',
+    nombreLimpio: 'JORGESEGOVIA',
+    nombreNormalizado: 'jorgesegovia',
+    ventas: 8,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.65,
+    puntos: 5.2,
+    originCollections: [ 'costumers_692371' ]
+  },
+  {
+    _id: 'josuerenderos',
+    nombre: 'Josue Renderos',
+    nombreOriginal: 'Josue Renderos',
+    nombreLimpio: 'JosueRenderos',
+    nombreNormalizado: 'josuerenderos',
+    ventas: 6,
+    sumPuntaje: 4.8500000000000005,
+    avgPuntaje: 0.8083333333333335,
+    puntos: 4.8500000000000005,
+    originCollections: [ 'costumers_Josue_Renderos' ]
+  },
+  {
+    _id: 'abigailbernal',
+    nombre: 'abigail.bernal',
+    nombreOriginal: 'abigail.bernal',
+    nombreLimpio: 'abigailbernal',
+    nombreNormalizado: 'abigailbernal',
+    ventas: 7,
+    sumPuntaje: 4.3,
+    avgPuntaje: 0.6142857142857142,
+    puntos: 4.3,
+    originCollections: [ 'costumers_6904e7', 'costumers' ]
+  },
+  {
+    _id: 'alejandramelara',
+    nombre: 'alejandraMelara',
+    nombreOriginal: 'alejandraMelara',
+    nombreLimpio: 'alejandraMelara',
+    nombreNormalizado: 'alejandramelara',
+    ventas: 5,
+    sumPuntaje: 3.9000000000000004,
+    avgPuntaje: 0.78,
+    puntos: 3.9000000000000004,
+    originCollections: [ 'costumers_Alejandra_Melara' ]
+  },
+  {
+    _id: 'gisellediaz',
+    nombre: 'Giselle Diaz',
+    nombreOriginal: 'Giselle Diaz',
+    nombreLimpio: 'GiselleDiaz',
+    nombreNormalizado: 'gisellediaz',
+    ventas: 5,
+    sumPuntaje: 3.6500000000000004,
+    avgPuntaje: 0.7300000000000001,
+    puntos: 3.6500000000000004,
+    originCollections: [ 'costumers_Giselle_Diaz' ]
+  },
+  {
+    _id: 'jairoflores',
+    nombre: 'Jairo.Flores',
+    nombreOriginal: 'Jairo.Flores',
+    nombreLimpio: 'JairoFlores',
+    nombreNormalizado: 'jairoflores',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_69385a' ]
+  },
+  {
+    _id: 'kimberlyiglesias',
+    nombre: 'Kimberly Iglesias',
+    nombreOriginal: 'Kimberly Iglesias',
+    nombreLimpio: 'KimberlyIglesias',
+    nombreNormalizado: 'kimberlyiglesias',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_Kimberly_Iglesias', 'costumers' ]
+  }
+]
+[RANKING] Valores exactos de puntajes:
+1. Julio Chavez: sumPuntaje=25.6 (tipo: number), avgPuntaje=0.8827586206896553 (tipo: number), puntos=25.6 (tipo: number)
+2. Anderson Guzman: sumPuntaje=20.55 (tipo: number), avgPuntaje=0.8934782608695653 (tipo: number), puntos=20.55 (tipo: number)
+3. Roxana Martinez: sumPuntaje=18.25 (tipo: number), avgPuntaje=0.6759259259259259 (tipo: number), puntos=18.25 (tipo: number)
+4. Luis Chavarria: sumPuntaje=17.2 (tipo: number), avgPuntaje=0.819047619047619 (tipo: number), puntos=17.2 (tipo: number)
+5. Lisbeth Cortez: sumPuntaje=15.1 (tipo: number), avgPuntaje=0.755 (tipo: number), puntos=15.1 (tipo: number)
+6. Diego Mejia: sumPuntaje=15.1 (tipo: number), avgPuntaje=0.94375 (tipo: number), puntos=15.1 (tipo: number)
+7. INGRID.GARCIA: sumPuntaje=13.65 (tipo: number), avgPuntaje=0.6825 (tipo: number), puntos=13.65 (tipo: number)
+8. Francisco Aguilar: sumPuntaje=13.55 (tipo: number), avgPuntaje=0.7970588235294118 (tipo: number), puntos=13.55 (tipo: number)
+9. Katerine Gomez: sumPuntaje=13.4 (tipo: number), avgPuntaje=0.788235294117647 (tipo: number), puntos=13.4 (tipo: number)
+10. Riquelmi Torres: sumPuntaje=11.4 (tipo: number), avgPuntaje=0.6705882352941177 (tipo: number), puntos=11.4 (tipo: number)
+11. Lucia Ferman: sumPuntaje=10.049999999999999 (tipo: number), avgPuntaje=0.6281249999999999 (tipo: number), puntos=10.049999999999999 (tipo: number)
+12. Miguel Nunez: sumPuntaje=9.95 (tipo: number), avgPuntaje=0.9045454545454544 (tipo: number), puntos=9.95 (tipo: number)
+13. Nelson Ceren: sumPuntaje=9.1 (tipo: number), avgPuntaje=0.8272727272727273 (tipo: number), puntos=9.1 (tipo: number)
+14. Fernanda Castillo: sumPuntaje=8.9 (tipo: number), avgPuntaje=0.89 (tipo: number), puntos=8.9 (tipo: number)
+15. Cindy Flores: sumPuntaje=8.65 (tipo: number), avgPuntaje=0.6653846153846155 (tipo: number), puntos=8.65 (tipo: number)
+16. Daniela Bonilla: sumPuntaje=7.800000000000001 (tipo: number), avgPuntaje=0.78 (tipo: number), puntos=7.800000000000001 (tipo: number)
+17. Priscila Hernandez: sumPuntaje=7.050000000000001 (tipo: number), avgPuntaje=0.7050000000000001 (tipo: number), puntos=7.050000000000001 (tipo: number)
+18. Alexander Rivera: sumPuntaje=6.45 (tipo: number), avgPuntaje=1.29 (tipo: number), puntos=6.45 (tipo: number)
+19. EduardoR: sumPuntaje=6.2 (tipo: number), avgPuntaje=0.775 (tipo: number), puntos=6.2 (tipo: number)
+20. Evelin Garcia: sumPuntaje=6 (tipo: number), avgPuntaje=0.75 (tipo: number), puntos=6 (tipo: number)
+21. Jonathan Morales: sumPuntaje=5.95 (tipo: number), avgPuntaje=0.85 (tipo: number), puntos=5.95 (tipo: number)
+22. Steven Varela: sumPuntaje=5.800000000000001 (tipo: number), avgPuntaje=0.8285714285714286 (tipo: number), puntos=5.800000000000001 (tipo: number)
+23. Tatiana Ayala: sumPuntaje=5.6000000000000005 (tipo: number), avgPuntaje=0.8 (tipo: number), puntos=5.6000000000000005 (tipo: number)
+24. Stefani Martinez: sumPuntaje=5.6 (tipo: number), avgPuntaje=0.9333333333333332 (tipo: number), puntos=5.6 (tipo: number)
+25. NICOLE.CRUZ: sumPuntaje=5.4 (tipo: number), avgPuntaje=0.7714285714285715 (tipo: number), puntos=5.4 (tipo: number)
+26. JORGE.SEGOVIA: sumPuntaje=5.2 (tipo: number), avgPuntaje=0.65 (tipo: number), puntos=5.2 (tipo: number)
+27. Josue Renderos: sumPuntaje=4.8500000000000005 (tipo: number), avgPuntaje=0.8083333333333335 (tipo: number), puntos=4.8500000000000005 (tipo: number)
+28. abigail.bernal: sumPuntaje=4.3 (tipo: number), avgPuntaje=0.6142857142857142 (tipo: number), puntos=4.3 (tipo: number)
+29. alejandraMelara: sumPuntaje=3.9000000000000004 (tipo: number), avgPuntaje=0.78 (tipo: number), puntos=3.9000000000000004 (tipo: number)
+30. Giselle Diaz: sumPuntaje=3.6500000000000004 (tipo: number), avgPuntaje=0.7300000000000001 (tipo: number), puntos=3.6500000000000004 (tipo: number)
+31. Jairo.Flores: sumPuntaje=2.7 (tipo: number), avgPuntaje=0.675 (tipo: number), puntos=2.7 (tipo: number)
+32. Kimberly Iglesias: sumPuntaje=2.7 (tipo: number), avgPuntaje=0.675 (tipo: number), puntos=2.7 (tipo: number)
+[RANKING] Devolviendo datos: [
+  {
+    _id: 'juliochavez',
+    nombre: 'Julio Chavez',
+    nombreOriginal: 'Julio Chavez',
+    nombreLimpio: 'Julio Chavez',
+    nombreNormalizado: 'juliochavez',
+    ventas: 29,
+    sumPuntaje: 25.6,
+    avgPuntaje: 0.8827586206896553,
+    puntos: 25.6,
+    originCollections: [ 'costumers', 'costumers_Julio_Chavez' ],
+    username: 'Julio Chavez',
+    userId: '68af545cc61c405e2bb7b0de',
+    avatarUrl: '/api/user-avatars/6942fbe213520bd27d7bf491?v=1765997538722',
+    avatarFileId: '6942fbe213520bd27d7bf491',
+    avatarUpdatedAt: 1765997538722,
+    imageUrl: '/api/user-avatars/6942fbe213520bd27d7bf491?v=1765997538722',
+    promedio: 0.8827586206896553,
+    position: 1
+  },
+  {
+    _id: 'andersonguzman',
+    nombre: 'Anderson Guzman',
+    nombreOriginal: 'Anderson Guzman',
+    nombreLimpio: 'Anderson Guzman',
+    nombreNormalizado: 'andersonguzman',
+    ventas: 23,
+    sumPuntaje: 20.55,
+    avgPuntaje: 0.8934782608695653,
+    puntos: 20.55,
+    originCollections: [ 'costumers_Anderson_Guzman', 'costumers' ],
+    username: 'Anderson Guzman',
+    userId: '68af53edc61c405e2bb7b0db',
+    avatarUrl: '/api/user-avatars/693726e9266cc6166ea6e864?v=1765222122053',
+    avatarFileId: '693726e9266cc6166ea6e864',
+    avatarUpdatedAt: 1765222122053,
+    imageUrl: '/api/user-avatars/693726e9266cc6166ea6e864?v=1765222122053',
+    promedio: 0.8934782608695653,
+    position: 2
+  },
+  {
+    _id: 'roxanamartinez',
+    nombre: 'Roxana Martinez',
+    nombreOriginal: 'Roxana Martinez',
+    nombreLimpio: 'Roxana Martinez',
+    nombreNormalizado: 'roxanamartinez',
+    ventas: 27,
+    sumPuntaje: 18.25,
+    avgPuntaje: 0.6759259259259259,
+    puntos: 18.25,
+    originCollections: [ 'costumers_Roxana_Martinez' ],
+    username: 'Roxana Martinez',
+    userId: '68af457bc61c405e2bb7b0ce',
+    avatarUrl: '/api/user-avatars/6936019dd39b28a431d56508?v=1765147037636',
+    avatarFileId: '6936019dd39b28a431d56508',
+    avatarUpdatedAt: 1765147037636,
+    imageUrl: '/api/user-avatars/6936019dd39b28a431d56508?v=1765147037636',
+    promedio: 0.6759259259259259,
+    position: 3
+  },
+  {
+    _id: 'luischavarria',
+    nombre: 'Luis Chavarria',
+    nombreOriginal: 'Luis Chavarria',
+    nombreLimpio: 'Luis Chavarria',
+    nombreNormalizado: 'luischavarria',
+    ventas: 21,
+    sumPuntaje: 17.2,
+    avgPuntaje: 0.819047619047619,
+    puntos: 17.2,
+    originCollections: [ 'costumers_Luis_Chavarria' ],
+    username: 'Luis Chavarria',
+    userId: '68af5079c61c405e2bb7b0d9',
+    avatarUrl: '/api/user-avatars/69347ccb785b2d6c56e376e2?v=1765047499068',
+    avatarFileId: '69347ccb785b2d6c56e376e2',
+    avatarUpdatedAt: 1765047499068,
+    imageUrl: '/api/user-avatars/69347ccb785b2d6c56e376e2?v=1765047499068',
+    promedio: 0.819047619047619,
+    position: 4
+  },
+  {
+    _id: 'lisbethcortez',
+    nombre: 'Lisbeth Cortez',
+    nombreOriginal: 'Lisbeth Cortez',
+    nombreLimpio: 'Lisbeth Cortez',
+    nombreNormalizado: 'lisbethcortez',
+    ventas: 20,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.755,
+    puntos: 15.1,
+    originCollections: [ 'costumers', 'costumers_Lisbeth_Cortez' ],
+    username: 'Lisbeth Cortez',
+    userId: '68af5651c61c405e2bb7b0e6',
+    avatarUrl: '/api/user-avatars/69360708d39b28a431d5651a?v=1765148424602',
+    avatarFileId: '69360708d39b28a431d5651a',
+    avatarUpdatedAt: 1765148424602,
+    imageUrl: '/api/user-avatars/69360708d39b28a431d5651a?v=1765148424602',
+    promedio: 0.755,
+    position: 5
+  },
+  {
+    _id: 'diegomejia',
+    nombre: 'Diego Mejia',
+    nombreOriginal: 'Diego Mejia',
+    nombreLimpio: 'Diego Mejia',
+    nombreNormalizado: 'diegomejia',
+    ventas: 16,
+    sumPuntaje: 15.1,
+    avgPuntaje: 0.94375,
+    puntos: 15.1,
+    originCollections: [ 'costumers_Diego_Mejia', 'costumers' ],
+    username: 'Diego Mejia',
+    userId: '68b09e0e16d4bc737513f501',
+    avatarUrl: '/api/user-avatars/6941fbd379471cf76e6c4e63?v=1765931987611',
+    avatarFileId: '6941fbd379471cf76e6c4e63',
+    avatarUpdatedAt: 1765931987611,
+    imageUrl: '/api/user-avatars/6941fbd379471cf76e6c4e63?v=1765931987611',
+    promedio: 0.94375,
+    position: 6
+  },
+  {
+    _id: 'ingridgarcia',
+    nombre: 'INGRID VANESSA REYES GARCIA',
+    nombreOriginal: 'INGRID.GARCIA',
+    nombreLimpio: 'INGRIDGARCIA',
+    nombreNormalizado: 'ingridgarcia',
+    ventas: 20,
+    sumPuntaje: 13.65,
+    avgPuntaje: 0.6825,
+    puntos: 13.65,
+    originCollections: [ 'costumers_692e09' ],
+    username: 'INGRID.GARCIA',
+    userId: '692e0993f1f32c7fa6f49838',
+    avatarUrl: '/api/user-avatars/6940aa4dde36e43252423cb7?v=1765845581372',
+    avatarFileId: '6940aa4dde36e43252423cb7',
+    avatarUpdatedAt: 1765845581372,
+    imageUrl: '/api/user-avatars/6940aa4dde36e43252423cb7?v=1765845581372',
+    promedio: 0.6825,
+    position: 7
+  },
+  {
+    _id: 'franciscoaguilar',
+    nombre: 'Francisco Aguilar',
+    nombreOriginal: 'Francisco Aguilar',
+    nombreLimpio: 'Francisco Aguilar',
+    nombreNormalizado: 'franciscoaguilar',
+    ventas: 17,
+    sumPuntaje: 13.55,
+    avgPuntaje: 0.7970588235294118,
+    puntos: 13.55,
+    originCollections: [ 'costumers_Francisco_Aguilar', 'costumers' ],
+    username: 'Francisco Aguilar',
+    userId: '68af5623c61c405e2bb7b0e4',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.7970588235294118,
+    position: 8
+  },
+  {
+    _id: 'katerinegomez',
+    nombre: 'Katerine Gomez',
+    nombreOriginal: 'Katerine Gomez',
+    nombreLimpio: 'Katerine Gomez',
+    nombreNormalizado: 'katerinegomez',
+    ventas: 17,
+    sumPuntaje: 13.4,
+    avgPuntaje: 0.788235294117647,
+    puntos: 13.4,
+    originCollections: [ 'costumers_Katerine_Gomez', 'costumers' ],
+    username: 'Katerine Gomez',
+    userId: '68af418dc61c405e2bb7b0c5',
+    avatarUrl: '/api/user-avatars/69371693266cc6166ea6e840?v=1765217939992',
+    avatarFileId: '69371693266cc6166ea6e840',
+    avatarUpdatedAt: 1765217939992,
+    imageUrl: '/api/user-avatars/69371693266cc6166ea6e840?v=1765217939992',
+    promedio: 0.788235294117647,
+    position: 9
+  },
+  {
+    _id: 'riquelmitorres',
+    nombre: 'Riquelmi Torres',
+    nombreOriginal: 'Riquelmi Torres',
+    nombreLimpio: 'Riquelmi Torres',
+    nombreNormalizado: 'riquelmitorres',
+    ventas: 17,
+    sumPuntaje: 11.4,
+    avgPuntaje: 0.6705882352941177,
+    puntos: 11.4,
+    originCollections: [ 'costumers_Riquelmi_Torres' ],
+    username: 'Riquelmi Torres',
+    userId: '68af5551c61c405e2bb7b0e1',
+    avatarUrl: '/api/user-avatars/69418f2c79471cf76e6c4e1c?v=1765904172434',
+    avatarFileId: '69418f2c79471cf76e6c4e1c',
+    avatarUpdatedAt: 1765904172434,
+    imageUrl: '/api/user-avatars/69418f2c79471cf76e6c4e1c?v=1765904172434',
+    promedio: 0.6705882352941177,
+    position: 10
+  },
+  {
+    _id: 'luciaferman',
+    nombre: 'Lucia Ferman',
+    nombreOriginal: 'Lucia Ferman',
+    nombreLimpio: 'Lucia Ferman',
+    nombreNormalizado: 'luciaferman',
+    ventas: 16,
+    sumPuntaje: 10.049999999999999,
+    avgPuntaje: 0.6281249999999999,
+    puntos: 10.049999999999999,
+    originCollections: [ 'costumers_Lucia_Ferman', 'costumers' ],
+    username: 'Lucia Ferman',
+    userId: '68af566cc61c405e2bb7b0e7',
+    avatarUrl: '/api/user-avatars/69360b01d39b28a431d5652c?v=1765149441752',
+    avatarFileId: '69360b01d39b28a431d5652c',
+    avatarUpdatedAt: 1765149441752,
+    imageUrl: '/api/user-avatars/69360b01d39b28a431d5652c?v=1765149441752',
+    promedio: 0.6281249999999999,
+    position: 11
+  },
+  {
+    _id: 'miguelnunez',
+    nombre: 'Miguel Nunez',
+    nombreOriginal: 'Miguel Nunez',
+    nombreLimpio: 'Miguel Nunez',
+    nombreNormalizado: 'miguelnunez',
+    ventas: 11,
+    sumPuntaje: 9.95,
+    avgPuntaje: 0.9045454545454544,
+    puntos: 9.95,
+    originCollections: [ 'costumers_Miguel_Nunez' ],
+    username: 'Miguel Nunez',
+    userId: '68af453bc61c405e2bb7b0cd',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.9045454545454544,
+    position: 12
+  },
+  {
+    _id: 'nelsonceren',
+    nombre: 'Nelson Ceren',
+    nombreOriginal: 'Nelson Ceren',
+    nombreLimpio: 'Nelson Ceren',
+    nombreNormalizado: 'nelsonceren',
+    ventas: 11,
+    sumPuntaje: 9.1,
+    avgPuntaje: 0.8272727272727273,
+    puntos: 9.1,
+    originCollections: [ 'costumers_Nelson_Ceren' ],
+    username: 'Nelson Ceren',
+    userId: '68af568bc61c405e2bb7b0e8',
+    avatarUrl: '/api/user-avatars/693b5d73a584613b366ca050?v=1765498227099',
+    avatarFileId: '693b5d73a584613b366ca050',
+    avatarUpdatedAt: 1765498227099,
+    imageUrl: '/api/user-avatars/693b5d73a584613b366ca050?v=1765498227099',
+    promedio: 0.8272727272727273,
+    position: 13
+  },
+  {
+    _id: 'fernandacastillo',
+    nombre: 'Fernanda Castillo',
+    nombreOriginal: 'Fernanda Castillo',
+    nombreLimpio: 'Fernanda Castillo',
+    nombreNormalizado: 'fernandacastillo',
+    ventas: 10,
+    sumPuntaje: 8.9,
+    avgPuntaje: 0.89,
+    puntos: 8.9,
+    originCollections: [ 'costumers_Fernanda_Castillo' ],
+    username: 'Fernanda Castillo',
+    userId: '68af40a1c61c405e2bb7b0c1',
+    avatarUrl: '/api/user-avatars/69383288c08b03c6ed22de17?v=1765290632981',
+    avatarFileId: '69383288c08b03c6ed22de17',
+    avatarUpdatedAt: 1765290632981,
+    imageUrl: '/api/user-avatars/69383288c08b03c6ed22de17?v=1765290632981',
+    promedio: 0.89,
+    position: 14
+  },
+  {
+    _id: 'cindyflores',
+    nombre: 'Cindy Flores',
+    nombreOriginal: 'Cindy Flores',
+    nombreLimpio: 'Cindy Flores',
+    nombreNormalizado: 'cindyflores',
+    ventas: 13,
+    sumPuntaje: 8.65,
+    avgPuntaje: 0.6653846153846155,
+    puntos: 8.65,
+    originCollections: [ 'costumers', 'costumers_Cindy_Flores' ],
+    username: 'Cindy Flores',
+    userId: '68af55fec61c405e2bb7b0e2',
+    avatarUrl: '/api/user-avatars/6939dea39062280e0772d5be?v=1765400227851',
+    avatarFileId: '6939dea39062280e0772d5be',
+    avatarUpdatedAt: 1765400227851,
+    imageUrl: '/api/user-avatars/6939dea39062280e0772d5be?v=1765400227851',
+    promedio: 0.6653846153846155,
+    position: 15
+  },
+  {
+    _id: 'danielabonilla',
+    nombre: 'Daniela Bonilla',
+    nombreOriginal: 'Daniela Bonilla',
+    nombreLimpio: 'Daniela Bonilla',
+    nombreNormalizado: 'danielabonilla',
+    ventas: 10,
+    sumPuntaje: 7.800000000000001,
+    avgPuntaje: 0.78,
+    puntos: 7.800000000000001,
+    originCollections: [ 'costumers_Daniela_Bonilla' ],
+    username: 'Daniela Bonilla',
+    userId: '68af5610c61c405e2bb7b0e3',
+    avatarUrl: '/api/user-avatars/6934bce9f2acfd94bbd84544?v=1765063913701',
+    avatarFileId: '6934bce9f2acfd94bbd84544',
+    avatarUpdatedAt: 1765063913701,
+    imageUrl: '/api/user-avatars/6934bce9f2acfd94bbd84544?v=1765063913701',
+    promedio: 0.78,
+    position: 16
+  },
+  {
+    _id: 'priscilahernandez',
+    nombre: 'Priscila Hernandez',
+    nombreOriginal: 'Priscila Hernandez',
+    nombreLimpio: 'Priscila Hernandez',
+    nombreNormalizado: 'priscilahernandez',
+    ventas: 10,
+    sumPuntaje: 7.050000000000001,
+    avgPuntaje: 0.7050000000000001,
+    puntos: 7.050000000000001,
+    originCollections: [ 'costumers_Priscila_Hernandez' ],
+    username: 'Priscila Hernandez',
+    userId: '68af546cc61c405e2bb7b0df',
+    avatarUrl: '/api/user-avatars/6941921579471cf76e6c4e32?v=1765904917146',
+    avatarFileId: '6941921579471cf76e6c4e32',
+    avatarUpdatedAt: 1765904917146,
+    imageUrl: '/api/user-avatars/6941921579471cf76e6c4e32?v=1765904917146',
+    promedio: 0.7050000000000001,
+    position: 17
+  },
+  {
+    _id: 'alexanderrivera',
+    nombre: 'Alexander Rivera',
+    nombreOriginal: 'Alexander Rivera',
+    nombreLimpio: 'Alexander Rivera',
+    nombreNormalizado: 'alexanderrivera',
+    ventas: 5,
+    sumPuntaje: 6.45,
+    avgPuntaje: 1.29,
+    puntos: 6.45,
+    originCollections: [ 'costumers_Alexander_Rivera', 'costumers' ],
+    username: 'Alexander Rivera',
+    userId: '68af4f8cc61c405e2bb7b0d4',
+    avatarUrl: '/api/user-avatars/6939eaef44e19104feffa636?v=1765403375796',
+    avatarFileId: '6939eaef44e19104feffa636',
+    avatarUpdatedAt: 1765403375796,
+    imageUrl: '/api/user-avatars/6939eaef44e19104feffa636?v=1765403375796',
+    promedio: 1.29,
+    position: 18
+  },
+  {
+    _id: 'eduardor',
+    nombre: 'EduardoR',
+    nombreOriginal: 'EduardoR',
+    nombreLimpio: 'Eduardo R',
+    nombreNormalizado: 'eduardor',
+    ventas: 8,
+    sumPuntaje: 6.2,
+    avgPuntaje: 0.775,
+    puntos: 6.2,
+    originCollections: [ 'costumers_Eduardo_R' ],
+    username: 'EduardoR',
+    userId: '68ba19a7c0605d2b8a29fff1',
+    avatarUrl: '/api/user-avatars/6942ecbf13520bd27d7bf48d?v=1765993663590',
+    avatarFileId: '6942ecbf13520bd27d7bf48d',
+    avatarUpdatedAt: 1765993663590,
+    imageUrl: '/api/user-avatars/6942ecbf13520bd27d7bf48d?v=1765993663590',
+    promedio: 0.775,
+    position: 19
+  },
+  {
+    _id: 'evelingarcia',
+    nombre: 'Evelin Garcia',
+    nombreOriginal: 'Evelin Garcia',
+    nombreLimpio: 'Evelin Garcia',
+    nombreNormalizado: 'evelingarcia',
+    ventas: 8,
+    sumPuntaje: 6,
+    avgPuntaje: 0.75,
+    puntos: 6,
+    originCollections: [ 'costumers_Evelin_Garcia' ],
+    username: 'Evelin Garcia',
+    userId: '68b1dea61449d766c75b586a',
+    avatarUrl: '/api/user-avatars/6941d3d779471cf76e6c4e43?v=1765921751594',
+    avatarFileId: '6941d3d779471cf76e6c4e43',
+    avatarUpdatedAt: 1765921751594,
+    imageUrl: '/api/user-avatars/6941d3d779471cf76e6c4e43?v=1765921751594',
+    promedio: 0.75,
+    position: 20
+  },
+  {
+    _id: 'jonathanmorales',
+    nombre: 'Jonathan Morales',
+    nombreOriginal: 'Jonathan Morales',
+    nombreLimpio: 'Jonathan Morales',
+    nombreNormalizado: 'jonathanmorales',
+    ventas: 7,
+    sumPuntaje: 5.95,
+    avgPuntaje: 0.85,
+    puntos: 5.95,
+    originCollections: [ 'costumers_Jonathan_Morales' ],
+    username: 'Jonathan Morales',
+    userId: '68af40c1c61c405e2bb7b0c2',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.85,
+    position: 21
+  },
+  {
+    _id: 'stevenvarela',
+    nombre: 'Steven Varela',
+    nombreOriginal: 'Steven Varela',
+    nombreLimpio: 'Steven Varela',
+    nombreNormalizado: 'stevenvarela',
+    ventas: 7,
+    sumPuntaje: 5.800000000000001,
+    avgPuntaje: 0.8285714285714286,
+    puntos: 5.800000000000001,
+    originCollections: [ 'costumers_Steven_Varela' ],
+    username: 'Steven Varela',
+    userId: '68af9c745a007ea8f2e9838a',
+    avatarUrl: '/api/user-avatars/693b35e667eac50e6273356c?v=1765488102405',
+    avatarFileId: '693b35e667eac50e6273356c',
+    avatarUpdatedAt: 1765488102405,
+    imageUrl: '/api/user-avatars/693b35e667eac50e6273356c?v=1765488102405',
+    promedio: 0.8285714285714286,
+    position: 22
+  },
+  {
+    _id: 'tatianaayala',
+    nombre: 'Tatiana Ayala',
+    nombreOriginal: 'Tatiana Ayala',
+    nombreLimpio: 'Tatiana Ayala',
+    nombreNormalizado: 'tatianaayala',
+    ventas: 7,
+    sumPuntaje: 5.6000000000000005,
+    avgPuntaje: 0.8,
+    puntos: 5.6000000000000005,
+    originCollections: [ 'costumers_Tatiana_Ayala' ],
+    username: 'Tatiana Ayala',
+    userId: '68af4597c61c405e2bb7b0cf',
+    avatarUrl: '/api/user-avatars/69372542266cc6166ea6e852?v=1765221698033',
+    avatarFileId: '69372542266cc6166ea6e852',
+    avatarUpdatedAt: 1765221698033,
+    imageUrl: '/api/user-avatars/69372542266cc6166ea6e852?v=1765221698033',
+    promedio: 0.8,
+    position: 23
+  },
+  {
+    _id: 'stefanimartinez',
+    nombre: 'Stefani Martinez',
+    nombreOriginal: 'Stefani Martinez',
+    nombreLimpio: 'Stefani Martinez',
+    nombreNormalizado: 'stefanimartinez',
+    ventas: 6,
+    sumPuntaje: 5.6,
+    avgPuntaje: 0.9333333333333332,
+    puntos: 5.6,
+    originCollections: [ 'costumers_68af41d0c61c405e2bb7b0c8', 'costumers' ],
+    username: 'Stefani Martinez',
+    userId: '68af41d0c61c405e2bb7b0c8',
+    avatarUrl: '/api/user-avatars/6937277d266cc6166ea6e869?v=1765222269826',
+    avatarFileId: '6937277d266cc6166ea6e869',
+    avatarUpdatedAt: 1765222269826,
+    imageUrl: '/api/user-avatars/6937277d266cc6166ea6e869?v=1765222269826',
+    promedio: 0.9333333333333332,
+    position: 24
+  },
+  {
+    _id: 'nicolecruz',
+    nombre: 'TATIANA NICOLE CRUZ ',
+    nombreOriginal: 'NICOLE.CRUZ',
+    nombreLimpio: 'NICOLECRUZ',
+    nombreNormalizado: 'nicolecruz',
+    ventas: 7,
+    sumPuntaje: 5.4,
+    avgPuntaje: 0.7714285714285715,
+    puntos: 5.4,
+    originCollections: [ 'costumers_691b86', 'costumers' ],
+    username: 'NICOLE.CRUZ',
+    userId: '691b8628af8026f685d8d6ba',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.7714285714285715,
+    position: 25
+  },
+  {
+    _id: 'jorgesegovia',
+    nombre: 'JORGE LUIS SEGOVIA RIVERA ',
+    nombreOriginal: 'JORGE.SEGOVIA',
+    nombreLimpio: 'JORGESEGOVIA',
+    nombreNormalizado: 'jorgesegovia',
+    ventas: 8,
+    sumPuntaje: 5.2,
+    avgPuntaje: 0.65,
+    puntos: 5.2,
+    originCollections: [ 'costumers_692371' ],
+    username: 'Jorge.Segovia',
+    userId: '6923718377e18836bf2d47d0',
+    avatarUrl: '/api/user-avatars/693b0a84d5b27ddaee5278aa?v=1765476996168',
+    avatarFileId: '693b0a84d5b27ddaee5278aa',
+    avatarUpdatedAt: 1765476996168,
+    imageUrl: '/api/user-avatars/693b0a84d5b27ddaee5278aa?v=1765476996168',
+    promedio: 0.65,
+    position: 26
+  },
+  {
+    _id: 'josuerenderos',
+    nombre: 'Josue Renderos',
+    nombreOriginal: 'Josue Renderos',
+    nombreLimpio: 'Josue Renderos',
+    nombreNormalizado: 'josuerenderos',
+    ventas: 6,
+    sumPuntaje: 4.8500000000000005,
+    avgPuntaje: 0.8083333333333335,
+    puntos: 4.8500000000000005,
+    originCollections: [ 'costumers_Josue_Renderos' ],
+    username: 'Josue Renderos',
+    userId: '68af44efc61c405e2bb7b0cc',
+    avatarUrl: null,
+    avatarFileId: null,
+    avatarUpdatedAt: null,
+    imageUrl: null,
+    promedio: 0.8083333333333335,
+    position: 27
+  },
+  {
+    _id: 'abigailbernal',
+    nombre: 'abigail.bernal',
+    nombreOriginal: 'abigail.bernal',
+    nombreLimpio: 'abigailbernal',
+    nombreNormalizado: 'abigailbernal',
+    ventas: 7,
+    sumPuntaje: 4.3,
+    avgPuntaje: 0.6142857142857142,
+    puntos: 4.3,
+    originCollections: [ 'costumers_6904e7', 'costumers' ],
+    username: 'abigail.bernal',
+    userId: '6904e7d694628f99ad2a4d26',
+    avatarUrl: '/api/user-avatars/69418ff679471cf76e6c4e28?v=1765904374449',
+    avatarFileId: '69418ff679471cf76e6c4e28',
+    avatarUpdatedAt: 1765904374449,
+    imageUrl: '/api/user-avatars/69418ff679471cf76e6c4e28?v=1765904374449',
+    promedio: 0.6142857142857142,
+    position: 28
+  },
+  {
+    _id: 'alejandramelara',
+    nombre: 'alejandraMelara',
+    nombreOriginal: 'alejandraMelara',
+    nombreLimpio: 'alejandra Melara',
+    nombreNormalizado: 'alejandramelara',
+    ventas: 5,
+    sumPuntaje: 3.9000000000000004,
+    avgPuntaje: 0.78,
+    puntos: 3.9000000000000004,
+    originCollections: [ 'costumers_Alejandra_Melara' ],
+    username: 'alejandraMelara',
+    userId: '68e976e7bb7e9fa2bb73f483',
+    avatarUrl: '/api/user-avatars/693b1444074b048f1190fa27?v=1765479492437',
+    avatarFileId: '693b1444074b048f1190fa27',
+    avatarUpdatedAt: 1765479492437,
+    imageUrl: '/api/user-avatars/693b1444074b048f1190fa27?v=1765479492437',
+    promedio: 0.78,
+    position: 29
+  },
+  {
+    _id: 'gisellediaz',
+    nombre: 'Giselle Diaz',
+    nombreOriginal: 'Giselle Diaz',
+    nombreLimpio: 'Giselle Diaz',
+    nombreNormalizado: 'gisellediaz',
+    ventas: 5,
+    sumPuntaje: 3.6500000000000004,
+    avgPuntaje: 0.7300000000000001,
+    puntos: 3.6500000000000004,
+    originCollections: [ 'costumers_Giselle_Diaz' ],
+    username: 'Giselle Diaz',
+    userId: '68af44c3c61c405e2bb7b0cb',
+    avatarUrl: '/api/user-avatars/6942bcf24ddf9b3a60cb9530?v=1765981426723',
+    avatarFileId: '6942bcf24ddf9b3a60cb9530',
+    avatarUpdatedAt: 1765981426723,
+    imageUrl: '/api/user-avatars/6942bcf24ddf9b3a60cb9530?v=1765981426723',
+    promedio: 0.7300000000000001,
+    position: 30
+  },
+  {
+    _id: 'jairoflores',
+    nombre: 'JAIRO IVAN FLORES PINO',
+    nombreOriginal: 'Jairo.Flores',
+    nombreLimpio: 'Jairo Flores',
+    nombreNormalizado: 'jairoflores',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_69385a' ],
+    username: 'Jairo.Flores',
+    userId: '69385a58347f17591c8aeb44',
+    avatarUrl: '/api/user-avatars/6941c76f79471cf76e6c4e40?v=1765918575127',
+    avatarFileId: '6941c76f79471cf76e6c4e40',
+    avatarUpdatedAt: 1765918575127,
+    imageUrl: '/api/user-avatars/6941c76f79471cf76e6c4e40?v=1765918575127',
+    promedio: 0.675,
+    position: 31
+  },
+  {
+    _id: 'kimberlyiglesias',
+    nombre: 'Kimberly Iglesias',
+    nombreOriginal: 'Kimberly Iglesias',
+    nombreLimpio: 'Kimberly Iglesias',
+    nombreNormalizado: 'kimberlyiglesias',
+    ventas: 4,
+    sumPuntaje: 2.7,
+    avgPuntaje: 0.675,
+    puntos: 2.7,
+    originCollections: [ 'costumers_Kimberly_Iglesias', 'costumers' ],
+    username: 'Kimberly Iglesias',
+    userId: '68af4175c61c405e2bb7b0c3',
+    avatarUrl: '/api/user-avatars/693727f8266cc6166ea6e86c?v=1765222392332',
+    avatarFileId: '693727f8266cc6166ea6e86c',
+    avatarUpdatedAt: 1765222392332,
+    imageUrl: '/api/user-avatars/693727f8266cc6166ea6e86c?v=1765222392332',
+    promedio: 0.675,
+    position: 32
+  }
+]
+[RANKING] Datos finales enviados al frontend:
+1. Julio Chavez: puntos=25.6, sumPuntaje=25.6, avgPuntaje=0.8827586206896553, promedio=0.8827586206896553
+2. Anderson Guzman: puntos=20.55, sumPuntaje=20.55, avgPuntaje=0.8934782608695653, promedio=0.8934782608695653
+3. Roxana Martinez: puntos=18.25, sumPuntaje=18.25, avgPuntaje=0.6759259259259259, promedio=0.6759259259259259
+4. Luis Chavarria: puntos=17.2, sumPuntaje=17.2, avgPuntaje=0.819047619047619, promedio=0.819047619047619
+5. Lisbeth Cortez: puntos=15.1, sumPuntaje=15.1, avgPuntaje=0.755, promedio=0.755
+6. Diego Mejia: puntos=15.1, sumPuntaje=15.1, avgPuntaje=0.94375, promedio=0.94375
+7. INGRID VANESSA REYES GARCIA: puntos=13.65, sumPuntaje=13.65, avgPuntaje=0.6825, promedio=0.6825
+8. Francisco Aguilar: puntos=13.55, sumPuntaje=13.55, avgPuntaje=0.7970588235294118, promedio=0.7970588235294118
+9. Katerine Gomez: puntos=13.4, sumPuntaje=13.4, avgPuntaje=0.788235294117647, promedio=0.788235294117647
+10. Riquelmi Torres: puntos=11.4, sumPuntaje=11.4, avgPuntaje=0.6705882352941177, promedio=0.6705882352941177
+11. Lucia Ferman: puntos=10.049999999999999, sumPuntaje=10.049999999999999, avgPuntaje=0.6281249999999999, promedio=0.6281249999999999
+12. Miguel Nunez: puntos=9.95, sumPuntaje=9.95, avgPuntaje=0.9045454545454544, promedio=0.9045454545454544
+13. Nelson Ceren: puntos=9.1, sumPuntaje=9.1, avgPuntaje=0.8272727272727273, promedio=0.8272727272727273
+14. Fernanda Castillo: puntos=8.9, sumPuntaje=8.9, avgPuntaje=0.89, promedio=0.89
+15. Cindy Flores: puntos=8.65, sumPuntaje=8.65, avgPuntaje=0.6653846153846155, promedio=0.6653846153846155
+16. Daniela Bonilla: puntos=7.800000000000001, sumPuntaje=7.800000000000001, avgPuntaje=0.78, promedio=0.78
+17. Priscila Hernandez: puntos=7.050000000000001, sumPuntaje=7.050000000000001, avgPuntaje=0.7050000000000001, promedio=0.7050000000000001
+18. Alexander Rivera: puntos=6.45, sumPuntaje=6.45, avgPuntaje=1.29, promedio=1.29
+19. EduardoR: puntos=6.2, sumPuntaje=6.2, avgPuntaje=0.775, promedio=0.775
+20. Evelin Garcia: puntos=6, sumPuntaje=6, avgPuntaje=0.75, promedio=0.75
+21. Jonathan Morales: puntos=5.95, sumPuntaje=5.95, avgPuntaje=0.85, promedio=0.85
+22. Steven Varela: puntos=5.800000000000001, sumPuntaje=5.800000000000001, avgPuntaje=0.8285714285714286, promedio=0.8285714285714286
+23. Tatiana Ayala: puntos=5.6000000000000005, sumPuntaje=5.6000000000000005, avgPuntaje=0.8, promedio=0.8
+24. Stefani Martinez: puntos=5.6, sumPuntaje=5.6, avgPuntaje=0.9333333333333332, promedio=0.9333333333333332
+25. TATIANA NICOLE CRUZ : puntos=5.4, sumPuntaje=5.4, avgPuntaje=0.7714285714285715, promedio=0.7714285714285715
+26. JORGE LUIS SEGOVIA RIVERA : puntos=5.2, sumPuntaje=5.2, avgPuntaje=0.65, promedio=0.65
+27. Josue Renderos: puntos=4.8500000000000005, sumPuntaje=4.8500000000000005, avgPuntaje=0.8083333333333335, promedio=0.8083333333333335
+28. abigail.bernal: puntos=4.3, sumPuntaje=4.3, avgPuntaje=0.6142857142857142, promedio=0.6142857142857142
+29. alejandraMelara: puntos=3.9000000000000004, sumPuntaje=3.9000000000000004, avgPuntaje=0.78, promedio=0.78
+30. Giselle Diaz: puntos=3.6500000000000004, sumPuntaje=3.6500000000000004, avgPuntaje=0.7300000000000001, promedio=0.7300000000000001
+31. JAIRO IVAN FLORES PINO: puntos=2.7, sumPuntaje=2.7, avgPuntaje=0.675, promedio=0.675
+32. Kimberly Iglesias: puntos=2.7, sumPuntaje=2.7, avgPuntaje=0.675, promedio=0.675
+[RANKING] Cache saved: {"fechaInicio":"2025-12-01","fechaFin":"2025-12-17","all":true,"limitParam":"500","field":"createdAt"} ttl_ms= 300000
+[API DEBUG] Incoming request {
+  method: 'GET',
+  url: '/api/ranking?all=1&fechaInicio=2025-12-01&fechaFin=2025-12-17&limit=500',
+  headersPreview: {
+    host: 'localhost:3000',
+    connection: 'keep-alive',
+    'sec-ch-ua-platform': '"Windows"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+    'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-mobile': '?0'
+  }
+}
+[AUTH] Token desde cookies: eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...
+[RANKING] Parámetros recibidos: {
+  fechaInicio: '2025-12-01',
+  fechaFin: '2025-12-17',
+  all: '1',
+  limitParam: '500',
+  debug: undefined,
+  skipDate: undefined,
+  agente: undefined,
+  field: 'createdAt'
+}
+[RANGOS] Efectivo { startDate: '2025-12-01', endDate: '2025-12-17' }
+[RANKING] ✓ Cache hit: {"fechaInicio":"2025-12-01","fechaFin":"2025-12-17","all":true,"limitParam":"500","field":"createdAt"} age_ms= 1205 ttl_ms= 300000
+[DB] Recibida señal SIGINT, limpiando conexiones...
+
+[SHUTDOWN] Cerrando servidor...
+[SHUTDOWN] Servidor cerrado
+[DB] Conexiones (Nativa y Mongoose) cerradas.
+[DB] Conexiones (Nativa y Mongoose) cerradas.

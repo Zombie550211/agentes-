@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Dashboard - Vista de Administrador</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/sidebar-shared.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="agentes/js/auth-check.js"></script>
+    <script src="/js/logout-handler.js"></script>
+    <script src="/js/user-info.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom right, #f8fafc, #e2e8f0);
+            min-height: 100vh;
+            margin-left: 260px;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 0;
+        }
+
+        .header-content {
+            width: 100%;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+
+        .search-input {
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            width: 250px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Main Content */
+        .main-container {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 1.5rem;
+            height: calc(100vh - 200px);
+            padding: 1.5rem;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        /* Dashboard Sidebar */
+        .dashboard-sidebar {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .teams-container {
+            padding: 1rem;
+            max-height: 100%;
+            overflow-y: auto;
+        }
+
+        .team-block {
+            margin-bottom: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .team-header {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(to right, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .team-header:hover {
+            background: linear-gradient(to right, #2563eb, #1d4ed8);
+        }
+
+        .team-members {
+            background: #f8fafc;
+            display: none;
+        }
+
+        .team-members.expanded {
+            display: block;
+        }
+
+        .user-button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.3s;
+        }
+
+        .user-button:hover {
+            background: #dbeafe;
+        }
+
+        .user-button.selected {
+            background: #bfdbfe;
+        }
+
+        .user-button:last-child {
+            border-bottom: none;
+        }
+
+        .agent-button {
+            padding-left: 2rem;
+        }
+
+        .status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+        }
+
+        .supervisor-dot {
+            background: #f59e0b;
+        }
+
+        .agent-dot {
+            background: #10b981;
+        }
+
+        .user-badge {
+            margin-left: auto;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .supervisor-badge {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .agent-badge {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        /* Main Content Area */
+        .content-area {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(to right, #eff6ff, #e0e7ff);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info h2 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        .user-stats {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        .stats-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .stats-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        /* Table */
+        .table-container {
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .data-table thead th {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .data-table tbody td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .data-table tbody td:first-child {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-yellow {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-gray {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            color: #cbd5e1;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-text {
+            color: #94a3b8;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .search-input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar sidebar-inicio" data-active="admin">
+        <!-- Usuario -->
+        <div class="user-info">
+            <div class="user-details">
+                <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
+                    <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
+                        <span class="user-avatar">U</span>
+                    </div>
+                </div>
+                <div id="user-name" class="user-name">Usuario</div>
+                <div class="user-role-container">
+                    <span id="user-role" class="user-role-badge">Rol</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menú principal -->
+        <ul class="menu">
+            <li><a href="inicio.html" class="btn btn-sidebar" title="Inicio"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
+            <li><a href="Ranking y Promociones.html" class="btn btn-sidebar" title="Ranking y Promociones"><i class="fas fa-trophy"></i><span class="menu-label">Ranking y Promociones</span></a></li>
+            <li><a href="lead.html" class="btn btn-sidebar" title="Lead"><i class="fas fa-user-plus"></i><span class="menu-label">Lead</span></a></li>
+            <li><a href="Costumer.html" class="btn btn-sidebar" title="Costumer"><i class="fas fa-users"></i><span class="menu-label">Costumer</span></a></li>
+            <li><a href="facturacion.html" class="btn btn-sidebar" title="Facturación"><i class="fas fa-file-invoice-dollar"></i><span class="menu-label">Facturación</span></a></li>
+            <li><a href="admin-crm-dashboard.html" class="btn btn-sidebar is-active" title="CRM Dashboard"><i class="fas fa-chart-pie"></i><span class="menu-label">CRM Dashboard</span></a></li>
+            <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar" title="Crear cuenta"><i class="fas fa-user-plus"></i><span class="menu-label">Crear cuenta</span></a></li>
+            <li><a href="Estadisticas.html" class="btn btn-sidebar" title="Estadísticas"><i class="fas fa-chart-bar"></i><span class="menu-label">Estadísticas</span></a></li>
+            <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
+            <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
+            <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
+            <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
+        </ul>
+
+        <!-- Frase al pie -->
+        <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <i class="fas fa-users header-icon"></i>
+                    <div>
+                        <div class="header-title">CRM Dashboard</div>
+                        <div class="header-subtitle">Vista de Administrador</div>
+                    </div>
+                </div>
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchUser" class="search-input" placeholder="Buscar usuario...">
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="dashboard-grid">
+                <!-- Sidebar -->
+                <div class="dashboard-sidebar">
+                    <div class="sidebar-header">
+                        <i class="fas fa-users"></i>
+                        Teams y Usuarios
+                    </div>
+                    <div class="teams-container" id="teamsContainer"></div>
+                </div>
+
+                <!-- Content Area -->
+                <div class="content-area" id="contentArea">
+                    <div class="empty-state">
+                        <i class="fas fa-users empty-icon"></i>
+                        <div class="empty-title">Selecciona un Usuario</div>
+                        <div class="empty-text">Haz clic en un supervisor o agente para ver sus clientes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cargar información del usuario en el sidebar
+        document.addEventListener('DOMContentLoaded', function() {
+            const userNameElement = document.getElementById('user-name');
+            const userRoleElement = document.getElementById('user-role');
+            const createAccountItem = document.getElementById('menu-create-account');
+            
+            try {
+                const userName = localStorage.getItem('userName') || 'Usuario';
+                const userRole = localStorage.getItem('userRole') || 'usuario';
+                
+                if (userNameElement) {
+                    userNameElement.textContent = userName;
+                }
+                if (userRoleElement) {
+                    userRoleElement.textContent = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+                }
+                
+                // Mostrar "Crear cuenta" solo para admins
+                function canAccess(role) {
+                    const r = (role || '').toString().toLowerCase();
+                    return ['admin', 'administrador', 'administrativo', 'supervisor', 'backoffice', 'supervisor team lineas'].includes(r);
+                }
+                
+                if (createAccountItem) {
+                    createAccountItem.style.display = canAccess(userRole) ? 'block' : 'none';
+                }
+            } catch (e) {
+                console.log('Error cargando información:', e);
+            }
+        });
+        
+        // Data
+        const teams = [
+            {
+                name: "TEAM BRYAN",
+                supervisor: "Bryan Pleitez",
+                agents: ["Abigail Galdamez", "Alexander Rivera", "Diego Mejia", "Evelin Garcia", "Fabricio Panameño", "Luis Chavarria", "Jairo Flores", "Steven Varela"]
+            },
+            {
+                name: "TEAM IRANIA",
+                supervisor: "Irania Serrano",
+                agents: ["Giselle Diaz", "Josue Renderos", "Miguel Nunez", "Roxana Martinez", "Nicole Cruz", "Jorge Segovia", "Tatiana Ayala"]
+            },
+            {
+                name: "TEAM MARISOL",
+                supervisor: "Marisol Beltran",
+                agents: ["Fernanda Castillo", "Jonathan Morales", "Katerine Gomez", "Eduardo R", "Kimberly Iglesias", "Eduardo Ruiz", "Stefani Martinez"]
+            },
+            {
+                name: "TEAM JOHANA",
+                supervisor: "Guadalupe Santana",
+                agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres"]
+            },
+            {
+                name: "TEAM ROBERTO",
+                supervisor: "Roberto Velasquez",
+                agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren"]
+            }
+        ];
+
+        let selectedUser = null;
+
+        // Generate client data - Fetch from API
+        async function getClientData(userName) {
+            try {
+                const currentDate = new Date();
+                const monthYear = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                
+                // Fetch clients from API
+                const response = await fetch(`/api/crm/agent-clients?agent=${encodeURIComponent(userName)}&month=${monthYear}`);
+                
+                if (!response.ok) {
+                    console.error('Error fetching clients:', response.status);
+                    // Si falla con el mes actual, intentar con "all"
+                    const fallbackResponse = await fetch(`/api/crm/agent-clients?agent=${encodeURIComponent(userName)}&month=all`);
+                    if (fallbackResponse.ok) {
+                        const fallbackData = await fallbackResponse.json();
+                        console.log(`[FALLBACK] Cargados ${fallbackData.count} clientes (sin filtro de mes)`);
+                        return (fallbackData.clients || []).map(c => normalizeClientFields(c));
+                    }
+                    return [];
+                }
+                
+                const data = await response.json();
+                console.log(`[CRM] Clientes cargados para ${userName}: ${data.count}`);
+                return (data.clients || []).map(c => normalizeClientFields(c));
+            } catch (error) {
+                console.error('Error getting client data:', error);
+                return [];
+            }
+        }
+
+        // Mapeo de campos: Convierte los campos variados de MongoDB a formato estándar
+        function normalizeClientFields(client) {
+            if (!client) return {};
+            
+            // Función auxiliar para buscar valor en múltiples nombres de campos posibles
+            const getField = (...fieldNames) => {
+                for (const field of fieldNames) {
+                    if (client[field] !== undefined && client[field] !== null && String(client[field]).toLowerCase() !== 'undefined') {
+                        return client[field];
+                    }
+                }
+                return 'N/A';
+            };
+
+            return {
+                // Información básica del cliente
+                nombreCliente: getField('nombre_cliente', 'nombreCliente', 'nombre', 'client_name', 'name'),
+                telefonoPrincipal: getField('telefono_principal', 'telefonoPrincipal', 'telefono', 'phone', 'phone_number'),
+                telefonoAlterno: getField('telefono_alterno', 'telefonoAlterno', 'telefono_alt', 'phone_alt', 'alternate_phone'),
+                numeroCuenta: getField('numero_cuenta', 'numeroCuenta', 'account_number', 'cuenta', 'account_id'),
+                
+                // Servicios y productos
+                autopago: getField('autopago', 'auto_pay', 'tiene_autopago'),
+                tipoServicios: getField('tipo_servicios', 'tipoServicios', 'services_type', 'service_type'),
+                sistema: getField('sistema', 'system', 'plataforma'),
+                servicios: getField('servicios', 'services', 'lista_servicios'),
+                
+                // Direccion
+                direccion: getField('direccion', 'address', 'domicilio', 'location', 'dir'),
+                zipCode: getField('zip_code', 'zipCode', 'codigo_postal', 'postal_code', 'zip'),
+                
+                // Riesgo y estado
+                riesgo: getField('riesgo', 'risk', 'nivel_riesgo'),
+                status: getField('status', 'estado', 'state', 'estatus'),
+                
+                // Fechas y horarios
+                diaVenta: getField('dia_venta', 'diaVenta', 'sale_date', 'fecha_venta'),
+                diaInstalacion: getField('dia_instalacion', 'diaInstalacion', 'installation_date', 'fecha_instalacion'),
+                
+                // Otras informaciones
+                mercado: getField('mercado', 'market', 'segmento'),
+                supervisor: getField('supervisor', 'supervisador', 'supervisor_name'),
+                comentario: getField('comentario', 'comment', 'comentarios', 'notas'),
+                motivoLlamada: getField('motivo_llamada', 'motivoLlamada', 'call_reason'),
+                puntaje: getField('puntaje', 'score', 'puntuacion'),
+                
+                // Raw data para referencia
+                _raw: client
+            };
+        }
+
+        // Get risk color class
+        function getRiesgoClass(riesgo) {
+            const classes = {
+                'Bajo': 'badge-green',
+                'Medio': 'badge-yellow',
+                'Alto': 'badge-red'
+            };
+            return classes[riesgo] || 'badge-gray';
+        }
+
+        // Render teams
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            container.innerHTML = '';
+
+            teams.forEach((team, index) => {
+                const teamBlock = document.createElement('div');
+                teamBlock.className = 'team-block';
+                teamBlock.innerHTML = `
+                    <button class="team-header" onclick="toggleTeam(${index})">
+                        <span>${team.name}</span>
+                        <i class="fas fa-chevron-right" id="chevron-${index}"></i>
+                    </button>
+                    <div class="team-members" id="team-${index}">
+                        <button class="user-button" onclick="selectUser('${team.supervisor}', 'Supervisor', event)">
+                            <span class="status-dot supervisor-dot"></span>
+                            <span>${team.supervisor}</span>
+                            <span class="user-badge supervisor-badge">Supervisor</span>
+                        </button>
+                        ${team.agents.map(agent => `
+                            <button class="user-button agent-button" onclick="selectUser('${agent}', 'Agente', event)">
+                                <span class="status-dot agent-dot"></span>
+                                <span>${agent}</span>
+                                <span class="user-badge agent-badge">Agente</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(teamBlock);
+            });
+        }
+
+        // Toggle team
+        function toggleTeam(index) {
+            const teamMembers = document.getElementById(`team-${index}`);
+            const chevron = document.getElementById(`chevron-${index}`);
+            
+            if (teamMembers.classList.contains('expanded')) {
+                teamMembers.classList.remove('expanded');
+                chevron.className = 'fas fa-chevron-right';
+            } else {
+                teamMembers.classList.add('expanded');
+                chevron.className = 'fas fa-chevron-down';
+            }
+        }
+
+        // Select user
+        async function selectUser(userName, role, event) {
+            selectedUser = {
+                name: userName,
+                role: role,
+                clients: await getClientData(userName)
+            };
+
+            // Update selected state
+            document.querySelectorAll('.user-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.closest('.user-button').classList.add('selected');
+
+            renderContent();
+        }
+
+        // Render content
+        function renderContent() {
+            const contentArea = document.getElementById('contentArea');
+            
+            if (!selectedUser) {
+                contentArea.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users empty-icon"></i>
+                        <div class="empty-title">Selecciona un Usuario</div>
+                        <div class="empty-text">Haz clic en un supervisor o agente para ver sus clientes</div>
+                    </div>
+                `;
+                return;
+            }
+
+            contentArea.innerHTML = `
+                <div class="content-header">
+                    <div class="user-info">
+                        <h2>${selectedUser.name}</h2>
+                        <div class="user-stats">${selectedUser.role} • ${selectedUser.clients.length} clientes activos</div>
+                    </div>
+                    <div class="stats-right">
+                        <div class="stats-number">${selectedUser.clients.length}</div>
+                        <div class="stats-label">Total de clientes</div>
+                    </div>
+                </div>
+                <div class="filters-bar" style="padding: 1rem; background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center;">
+                    <label style="font-weight: 600;">Filtrar por mes:</label>
+                    <select id="monthFilter" style="padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                        <option value="current">Mes Actual</option>
+                        <option value="2025-12">Diciembre 2025</option>
+                        <option value="2025-11">Noviembre 2025</option>
+                        <option value="2025-10">Octubre 2025</option>
+                        <option value="2025-09">Septiembre 2025</option>
+                        <option value="all">Todos</option>
+                    </select>
+                    <button onclick="refreshClientData()" style="padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Actualizar</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>NOMBRE CLIENTE</th>
+                                <th>TELÉFONO PRINCIPAL</th>
+                                <th>TELÉFONO ALTERNO</th>
+                                <th>NÚMERO DE CUENTA</th>
+                                <th>AUTOPAGO</th>
+                                <th>DIRECCIÓN</th>
+                                <th>TIPO DE SERVICIOS</th>
+                                <th>SISTEMA</th>
+                                <th>RIESGO</th>
+                                <th>DÍA DE VENTA</th>
+                                <th>DÍA DE INSTALACIÓN</th>
+                                <th>STATUS</th>
+                                <th>SERVICIOS</th>
+                                <th>MERCADO</th>
+                                <th>SUPERVISOR</th>
+                                <th>COMENTARIO</th>
+                                <th>MOTIVO LLAMADA</th>
+                                <th>ZIP CODE</th>
+                                <th>PUNTAJE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${selectedUser.clients.map(client => `
+                                <tr>
+                                    <td>${client.nombreCliente}</td>
+                                    <td>${client.telefonoPrincipal}</td>
+                                    <td>${client.telefonoAlterno}</td>
+                                    <td>${client.numeroCuenta}</td>
+                                    <td><span class="badge ${client.autopago === 'Sí' ? 'badge-green' : 'badge-gray'}">${client.autopago}</span></td>
+                                    <td>${client.direccion}</td>
+                                    <td>${client.tipoServicios}</td>
+                                    <td>${client.sistema}</td>
+                                    <td><span class="badge ${getRiesgoClass(client.riesgo)}">${client.riesgo}</span></td>
+                                    <td>${client.diaVenta}</td>
+                                    <td>${client.diaInstalacion}</td>
+                                    <td>${client.status}</td>
+                                    <td>${client.servicios}</td>
+                                    <td>${client.mercado}</td>
+                                    <td>${client.supervisor}</td>
+                                    <td>${client.comentario}</td>
+                                    <td>${client.motivoLlamada}</td>
+                                    <td>${client.zipCode}</td>
+                                    <td><strong>${client.puntaje}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Refresh client data with selected month filter
+        async function refreshClientData() {
+            if (!selectedUser) return;
+            
+            const monthFilter = document.getElementById('monthFilter');
+            const selectedMonth = monthFilter ? monthFilter.value : 'current';
+            
+            try {
+                const response = await fetch(`/api/crm/agent-clients?agent=${encodeURIComponent(selectedUser.name)}&month=${selectedMonth}`);
+                const data = await response.json();
+                
+                selectedUser.clients = (data.clients || []).map(c => normalizeClientFields(c));
+                renderContent();
+                console.log(`Datos actualizados para ${selectedUser.name}, mes: ${selectedMonth}, clientes: ${selectedUser.clients.length}`);
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                alert('Error al actualizar los datos');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTeams();
+        });
+    </script>
+</body>
+</html>

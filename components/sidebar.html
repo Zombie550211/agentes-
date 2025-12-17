@@ -26,12 +26,12 @@
         <li><a href="lead.html" class="btn btn-sidebar" title="Lead"><i class="fas fa-user-plus"></i><span class="menu-label">Lead</span></a></li>
         <li><a href="Costumer.html" class="btn btn-sidebar" title="Costumer"><i class="fas fa-users"></i><span class="menu-label">Costumer</span></a></li>
         <li><a href="facturacion.html" class="btn btn-sidebar" title="Facturación"><i class="fas fa-file-invoice-dollar"></i><span class="menu-label">Facturación</span></a></li>
-        <!-- Visible solo para ADMIN vía JS -->
-  <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar" title="Crear cuenta"><i class="fas fa-user-plus"></i><span class="menu-label">Crear cuenta</span></a></li>
-  <li><a href="Estadisticas.html" class="btn btn-sidebar" title="Estadísticas"><i class="fas fa-chart-bar"></i><span class="menu-label">Estadísticas</span></a></li>
-  <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
-  <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
-  <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
+        <li id="menu-admin-crm" style="display:block !important;"><a href="admin-crm-dashboard.html" class="btn btn-sidebar" title="CRM Dashboard"><i class="fas fa-chart-pie"></i><span class="menu-label">CRM Dashboard</span></a></li>
+        <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar" title="Crear cuenta"><i class="fas fa-user-plus"></i><span class="menu-label">Crear cuenta</span></a></li>
+        <li><a href="Estadisticas.html" class="btn btn-sidebar" title="Estadísticas"><i class="fas fa-chart-bar"></i><span class="menu-label">Estadísticas</span></a></li>
+        <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
+        <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
+        <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
   <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
       </ul>
 
@@ -247,5 +247,39 @@
             sidebar.addEventListener('mouseleave', hide);
           }
         } catch (e) { /* no-op */ }
+      })();
+      
+      
+      // Solo mantener visible "Crear Cuenta" para admins
+      (function() {
+        try {
+          const createAccountItem = document.getElementById('menu-create-account');
+          
+          function canAccess(role) {
+            const r = (role || '').toString().toLowerCase();
+            return ['admin', 'administrador', 'administrativo', 'supervisor', 'backoffice', 'supervisor team lineas'].includes(r);
+          }
+          
+          let userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole') || '';
+          
+          if (!userRole) {
+            fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' })
+              .then(r => r.json())
+              .then(data => {
+                if (data.user && data.user.role) {
+                  userRole = data.user.role;
+                  localStorage.setItem('userRole', userRole);
+                  if (createAccountItem) {
+                    createAccountItem.style.display = canAccess(userRole) ? 'block' : 'none';
+                  }
+                }
+              })
+              .catch(e => console.log('Error:', e));
+          } else {
+            if (createAccountItem) {
+              createAccountItem.style.display = canAccess(userRole) ? 'block' : 'none';
+            }
+          }
+        } catch (e) {}
       })();
       </script>

@@ -513,6 +513,7 @@
       ranking: { icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       estadisticas: { icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor', 'agente'] },
       facturacion: { icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
+      'crm-dashboard': { icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'admin-crm-dashboard.html', roles: ['admin', 'supervisor'] },
       empleado: { icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       'tabla-puntaje': { icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
       multimedia: { icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
@@ -680,7 +681,8 @@
     }
 
     // Activar modo auto-hide globalmente
-    BODY.classList.add('auto-hide-sidebar');
+    // BODY.classList.add('auto-hide-sidebar'); // DESHABILITADO - usar estilos del tema
+    // BODY.classList.add('auto-hide-sidebar');
 
     // Mostrar/Ocultar con un pequeño debounce para fluidez
     let hideTO = null;
