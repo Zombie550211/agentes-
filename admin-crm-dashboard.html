@@ -4,6 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRM Dashboard - Vista de Administrador</title>
+    
+    <!-- GUARDIA DE ACCESO: Solo Administradores -->
+    <script>
+        (function() {
+            try {
+                const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const role = (userData.role || '').toLowerCase();
+                
+                // Verificar si es Administrador
+                const isAdmin = role.includes('admin') || role === 'administrador';
+                
+                if (!isAdmin) {
+                    console.warn('[admin-crm-dashboard.html] Acceso denegado. Solo Administradores.');
+                    alert('Acceso denegado. Esta página es solo para Administradores.');
+                    window.location.replace('/inicio.html');
+                }
+            } catch (e) {
+                console.error('[admin-crm-dashboard.html] Error en verificación:', e);
+                window.location.replace('/inicio.html');
+            }
+        })();
+    </script>
+    
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/sidebar-shared.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -401,7 +424,6 @@
             <li><a href="lead.html" class="btn btn-sidebar" title="Lead"><i class="fas fa-user-plus"></i><span class="menu-label">Lead</span></a></li>
             <li><a href="Costumer.html" class="btn btn-sidebar" title="Costumer"><i class="fas fa-users"></i><span class="menu-label">Costumer</span></a></li>
             <li><a href="facturacion.html" class="btn btn-sidebar" title="Facturación"><i class="fas fa-file-invoice-dollar"></i><span class="menu-label">Facturación</span></a></li>
-            <li><a href="admin-crm-dashboard.html" class="btn btn-sidebar is-active" title="CRM Dashboard"><i class="fas fa-chart-pie"></i><span class="menu-label">CRM Dashboard</span></a></li>
             <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar" title="Crear cuenta"><i class="fas fa-user-plus"></i><span class="menu-label">Crear cuenta</span></a></li>
             <li><a href="Estadisticas.html" class="btn btn-sidebar" title="Estadísticas"><i class="fas fa-chart-bar"></i><span class="menu-label">Estadísticas</span></a></li>
             <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
