@@ -3359,7 +3359,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sistema: sistemaVal,
             sistema_texto: sistemaText,
             supervisor: supervisorText || supervisor || '',
-            agente: 'Agente', // Se debe obtener del usuario autenticado
+            agente: '',
             
             // Dirección y ubicación
             direccion: direccion || '',
@@ -3397,7 +3397,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const customerData = {
             // Información del cliente (campos requeridos)
             nombre_cliente: nombreCliente,
-            telefono: telefonoPrincipal,
+            telefono_principal: telefonoPrincipal,
             telefono_alterno: telefonoAlterno || '',
             direccion: direccion,
             tipo_servicio: tipoServicioText || 'INTERNET',
@@ -3419,7 +3419,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dia_venta: diaVenta || getTodayLocalDate(),
             team: supervisorText || 'TEAM IRANIA',
             supervisor: supervisorText || 'TEAM IRANIA',
-            agente: 'Agente', // Debería obtenerse del usuario logueado
+            agente: '',
             dia_instalacion: fechaInstalacion || '',
             puntaje: puntajeFinal || 0,
             zip: zipCode || '',
@@ -3458,6 +3458,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   "Content-Type": "application/json"
                 };
                 
+                
                 if (token) {
                   headers['Authorization'] = `Bearer ${token}`;
                 }
@@ -3474,61 +3475,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.ok || response.status === 200 || response.status === 201) {
                   return responseData;
                 }
+
+                if (endpoint === '/api/crm_agente' && response.status === 404) {
+                  return { success: false, skipped: true, status: 404 };
+                }
                 
                 // Para cualquier otro código de error, lanzar un error
-                throw new Error(responseData.message || `Error en la petición: ${response.status}`);
+                {
+                  let msg = responseData.message || `Error en la petición: ${response.status}`;
+                  if (responseData && Array.isArray(responseData.missingFields) && responseData.missingFields.length) {
+                    msg += ` (missingFields: ${responseData.missingFields.join(', ')})`;
+                  }
+                  throw new Error(msg);
+                }
               } catch (error) {
+                if (endpoint === '/api/crm_agente' && String(error?.message || '').includes('404')) {
+                  return { success: false, skipped: true, status: 404 };
+                }
                 console.error(`Error en makeRequest (${endpoint}):`, error);
                 throw error; // Relanzar el error para manejarlo en el catch externo
               }
             };
-            
-            // Depuración: Mostrar datos que se enviarán
-          console.log('=== DATOS A ENVIAR ===');
 
-            // Si el selector de asignación está presente (supervisor), incluir agente asignado en los datos
-            try {
-              const agentAssignEl = document.getElementById('agentAssign');
-              if (agentAssignEl) {
-                let selectedAgent = (agentAssignEl.value || '').toString().trim();
-                // If manual input is visible and filled, prefer it
-                const manualEl = document.getElementById('agentAssignManual');
-                if ((!selectedAgent || selectedAgent === '') && manualEl && manualEl.style.display !== 'none') {
-                  const m = (manualEl.value || '').toString().trim();
-                  if (m) selectedAgent = m;
-                }
-                // Ignorar placeholder "Agente" (no es un nombre real)
-                if (selectedAgent && selectedAgent.toLowerCase() !== 'agente') {
-                  const rawAgent = selectedAgent;
-                  const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
-                  leadData.agente = rawAgent;
-                  leadData.agenteAsignado = normalizedAgent;
-                  customerDataToSend.agente = rawAgent;
-                  customerDataToSend.agenteAsignado = normalizedAgent;
-                  customerDataToSend.agenteNombre = rawAgent;
-                }
-              }
-            } catch(e){ console.warn('[assign] no se pudo leer agentAssign', e); }
-
-            // Fallback: si no se asignó agente, usar el usuario actual como agenteNombre
-            try {
-              const an = (customerDataToSend.agenteNombre || '').toString().trim();
-              if (!an || an.toLowerCase() === 'agente') {
-                const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-                const userObj = JSON.parse(userStr || '{}');
-                const uName = (userObj?.username || userObj?.name || userObj?.nombre || '').toString().trim();
-                if (uName) {
-                  customerDataToSend.agenteNombre = uName;
-                  const a2 = (customerDataToSend.agente || '').toString().trim();
-                  if (!a2 || a2.toLowerCase() === 'agente') customerDataToSend.agente = uName;
-                }
-              }
-            } catch(_) {}
-
-            // Asegurar que el teléfono esté en el formato correcto
-            if (customerDataToSend.telefono && !customerDataToSend.telefono_principal) {
-              customerDataToSend.telefono_principal = customerDataToSend.telefono;
-            }
+            // Copia mutable del payload que se enviará a /api/leads
+            const customerDataToSend = { ...customerData };
 
             // Detectar equipo del usuario actual y ramificar envío
             let teamKey = '';
@@ -3545,15 +3515,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (teamKey === 'team lineas') {
               console.log('Equipo detectado: Team Líneas. Enviando a /api/lineas');
-              // Construir payload específico para Team Líneas
-              const getVal = (sel) => (sel ? (sel.value || '').trim() : '');
-              const getTextUpper = (sel) => {
-                if (!sel) return '';
-                const idx = sel.selectedIndex;
-                const txt = idx >= 0 ? (sel.options[idx]?.text || '') : '';
-                return (txt || '').trim().toUpperCase();
-              };
-              // Elementos
+
               const elNombre = document.querySelector('[name="nombre_cliente"]');
               const elTelPrin = document.querySelector('[name="telefono_principal"]');
               const elNumCuenta = document.querySelector('[name="numero_cuenta"]');
