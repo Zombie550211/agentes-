@@ -416,6 +416,14 @@
         ${menuItems}
       </ul>
 
+      <!-- Interruptor de Tema -->
+      <div class="theme-switcher-container">
+        <button type="button" class="btn btn-sidebar theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
+          <i class="fas fa-sun"></i>
+          <span class="menu-label">Cambiar Tema</span>
+        </button>
+      </div>
+
       <!-- Logout -->
       <ul class="menu">
         <li>
@@ -424,15 +432,6 @@
           </button>
         </li>
       </ul>
-
-      <!-- Frase motivacional -->
-      <!-- Interruptor de Tema -->
-      <div class="theme-switcher-container">
-        <button type="button" class="btn btn-sidebar theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
-          <i class="fas fa-sun"></i>
-          <span class="menu-label">Cambiar Tema</span>
-        </button>
-      </div>
 
       <!-- Frase motivacional -->
       <div class="sidebar-footer-quote">
@@ -505,39 +504,41 @@
     console.log('🔍 Generando menú para rol bruto/normalizado:', role, '->', normalizedRole);
     const normalizedActive = normalizeActiveKey(activePage);
     
-    const allMenuItems = {
-      // Use absolute path for Inicio to avoid resolving under subfolders like TEAM LINEAS/
-      inicio: { icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      lead: { icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: ['admin', 'supervisor', 'agente'] },
-      costumer: { icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      ranking: { icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      estadisticas: { icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor', 'agente'] },
-      facturacion: { icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
-      'crm-dashboard': { icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'admin-crm-dashboard.html', roles: ['admin'] },
-      empleado: { icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      'tabla-puntaje': { icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      multimedia: { icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
-      reglas: { icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      crearcuenta: { icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: ['admin'] }
-    };
+    // Array ordenado de items del menú (orden específico)
+    const menuItemsOrder = [
+      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: ['admin', 'supervisor', 'agente'] },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor', 'agente'] },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
+      { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'admin-crm-dashboard.html', roles: ['admin'] },
+      { key: 'empleado', icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'multimedia', icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: ['admin'] }
+    ];
 
     // Redirigir a páginas específicas de Team Líneas si corresponde
     if (ctx && ctx.isLineas) {
-      // Mantener Inicio general
-      allMenuItems.lead.href = '/TEAM LINEAS/LEAD-LINEAS.html';
-      allMenuItems.costumer.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
-      allMenuItems.ranking.href = '/TEAM LINEAS/RANKING-LINEAS.html';
-      allMenuItems.estadisticas.href = '../Estadisticas.html';
+      menuItemsOrder.forEach(item => {
+        if (item.key === 'lead') item.href = '/TEAM LINEAS/LEAD-LINEAS.html';
+        if (item.key === 'costumer') item.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
+        if (item.key === 'ranking') item.href = '/TEAM LINEAS/RANKING-LINEAS.html';
+        if (item.key === 'estadisticas') item.href = '../Estadisticas.html';
+      });
     }
 
     let menuHTML = '';
     const visibleItems = [];
     
-    for (const [key, item] of Object.entries(allMenuItems)) {
+    // Iterar en el orden específico del array
+    for (const item of menuItemsOrder) {
       // Verificar si el rol tiene acceso a este item (usar rol normalizado)
       if (item.roles.includes(normalizedRole)) {
         visibleItems.push(item.text);
-        const isActive = key === normalizedActive ? 'is-active' : '';
+        const isActive = item.key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
             <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}" title="${item.text}">
@@ -681,8 +682,7 @@
     }
 
     // Activar modo auto-hide globalmente
-    // BODY.classList.add('auto-hide-sidebar'); // DESHABILITADO - usar estilos del tema
-    // BODY.classList.add('auto-hide-sidebar');
+    BODY.classList.add('auto-hide-sidebar');
 
     // Mostrar/Ocultar con un pequeño debounce para fluidez
     let hideTO = null;

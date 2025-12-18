@@ -3485,17 +3485,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Depuración: Mostrar datos que se enviarán
           console.log('=== DATOS A ENVIAR ===');
-          console.log('Lead Data:', JSON.stringify(leadData, null, 2));
-          console.log('Customer Data:', JSON.stringify(customerData, null, 2));
-          console.log('=== DATOS A ENVIAR ===');
-          console.log('Lead Data:', JSON.stringify(leadData, null, 2));
-          console.log('Customer Data:', JSON.stringify(customerData, null, 2));
-            
-            // Solo enviar a una base de datos (customers)
-            console.log('Enviando datos al endpoint de customers...');
-            
-            // Asegurarse de que los datos tengan el formato correcto
-            const customerDataToSend = { ...customerData };
 
             // Si el selector de asignación está presente (supervisor), incluir agente asignado en los datos
             try {
@@ -3508,22 +3497,39 @@ document.addEventListener('DOMContentLoaded', function() {
                   const m = (manualEl.value || '').toString().trim();
                   if (m) selectedAgent = m;
                 }
-                if (selectedAgent) {
+                // Ignorar placeholder "Agente" (no es un nombre real)
+                if (selectedAgent && selectedAgent.toLowerCase() !== 'agente') {
                   const rawAgent = selectedAgent;
                   const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
                   leadData.agente = rawAgent;
                   leadData.agenteAsignado = normalizedAgent;
                   customerDataToSend.agente = rawAgent;
                   customerDataToSend.agenteAsignado = normalizedAgent;
+                  customerDataToSend.agenteNombre = rawAgent;
                 }
               }
             } catch(e){ console.warn('[assign] no se pudo leer agentAssign', e); }
-            
+
+            // Fallback: si no se asignó agente, usar el usuario actual como agenteNombre
+            try {
+              const an = (customerDataToSend.agenteNombre || '').toString().trim();
+              if (!an || an.toLowerCase() === 'agente') {
+                const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+                const userObj = JSON.parse(userStr || '{}');
+                const uName = (userObj?.username || userObj?.name || userObj?.nombre || '').toString().trim();
+                if (uName) {
+                  customerDataToSend.agenteNombre = uName;
+                  const a2 = (customerDataToSend.agente || '').toString().trim();
+                  if (!a2 || a2.toLowerCase() === 'agente') customerDataToSend.agente = uName;
+                }
+              }
+            } catch(_) {}
+
             // Asegurar que el teléfono esté en el formato correcto
             if (customerDataToSend.telefono && !customerDataToSend.telefono_principal) {
               customerDataToSend.telefono_principal = customerDataToSend.telefono;
             }
-            
+
             // Detectar equipo del usuario actual y ramificar envío
             let teamKey = '';
             try {
@@ -3621,8 +3627,20 @@ document.addEventListener('DOMContentLoaded', function() {
               // Enviar a /api/lineas
               customerResponse = await makeRequest('/api/lineas', lineasData);
             } else {
-              // Envío estándar a /api/leads
+              // Envío estándar a /api/leads (guarda en costumers)
               customerResponse = await makeRequest("/api/leads", customerDataToSend);
+              
+              // Si se asignó un agente, TAMBIÉN guardar en crm_agente
+              if (customerDataToSend.agenteAsignado || customerDataToSend.agente) {
+                console.log('Agente asignado detectado. Guardando también en crm_agente...');
+                try {
+                  leadResponse = await makeRequest("/api/crm_agente", customerDataToSend);
+                  console.log('Lead guardado exitosamente en crm_agente:', leadResponse);
+                } catch (error) {
+                  console.warn('Error al guardar en crm_agente (no crítico):', error);
+                  // No lanzar error, el lead ya se guardó en costumers
+                }
+              }
             }
           
           console.log('=== RESPUESTAS DEL SERVIDOR ===');
@@ -3686,7 +3704,13 @@ document.addEventListener('DOMContentLoaded', function() {
           const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
           const user = JSON.parse(userStr || '{}');
           const roleLc = (user.role || '').toString().toLowerCase();
-          if (!roleLc.includes('supervisor')) return;
+          // Permitir acceso a Supervisores, Administradores y Backoffice
+          const hasAccess = roleLc.includes('supervisor') || 
+                           roleLc.includes('admin') || 
+                           roleLc.includes('backoffice') ||
+                           roleLc === 'administrador' ||
+                           roleLc === 'b.o';
+          if (!hasAccess) return;
 
           const assignWrap = document.getElementById('assignWrapSupervisor');
           const agentAssign = document.getElementById('agentAssign');
@@ -3743,12 +3767,27 @@ document.addEventListener('DOMContentLoaded', function() {
             if (Array.isArray(agents) && agents.length) console.log('[initSupervisorAssign] agents sample:', agents.slice(0,5).map(a=>({username:a.username, name:a.name, supervisor:a.supervisor, supervisorName:a.supervisorName, supervisorId:a.supervisorId, team:a.team}))); 
           } catch(_){}
 
-          const supervisorName = (user.name || user.username || '').toString().toLowerCase().trim();
-          const filtered = agents.filter(a => {
-            const sup = (a.supervisor || a.supervisorName || a.manager || '').toString().toLowerCase();
-            const supId = (a.supervisorId || a.managerId || '').toString();
-            return (sup && sup.includes(supervisorName)) || (supId && String(supId) === String(user.id));
-          });
+          // Para Admin y Backoffice: mostrar TODOS los agentes
+          // Para Supervisores: solo mostrar agentes de su equipo
+          const isAdminOrBackoffice = roleLc.includes('admin') || roleLc.includes('backoffice') || roleLc === 'administrador' || roleLc === 'b.o';
+          
+          let filtered = [];
+          if (isAdminOrBackoffice) {
+            // Admin/Backoffice ven todos los agentes
+            filtered = agents.filter(a => {
+              const aRole = (a.role || '').toString().toLowerCase();
+              // Excluir otros admins/backoffice, solo mostrar agentes
+              return !aRole.includes('admin') && !aRole.includes('backoffice') && aRole !== 'administrador';
+            });
+          } else {
+            // Supervisores solo ven sus agentes
+            const supervisorName = (user.name || user.username || '').toString().toLowerCase().trim();
+            filtered = agents.filter(a => {
+              const sup = (a.supervisor || a.supervisorName || a.manager || '').toString().toLowerCase();
+              const supId = (a.supervisorId || a.managerId || '').toString();
+              return (sup && sup.includes(supervisorName)) || (supId && String(supId) === String(user.id));
+            });
+          }
 
           if (!filtered.length) {
             // fallback: intentar usar Teams helper si existe
@@ -3772,10 +3811,38 @@ document.addEventListener('DOMContentLoaded', function() {
             // Si no obtuvimos agents desde la API ni Teams: usar mapping local conocido (fallback) o mostrar campo manual
             const uname = (user.username||user.name||'').toString().trim().toUpperCase();
             const agentsMap = {
-              'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ'],
-              'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
+              // TEAM IRANIA
+              'IRANIA': ['Josue Renderos', 'Tatiana Ayala', 'Giselle Diaz', 'Miguel Nunez', 'Roxana Martinez'],
+              'IRANIA SERRANO': ['Josue Renderos', 'Tatiana Ayala', 'Giselle Diaz', 'Miguel Nunez', 'Roxana Martinez'],
+              
+              // TEAM BRYAN PLEITEZ
+              'PLEITEZ': ['Abigail Galdamez', 'Alexander Rivera', 'Diego Mejia', 'Evelin Garcia', 'Fabricio Panameno', 'Luis Chavarria', 'Steven Varela'],
+              'BRYAN PLEITEZ': ['Abigail Galdamez', 'Alexander Rivera', 'Diego Mejia', 'Evelin Garcia', 'Fabricio Panameno', 'Luis Chavarria', 'Steven Varela'],
+              
+              // TEAM ROBERTO VELASQUEZ
+              'ROBERTO': ['Cindy Flores', 'Daniela Bonilla', 'Francisco Aguilar', 'Levy Ceren', 'Lisbeth Cortez', 'Lucia Ferman', 'Nelson Ceren'],
+              'ROBERTO VELASQUEZ': ['Cindy Flores', 'Daniela Bonilla', 'Francisco Aguilar', 'Levy Ceren', 'Lisbeth Cortez', 'Lucia Ferman', 'Nelson Ceren'],
+              
+              // TEAM MARISOL BELTRAN
+              'MARISOL': ['Fernanda Castillo', 'Jonathan Morales', 'Karla Hernandez', 'Stefani Martinez'],
+              'MARISOL BELTRAN': ['Fernanda Castillo', 'Jonathan Morales', 'Karla Hernandez', 'Stefani Martinez'],
+              
+              // TEAM JOHANA (ex RANDAL)
+              'JOHANA': ['Anderson Guzman', 'Carlos Grande', 'Guadalupe Santana', 'Julio Chavez', 'Priscila Hernandez', 'Riquelmi Torres'],
+              
+              // TEAM LINEAS
+              'JONATHAN F': ['Victor Hurtado', 'Edward Ramirez', 'Cristian Rivera'],
+              'JONATHAN': ['Victor Hurtado', 'Edward Ramirez', 'Cristian Rivera'],
+              'LUIS G': ['Daniel Del Cid', 'Fernando Beltran', 'Karla Rodriguez', 'Jocelyn Reyes', 'Jonathan Garcia', 'Nancy Lopez']
             };
-            const mapped = agentsMap[uname] || [];
+            
+            // Para Admin/Backoffice: mostrar TODOS los agentes de TODOS los equipos
+            let mapped = [];
+            if (isAdminOrBackoffice) {
+              mapped = Object.values(agentsMap).flat().filter((v, i, a) => a.indexOf(v) === i); // Eliminar duplicados
+            } else {
+              mapped = agentsMap[uname] || [];
+            }
             if (mapped.length) {
               agentAssign.innerHTML = '<option value="">(Ninguno)</option>' + mapped.map(a=>{
                 const label = String(a || '');

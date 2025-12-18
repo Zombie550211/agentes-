@@ -160,96 +160,46 @@
 
 .sidebar .btn-sidebar { display: flex; align-items: center; }
 
-/* Global rules to force icon-only collapsed sidebar when auto-hide is active */
-:root { --sidebar-width: 260px; --sidebar-collapsed: 56px; }
+/* Sidebar auto-hide (off-canvas) */
+:root { --sidebar-width: 260px; --sidebar-peek: 10px; }
 body.auto-hide-sidebar .sidebar {
-  width: var(--sidebar-collapsed) !important;
-  min-width: var(--sidebar-collapsed) !important;
-  overflow: hidden !important;
-  padding-left: 4px !important;
-  padding-right: 4px !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  transform: translateX(calc(-1 * var(--sidebar-width) + var(--sidebar-peek))) !important;
+  transition: transform .16s ease !important;
 }
-body.auto-hide-sidebar .sidebar .menu-label,
-body.auto-hide-sidebar .sidebar .user-name,
-body.auto-hide-sidebar .sidebar .user-role,
-body.auto-hide-sidebar .sidebar .stat-label,
-body.auto-hide-sidebar .sidebar .stat-content,
-body.auto-hide-sidebar .sidebar h3,
-body.auto-hide-sidebar .sidebar .sidebar-footer-quote {
-  display: none !important;
+body.auto-hide-sidebar.show-sidebar .sidebar {
+  transform: translateX(0) !important;
 }
-body.auto-hide-sidebar .sidebar a { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; width: 100% !important; }
-body.auto-hide-sidebar .sidebar a i { margin-right: 0 !important; font-size: 1.2rem !important; }
-body.auto-hide-sidebar.show-sidebar .sidebar { width: var(--sidebar-width) !important; }
-/* keep main content shifted to collapsed width to avoid layout jumps */
-.main-content { margin-left: calc(var(--sidebar-collapsed) + 12px) !important; }
 
-/* Compact avatar/header for collapsed state */
-body.auto-hide-sidebar .sidebar .user-info { padding: 8px 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-body.auto-hide-sidebar .sidebar .avatar, body.auto-hide-sidebar .sidebar .user-avatar, body.auto-hide-sidebar .sidebar .avatar-circle { width: 40px !important; height: 40px !important; margin: 0 auto !important; }
-body.auto-hide-sidebar .sidebar .user-details { display: none !important; }
+/* Cuando está oculto, el contenido no debe dejar margen */
+body.auto-hide-sidebar .main-content { margin-left: 0 !important; transition: margin-left .16s ease !important; }
+body.auto-hide-sidebar.show-sidebar .main-content { margin-left: calc(var(--sidebar-width) + 12px) !important; }
 
-/* Ensure hover zone matches collapsed width so hover is easy */
-.sidebar-hover-zone { width: calc(var(--sidebar-collapsed) + 6px) !important; }
+/* Zona de hover (si existe) para poder “sacar” el sidebar */
+.sidebar-hover-zone { width: var(--sidebar-peek) !important; }
 
-/* Make menu icons vertically centered and remove extra left padding */
-body.auto-hide-sidebar .sidebar ul.menu { padding: 6px 0 !important; }
-body.auto-hide-sidebar .sidebar ul.menu li { margin: 6px 0 !important; display: flex; justify-content: center; }
-body.auto-hide-sidebar .sidebar .btn-sidebar { width: calc(var(--sidebar-collapsed) - 6px) !important; box-sizing: border-box; }
-
-/* Hide any remaining labels or page-specific headers */
-body.auto-hide-sidebar .sidebar [class*="label"],
-body.auto-hide-sidebar .sidebar [class*="title"],
-body.auto-hide-sidebar .sidebar .text-label { display: none !important; }
-
-/* Ensure per-page sidebar variants (e.g. .sidebar.sidebar-inicio) also collapse */
+/* También aplica a variantes por página */
 body.auto-hide-sidebar .sidebar.sidebar-inicio {
-  width: var(--sidebar-collapsed) !important;
-  min-width: var(--sidebar-collapsed) !important;
-  overflow: hidden !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  transform: translateX(calc(-1 * var(--sidebar-width) + var(--sidebar-peek))) !important;
+  transition: transform .16s ease !important;
 }
-
-/* Reduce and simplify the user header when collapsed */
-body.auto-hide-sidebar .sidebar .user-info {
-  padding: 8px 6px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+body.auto-hide-sidebar.show-sidebar .sidebar.sidebar-inicio {
+  transform: translateX(0) !important;
 }
 body.auto-hide-sidebar .sidebar .user-info .avatar,
 body.auto-hide-sidebar .sidebar .user-avatar,
-body.auto-hide-sidebar .sidebar .avatar-circle {
-  width: 40px !important;
-  height: 40px !important;
-}
-body.auto-hide-sidebar .sidebar .user-info .user-details { display: none !important; }
-
-/* Hide headings and footer quote when collapsed */
-body.auto-hide-sidebar .sidebar h3,
-body.auto-hide-sidebar .sidebar .sidebar-footer-quote {
-  display: none !important;
+  body.auto-hide-sidebar .sidebar .avatar-circle {
+  width: 44px !important;
+  height: 44px !important;
+  margin: 12px auto;
 }
 
-/* Tighter menu padding in collapsed state */
-body.auto-hide-sidebar .sidebar ul.menu { padding: 6px 4px !important; }
-body.auto-hide-sidebar .sidebar ul.menu li { margin: 4px 0 !important; }
-
-/* Ensure logout button still looks ok */
-body.auto-hide-sidebar .sidebar .btn-logout { justify-content: center !important; }
-
-/* Force collapsed behavior for active / highlighted items (prevent per-page rules from expanding them) */
-body.auto-hide-sidebar .sidebar .btn-sidebar { overflow: hidden !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
-body.auto-hide-sidebar .sidebar .btn-sidebar.is-active,
-body.auto-hide-sidebar .sidebar .btn-sidebar.is-active > i,
-body.auto-hide-sidebar .sidebar .btn-sidebar.is-active .menu-label {
-  display: inline-flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-body.auto-hide-sidebar .sidebar .btn-sidebar.is-active { width: var(--sidebar-collapsed) !important; min-width: var(--sidebar-collapsed) !important; margin: 4px auto !important; border-radius: 999px !important; }
-body.auto-hide-sidebar .sidebar .btn-sidebar.is-active .menu-label { display: none !important; }
+/* Mantener padding normal cuando el sidebar está oculto (off-canvas) */
+body.auto-hide-sidebar .sidebar ul.menu { padding: 8px 16px !important; }
+body.auto-hide-sidebar .sidebar ul.menu li { margin: 6px 0 !important; }
 
 .sidebar a:hover {
   background: #232b3b;
