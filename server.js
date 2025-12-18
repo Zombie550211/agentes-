@@ -5638,6 +5638,47 @@ app.post('/api/leads', protect, async (req, res) => {
     // Se ha eliminado la validación de duplicados para permitir guardar cualquier lead
     console.log('Guardando nuevo lead sin validación de duplicados');
     
+    // Determinar el agente final: si viene agenteAsignado, usar ese; si no, usar el usuario actual
+    let finalAgentName = null;
+    let finalAgentId = null;
+    let assignedByName = null;
+    
+    if (leadData.agenteAsignado || leadData.agente) {
+      // Si hay un agente asignado explícitamente (supervisor asignando a un agente)
+      const assignedAgent = leadData.agenteAsignado || leadData.agente;
+      finalAgentName = String(assignedAgent).replace(/_/g, ' ').trim();
+      assignedByName = req.user?.username || 'Sistema';
+      
+      console.log('[POST /api/leads] ASIGNACIÓN DETECTADA:');
+      console.log('  - Agente asignado:', finalAgentName);
+      console.log('  - Asignado por:', assignedByName);
+      
+      // Intentar obtener el ID del agente asignado desde la base de datos
+      try {
+        const usersCollection = db.collection('users');
+        const agentUser = await usersCollection.findOne({
+          $or: [
+            { name: { $regex: new RegExp(finalAgentName, 'i') } },
+            { username: { $regex: new RegExp(finalAgentName, 'i') } }
+          ]
+        });
+        
+        if (agentUser) {
+          finalAgentId = agentUser._id || agentUser.id;
+          console.log('  - ID del agente encontrado:', finalAgentId);
+        } else {
+          console.log('  - No se encontró usuario para el agente asignado');
+        }
+      } catch (err) {
+        console.warn('[POST /api/leads] Error buscando agente asignado:', err.message);
+      }
+    } else {
+      // Si no hay asignación, usar el usuario actual
+      finalAgentName = req.user?.username || 'Agente Desconocido';
+      finalAgentId = req.user?.id;
+      console.log('[POST /api/leads] Sin asignación explícita, usando usuario actual:', finalAgentName);
+    }
+    
     // Crear nuevo lead con formato consistente
     const newLead = {
       ...leadData,
@@ -5650,17 +5691,20 @@ app.post('/api/leads', protect, async (req, res) => {
       fuente: leadData.fuente || 'WEB',
       asignadoA: leadData.asignadoA || null,
       notas: leadData.notas || [],
-      // IMPORTANTE: Agregar el nombre del agente que creó el lead
-      agente: req.user?.username || 'Agente Desconocido', // Nombre del usuario autenticado
-      agenteNombre: req.user?.username || 'Agente Desconocido', // Nombre del usuario autenticado
-      agenteId: req.user?.id, // ID del usuario autenticado
-      createdBy: req.user?.username, // Agregar también createdBy para compatibilidad
+      // USAR EL AGENTE ASIGNADO (si existe) en lugar del usuario actual
+      agente: finalAgentName,
+      agenteNombre: finalAgentName,
+      agenteId: finalAgentId || req.user?.id,
+      // Si fue asignado por un supervisor, guardar esa información
+      asignadoPor: assignedByName || undefined,
+      createdBy: req.user?.username, // Quien creó el registro
+      creadoPor: req.user?.username, // Quien creó el registro
       historial: [{
         accion: 'CREADO',
         fecha: new Date(),
         usuario: req.user?.username || leadData.usuario || 'SISTEMA',
-        detalles: 'Lead creado a través del formulario web',
-        agenteId: req.user?.id // Incluir también el ID del agente en el historial
+        detalles: assignedByName ? `Lead creado por ${assignedByName} y asignado a ${finalAgentName}` : 'Lead creado a través del formulario web',
+        agenteId: finalAgentId || req.user?.id
       }]
     };
     
@@ -5695,11 +5739,17 @@ app.post('/api/leads', protect, async (req, res) => {
       }
     }
 
-    const ownerId = normalizeOwnerIdInput(req.user?.id || newLead.agenteId || newLead.ownerId || '');
+    // IMPORTANTE: Usar el ID del agente asignado (finalAgentId) en lugar del usuario autenticado
+    // Esto asegura que el lead se guarde en la colección del agente asignado
+    const ownerId = normalizeOwnerIdInput(finalAgentId || newLead.agenteId || req.user?.id || newLead.ownerId || '');
     if (!ownerId) {
       console.warn('[POST /api/leads] usuario autenticado sin id válido - rechazando');
       return res.status(401).json({ success: false, message: 'Usuario sin id válido' });
     }
+
+    console.log('[POST /api/leads] ownerId para determinar colección:', ownerId);
+    console.log('[POST /api/leads] finalAgentId:', finalAgentId);
+    console.log('[POST /api/leads] req.user.id:', req.user?.id);
 
     // Ensure the lead stores a normalized agenteId so future scans match consistently
     try { newLead.agenteId = ownerId; } catch (e) { /* noop */ }
