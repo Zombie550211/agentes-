@@ -103,26 +103,6 @@ router.get('/leads', protect, async (req, res) => {
       }
       
       console.log(`[API /leads GLOBAL] Total de ${costumersCollections.length} colecciones costumers*, ${leads.length} documentos`);
-
-      // Intentar integrar también datos de TEAM_LINEAS
-      try {
-        const dbTL = getDbFor('TEAM_LINEAS');
-        if (dbTL) {
-          const collections = await dbTL.listCollections().toArray();
-          console.log('[API /leads] Integrando TEAM_LINEAS en mapa. Colecciones:', collections.map(c => c.name));
-
-          for (const coll of collections) {
-            const docs = await dbTL.collection(coll.name).find({}).toArray();
-            // Marcar origen para depuración futura
-            leads = leads.concat(docs.map(d => ({ ...d, __source: 'TEAM_LINEAS', __collection: coll.name })));
-          }
-        } else {
-          console.warn('[API /leads] TEAM_LINEAS no disponible para solicitud global');
-        }
-      } catch (e) {
-        console.warn('[API /leads] Error integrando TEAM_LINEAS en solicitud global:', e.message);
-      }
-
       console.log(`[API /leads] Solicitud GLOBAL sin filtros (mapa u otros). Total combinado: ${leads.length}`);
       return res.json({ success: true, data: leads, queryUsed: { global: true } });
     }
@@ -265,21 +245,21 @@ router.get('/leads', protect, async (req, res) => {
       fieldsParam.split(',').map(f => f.trim()).filter(Boolean).forEach(f => { projection[f] = 1; });
     }
 
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+
     // Recolectar todas las colecciones a iterar (incluye TEAM_LINEAS si existe)
     const allCollections = [];
     const collectionsList = await db.listCollections().toArray();
-    const collectionNamesList = collectionsList.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
-    collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
+    const allNames = collectionsList.map(c => c.name);
+    const unifiedAvailable = preferUnified && allNames.includes(unifiedCollectionName);
+    const collectionNamesList = unifiedAvailable
+      ? [unifiedCollectionName]
+      : allNames.filter(n => /^costumers(_|$)/i.test(n));
 
-    try {
-      const dbTL = getDbFor('TEAM_LINEAS');
-      if (dbTL) {
-        const tlcols = await dbTL.listCollections().toArray();
-        tlcols.map(c => ({ db: dbTL, name: c.name })).forEach(x => allCollections.push(x));
-      }
-    } catch (e) {
-      // silently continue
-    }
+    collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
+    console.log(`[API /leads] Source mode: ${unifiedAvailable ? 'costumers_unified' : 'costumers*'} (legacy=${String(legacy || '')})`);
 
     // Paginación a través de colecciones: calcular total y tomar la ventana [offsetGlobal, offsetGlobal+limit)
     let remaining = limit;
@@ -561,6 +541,15 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+
     // 2. Construir filtros
     let filter = {};
     if (role === 'agente' || role === 'agent') {
@@ -578,7 +567,9 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
     const dateFilter = { dia_venta: { $gte: startUtc.toISOString(), $lte: endUtc.toISOString() } };
 
     // 4. Pipeline optimizado
-    const collection = db.collection('costumers');
+    const collection = (preferUnified && unifiedAvailable)
+      ? db.collection(unifiedCollectionName)
+      : db.collection('costumers');
     const pipeline = [
       { $match: { $and: [filter, dateFilter] } },
       { $addFields: {
@@ -702,13 +693,22 @@ router.put('/leads/:id/status', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+
     const { id: recordId } = req.params;
     const { status: newStatus } = req.body || {};
     if (!newStatus) {
       return res.status(400).json({ success: false, message: 'status requerido' });
     }
 
-    // Attempt to update across all collections named costumers* (some deployments split collections)
+    // Preferir colección unificada cuando exista; legacy=1 mantiene búsqueda multi-colección.
     let updated = false;
     let updatedCollection = null;
     let objId = null;
@@ -720,26 +720,46 @@ router.put('/leads/:id/status', protect, async (req, res) => {
     const altKeys = ['leadId','lead_id','id_cliente','clienteId','cliente_id','clientId','client_id','cliente','idCliente'];
     const tryFilters = tryFiltersBase.concat(altKeys.map(k => ({ [k]: recordId })));
 
-    // First try the canonical 'costumers' collection for speed, with verbose logging to aid debugging
-    try {
-      const primaryCol = db.collection('costumers');
-      for (const f of tryFilters) {
-        try {
-          const r = await primaryCol.updateOne(f, { $set: { status: newStatus } });
-          console.log('[API UPDATE STATUS] Tried primary costumers filter', f, 'matched:', r && r.matchedCount ? r.matchedCount : 0);
-          if (r && r.matchedCount && r.matchedCount > 0) {
-            updated = true; updatedCollection = 'costumers'; break;
+    // Primero probar en colección unificada si existe (y no es legacy)
+    if (preferUnified && unifiedAvailable) {
+      try {
+        const unifiedCol = db.collection(unifiedCollectionName);
+        for (const f of tryFilters) {
+          try {
+            const r = await unifiedCol.updateOne(f, { $set: { status: newStatus } });
+            if (r && r.matchedCount && r.matchedCount > 0) {
+              updated = true; updatedCollection = unifiedCollectionName; break;
+            }
+          } catch (innerE) {
+            console.warn('[API UPDATE STATUS] unified.updateOne error with filter', f, innerE?.message || innerE);
           }
-        } catch (innerE) {
-          console.warn('[API UPDATE STATUS] primaryCol.updateOne error with filter', f, innerE?.message || innerE);
         }
+      } catch (e) {
+        console.warn('[API UPDATE STATUS] unified collection check failed:', e?.message || e);
       }
-    } catch (e) {
-      console.warn('[API UPDATE STATUS] primary collection check failed:', e?.message || e);
-      // continue to multi-collection search
     }
 
-    if (!updated) {
+    // En legacy o si no existe unified, probar primero costumers
+    if (!updated && (!preferUnified || !unifiedAvailable)) {
+      try {
+        const primaryCol = db.collection('costumers');
+        for (const f of tryFilters) {
+          try {
+            const r = await primaryCol.updateOne(f, { $set: { status: newStatus } });
+            console.log('[API UPDATE STATUS] Tried primary costumers filter', f, 'matched:', r && r.matchedCount ? r.matchedCount : 0);
+            if (r && r.matchedCount && r.matchedCount > 0) {
+              updated = true; updatedCollection = 'costumers'; break;
+            }
+          } catch (innerE) {
+            console.warn('[API UPDATE STATUS] primaryCol.updateOne error with filter', f, innerE?.message || innerE);
+          }
+        }
+      } catch (e) {
+        console.warn('[API UPDATE STATUS] primary collection check failed:', e?.message || e);
+      }
+    }
+
+    if (!updated && (!preferUnified || !unifiedAvailable)) {
       // Search other collections matching costumers*
       const collections = await db.listCollections().toArray();
       const colNames = collections.map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
@@ -800,12 +820,12 @@ router.get('/leads/:id', protect, async (req, res, next) => {
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
-    // Buscar en TODAS las colecciones costumers* (no solo en 'costumers')
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
-    
-    console.log(`[GET /leads/:id] Buscando lead ${recordId} en ${costumersCollections.length} colecciones:`, costumersCollections);
+    // Preferir colección unificada cuando exista; legacy=1 mantiene búsqueda multi-colección.
+    const costumersCollections = (preferUnified && unifiedAvailable)
+      ? [unifiedCollectionName]
+      : (await db.listCollections().toArray()).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+
+    console.log(`[GET /leads/:id] Buscando lead ${recordId} en ${costumersCollections.length} colecciones`, { preferUnified, unifiedAvailable });
     
     let lead = null;
     let foundInCollection = null;
@@ -894,10 +914,10 @@ router.put('/leads/:id', protect, async (req, res, next) => {
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
-    // Buscar y actualizar en TODAS las colecciones costumers*
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-    const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
+    // Preferir colección unificada cuando exista; legacy=1 mantiene búsqueda multi-colección.
+    const costumersCollections = (preferUnified && unifiedAvailable)
+      ? [unifiedCollectionName]
+      : (await db.listCollections().toArray()).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
     
     let result = null;
     let updatedCollection = null;
@@ -1003,7 +1023,7 @@ router.delete('/leads/:id', protect, async (req, res, next) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const collection = db.collection('costumers');
+    const collection = (preferUnified && unifiedAvailable) ? db.collection(unifiedCollectionName) : db.collection('costumers');
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     

@@ -18,16 +18,21 @@ router.get('/', protect, async (req, res) => {
     }
     // Simple in-memory cache para resultados de ranking por parámetros (se inicializa después de leer req.query)
     if (!global.__rankingCache) global.__rankingCache = new Map();
-    let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt' } = req.query;
-    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field });
+    let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt', legacy } = req.query;
+    console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field, legacy });
 
-    // RANKING: SIEMPRE buscar en todas las colecciones costumers_* 
-    // porque los registros pueden estar distribuidos entre la colección principal y las colecciones por agente
-    // Buscar en todas las colecciones si:
-    // 1. Se pasa explícitamente all=1
-    // 2. O se busca un agente específico (para incluir su colección personal)
-    // 3. O SIEMPRE (para asegurar que no falten registros)
-    const useAllCollections = true; // Cambio importante: SIEMPRE buscar en todas las colecciones
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+    const baseCollection = (preferUnified && unifiedAvailable) ? unifiedCollectionName : 'costumers';
+
+    // Por defecto usar la colección unificada si está disponible.
+    // El modo legacy (legacy=1) mantiene el comportamiento anterior de recorrer costumers*.
+    const useAllCollections = !preferUnified;
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -426,11 +431,11 @@ router.get('/', protect, async (req, res) => {
     console.log('[RANKING] Pipeline de agregación:', JSON.stringify(pipelineBase, null, 2));
     const matchStageDiaVenta = pipelineBase[0];
 
-    // Ejecutar consulta: por defecto en 'costumers'. Si se pide `all`, agregar todas las colecciones costumers* y fusionar resultados
+    // Ejecutar consulta: por defecto en baseCollection. En legacy mode recorrer costumers*.
     let rankingResults = [];
     // Variable para muestreo de firmas (se llena solo cuando useAllCollections y debug=1)
     let debugSignaturesSample = null;
-    let usedCollection = 'costumers';
+    let usedCollection = baseCollection;
     const attempts = [];
 
     // Función auxiliar para ejecutar pipeline en una colección y retornar array (captura errores)
@@ -574,15 +579,16 @@ router.get('/', protect, async (req, res) => {
         attempts.push({ collection: 'listCollections', error: eAll?.message || String(eAll) });
       }
     } else {
-      // Modo por defecto: consultar la colección principal 'costumers' y fallback a un conjunto reducido
+      // Modo por defecto: consultar la colección base (preferentemente costumers_unified)
       try {
-        console.log(`[RANKING] Consultando colección: costumers`);
-        rankingResults = await db.collection('costumers').aggregate(pipelineBase).toArray();
-        attempts.push({ collection: 'costumers', count: rankingResults.length });
-        console.log(`[RANKING] Datos encontrados en costumers: ${rankingResults.length} registros`);
+        console.log(`[RANKING] Consultando colección: ${baseCollection}`);
+        rankingResults = await db.collection(baseCollection).aggregate(pipelineBase).toArray();
+        attempts.push({ collection: baseCollection, count: rankingResults.length });
+        usedCollection = baseCollection;
+        console.log(`[RANKING] Datos encontrados en ${baseCollection}: ${rankingResults.length} registros`);
       } catch (e) {
-        console.error(`[RANKING] Error consultando costumers:`, e?.message);
-        attempts.push({ collection: 'costumers', error: e?.message||String(e) });
+        console.error(`[RANKING] Error consultando ${baseCollection}:`, e?.message);
+        attempts.push({ collection: baseCollection, error: e?.message||String(e) });
 
         // Fallback a otras colecciones solo si costumers falla
         const fallbackCollections = ['Costumers','Lineas','leads'];

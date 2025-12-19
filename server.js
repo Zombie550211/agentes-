@@ -5638,47 +5638,92 @@ app.post('/api/leads', protect, async (req, res) => {
     // Se ha eliminado la validación de duplicados para permitir guardar cualquier lead
     console.log('Guardando nuevo lead sin validación de duplicados');
     
-    // Determinar el agente final: si viene agenteAsignado, usar ese; si no, usar el usuario actual
+    // Determinar el agente final: agenteId manda. Si no hay agenteId resoluble, usar agenteAsignado/agente (si no es placeholder).
     let finalAgentName = null;
     let finalAgentId = null;
     let assignedByName = null;
-    
-    if (leadData.agenteAsignado || leadData.agente) {
-      // Si hay un agente asignado explícitamente (supervisor asignando a un agente)
-      const assignedAgent = leadData.agenteAsignado || leadData.agente;
-      finalAgentName = String(assignedAgent).replace(/_/g, ' ').trim();
-      assignedByName = req.user?.username || 'Sistema';
-      
-      console.log('[POST /api/leads] ASIGNACIÓN DETECTADA:');
-      console.log('  - Agente asignado:', finalAgentName);
-      console.log('  - Asignado por:', assignedByName);
-      
-      // Intentar obtener el ID del agente asignado desde la base de datos
+
+    function isPlaceholderAgent(v) {
+      const s = (v ?? '').toString().trim().toLowerCase();
+      return !s || s === 'agente' || s === 'agente desconocido';
+    }
+
+    async function findUserByIdLoose(id) {
       try {
+        if (!id) return null;
         const usersCollection = db.collection('users');
-        const agentUser = await usersCollection.findOne({
-          $or: [
-            { name: { $regex: new RegExp(finalAgentName, 'i') } },
-            { username: { $regex: new RegExp(finalAgentName, 'i') } }
-          ]
-        });
-        
-        if (agentUser) {
-          finalAgentId = agentUser._id || agentUser.id;
-          console.log('  - ID del agente encontrado:', finalAgentId);
-        } else {
-          console.log('  - No se encontró usuario para el agente asignado');
+        const s = String(id).trim();
+        if (/^[a-fA-F0-9]{24}$/.test(s)) {
+          try { return await usersCollection.findOne({ _id: new ObjectId(s) }); } catch (e) {}
         }
-      } catch (err) {
-        console.warn('[POST /api/leads] Error buscando agente asignado:', err.message);
+        return await usersCollection.findOne({ $or: [{ id: s }, { _id: s }] });
+      } catch (e) {
+        return null;
       }
-    } else {
-      // Si no hay asignación, usar el usuario actual
-      finalAgentName = req.user?.username || 'Agente Desconocido';
-      finalAgentId = req.user?.id;
-      console.log('[POST /api/leads] Sin asignación explícita, usando usuario actual:', finalAgentName);
+    }
+
+    // 1) Si viene agenteId, intentar resolverlo a un user y usarlo como fuente de verdad
+    let targetUser = null;
+    if (leadData.agenteId && !isPlaceholderAgent(leadData.agenteId)) {
+      targetUser = await findUserByIdLoose(leadData.agenteId);
+      if (targetUser) {
+        finalAgentId = targetUser._id || targetUser.id;
+        finalAgentName = (targetUser.name || targetUser.username || '').toString().trim();
+        // Solo marcar asignadoPor si el lead fue creado para OTRO agente
+        try {
+          const creatorId = req.user?.id ? String(req.user.id) : '';
+          const destId = finalAgentId ? String(finalAgentId) : '';
+          assignedByName = (creatorId && destId && creatorId !== destId) ? (req.user?.username || 'Sistema') : null;
+        } catch (_) {
+          assignedByName = req.user?.username || 'Sistema';
+        }
+      }
     }
     
+    if (!finalAgentId && (leadData.agenteAsignado || leadData.agente)) {
+      // Si hay un agente asignado explícitamente (supervisor asignando a un agente)
+      const assignedAgent = leadData.agenteAsignado || leadData.agente;
+      if (isPlaceholderAgent(assignedAgent)) {
+        // Ignorar placeholder
+      } else {
+        finalAgentName = String(assignedAgent).replace(/_/g, ' ').trim();
+        assignedByName = req.user?.username || 'Sistema';
+      
+        console.log('[POST /api/leads] ASIGNACIÓN DETECTADA:');
+        console.log('  - Agente asignado:', finalAgentName);
+        console.log('  - Asignado por:', assignedByName);
+      
+        // Intentar obtener el ID del agente asignado desde la base de datos
+        try {
+          const usersCollection = db.collection('users');
+          const agentUser = await usersCollection.findOne({
+            $or: [
+              { name: { $regex: new RegExp(finalAgentName, 'i') } },
+              { username: { $regex: new RegExp(finalAgentName, 'i') } }
+            ]
+          });
+          
+          if (agentUser) {
+            finalAgentId = agentUser._id || agentUser.id;
+            console.log('  - ID del agente encontrado:', finalAgentId);
+          } else {
+            console.log('  - No se encontró usuario para el agente asignado');
+          }
+        } catch (err) {
+          console.warn('[POST /api/leads] Error buscando agente asignado:', err.message);
+        }
+      }
+    }
+
+    // Fallback final: si no se pudo resolver agente asignado, usar usuario actual
+    if (!finalAgentId) {
+      finalAgentId = req.user?.id;
+    }
+    if (!finalAgentName) {
+      finalAgentName = req.user?.name || req.user?.username || 'Agente Desconocido';
+      console.log('[POST /api/leads] Sin asignación explícita, usando usuario actual:', finalAgentName);
+    }
+
     // Crear nuevo lead con formato consistente
     const newLead = {
       ...leadData,
@@ -5768,7 +5813,7 @@ app.post('/api/leads', protect, async (req, res) => {
         .slice(0, 60);
     }
 
-    const displayNorm = normalizeDisplay(req.user?.username || req.user?.name || newLead.agenteNombre || newLead.agente || '');
+    const displayNorm = normalizeDisplay(newLead.agenteNombre || newLead.agente || '');
 
     // 1) Check mapping collection first (do not overwrite an existing mapping)
     let targetCollection = null;
@@ -5812,7 +5857,7 @@ app.post('/api/leads', protect, async (req, res) => {
         const allCols = await db.listCollections().toArray();
         const names = allCols.map(c => c.name).filter(Boolean);
         let best = { name: null, score: 0, countId: 0, countName: 0 };
-        const username = req.user?.username || req.user?.name || '';
+        const username = newLead.agenteNombre || newLead.agente || '';
         const usernameRegex = makeLooseNameRegex(username);
         for (const n of names) {
           if (!n.startsWith('costumers_')) continue;
@@ -5951,12 +5996,28 @@ app.post('/api/leads', protect, async (req, res) => {
     }
 
     console.log('[POST /api/leads] targetCollection (final):', targetCollection, 'shortId:', shortId, 'user:', req.user?.username);
-    // Insertar en la base de datos (colección por agente o global)
-    const result = await db.collection(targetCollection).insertOne(newLead);
-    
-    console.log('Lead creado exitosamente con ID:', result.insertedId);
-    
-    // Responder con éxito
+
+    // Guardar en colección unificada (fuente única del sistema)
+    const unifiedCollectionName = 'costumers_unified';
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      if (!Array.isArray(u) || u.length === 0) {
+        await db.createCollection(unifiedCollectionName);
+      }
+    } catch (_) {
+      // continuar: si falla, insertOne reportará el error
+    }
+
+    // Preparar metadatos para el unified. Evitar choques por _id en diferentes colecciones.
+    const newId = new ObjectId();
+    newLead._id = newId;
+    newLead.sourceCollection = 'app_leads';
+    newLead.sourceId = newId.toString();
+    newLead.unifiedAt = new Date();
+
+    const result = await db.collection(unifiedCollectionName).insertOne(newLead);
+    console.log('Lead creado exitosamente en costumers_unified con ID:', result.insertedId);
+
     return res.status(201).json({
       success: true,
       message: 'Lead creado exitosamente',
@@ -5965,7 +6026,7 @@ app.post('/api/leads', protect, async (req, res) => {
         ...newLead
       }
     });
-    
+
   } catch (error) {
     console.error('Error al procesar el lead:', error);
     

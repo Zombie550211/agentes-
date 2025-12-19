@@ -1,5 +1,6 @@
 const { MongoClient, ObjectId } = require('mongodb');
-require('dotenv').config({ path: '../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const DEFAULT_DB = process.env.MONGODB_DB || 'crmagente';
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -25,7 +26,23 @@ function isPlaceholderAgent(v) {
   return lc === 'agente' || lc === 'agente desconocido' || lc === 'n/a' || lc === 'na';
 }
 
-function chooseAgentName(doc) {
+async function chooseAgentName(doc, usersCollection) {
+  try {
+    const agentId = doc.agenteId;
+    if (agentId && usersCollection) {
+      const s = String(agentId).trim();
+      let user = null;
+      if (/^[a-fA-F0-9]{24}$/.test(s)) {
+        try { user = await usersCollection.findOne({ _id: new ObjectId(s) }); } catch (_) {}
+      }
+      if (!user) {
+        try { user = await usersCollection.findOne({ $or: [{ id: s }, { _id: s }] }); } catch (_) {}
+      }
+      const uName = (user?.name || user?.username || '').toString().trim();
+      if (uName && !isPlaceholderAgent(uName) && uName.toLowerCase() !== 'sistema') return uName;
+    }
+  } catch {}
+
   const candidates = [
     doc.createdBy,
     doc.creadoPor,
@@ -89,6 +106,7 @@ async function main() {
 
   await client.connect();
   const db = client.db(args.db);
+  const usersCollection = db.collection('users');
 
   const collections = await db.listCollections().toArray();
   const rx = new RegExp(args.collectionRegex, 'i');
@@ -134,7 +152,7 @@ async function main() {
       // Fix agente/agenteNombre
       const needAgent = isPlaceholderAgent(doc.agente) || isPlaceholderAgent(doc.agenteNombre);
       if (needAgent) {
-        const agent = chooseAgentName(doc);
+        const agent = await chooseAgentName(doc, usersCollection);
         if (agent) {
           set.agente = agent;
           set.agenteNombre = agent;

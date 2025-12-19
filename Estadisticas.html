@@ -601,6 +601,11 @@
       min-height: 400px;
       position: relative;
     }
+    .top-chart-section .chart-wrapper canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
     @media (max-width: 1200px) {
       #top-charts-inner {
         grid-template-columns: 1fr;
@@ -1236,10 +1241,10 @@
         // Nota: la verificación de "activas" era realizada en el cliente (consultando /api/leads).
         // Se ha eliminado aquí para evitar llamadas redundantes y condiciones de carrera.
         // El conteo autoritativo de ACTIVAS debe provenir del backend (`/api/equipos/estadisticas`).
-        const allZero = fallbackTeamData.length > 0 && fallbackTeamData.every(t => Number(t.Total||0) === 0 && Number(t.ICON||0) === 0 && Number(t.BAMO||0) === 0 && Number(t.Puntaje||0) === 0);
+        const allZero = fallbackTeamData.length > 0 && fallbackTeamData.every(t => Number(t.Total||0) === 0 && (Number(t.ICON||0) === 0) && (Number(t.BAMO||0) === 0) && (Number(t.Puntaje||0) === 0));
 
         let shouldUseFallback = fallbackTeamData.length === 0 || allZero;
-        const needsLeadsAggregation = !isCurrentMonth || shouldUseFallback;
+        const needsLeadsAggregation = shouldUseFallback;
 
         const buildMonthlyLeadsAggregation = async () => {
           try {
@@ -1403,10 +1408,14 @@
         }
 
         if (!isCurrentMonth) {
-          console.log(`[TABLA] Mes navegando ${String(targetMonth.getMonth() + 1).padStart(2,'0')}/${targetMonth.getFullYear()} no es el actual. Sobrescribiendo datos con aggregation por dia_venta (${leadsAggregation.length} registros).`);
-          fallbackTeamData = Array.isArray(leadsAggregation) ? leadsAggregation : [];
-          teamData = fallbackTeamData.slice();
-          shouldUseFallback = false;
+          if (shouldUseFallback) {
+            console.log(`[TABLA] Mes navegando ${String(targetMonth.getMonth() + 1).padStart(2,'0')}/${targetMonth.getFullYear()} no es el actual y el backend viene vacío/cero. Usando aggregation por dia_venta (${leadsAggregation.length} registros).`);
+            fallbackTeamData = Array.isArray(leadsAggregation) ? leadsAggregation : [];
+            teamData = fallbackTeamData.slice();
+            shouldUseFallback = false;
+          } else {
+            console.log(`[TABLA] Mes navegando ${String(targetMonth.getMonth() + 1).padStart(2,'0')}/${targetMonth.getFullYear()} no es el actual. Usando datos del backend /api/equipos/estadisticas.`);
+          }
         } else if (shouldUseFallback) {
           console.log(`[FALLBACK] Mes actual sin datos válidos. Usando aggregation por dia_venta (${leadsAggregation.length} registros).`);
           fallbackTeamData = Array.isArray(leadsAggregation) ? leadsAggregation : [];
@@ -1780,7 +1789,7 @@
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.ICON || 0), 0)}</td>
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.BAMO || 0), 0)}</td>
                         <td>${fallbackTeamData.reduce((sum, t) => sum + (t.Total || 0), 0)}</td>
-                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(2)}</td>
+                        <td>${fallbackTeamData.reduce((sum, t) => sum + parseFloat(t.Puntaje || 0), 0).toFixed(1)}</td>
                       </tr>
                     ` : ''}
                   </tbody>
@@ -2116,6 +2125,7 @@
         if (wrapper && getComputedStyle(wrapper).position === 'static') {
           wrapper.style.position = 'relative';
         }
+        
         let overlay = wrapper.querySelector('.chart-spinner-overlay');
         if (show) {
           if (!overlay) {
@@ -2134,6 +2144,39 @@
           if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
         }
       } catch(e){ console.warn('showChartSpinner error', e); }
+    }
+
+    function ensureChartFitsContainer(chart, canvas) {
+      try {
+        if (!chart || !canvas) return;
+        const wrapper = canvas.parentElement;
+        if (!wrapper) return;
+
+        const id = canvas.id || '';
+        if (!window.__chartResizeObservers) window.__chartResizeObservers = {};
+
+        const resizeNow = () => {
+          try {
+            if (typeof chart.resize === 'function') chart.resize();
+            if (typeof chart.update === 'function') chart.update('none');
+          } catch (_) {}
+        };
+
+        // Reintentos por timing del layout (sidebar, fuentes, etc.)
+        requestAnimationFrame(() => requestAnimationFrame(resizeNow));
+        setTimeout(resizeNow, 250);
+        setTimeout(resizeNow, 900);
+
+        if (id && window.__chartResizeObservers[id]) return;
+
+        if (typeof ResizeObserver !== 'undefined') {
+          const ro = new ResizeObserver(() => resizeNow());
+          ro.observe(wrapper);
+          if (id) window.__chartResizeObservers[id] = ro;
+        }
+      } catch (e) {
+        console.warn('ensureChartFitsContainer error', e);
+      }
     }
 
     // Renderiza un gráfico de barras con ventas activas por equipo
@@ -2212,6 +2255,8 @@
                 }]
               },
               options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 layout: {
                   padding: { top: 30, right: 10, bottom: 10, left: 10 }
                 },
@@ -2268,6 +2313,7 @@
                 }
               ]
             });
+            ensureChartFitsContainer(window.ventasActivasMesChart, canvas);
             // Forzar un resize para asegurar que el gráfico se renderice correctamente
             try {
               if (window.ventasActivasMesChart && typeof window.ventasActivasMesChart.resize === 'function') {

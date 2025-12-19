@@ -30,7 +30,7 @@ async function obtenerEstadisticasEquipos(req, res) {
     
 
     // Rango de fechas (por defecto: MES ACTUAL)
-    let { fechaInicio, fechaFin, scope, all, debug } = req.query || {};
+    let { fechaInicio, fechaFin, scope, all, debug, primaryOnly, legacy } = req.query || {};
     const isDebug = String(debug) === '1';
     if (!fechaInicio || !fechaFin) {
       const now = new Date();
@@ -58,6 +58,40 @@ async function obtenerEstadisticasEquipos(req, res) {
 
     // Si piden SOLO el día (scope=day o fechaInicio==fechaFin), aplicar match directo por strings
     const isDayOnly = (scope === 'day') || (fechaInicio && fechaFin && fechaInicio === fechaFin);
+    // En métricas MENSUALES no usar createdAt/fecha como fallback de fecha de venta para evitar mezclar meses.
+    // Solo permitir createdAt como fallback cuando se consulta un día específico.
+    const allowCreatedAtFallback = !!isDayOnly;
+
+    // Filtro mensual estricto (solo ISO): si el rango solicitado está dentro del mismo mes,
+    // filtraremos únicamente por prefijo YYYY-MM- en dia_venta/fecha_contratacion.
+    let strictMonthKey = null;
+    let strictMonthPrefix = null;
+    try {
+      if (!isDayOnly && fechaInicio && fechaFin) {
+        const [yyS, mmS] = String(fechaInicio).split('-');
+        const [yyE, mmE] = String(fechaFin).split('-');
+        const sameMonthRange = yyS && mmS && yyE && mmE && yyS === yyE && mmS === mmE;
+        if (sameMonthRange) {
+          strictMonthKey = `${yyS}-${mmS}`;
+          strictMonthPrefix = new RegExp(`^${yyS}-${mmS}-`);
+        }
+      }
+    } catch (_) {}
+
+    // Si es un mes completo, aplicar match simple por prefijo ISO antes de parseos.
+    // Esto evita falsos 0 que activan el fallback y nos asegura que costumers (primaryOnly) coincide con Atlas.
+    if (strictMonthPrefix && !isDayOnly) {
+      try {
+        pipeline.push({
+          $match: {
+            $or: [
+              { dia_venta: { $regex: strictMonthPrefix } },
+              { fecha_contratacion: { $regex: strictMonthPrefix } }
+            ]
+          }
+        });
+      } catch (_) {}
+    }
     // Regla de reinicio: 09:30 America/El_Salvador (UTC-6, sin DST)
     let dayResetInfo = null;
     if (isDayOnly && start) {
@@ -83,13 +117,17 @@ async function obtenerEstadisticasEquipos(req, res) {
     // Normalización previa (fechas y puntaje desde múltiples campos)
     pipeline.push({
       $addFields: {
-        saleDateRaw: {
-          $ifNull: [
-            '$dia_venta',
-            { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$fecha', '$creadoEn' ] } ] } ] }
-          ]
-        },
-        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', ''] } } } },
+        saleDateRaw: allowCreatedAtFallback
+          ? {
+              $ifNull: [
+                '$dia_venta',
+                { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$fecha', '$creadoEn' ] } ] } ] }
+              ]
+            }
+          : {
+              $ifNull: [ '$dia_venta', { $ifNull: [ '$fecha_contratacion', null ] } ]
+            },
+        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', '$TEAM', ''] } } } },
         mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
   // Normalizar status/estado (simplificado) para contar 'activas' basadas en status
   statusRaw: { $ifNull: [ '$status', '$estado' ] },
@@ -132,6 +170,8 @@ async function obtenerEstadisticasEquipos(req, res) {
         saleDateDate: { $cond: [ { $eq: [ { $type: '$saleDate' }, 'date' ] }, '$saleDate', { $toDate: '$saleDate' } ] }
       }
     });
+
+    // Nota: el match mensual estricto ya se aplicó arriba por prefijo ISO.
 
     // Match por rango/día (con límites en UTC y soporte string)
     let pipelineMatchStrategy = 'none';
@@ -238,13 +278,22 @@ async function obtenerEstadisticasEquipos(req, res) {
   pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
     pipeline.push({ $sort: { TEAM: 1 } });
     
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+    const debugCollectionName = (preferUnified && unifiedAvailable) ? unifiedCollectionName : 'costumers';
+
     console.log('[EQUIPOS DEBUG] Buscando registros con status "completed" en noviembre...');
     try {
       const { ObjectId } = require('mongodb');
       const completedId = new ObjectId('690d45fec1c56f24f452ceb5');
       
       // Buscar el registro específico con status completed
-      const completedDoc = await db.collection('costumers').findOne({ _id: completedId });
+      const completedDoc = await db.collection(debugCollectionName).findOne({ _id: completedId });
       
       if (completedDoc) {
         console.log('[EQUIPOS DEBUG] ✅ Registro con status COMPLETED encontrado:');
@@ -277,7 +326,7 @@ async function obtenerEstadisticasEquipos(req, res) {
             }
           }
         ];
-        const testResult = await db.collection('costumers').aggregate(testPipeline).toArray();
+        const testResult = await db.collection(debugCollectionName).aggregate(testPipeline).toArray();
         if (testResult[0]) {
           console.log(`  - statusNorm en pipeline: "${testResult[0].statusNorm}"`);
           console.log(`  - teamNorm en pipeline: "${testResult[0].teamNorm}"`);
@@ -288,7 +337,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
       
       // Contar cuántos registros con status completed hay en noviembre
-      const completedCount = await db.collection('costumers').countDocuments({
+      const completedCount = await db.collection(debugCollectionName).countDocuments({
         status: 'completed',
         dia_venta: { $regex: /2025-11-/ }
       });
@@ -302,7 +351,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       const { ObjectId } = require('mongodb');
       const testPipeline = [...pipeline];
       testPipeline.push({ $match: { _id: new ObjectId('690d45fec1c56f24f452ceb5') } });
-      const testResult = await db.collection('costumers').aggregate(testPipeline).toArray();
+      const testResult = await db.collection(debugCollectionName).aggregate(testPipeline).toArray();
       console.log(`[EQUIPOS DEBUG] Resultado del test: ${testResult.length} documentos`);
       if (testResult.length > 0) {
         console.log('[EQUIPOS DEBUG] ✅ El registro SÍ pasa el filtro del pipeline');
@@ -318,7 +367,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         
         // Probar solo el registro sin filtros de fecha
         const noDateFilter = pipeline.slice(0, -3); // Sin $match de fecha, $group, $project
-        const testNoDate = await db.collection('costumers').aggregate([
+        const testNoDate = await db.collection(debugCollectionName).aggregate([
           ...noDateFilter,
           { $match: { _id: new ObjectId('690d45fec1c56f24f452ceb5') } }
         ]).toArray();
@@ -331,12 +380,19 @@ async function obtenerEstadisticasEquipos(req, res) {
       }
     } catch(e) { console.warn('[EQUIPOS DEBUG] Error en test:', e.message); }
 
-    // Obtener TODAS las colecciones costumers* para agregar
+    // Obtener colecciones costumers* para agregar (o solo la principal si se solicita)
+    const usePrimaryOnly = String(primaryOnly) === '1' || String(primaryOnly).toLowerCase() === 'true';
     const allCollections = await db.listCollections().toArray();
     const allCollectionNames = allCollections.map(c => c.name);
-    const costumersCollections = allCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
+    const useUnifiedAsSource = preferUnified && allCollectionNames.includes(unifiedCollectionName);
+    const costumersCollections = useUnifiedAsSource
+      ? [unifiedCollectionName]
+      : (usePrimaryOnly
+          ? (allCollectionNames.includes('costumers') ? ['costumers'] : [])
+          : allCollectionNames.filter(name => /^costumers(_|$)/i.test(name))
+        );
     
-    console.log(`[EQUIPOS] Agregando de ${costumersCollections.length} colecciones costumers*`);
+    console.log(`[EQUIPOS] Agregando de ${costumersCollections.length} colecciones ${useUnifiedAsSource ? '(costumers_unified)' : (usePrimaryOnly ? '(solo costumers)' : 'costumers*')}`);
     
     let equiposData = [];
     let usedCollections = [];
@@ -610,7 +666,7 @@ async function obtenerEstadisticasEquipos(req, res) {
 
           const monthStringPipeline = [
             { $addFields: {
-                teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', ''] } } } },
+                teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', '$TEAM', ''] } } } },
                 mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
                 puntajeNum: { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntuacion', { $ifNull: ['$points', '$score'] } ] } ] }, to: 'double', onError: 0, onNull: 0 } }
             }},
@@ -634,10 +690,12 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $sort: { TEAM: 1 } }
           ];
 
-          // Obtener todas las colecciones costumers* y agregar resultados
+          // Obtener colecciones a considerar para el fallback mensual (respetar primaryOnly)
           const monthCollections = await db.listCollections().toArray();
           const monthCollectionNames = monthCollections.map(c => c.name);
-          const costumersMonthCollections = monthCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
+          const costumersMonthCollections = usePrimaryOnly
+            ? (monthCollectionNames.includes('costumers') ? ['costumers'] : [])
+            : monthCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
           
           const monthMergeMap = new Map();
           for (const colName of costumersMonthCollections) {
@@ -816,7 +874,14 @@ async function obtenerEstadisticasEquipos(req, res) {
 async function obtenerListaEquipos(req, res){
   try {
     const db = getDb();
-    const col = db.collection('costumers');
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let col = db.collection('costumers');
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      if (preferUnified && Array.isArray(u) && u.length > 0) col = db.collection(unifiedCollectionName);
+    } catch (_) {}
     const teams = await col.aggregate([
       { $addFields: { teamNorm: { $toUpper: { $ifNull: ['$supervisor', '$team', '$equipo', ''] } } } },
       { $group: { _id: '$teamNorm' } },
@@ -832,7 +897,14 @@ async function obtenerListaEquipos(req, res){
 async function debugCostumers(req, res){
   try{
     const db = getDb();
-    const col = db.collection('costumers');
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let col = db.collection('costumers');
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      if (preferUnified && Array.isArray(u) && u.length > 0) col = db.collection(unifiedCollectionName);
+    } catch (_) {}
     const sample = await col.find({}).sort({ _id: -1 }).limit(5).toArray();
     res.json({ success:true, sample });
   } catch(e){
