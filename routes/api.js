@@ -259,7 +259,26 @@ router.get('/leads', protect, async (req, res) => {
       : allNames.filter(n => /^costumers(_|$)/i.test(n));
 
     collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
-    console.log(`[API /leads] Source mode: ${unifiedAvailable ? 'costumers_unified' : 'costumers*'} (legacy=${String(legacy || '')})`);
+
+    // Si no estamos usando unified (ya sea por preferencia o no disponibilidad), incluir TEAM_LINEAS
+    if (!unifiedAvailable) {
+      try {
+        const dbTL = getDbFor('TEAM_LINEAS');
+        if (dbTL) {
+          const tlCols = await dbTL.listCollections().toArray();
+          tlCols.forEach(c => {
+            if (c.name && c.name !== 'system.indexes') {
+              allCollections.push({ db: dbTL, name: c.name });
+            }
+          });
+          console.log(`[API /leads] Incluidas ${tlCols.length} colecciones de TEAM_LINEAS`);
+        }
+      } catch (e) {
+        console.warn('[API /leads] Error al incluir TEAM_LINEAS:', e.message);
+      }
+    }
+
+    console.log(`[API /leads] Source mode: ${unifiedAvailable ? 'costumers_unified' : 'costumers* + TEAM_LINEAS'} (legacy=${String(legacy || '')})`);
 
     // Paginación a través de colecciones: calcular total y tomar la ventana [offsetGlobal, offsetGlobal+limit)
     let remaining = limit;

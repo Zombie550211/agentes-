@@ -149,7 +149,7 @@
       const isDatasetEmpty = !Array.isArray(teamData) || !teamData.length || teamData.every(t => Number(t.Total || t.total || 0) === 0 && Number(t.ICON || 0) === 0);
       if (isDatasetEmpty) {
         try {
-          const leadsUrl = `/api/leads?fechaInicio=${firstDay}&fechaFin=${lastDay}`;
+          const leadsUrl = `/api/leads?fechaInicio=${firstDay}&fechaFin=${lastDay}&limit=5000`;
           const r2 = await fetchWithAuth(leadsUrl);
           let leads = [];
           if (r2 && r2.ok) {
@@ -2479,7 +2479,7 @@
         console.log('Cargando productos para:', monthNames[currentProductsDate.getMonth()], currentProductsDate.getFullYear());
         console.log('Rango de fechas:', { startStr, endStr });
 
-        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}`);
+        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}&limit=5000`);
         if (!resp || !resp.ok) { 
           console.warn('loadProductsChart: error en la respuesta de /api/leads'); 
           showNoDataMessage();
@@ -5830,6 +5830,9 @@
             params.set('fechaFin', fechaFinQuery);
             console.info('[Filtro fecha] Últimos 7 días enviados a /api/leads:', fechaInicioQuery, '→', fechaFinQuery);
           }
+          // Aumentar el límite para asegurar que traemos todos los datos para las gráficas
+          params.set('limit', '5000');
+          
           const qs = params.toString();
           url = qs ? `${u.pathname}?${qs}` : `${u.pathname}`;
         } catch (e) {
