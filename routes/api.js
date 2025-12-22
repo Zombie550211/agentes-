@@ -836,6 +836,15 @@ router.get('/leads/:id', protect, async (req, res, next) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
@@ -843,8 +852,6 @@ router.get('/leads/:id', protect, async (req, res, next) => {
     const costumersCollections = (preferUnified && unifiedAvailable)
       ? [unifiedCollectionName]
       : (await db.listCollections().toArray()).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
-
-    console.log(`[GET /leads/:id] Buscando lead ${recordId} en ${costumersCollections.length} colecciones`, { preferUnified, unifiedAvailable });
     
     let lead = null;
     let foundInCollection = null;
@@ -919,6 +926,15 @@ router.put('/leads/:id', protect, async (req, res, next) => {
     if (!db) {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
+
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
 
     const updateData = req.body || {};
 
@@ -1041,6 +1057,15 @@ router.delete('/leads/:id', protect, async (req, res, next) => {
     if (!db) {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
+
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
 
     const collection = (preferUnified && unifiedAvailable) ? db.collection(unifiedCollectionName) : db.collection('costumers');
     let objId = null;

@@ -2,7 +2,7 @@
 // This file contains helpers, ranking loaders, promo media handlers and init logic
 (function(){
   'use strict';
-  try { console.log('[RANKING] loaded external ranking-page.js v=20251215-02'); } catch(e){}
+  try { console.log('[RANKING] loaded external ranking-page.js v=20251222-08'); } catch(e){}
 
   // Utilities
   const escapeHtml = (value) => String(value == null ? '' : value)
@@ -109,15 +109,17 @@
       .trim();
     if (!cleaned) return raw;
 
-    // Title Case per word (preserve accents)
-    return cleaned
+    const parts = cleaned
       .split(' ')
       .filter(Boolean)
       .map((w) => {
         const lower = w.toLowerCase();
         return lower.charAt(0).toUpperCase() + lower.slice(1);
-      })
-      .join(' ');
+      });
+
+    // Mostrar solo "Nombre Apellido" (2 palabras): primera + última
+    if (parts.length > 2) return `${parts[0]} ${parts[parts.length - 1]}`;
+    return parts.join(' ');
   }
 
   function resolveDisplayName(agent) {
@@ -150,6 +152,11 @@
     }
     return '—';
   }
+
+  try {
+    window.__rankResolveDisplayName = resolveDisplayName;
+    window.__rankNormalizePersonName = normalizePersonName;
+  } catch (_) {}
 
   const renderAvatarHtml = (agent, altText = 'Avatar') => {
     if (!avatarsEnabled()) return '<i class="fas fa-user"></i>';

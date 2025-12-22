@@ -83,7 +83,7 @@
   <script src="js/crm-config.js"></script>
   <script src="js/inactivity-manager.js"></script>
   <script src="js/crm-init.js"></script>
-  <script src="js/ranking-page.js?v=20251222-07"></script>
+  <script src="js/ranking-page.js?v=20251222-08"></script>
   <style>
     /* Estilos globales para eliminar scroll */
     * {
@@ -2761,11 +2761,46 @@
           try{
             const safe = Array.isArray(list) ? list : [];
             const [top1, top2, top3] = [safe[0]||{}, safe[1]||{}, safe[2]||{}];
-            const displayName = (it) => {
+            const normalizeNameText = (value) => {
+              const raw = (value == null ? '' : String(value)).trim();
+              if (!raw) return raw;
               try {
-                if (typeof window.__rankResolveDisplayName === 'function') return window.__rankResolveDisplayName(it);
+                if (typeof window.__rankNormalizePersonName === 'function') {
+                  return window.__rankNormalizePersonName(raw);
+                }
               } catch (_) {}
-              return resolveDisplayName(it);
+              const cleaned = raw.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!cleaned) return raw;
+              const parts = cleaned.split(' ').filter(Boolean).map((w) => {
+                const lower = w.toLowerCase();
+                return lower.charAt(0).toUpperCase() + lower.slice(1);
+              });
+              if (parts.length > 2) return `${parts[0]} ${parts[parts.length - 1]}`;
+              return parts.join(' ');
+            };
+            const normalizeRankingDom = () => {
+              try {
+                document.querySelectorAll('.astronaut-name, #rank-list-dynamic .agent-details h4, #full-rank-table tbody td:nth-child(2)').forEach((el) => {
+                  const before = (el.textContent || '').trim();
+                  const after = normalizeNameText(before);
+                  if (after && after !== before) el.textContent = after;
+                });
+              } catch (_) {}
+            };
+            const displayName = (it) => {
+              let base = '—';
+              try {
+                if (typeof window.__rankResolveDisplayName === 'function') base = window.__rankResolveDisplayName(it);
+                else base = resolveDisplayName(it);
+              } catch (_) {
+                try { base = resolveDisplayName(it); } catch (__){ base = '—'; }
+              }
+              try {
+                if (typeof window.__rankNormalizePersonName === 'function') {
+                  return window.__rankNormalizePersonName(base);
+                }
+              } catch (_) {}
+              return base;
             };
             const getScore = (it)=> (typeof it.sumPuntaje==='number'?it.sumPuntaje:(typeof it.puntos==='number'?it.puntos:(typeof it.promedio==='number'?it.promedio:0)));
             const fmt = (n)=>{
@@ -2846,6 +2881,9 @@
                 });
               }
             }
+
+            normalizeRankingDom();
+            setTimeout(normalizeRankingDom, 0);
           }catch(e){ console.warn('[RANKING] update UI error', e); }
         }
 
