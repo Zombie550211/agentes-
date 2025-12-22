@@ -82,21 +82,48 @@
     return maybeProxyMedia(finalUrl);
   };
 
+  const normalizeNameKey = (value) => String(value == null ? '' : value)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase();
+
+  const NAME_OVERRIDES = {
+    eduardor: 'Eduardo Rivas',
+    alejandramelara: 'Alejandra Melara'
+  };
+
+  function normalizePersonName(value) {
+    const raw = (value == null ? '' : String(value)).trim();
+    if (!raw) return '—';
+
+    const overrideKey = normalizeNameKey(raw);
+    if (overrideKey && NAME_OVERRIDES[overrideKey]) {
+      return NAME_OVERRIDES[overrideKey];
+    }
+
+    // Replace common separators with spaces: INGRID.GARCIA / Nelson_Ceren / NELSON-CEREN
+    const cleaned = raw
+      .replace(/[._-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleaned) return raw;
+
+    // Title Case per word (preserve accents)
+    return cleaned
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => {
+        const lower = w.toLowerCase();
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+  }
+
   function resolveDisplayName(agent) {
     if (!agent) return '—';
-    const usernameCandidates = [
-      agent.username,
-      agent.usuario?.username,
-      agent.user?.username,
-      agent.usuario?.userName,
-      agent.userName
-    ];
-    for (const candidate of usernameCandidates) {
-      if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim();
-      }
-    }
     const nameCandidates = [
+      // Preferir nombres reales por encima del username
       agent.nombre,
       agent.name,
       agent.fullName,
@@ -106,7 +133,19 @@
     ];
     for (const candidate of nameCandidates) {
       if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim();
+        return normalizePersonName(candidate);
+      }
+    }
+    const usernameCandidates = [
+      agent.username,
+      agent.usuario?.username,
+      agent.user?.username,
+      agent.usuario?.userName,
+      agent.userName
+    ];
+    for (const candidate of usernameCandidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return normalizePersonName(candidate);
       }
     }
     return '—';
