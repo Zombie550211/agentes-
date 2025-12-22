@@ -352,16 +352,41 @@
       const btn = document.getElementById('btn-open-full-ranking');
       if (btn) {
         const currentUser = await getUser();
-        const userRole = ((currentUser && (currentUser.role || currentUser.usuario?.role || currentUser.userRole)) || '').toString().toLowerCase();
+        const rawRole = (
+          currentUser?.role ||
+          currentUser?.userRole ||
+          currentUser?.usuario?.role ||
+          currentUser?.usuario?.userRole ||
+          currentUser?.user?.role ||
+          currentUser?.user?.userRole ||
+          ''
+        );
+        const userRole = String(rawRole || '').toLowerCase();
         const roleNorm = userRole.replace(/\s+/g, ' ').trim();
+        const hasAuthUser = !!currentUser;
+
+        // Si el usuario está autenticado pero el rol viene vacío/inconsistente,
+        // preferimos NO ocultar el botón (caso típico: agentes).
         const canViewAll = (
           ['admin','administrador','supervisor','supervisor team lineas','backoffice'].includes(roleNorm) ||
           roleNorm.includes('agente') ||
           roleNorm.includes('agent') ||
           roleNorm.includes('lineas-agentes') ||
-          roleNorm.includes('lineas-agente')
+          roleNorm.includes('lineas-agente') ||
+          roleNorm.includes('vendedor') ||
+          roleNorm.includes('seller') ||
+          (hasAuthUser && !roleNorm)
         );
-        btn.style.display = canViewAll ? 'inline-block' : 'none';
+
+        // "Latch" de visibilidad: si ya se mostró una vez, no volver a ocultarlo
+        // por lecturas tardías/inconsistentes del usuario/rol.
+        if (canViewAll) {
+          btn.dataset.rankViewAllAllowed = '1';
+          btn.style.display = 'inline-block';
+        } else {
+          const alreadyAllowed = btn.dataset.rankViewAllAllowed === '1';
+          btn.style.display = alreadyAllowed ? 'inline-block' : 'none';
+        }
         btn.onclick = async () => {
           window.__rankViewAll = !window.__rankViewAll;
           btn.textContent = window.__rankViewAll ? 'Ver menos' : 'Ver todos';
