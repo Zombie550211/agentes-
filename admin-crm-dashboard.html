@@ -33,12 +33,13 @@
     <script src="agentes/js/auth-check.js"></script>
     <script src="/js/logout-handler.js"></script>
     <script src="/js/user-info.js"></script>
+    <script src="/js/sidebar-loader.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(to bottom right, #f8fafc, #e2e8f0);
             min-height: 100vh;
-            margin-left: 260px;
+            /* Sidebar width handled by sidebar-loader/css */
         }
 
         .layout {
@@ -46,13 +47,23 @@
             min-height: 100vh;
         }
 
+        /* Ajuste para el contenido principal cuando hay sidebar */
+        /* .main-content margin is handled by sidebar-loader.js globally */
         .main-content {
             flex: 1;
             overflow-y: auto;
             padding: 0;
             margin: 0;
             box-sizing: border-box;
+            transition: margin-left 0.3s ease;
+            background-color: #f8fafc; /* Ensure background matches theme */
         }
+
+        /* En pantallas pequeñas */
+        @media (max-width: 768px) {
+            /* Handled by media queries in sidebar styles/loader usually, but keeping safe fallback */
+        }
+
 
         /* Header */
         .header {
@@ -60,14 +71,43 @@
             border-bottom: 1px solid #e2e8f0;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 20;
         }
 
         .header-content {
             width: 100%;
-            padding: 1.5rem;
+            padding: 1rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .header-icon {
+            font-size: 1.5rem;
+            color: #3b82f6;
+            background: #eff6ff;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.2;
+        }
+        
+        .header-subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
         }
 
         .search-container {
@@ -102,42 +142,53 @@
             padding: 0;
             margin: 0;
             box-sizing: border-box;
+            height: calc(100vh - 73px); /* Subtract header height aprox */
+            overflow: hidden;
         }
 
         .dashboard-grid {
             display: grid;
-            grid-template-columns: 350px 1fr;
+            grid-template-columns: 320px 1fr;
             gap: 1.5rem;
-            height: calc(100vh - 200px);
+            height: 100%;
             padding: 1.5rem;
             margin: 0;
             box-sizing: border-box;
         }
 
-        /* Dashboard Sidebar */
-        .dashboard-sidebar {
+        /* Teams Panel (Formerly Dashboard Sidebar) */
+        .teams-panel {
             background: white;
             border-radius: 1rem;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             border: 1px solid #e2e8f0;
             height: 100%;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
-        .sidebar-header {
-            padding: 1.5rem;
+        .teams-panel-header {
+            padding: 1.25rem;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 1.125rem;
-            font-weight: 600;
+            gap: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 700;
             color: #1e293b;
+            background: #f8fafc;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
+        
+        .teams-panel-header i {
+            color: #3b82f6;
         }
 
         .teams-container {
             padding: 1rem;
-            max-height: 100%;
+            flex: 1;
             overflow-y: auto;
         }
 
@@ -401,42 +452,11 @@
 </head>
 <body>
     <!-- Sidebar -->
-    <nav class="sidebar sidebar-inicio" data-active="admin">
-        <!-- Usuario -->
-        <div class="user-info">
-            <div class="user-details">
-                <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
-                    <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
-                        <span class="user-avatar">U</span>
-                    </div>
-                </div>
-                <div id="user-name" class="user-name">Usuario</div>
-                <div class="user-role-container">
-                    <span id="user-role" class="user-role-badge">Rol</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Menú principal -->
-        <ul class="menu">
-            <li><a href="inicio.html" class="btn btn-sidebar" title="Inicio"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
-            <li><a href="Ranking y Promociones.html" class="btn btn-sidebar" title="Ranking y Promociones"><i class="fas fa-trophy"></i><span class="menu-label">Ranking y Promociones</span></a></li>
-            <li><a href="lead.html" class="btn btn-sidebar" title="Lead"><i class="fas fa-user-plus"></i><span class="menu-label">Lead</span></a></li>
-            <li><a href="Costumer.html" class="btn btn-sidebar" title="Costumer"><i class="fas fa-users"></i><span class="menu-label">Costumer</span></a></li>
-            <li><a href="facturacion.html" class="btn btn-sidebar" title="Facturación"><i class="fas fa-file-invoice-dollar"></i><span class="menu-label">Facturación</span></a></li>
-            <li id="menu-create-account" style="display:none;"><a href="register.html" class="btn btn-sidebar" title="Crear cuenta"><i class="fas fa-user-plus"></i><span class="menu-label">Crear cuenta</span></a></li>
-            <li><a href="Estadisticas.html" class="btn btn-sidebar" title="Estadísticas"><i class="fas fa-chart-bar"></i><span class="menu-label">Estadísticas</span></a></li>
-            <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
-            <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
-            <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
-            <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
-        </ul>
-
-        <!-- Frase al pie -->
-        <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
-    </nav>
+    <div class="sidebar" data-active="admin" id="sidebar"></div>
+    <!-- No se requiere markup manual, sidebar-loader lo inyecta -->
 
     <!-- Main Content -->
+
     <div class="main-content">
         <div class="header">
             <div class="header-content">
@@ -456,9 +476,9 @@
 
         <div class="main-container">
             <div class="dashboard-grid">
-                <!-- Sidebar -->
-                <div class="dashboard-sidebar">
-                    <div class="sidebar-header">
+                <!-- Teams Panel -->
+                <div class="teams-panel">
+                    <div class="teams-panel-header">
                         <i class="fas fa-users"></i>
                         Teams y Usuarios
                     </div>
@@ -478,37 +498,24 @@
     </div>
 
     <script>
-        // Cargar información del usuario en el sidebar
+        // Inicializar Sidebar y Configuración de Página
         document.addEventListener('DOMContentLoaded', function() {
-            const userNameElement = document.getElementById('user-name');
-            const userRoleElement = document.getElementById('user-role');
-            const createAccountItem = document.getElementById('menu-create-account');
-            
-            try {
-                const userName = localStorage.getItem('userName') || 'Usuario';
-                const userRole = localStorage.getItem('userRole') || 'usuario';
-                
-                if (userNameElement) {
-                    userNameElement.textContent = userName;
-                }
-                if (userRoleElement) {
-                    userRoleElement.textContent = userRole.charAt(0).toUpperCase() + userRole.slice(1);
-                }
-                
-                // Mostrar "Crear cuenta" solo para admins
-                function canAccess(role) {
-                    const r = (role || '').toString().toLowerCase();
-                    return ['admin', 'administrador', 'administrativo', 'supervisor', 'backoffice', 'supervisor team lineas'].includes(r);
-                }
-                
-                if (createAccountItem) {
-                    createAccountItem.style.display = canAccess(userRole) ? 'block' : 'none';
-                }
-            } catch (e) {
-                console.log('Error cargando información:', e);
+            // Inicializar sidebar dinámico
+            if (window.loadSidebar) {
+                window.loadSidebar();
             }
+
+            // Marcar item activo en sidebar (después de que cargue)
+            setTimeout(() => {
+               const sidebar = document.getElementById('sidebar');
+               if (sidebar) sidebar.setAttribute('data-active', 'admin');
+               
+               // Fallback por si el atributo data-active no es suficiente para el CSS del loader
+               const adminItem = document.querySelector('a[href="admin-crm-dashboard.html"]');
+               if (adminItem) adminItem.classList.add('active');
+            }, 500);
         });
-        
+
         // Data
         const teams = [
             {

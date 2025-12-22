@@ -3510,6 +3510,36 @@ document.addEventListener('DOMContentLoaded', function() {
               }
             } catch (_) {}
 
+            // Lógica común de asignación de agente (para supervisores)
+            // Se ejecuta ANTES de ramificar para que esté disponible en ambos casos
+            let agenteAsignadoInfo = null;
+            try {
+              const agentAssignEl = document.getElementById('agentAssign');
+              let selectedAgent = agentAssignEl ? (agentAssignEl.value || '').toString().trim() : '';
+              const manualEl = document.getElementById('agentAssignManual');
+              if ((!selectedAgent || selectedAgent === '') && manualEl && manualEl.style.display !== 'none') {
+                const m = (manualEl.value || '').toString().trim();
+                if (m) selectedAgent = m;
+              }
+              if (selectedAgent) {
+                const rawAgent = selectedAgent;
+                const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
+                agenteAsignadoInfo = {
+                  agenteAsignado: normalizedAgent,
+                  agente: rawAgent,
+                  agenteNombre: rawAgent
+                };
+                console.log('Agente asignado detectado (Supervisor):', agenteAsignadoInfo);
+              }
+            } catch (e) { console.warn('[lead.html] no se pudo leer agentAssign', e); }
+
+            // Actualizar el payload base con el agente asignado si existe
+            if (agenteAsignadoInfo) {
+              Object.assign(customerDataToSend, agenteAsignadoInfo);
+              // Asegurar que el campo 'agente' se llene si está vacío
+              if (!customerDataToSend.agente) customerDataToSend.agente = agenteAsignadoInfo.agente;
+            }
+
             let customerResponse = null;
             let leadResponse = { success: true };
 
@@ -3569,22 +3599,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 supervisor: (getVal(elSupervisor) || getTextUpper(elSupervisor)),
               };
 
-              // Incluir agente asignado (si supervisor seleccionó uno o lo ingresó manualmente)
-              try {
-                const agentAssignEl = document.getElementById('agentAssign');
-                let selectedAgent = agentAssignEl ? (agentAssignEl.value || '').toString().trim() : '';
-                const manualEl = document.getElementById('agentAssignManual');
-                if ((!selectedAgent || selectedAgent === '') && manualEl && manualEl.style.display !== 'none') {
-                  const m = (manualEl.value || '').toString().trim();
-                  if (m) selectedAgent = m;
-                }
-                if (selectedAgent) {
-                  const rawAgent = selectedAgent;
-                  const normalizedAgent = String(rawAgent).replace(/\s+/g,'_').toUpperCase();
-                  lineasData.agenteAsignado = normalizedAgent;
-                  lineasData.agente = rawAgent; // opcional: reflejar en campo agente
-                }
-              } catch (e) { console.warn('[lineas] no se pudo leer agentAssign', e); }
+              // Aplicar agente asignado si existe
+              if (agenteAsignadoInfo) {
+                Object.assign(lineasData, agenteAsignadoInfo);
+              }
 
               // Enviar a /api/lineas
               customerResponse = await makeRequest('/api/lineas', lineasData);
