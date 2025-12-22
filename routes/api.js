@@ -351,7 +351,7 @@ router.get('/leads', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
+
 
 // Endpoint de diagnÃ³stico para ver formatos de fecha
 router.get('/leads/debug-dates', protect, async (req, res) => {
@@ -2115,161 +2115,162 @@ router.get('/crm/agent-clients', protect, async (req, res) => {
   }
 });
 
- 
- / * *  
-   *   @ r o u t e   P O S T   / a p i / c r m _ a g e n t e  
-   *   @ d e s c   A s i g n a r   l e a d   a   u n   a g e n t e   e s p e c Ã ­ f i c o   ( e n d p o i n t   d e   r e s p a l d o / e x p l Ã ­ c i t o )  
-   *   @ a c c e s s   P r i v a t e  
-   * /  
- r o u t e r . p o s t ( ' / c r m _ a g e n t e ' ,   p r o t e c t ,   a s y n c   ( r e q ,   r e s )   = >   {  
-     t r y   {  
-         c o n s t   d b   =   g e t D b ( ) ;  
-         i f   ( ! d b )   r e t u r n   r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   ' D B   n o   d i s p o n i b l e '   } ) ;  
-  
-         c o n s t   l e a d D a t a   =   r e q . b o d y ;  
-         c o n s t   {   a g e n t e A s i g n a d o ,   a g e n t e ,   n o m b r e _ c l i e n t e ,   t e l e f o n o _ p r i n c i p a l   }   =   l e a d D a t a ;  
-          
-         / /   N o r m a l i z a r   n o m b r e   d e l   a g e n t e   o b j e t i v o  
-         l e t   t a r g e t A g e n t N a m e   =   a g e n t e A s i g n a d o   | |   a g e n t e ;  
-         i f   ( ! t a r g e t A g e n t N a m e )   {  
-             r e t u r n   r e s . s t a t u s ( 4 0 0 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   ' S e   r e q u i e r e   a g e n t e   o   a g e n t e A s i g n a d o '   } ) ;  
-         }  
-  
-         / /   L i m p i e z a   d e l   n o m b r e   ( D I E G O _ M E J I A   - >   D i e g o   M e j i a )  
-         t a r g e t A g e n t N a m e   =   S t r i n g ( t a r g e t A g e n t N a m e ) . r e p l a c e ( / _ / g ,   '   ' ) . t r i m ( ) ;  
-          
-         c o n s o l e . l o g ( ` [ A P I   / c r m _ a g e n t e ]   I n t e n t a n d o   a s i g n a r   l e a d   a :   $ { t a r g e t A g e n t N a m e } ` ) ;  
-  
-         / /   B u s c a r   e l   u s u a r i o   a g e n t e   e n   l a   B D  
-         c o n s t   u s e r s C o l   =   d b . c o l l e c t i o n ( ' u s e r s ' ) ;  
-         c o n s t   a g e n t U s e r   =   a w a i t   u s e r s C o l . f i n d O n e ( {  
-             $ o r :   [  
-                 {   u s e r n a m e :   {   $ r e g e x :   n e w   R e g E x p ( ` ^ $ { t a r g e t A g e n t N a m e } $ ` ,   ' i ' )   }   } ,  
-                 {   n a m e :   {   $ r e g e x :   n e w   R e g E x p ( ` ^ $ { t a r g e t A g e n t N a m e } $ ` ,   ' i ' )   }   } ,  
-                 / /   I n t e n t o   f l e x i b l e  
-                 {   u s e r n a m e :   {   $ r e g e x :   n e w   R e g E x p ( t a r g e t A g e n t N a m e ,   ' i ' )   }   } ,  
-                 {   n a m e :   {   $ r e g e x :   n e w   R e g E x p ( t a r g e t A g e n t N a m e ,   ' i ' )   }   }  
-             ]  
-         } ) ;  
-  
-         i f   ( ! a g e n t U s e r )   {  
-             c o n s o l e . w a r n ( ` [ A P I   / c r m _ a g e n t e ]   N o   s e   e n c o n t r Ã ³   u s u a r i o   p a r a :   $ { t a r g e t A g e n t N a m e } ` ) ;  
-             r e t u r n   r e s . s t a t u s ( 4 0 4 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   ' A g e n t e   n o   e n c o n t r a d o   e n   e l   s i s t e m a '   } ) ;  
-         }  
-  
-         c o n s t   a g e n t I d   =   a g e n t U s e r . _ i d   | |   a g e n t U s e r . i d ;  
-         c o n s t   a g e n t U s e r n a m e   =   a g e n t U s e r . u s e r n a m e   | |   a g e n t U s e r . n a m e ;  
-          
-         c o n s o l e . l o g ( ` [ A P I   / c r m _ a g e n t e ]   U s u a r i o   e n c o n t r a d o :   $ { a g e n t U s e r n a m e }   ( $ { a g e n t I d } ) ` ) ;  
-  
-         / /   D e t e r m i n a r   l a   c o l e c c i Ã ³ n   d e   d e s t i n o  
-         / /   1 .   V e r i f i c a r   s i   t i e n e   m a p e o   e n   u s e r _ c o l l e c t i o n s  
-         l e t   t a r g e t C o l l e c t i o n   =   n u l l ;  
-         c o n s t   m a p p i n g   =   a w a i t   d b . c o l l e c t i o n ( ' u s e r _ c o l l e c t i o n s ' ) . f i n d O n e ( {    
-             $ o r :   [ {   o w n e r I d :   a g e n t I d   } ,   {   o w n e r I d :   S t r i n g ( a g e n t I d )   } ]    
-         } ) ;  
-          
-         i f   ( m a p p i n g   & &   m a p p i n g . c o l l e c t i o n N a m e )   {  
-             t a r g e t C o l l e c t i o n   =   m a p p i n g . c o l l e c t i o n N a m e ;  
-         }   e l s e   {  
-             / /   2 .   B u s c a r   c o l e c c i Ã ³ n   e x i s t e n t e   q u e   e m p i e c e   p o r   c o s t u m e r s _   y   t e n g a   l e a d s   d e   e s t e   a g e n t e  
-             c o n s t   a l l C o l s   =   a w a i t   d b . l i s t C o l l e c t i o n s ( ) . t o A r r a y ( ) ;  
-             c o n s t   p o t e n t i a l C o l s   =   a l l C o l s . f i l t e r ( c   = >   c . n a m e . s t a r t s W i t h ( ' c o s t u m e r s _ ' ) ) ;  
-              
-             / /   B u s c a r   l a   m e j o r   c o i n c i d e n c i a  
-             f o r   ( c o n s t   c o l   o f   p o t e n t i a l C o l s )   {  
-                 / /   S i m p l e   h e u r Ã ­ s t i c a :   s i   e l   n o m b r e   d e   l a   c o l e c c i Ã ³ n   c o n t i e n e   p a r t e   d e l   n o m b r e   d e l   a g e n t e  
-                 c o n s t   s i m p l i f i e d C o l   =   c o l . n a m e . r e p l a c e ( ' c o s t u m e r s _ ' ,   ' ' ) . t o L o w e r C a s e ( ) ;  
-                 c o n s t   s i m p l i f i e d A g e n t   =   S t r i n g ( a g e n t U s e r n a m e ) . t o L o w e r C a s e ( ) . r e p l a c e ( / [ ^ a - z 0 - 9 ] / g ,   ' ' ) ;  
-                 i f   ( s i m p l i f i e d C o l . i n c l u d e s ( s i m p l i f i e d A g e n t . s l i c e ( 0 ,   5 ) ) )   {  
-                         t a r g e t C o l l e c t i o n   =   c o l . n a m e ;  
-                         b r e a k ;  
-                 }  
-             }  
-              
-             / /   3 .   S i   n o ,   g e n e r a r   n o m b r e   c a n Ã ³ n i c o  
-             i f   ( ! t a r g e t C o l l e c t i o n )   {  
-                 c o n s t   s h o r t I d   =   S t r i n g ( a g e n t I d ) . s l i c e ( - 6 ) ;  
-                 c o n s t   n o r m N a m e   =   S t r i n g ( a g e n t U s e r n a m e ) . n o r m a l i z e ( ' N F D ' ) . r e p l a c e ( / [ \ u 0 0 0 0 - \ u 0 3 6 f ] / g ,   ' ' ) . t o L o w e r C a s e ( ) . r e p l a c e ( / [ ^ a - z 0 - 9 ] / g ,   ' _ ' ) ;  
-                 t a r g e t C o l l e c t i o n   =   ` c o s t u m e r s _ $ { n o r m N a m e } _ $ { s h o r t I d } ` . s l i c e ( 0 ,   6 0 ) ;   / /   S a f e t y   l i m i t  
-             }  
-         }  
-  
-         c o n s o l e . l o g ( ` [ A P I   / c r m _ a g e n t e ]   G u a r d a n d o   e n   c o l e c c i Ã ³ n :   $ { t a r g e t C o l l e c t i o n } ` ) ;  
-  
-         / /   P r e p a r a r   d o c u m e n t o  
-         c o n s t   n e w L e a d   =   {  
-             . . . l e a d D a t a ,  
-             a g e n t e :   a g e n t U s e r n a m e ,  
-             a g e n t e I d :   a g e n t I d ,  
-             a g e n t e N o m b r e :   a g e n t U s e r n a m e ,  
-             o w n e r I d :   a g e n t I d ,   / /   C R Ã  T I C O   p a r a   q u e   s e a   " s u y o "  
-             a s i g n a d o P o r :   r e q . u s e r . u s e r n a m e ,  
-             f e c h a _ a s i g n a c i o n :   n e w   D a t e ( ) ,  
-             / /   A s e g u r a r   f e c h a s  
-             c r e a t e d A t :   n e w   D a t e ( ) ,  
-             u p d a t e d A t :   n e w   D a t e ( ) ,  
-             f e c h a _ c r e a c i o n :   n e w   D a t e ( ) ,  
-             s t a t u s :   l e a d D a t a . s t a t u s   | |   ' P E N D I N G ' ,  
-             _ s o u r c e :   ' c r m _ a g e n t e _ a s s i g n m e n t '  
-         } ;  
-  
-         / /   E l i m i n a r   _ i d   s i   v i e n e   e n   e l   b o d y   p a r a   c r e a r   u n o   n u e v o  
-         d e l e t e   n e w L e a d . _ i d ;  
-  
-         / /   I n s e r t a r  
-         c o n s t   r e s u l t   =   a w a i t   d b . c o l l e c t i o n ( t a r g e t C o l l e c t i o n ) . i n s e r t O n e ( n e w L e a d ) ;  
-  
-         r e t u r n   r e s . j s o n ( {    
-             s u c c e s s :   t r u e ,    
-             m e s s a g e :   ` L e a d   a s i g n a d o   c o r r e c t a m e n t e   a   $ { a g e n t U s e r n a m e } ` ,  
-             c o l l e c t i o n :   t a r g e t C o l l e c t i o n ,  
-             i d :   r e s u l t . i n s e r t e d I d  
-         } ) ;  
-  
-     }   c a t c h   ( e r r o r )   {  
-         c o n s o l e . e r r o r ( ' [ A P I   / c r m _ a g e n t e ]   E r r o r : ' ,   e r r o r ) ;  
-         r e t u r n   r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   e r r o r . m e s s a g e   } ) ;  
-     }  
- } ) ;  
-  
- / * *  
-   *   @ r o u t e   G E T   / a p i / u s e r s / a g e n t s  
-   *   @ d e s c   O b t e n e r   l i s t a   d e   a g e n t e s   p a r a   a s i g n a c i Ã ³ n   ( e n d p o i n t   d e   s o p o r t e   p a r a   d r o p d o w n )  
-   *   @ a c c e s s   P r i v a t e  
-   * /  
- r o u t e r . g e t ( ' / u s e r s / a g e n t s ' ,   p r o t e c t ,   a s y n c   ( r e q ,   r e s )   = >   {  
-     t r y   {  
-         c o n s t   d b   =   g e t D b ( ) ;  
-         i f   ( ! d b )   r e t u r n   r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   ' D B   n o   d i s p o n i b l e '   } ) ;  
-  
-         / /   D e v o l v e r   l i s t a   d e   u s u a r i o s   c o n   c a m p o s   m Ã ­ n i m o s   p a r a   e l   s e l e c t o r  
-         c o n s t   u s e r s   =   a w a i t   d b . c o l l e c t i o n ( ' u s e r s ' )  
-             . f i n d ( { } )   / /   T r a e r   t o d o s   p a r a   q u e   e l   f r o n t e n d   f i l t r e   p o r   s u p e r v i s o r / e q u i p o  
-             . p r o j e c t ( {    
-                 u s e r n a m e :   1 ,    
-                 n a m e :   1 ,    
-                 r o l e :   1 ,    
-                 t e a m :   1 ,    
-                 s u p e r v i s o r :   1 ,    
-                 s u p e r v i s o r N a m e :   1 ,    
-                 s u p e r v i s o r I d :   1 ,  
-                 m a n a g e r :   1 ,  
-                 m a n a g e r I d :   1 ,  
-                 _ i d :   1 ,  
-                 i d :   1    
-             } )  
-             . s o r t ( {   n a m e :   1   } )  
-             . t o A r r a y ( ) ;  
-  
-         r e t u r n   r e s . j s o n ( {    
-             s u c c e s s :   t r u e ,    
-             a g e n t s :   u s e r s ,  
-             c o u n t :   u s e r s . l e n g t h    
-         } ) ;  
-     }   c a t c h   ( e r r o r )   {  
-         c o n s o l e . e r r o r ( ' [ A P I   / u s e r s / a g e n t s ]   E r r o r : ' ,   e r r o r ) ;  
-         r e t u r n   r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   s u c c e s s :   f a l s e ,   m e s s a g e :   e r r o r . m e s s a g e   } ) ;  
-     }  
- } ) ;  
- 
+
+/**
+ * @route POST /api/crm_agente
+ * @desc Asignar lead a un agente especï¿½ï¿½fico (endpoint de respaldo/explï¿½ï¿½cito)
+ * @access Private
+ */
+router.post('/crm_agente', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const leadData = req.body;
+    const { agenteAsignado, agente, nombre_cliente, telefono_principal } = leadData;
+    
+    // Normalizar nombre del agente objetivo
+    let targetAgentName = agenteAsignado || agente;
+    if (!targetAgentName) {
+      return res.status(400).json({ success: false, message: 'Se requiere agente o agenteAsignado' });
+    }
+
+    // Limpieza del nombre (DIEGO_MEJIA -> Diego Mejia)
+    targetAgentName = String(targetAgentName).replace(/_/g, ' ').trim();
+    
+    console.log(`[API /crm_agente] Intentando asignar lead a: ${targetAgentName}`);
+
+    // Buscar el usuario agente en la BD
+    const usersCol = db.collection('users');
+    const agentUser = await usersCol.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${targetAgentName}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${targetAgentName}$`, 'i') } },
+        // Intento flexible
+        { username: { $regex: new RegExp(targetAgentName, 'i') } },
+        { name: { $regex: new RegExp(targetAgentName, 'i') } }
+      ]
+    });
+
+    if (!agentUser) {
+      console.warn(`[API /crm_agente] No se encontrï¿½ï¿½ usuario para: ${targetAgentName}`);
+      return res.status(404).json({ success: false, message: 'Agente no encontrado en el sistema' });
+    }
+
+    const agentId = agentUser._id || agentUser.id;
+    const agentUsername = agentUser.username || agentUser.name;
+    
+    console.log(`[API /crm_agente] Usuario encontrado: ${agentUsername} (${agentId})`);
+
+    // Determinar la colecciï¿½ï¿½n de destino
+    // 1. Verificar si tiene mapeo en user_collections
+    let targetCollection = null;
+    const mapping = await db.collection('user_collections').findOne({ 
+      $or: [{ ownerId: agentId }, { ownerId: String(agentId) }] 
+    });
+    
+    if (mapping && mapping.collectionName) {
+      targetCollection = mapping.collectionName;
+    } else {
+      // 2. Buscar colecciï¿½ï¿½n existente que empiece por costumers_ y tenga leads de este agente
+      const allCols = await db.listCollections().toArray();
+      const potentialCols = allCols.filter(c => c.name.startsWith('costumers_'));
+      
+      // Buscar la mejor coincidencia
+      for (const col of potentialCols) {
+        // Simple heurï¿½ï¿½stica: si el nombre de la colecciï¿½ï¿½n contiene parte del nombre del agente
+        const simplifiedCol = col.name.replace('costumers_', '').toLowerCase();
+        const simplifiedAgent = String(agentUsername).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (simplifiedCol.includes(simplifiedAgent.slice(0, 5))) {
+            targetCollection = col.name;
+            break;
+        }
+      }
+      
+      // 3. Si no, generar nombre canï¿½ï¿½nico
+      if (!targetCollection) {
+        const shortId = String(agentId).slice(-6);
+        const normName = String(agentUsername).normalize('NFD').replace(/[\u0000-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        targetCollection = `costumers_${normName}_${shortId}`.slice(0, 60); // Safety limit
+      }
+    }
+
+    console.log(`[API /crm_agente] Guardando en colecciï¿½ï¿½n: ${targetCollection}`);
+
+    // Preparar documento
+    const newLead = {
+      ...leadData,
+      agente: agentUsername,
+      agenteId: agentId,
+      agenteNombre: agentUsername,
+      ownerId: agentId, // CRï¿½ï¿½TICO para que sea "suyo"
+      asignadoPor: req.user.username,
+      fecha_asignacion: new Date(),
+      // Asegurar fechas
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      fecha_creacion: new Date(),
+      status: leadData.status || 'PENDING',
+      _source: 'crm_agente_assignment'
+    };
+
+    // Eliminar _id si viene en el body para crear uno nuevo
+    delete newLead._id;
+
+    // Insertar
+    const result = await db.collection(targetCollection).insertOne(newLead);
+
+    return res.json({ 
+      success: true, 
+      message: `Lead asignado correctamente a ${agentUsername}`,
+      collection: targetCollection,
+      id: result.insertedId
+    });
+
+  } catch (error) {
+    console.error('[API /crm_agente] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/users/agents
+ * @desc Obtener lista de agentes para asignaciï¿½ï¿½n (endpoint de soporte para dropdown)
+ * @access Private
+ */
+router.get('/users/agents', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    // Devolver lista de usuarios con campos mï¿½ï¿½nimos para el selector
+    const users = await db.collection('users')
+      .find({}) // Traer todos para que el frontend filtre por supervisor/equipo
+      .project({ 
+        username: 1, 
+        name: 1, 
+        role: 1, 
+        team: 1, 
+        supervisor: 1, 
+        supervisorName: 1, 
+        supervisorId: 1,
+        manager: 1,
+        managerId: 1,
+        _id: 1,
+        id: 1 
+      })
+      .sort({ name: 1 })
+      .toArray();
+
+    return res.json({ 
+      success: true, 
+      agents: users,
+      count: users.length 
+    });
+  } catch (error) {
+    console.error('[API /users/agents] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+module.exports = router;
