@@ -83,7 +83,7 @@
   <script src="js/crm-config.js"></script>
   <script src="js/inactivity-manager.js"></script>
   <script src="js/crm-init.js"></script>
-  <script src="js/ranking-page.js?v=20251222-05"></script>
+  <script src="js/ranking-page.js?v=20251222-07"></script>
   <style>
     /* Estilos globales para eliminar scroll */
     * {
@@ -2761,6 +2761,12 @@
           try{
             const safe = Array.isArray(list) ? list : [];
             const [top1, top2, top3] = [safe[0]||{}, safe[1]||{}, safe[2]||{}];
+            const displayName = (it) => {
+              try {
+                if (typeof window.__rankResolveDisplayName === 'function') return window.__rankResolveDisplayName(it);
+              } catch (_) {}
+              return resolveDisplayName(it);
+            };
             const getScore = (it)=> (typeof it.sumPuntaje==='number'?it.sumPuntaje:(typeof it.puntos==='number'?it.puntos:(typeof it.promedio==='number'?it.promedio:0)));
             const fmt = (n)=>{
               const v = Number(n)||0;
@@ -2777,7 +2783,7 @@
               const nameEl=document.querySelector(`${sel} .astronaut-name`);
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
               const imgEl=document.querySelector(`${sel} .astronaut-image`);
-              if(nameEl) nameEl.textContent = resolveDisplayName(it);
+              if(nameEl) nameEl.textContent = displayName(it);
               if(scoreEl) scoreEl.textContent = fmt(getScore(it));
               if(imgEl) applyAvatarToElement(imgEl, it, { allowPhoto: false });
             };
@@ -2801,11 +2807,11 @@
                 const li=document.createElement('div');
                 li.className='rank-item';
                 const position = agent.position||agent.posicion||(idx+4);
-                const name = escapeHtml(resolveDisplayName(agent));
+                const name = escapeHtml(displayName(agent));
                 const role = escapeHtml(agent.cargo||'');
                 const pointsValue = fmt(getScore(agent));
                 const salesValue = Number(agent.ventas||0);
-                const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
+                const avatarMarkup = renderAvatarHtml(agent, displayName(agent) || 'Avatar');
                 li.innerHTML=`
                   <span class="rank-number">${position}</span>
                   <div class="agent-info">
@@ -2833,7 +2839,7 @@
                   const tr=document.createElement('tr');
                   tr.innerHTML=`
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>
-                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>
+                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(displayName(agent))}</td>
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas??0}</td>
                     <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`;
                   tbody.appendChild(tr);
