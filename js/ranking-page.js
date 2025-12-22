@@ -353,7 +353,14 @@
       if (btn) {
         const currentUser = await getUser();
         const userRole = ((currentUser && (currentUser.role || currentUser.usuario?.role || currentUser.userRole)) || '').toString().toLowerCase();
-        const canViewAll = ['admin','administrador','supervisor','supervisor team lineas','backoffice','agente'].includes(userRole);
+        const roleNorm = userRole.replace(/\s+/g, ' ').trim();
+        const canViewAll = (
+          ['admin','administrador','supervisor','supervisor team lineas','backoffice'].includes(roleNorm) ||
+          roleNorm.includes('agente') ||
+          roleNorm.includes('agent') ||
+          roleNorm.includes('lineas-agentes') ||
+          roleNorm.includes('lineas-agente')
+        );
         btn.style.display = canViewAll ? 'inline-block' : 'none';
         btn.onclick = async () => {
           window.__rankViewAll = !window.__rankViewAll;
