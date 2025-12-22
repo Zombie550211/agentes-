@@ -21,18 +21,26 @@ router.get('/', protect, async (req, res) => {
     let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt', legacy } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field, legacy });
 
-    const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
     let unifiedAvailable = false;
     try {
       const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
       unifiedAvailable = Array.isArray(u) && u.length > 0;
     } catch (_) {}
-    const baseCollection = (preferUnified && unifiedAvailable) ? unifiedCollectionName : 'costumers';
 
-    // Por defecto usar la colección unificada si está disponible.
-    // El modo legacy (legacy=1) mantiene el comportamiento anterior de recorrer costumers*.
-    const useAllCollections = !preferUnified;
+    // Fuente única de verdad para ranking
+    if (!unifiedAvailable) {
+      console.error('[RANKING] La colección costumers_unified no existe. No se puede calcular ranking.');
+      return res.status(500).json({
+        success: false,
+        message: 'No existe la colección costumers_unified (fuente única). No se puede calcular el ranking.'
+      });
+    }
+
+    const baseCollection = unifiedCollectionName;
+
+    // IMPORTANTE: No mezclar costumers_* aunque el frontend envíe all=1
+    const useAllCollections = false;
 
     // Construir filtro de fecha (FORZAR mes actual si no se envía)
     const toYMD = (d) => {
@@ -756,6 +764,94 @@ router.get('/', protect, async (req, res) => {
         position: index + 1
       };
     });
+
+    // Consolidar perfiles duplicados (mismo usuario mostrado con distintas llaves en ventas)
+    // Esto suele ocurrir cuando existen variaciones en agenteNombre/agente pero el match con users da el mismo usuario.
+    try {
+      const dedupeKeyFor = (row) => {
+        if (!row) return '';
+        if (row.userId) return `uid:${String(row.userId)}`;
+        if (row.username) return `un:${normalizeNameKey(row.username)}`;
+        if (row.nombreNormalizado) return `nn:${normalizeNameKey(row.nombreNormalizado)}`;
+        if (row.nombreLimpio) return `nl:${normalizeNameKey(row.nombreLimpio)}`;
+        if (row.nombre) return `n:${normalizeNameKey(row.nombre)}`;
+        return '';
+      };
+
+      const merged = new Map();
+      for (const row of rankingData) {
+        const key = dedupeKeyFor(row);
+        if (!key) continue;
+
+        const puntos = Number(row.puntos ?? row.sumPuntaje ?? 0) || 0;
+        const ventas = Number(row.ventas ?? 0) || 0;
+        const sumPuntaje = Number(row.sumPuntaje ?? row.puntos ?? 0) || 0;
+
+        if (!merged.has(key)) {
+          merged.set(key, {
+            ...row,
+            puntos,
+            sumPuntaje,
+            ventas,
+            // Guardar el mejor nombre para mostrar (prioriza name del usuario)
+            _hasUser: !!row.userId || !!row.username
+          });
+          continue;
+        }
+
+        const ex = merged.get(key);
+        ex.puntos = (Number(ex.puntos) || 0) + puntos;
+        ex.sumPuntaje = (Number(ex.sumPuntaje) || 0) + sumPuntaje;
+        ex.ventas = (Number(ex.ventas) || 0) + ventas;
+
+        // Mantener avatar/username/userId si alguno lo tiene
+        if (!ex.userId && row.userId) ex.userId = row.userId;
+        if (!ex.username && row.username) ex.username = row.username;
+        if (!ex.avatarUrl && row.avatarUrl) ex.avatarUrl = row.avatarUrl;
+        if (!ex.imageUrl && row.imageUrl) ex.imageUrl = row.imageUrl;
+        if (!ex.avatarFileId && row.avatarFileId) ex.avatarFileId = row.avatarFileId;
+        if (!ex.avatarUpdatedAt && row.avatarUpdatedAt) ex.avatarUpdatedAt = row.avatarUpdatedAt;
+
+        // Mantener lista de colecciones si viene (en modo all=1)
+        if (Array.isArray(ex.originCollections) || Array.isArray(row.originCollections)) {
+          const set = new Set([...(ex.originCollections || []), ...(row.originCollections || [])]);
+          ex.originCollections = Array.from(set);
+        }
+
+        // Preferir nombre "bonito" si el registro actual está vinculado a usuario
+        const rowHasUser = !!row.userId || !!row.username;
+        if (!ex._hasUser && rowHasUser) {
+          ex.nombre = row.nombre;
+          ex.nombreOriginal = row.nombreOriginal;
+          ex.nombreLimpio = row.nombreLimpio;
+          ex.nombreNormalizado = row.nombreNormalizado;
+          ex._hasUser = true;
+        }
+
+        merged.set(key, ex);
+      }
+
+      rankingData = Array.from(merged.values()).map((r) => {
+        const v = Number(r.ventas || 0) || 0;
+        const p = Number(r.puntos ?? r.sumPuntaje ?? 0) || 0;
+        return {
+          ...r,
+          puntos: p,
+          sumPuntaje: Number(r.sumPuntaje ?? p) || p,
+          avgPuntaje: v > 0 ? (p / v) : 0,
+          promedio: v > 0 ? (p / v) : 0
+        };
+      }).sort((a, b) => {
+        if ((b.puntos || 0) !== (a.puntos || 0)) return (b.puntos || 0) - (a.puntos || 0);
+        if ((b.ventas || 0) !== (a.ventas || 0)) return (b.ventas || 0) - (a.ventas || 0);
+        return (a.nombre || '').localeCompare(b.nombre || '');
+      }).map((r, idx) => ({
+        ...r,
+        position: idx + 1
+      }));
+    } catch (dedupeErr) {
+      console.warn('[RANKING] No se pudo deduplicar rankingData:', dedupeErr?.message || dedupeErr);
+    }
 
     // Si no hay datos, devolver array vacío con mensaje informativo
     if (rankingData.length === 0) {
