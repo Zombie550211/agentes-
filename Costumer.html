@@ -9549,8 +9549,11 @@
           console.log('[AGENT FILTER] Cambiando a agente:', this.value || 'Todos los agentes');
           
           // IMPORTANTE: Limpiar SIDEBAR_FILTER_OVERRIDE cuando el usuario usa el dropdown directamente
-          // Si no hacemos esto, renderWithMonthlySeparators seguirá usando el valor antiguo del sidebar
-          if (window.SIDEBAR_FILTER_OVERRIDE) {
+          // PERO respetar si es una actualización programática desde el sidebar
+          if (window.__IS_SIDEBAR_UPDATING) {
+             console.log('[AGENT FILTER] Actualización desde sidebar detectada, manteniendo override');
+             window.__IS_SIDEBAR_UPDATING = false; // Reset flag
+          } else if (window.SIDEBAR_FILTER_OVERRIDE) {
              console.log('[AGENT FILTER] Limpiando override previo:', window.SIDEBAR_FILTER_OVERRIDE);
              window.SIDEBAR_FILTER_OVERRIDE = null;
           }
