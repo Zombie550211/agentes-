@@ -10,6 +10,7 @@
     'inicio': 'inicio',
     'home': 'inicio',
     'dashboard': 'inicio',
+    'admin': 'inicio',
     'lead': 'lead',
     'leads': 'lead',
     'nuevo-lead': 'lead',
@@ -22,6 +23,8 @@
     'stats': 'estadisticas',
     'facturacion': 'facturacion',
     'facturación': 'facturacion',
+    'crm-dashboard': 'crm-dashboard',
+    'crm': 'crm-dashboard',
     'empleado': 'empleado',
     'multimedia': 'multimedia',
     'reglas': 'reglas',
@@ -66,19 +69,26 @@
     try {
       if (!hrefRaw) return '';
       let s = String(hrefRaw || '');
-      // eliminar prefijo relativo accidental
+      // dejar URLs absolutas intactas
       if (s.startsWith('http://') || s.startsWith('https://')) return s;
+      // preservar query y hash si existen
+      let hash = '';
+      let query = '';
+      const hashIdx = s.indexOf('#');
+      if (hashIdx !== -1) { hash = s.slice(hashIdx); s = s.slice(0, hashIdx); }
+      const qIdx = s.indexOf('?');
+      if (qIdx !== -1) { query = s.slice(qIdx); s = s.slice(0, qIdx); }
       if (s.startsWith('/')) s = s.slice(1);
       // dividir por '/' y encodar cada segmento evitando doble-encode
       const parts = s.split('/').map(p => encodeURIComponent(decodeURIComponent(String(p))));
-      return '/' + parts.join('/');
+      return '/' + parts.join('/') + query + hash;
     } catch (e) {
       try { return '/' + encodeURIComponent(String(hrefRaw)); } catch (_) { return String(hrefRaw); }
     }
   }
 
   function sanitizeAvatarUrl(rawUrl) {
-    const url = (rawUrl == null ? '' : String(rawUrl)).trim();
+    const url = (rawUrl == null ? '' : String(rawUrl)).trim();  
     if (!url) return '';
     if (/^https?:\/\//i.test(url)) return url;
     if (/^\/\//.test(url)) {
@@ -188,7 +198,21 @@
 
   function ensureSidebarElement() {
     let sidebarElement = document.querySelector('.sidebar');
-    if (sidebarElement) return sidebarElement;
+    if (sidebarElement) {
+      try {
+        if (sidebarElement.hasAttribute('data-preserve') || sidebarElement.getAttribute('data-local') === '1') {
+          return sidebarElement;
+        }
+        if (!sidebarElement.classList.contains('sidebar-inicio')) {
+          sidebarElement.classList.add('sidebar-inicio');
+        }
+        if (!sidebarElement.getAttribute('data-active')) {
+          const inferred = guessActivePage();
+          sidebarElement.setAttribute('data-active', inferred);
+        }
+      } catch (_) {}
+      return sidebarElement;
+    }
 
     const inferredActive = guessActivePage();
     sidebarElement = document.createElement('nav');
@@ -208,6 +232,15 @@
   // Función principal para cargar el sidebar
   window.loadSidebar = async function(forceReload = false) {
     const sidebarElement = ensureSidebarElement();
+    try {
+      // Honrar sidebars locales si marcan preservación
+      if (sidebarElement && (sidebarElement.hasAttribute('data-preserve') || sidebarElement.getAttribute('data-local') === '1')) {
+        console.warn('[SidebarLoader] Sidebar local preservado, no se inyecta contenido.');
+        // Aún configuramos el auto-hide para mantener layout consistente
+        try { setupGlobalAutoHideSidebar(); } catch(_){}
+        return true;
+      }
+    } catch(_){ }
 
     let loadedOk = false;
     try {
@@ -268,13 +301,40 @@
       try { document.dispatchEvent(new Event('sidebar:loaded')); } catch {}
     }
 
-    // Configurar auto-ocultamiento del sidebar SIEMPRE (éxito o error)
+    // Configurar auto-ocultamiento del sidebar SOLO si está habilitado explícitamente
     try {
-      setupGlobalAutoHideSidebar();
-      // Forzar estado inicial oculto
-      document.body.classList.remove('show-sidebar');
+      const BODY = document.body;
+      const useAutoHide = !!(BODY && (
+        BODY.getAttribute('data-sidebar-autohide') === '1' ||
+        (BODY.dataset && BODY.dataset.sidebarAutohide === '1') ||
+        (typeof window.__SIDEBAR_AUTOHIDE !== 'undefined' && window.__SIDEBAR_AUTOHIDE === true)
+      ));
+      if (useAutoHide) {
+        setupGlobalAutoHideSidebar();
+        // Forzar estado inicial oculto
+        BODY.classList.remove('show-sidebar');
+      } else {
+        ensureStaticSidebarLayout();
+      }
     } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
   };
+
+  function ensureStaticSidebarLayout() {
+    try {
+      const DOC = document;
+      const STYLE_ID = 'sidebar-static-layout';
+      if (DOC.getElementById(STYLE_ID)) return;
+      const css = `
+        :root { --sidebar-width: 260px; }
+        /* Dejar espacio al sidebar fijo cuando el auto-hide NO está activo */
+        .main-content { margin-left: calc(var(--sidebar-width) + 16px) !important; }
+      `;
+      const styleEl = DOC.createElement('style');
+      styleEl.id = STYLE_ID;
+      styleEl.textContent = css;
+      DOC.head.appendChild(styleEl);
+    } catch (e) { /* ignore */ }
+  }
 
   // Obtener información del usuario desde localStorage o API
   async function getUserInfo() {
@@ -375,6 +435,9 @@
     // Determinar menú según rol
     const menuItems = getMenuItems(normalizedRole, normalizeActiveKey(activePage), { isLineas });
 
+    // Preparar datos de estadísticas (placeholders iniciales)
+    const displayTeam = user.team || 'Sin equipo';
+
     return `
       <!-- Usuario -->
       <div class="user-info">
@@ -385,33 +448,33 @@
         </div>
       </div>
 
-      <!-- Estadísticas del usuario -->
+      <!-- Stats del Usuario -->
       <div class="user-stats">
         <div class="stat-item">
           <i class="fas fa-shopping-cart"></i>
           <div class="stat-content">
-            <span class="stat-value" id="sidebar-user-sales">0</span>
+            <span class="stat-value" id="sidebar-stat-ventas">0</span>
             <span class="stat-label">Ventas del mes</span>
           </div>
         </div>
         <div class="stat-item">
           <i class="fas fa-star"></i>
           <div class="stat-content">
-            <span class="stat-value" id="sidebar-user-points">0</span>
+            <span class="stat-value" id="sidebar-stat-puntos">0.0</span>
             <span class="stat-label">Puntos</span>
           </div>
         </div>
         <div class="stat-item">
           <i class="fas fa-users"></i>
           <div class="stat-content">
-            <span class="stat-value" id="sidebar-user-team">${escapeHtml(user.team || 'Sin equipo')}</span>
+            <span class="stat-value" id="sidebar-stat-team">${escapeHtml(displayTeam)}</span>
             <span class="stat-label">Equipo</span>
           </div>
         </div>
       </div>
 
       <!-- Menú de navegación -->
-      <h3>Navegación</h3>
+      <h3>NAVEGACIÓN</h3>
       <ul class="menu">
         ${menuItems}
       </ul>
@@ -419,7 +482,7 @@
       <!-- Interruptor de Tema -->
       <div class="theme-switcher-container">
         <button type="button" class="btn btn-sidebar theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
-          <i class="fas fa-sun"></i>
+          <i class="fas fa-cog"></i>
           <span class="menu-label">Cambiar Tema</span>
         </button>
       </div>
@@ -505,19 +568,20 @@
     const normalizedActive = normalizeActiveKey(activePage);
     
     // Array ordenado de items del menú (orden específico)
+    const allRoles = ['admin', 'supervisor', 'agente', 'backoffice'];
     const menuItemsOrder = [
-      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: ['admin', 'supervisor', 'agente'] },
-      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: ['admin', 'supervisor', 'agente'] },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: ['admin', 'backoffice'] },
-      { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'admin-crm-dashboard.html', roles: ['admin'] },
-      { key: 'empleado', icon: 'fa-award', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'multimedia', icon: 'fa-photo-video', text: 'Multimedia', href: 'multimedia.html', roles: ['admin'] },
-      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: ['admin', 'supervisor', 'agente', 'backoffice'] },
-      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: ['admin'] }
+      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: allRoles },
+      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: allRoles },
+      { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'index.html', roles: allRoles },
+      { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: allRoles },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },
+      { key: 'multimedia', icon: 'fa-images', text: 'Multimedia', href: 'multimedia.html', roles: allRoles },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: allRoles },
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles }
     ];
 
     // Redirigir a páginas específicas de Team Líneas si corresponde
@@ -539,6 +603,7 @@
       if (item.roles.includes(normalizedRole)) {
         visibleItems.push(item.text);
         const isActive = item.key === normalizedActive ? 'is-active' : '';
+        // Render del item normal
         menuHTML += `
           <li>
             <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}" title="${item.text}">
@@ -553,8 +618,17 @@
     if (visibleItems.length === 0) {
       console.warn('⚠️ Ningún item visible para rol:', normalizedRole, '— aplicando fallback AGENTE');
       const agentKeys = ['inicio','lead','costumer','ranking','estadisticas'];
+      // Mapeo manual para fallback
+      const fallbackMap = {
+          'inicio': { href: '/inicio.html', icon: 'fa-home', text: 'Inicio' },
+          'lead': { href: 'lead.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
+          'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
+          'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
+          'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' }
+      };
+      
       for (const key of agentKeys) {
-        const item = allMenuItems[key];
+        const item = fallbackMap[key];
         const isActive = key === normalizedActive ? 'is-active' : '';
         menuHTML += `
           <li>
@@ -569,7 +643,7 @@
     console.log('✅ Items visibles para este rol:', visibleItems);
     return menuHTML;
   }
-  
+
   // Normalizar roles (inglés -> español)
   function normalizeRole(role) {
     const r = (role == null ? '' : String(role)).trim().toLowerCase();
@@ -723,6 +797,8 @@
 
         /* Make hover zone reliable */
         .sidebar-hover-zone { width: calc(var(--sidebar-collapsed) + 6px) !important; }
+        /* When expanded, let clicks pass through to the sidebar */
+        html body.auto-hide-sidebar.show-sidebar .sidebar-hover-zone { pointer-events: none !important; }
 
         /* Strong layout enforcement for menu links when expanded - highest specificity */
         html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar {
@@ -1091,12 +1167,8 @@
     const applyTheme = (theme) => {
       if (theme === 'dark') {
         body.classList.add('dark-theme');
-        icon.classList.remove('fa-sun');
-        icon.classList.add('fa-moon');
       } else {
         body.classList.remove('dark-theme');
-        icon.classList.remove('fa-moon');
-        icon.classList.add('fa-sun');
       }
     };
 
@@ -1128,31 +1200,72 @@
     }, 100);
   });
 
-  // Quick-fix: ensure clicking Ranking link always navigates (workaround for potential interceptors)
-  document.addEventListener('click', function forceRankingNav(ev) {
+  // Ensure clicking any sidebar link navigates to the page (workaround for potential interceptors/overlays)
+  document.addEventListener('click', function forceSidebarNav(ev) {
     try {
-      const a = ev.target && ev.target.closest ? ev.target.closest('a.btn-sidebar') : null;
+      const a = ev.target && ev.target.closest ? ev.target.closest('a.btn-sidebar[href]') : null;
       if (!a) return;
       const href = (a.getAttribute && a.getAttribute('href')) || '';
-      const text = (a.textContent || '') || '';
-      if (/ranking/i.test(href) || /ranking/i.test(text)) {
-        // Allow normal navigation if href is a full absolute URL
-        const dest = href || '/Ranking%20y%20Promociones.html';
-        // Force navigation to avoid other handlers preventing default
-        try { ev.preventDefault(); } catch(_) {}
-        // If dest appears percent-encoded already, decode then set to avoid double-encoding
-        try {
-          const decoded = decodeURIComponent(dest);
-          window.location.href = decoded;
-        } catch (e) {
-          window.location.href = dest;
-        }
+      if (!href || href === '#' || href.startsWith('javascript:')) return;
+      // Force navigation to avoid preventDefault from other handlers or overlays capturing clicks
+      try { ev.preventDefault(); } catch(_) {}
+      try {
+        const decoded = decodeURIComponent(href);
+        window.location.href = decoded;
+      } catch (e) {
+        window.location.href = href;
       }
-    } catch (err) {
-      // ignore
-    }
+    } catch (_) { /* ignore */ }
   }, true);
 
-  // NOTE: debug interceptor removed — sidebar will now allow normal navigation to pages
+  // Support navigation for local admin CRM sidebar that renders <button> items (no <a href>)
+  // We map the visible label to the actual page and force navigation.
+  (function setupAdminLocalSidebarButtonNav(){
+    const LABEL_TO_HREF = {
+      'inicio': '/inicio.html',
+      'nuevo lead': '/lead.html',
+      'lista de clientes': '/Costumer.html',
+      'ranking y promociones': '/Ranking y Promociones.html',
+      'estadisticas': '/Estadisticas.html',
+      'estadísticas': '/Estadisticas.html',
+      'facturacion': '/facturacion.html',
+      'facturación': '/facturacion.html',
+      'empleado del mes': '/empleado-del-mes.html',
+      'tabla de puntaje': '/Tabla de puntaje.html',
+      'multimedia': '/multimedia.html',
+      'reglas y puntajes': '/Reglas.html',
+      'crear cuenta': '/crear-cuenta.html'
+    };
+    function getMappedHrefFromLabel(text){
+      if (!text) return '';
+      const t = String(text).trim().toLowerCase();
+      // Quick filters to keep internal actions inside CRM dashboard
+      if (t.includes('team ')) return '';
+      if (t.includes('cambiar tema')) return '';
+      if (t.includes('cerrar sesión') || t.includes('cerrar sesion')) return '';
+      return LABEL_TO_HREF[t] || '';
+    }
+    document.addEventListener('click', function(ev){
+      try {
+        // Only handle clicks within the left sidebar
+        const btn = ev.target && ev.target.closest ? ev.target.closest('.sidebar .nav-item, .sidebar .submenu-item') : null;
+        if (!btn) return;
+        // Ignore anchors (handled above)
+        if (btn.tagName && btn.tagName.toLowerCase() === 'a') return;
+        const labelEl = btn.querySelector('.nav-item-content span:nth-child(2)') || btn.querySelector('span');
+        const labelText = labelEl ? (labelEl.textContent || '') : (btn.textContent || '');
+        const href = getMappedHrefFromLabel(labelText);
+        if (!href) return;
+        // Force navigation
+        try { ev.preventDefault(); } catch(_){ }
+        try {
+          const decoded = decodeURIComponent(href);
+          window.location.href = decoded;
+        } catch (e) {
+          window.location.href = href;
+        }
+      } catch (_) { /* ignore */ }
+    }, true);
+  })();
 
 })();

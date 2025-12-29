@@ -2194,6 +2194,45 @@
             { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] }
         ];
 
+        // FILTRADO DE TEAMS SEGÚN ROL
+        let visibleTeams = TEAMS;
+        try {
+            const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+            const role = (user.role || user?.usuario?.role || '').toString().toLowerCase().trim();
+            // Nombres posibles del usuario
+            const username = (user.username || user?.usuario?.username || '').toString().toLowerCase().trim();
+            const nombre = (user.nombre || user?.usuario?.nombre || '').toString().toLowerCase().trim();
+            // Normalizar team: reemplazar guiones bajos por espacios para comparación (ej: team_bryan -> team bryan)
+            const userTeam = (user.team || user?.usuario?.team || '').toString().toLowerCase().trim().replace(/_/g, ' ');
+            
+            // Si NO es admin ni backoffice, filtrar
+            const isAdmin = role === 'admin' || role === 'administrador';
+            const isBackoffice = role.includes('backoffice') || role === 'bo' || role === 'b.o';
+            
+            if (!isAdmin && !isBackoffice) {
+                visibleTeams = TEAMS.filter(t => {
+                    const tName = t.name.toLowerCase();
+                    const tSup = t.supervisor.toLowerCase();
+                    
+                    // Verificar si es su team (por nombre de team asignado)
+                    // Buscamos coincidencia flexible: team_bryan -> team bryan en "team bryan pleitez"
+                    // O viceversa: "bryan" en "team_bryan"
+                    const matchTeam = userTeam && (tName.includes(userTeam) || userTeam.includes(tName.replace('team ', '')));
+                    
+                    // Verificar si es el supervisor
+                    const matchSup = (nombre && tSup.includes(nombre)) || (username && tSup.includes(username));
+                    // Verificar si es un agente del team
+                    const matchAgent = t.agents.some(a => {
+                        const aLow = a.toLowerCase();
+                        return (nombre && aLow.includes(nombre)) || (username && aLow.includes(username));
+                    });
+                    
+                    return matchTeam || matchSup || matchAgent;
+                });
+                console.log('[Sidebar] Filtrando teams para rol:', role, 'Usuario:', nombre || username, 'Team:', userTeam, 'Resultados:', visibleTeams.length);
+            }
+        } catch(e) { console.error('Error filtrando sidebar teams:', e); }
+
         const sidebar = document.querySelector('.sidebar');
         if (!sidebar) return;
 
@@ -2212,7 +2251,7 @@
                 container.innerHTML = `
                     <div class="submenu-title" style="border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px;">Teams y Usuarios</div>
                     <ul class="submenu-block">
-                        ${TEAMS.map((team, idx) => `
+                        ${visibleTeams.map((team, idx) => `
                             <li>
                                 <button class="btn btn-sidebar team-toggle" data-idx="${idx}" data-team-name="${team.name}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; cursor:pointer; border:none; color:inherit;">
                                     <span><span class="nav-icon" style="width:14px; margin-right:8px; display:inline-block; text-align:center;">👥</span>${team.name}</span>

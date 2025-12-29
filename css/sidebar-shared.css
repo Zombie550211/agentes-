@@ -29,7 +29,7 @@
 .sidebar.sidebar-inicio .brand-name { color:#22b3ec; font-weight:800; font-size:1.05rem; }
 
 /* Encabezado del menú */
-.sidebar.sidebar-inicio h3 { margin:0 16px 8px; padding-bottom:6px; font-size:0.8rem; }
+.sidebar.sidebar-inicio h3 { margin:0 16px 8px; padding:8px 0 6px; font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; border-bottom:1px solid #e5e7eb; }
 
 /* Lista base */
 .sidebar.sidebar-inicio ul.menu { list-style:none; margin:0; padding:8px 16px; overflow:visible; }
@@ -38,11 +38,11 @@
 /* Botones */
 .sidebar.sidebar-inicio .btn.btn-sidebar {
   display:block; width:100%; text-align:left; padding:10px 14px; border-radius:999px;
-  background:transparent; color:#111827; font-weight:700; font-size:0.9rem;
+  background:transparent; color:#111827; font-weight:600; font-size:0.9rem;
   transition: background .18s ease, color .18s ease, transform .12s ease; box-sizing:border-box; margin:0; text-decoration:none;
 }
-.sidebar.sidebar-inicio .btn.btn-sidebar:hover { background:#e9f6ff; color:#0f172a; transform:none; text-decoration:none; }
-.sidebar.sidebar-inicio .btn.btn-sidebar.is-active { background:#22b3ec; color:#0f172a; box-shadow:none; text-decoration:none; }
+.sidebar.sidebar-inicio .btn.btn-sidebar:hover { background:#f3f4f6; color:#0f172a; transform:none; text-decoration:none; }
+.sidebar.sidebar-inicio .btn.btn-sidebar.is-active { background:#3b82f6; color:#ffffff; box-shadow:0 0 0 2px #1d4ed8; text-decoration:none; }
 
 /* Logout */
 .sidebar.sidebar-inicio .btn-logout { color:#111827; text-decoration:none; display: flex; align-items: center; }
@@ -168,10 +168,24 @@
 /* Stats bajo el header (Ventas, Puntos, Equipo) */
 .sidebar.sidebar-inicio .user-stats { padding: 14px 16px; background:#ffffff; border-bottom:1px solid #e5e7eb; }
 .sidebar.sidebar-inicio .stat-item { display:flex; align-items:center; padding:8px 0; color:#0f172a; }
-.sidebar.sidebar-inicio .stat-item i { width:22px; text-align:center; margin-right:10px; color:#22d3ee; font-size:1rem; }
+.sidebar.sidebar-inicio .stat-item i,
+.sidebar.sidebar-inicio .stat-item .stat-icon { width:22px; text-align:center; margin-right:10px; color:#22d3ee; font-size:1rem; display:inline-block; }
 .sidebar.sidebar-inicio .stat-content { display:flex; flex-direction:column; line-height:1.1; }
 .sidebar.sidebar-inicio .stat-value { font-weight:800; color:#0f172a; font-size:.95rem; }
 .sidebar.sidebar-inicio .stat-label { font-size:.78rem; color:#94a3b8; }
+
+/* Icono del menú alineado como en CRM */
+.sidebar.sidebar-inicio .btn.btn-sidebar i,
+.sidebar.sidebar-inicio .btn.btn-sidebar .nav-icon { width:18px; display:inline-block; text-align:center; margin-right:10px; }
+
+/* Submenu bajo CRM Dashboard */
+.sidebar.sidebar-inicio li.submenu-wrapper { margin: 2px 0 8px; }
+.sidebar.sidebar-inicio .submenu-title { margin: 4px 16px 6px; font-size: .72rem; color:#6b7280; letter-spacing:.03em; text-transform:uppercase; }
+.sidebar.sidebar-inicio .submenu-block { list-style:none; margin:0; padding: 0 16px 6px; }
+.sidebar.sidebar-inicio .submenu-block li { margin:4px 0; }
+.sidebar.sidebar-inicio .submenu-block .btn.btn-sidebar { border-radius:8px; padding:8px 12px; font-weight:600; background:transparent; }
+.sidebar.sidebar-inicio .submenu-block .btn.btn-sidebar:hover { background:#f3f4f6; }
+.sidebar.sidebar-inicio .submenu-block .btn.btn-sidebar .nav-icon { width:14px; margin-right:8px; color:#64748b; }
 
 /* Frase inferior */
 .sidebar.sidebar-inicio .sidebar-footer-quote { margin-top:auto; padding:18px 16px 6px; color:#7dd3fc; font-style:italic; text-align:center; font-size:0.86rem; }
@@ -296,20 +310,24 @@ body.dark-theme .sidebar.sidebar-inicio .sidebar-footer-quote {
 }
 
 /* Aplicar animación sutil a todos los iconos del sidebar */
-.sidebar.sidebar-inicio .btn.btn-sidebar i {
+.sidebar.sidebar-inicio .btn.btn-sidebar i,
+.sidebar.sidebar-inicio .btn.btn-sidebar .nav-icon {
   transition: all 0.3s ease;
   animation: iconPulse 3s ease-in-out infinite;
 }
 
 /* Asegurar que multimedia se vea igual que los demás - sin animaciones especiales */
-.sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] i {
+.sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] i,
+.sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] .nav-icon {
   animation: iconPulse 3s ease-in-out infinite; /* Misma animación que todos */
 }
 
 /* Normalizar el ícono fa-photo-video para que se vea igual que los demás */
 .sidebar.sidebar-inicio .btn.btn-sidebar i.fa-photo-video,
 .sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] i,
-.sidebar.sidebar-inicio .btn.btn-sidebar[title*="Multimedia"] i {
+.sidebar.sidebar-inicio .btn.btn-sidebar[title*="Multimedia"] i,
+.sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] .nav-icon,
+.sidebar.sidebar-inicio .btn.btn-sidebar[title*="Multimedia"] .nav-icon {
   font-weight: 900 !important; /* Mismo peso que otros iconos */
   font-size: 1.1rem !important; /* Mismo tamaño que otros iconos */
   color: inherit !important; /* Mismo color que otros iconos */
@@ -336,13 +354,15 @@ body.dark-theme .sidebar.sidebar-inicio .btn.btn-sidebar[href*="multimedia"] {
 }
 
 /* Pausar animación cuando se hace hover para mejor UX */
-.sidebar.sidebar-inicio .btn.btn-sidebar:hover i {
+.sidebar.sidebar-inicio .btn.btn-sidebar:hover i,
+.sidebar.sidebar-inicio .btn.btn-sidebar:hover .nav-icon {
   animation-play-state: paused;
   transform: scale(1.1);
 }
 
 /* Animación especial para elemento activo */
-.sidebar.sidebar-inicio .btn.btn-sidebar.is-active i {
+.sidebar.sidebar-inicio .btn.btn-sidebar.is-active i,
+.sidebar.sidebar-inicio .btn.btn-sidebar.is-active .nav-icon {
   animation: iconGlow 1.5s ease-in-out infinite;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 }
