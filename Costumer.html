@@ -2284,6 +2284,9 @@
                             supervisor: supervisorName,
                             agent: agentName
                         };
+                        
+                        // Flag para indicar que estamos actualizando desde el sidebar
+                        window.__IS_SIDEBAR_UPDATING = true;
 
                         const teamSelect = document.getElementById('teamFilter');
                         const agentSelect = document.getElementById('agentFilter');
@@ -2359,6 +2362,9 @@
 
                     } catch (err) {
                         console.error('[Sidebar] Error in applyFilters:', err);
+                    } finally {
+                        // Asegurar que el flag se resetee siempre
+                        window.__IS_SIDEBAR_UPDATING = false;
                     }
                 };
 
@@ -6277,7 +6283,45 @@
         } catch(e) {
           console.warn('[TEAM FILTER] Error:', e);
         }
+
+        // PASO 1.5: SIEMPRE aplicar filtro de Agente si hay un valor en el dropdown O en el override
+        try {
+          const agentDropdown = document.getElementById('agentFilter');
+          let selectedAgent = agentDropdown ? agentDropdown.value : '';
+          
+          // Priorizar Override si existe (para clics del sidebar donde el dropdown se actualiza con delay)
+          if (window.SIDEBAR_FILTER_OVERRIDE && window.SIDEBAR_FILTER_OVERRIDE.agent) {
+            selectedAgent = window.SIDEBAR_FILTER_OVERRIDE.agent;
+            console.log('[AGENT FILTER] Usando SIDEBAR_FILTER_OVERRIDE:', selectedAgent);
+          }
+          
+          if (selectedAgent && Array.isArray(list) && list.length > 0) {
+            const beforeFilter = list.length;
+            const selectedAgentNorm = selectedAgent.toLowerCase().trim();
+            
+            list = list.filter(item => {
+              const itemAgent = (item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || '').toLowerCase().trim();
+              return itemAgent === selectedAgentNorm || 
+                     (itemAgent && selectedAgentNorm && (itemAgent.includes(selectedAgentNorm) || selectedAgentNorm.includes(itemAgent)));
+            });
+            console.log('[AGENT FILTER] Aplicado:', selectedAgent, '| Antes:', beforeFilter, '| Después:', list.length);
+          }
+        } catch(e) {
+          console.warn('[AGENT FILTER] Error:', e);
+        }
         
+        // ACTUALIZAR TARJETAS DE RESUMEN (KPIs)
+        // Usar la lista filtrada por Team y Agente, pero ANTES de filtrar por mes.
+        // Esto asegura que "Ventas del Mes" muestre el mes actual real para el agente seleccionado,
+        // independientemente de si estamos visualizando un mes antiguo en la tabla.
+        try {
+          if (typeof updateSummaryCards === 'function') {
+            updateSummaryCards(list);
+          }
+        } catch (e) {
+          console.warn('[renderWithMonthlySeparators] Error actualizando cards:', e);
+        }
+
         // PASO 2: Aplicar filtro de mes seleccionado
         try {
           const monthFilter = document.getElementById('monthFilter');
@@ -6294,8 +6338,7 @@
               datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
             });
             console.log('[DEBUG MESES] Conteo por mes disponible:', datesByMonth);
-            console.log('[DEBUG MESES] Buscando mes:', selectedMonth, 'Disponible:', datesByMonth[selectedMonth] || 0);
-            // Filtrado optimizado sin logs por cada item — usar campos precomputados cuando estén
+            
             list = list.filter(item => {
               const iso = item && item.__isoDate ? item.__isoDate : getDateFromLead(item); // 'YYYY-MM-DD'
               if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
@@ -6304,7 +6347,7 @@
             });
             console.log('[FilterOrder] PASO 2 - Filtrado por mes:', selectedMonth, 'Resultados finales:', list.length);
             
-            // IMPORTANTE: Aplicar filtro por agente DESPUÉS del filtro de mes si es necesario
+            // IMPORTANTE: Aplicar filtro por agente DESPUÉS del filtro de mes si es necesario (seguridad por rol)
             try {
               const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
               const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
@@ -6317,56 +6360,30 @@
                 return r;
               })(roleRaw);
               
-              console.log('[MonthFilter + AgentFilter] Rol detectado:', role, 'desde roleRaw:', roleRaw);
-              
               if (role === 'agente') {
-                console.log('[MonthFilter + AgentFilter] Usuario detectado como AGENTE, aplicando filtro por agente');
-                const beforeAgentFilter = list.length;
-                // Aplicar el mismo filtro por agente que se usa en fetchLeadsAgente
-                const norm = (s) => {
-                  try {
-                    const x = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-                    return x.replace(/[^a-z0-9]+/g,'');
-                  } catch {
-                    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
-                  }
-                };
+                // ... lógica de filtrado de seguridad para agentes ...
+                const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
                 const str = (v) => (v == null ? '' : String(v));
                 const myIds = [
                   userData.id, userData._id, userData.userId, userData.uid,
-                  userData?.usuario?._id, userData?.usuario?.id,
-                  userData?.user?._id, userData?.user?.id,
-                  userData?.profile?._id, userData?.profile?.id
+                  userData?.usuario?._id, userData?.usuario?.id
                 ].map(str).filter(x => x.trim().length);
                 const myNames = [
-                  userData.name, userData.nombre, userData.username, userData.email,
-                  userData?.usuario?.name, userData?.usuario?.nombre, userData?.usuario?.username
+                  userData.name, userData.nombre, userData.username, userData.email
                 ].map(str).filter(x => x.trim().length);
                 
                 const myIdsNorm = new Set(myIds.map(x => norm(x)));
                 const myNamesNorm = new Set(myNames.map(x => norm(x)));
                 
                 list = list.filter(l => {
-                  // Verificar por ID
-                  const leadId = norm(String(l?.agenteId || l?.agente_id || l?.idAgente || l?.agentId || l?.creadoPor || l?.createdBy || ''));
+                  const leadId = norm(String(l?.agenteId || l?.idAgente || l?.agentId || ''));
                   if (leadId && myIdsNorm.has(leadId)) return true;
-                  
-                  // Verificar por nombre
-                  const leadName = norm(String(l?.agenteNombre || l?.nombreAgente || l?.agente || l?.agent || ''));
+                  const leadName = norm(String(l?.agenteNombre || l?.nombreAgente || l?.agente || ''));
                   if (leadName && myNamesNorm.has(leadName)) return true;
-                  
                   return false;
                 });
-                console.log('[MonthFilter + AgentFilter] Filtrado adicional por agente:', beforeAgentFilter, '->', list.length);
-              } else {
-                console.log('[MonthFilter + AgentFilter] NO se aplica filtro por agente - rol:', role, '(admin/supervisor/backoffice ven todos los datos)');
               }
-            } catch (e) {
-              console.warn('[MonthFilter] Error aplicando filtro por agente:', e?.message);
-            }
-          } else if (!selectedMonth) {
-            // Si no hay mes seleccionado, mostrar TODOS los meses (sin filtro por defecto)
-            console.log('[MonthFilter] Sin filtro de mes - mostrando todos:', list.length);
+            } catch (e) { console.warn('[MonthFilter] Error filtro seguridad agente:', e); }
           }
         } catch(e) { 
           console.warn('[MonthFilter] Error aplicando filtro:', e);
@@ -9469,12 +9486,17 @@
           console.log('[TEAM FILTER] Valor seleccionado:', this.value || '(vacío = Todos)');
           
           // IMPORTANTE: Limpiar SIDEBAR_FILTER_OVERRIDE cuando el usuario usa el dropdown directamente
-          window.SIDEBAR_FILTER_OVERRIDE = null;
-          console.log('[TEAM FILTER] SIDEBAR_FILTER_OVERRIDE limpiado');
-          
+          // PERO respetar si es una actualización programática desde el sidebar
+          if (window.__IS_SIDEBAR_UPDATING) {
+             console.log('[TEAM FILTER] Actualización desde sidebar detectada, manteniendo override');
+             window.__IS_SIDEBAR_UPDATING = false; // Reset flag
+          } else {
+             window.SIDEBAR_FILTER_OVERRIDE = null;
+             console.log('[TEAM FILTER] SIDEBAR_FILTER_OVERRIDE limpiado (acción manual)');
+          }
+
           console.log('[TEAM FILTER] ultimaListaLeads disponible:', !!window.ultimaListaLeads, '| cantidad:', window.ultimaListaLeads?.length || 0);
-          console.log('[TEAM FILTER] renderCostumerTable disponible:', typeof window.renderCostumerTable);
-          
+
           // Actualizar filtro de agentes basado en el team seleccionado
           const agentFilter = document.getElementById('agentFilter');
           if (agentFilter && window.__teamAgentsMap) {
@@ -9526,6 +9548,13 @@
         agentFilter.addEventListener('change', function() {
           console.log('[AGENT FILTER] Cambiando a agente:', this.value || 'Todos los agentes');
           
+          // IMPORTANTE: Limpiar SIDEBAR_FILTER_OVERRIDE cuando el usuario usa el dropdown directamente
+          // Si no hacemos esto, renderWithMonthlySeparators seguirá usando el valor antiguo del sidebar
+          if (window.SIDEBAR_FILTER_OVERRIDE) {
+             console.log('[AGENT FILTER] Limpiando override previo:', window.SIDEBAR_FILTER_OVERRIDE);
+             window.SIDEBAR_FILTER_OVERRIDE = null;
+          }
+
           // Re-renderizar tabla
           if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
             const prevSuspend = window.__suspendRender;

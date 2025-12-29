@@ -260,20 +260,51 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Buscar usuario en la base de datos permitiendo variantes comunes (espacios vs puntos) y comparando también contra 'name'
-    const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Buscar usuario en la base de datos con lógica robusta de variantes
+    // Normalización: quitar acentos y diacríticos
+    const normalize = (s) => String(s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
     const uname = String(username || '').trim();
-    const variants = Array.from(new Set([
-      uname,
+    const unameSimple = normalize(uname); // Sin acentos
+
+    // Detectar CamelCase y separar (ej: EmanuelVelásquez -> Emanuel Velásquez)
+    // Solo si no contiene ya espacios ni puntos para evitar romper "Juan.Perez"
+    const isCamelCandidate = !/[\s.]/.test(uname) && /[a-z][A-Z]/.test(uname);
+    const camelSpaced = isCamelCandidate ? uname.replace(/([a-z])([A-Z])/g, '$1 $2') : uname;
+    const camelDot = isCamelCandidate ? uname.replace(/([a-z])([A-Z])/g, '$1.$2') : uname;
+
+    const rawVariants = [
+      uname,                            // 1. Literal: "EmanuelVelásquez"
+      unameSimple,                      // 2. Sin acentos: "EmanuelVelasquez"
+      
+      // Variantes de espacio <-> punto (Original)
       uname.replace(/[\s]+/g, '.'),
       uname.replace(/[.]+/g, ' '),
-      uname.replace(/[.\s]+/g, ' '),
-      uname.replace(/[.\s]+/g, '.')
-    ].filter(Boolean)));
+      
+      // Variantes de espacio <-> punto (Sin acentos)
+      unameSimple.replace(/[\s]+/g, '.'),
+      unameSimple.replace(/[.]+/g, ' '),
+      
+      // Variantes CamelCase (si aplica)
+      camelSpaced,                      // "Emanuel Velásquez"
+      camelDot,                         // "Emanuel.Velásquez"
+      normalize(camelSpaced),           // "Emanuel Velasquez"
+      normalize(camelDot)               // "Emanuel.Velasquez"
+    ];
+
+    // Eliminar duplicados y vacíos
+    const variants = Array.from(new Set(rawVariants.filter(Boolean)));
+    
+    // Función de escape para Regex
+    const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     const ors = variants.flatMap(v => {
       const rx = new RegExp(`^${esc(v)}$`, 'i');
       return [ { username: rx }, { name: rx } ];
     });
+
+    console.log(`[AUTH LOGIN] Buscando usuario: "${uname}" con ${variants.length} variantes`, variants);
+
     const user = await db.collection('users').findOne({ $or: ors });
 
     if (!user) {

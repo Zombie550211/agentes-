@@ -1354,165 +1354,24 @@ app.delete('/api/users/me/avatar', protect, async (req, res) => {
   }
 });
 
-// ========== FIN ENDPOINTS GRIDFS ==========
-
 // ============================================
-// ENDPOINT PARA CRM DASHBOARD
+// FIN ENDPOINTS GRIDFS
 // ============================================
-// GET /api/crm/agent-clients - Obtener clientes del agente del mes actual
-app.get('/api/crm/agent-clients', async (req, res) => {
-  console.log('[CRM] 🔍 Solicitud recibida:', req.query);
-  
-  try {
-    const { agent, month } = req.query;
-    
-    if (!agent) {
-      console.warn('[CRM] ⚠️  Parámetro agent faltante');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Parámetro agent requerido',
-        clients: []
-      });
-    }
 
-    if (!isConnected()) {
-      console.warn('[CRM] ⚠️  BD no disponible (isConnected=false)');
-      return res.status(503).json({ 
-        success: false, 
-        message: 'BD no disponible',
-        clients: []
-      });
-    }
-    
-    const database = getDb();
-    if (!database) {
-      console.warn('[CRM] ⚠️  getDb() retornó null');
-      return res.status(503).json({ 
-        success: false, 
-        message: 'BD no disponible',
-        clients: []
-      });
-    }
-
-    console.log(`[CRM] 🔎 Buscando clientes para agente: "${agent}", mes: "${month || 'current'}"`);
-
-    // Construir filtro de búsqueda para el agente
-    const agentFilter = {
-      $or: [
-        { agente: { $regex: agent, $options: 'i' } },
-        { agenteNombre: { $regex: agent, $options: 'i' } },
-        { nombreAgente: { $regex: agent, $options: 'i' } },
-        { createdBy: { $regex: agent, $options: 'i' } },
-        { registeredBy: { $regex: agent, $options: 'i' } },
-        { vendedor: { $regex: agent, $options: 'i' } }
-      ]
-    };
-
-    // Construir filtro de fecha
-    let dateFilter = null;
-    if (!month || month === 'current') {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      const monthStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}`;
-      
-      dateFilter = {
-        $or: [
-          { 'fecha_creacion': { $gte: startOfMonth, $lte: endOfMonth } },
-          { 'fechaCreacion': { $gte: startOfMonth, $lte: endOfMonth } },
-          { 'createdAt': { $gte: startOfMonth, $lte: endOfMonth } },
-          { 'dia_venta': { $regex: monthStr } }
-        ]
-      };
-      console.log(`[CRM] 📅 Usando filtro mes actual: ${monthStr}`);
-    } else if (month && month !== 'all') {
-      const parts = String(month).split('-');
-      const year = parts[0];
-      const monthNum = parts[1];
-      
-      if (year && monthNum) {
-        const startOfMonth = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-        const endOfMonth = new Date(parseInt(year), parseInt(monthNum), 0, 23, 59, 59, 999);
-        const monthStr = `${year}-${String(parseInt(monthNum)).padStart(2, '0')}`;
-        
-        dateFilter = {
-          $or: [
-            { 'fecha_creacion': { $gte: startOfMonth, $lte: endOfMonth } },
-            { 'fechaCreacion': { $gte: startOfMonth, $lte: endOfMonth } },
-            { 'createdAt': { $gte: startOfMonth, $lte: endOfMonth } },
-            { 'dia_venta': { $regex: monthStr } }
-          ]
-        };
-        console.log(`[CRM] 📅 Usando filtro mes especificado: ${monthStr}`);
-      }
-    } else {
-      console.log('[CRM] 📅 Sin filtro de mes (all)');
-    }
-
-    // Buscar en todas las colecciones costumers*
-    let clients = [];
-    let totalAttempts = 0;
-    let successfulQueries = 0;
-    
-    try {
-      const collections = await database.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name).filter(name => /^costumers/i.test(name));
-      
-      console.log(`[CRM] 📚 Colecciones disponibles: ${collectionNames.join(', ')}`);
-      
-      // Primera búsqueda: con filtro de mes si aplica
-      if (dateFilter) {
-        const finalFilter = { $and: [agentFilter, dateFilter] };
-        console.log(`[CRM] 🔍 Búsqueda 1: CON filtro de mes`);
-        
-        for (const colName of collectionNames) {
-          totalAttempts++;
-          try {
-            const docs = await database.collection(colName)
-              .find(finalFilter)
-              .sort({ fecha_creacion: -1, fechaCreacion: -1, createdAt: -1, dia_venta: -1 })
-              .limit(500)
-              .toArray();
-            
+/* BLOQUE ROTO DESACTIVADO TEMPORALMENTE (Falta cabecera del endpoint)
             if (docs && docs.length > 0) {
               successfulQueries++;
-              console.log(`[CRM] ✅ ${colName}: ${docs.length} clientes encontrados`);
+              console.log(`[CRM] ${colName} (sin mes): ${docs.length} clientes`);
               clients = clients.concat(docs);
             }
           } catch (err) {
-            console.error(`[CRM] ❌ Error en ${colName}:`, err.message);
+            console.error(`[CRM] Error en ${colName}:`, err.message);
           }
         }
       }
 
-      console.log(`[CRM] 📊 Después de búsqueda 1: ${clients.length} clientes totales`);
-
-      // Segunda búsqueda: sin filtro de mes si la primera no encontró nada
-      if (clients.length === 0 && dateFilter) {
-        console.log(`[CRM] 🔍 Búsqueda 2: SIN filtro de mes (fallback)`);
-        
-        for (const colName of collectionNames) {
-          totalAttempts++;
-          try {
-            const docs = await database.collection(colName)
-              .find(agentFilter)
-              .sort({ fecha_creacion: -1, fechaCreacion: -1, createdAt: -1, dia_venta: -1 })
-              .limit(100)
-              .toArray();
-            
-            if (docs && docs.length > 0) {
-              successfulQueries++;
-              console.log(`[CRM] ✅ ${colName} (sin mes): ${docs.length} clientes`);
-              clients = clients.concat(docs);
-            }
-          } catch (err) {
-            console.error(`[CRM] ❌ Error en ${colName}:`, err.message);
-          }
-        }
-      }
-
-      console.log(`[CRM] ✨ RESULTADO: ${clients.length} clientes para "${agent}"`);
-      console.log(`[CRM] 📈 Stats: ${successfulQueries}/${totalAttempts} queries exitosas`);
+      console.log(`[CRM] RESULTADO: ${clients.length} clientes para "${agent}"`);
+      console.log(`[CRM] Stats: ${successfulQueries}/${totalAttempts} queries exitosas`);
 
       return res.status(200).json({
         success: true,
@@ -1523,8 +1382,8 @@ app.get('/api/crm/agent-clients', async (req, res) => {
       });
 
     } catch (error) {
-      console.error('[CRM] 🚨 Error en búsqueda de colecciones:', error.message);
-      console.error('[CRM] 🚨 Stack:', error.stack);
+      console.error('[CRM] Error en búsqueda de colecciones:', error.message);
+      console.error('[CRM] Stack:', error.stack);
       
       return res.status(500).json({
         success: false,
@@ -1535,8 +1394,8 @@ app.get('/api/crm/agent-clients', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('[CRM] 🚨 ERROR NO CAPTURADO:', error.message);
-    console.error('[CRM] 🚨 Stack:', error.stack);
+    console.error('[CRM] ERROR NO CAPTURADO:', error.message);
+    console.error('[CRM] Stack:', error.stack);
     
     return res.status(500).json({
       success: false,
@@ -1545,9 +1404,8 @@ app.get('/api/crm/agent-clients', async (req, res) => {
       clients: []
     });
   }
-});
+*/
 
-// ============================================
 // ENDPOINT DEBUG: Inspeccionar estructura de documentos
 // ============================================
 app.get('/api/crm/debug-fields', async (req, res) => {
@@ -1641,7 +1499,70 @@ app.get('/api/crm/debug-fields', async (req, res) => {
   }
 });
 
-// Montar rutas de API (rutas específicas ANTES de la genérica /api)
+// ENDPOINT DEBUG: Verificar puntaje de INGRID en todas las colecciones (DEBUG - SOLO DICIEMBRE 2025)
+app.get('/api/debug/ingrid-score', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'BD no disponible' });
+    
+    const agentPatterns = [
+      { agente: 'INGRID.GARCIA' },
+      { agenteNombre: 'INGRID.GARCIA' },
+      { nombreAgente: 'INGRID.GARCIA' },
+      { createdBy: 'INGRID.GARCIA' },
+      { registeredBy: 'INGRID.GARCIA' },
+      { vendedor: 'INGRID.GARCIA' }
+    ];
+    
+    const results = {};
+    const collections = ['costumers', 'costumers_692e09'];
+    
+    for (const colName of collections) {
+      try {
+        const col = db.collection(colName);
+        
+        // Filtrar por dia_venta en diciembre 2025 (formato YYYY-MM-DD)
+        const decFilter = {
+          $and: [
+            { $or: agentPatterns },
+            { 
+              $or: [
+                { dia_venta: { $gte: '2025-12-01', $lte: '2025-12-31' } },
+                { createdAt: { $gte: new Date(2025, 11, 1), $lte: new Date(2025, 11, 31) } }
+              ]
+            }
+          ]
+        };
+        
+        const count = await col.countDocuments(decFilter);
+        
+        if (count > 0) {
+          const agg = await col.aggregate([
+            { $match: decFilter },
+            { $group: {
+              _id: null,
+              count: { $sum: 1 },
+              totalPuntaje: { $sum: { $toDouble: '$puntaje' } },
+              avgPuntaje: { $avg: { $toDouble: '$puntaje' } }
+            }}
+          ]).toArray();
+          
+          results[colName] = agg[0] || { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
+        } else {
+          results[colName] = { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
+        }
+      } catch (e) {
+        results[colName] = { error: e.message };
+      }
+    }
+    
+    res.json(results);
+  } catch (e) {
+    console.error('[DEBUG INGRID]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/facturacion', facturacionRoutes);
 app.use('/api/ranking', rankingRoutes);
