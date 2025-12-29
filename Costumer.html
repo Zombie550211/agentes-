@@ -36,36 +36,10 @@
       });
     </script>
   <script>
-            function rebuildStickyHead(){ try {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'sticky-head-wrapper';
-            const headTable = document.createElement('table');
-            headTable.className = 'costumer-table';
-            const clonedHead = head.cloneNode(true);
-            headTable.appendChild(clonedHead);
-            wrapper.appendChild(headTable);
-            // insert before scrollable wrap
-            container.insertBefore(wrapper, wrap);
-            // match column widths
-            const origTh = Array.from(head.querySelectorAll('th'));
-            const cloneTh = Array.from(clonedHead.querySelectorAll('th'));
-            const widths = origTh.map(th => th.getBoundingClientRect().width);
-            cloneTh.forEach((th, i) => {
-              const w = widths[i] || 160;
-              try { th.style.minWidth = w + 'px'; } catch(_) {}
-              try { th.style.maxWidth = w + 'px'; } catch(_) {}
-              try { th.style.width = w + 'px'; } catch(_) {}
-            });
-            // ajustar ancho visible del wrapper al del contenedor con scroll
-            const adjustWrapper = ()=>{ wrapper.style.width = wrap.clientWidth + 'px'; };
-            adjustWrapper();
-            // sync horizontal scroll con transform para evitar saltos
-            const sync = ()=>{ headTable.style.transform = 'translateX(' + (-wrap.scrollLeft) + 'px)'; };
-            sync();
-            wrap.removeEventListener('scroll', sync); // prevent duplicates
-            wrap.addEventListener('scroll', sync, { passive:true });
-            window.addEventListener('resize', adjustWrapper, { passive:true });
-          }catch(e){ console.warn('[StickyHead] error:', e?.message); }
+            function rebuildStickyHead(){ 
+              // Función deshabilitada temporalmente para evitar errores de DOM
+              // El sticky head no es crítico para la funcionalidad del filtro
+              return;
         }
         // expose globally to re-run after rendering
         window.rebuildStickyHead = rebuildStickyHead;
@@ -485,6 +459,18 @@
                   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
                 }
 
+                // Función para detectar si el usuario es de Team Líneas
+                function isTeamLineas() {
+                  try {
+                    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                    const role = (user.role || user?.usuario?.role || '').toString().trim().toLowerCase();
+                    const username = (user.username || user?.usuario?.username || '').toString().trim().toLowerCase();
+                    const team = (user.team || user?.usuario?.team || '').toString().trim().toLowerCase();
+                    return role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas' ||
+                           username.startsWith('lineas-') || username.includes('lineas') || team.includes('lineas');
+                  } catch (e) { return false; }
+                }
+                
                 // Vista Team Líneas
                 try{
                   if (isTeamLineas()){
@@ -2192,8 +2178,202 @@
   </style>
 <body>
   <div class="layout">
-    <!-- SIDEBAR (cargado din¨¢micamente) -->
+    <!-- SIDEBAR (cargado dinámicamente) -->
     <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
+    <script>
+      // Inyección de Teams y Usuarios en el Sidebar
+      document.addEventListener('sidebar:loaded', function() {
+        // Evitar duplicados
+        if (document.querySelector('.submenu-injected-teams')) return;
+
+        const TEAMS = [
+            { name: "TEAM BRYAN PLEITEZ", supervisor: "Bryan Pleitez", agents: ["Abigail Galdamez", "Alexander Rivera", "Diego Mejia", "Evelin Garcia", "Fabricio Panameño", "Luis Chavarria", "Jairo Flores", "Steven Varela"] },
+            { name: "TEAM IRANIA", supervisor: "Irania Serrano", agents: ["Giselle Diaz", "Josue Renderos", "Miguel Nunez", "Roxana Martinez", "Nicole Cruz", "Jorge Segovia", "Tatiana Ayala"] },
+            { name: "TEAM MARISOL BELTRAN", supervisor: "Marisol Beltran", agents: ["Fernanda Castillo", "Jonathan Morales", "Katerine Gomez", "Eduardo R", "Kimberly Iglesias", "Eduardo Ruiz", "Stefani Martinez"] },
+            { name: "TEAM RANDAL MARTINEZ", supervisor: "Randal Martinez", agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres", "Guadalupe Santana"] },
+            { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] }
+        ];
+
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar) return;
+
+        // Buscar el enlace activo para insertar debajo
+        const links = Array.from(sidebar.querySelectorAll('a.btn-sidebar'));
+        // Buscar por texto o por clase activa
+        const activeLink = links.find(a => a.classList.contains('is-active')) || 
+                           links.find(a => a.textContent && a.textContent.includes('Lista de Clientes'));
+
+        if (activeLink) {
+            const parentLi = activeLink.closest('li');
+            if (parentLi) {
+                const container = document.createElement('li');
+                container.className = 'submenu-wrapper submenu-injected-teams';
+                // Usamos clases de sidebar-shared.css y minimizamos inline styles
+                container.innerHTML = `
+                    <div class="submenu-title" style="border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px;">Teams y Usuarios</div>
+                    <ul class="submenu-block">
+                        ${TEAMS.map((team, idx) => `
+                            <li>
+                                <button class="btn btn-sidebar team-toggle" data-idx="${idx}" data-team-name="${team.name}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; cursor:pointer; border:none; color:inherit;">
+                                    <span><span class="nav-icon" style="width:14px; margin-right:8px; display:inline-block; text-align:center;">👥</span>${team.name}</span>
+                                    <span class="chevron" style="font-size:0.8em; color:#94a3b8;">▶</span>
+                                </button>
+                                <ul id="team-list-${idx}" style="display:none; list-style:none; padding-left:14px; margin-top:2px;">
+                                    ${team.agents.map(agent => `
+                                        <li>
+                                            <a href="#" class="btn btn-sidebar agent-link" data-team="${team.name}" data-supervisor="${team.supervisor}" data-name="${agent}" style="display:block; text-decoration:none;">
+                                                <span class="nav-icon" style="color:#10b981; margin-right:6px;">●</span>${agent}
+                                            </a>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+
+                parentLi.after(container);
+
+                // Helper to update filters
+                const applyFilters = (teamName, supervisorName, agentName) => {
+                    try {
+                        console.log('[Sidebar] applyFilters triggered:', { teamName, supervisorName, agentName });
+                        
+                        // 1. Establecer OVERRIDE para filtrado robusto
+                        window.SIDEBAR_FILTER_OVERRIDE = {
+                            team: teamName,
+                            supervisor: supervisorName,
+                            agent: agentName
+                        };
+
+                        const teamSelect = document.getElementById('teamFilter');
+                        const agentSelect = document.getElementById('agentFilter');
+                        const searchInput = document.getElementById('costumer-search');
+                        
+                        // 2. Limpiar búsqueda de texto para evitar conflictos
+                        if (searchInput) {
+                            searchInput.value = '';
+                            // No disparamos evento input aquí para no borrar el override con el listener del search
+                        }
+
+                        // 3. Intentar actualizar visualmente los dropdowns (Mejor esfuerzo)
+                        if (teamSelect && agentSelect) {
+                            const normalize = (str) => (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                            
+                            // Buscar Team
+                            let targetTeamValue = '';
+                            const options = Array.from(teamSelect.options);
+                            
+                            // Lógica de búsqueda de equipo (similar a la anterior pero solo visual)
+                            if (window.__teamAgentsMap) {
+                                // Reverse lookup visual
+                                const findTeam = (p) => {
+                                    const pn = normalize(p);
+                                    for (const [t, ags] of window.__teamAgentsMap.entries()) {
+                                        if (ags.has(normalize(p))) return t;
+                                        for (const a of ags) if (normalize(a).includes(pn) && pn.length > 3) return t; 
+                                        if (normalize(t).includes(pn)) return t;
+                                    }
+                                    return null;
+                                };
+                                targetTeamValue = findTeam(agentName) || findTeam(supervisorName) || '';
+                            }
+                            
+                            if (!targetTeamValue) {
+                                // Fallback nombre
+                                const t = normalize(teamName);
+                                const match = options.find(o => {
+                                    const v = normalize(o.value);
+                                    return v === t || (v.includes(t) && t.length > 3);
+                                });
+                                if (match) targetTeamValue = match.value;
+                            }
+
+                            // Setear visualmente
+                            if (targetTeamValue) {
+                                teamSelect.value = targetTeamValue;
+                                // Disparar cambio para poblar agentes visualmente
+                                teamSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                
+                                // Intentar setear agente visualmente
+                                if (agentName) {
+                                    setTimeout(() => {
+                                        const a = normalize(agentName);
+                                        const agOptions = Array.from(agentSelect.options);
+                                        const agMatch = agOptions.find(o => {
+                                            const v = normalize(o.value);
+                                            return v === a || (v.includes(a) && a.length > 3);
+                                        });
+                                        if (agMatch) agentSelect.value = agMatch.value;
+                                    }, 50);
+                                } else {
+                                    agentSelect.value = '';
+                                }
+                            }
+                        }
+
+                        // 4. FORZAR RENDERIZADO con el override activo
+                        if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+                            console.log('[Sidebar] Forzando render con Override:', window.SIDEBAR_FILTER_OVERRIDE);
+                            window.renderCostumerTable(window.ultimaListaLeads);
+                        }
+
+                    } catch (err) {
+                        console.error('[Sidebar] Error in applyFilters:', err);
+                    }
+                };
+
+                // Event Listeners
+                container.querySelectorAll('.team-toggle').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const idx = btn.dataset.idx;
+                        const ul = document.getElementById(`team-list-${idx}`);
+                        const chev = btn.querySelector('.chevron');
+                        
+                        // Toggle collapse
+                        if (ul.style.display === 'none') {
+                            // Close others
+                            container.querySelectorAll('.submenu-block > li > ul').forEach(otherUl => {
+                                if (otherUl !== ul) {
+                                    otherUl.style.display = 'none';
+                                    const otherBtn = container.querySelector(`.team-toggle[data-idx="${otherUl.id.replace('team-list-','')}"]`);
+                                    if(otherBtn) otherBtn.querySelector('.chevron').textContent = '▶';
+                                }
+                            });
+                            
+                            ul.style.display = 'block';
+                            chev.textContent = '▼';
+                        } else {
+                            ul.style.display = 'none';
+                            chev.textContent = '▶';
+                        }
+                    });
+                });
+
+                // Agent Link Click
+                container.querySelectorAll('.agent-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const name = link.dataset.name;
+                        const team = link.dataset.team;
+                        const supervisor = link.dataset.supervisor;
+                        
+                        // Visual feedback
+                        container.querySelectorAll('.btn-sidebar').forEach(l => l.style.backgroundColor = '');
+                        container.querySelectorAll('.agent-link').forEach(l => l.style.backgroundColor = '');
+                        
+                        link.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'; // Blue tint for agent
+
+                        console.log('[Sidebar] Agent clicked:', name, 'Team:', team);
+                        applyFilters(team, supervisor, name); // Set team AND agent
+                    });
+                });
+            }
+        }
+      });
+    </script>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -4328,6 +4508,29 @@
     // __limit se define en window.__limit para que el selector lo pueda modificar
     let __hasMore = true;
     
+    // Loading overlay helpers (non-blocking UI indicator) - GLOBAL para uso en fetchLeadsAgente
+    function showLoadingOverlay(msg) {
+      try {
+        let el = document.getElementById('leadsLoadingOverlay');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'leadsLoadingOverlay';
+          el.className = 'leads-loading-overlay';
+          el.innerHTML = '<div class="spinner" aria-hidden="true"></div><div class="leads-loading-msg"></div>';
+          document.body.appendChild(el);
+        }
+        const m = el.querySelector('.leads-loading-msg');
+        if (m) m.textContent = msg || 'Cargando...';
+        el.style.display = 'flex';
+      } catch (e) { /* noop */ }
+    }
+    function updateLoadingOverlay(msg) {
+      try { const el = document.getElementById('leadsLoadingOverlay'); if (el) { const m = el.querySelector('.leads-loading-msg'); if (m) m.textContent = msg || m.textContent; } } catch(e){}
+    }
+    function hideLoadingOverlay() {
+      try { const el = document.getElementById('leadsLoadingOverlay'); if (el) el.style.display = 'none'; } catch(e){}
+    }
+
     // Helper para intentar cargar datos pre-calentados del login
     async function tryLoadFromPrecachedData() {
       try {
@@ -4357,29 +4560,6 @@
         } catch (e) {
           console.warn('[COSTUMER-CACHE] Error validando usuario:', e?.message);
           // En caso de error, permitir usar el cache de todas formas
-        }
-
-        // Loading overlay helpers (non-blocking UI indicator)
-        function showLoadingOverlay(msg) {
-          try {
-            let el = document.getElementById('leadsLoadingOverlay');
-            if (!el) {
-              el = document.createElement('div');
-              el.id = 'leadsLoadingOverlay';
-              el.className = 'leads-loading-overlay';
-              el.innerHTML = '<div class="spinner" aria-hidden="true"></div><div class="leads-loading-msg"></div>';
-              document.body.appendChild(el);
-            }
-            const m = el.querySelector('.leads-loading-msg');
-            if (m) m.textContent = msg || 'Cargando...';
-            el.style.display = 'flex';
-          } catch (e) { /* noop */ }
-        }
-        function updateLoadingOverlay(msg) {
-          try { const el = document.getElementById('leadsLoadingOverlay'); if (el) { const m = el.querySelector('.leads-loading-msg'); if (m) m.textContent = msg || m.textContent; } } catch(e){}
-        }
-        function hideLoadingOverlay() {
-          try { const el = document.getElementById('leadsLoadingOverlay'); if (el) el.style.display = 'none'; } catch(e){}
         }
 
         const now = new Date();
@@ -4487,78 +4667,12 @@
         // IMPORTANTE: no enviar agenteId/agente al backend para evitar mismatch (ObjectId vs string)
         // Traemos un lote más grande y filtramos en frontend
         // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
-        __page = Math.max(1, Number(page)||1);
-        // Traer datos por defecto: SOLO mes actual para reducir carga
-        // Reducir límite para evitar payloads enormes que bloqueen parseo
-        const apiLimit = (window.__apiLimit && Number(window.__apiLimit)) || 5000;
-        const fetchTimeoutMs = 12000; // abort if server takes longer than this (ms)
-        // Determinar mes/año actuales
-        const nowDt = new Date();
-        const currentMonth = String(nowDt.getMonth() + 1).padStart(2, '0');
-        const currentYear = nowDt.getFullYear();
-        // Si el selector de mes está presente y vacío, mostrar el mes actual para evitar confusión
-        try {
-          const monthSelect = document.getElementById('monthFilter');
-          if (monthSelect && (!monthSelect.value || monthSelect.value === '')) {
-            // valor en formato YYYY-MM
-            monthSelect.value = `${currentYear}-${currentMonth}`;
-          }
-        } catch (e) { /* no-op */ }
-        let alreadyFilteredByAgent = false;
-
-        // Obtener parámetros URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const forceAll = (window.__forceAllOverride === true) || urlParams.get('forceAll') === '1' || urlParams.get('forceAll') === 'true';
-
-        // Si se fuerza ver todos (forceAll=1) usamos la consulta histórica completa;
-        // por defecto pedimos solo el mes actual para reducir payload y tiempo.
-        let url;
-        if (forceAll) {
-          url = `/api/leads?page=1&limit=${apiLimit}&skipDate=1&showAllMonths=1&fechaInicio=${currentYear}-01-01&fechaFin=${currentYear}-12-31&allData=1&noDateFilter=1`;
-        } else {
-          // Preferir el valor del selector de mes si existe (debe ser YYYY-MM).
-          let monthParam = null;
-          try {
-            const monthElem = document.getElementById('monthFilter');
-            if (monthElem && monthElem.value) {
-              const v = String(monthElem.value).trim();
-              if (/^\d{4}-\d{2}$/.test(v)) {
-                monthParam = v;
-              } else {
-                // Intentar parsear formatos comunes: "Noviembre 2025", "11/2025", "2025/11"
-                const norm = (s) => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-                const m1 = v.match(/^([A-Za-zÀ-ÿ]+)\s+(\d{4})$/i);
-                if (m1) {
-                  const monthNames = {
-                    enero:'01', february:'02', feb:'02', febrero:'02', mar:'03', marzo:'03', april:'04', abril:'04', may:'05', mayo:'05', june:'06', junio:'06', july:'07', julio:'07', august:'08', agosto:'08', september:'09', septiembre:'09', oct:'10', october:'10', octubre:'10', nov:'11', november:'11', noviembre:'11', dec:'12', december:'12', diciembre:'12'
-                  };
-                  const name = norm(m1[1]);
-                  const mm = monthNames[name] || monthNames[name.slice(0,3)];
-                  if (mm) monthParam = `${m1[2]}-${mm}`;
-                }
-                if (!monthParam) {
-                  const m2 = v.match(/^(\d{1,2})[\/\-](\d{4})$/);
-                  if (m2) {
-                    monthParam = `${m2[2]}-${String(m2[1]).padStart(2,'0')}`;
-                  }
-                }
-                if (!monthParam) {
-                  const m3 = v.match(/^(\d{4})[\/\-](\d{1,2})$/);
-                  if (m3) {
-                    monthParam = `${m3[1]}-${String(m3[2]).padStart(2,'0')}`;
-                  }
-                }
-              }
-            }
-          } catch (e) { /* no-op */ }
-          if (!monthParam) {
-            monthParam = `${currentYear}-${currentMonth}`;
-          }
-          url = `/api/leads?month=${encodeURIComponent(monthParam)}&page=${__page}&limit=${apiLimit}&skipDate=1`;
-        }
-
-        console.log(`[fetchLeadsAgente] Rol: ${role}, Username: ${username}, Team Líneas: ${isTeamLineasUser}`);
-        console.log(`[fetchLeadsAgente] URL: ${url}`);
+        
+        // Definir variables para el fetch
+        const fetchTimeoutMs = 60000;
+        const forceAll = new URLSearchParams(window.location.search).get('forceAll') === '1';
+        const alreadyFilteredByAgent = false;
+        const url = isTeamLineasUser ? '/api/lineas' : '/api/leads?limit=5000';
 
         // Para usuarios no Team Líneas: NO filtrar por agente en backend, se hará en frontend
         if (!isTeamLineasUser) {
@@ -5336,16 +5450,27 @@
     
 
 
-    // Manejar b¨²squeda
-    document.getElementById('costumer-search').addEventListener('input', function(e) {
-      const searchTerm = e.target.value.toLowerCase();
-      const rows = document.querySelectorAll('#costumer-tbody tr');
-      
-      rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
-      });
-    });
+    // Manejar búsqueda con debounce para rendimiento
+    let searchTimeout;
+    const searchInputEl = document.getElementById('costumer-search');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Forzar re-renderizado usando la lógica centralizada
+                if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+                    console.log('[Search] Triggering re-render with term:', e.target.value);
+                    const prevSuspend = window.__suspendRender;
+                    try {
+                        window.__suspendRender = false;
+                        window.renderCostumerTable(window.ultimaListaLeads);
+                    } finally {
+                        window.__suspendRender = prevSuspend;
+                    }
+                }
+            }, 300);
+        });
+    }
 
     // Función para formatear fechas con el formato 'día_de_la_semana número_del_día' (ej: 'mié 13')
     function formatearFechaSinDesfase(fechaStr) {
@@ -5512,297 +5637,8 @@
       }
     }
 
-    // Paginación por defecto
-    if (typeof window.__limit === 'undefined') window.__limit = 500;
-    if (typeof window.__page === 'undefined') window.__page = 1;
-
-    // Función principal para renderizar la tabla de clientes
-    window.renderCostumerTable = function(leads) {
-      console.log('renderCostumerTable llamada con leads:', leads);
-      
-      // Asegurarse de que leads sea un array
-      let leadsArray = Array.isArray(leads) 
-        ? leads 
-        : (leads && leads.leads && Array.isArray(leads.leads)) 
-          ? leads.leads 
-          : [];
-      // Guardar la ¨²ltima lista para re-renderizados por filtros/toolbar
-      try { window.ultimaListaLeads = leadsArray.slice(); } catch(_) {}
-      // Diagnostic logs: contar estados y supervisores para depuración rápida
-      try {
-        const allLeads = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
-        const completedCount = allLeads.reduce((acc, l) => {
-          const s = String(l?.status || '').toLowerCase();
-          return acc + ((/complete|active/.test(s)) ? 1 : 0);
-        }, 0);
-        const johanaCount = allLeads.reduce((acc, l) => acc + ((String(l?.supervisor || '').toLowerCase().trim() === 'johana') ? 1 : 0), 0);
-        console.log(`[Costumer Debug] leads cargados=${allLeads.length}, completed=${completedCount}, supervisor JOHANA=${johanaCount}`);
-      } catch (e) { console.warn('[Costumer Debug] error contando leads:', e); }
-      // Aplicar filtro por status (si el select existe)
-      try {
-        const statusSel = document.getElementById('statusFilter');
-        if (statusSel) {
-          const sel = String(statusSel.value || 'all').toLowerCase();
-          if (sel && sel !== 'all') {
-            const predicate = (l) => {
-              const s = String(l?.status || '').toLowerCase();
-              if (sel === 'completed') return /complete|active/.test(s);
-              if (sel === 'cancelled') return /cancel/.test(s);
-              if (sel === 'hold') return /hold/.test(s);
-              if (sel === 'rescheduled') return /repro|resched|reprogram|reagend/.test(s);
-              if (sel === 'pending') return !(/complete|active|cancel|hold|repro|resched/.test(s));
-              return true;
-            };
-            try { leadsArray = leadsArray.filter(predicate); } catch(_) {}
-          }
-        }
-      } catch (e) { console.warn('[Costumer Filter] error applying status filter', e); }
-
-      // Aplicar filtro por mercado (ICON / BAMO) si el select existe
-      try {
-        const mercadoSel = document.getElementById('mercadoFilter');
-        if (mercadoSel && mercadoSel.value && mercadoSel.value !== '') {
-          const mercadoValue = String(mercadoSel.value).trim().toUpperCase();
-          const predicate = (l) => {
-            const lMercado = String(l?.mercado || '').trim().toUpperCase();
-            return lMercado === mercadoValue;
-          };
-          try { leadsArray = leadsArray.filter(predicate); } catch(_) {}
-          console.log('[Costumer Filter] Filtro de mercado aplicado:', mercadoValue, '-> Resultados:', leadsArray.length);
-        }
-      } catch (e) { console.warn('[Costumer Filter] error applying mercado filter', e); }
-
-      // Aplicar filtros de fecha (Día de venta / Día de instalación) si existen inputs
-      try {
-        // Read selected dates arrays from localStorage (stored as JSON arrays). Backwards compatible with single-string values.
-        const readArray = (k) => {
-          try {
-            const raw = localStorage.getItem(k);
-            if (!raw) return [];
-            try { const p = JSON.parse(raw); if (Array.isArray(p)) return p.map(x=>String(x).slice(0,10)); } catch(_) {}
-            // fallback: plain string
-            return [String(raw).slice(0,10)];
-          } catch(_) { return []; }
-        };
-        const selVenta = readArray('costumer_datefilter_dia_venta');
-        const selInst = readArray('costumer_datefilter_dia_instalacion');
-        if (selVenta && selVenta.length) {
-          try { leadsArray = leadsArray.filter(l => selVenta.includes(String(l?.dia_venta||'').slice(0,10))); } catch(_) {}
-        }
-        if (selInst && selInst.length) {
-          try { leadsArray = leadsArray.filter(l => selInst.includes(String(l?.dia_instalacion||'').slice(0,10))); } catch(_) {}
-        }
-      } catch(e) { console.warn('[Costumer Filter] error applying date filters', e); }
-
-      // Paginación en cliente (SOLO si NO hay filtro de mes activo)
-      try {
-        const monthFilter = document.getElementById('monthFilter');
-        const hasMonthFilter = monthFilter && monthFilter.value;
-        
-        if (!hasMonthFilter) {
-          // Solo aplicar paginación si NO hay filtro de mes
-          const total = leadsArray.length;
-          const limit = Number(window.__limit) || 100;
-          const totalPages = Math.max(1, Math.ceil(total / limit));
-          if (typeof window.__page !== 'number' || window.__page < 1) window.__page = 1;
-          if (window.__page > totalPages) window.__page = totalPages;
-          const start = (window.__page - 1) * limit;
-          const end = start + limit;
-          leadsArray = leadsArray.slice(start, end);
-          console.log('[Paginación] Aplicada - Página:', window.__page, 'Mostrando:', start, 'a', end, 'de', total);
-        } else {
-          // Soporte para paginación por servidor cuando hay filtro de mes activo
-          try {
-            const serverPage = Number(window.__apiPage || 1);
-            const serverPages = Math.max(1, Number(window.__totalPages || 1));
-            const total = Number(window.__totalCount || leadsArray.length);
-            if (info) info.textContent = `Página ${serverPage} de ${serverPages} — ${total} clientes`;
-            if (prevBtn) prevBtn.disabled = (serverPage <= 1);
-            if (nextBtn) nextBtn.disabled = (serverPage >= serverPages);
-
-            // Bind server-side pagination clicks once
-            try {
-              if (prevBtn && !prevBtn.dataset.serverBound) {
-                prevBtn.addEventListener('click', function(){ if ((window.__apiPage||1) > 1) fetchLeadsAgente(Number(window.__apiPage||1) - 1); });
-                prevBtn.dataset.serverBound = '1';
-              }
-              if (nextBtn && !nextBtn.dataset.serverBound) {
-                nextBtn.addEventListener('click', function(){ const tp = Number(window.__totalPages||1); if ((window.__apiPage||1) < tp) fetchLeadsAgente(Number(window.__apiPage||1) + 1); });
-                nextBtn.dataset.serverBound = '1';
-              }
-            } catch(_) {}
-            console.log('[Paginación] Habilitada paginación por servidor -', info ? info.textContent : 'info missing');
-          } catch(e) {
-            console.log('[Paginación] DESHABILITADA por filtro de mes activo:', monthFilter.value);
-            console.log('[Paginación] Datos sin paginar - Total disponible:', leadsArray.length);
-          }
-        }
-        // Actualizar controles UI
-        const info = document.getElementById('pageInfo');
-        const prevBtn = document.getElementById('pagePrev');
-        const nextBtn = document.getElementById('pageNext');
-        
-        if (!hasMonthFilter) {
-          // Mostrar info de paginación normal
-          if (info) info.textContent = `Página ${window.__page} de ${totalPages} — ${total} clientes`;
-          if (prevBtn) prevBtn.disabled = (window.__page <= 1);
-          if (nextBtn) nextBtn.disabled = (window.__page >= totalPages);
-        } else {
-          // Mostrar info sin paginación
-          if (info) info.textContent = `Mostrando todos los resultados — ${leadsArray.length} clientes`;
-          if (prevBtn) prevBtn.disabled = true;
-          if (nextBtn) nextBtn.disabled = true;
-        }
-        // Enlazar eventos una sola vez
-        if (!window.__pagingBound) {
-          const safeRepaint = () => {
-            const prevSuspend = window.__suspendRender;
-            try {
-              window.__suspendRender = false; // permitir sólo este render
-              window.renderCostumerTable(window.ultimaListaLeads||[]);
-            } finally {
-              window.__suspendRender = prevSuspend;
-            }
-          };
-          const monthFilterEl = document.getElementById('monthFilter');
-          const hasMonthFilterLocal = !!(monthFilterEl && monthFilterEl.value && monthFilterEl.value !== '');
-
-          if (prevBtn) prevBtn.addEventListener('click', function(){
-            // Si hay filtro de mes activo, usar paginación del servidor
-            if (hasMonthFilterLocal || (window.__totalPages && window.__totalPages > 1)) {
-              const cur = Number(window.__apiPage || window.__page || 1);
-              if (cur > 1) fetchLeadsAgente(Math.max(1, cur - 1));
-              return;
-            }
-            if (window.__page > 1) { window.__page--; safeRepaint(); }
-          });
-
-          if (nextBtn) nextBtn.addEventListener('click', function(){
-            if (hasMonthFilterLocal || (window.__totalPages && window.__totalPages > 1)) {
-              const cur = Number(window.__apiPage || window.__page || 1);
-              const tp = Math.max(1, Number(window.__totalPages || Math.ceil((window.__totalCount||0) / (Number(window.__apiLimit||window.__limit||500)||500))));
-              if (cur < tp) fetchLeadsAgente(Math.min(tp, cur + 1));
-              return;
-            }
-            const tpLocal = Math.max(1, Math.ceil((window.ultimaListaLeads||[]).length / (Number(window.__limit)||500)));
-            if (window.__page < tpLocal) { window.__page++; safeRepaint(); }
-          });
-          window.__pagingBound = true;
-        }
-        // Inicializar controles adicionales (solo una vez)
-        try {
-          if (!window.__controlsInit) {
-            const pageSizeSel = document.getElementById('pageSizeSelect');
-            const toggleBtn = document.getElementById('toggleMonthsBtn');
-            // Restaurar page size
-            try {
-              const savedSize = Number(localStorage.getItem('costumer_page_size')||'') || Number(pageSizeSel?.value||'500') || 500;
-              window.__limit = savedSize;
-              if (pageSizeSel) pageSizeSel.value = String(savedSize);
-            } catch {}
-            // Estado del filtro meses
-            const usp = new URLSearchParams(window.location.search||'');
-            const showAll = usp.get('showAllMonths')==='1' || usp.get('showAllMonths')==='true' || localStorage.getItem('costumer_show_all_months')==='1';
-            const setBtnText = () => { if (toggleBtn) toggleBtn.textContent = showAll ? 'Ver solo 2 meses' : 'Solo 2 meses'; };
-            setBtnText();
-            // Eventos
-            if (pageSizeSel) {
-              pageSizeSel.addEventListener('change', function(){
-                let v = Number(this.value||'100')||100;
-                // Si hay filtro de mes activo, no permitir 'Todos' como page size; clonar a un valor razonable
-                const monthSel = document.getElementById('monthFilter');
-                const hasMonth = !!(monthSel && monthSel.value && monthSel.value !== '');
-                if (hasMonth && v >= 99999) {
-                  v = 500; // valor por defecto razonable para paginación servidor
-                }
-                localStorage.setItem('costumer_page_size', String(v));
-                window.__limit = v;
-                // también informar al backend del nuevo límite cuando haya filtro de mes
-                window.__apiLimit = v;
-                window.__page = 1;
-                if (hasMonth) {
-                  // Reconsultar al servidor usando paginación
-                  fetchLeadsAgente(1);
-                } else {
-                  // repaint seguro en cliente
-                  const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
-                }
-              });
-            }
-            // bind status filter and date filters (venta / instalacion)
-            try {
-              const statusSel = document.getElementById('statusFilter');
-              const fv = document.getElementById('filterDiaVenta');
-              const fi = document.getElementById('filterDiaInstalacion');
-              // restore saved values
-              try { const sv = localStorage.getItem('costumer_status_filter'); if (sv && statusSel) statusSel.value = sv; } catch(_) {}
-              try {
-                const raw = localStorage.getItem('costumer_datefilter_dia_venta');
-                if (raw && fv) {
-                  try {
-                    const parsed = JSON.parse(raw);
-                    const label = Array.isArray(parsed) ? (parsed.length === 0 ? '' : (parsed.length === 1 ? parsed[0] : `${parsed.length} seleccionadas`)) : (typeof parsed === 'string' ? parsed : String(raw));
-                    if ((fv.tagName||'').toUpperCase() === 'INPUT') fv.value = label;
-                    else fv.textContent = label;
-                  } catch { if ((fv.tagName||'').toUpperCase() === 'INPUT') fv.value = raw || ''; else fv.textContent = raw || ''; }
-                }
-              } catch(_) {}
-              try {
-                const raw2 = localStorage.getItem('costumer_datefilter_dia_instalacion');
-                if (raw2 && fi) {
-                  try {
-                    const parsed2 = JSON.parse(raw2);
-                    const label2 = Array.isArray(parsed2) ? (parsed2.length === 0 ? '' : (parsed2.length === 1 ? parsed2[0] : `${parsed2.length} seleccionadas`)) : (typeof parsed2 === 'string' ? parsed2 : String(raw2));
-                    if ((fi.tagName||'').toUpperCase() === 'INPUT') fi.value = label2;
-                    else fi.textContent = label2;
-                  } catch { if ((fi.tagName||'').toUpperCase() === 'INPUT') fi.value = raw2 || ''; else fi.textContent = raw2 || ''; }
-                }
-              } catch(_) {}
-
-              if (statusSel) {
-                statusSel.addEventListener('change', function(){
-                  try { localStorage.setItem('costumer_status_filter', String(this.value)); } catch(_) {}
-                  window.__page = 1;
-                  const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
-                });
-              }
-              // clicking the readonly trigger opens the Excel-like filter popup
-              if (fv) {
-                fv.addEventListener('click', function(e){
-                  e.stopPropagation();
-                  openDateFilterPopup({ field: 'dia_venta', lsKey: 'costumer_datefilter_dia_venta', trigger: fv, label: 'Día de venta' });
-                });
-              }
-
-              if (fi) {
-                fi.addEventListener('click', function(e){
-                  e.stopPropagation();
-                  openDateFilterPopup({ field: 'dia_instalacion', lsKey: 'costumer_datefilter_dia_instalacion', trigger: fi, label: 'Día de instalación' });
-                });
-              }
-            } catch(_) {}
-            if (toggleBtn) {
-              toggleBtn.addEventListener('click', function(){
-                const cur = localStorage.getItem('costumer_show_all_months')==='1';
-                const next = !cur; // toggle
-                localStorage.setItem('costumer_show_all_months', next ? '1' : '0');
-                // Ajustar query param sin recargar
-                try {
-                  const url = new URL(window.location.href);
-                  if (next) url.searchParams.set('showAllMonths','1'); else url.searchParams.delete('showAllMonths');
-                  window.history.replaceState({}, '', url.toString());
-                } catch {}
-                // repaint seguro
-                window.__page = 1;
-                const prevSuspend = window.__suspendRender; window.__suspendRender = false; try { window.renderCostumerTable(window.ultimaListaLeads||[]); } finally { window.__suspendRender = prevSuspend; }
-                // actualizar etiqueta
-                this.textContent = next ? 'Ver solo 2 meses' : 'Solo 2 meses';
-              });
-            }
-            window.__controlsInit = true;
-          }
-        } catch {}
-      } catch(_) {}
+    // Render principal de la tabla de clientes
+    window.renderCostumerTable = function(leadsArray) {
       // Migraci¨®n de compatibilidad: renombrar filtro legado a nombre neutral
       try {
         if (window.iraniaAgentFilter != null && window.supervisorAgentFilter == null) {
@@ -6369,44 +6205,38 @@
 
       // Helper: render con separadores mensuales usando getDateFromLead
       function renderWithMonthlySeparators(list) {
+        console.log('[renderWithMonthlySeparators] INICIANDO con', list?.length || 0, 'items');
         const tbodyLoc = document.getElementById('costumer-tbody');
         if (!tbodyLoc) return;
         
-        // PASO 1: Aplicar filtros de Team y Agente PRIMERO (sobre todos los datos)
+        // Limpiar tbody antes de renderizar
+        tbodyLoc.innerHTML = '';
+        
+        // PASO 1: SIEMPRE aplicar filtro de Team si hay un valor en el dropdown
         try {
-          const teamFilter = document.getElementById('teamFilter');
-          const agentFilter = document.getElementById('agentFilter');
-          const selectedTeam = teamFilter ? teamFilter.value : '';
-          const selectedAgent = agentFilter ? agentFilter.value : '';
+          const teamDropdown = document.getElementById('teamFilter');
+          const selectedTeam = teamDropdown ? teamDropdown.value : '';
           
-          console.log('[FilterOrder] PASO 1 - Aplicando Team/Agent - Team:', selectedTeam, 'Agent:', selectedAgent, 'Items iniciales:', list.length);
-          
-          // Debug: verificar si hay filtros seleccionados
-          if (!selectedTeam && !selectedAgent) {
-            console.log('[FilterOrder] PASO 1 - Sin filtros Team/Agent seleccionados, manteniendo todos los datos');
-          }
-          
-          if (selectedTeam && Array.isArray(list)) {
-            const beforeTeamFilter = list.length;
-            list = list.filter(item => {
-              const itemTeam = item?.team || item?.equipo || item?.supervisor || '';
-              const teamMatch = String(itemTeam).trim() === selectedTeam;
-              return teamMatch;
-            });
-            console.log('[FilterOrder] Team filtrado:', selectedTeam, 'Resultados:', beforeTeamFilter, '->', list.length);
-          }
-          
-          if (selectedAgent && Array.isArray(list)) {
-            const beforeAgentFilter = list.length;
-            list = list.filter(item => {
-              const itemAgent = item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || '';
-              const agentMatch = String(itemAgent).trim() === selectedAgent;
-              return agentMatch;
-            });
-            console.log('[FilterOrder] Agent filtrado:', selectedAgent, 'Resultados:', beforeAgentFilter, '->', list.length);
+          if (selectedTeam && Array.isArray(list) && list.length > 0) {
+            const beforeFilter = list.length;
+            const selectedTeamNorm = selectedTeam.toLowerCase().trim();
+            
+            // Verificar si la lista ya está filtrada por este supervisor
+            const supervisorsInList = [...new Set(list.map(l => (l?.supervisor || '').toLowerCase().trim()))];
+            const alreadyFiltered = supervisorsInList.length === 1 && supervisorsInList[0] === selectedTeamNorm;
+            
+            if (!alreadyFiltered) {
+              list = list.filter(item => {
+                const itemSup = (item?.supervisor || item?.team || '').toLowerCase().trim();
+                return itemSup === selectedTeamNorm;
+              });
+              console.log('[TEAM FILTER] Aplicado:', selectedTeam, '| Antes:', beforeFilter, '| Después:', list.length);
+            } else {
+              console.log('[TEAM FILTER] Lista ya filtrada por:', selectedTeam);
+            }
           }
         } catch(e) {
-          console.warn('[FilterOrder] Error aplicando filtros Team/Agent:', e);
+          console.warn('[TEAM FILTER] Error:', e);
         }
         
         // PASO 2: Aplicar filtro de mes seleccionado
@@ -6533,6 +6363,8 @@
           console.log('[RENDER DEBUG] Primeras 10 fechas después de ordenar:', sampleDatesSorted);
         }
         let lastKey = '';
+        console.log('[RENDER FINAL] A punto de renderizar', sorted.length, 'items. Supervisores:', 
+          [...new Set(sorted.map(x => x?.supervisor || x?._raw?.supervisor || '(vacío)'))].join(', '));
         sorted.forEach(item => {
           const iso = getDateFromLead(item);
           let key = 'Sin fecha';
@@ -7351,12 +7183,16 @@
       if (!(__debugNoFilters) && typeof esAdminOBackoffice === 'function' && esAdminOBackoffice()) {
         try {
           const teamsApi = (window && window.Teams) ? window.Teams : null;
-          const teams = teamsApi && typeof teamsApi.getAllTeams === 'function' ? teamsApi.getAllTeams() : [];
+          // getAllTeams() devuelve objetos completos, no keys
+          const teamsArray = teamsApi && typeof teamsApi.getAllTeams === 'function' ? teamsApi.getAllTeams() : [];
           const tbodyEl = document.getElementById('costumer-tbody');
           if (!tbodyEl) return;
           const tableEl = tbodyEl.closest('table');
           const host = tableEl ? tableEl : tbodyEl;
           const container = host.parentElement || host;
+
+          // Helper para normalizar supervisor (definir antes de usar)
+          const normSup = (s) => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').trim();
 
           // Crear/asegurar toolbar de TEAM
           let bar = document.getElementById('teams-filter-bar');
@@ -7367,9 +7203,7 @@
             bar.style.display = 'flex';
             bar.style.flexWrap = 'wrap';
             bar.style.gap = '8px';
-            // Insertar la barra antes de la tabla directamente
             container.insertBefore(bar, host);
-            // sticky del toolbar respecto al viewport principal
             bar.style.position = 'sticky';
             bar.style.top = '0';
             bar.style.zIndex = '10';
@@ -7401,73 +7235,90 @@
             return b;
           };
 
-          // Render botones con conteo de ventas (status Completed)
+          // Render botones
           bar.innerHTML = '';
-          // Conteo total de clientes (TODOS los estados)
           try {
             const totalClientes = Array.isArray(leadsArray) ? leadsArray.length : 0;
             bar.appendChild(mkBtn(`Todos (${totalClientes})`, null));
           } catch(_) {
             bar.appendChild(mkBtn('Todos', null));
           }
-          teams.forEach(teamKey => {
-            const def = teamsApi.getTeamDef(teamKey) || { displayName: teamKey };
-            const label = def.displayName || teamKey;
-            // Calcular TOTAL de clientes del TEAM (sin filtrar por estado)
+          
+          // teamsArray contiene objetos con {name, supervisor, supervisorName, ...}
+          // Los leads tienen supervisor como "ROBERTO", "IRANIA", "JOHANA", "MARISOL", "BRYAN"
+          // Crear mapa de nombre corto a nombre completo
+          const supervisorShortNames = {
+            'roberto': 'Roberto Velásquez',
+            'irania': 'Irania Serrano',
+            'johana': 'Johana',
+            'marisol': 'Marisol Beltrán',
+            'bryan': 'Bryan Pleitez',
+            'jonathan': 'Jonathan Figueroa'
+          };
+          
+          teamsArray.forEach(teamObj => {
+            const teamName = teamObj.name || '';
+            const supervisorName = teamObj.supervisorName || teamObj.supervisor || teamName;
+            // Extraer primer nombre del supervisor para comparar con datos de leads
+            const firstName = supervisorName.split(' ')[0].toLowerCase();
+            
+            // Calcular conteo por campo supervisor del lead (comparar con primer nombre)
             let count = 0;
             try {
-              const agentsCanon = teamsApi.getAgentsByTeam(teamKey) || [];
               count = (Array.isArray(leadsArray) ? leadsArray : []).reduce((acc, l) => {
-                const isAgentTeam = agentsCanon.includes((() => {
-                  if (l && l.__agentCanon) return l.__agentCanon;
-                  const cand = l?.agenteNombre || l?.nombreAgente || l?.agente || l?._raw?.agenteNombre || l?._raw?.nombreAgente || l?._raw?.agente || '';
-                  return (teamsApi && typeof teamsApi.canonicalFromName === 'function') ? teamsApi.canonicalFromName(cand) : (cand||'').toString().trim().toLowerCase();
-                })());
-                return acc + (isAgentTeam ? 1 : 0);
+                const leadSup = l?.supervisor || l?._raw?.supervisor || l?.team || l?._raw?.team || '';
+                const leadSupLower = leadSup.toLowerCase().trim();
+                // Comparar primer nombre
+                const isMatch = leadSupLower === firstName || 
+                               leadSupLower.includes(firstName) ||
+                               firstName.includes(leadSupLower);
+                return acc + (isMatch ? 1 : 0);
               }, 0);
             } catch(_) { count = 0; }
-            bar.appendChild(mkBtn(`${label} (${count})`, teamKey));
+            // Usar firstName como valor del filtro (coincide con datos de leads)
+            bar.appendChild(mkBtn(`${supervisorName} (${count})`, firstName));
           });
 
-          // Helper para obtener agente can¨®nico
-          const canonicalFromName = (name) => {
-            if (teamsApi && typeof teamsApi.canonicalFromName === 'function') return teamsApi.canonicalFromName(name);
-            return (name || '').toString().trim().toLowerCase();
-          };
-          const getAgentCanon = (l) => {
-            if (l && l.__agentCanon) return l.__agentCanon;
-            const cand = l?.agenteNombre || l?.nombreAgente || l?.agente || l?._raw?.agenteNombre || l?._raw?.nombreAgente || l?._raw?.agente || '';
-            return canonicalFromName(cand);
-          };
-
-          // Filtrar por TEAM seleccionado (por agentes del team)
-          const selectedTeam = window.adminTeamFilter || null;
+          // Filtrar por supervisor seleccionado (desde dropdown O desde botones)
+          // PRIORIZAR DROPDOWN: usar su valor directamente (ya que coincide con campo supervisor del lead)
+          const teamDropdown = document.getElementById('teamFilter');
+          const dropdownValue = teamDropdown ? teamDropdown.value : '';
+          const selectedSupervisor = dropdownValue || window.adminTeamFilter || null;
+          
+          console.log('[ADMIN FILTER] dropdownValue:', dropdownValue, '| adminTeamFilter:', window.adminTeamFilter, '| usando:', selectedSupervisor);
+          
           let list = Array.isArray(leadsArray) ? leadsArray.slice() : [];
-          if (selectedTeam) {
-            const agentsCanon = teamsApi.getAgentsByTeam(selectedTeam) || [];
-            try { console.debug('[Admin] selectedTeam =', selectedTeam, '| agentsCanon =', agentsCanon); } catch(_) {}
-            // Mostrar TODOS los leads del team seleccionado (sin restringir a 'Completed')
-            list = list.filter(l => agentsCanon.includes(getAgentCanon(l)));
-          } else {
-            // En 'Todos' mostrar TODOS los leads (sin restringir a 'Completed')
-            // Si se requiere un filtro por ventas, esto deber¨ªa manejarse con un control separado
-            list = list;
+          if (selectedSupervisor) {
+            const filterName = selectedSupervisor.toLowerCase().trim();
+            
+            console.log('[ADMIN FILTER] Filtrando por:', filterName, '| Total leads:', list.length);
+            
+            // Filtrar por campo supervisor del lead (comparación directa ya que dropdown tiene mismo valor)
+            list = list.filter(l => {
+              const leadSup = l?.supervisor || l?._raw?.supervisor || l?.team || l?._raw?.team || '';
+              const leadSupLower = leadSup.toLowerCase().trim();
+              return leadSupLower === filterName;
+            });
+            
+            console.log('[ADMIN FILTER] Leads después de filtro:', list.length);
           }
 
           // Render con separadores mensuales
+          console.log('[ADMIN RENDER] Llamando a renderWithMonthlySeparators con', list.length, 'leads');
+          console.log('[ADMIN RENDER] Valor actual de #teamFilter:', document.getElementById('teamFilter')?.value || '(vacío)');
           renderWithMonthlySeparators(list);
           try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
-          return; // evitar ramas siguientes
+
         } catch (e) { console.warn('Error en vista admin por TEAM:', e); }
       } else {
         // Render por defecto con separadores mensuales
         console.log('[RENDER ROUTE] Usando renderWithMonthlySeparators con', leadsArray.length, 'leads');
         renderWithMonthlySeparators(leadsArray);
-        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
+        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){ }
       }
-    }
+    };
 
-    // Funci¨®n para actualizar las tarjetas de resumen
+    // Función para actualizar las tarjetas de resumen
     function updateSummaryCards(leads) {
       // Obtener referencias a los elementos del DOM primero
       const ventasHoyElement = document.getElementById('costumer-ventas-hoy');
@@ -9575,7 +9426,15 @@
       const teamFilter = document.getElementById('teamFilter');
       if (teamFilter) {
         teamFilter.addEventListener('change', function() {
-          console.log('[TEAM FILTER] Cambiando a team:', this.value || 'Todos los teams');
+          console.log('========== [TEAM FILTER] EVENTO CHANGE ==========');
+          console.log('[TEAM FILTER] Valor seleccionado:', this.value || '(vacío = Todos)');
+          
+          // IMPORTANTE: Limpiar SIDEBAR_FILTER_OVERRIDE cuando el usuario usa el dropdown directamente
+          window.SIDEBAR_FILTER_OVERRIDE = null;
+          console.log('[TEAM FILTER] SIDEBAR_FILTER_OVERRIDE limpiado');
+          
+          console.log('[TEAM FILTER] ultimaListaLeads disponible:', !!window.ultimaListaLeads, '| cantidad:', window.ultimaListaLeads?.length || 0);
+          console.log('[TEAM FILTER] renderCostumerTable disponible:', typeof window.renderCostumerTable);
           
           // Actualizar filtro de agentes basado en el team seleccionado
           const agentFilter = document.getElementById('agentFilter');
