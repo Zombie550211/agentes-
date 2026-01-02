@@ -1257,11 +1257,133 @@ router.get('/lineas-team', protect, async (req, res) => {
       leads = await collection.find({}).toArray();
     }
     
+    // Normalizar _id a string para que el frontend reciba IDs válidos
+    leads = leads.map(d => ({ ...d, _id: d._id ? String(d._id) : d._id, id: d._id ? String(d._id) : (d.id || '') }));
     console.log('[API /lineas-team] Leads encontrados:', leads.length);
     res.json({ success: true, data: leads });
   } catch (error) {
     console.error('[API /lineas-team] Error:', error.message);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+  }
+});
+
+// PUT /lineas-team/status - Actualizar STATUS de registro de Team Líneas
+router.put('/lineas-team/status', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const username = user?.username || '';
+    const role = (user?.role || '').toLowerCase();
+    const team = (user?.team || '').toLowerCase();
+    
+    console.log('[API PUT /lineas-team/status] Usuario:', username, 'Rol:', role);
+    
+    // Verificar permisos
+    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('supervisor') || team.includes('lineas');
+    if (!canEdit) {
+      return res.status(403).json({ success: false, message: 'No tienes permisos para cambiar el STATUS' });
+    }
+    
+    const { id, status } = req.body;
+    
+    if (!id || !status) {
+      return res.status(400).json({ success: false, message: 'ID y STATUS son requeridos' });
+    }
+    
+    // Conectar a la base de datos TEAM_LINEAS
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      console.error('[API PUT /lineas-team/status] No se pudo conectar a TEAM_LINEAS');
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+    
+    const { ObjectId } = require('mongodb');
+    
+    // Buscar y actualizar en todas las colecciones de agentes
+    let updated = false;
+    let collections = [];
+    try {
+      const cols = await db.listCollections().toArray();
+      collections = cols.map(c => c.name);
+    } catch (e) {
+      // Fallback a lista conocida si listCollections falla
+      collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
+    }
+
+    console.log('[API PUT /lineas-team/status] Collections to search:', collections);
+    for (const colName of collections) {
+      try {
+        const collection = db.collection(colName);
+        // Intent 1: _id como ObjectId
+        let tried = [];
+        try {
+          const objId = new ObjectId(id);
+          const result = await collection.updateOne(
+            { _id: objId },
+            { $set: { status: String(status).toUpperCase(), actualizadoEn: new Date() } }
+          );
+          tried.push({ method: '_id:ObjectId', matched: result.matchedCount, modified: result.modifiedCount });
+          if (result.modifiedCount > 0) {
+            updated = true;
+            console.log(`[API PUT /lineas-team/status] Status actualizado en colección ${colName} para ID ${id} (ObjectId)`);
+            break;
+          }
+        } catch (e) {
+          // id no es ObjectId válido o fallo, continuamos con otros intentos
+          tried.push({ method: '_id:ObjectId', error: String(e) });
+        }
+
+        // Intent 2: _id como string
+        try {
+          const result2 = await collection.updateOne(
+            { _id: id },
+            { $set: { status: String(status).toUpperCase(), actualizadoEn: new Date() } }
+          );
+          tried.push({ method: '_id:string', matched: result2.matchedCount, modified: result2.modifiedCount });
+          if (result2.modifiedCount > 0) {
+            updated = true;
+            console.log(`[API PUT /lineas-team/status] Status actualizado en colección ${colName} para ID ${id} (string _id)`);
+            break;
+          }
+        } catch (e) {
+          tried.push({ method: '_id:string', error: String(e) });
+        }
+
+        // Intent 3: campo id (algunos documentos usan 'id')
+        try {
+          const result3 = await collection.updateOne(
+            { id: id },
+            { $set: { status: String(status).toUpperCase(), actualizadoEn: new Date() } }
+          );
+          tried.push({ method: 'field:id', matched: result3.matchedCount, modified: result3.modifiedCount });
+          if (result3.modifiedCount > 0) {
+            updated = true;
+            console.log(`[API PUT /lineas-team/status] Status actualizado en colección ${colName} para ID ${id} (field id)`);
+            break;
+          }
+        } catch (e) {
+          tried.push({ method: 'field:id', error: String(e) });
+        }
+
+        // Para diagnóstico, loguear intentos en esta colección
+        console.log(`[API PUT /lineas-team/status] intentos en ${colName}:`, tried);
+      } catch (e) {
+        // Continuar con siguiente colección
+        console.error(`[API PUT /lineas-team/status] Error iterando colección ${colName}:`, e);
+      }
+    }
+    
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    }
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'STATUS actualizado correctamente'
+    });
+    
+  } catch (error) {
+    console.error('[API PUT /lineas-team/status] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el STATUS', error: error.message });
   }
 });
 
