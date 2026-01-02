@@ -387,296 +387,92 @@
 
       // Monkey-patch robusto: impedir re-renders incluso si otro script reasigna la función
       (function(){
-        let _renderFn = typeof originalRenderer==='function' ? originalRenderer.bind(window) : (typeof window.renderCostumerTable==='function' ? window.renderCostumerTable.bind(window) : null);
-        Object.defineProperty(window, 'renderCostumerTable', {
-          configurable: true,
-          enumerable: true,
-          get(){
-            return function(leads){
-              try {
-                console.log('renderCostumerTable llamada con leads:', leads?.length || (Array.isArray(leads?.leads)?leads.leads.length:0));
-                // Bloqueo global
-                if (window.__suspendRender) {
-                  // Permitir un ÚNICO render inicial para poblar la tabla
-                  if (!window.__initialPaintDone) {
-                    try {
-                      const arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
-                      const tbody = document.getElementById('costumer-tbody');
-                      if (tbody) tbody.innerHTML = '';
-                      if (typeof _renderFn === 'function') {
-                        // Usar el render original para respetar filtros/toolbars
-                        _renderFn(arr);
-                        console.log('[Render] Pintado inicial permitiendo _renderFn() (una sola vez)');
-                      } else if (typeof renderWithMonthlySeparators === 'function') {
-                        renderWithMonthlySeparators(arr);
-                        console.log('[Render] Pintado inicial forzado con renderWithMonthlySeparators()');
-                      }
-                      // Aplicar colores cuando el DOM ya tenga filas (el render original puede ser asíncrono)
+        try {
+          let _renderFn = typeof originalRenderer==='function' ? originalRenderer.bind(window) : (typeof window.renderCostumerTable==='function' ? window.renderCostumerTable.bind(window) : null);
+          Object.defineProperty(window, 'renderCostumerTable', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return function(leads) {
+                try {
+                  if (window.__suspendRender) {
+                    if (!window.__initialPaintDone) {
                       try {
-                        const tryApplyColors = (attempt=0) => {
-                          try {
-                            const tbody = document.getElementById('costumer-tbody');
-                            const count = tbody ? tbody.querySelectorAll('tr').length : 0;
-                            if (count === 0 && attempt < 20) { // reintentar hasta 2s
-                              return setTimeout(() => tryApplyColors(attempt+1), 100);
-                            }
-                            if (typeof syncStatusDatasets==='function') syncStatusDatasets();
-                            if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors();
-                          } catch(_) {}
-                        };
-                        tryApplyColors();
-                        try { setTimeout(()=>{ document.dispatchEvent(new CustomEvent('leads:rendered',{detail:{count: arr.length}})); }, 100); }catch(_){ }
-                      } catch(_) {}
-                      window.__initialPaintDone = true;
-                    } catch(e){ console.warn('[Render] fallo en pintado inicial', e); }
-                  } else {
-                    console.log('[Render] BLOQUEADO por __suspendRender');
-                  }
-                  return;
-                }
-                // Aplicar filtro por defecto: mostrar solo leads del mes actual
-                // Para ver todos los leads (comportamiento anterior) establecer `window.__renderShowAll = true` desde la consola o desde otra parte del frontend.
-                function _parseDateFromLead(l) {
-                  try {
-                    const s = String(l?.dia_venta || l?.fecha || l?.createdAt || l?.created_at || '').trim();
-                    if (!s) return null;
-                    // Formato ISO YYYY-MM-DD
-                    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                    if (isoMatch) return new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00`);
-                    // Formato DD/MM/YYYY
-                    const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-                    if (dmy) return new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}T00:00:00`);
-                    // Try Date parse for other formats
-                    const dt = new Date(s);
-                    if (!isNaN(dt)) return dt;
-                  } catch(e){}
-                  return null;
-                }
-                function _isInCurrentMonth(l) {
-                  const d = _parseDateFromLead(l);
-                  if (!d) return false;
-                  const now = new Date();
-                  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-                }
-
-                // Función para detectar si el usuario es de Team Líneas
-                function isTeamLineas() {
-                  try {
-                    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                    const role = (user.role || user?.usuario?.role || '').toString().trim().toLowerCase();
-                    const username = (user.username || user?.usuario?.username || '').toString().trim().toLowerCase();
-                    const team = (user.team || user?.usuario?.team || '').toString().trim().toLowerCase();
-                    return role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas' ||
-                           username.startsWith('lineas-') || username.includes('lineas') || team.includes('lineas');
-                  } catch (e) { return false; }
-                }
-                
-                // Vista Team Líneas
-                try{
-                  if (isTeamLineas()){
-                    console.log('[Team Líneas] Aplicando vista Team Líneas');
-                    applyHeader();
-                    let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
-                    // Guardar lista completa para usos futuros
-                    try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
-                    // Mostrar todos los meses por defecto (sin filtrar por mes actual)
-                    window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
-                    
-                    // FILTRO SUPERVISOR: Si el usuario es supervisor, mostrar solo clientes de sus agentes
-                    try {
-                      const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                      const userRole = (currentUser.role || '').toString().trim().toLowerCase();
-                      
-                      if (userRole === 'supervisor') {
-                        const supervisorName = (currentUser.username || currentUser.name || '').trim();
-                        console.log('[SUPERVISOR FILTER] Aplicando filtro para supervisor (Team Líneas):', supervisorName);
-                        
-                        // Obtener lista de agentes del supervisor
-                        let supervisorAgents = new Set();
-                        try {
-                          if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
-                            const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
-                            if (Array.isArray(agents)) {
-                              agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
-                              console.log('[SUPERVISOR FILTER] Agentes del supervisor (Team Líneas):', Array.from(supervisorAgents));
-                            }
-                          }
-                        } catch(e) {
-                          console.warn('[SUPERVISOR FILTER] Error obteniendo agentes del supervisor:', e);
-                        }
-                        
-                        // Filtrar leads
-                        if (supervisorAgents.size === 0) {
-                          const matchSupervisor = (leadSupRaw, supName) => {
-                            try {
-                              const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'').replace(/[^a-z0-9]+/g,'').trim();
-                              const supCanon = norm(supName || '');
-                              const leadCanon = norm(leadSupRaw || '');
-                              if (!leadCanon) return false;
-                              if (leadCanon === supCanon) return true;
-                              if (supCanon.includes(leadCanon) || leadCanon.includes(supCanon)) return true;
-                              const last = x => { const parts = (x||'').split(/\s+/).filter(Boolean); return parts.length ? parts.pop() : x; };
-                              if (last(leadCanon) && last(supCanon) && last(leadCanon) === last(supCanon)) return true;
-                              return false;
-                            } catch (e) { return false; }
-                          };
-                          arr = arr.filter(lead => {
-                            const leadSupervisor = (lead.supervisor || lead.team || '').toString().trim();
-                            return matchSupervisor(leadSupervisor, supervisorName);
-                          });
-                        } else {
-                          arr = arr.filter(lead => {
-                            const agenteName = (lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase();
-                            return supervisorAgents.has(agenteName);
-                          });
-                        }
-                        
-                        console.log('[SUPERVISOR FILTER] Leads después de filtro (Team Líneas):', arr.length);
-                        window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
-                      }
-                    } catch(e) {
-                      console.warn('[SUPERVISOR FILTER] Error en filtro de supervisor (Team Líneas):', e);
+                        const arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
+                        const tbody = document.getElementById('costumer-tbody');
+                        if (tbody) tbody.innerHTML = '';
+                        if (typeof _renderFn === 'function') _renderFn(arr);
+                        else if (typeof renderWithMonthlySeparators === 'function') renderWithMonthlySeparators(arr);
+                        window.__initialPaintDone = true;
+                      } catch (e) { console.warn('[Render] fallo en pintado inicial', e); }
                     }
-                    
-                    renderRows(arr);
                     return;
                   }
-                }catch(err){ console.warn('[Team Líneas render] error', err); }
-                // Fallback al render original si no está suspendido
-                if (typeof _renderFn === 'function') {
-                  try {
-                    let arr = Array.isArray(leads)?leads:(Array.isArray(leads?.leads)?leads.leads:[]);
-                    try { window.ultimaListaLeadsFull = Array.isArray(arr) ? arr.slice(0) : []; } catch(e){}
-                    // Mostrar todos los meses por defecto (sin filtrar por mes actual)
-                    window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
-                    
-                    // FILTRO SUPERVISOR: Si el usuario es supervisor, mostrar solo clientes de sus agentes
+
+                  let arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
+                  window.ultimaListaLeadsFull = [...arr];
+
+                  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                  const userRole = (currentUser.role || currentUser?.usuario?.role || '').toString().trim().toLowerCase();
+
+                  if (userRole.includes('supervisor')) {
+                    const supervisorName = (currentUser.username || currentUser.name || '').trim();
+                    let supervisorAgents = new Set();
                     try {
-                      const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                      const userRole = (currentUser.role || '').toString().trim().toLowerCase();
-                      
-                      if (userRole === 'supervisor') {
-                        const supervisorName = (currentUser.username || currentUser.name || '').trim();
-                        console.log('[SUPERVISOR FILTER] Aplicando filtro para supervisor:', supervisorName);
-                        
-                        // Obtener lista de agentes del supervisor desde teamsApiRoot si está disponible
-                        let supervisorAgents = new Set();
-                        
-                        try {
-                          if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
-                            const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
-                            if (Array.isArray(agents)) {
-                              agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
-                              console.log('[SUPERVISOR FILTER] Agentes del supervisor:', Array.from(supervisorAgents));
-                            }
-                          }
-                        } catch(e) {
-                          console.warn('[SUPERVISOR FILTER] Error obteniendo agentes del supervisor desde teamsApiRoot:', e);
-                        }
-                        
-                        // Si teamsApiRoot no funciona, usar el campo 'supervisor' en los leads
-                        if (supervisorAgents.size === 0) {
-                          console.log('[SUPERVISOR FILTER] Fallback: filtrando por campo supervisor en los leads');
-                          const matchSupervisor = (leadSupRaw, supName) => {
-                            try {
-                              const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'').replace(/[^a-z0-9]+/g,'').trim();
-                              const supCanon = norm(supName || '');
-                              const leadCanon = norm(leadSupRaw || '');
-                              if (!leadCanon) return false;
-                              if (leadCanon === supCanon) return true;
-                              if (supCanon.includes(leadCanon) || leadCanon.includes(supCanon)) return true;
-                              const last = x => { const parts = (x||'').split(/\s+/).filter(Boolean); return parts.length ? parts.pop() : x; };
-                              if (last(leadCanon) && last(supCanon) && last(leadCanon) === last(supCanon)) return true;
-                              return false;
-                            } catch (e) { return false; }
-                          };
-                          // Filtrar leads cuyo supervisor coincida con el usuario actual (más robusto)
-                          arr = arr.filter(lead => {
-                            const leadSupervisor = (lead.supervisor || lead.team || '').toString().trim();
-                            return matchSupervisor(leadSupervisor, supervisorName);
-                          });
-                        } else {
-                          // Filtrar leads cuyo agente esté en la lista de agentes del supervisor
-                          arr = arr.filter(lead => {
-                            const agenteName = (lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase();
-                            return supervisorAgents.has(agenteName);
-                          });
-                        }
-                        
-                        console.log('[SUPERVISOR FILTER] Leads después de filtro:', arr.length);
-                        window.ultimaListaLeads = Array.isArray(arr) ? arr.slice(0) : [];
+                      if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
+                        const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
+                        if (Array.isArray(agents)) agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
                       }
-                    } catch(e) {
-                      console.warn('[SUPERVISOR FILTER] Error en filtro de supervisor:', e);
+                    } catch (e) { console.warn('[SUPERVISOR FILTER] Error obteniendo agentes:', e); }
+
+                    if (supervisorAgents.size > 0) {
+                      arr = arr.filter(lead => supervisorAgents.has((lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase()));
+                    } else {
+                      const matchSupervisor = (leadSupRaw, supName) => {
+                        try {
+                          const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '').replace(/[^a-z0-9]+/g, '').trim();
+                          const supCanon = norm(supName || '');
+                          const leadCanon = norm(leadSupRaw || '');
+                          if (!leadCanon || !supCanon) return false;
+                          return leadCanon === supCanon || supCanon.includes(leadCanon) || leadCanon.includes(supCanon);
+                        } catch (e) { return false; }
+                      };
+                      arr = arr.filter(lead => matchSupervisor((lead.supervisor || lead.team || ''), supervisorName));
                     }
-                    
-                    const r = _renderFn(arr);
-                    setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
-                    try { setTimeout(()=>{ document.dispatchEvent(new CustomEvent('leads:rendered',{detail:{count: arr.length}})); }, 150); }catch(_){ }
-                    return r;
-                  } catch(e) {
-                    console.warn('[Render fallback] error applying default month filter', e);
-                    const r = _renderFn(leads);
-                    setTimeout(()=>{ try{ syncStatusDatasets(); window.applyRowStatusColors(); }catch{} }, 0);
-                    return r;
                   }
+
+                  window.ultimaListaLeads = arr;
+
+                  if (typeof _renderFn === 'function') {
+                    _renderFn(arr);
+                  } else {
+                    renderRows(arr);
+                  }
+
+                  setTimeout(() => {
+                    try {
+                      syncStatusDatasets();
+                      window.applyRowStatusColors();
+                      document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: arr.length } }));
+                    } catch(e) {}
+                  }, 150);
+
+                } catch (e) {
+                  console.warn('[Render wrapper] error', e);
                 }
-              } catch(e){ console.warn('[Render wrapper] error', e); }
+              };
+            },
+            set: function(fn) {
+              try {
+                _renderFn = (typeof fn === 'function') ? fn.bind(window) : null;
+              } catch (e) { console.warn('[Render] setter error', e); }
             }
-          },
-          set(fn){
-            try{
-              _renderFn = (typeof fn === 'function') ? fn.bind(window) : null;
-              console.log('[Render] Nueva función asignada; wrapper activo. __suspendRender=', window.__suspendRender);
-            }catch(e){ console.warn('[Render] setter error', e); }
-          }
-        });
+          });
+        } catch(e) { 
+          console.error('Monkey-patch renderCostumerTable error', e); 
+        }
       })();
 
-      // Recoloreo garantizado tras carga inicial de la página
-      try {
-        window.addEventListener('DOMContentLoaded', function(){
-          let tries = 0;
-          const maxTries = 100; // hasta 10s
-          const attempt = () => {
-            tries++;
-            try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
-            try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
-            try {
-              const tbody = document.getElementById('costumer-tbody');
-              const rows = tbody ? tbody.querySelectorAll('tr') : [];
-              const colored = rows && rows.length>0 && Array.from(rows).some(tr => (tr.dataset && tr.dataset.rowStatus) || (tr.style && tr.style.backgroundColor));
-              if (!colored && tries < maxTries) { setTimeout(attempt, 100); }
-            } catch { if (tries < maxTries) { setTimeout(attempt, 100); } }
-          };
-          setTimeout(attempt, 150);
-
-          // Observer ligero: nuevas filas -> recolorear inmediatamente
-          try {
-            const tbody = document.getElementById('costumer-tbody');
-            if (tbody && window.MutationObserver) {
-              let timer = null;
-              const apply = () => {
-                try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
-                try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
-              };
-              const obs = new MutationObserver(muts => {
-                let added = false;
-                for (const m of muts) { if (m.type==='childList' && (m.addedNodes&&m.addedNodes.length)) { added = true; break; } }
-                if (added) {
-                  if (timer) clearTimeout(timer);
-                  timer = setTimeout(apply, 50);
-                }
-              });
-              obs.observe(tbody, { childList: true, subtree: false });
-              // Guardar referencia global por si se requiere depuración
-              try { window.__rowColorObserver = obs; } catch {}
-            }
-          } catch {}
-        });
-      } catch {}
-</script>
-  <script>
     // Helpers globales para colorear filas por STATUS inmediatamente
     (function(){
       // Logger controlado por bandera: activar con localStorage.setItem('rowColorDebug','1')
@@ -727,13 +523,13 @@
           // Aplicar color inline para vencer cualquier re-pintado externo
           const color = statusToColor(statusVal);
           const tds = tr ? Array.from(tr.children) : [];
-          try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch{}
-          try{ tr.style.setProperty('background', 'none', 'important'); }catch{}
-          try{ tr.style.setProperty('background-color', color, 'important'); }catch{}
-          tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch{} });
-          tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch{} });
+          try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch {}
+          try{ tr.style.setProperty('background', 'none', 'important'); }catch {}
+          try{ tr.style.setProperty('background-color', color, 'important'); }catch {}
+          tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch {} });
+          tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch {} });
           rcLog('inline color aplicado', {id, color, rowStatus: tr?.dataset?.rowStatus});
-        }catch{}
+        }catch {}
       }
       // Re-aplicar colores cuando cambie el DOM de la tabla (con guardas anti bucle)
       let _statusObserver = null;
@@ -751,7 +547,7 @@
             setTimeout(installStatusObserver, 200);
             return;
           }
-          if (_statusObserver) { try{ _statusObserver.disconnect(); }catch{} _statusObserver = null; }
+          if (_statusObserver) { try{ _statusObserver.disconnect(); }catch {} _statusObserver = null; }
           _statusObserver = new MutationObserver((muts)=>{
             if (_statusPainting) return; // ignorar mutaciones causadas por nuestro repintado
             // Solo re-aplicar una vez tras lote de cambios
@@ -763,7 +559,7 @@
           // aplicar una vez al instalar
           rcLog('observer installed');
           debouncedApply();
-        }catch{}
+        }catch {}
       }
 
       // Función para forzar recoloreo completo (útil después de cambios de tema)
@@ -826,19 +622,19 @@
           if (!tr) return;
           // Guardar el valor en la celda como dataset para persistencia
           const td = tr.children[8];
-          if (td) { try { td.dataset.status = String(el.value||''); } catch{} }
+          if (td) { try { td.dataset.status = String(el.value||''); } catch {} }
           rcLog('change(status) ->', {value: el.value, rowId: tr?.getAttribute('data-lead-id')});
 
           // Suspender re-render global temporalmente para evitar que destruya el color/estado
           try{
             window.__suspendRender = true;
-            if (window.__suspendRenderTO) { try{ clearTimeout(window.__suspendRenderTO); }catch{} }
+            if (window.__suspendRenderTO) { try{ clearTimeout(window.__suspendRenderTO); }catch {} }
             window.__suspendRenderTO = setTimeout(()=>{
               window.__suspendRender = false;
-              try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch{}
-              try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch{}
+              try { if (typeof syncStatusDatasets==='function') syncStatusDatasets(); } catch {}
+              try { if (typeof window.applyRowStatusColors==='function') window.applyRowStatusColors(); } catch {}
             }, 800);
-          }catch{}
+          }catch {}
 
           _statusPainting = true;
           try{ applyRowClass(tr, el.value); } finally { _statusPainting = false; }
@@ -852,8 +648,10 @@
             } else {
               _statusPainting = true; try{ applyRowClass(tr, el.value); } finally { _statusPainting = false; }
             }
-          }catch{} }, 500);
-        }catch{}
+          }catch {} }, 500);
+        }catch(e){
+          console.error('Error en evento change:', e);
+        }
       }, true);
 
       // Instalar observer cuando el DOM esté listo
@@ -863,14 +661,28 @@
             window.applyRowStatusColors && window.applyRowStatusColors();
             if (++n>6) clearInterval(iv);
           }catch{ clearInterval(iv); } }, 500);
-        }catch{}
+        }catch(e){
+          console.error('Error en startKeepAliveInitial:', e);
+        }
       }
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', ()=>{ rcLog('DOMContentLoaded'); installStatusObserver(); startKeepAliveInitial(); });
+        document.addEventListener('DOMContentLoaded', ()=>{ 
+          try{
+            rcLog('DOMContentLoaded'); 
+            installStatusObserver(); 
+            startKeepAliveInitial();
+          }catch(e){
+            console.error('Error en evento DOMContentLoaded:', e);
+          }
+        });
       } else {
-        rcLog('init immediate');
-        installStatusObserver();
-        startKeepAliveInitial();
+        try{
+          rcLog('init immediate');
+          installStatusObserver();
+          startKeepAliveInitial();
+        }catch(e){
+          console.error('Error en init immediate:', e);
+        }
       }
 
       // Observer para cambios de tema - recolorear filas cuando cambie el tema
@@ -879,7 +691,7 @@
           mutations.forEach((mutation) => {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
               const target = mutation.target;
-              if (target === document.body) {
+              if (target === document.body || target === document.documentElement) {
                 // El tema cambió, recolorear todas las filas
                 rcLog('Theme change detected, recoloring rows');
                 setTimeout(() => {
@@ -891,30 +703,33 @@
                       window.applyRowStatusColors();
                     }
                   } catch (e) {
-                    console.warn('Error recoloring after theme change:', e);
+                    console.error('Error recoloring rows on theme change:', e);
                   }
-                }, 100);
+                }, 50);
               }
             }
           });
         });
-        
-        if (document.body) {
-          themeObserver.observe(document.body, {
-            attributes: true,
-            attributeFilter: ['class']
-          });
-          rcLog('Theme observer installed');
+
+        const startThemeObserve = () => {
+          try {
+            const targets = [document.documentElement, document.body].filter(n => n && n.nodeType === 1);
+            if (!targets.length) return;
+            targets.forEach(t => {
+              try { themeObserver.observe(t, { attributes: true, attributeFilter: ['class'] }); } catch (_) {}
+            });
+          } catch (e) {
+            console.error('Theme observer setup failed:', e);
+          }
+        };
+
+        if (document.documentElement || document.body) {
+          startThemeObserve();
         } else {
-          document.addEventListener('DOMContentLoaded', function(){
-            try {
-              themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-              rcLog('Theme observer installed (delayed)');
-            } catch (e) { console.warn('Could not install theme observer after DOMContentLoaded:', e); }
-          });
+          document.addEventListener('DOMContentLoaded', startThemeObserve, { once: true });
         }
       } catch (e) {
-        console.warn('Could not install theme observer:', e);
+        console.error('Theme observer setup failed:', e);
       }
 
       // Función de debug para verificar colores
@@ -944,7 +759,9 @@
             });
           }
           console.log('=== END DEBUG ===');
-        } catch (e) { console.warn('debugThemeColors error', e); }
+        } catch (e) {
+          console.error('debugThemeColors error:', e);
+        }
       };
 
       // Auto-ejecutar debug después de cargar
@@ -979,7 +796,7 @@
             console.warn('⚠️ [SIDEBAR DEBUG] No se encontraron elementos activos. Verificar data-active y sidebar-loader.js');
           }
         } catch (e) {
-          console.warn('[SIDEBAR DEBUG] Error:', e);
+          console.error('[SIDEBAR DEBUG] Error:', e);
         }
       }, 3000);
 
@@ -1020,7 +837,7 @@
             }
           });
         } catch (e) {
-          console.warn('[MULTIMEDIA DEBUG] Error:', e);
+          console.error('[MULTIMEDIA DEBUG] Error:', e);
         }
       };
 
@@ -2320,43 +2137,6 @@
                                 };
                                 targetTeamValue = findTeam(agentName) || findTeam(supervisorName) || '';
                             }
-                            
-                            if (!targetTeamValue) {
-                                // Fallback nombre
-                                const t = normalize(teamName);
-                                const match = options.find(o => {
-                                    const v = normalize(o.value);
-                                    return v === t || (v.includes(t) && t.length > 3);
-                                });
-                                if (match) targetTeamValue = match.value;
-                            }
-
-                            // Setear visualmente
-                            if (targetTeamValue) {
-                                teamSelect.value = targetTeamValue;
-                                // Disparar cambio para poblar agentes visualmente
-                                teamSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                                
-                                // Intentar setear agente visualmente
-                                if (agentName) {
-                                    setTimeout(() => {
-                                        const a = normalize(agentName);
-                                        const agOptions = Array.from(agentSelect.options);
-                                        const agMatch = agOptions.find(o => {
-                                            const v = normalize(o.value);
-                                            return v === a || (v.includes(a) && a.length > 3);
-                                        });
-                                        if (agMatch) agentSelect.value = agMatch.value;
-                                    }, 50);
-                                } else {
-                                    agentSelect.value = '';
-                                }
-                            }
-                        }
-
-                        // 4. FORZAR RENDERIZADO con el override activo
-                        if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
-                            console.log('[Sidebar] Forzando render con Override:', window.SIDEBAR_FILTER_OVERRIDE);
                             window.renderCostumerTable(window.ultimaListaLeads);
                         }
 
@@ -3801,7 +3581,7 @@
       // Mostrar bot¨®n solo para admin/supervisor/backoffice (no para agent)
       const role = getRole();
       // admin/backoffice/supervisor pueden ver el bot¨®n
-      const allowed = new Set(['admin','supervisor','backoffice','b:o','b.o','b-o','bo']);
+      const allowed = new Set(['admin', 'supervisor', 'backoffice', 'b:o', 'b.o', 'b-o', 'bo', 'back office', 'back_office']);
       if (forceAllBtn) {
         if (allowed.has(role)) {
           forceAllBtn.style.display = 'inline-flex';
@@ -3828,91 +3608,22 @@
           console.error('[INIT] Error cargando datos:', err);
         });
       } else {
-        console.error('[INIT] fetchLeadsAgente no está disponible');
+        console.warn('[INIT] fetchLeadsAgente no está definido');
       }
     });
-  </script>
-  <script>
-    // Variables globales
+
     let leadActual = null;
 
-    // Helper: detectar si el usuario actual es Irania Serrano
-    function esIrania() {
+    function abrirComentarios(leadId) {
       try {
-        // 1) Intentar desde local/session storage
-        const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
-        if (userRaw) {
-          const u = JSON.parse(userRaw || '{}');
-          const nombre = (u.name || u.fullName || u.username || u.email || u.usuario?.name || '').toString();
-          if (normalizarTexto(nombre) === normalizarTexto('Irania Serrano')) return true;
-        }
-        // 2) Intentar desde token JWT
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (token && token.split('.').length === 3) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]) || '{}');
-            const nombreTok = (payload.username || payload.name || payload.fullName || payload.email || '').toString();
-            if (normalizarTexto(nombreTok) === normalizarTexto('Irania Serrano')) return true;
-          } catch(_) {}
-        }
-      } catch(_) {}
-      return false;
+        leadActual = leadId;
+        const modal = document.getElementById('comentariosModal');
+        if (modal) modal.style.display = 'block';
+        cargarComentarios(leadId);
+      } catch (e) {
+        console.error('abrirComentarios error:', e);
+      }
     }
-
-    // Helper: quitar prefijo "team" del supervisor para mostrar limpio
-    function limpiarSupervisor(displayName) {
-      try {
-        const s = (displayName || '').toString();
-        return s.replace(/^\s*team\s+/i, '').trim();
-      } catch { return displayName || ''; }
-    }
-
-    // Helper: detectar si el usuario es admin o backoffice
-    function esAdminOBackoffice() {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const roleRaw = (userData.role || userData?.usuario?.role || '').toString();
-        const role = roleRaw.toLowerCase().trim();
-        const allowed = new Set(['admin','supervisor','backoffice','b:o','b.o','b-o','bo']);
-        // Solo admin o backoffice/variantes, no supervisor
-        if (role === 'admin') return true;
-        if (allowed.has(role) && role !== 'supervisor') return true;
-        return false;
-      } catch { return false; }
-    }
-
-    // Helper: detectar si el usuario es supervisor
-    function esSupervisor() {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const roleRaw = (userData.role || userData?.usuario?.role || '').toString();
-        const role = roleRaw.toLowerCase().trim();
-        return role === 'supervisor';
-      } catch { return false; }
-    }
-  
-        // Funci¨®n para verificar si el usuario puede editar el estado de un lead
-    function canEditStatus() {
-      try {
-        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const role = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
-        return role === 'admin' || role === 'administrador' || role === 'administrator' || role === 'backoffice';
-      } catch { return false; }
-    }
-    function canFullEdit(){
-      try{
-        const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-        const r = String(u.role || u?.usuario?.role || '').toLowerCase();
-        return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice';
-      }catch{ return false; }
-    }
-
-    // Funciones para el manejo de comentarios - Asegurar que estén en scope global
-    window.abrirComentarios = function(leadId) {
-      leadActual = leadId;
-      document.getElementById('comentariosModal').style.display = 'block';
-      cargarComentarios(leadId);
-    };
 
     function cerrarComentarios() {
       document.getElementById('comentariosModal').style.display = 'none';
@@ -4657,8 +4368,13 @@
       }
       
       try {
+        // Si hay un mes seleccionado, NO usar cache precalentado (normalmente solo contiene el mes actual)
+        const __monthFilterEl = document.getElementById('monthFilter');
+        const __selectedMonth = (__monthFilterEl && __monthFilterEl.value) ? String(__monthFilterEl.value).trim() : '';
+        const __bypassPrecache = !!__selectedMonth;
+
         // FAST PATH: Intentar cargar desde cache precalentado en login
-        const cachedCustomers = await tryLoadFromPrecachedData();
+        const cachedCustomers = __bypassPrecache ? null : await tryLoadFromPrecachedData();
         if (cachedCustomers && cachedCustomers.length > 0) {
           console.log('[fetchLeadsAgente] 🚀 Renderizando desde cache precalentado');
           // Usar los datos precacheados directamente
@@ -4702,7 +4418,7 @@
           if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
           if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
           if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
-          if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+          if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
           return r;
         })(roleRaw);
         const username = (userData.username || userData?.usuario?.username || '').toString().trim().toLowerCase();
@@ -4717,7 +4433,12 @@
         const fetchTimeoutMs = 60000;
         const forceAll = new URLSearchParams(window.location.search).get('forceAll') === '1';
         const alreadyFilteredByAgent = false;
-        const url = isTeamLineasUser ? '/api/lineas' : '/api/leads?limit=5000';
+        let url = isTeamLineasUser ? '/api/lineas' : '/api/leads?limit=5000';
+        try {
+          if (!isTeamLineasUser && __selectedMonth) {
+            url += `&month=${encodeURIComponent(__selectedMonth)}`;
+          }
+        } catch(_) {}
 
         // Para usuarios no Team Líneas: NO filtrar por agente en backend, se hará en frontend
         if (!isTeamLineasUser) {
@@ -5150,7 +4871,7 @@
           if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
           if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
           if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
-          if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+          if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
           return r;
         })(roleRaw);
         console.log('[Filtro Debug] Rol detectado en fetchLeadsAgente:', role, 'desde roleRaw:', roleRaw);
@@ -5627,6 +5348,37 @@
           alert('No se pudo determinar el ID del lead. Recarga la p¨¢gina e int¨¦ntalo nuevamente.');
           return;
         }
+        // Solicitar motivo ANTES de cualquier await para no perder el gesto del usuario
+        try {
+          const newStatusLower = String(selectEl.value || '').toLowerCase();
+          const triggerStatuses = ['cancel', 'hold', 'resched', 'repro', 'anulad', 'no instalado'];
+          if (triggerStatuses.some(s => newStatusLower.includes(s))) {
+            const oldPrev = String(selectEl.getAttribute('data-prev') || '').trim();
+            const clientName = ((selectEl.closest('tr')?.querySelector('td')?.textContent || '')).trim();
+            const title = 'Motivo del Cambio de Status';
+            const text = `¿Cuál es el motivo del cambio de status${clientName ? ` de <b>${clientName}</b>` : ''} a <b>${selectEl.value}</b>?`;
+            const reason = await askForReason(title, text);
+
+            if (!reason || !reason.trim()) {
+              if (oldPrev) {
+                const revert = oldPrev.toLowerCase();
+                selectEl.value = revert;
+                selectEl.setAttribute('data-prev', oldPrev);
+              }
+              return; // Abortar si no hay motivo
+            }
+
+            const commentText = `Status cambiado a ${selectEl.value}: ${reason}`;
+            try {
+              if (typeof addSystemComment === 'function') await addSystemComment(String(leadId).trim(), commentText);
+              if (typeof sendDesktopNotification === 'function') sendDesktopNotification(`Status actualizado${clientName ? `: ${clientName}` : ''}`, commentText);
+            } catch (e) {
+              console.warn('No se pudo registrar el motivo/notificación:', e);
+            }
+          }
+        } catch (e) {
+          console.warn('Error solicitando motivo (local):', e);
+        }
         // Sanitizar y normalizar ID
         const cleanId = String(leadId).trim();
         if (!cleanId) {
@@ -5696,15 +5448,24 @@
         const canonical = (name) => {
           try { return teamsApi && typeof teamsApi.canonicalFromName==='function' ? teamsApi.canonicalFromName(name) : String(name||'').toLowerCase().trim(); } catch { return String(name||'').toLowerCase().trim(); }
         };
-        const norm = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');
+        const norm = s => (s||'')
+          .toString()
+          .normalize('NFD')
+          .replace(/\p{Diacritic}+/gu,'')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g,' ');
         const extractIds = (l) => {
           const ids = [];
           const candidates = [
-            l?.agenteId, l?._raw?.agenteId, l?.agente_id, l?._raw?.agente_id,
-            l?.idAgente, l?._raw?.idAgente, l?.agentId, l?._raw?.agentId,
-            l?.creadoPor, l?._raw?.creadoPor, l?.creado_por, l?._raw?.creado_por,
-            l?.createdBy, l?._raw?.createdBy, l?.ownerId, l?._raw?.ownerId,
-            l?.registeredById, l?._raw?.registeredById,
+            l?.agenteId, l?._raw?.agenteId,
+            l?.agente_id, l?._raw?.agente_id,
+            l?.idAgente, l?._raw?.idAgente,
+            l?.agentId, l?._raw?.agentId,
+            l?.creadoPor, l?._raw?.creadoPor,
+            l?.creado_por, l?._raw?.creado_por,
+            l?.createdBy, l?._raw?.createdBy,
+            l?.ownerId, l?._raw?.ownerId,
             l?.assignedId, l?._raw?.assignedId
           ];
           for (const v of candidates) {
@@ -6116,6 +5877,38 @@
         try{
           if (!canEditStatus()) { alert('No tienes permisos para cambiar el STATUS'); return; }
           if (!id) { alert('ID inválido'); return; }
+          // Solicitar motivo ANTES de cualquier await para no perder el gesto del usuario
+          try {
+            const newStatusLower = String(newStatus || '').toLowerCase();
+            const triggerStatuses = ['cancel', 'hold', 'resched', 'repro', 'anulad', 'no instalado'];
+            if (triggerStatuses.some(s => newStatusLower.includes(s))) {
+              const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+              const prev = String(sel?.getAttribute('data-prev') || '').trim();
+              const clientName = ((sel?.closest('tr')?.querySelector('td')?.textContent || '')).trim();
+              const title = 'Motivo del Cambio de Status';
+              const text = `¿Cuál es el motivo del cambio de status${clientName ? ` de <b>${clientName}</b>` : ''} a <b>${newStatus}</b>?`;
+              const reason = await askForReason(title, text);
+
+              if (!reason || !reason.trim()) {
+                if (sel && prev) {
+                  sel.value = prev.toLowerCase();
+                  sel.setAttribute('data-prev', prev);
+                  sel.disabled = false;
+                }
+                return; // Abortar si no hay motivo
+              }
+
+              const commentText = `Status cambiado a ${newStatus}: ${reason}`;
+              try {
+                if (typeof addSystemComment === 'function') await addSystemComment(String(id).trim(), commentText);
+                if (typeof sendDesktopNotification === 'function') sendDesktopNotification(`Status actualizado${clientName ? `: ${clientName}` : ''}`, commentText);
+              } catch (e) {
+                console.warn('No se pudo registrar el motivo/notificación:', e);
+              }
+            }
+          } catch (e) {
+            console.warn('Error solicitando motivo (global):', e);
+          }
           // Mantener idioma tal como viene del select
           const payload = { status: newStatus };
           const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
@@ -6173,68 +5966,35 @@
             })();
             
             if (tr) {
-              console.log('[STATUS] Actualizando fila DOM para ID:', id);
-              const td = tr.children && tr.children[8] ? tr.children[8] : tr.querySelector('td.status-col, td:nth-child(9)');
-              
-              if (td) {
-                // PASO 3: Actualizar TODOS los atributos data-* de la celda
-                try { 
-                  td.dataset.status = String(newStatus||'').trim().toLowerCase();
-                  td.setAttribute('data-status', String(newStatus||'').trim().toLowerCase());
-                  console.log('[STATUS] Dataset actualizado:', { status: td.dataset.status });
-                } catch(e) { console.warn('[STATUS] Error actualizando dataset:', e); }
-                
-                // PASO 4: actualizar TODOS los selects en la celda (puede haber múltiples)
-                try {
-                  const sels = td.querySelectorAll('select.status-select');
-                  sels.forEach(sel => { 
-                    sel.value = String(newStatus||'').trim();
-                    sel.disabled = false;
-                    sel.removeAttribute('disabled');
-                    console.log('[STATUS] Select actualizado:', { value: sel.value });
-                  });
-                } catch(e) { console.warn('[STATUS] Error actualizando select:', e); }
-                
-                // PASO 5: Forzar reflow para asegurar que el DOM se actualice
-                void tr.offsetHeight;
-                
-                // PASO 6: Aplicar clase/estilos INLINE
-                try { 
-                  _statusPainting = true; 
-                  applyRowClass(tr, newStatus); 
-                  console.log('[STATUS] Clase y color aplicados:', newStatus);
-                } finally { 
-                  _statusPainting = false; 
+              try {
+                console.log('[STATUS] Actualizando fila DOM para ID:', id);
+
+                // Forzar actualización del atributo en la fila principal también
+                tr.setAttribute('data-status', String(newStatus||'').trim().toLowerCase());
+
+                // Aplicar clase/estilos INLINE
+                if (typeof applyRowClass === 'function') {
+                  applyRowClass(tr, newStatus);
                 }
+                console.log('[STATUS] Clase y color aplicados:', newStatus);
+
+                // Actualizar selects y reactivarlos
+                const sels = tr.querySelectorAll('select.status-select');
+                sels.forEach(sel => { 
+                  sel.value = String(newStatus||'').trim();
+                  sel.disabled = false;
+                  sel.removeAttribute('disabled');
+                });
+                console.log('[STATUS] Selects actualizados y reactivados:', sels.length);
+              } catch(e) { 
+                console.warn('[STATUS] Error actualizando DOM de la fila:', e); 
+              } finally {
+                // RebuildStickyHead
+                try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
               }
             }
             
-            // PASO 7: reactivar TODOS los selects en la fila por si acaso
-            try{
-              const row = document.querySelector(`tr[data-lead-id="${id}"]`) || document;
-              const sels = row.querySelectorAll ? row.querySelectorAll('select.status-select') : [];
-              sels.forEach(s=>{ 
-                try{ 
-                  s.disabled = false; 
-                  s.removeAttribute('disabled');
-                }catch{} 
-              });
-              console.log('[STATUS] Selects reactivados:', sels.length);
-            }catch(e){ console.warn('[STATUS] Error reactivando selects:', e); }
-            
-            // PASO 8: Re-habilitar el observer DESPUÉS de completar todos los cambios
-            if (wasObservingBefore) {
-              setTimeout(() => {
-                try {
-                  if (typeof installStatusObserver === 'function') installStatusObserver();
-                  console.log('[STATUS] Observer re-habilitado');
-                } catch(e) {
-                  console.warn('[STATUS] Error re-habilitando observer:', e);
-                }
-              }, 100);
-            }
-            
-            console.log('[STATUS] Actualización completada sin interferencia de observers');
+            // PASO 4: actualizar TODOS los selects en la celda (puede haber múltiples)
           } catch(e) { console.warn('[STATUS] Error en actualización POST-servidor:', e); }
         }catch(e){
           console.warn('[STATUS] Falló actualización:', e);
@@ -6356,7 +6116,7 @@
                 if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
                 if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
                 if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
-                if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+                if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
                 return r;
               })(roleRaw);
               
@@ -7565,65 +7325,65 @@
         console.error('[KPI] Error calculando KPIs:', err);
       }
       
-      // Datos para el gr¨¢fico de ventas por semana (fechas locales)
-      const ultimos7Dias = Array.from({ length: 7 }, (_, i) => {
-        const fecha = new Date();
-        fecha.setHours(0,0,0,0);
-        fecha.setDate(fecha.getDate() - (6 - i));
-        return toLocalISO(fecha);
-      });
+      try {
+        // Datos para el gr¨¢fico de ventas por semana (fechas locales)
+        const ultimos7Dias = Array.from({ length: 7 }, (_, i) => {
+          const fecha = new Date();
+          fecha.setHours(0,0,0,0);
+          fecha.setDate(fecha.getDate() - (6 - i));
+          return toLocalISO(fecha);
+        });
 
-      // Etiquetas: d¨ªas de la semana
-      const diasSemanaEtiquetas = ['dom', 'lun', 'mar', 'mi¨¦', 'jue', 'vie', 's¨¢b'];
-      const labelsDias = ultimos7Dias.map(f => {
-        const [y, m, d] = f.split('-').map(Number);
-        const loc = new Date(y, m - 1, d);
-        return diasSemanaEtiquetas[loc.getDay()];
-      });
+        // Etiquetas: d¨ªas de la semana
+        const diasSemanaEtiquetas = ['dom', 'lun', 'mar', 'mi¨¦', 'jue', 'vie', 's¨¢b'];
+        const labelsDias = ultimos7Dias.map(f => {
+          const [y, m, d] = f.split('-').map(Number);
+          const loc = new Date(y, m - 1, d);
+          return diasSemanaEtiquetas[loc.getDay()];
+        });
 
-      const ventasPorDia = ultimos7Dias.map(fechaISO => {
-        return leads.filter(lead => getDateFromLead(lead) === fechaISO).length;
-      });
+        const ventasPorDia = ultimos7Dias.map(fechaISO => {
+          return leads.filter(lead => getDateFromLead(lead) === fechaISO).length;
+        });
 
-      // Puntaje total por d¨ªa (no promedio)
-      const puntajesPorDia = ultimos7Dias.map(fechaISO => {
-        return leads.reduce((sum, lead) => {
-          const status = normalizarTexto(lead.status || '');
-          const isCancel = /cancel/.test(status);
-          if (!isCancel && getDateFromLead(lead) === fechaISO) {
-            return sum + (parseFloat(lead.puntaje) || 0);
-          }
-          return sum;
-        }, 0);
-      });
-      
-      // Datos para el gr¨¢fico de distribuci¨®n por producto
-      const productos = {};
-      leads.forEach(lead => {
-        const producto = lead.tipo_servicios || 'Sin especificar';
-        productos[producto] = (productos[producto] || 0) + 1;
-      });
-      
-      const etiquetasProductos = Object.keys(productos);
-      const datosProductos = Object.values(productos);
-      
-      // Colores para los productos
-      const coloresProductos = [
-        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
-        '#858796', '#5a5c69', '#3a3b45', '#1a1a1a', '#000000'
-      ].slice(0, etiquetasProductos.length);
-      
-      // Renderizar o actualizar los gr¨¢ficos
-      if (typeof renderizarGraficoVentas === 'function' && typeof renderizarGraficoProductos === 'function') {
-        // Enviar etiquetas de d¨ªas de la semana para la gr¨¢fica superior
-        renderizarGraficoVentas(labelsDias, ventasPorDia, puntajesPorDia);
-        renderizarGraficoProductos(etiquetasProductos, datosProductos, coloresProductos);
+        // Puntaje total por d¨ªa (no promedio)
+        const puntajesPorDia = ultimos7Dias.map(fechaISO => {
+          return leads.reduce((sum, lead) => {
+            const status = normalizarTexto(lead.status || '');
+            const isCancel = /cancel/.test(status);
+            if (!isCancel && getDateFromLead(lead) === fechaISO) {
+              return sum + (parseFloat(lead.puntaje) || 0);
+            }
+            return sum;
+          }, 0);
+        });
+        
+        // Datos para el gr¨¢fico de distribuci¨®n por producto
+        const productos = {};
+        leads.forEach(lead => {
+          const producto = lead.tipo_servicios || 'Sin especificar';
+          productos[producto] = (productos[producto] || 0) + 1;
+        });
+
+        const etiquetasProductos = Object.keys(productos);
+        const datosProductos = Object.values(productos);
+
+        // Colores para los productos
+        const coloresProductos = [
+          '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+          '#858796', '#5a5c69', '#3a3b45', '#1a1a1a', '#000000'
+        ].slice(0, etiquetasProductos.length);
+
+        // Renderizar o actualizar los gr¨¢ficos
+        if (typeof renderizarGraficoVentas === 'function' && typeof renderizarGraficoProductos === 'function') {
+          renderizarGraficoVentas(labelsDias, ventasPorDia, puntajesPorDia);
+          renderizarGraficoProductos(etiquetasProductos, datosProductos, coloresProductos);
+        }
+      } catch (e) {
+        console.error('[Charts] Error renderizando gráficas:', e);
       }
     }
 
-    // Funciones de ejemplo para editar/eliminar - Asegurar que estén en scope global
-
-    // Formatea un ID como 2 letras y 2 números intercalados (L N L N)
     function formatLeadIdShort(id) {
       const s = String(id || '');
       const letters = (s.match(/[a-z]/gi) || []).map(c => c.toUpperCase());
@@ -7634,129 +7394,83 @@
       const n2 = numbers[1] || '0';
       return `${l1}${n1}${l2}${n2}`;
     }
+
     window.editarLead = async function(id) {
       console.log('Editar lead:', id);
-      
       if (!id) {
         alert('Error: No se proporcionó un ID válido');
         return;
       }
-
       try {
-        // SIEMPRE obtener el lead desde el backend para tener datos actualizados (incluyendo notas)
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const tryFetch = async (url) => {
-          const res = await fetch(url, {
-            method: 'GET',
-            headers: { 'Authorization': token ? `Bearer ${token}` : undefined, 'Content-Type': 'application/json' }
-          });
-          if (!res.ok) return null;
-          // Evitar parseo de HTML si el backend devolvió página de error
-          const txt = await res.text();
-          try { return JSON.parse(txt); } catch { return null; }
-        };
-
-        let data = await tryFetch(`/api/customers/${id}`);
-        if (!data) data = await tryFetch(`/api/leads/${id}`);
-        // Fallback: listar y buscar por id si no existe endpoint GET /api/leads/:id
-        if (!data) {
-          try {
-            const resAll = await fetch(`/api/leads?skipDate=1&limit=50000`, { method:'GET', credentials:'include', headers:{ 'Content-Type':'application/json' } });
-            if (resAll.ok) {
-              const all = await resAll.json();
-              const arr = Array.isArray(all?.data) ? all.data : (Array.isArray(all) ? all : []);
-              const norm = (v)=>{
-                try{ if (!v) return ''; if (typeof v==='object'){ const s=v.$oid||v._id||v.id||v.value; return s?String(s):''; } return String(v);}catch{ return ''; }
-              };
-              const hit = arr.find(l=>{
-                const a = norm(l._id)||norm(l.id)||norm(l.leadId); return a===String(id);
-              });
-              if (hit) data = hit;
-            }
-          } catch(_) {}
-        }
-        if (!data) throw new Error('No se pudo obtener el registro');
-
+        const res = await fetch(`/api/leads/${id}`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        if (!res.ok) throw new Error('No se pudo obtener el registro del servidor');
+        const data = await res.json();
         const lead = data.data || data.lead || data;
-        
-        if (!lead) {
-          alert('Error: No se encontró el registro con ID: ' + id);
-          return;
-        }
-
-        // Abrir modal de edición
-        try { window.__currentEditingSource = data.source || (data.lead ? 'leads' : 'customers'); } catch(_) {}
+        if (!lead) throw new Error('Registro no encontrado');
         abrirModalEdicion(lead);
       } catch (error) {
-        console.error('Error al editar lead:', error);
+        console.error('Error al cargar lead para edición:', error);
         alert('Error al cargar los datos del registro: ' + (error?.message || error));
       }
     };
 
-    // Función para abrir el modal de edición
-    async function abrirModalEdicion(leadOriginal) {
-      const modal = document.getElementById('editarModal');
-      if (!modal) {
-        console.error('Modal de edición no encontrado');
-        return;
-      }
-
-      // Copiar lead para poder modificarlo
-      let lead = { ...leadOriginal };
-
-      // Obtener ID del lead
-      const rawId = lead._id || lead.id || lead._raw?._id || '';
-      const leadId = typeof rawId === 'object' 
-        ? (rawId.$oid || rawId.toString?.() || String(rawId)) 
-        : String(rawId);
-
-      // IMPORTANTE: Recargar datos frescos del servidor para obtener notas actualizadas
-      if (leadId && /^[a-fA-F0-9]{24}$/.test(leadId)) {
-        try {
-          console.log('[EDIT MODAL] Recargando datos frescos para lead:', leadId);
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          const res = await fetch(`/api/leads/${leadId}`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-          });
-          if (res.ok) {
-            const data = await res.json();
-            console.log('[EDIT MODAL] Respuesta del servidor:', data);
-            const freshLead = data.data || data.lead || data;
-            if (freshLead && (freshLead._id || freshLead.id)) {
-              // Usar datos frescos del servidor (priorizando frescos)
-              lead = { ...lead, ...freshLead };
-              // Asegurar que las notas frescas se usen
-              if (freshLead.notas) lead.notas = freshLead.notas;
-              if (freshLead.notes) lead.notes = freshLead.notes;
-              console.log('[EDIT MODAL] Datos frescos aplicados, notas:', lead.notas?.length || lead.notes?.length || 0);
-            }
-          } else {
-            console.warn('[EDIT MODAL] Error al recargar:', res.status, res.statusText);
-          }
-        } catch (e) {
-          console.warn('[EDIT MODAL] No se pudieron recargar datos frescos:', e.message);
+    async function addSystemComment(leadId, commentText) {
+      if (!leadId || !commentText) return;
+      try {
+        const user = obtenerUsuarioActual();
+        const nuevoComentario = {
+          autor: user || 'Sistema',
+          fecha: new Date().toISOString(),
+          texto: commentText,
+          isSystem: true
+        };
+        const cacheKey = `comments_cache_${leadId}`;
+        const cachedComments = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        cachedComments.push(nuevoComentario);
+        localStorage.setItem(cacheKey, JSON.stringify(cachedComments));
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        await fetch(`/api/leads/${encodeURIComponent(leadId)}/comentarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+          body: JSON.stringify(nuevoComentario)
+        });
+        if (document.getElementById('comentariosModal').style.display === 'block' && window.leadActual === leadId) {
+          await cargarComentarios(leadId);
         }
+      } catch (error) {
+        console.error('Error al añadir comentario de sistema:', error);
       }
+    }
 
-      // Debug: mostrar todos los campos del lead para diagnóstico
-      console.log('[EDIT MODAL] Lead final:', lead);
-      console.log('[EDIT MODAL] Notas:', lead.notas || lead.notes || []);
-      if (lead._raw) console.log('[EDIT MODAL] Campos _raw:', Object.keys(lead._raw || {}));
+    function sendDesktopNotification(title, body) {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification(title, { body: body, icon: '/img/logo-slogan.png' });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification(title, { body: body, icon: '/img/logo-slogan.png' });
+          }
+        });
+      }
+    }
 
-      // Helper para obtener valor de múltiples campos posibles (incluyendo _raw)
+    async function abrirModalEdicion(lead) {
+      const modal = document.getElementById('editarModal');
+      if (!modal) return;
+
+      const leadId = (lead._id?.$oid || lead._id || lead.id).toString();
+
       const getValue = (...keys) => {
         for (const key of keys) {
           if (lead[key] !== undefined && lead[key] !== null && lead[key] !== '') return lead[key];
-          if (lead._raw && lead._raw[key] !== undefined && lead._raw[key] !== null && lead._raw[key] !== '') return lead._raw[key];
         }
         return '';
       };
 
-      // Poblar campos del formulario (leadId ya se calculó arriba)
-      console.log('[abrirModalEdicion] Lead ID normalizado:', leadId);
       document.getElementById('edit-id').value = leadId;
-      const idSpan = document.getElementById('edit-lead-id-display');
-      if (idSpan) idSpan.textContent = '#' + formatLeadIdShort(leadId);
+      document.getElementById('edit-lead-id-display').textContent = '#' + formatLeadIdShort(leadId);
 
       const fullName = getValue('nombre_cliente', 'nombre', 'name', 'cliente').trim();
       const parts = fullName.split(' ');
@@ -7765,35 +7479,28 @@
       document.getElementById('edit-nombres').value = nombres;
       document.getElementById('edit-apellidos').value = apellidos;
 
-      // Datos del cliente
       document.getElementById('edit-telefono').value = getValue('telefono_principal', 'telefono', 'phone', 'tel');
       document.getElementById('edit-telefono-alt').value = getValue('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2');
       document.getElementById('edit-numero-cuenta').value = getValue('numero_cuenta', 'account', 'cuenta', 'accountNumber');
       document.getElementById('edit-direccion').value = getValue('direccion', 'address', 'domicilio');
-      
-      // Helper para seleccionar valor en select (busca coincidencia parcial si no encuentra exacta)
+
+      // Asignar Representante (Agente) y Supervisor con fallbacks
+      document.getElementById('edit-representante').value = getValue('agenteNombre', 'agente', 'agenteId', 'agent');
+      document.getElementById('edit-sup').value = getValue('supervisor', 'supervisorId', 'team');
+
       function setSelectValue(selectId, value) {
         const sel = document.getElementById(selectId);
-        if (!sel || !value) return;
-        const valUpper = String(value).toUpperCase().trim();
-        const valLower = String(value).toLowerCase().trim();
-        // Primero intentar match exacto
+        if (!sel) return;
+        const val = String(value || '').toLowerCase().trim();
+        let found = false;
         for (let opt of sel.options) {
-          if (opt.value === value || opt.value === valUpper || opt.value === valLower) {
+          if (String(opt.value || '').toLowerCase().trim() === val) {
             sel.value = opt.value;
+            found = true;
             return;
           }
         }
-        // Si no hay match exacto, buscar por contenido del texto
-        for (let opt of sel.options) {
-          const optText = opt.textContent.toUpperCase();
-          if (optText.includes(valUpper) || valUpper.includes(optText.replace(/\s+/g, ''))) {
-            sel.value = opt.value;
-            return;
-          }
-        }
-        // Último intento: agregar opción si tiene valor válido
-        if (value && value.length > 0) {
+        if (!found && value) {
           const newOpt = document.createElement('option');
           newOpt.value = value;
           newOpt.textContent = value;
@@ -7801,146 +7508,49 @@
           sel.value = value;
         }
       }
-      
-      // Servicios
-      const svc = getValue('servicios', 'tipo_servicios', 'tipo_servicio', 'servicios_texto', 'service');
-      setSelectValue('edit-servicios', svc);
-      
-      // Autopago
-      const autopago = getValue('autopago', 'auto_pago', 'autopay').toString().toUpperCase();
-      setSelectValue('edit-autopago', autopago);
-      
-      // Sistema
-      const sistema = getValue('sistema', 'system');
-      setSelectValue('edit-sistema', sistema);
-      
-      // Riesgo
-      const riesgo = getValue('riesgo', 'risk').toString().toLowerCase();
-      setSelectValue('edit-riesgo', riesgo);
-      
-      // Status
-      const status = getValue('status', 'estado', 'state').toString().toUpperCase();
-      setSelectValue('edit-status', status);
-      
-      // Fechas - manejar diferentes formatos
+
+      setSelectValue('edit-servicios', getValue('servicios', 'tipo_servicios', 'service'));
+      setSelectValue('edit-autopago', getValue('autopago', 'autopay').toString());
+      setSelectValue('edit-sistema', getValue('sistema', 'system'));
+      setSelectValue('edit-riesgo', getValue('riesgo', 'risk').toString());
+      setSelectValue('edit-status', getValue('status', 'estado').toString());
+
+      const statusSelect = document.getElementById('edit-status');
+      if (statusSelect) {
+        statusSelect.onchange = async function(event) {
+          const newStatus = String(event.target.value || '').toLowerCase();
+          const triggerStatuses = ['cancel', 'hold', 'resched', 'repro', 'anulad', 'no instalado'];
+          if (!triggerStatuses.some(s => newStatus.includes(s))) return;
+
+          const clientName = (document.getElementById('edit-nombres').value + ' ' + document.getElementById('edit-apellidos').value).trim();
+          const selected = event.target.value;
+          const reason = prompt(`¿Cuál es el motivo del cambio de status de "${clientName}" a "${selected}"?`);
+          if (reason && reason.trim()) {
+            const commentText = `Status cambiado a ${selected}: ${reason}`;
+            await addSystemComment(leadId, commentText);
+            sendDesktopNotification(`Status de ${clientName} actualizado`, commentText);
+          }
+        };
+      }
+
       function formatDateForInput(dateStr) {
         if (!dateStr) return '';
-        const str = String(dateStr);
-        // Si ya es YYYY-MM-DD, retornar
-        if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
-        // Si es DD/MM/YYYY, convertir
-        const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (match) {
-          const [, d, m, y] = match;
-          return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        }
-        // Intentar parsear como Date
         try {
-          const dt = new Date(str);
-          if (!isNaN(dt)) {
-            return dt.toISOString().slice(0, 10);
-          }
+          const dt = new Date(dateStr);
+          if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
         } catch {}
-        return str.slice(0, 10);
+        return String(dateStr).slice(0, 10);
       }
-      
-      document.getElementById('edit-dia-venta').value = formatDateForInput(getValue('dia_venta', 'fecha_venta', 'sale_date', 'fechaVenta'));
-      document.getElementById('edit-dia-instalacion').value = formatDateForInput(getValue('dia_instalacion', 'fecha_instalacion', 'install_date', 'fechaInstalacion'));
-      
-      // Administrativo
-      document.getElementById('edit-mercado').value = getValue('mercado', 'market');
-      document.getElementById('edit-representante').value = getValue('representante', 'agente', 'agenteNombre', 'agent', 'vendedor');
-      document.getElementById('edit-supervisor').value = getValue('supervisor', 'sup', 'team', 'equipo');
-      document.getElementById('edit-comentario').value = getValue('comentario', 'comment', 'comments', 'observaciones');
-      document.getElementById('edit-motivo-llamada').value = getValue('motivo_llamada', 'motivo', 'reason', 'motivoLlamada');
-      
-      // Puntaje
-      const puntajeVal = getValue('puntaje', 'score', 'puntuacion');
-      const punt = parseFloat(puntajeVal) || 0;
-      try{
-        const selP = document.getElementById('edit-puntaje');
-        if (selP){
-          const allowed = ["1.5","1.25","1.0","0.95","0.75","0.70","0.50","0.35","0.25"];
-          const fmt = (n)=>{
-            if(!isFinite(n)) return "";
-            // normalizar a 2 decimales y quitar ceros sobrantes
-            const r2 = Math.round((n + Number.EPSILON) * 100) / 100;
-            let s = r2.toFixed(2);
-            s = s.replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
-            return s;
-          };
-          let sv = fmt(punt);
-          // mapear 1 -> 1.0 para coincidir
-          if (sv === "1") sv = "1.0";
-          // si no está en allowed pero existe opción con ese valor textual, úsala
-          let exists = Array.from(selP.options).some(o=>o.value===sv);
-          if (!exists && allowed.includes(sv)) exists = true;
-          if (!exists && sv){
-            const opt = document.createElement('option');
-            opt.value = sv; opt.textContent = sv;
-            selP.appendChild(opt);
-          }
-          if (sv){ selP.value = sv; }
-        }
-      }catch{}
-      document.getElementById('edit-zip-code').value = (lead.zip_code || lead.zip || lead.ZIP || lead.cp || lead.codigo_postal || lead.postalCode || '');
 
-      // Poblar notas existentes (más recientes primero)
-      try {
-        const list = document.getElementById('edit-notes-list');
-        if (list) {
-          list.innerHTML = '';
-          let notas = Array.isArray(lead.notas) ? lead.notas
-            : Array.isArray(lead.notes) ? lead.notes
-            : [];
-          // Ordenar por fecha descendente (más recientes primero)
-          notas = notas.slice().sort((a, b) => {
-            const dateA = new Date(a.at || a.fecha || a.createdAt || 0);
-            const dateB = new Date(b.at || b.fecha || b.createdAt || 0);
-            return dateB - dateA;
-          });
-          if (notas.length) {
-            notas.forEach((n, idx) => {
-              const div = createNoteCard(n, idx);
-              list.appendChild(div);
-            });
-          } else if (lead.comentario) {
-            const div = document.createElement('div');
-            div.className = 'note-card';
-            div.innerHTML = `<span class="note-text">${lead.comentario}</span>`;
-            list.appendChild(div);
-          }
-        }
-      } catch(_) {}
-
-      // Aplicar permisos de edición en el modal
-      try {
-        const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
-        const setDisabled = (id, dis) => { try { const el = document.getElementById(id); if (el){ el.disabled = !!dis; el.readOnly = !!dis; } } catch{} };
-        const blockIds = [
-          'edit-telefono','edit-telefono-alt','edit-numero-cuenta','edit-autopago','edit-direccion',
-          'edit-servicios','edit-sistema','edit-riesgo','edit-status','edit-mercado','edit-supervisor',
-          'edit-comentario','edit-motivo-llamada','edit-puntaje','edit-zip-code','edit-nombres','edit-apellidos'
-        ];
-        if (!isFull) {
-          // Bloquear todo excepto fechas
-          blockIds.forEach(id => setDisabled(id, true));
-          setDisabled('edit-dia-venta', false);
-          setDisabled('edit-dia-instalacion', false);
-        } else {
-          // Habilitar todos para admin/backoffice
-          blockIds.forEach(id => setDisabled(id, false));
-          setDisabled('edit-dia-venta', false);
-          setDisabled('edit-dia-instalacion', false);
-        }
-      } catch{}
+      const ventaEl = document.getElementById('edit-dia-venta');
+      if (ventaEl) ventaEl.value = formatDateForInput(getValue('dia_venta', 'fecha_venta'));
+      const instEl = document.getElementById('edit-dia-instalacion');
+      if (instEl) instEl.value = formatDateForInput(getValue('dia_instalacion', 'fecha_instalacion'));
 
       try { window.__currentEditingLead = lead; } catch(_) {}
-      // Mostrar modal
       modal.style.display = 'block';
     }
 
-    // ========== SOCKET.IO CLIENTE ==========
     (function initSocketIO() {
       // Cargar Socket.io cliente desde CDN si no está disponible localmente
       function loadSocketIO(src, fallback) {
@@ -8076,8 +7686,8 @@
         
         const notification = new Notification(title, { ...defaultOptions, ...options });
         
-        // Auto-cerrar después de 5 segundos
-        setTimeout(() => notification.close(), 5000);
+        // Auto-cerrar después de 2 segundos
+        setTimeout(() => notification.close(), 2000);
         
         // Click en la notificación
         notification.onclick = function() {
@@ -9828,6 +9438,132 @@
       } catch(err) { console.error('date-filter delegated click error', err); }
     });
   </script>
+  <!-- Modal para Motivo de Cambio de Status -->
+  <style>
+    #reasonModal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+      font-family: 'Poppins', sans-serif;
+    }
+    .reason-modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 25px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    #reason-modal-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    #reason-modal-text {
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    #reason-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .reason-modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .reason-modal-buttons button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    #reason-accept-btn {
+      background-color: #28a745;
+      color: white;
+    }
+    #reason-cancel-btn {
+      background-color: #f44336;
+      color: white;
+    }
+  </style>
+  <div id="reasonModal">
+    <div class="reason-modal-content">
+      <h2 id="reason-modal-title">Motivo del Cambio de Status</h2>
+      <p id="reason-modal-text"></p>
+      <input type="text" id="reason-input" placeholder="Escribe el motivo aquí...">
+      <div class="reason-modal-buttons">
+        <button id="reason-cancel-btn">Cancelar</button>
+        <button id="reason-accept-btn">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Lógica para el modal de motivo personalizado
+    function askForReason(title, text) {
+      return new Promise((resolve, reject) => {
+        const modal = document.getElementById('reasonModal');
+        const modalTitle = document.getElementById('reason-modal-title');
+        const modalText = document.getElementById('reason-modal-text');
+        const reasonInput = document.getElementById('reason-input');
+        const acceptBtn = document.getElementById('reason-accept-btn');
+        const cancelBtn = document.getElementById('reason-cancel-btn');
+
+        modalTitle.textContent = title;
+        modalText.innerHTML = text; // Usar innerHTML para permitir etiquetas como <b>
+        reasonInput.value = '';
+
+        modal.style.display = 'block';
+        reasonInput.focus();
+
+        const close = (value) => {
+          modal.style.display = 'none';
+          // Limpiar handlers para evitar múltiples ejecuciones
+          acceptBtn.onclick = null;
+          cancelBtn.onclick = null;
+          document.onkeydown = null;
+          if (value !== null) {
+            resolve(value);
+          } else {
+            reject(new Error('User cancelled.'));
+          }
+        };
+
+        acceptBtn.onclick = () => {
+          close(reasonInput.value);
+        };
+
+        cancelBtn.onclick = () => {
+          close(null);
+        };
+
+        // Manejar Enter y Escape
+        document.onkeydown = function(evt) {
+            evt = evt || window.event;
+            if (evt.key === "Escape") {
+                close(null);
+            } else if (evt.key === "Enter") {
+                evt.preventDefault();
+                close(reasonInput.value);
+            }
+        };
+      });
+    }
+  </script>
 </body>
 </html>
- 
