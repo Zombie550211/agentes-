@@ -508,6 +508,19 @@
                         <span class="input-icon">👥</span>
                     </div>
                 </div>
+
+                <div class="form-group full-width" id="lineasSubteamGroup" style="display: none;">
+                    <label for="lineasSubteam">Subdivisión de Team Líneas</label>
+                    <div class="input-wrapper">
+                        <select id="lineasSubteam">
+                            <option value="" disabled selected>Seleccione a cuál línea asignar</option>
+                            <option value="team lineas jonathan">📞 Team Líneas Jonathan (Supervisor: Jonathan Figueroa)</option>
+                            <option value="team lineas luis">📞 Team Líneas Luis (Supervisor: Luis G)</option>
+                        </select>
+                        <span class="input-icon">☎️</span>
+                    </div>
+                    <small class="form-helper">Selecciona el grupo específico de líneas al que pertenecerá este usuario.</small>
+                </div>
             </div>
 
             <div class="form-section">
@@ -615,6 +628,18 @@
                             </select>
                         </div>
                     </div>
+
+                    <div class="form-group" id="editLineasSubteamGroup" style="display: none;">
+                        <label for="editLineasSubteam">Subdivisión de Team Líneas</label>
+                        <div class="input-wrapper">
+                            <select id="editLineasSubteam">
+                                <option value="" disabled selected>Seleccione a cuál línea asignar</option>
+                                <option value="team lineas jonathan">📞 Team Líneas Jonathan (Supervisor: Jonathan Figueroa)</option>
+                                <option value="team lineas luis">📞 Team Líneas Luis (Supervisor: Luis G)</option>
+                            </select>
+                        </div>
+                        <small class="form-helper">Selecciona el grupo específico de líneas.</small>
+                    </div>
                 </div>
 
                 <div class="button-group">
@@ -720,7 +745,6 @@
         const editUserSection = document.getElementById('editUserSection');
         const editUserSelect = document.getElementById('editUserSelect');
         const editRole = document.getElementById('editRole');
-        const editTeam = document.getElementById('editTeam');
         const btnUpdateUserRole = document.getElementById('btnUpdateUserRole');
         const editCredentialsSection = document.getElementById('editCredentialsSection');
         const editCredentialsUser = document.getElementById('editCredentialsUser');
@@ -731,6 +755,12 @@
         const btnUpdateCredentials = document.getElementById('btnUpdateCredentials');
         const editUserSummaryCard = document.getElementById('editUserSummary');
         const editCredentialsSummaryCard = document.getElementById('editCredentialsSummary');
+        const teamSelect = document.getElementById('team');
+        const lineasSubteamGroup = document.getElementById('lineasSubteamGroup');
+        const lineasSubteam = document.getElementById('lineasSubteam');
+        const editTeam = document.getElementById('editTeam');
+        const editLineasSubteamGroup = document.getElementById('editLineasSubteamGroup');
+        const editLineasSubteam = document.getElementById('editLineasSubteam');
 
         function updatePasswordStrength(barEl, value) {
             if (!barEl) return;
@@ -744,6 +774,20 @@
             } else {
                 barEl.classList.add('strength-strong');
             }
+        }
+
+        // Mostrar/ocultar select de subdivisiones de Team Líneas
+        if (teamSelect) {
+            teamSelect.addEventListener('change', function() {
+                if (this.value === 'team_lineas') {
+                    lineasSubteamGroup.style.display = 'block';
+                    lineasSubteam.focus();
+                } else {
+                    lineasSubteamGroup.style.display = 'none';
+                    lineasSubteam.value = '';
+                    lineasSubteam.setCustomValidity('');
+                }
+            });
         }
 
         // Validar fortaleza de contraseña
@@ -794,13 +838,34 @@
                 return;
             }
 
+            // Validar que si se selecciona Team Líneas, también se seleccione la subdivisión
+            const selectedTeam = document.getElementById('team').value;
+            if (selectedTeam === 'team_lineas') {
+                if (!lineasSubteam.value) {
+                    alert('⚠️ Debes especificar a cuál línea asignar este usuario.');
+                    lineasSubteam.focus();
+                    return;
+                }
+            }
+
             // Recopilar datos del formulario
+            const teamValue = selectedTeam === 'team_lineas' ? lineasSubteam.value : document.getElementById('team').value;
+            
+            // Determinar supervisor automáticamente según el team de Líneas
+            let supervisorValue = null;
+            if (teamValue === 'team lineas jonathan') {
+                supervisorValue = 'JONATHAN F';
+            } else if (teamValue === 'team lineas luis') {
+                supervisorValue = 'LUIS G';
+            }
+            
             const formData = {
                 name: document.getElementById('fullName').value,
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
                 role: document.getElementById('role').value,
-                team: document.getElementById('team').value,
+                team: teamValue,
+                supervisor: supervisorValue,
                 password: password.value
             };
 
@@ -817,10 +882,11 @@
                     form.style.opacity = '0.5';
                     form.style.pointerEvents = 'none';
                     setTimeout(() => {
-                        alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role);
+                        alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role + '\n👥 Equipo: ' + (formData.team || 'Sin asignar'));
                         form.reset();
                         strengthBar.className = 'password-strength-bar';
                         successMessage.classList.remove('show');
+                        lineasSubteamGroup.style.display = 'none';
                         form.style.opacity = '1';
                         form.style.pointerEvents = 'auto';
                     }, 2000);
@@ -1010,7 +1076,18 @@
             try {
                 const userId = editUserSelect.value;
                 const newRole = editRole.value;
-                const newTeam = editTeam.value;
+                
+                // Determinar el equipo: si es Team Líneas, usar el subteam seleccionado
+                let newTeam = editTeam.value;
+                if (newTeam === 'TEAM LINEAS' || newTeam === 'TEAM LÍNEAS') {
+                    if (!editLineasSubteam.value) {
+                        alert('Debes especificar a cuál línea asignar este usuario.');
+                        editLineasSubteam.focus();
+                        return;
+                    }
+                    newTeam = editLineasSubteam.value;
+                }
+                
                 if (!userId) {
                     alert('Selecciona un usuario.');
                     return;
@@ -1194,9 +1271,33 @@
                 if (user) {
                     setSelectValueCaseInsensitive(editRole, user.role);
                     setSelectValueCaseInsensitive(editTeam, user.team);
+                    // Mostrar/ocultar el select de subdivisiones según el equipo actual
+                    if (user.team && (user.team.toLowerCase().includes('lineas'))) {
+                        editLineasSubteamGroup.style.display = 'block';
+                        setSelectValueCaseInsensitive(editLineasSubteam, user.team);
+                    } else {
+                        editLineasSubteamGroup.style.display = 'none';
+                        editLineasSubteam.value = '';
+                    }
                 } else {
                     setSelectValueCaseInsensitive(editRole, '');
                     setSelectValueCaseInsensitive(editTeam, '');
+                    editLineasSubteamGroup.style.display = 'none';
+                    editLineasSubteam.value = '';
+                }
+            });
+        }
+
+        // Mostrar/ocultar select de subdivisiones al cambiar el equipo en la sección de edición
+        if (editTeam) {
+            editTeam.addEventListener('change', function() {
+                if (this.value === 'TEAM LINEAS' || this.value === 'TEAM LÍNEAS') {
+                    editLineasSubteamGroup.style.display = 'block';
+                    editLineasSubteam.focus();
+                } else {
+                    editLineasSubteamGroup.style.display = 'none';
+                    editLineasSubteam.value = '';
+                    editLineasSubteam.setCustomValidity('');
                 }
             });
         }

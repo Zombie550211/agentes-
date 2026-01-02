@@ -67,6 +67,10 @@
               <label>Día de venta *</label>
               <input type="date" id="dia_venta" required class="form-control" />
             </div>
+            <div>
+              <label>Día de instalación *</label>
+              <input type="date" id="dia_instalacion" required class="form-control" />
+            </div>
           </div>
         </section>
 
@@ -93,10 +97,6 @@
                 <label><input type="checkbox" name="cantidad_lineas" value="4" /> 4</label>
                 <label><input type="checkbox" name="cantidad_lineas" value="5" /> 5</label>
               </div>
-            </div>
-            <div style="grid-column: 1 / 2;">
-              <label>Día de instalación *</label>
-              <input type="date" id="dia_instalacion" required class="form-control" />
             </div>
           </div>
         </section>
@@ -172,7 +172,6 @@
         // comportamiento de checkbox como radio (solo uno activo)
         cantChecks.forEach(ch => { if (ch !== e.target) ch.checked = false; });
         renderTelefonos();
-      attachPhoneNormalizers();
         attachPhoneNormalizers();
       }
 
@@ -198,8 +197,8 @@
           if (!isSupervisor || !assignWrap || !agentAssign) return;
           const uname = String(user.username||user.name||'').toUpperCase();
           const agentsMap = {
-            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ'],
-            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ']
+            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUES'],
+            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','TATIANA GIRON','MANUEL FLORES']
           };
           const list = agentsMap[uname] || [];
           if (!list.length) return;
@@ -213,7 +212,7 @@
         // Eliminar bloques anteriores de líneas
         Array.from(estadoGrid.querySelectorAll('.line-block')).forEach(el => el.remove());
         for (let i=1; i<=n; i++) {
-          const div = document.createElement('div');33
+          const div = document.createElement('div');
           div.className = 'line-block';
           div.style.display = 'block';
           div.style.padding = '8px 0';
@@ -235,6 +234,8 @@
                 <select id=\"svc_${i}\" class=\"form-control\" required>
                   <option value=\"WIRELESS\">WIRELESS</option>
                   <option value=\"SIM WIRELES\">SIM WIRELES</option>
+                  <option value=\"TABLETS\">TABLETS</option>
+                  <option value=\"RELOJ\">RELOJ</option>
                 </select>
               </div>
             </div>`;

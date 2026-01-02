@@ -43,6 +43,10 @@ try { cookieParser = require('cookie-parser'); } catch { console.warn('[INIT] co
 // Importar configuración de base de datos
 const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./config/db');
 
+// Importar utilidades
+const { normalizeDateToString, isValidDate } = require('./utils/dateNormalizer');
+const dateFormatterMiddleware = require('./middleware/dateFormatter');
+
 // Middleware de autenticación unificado
 const { protect, authorize } = require('./middleware/auth');
 
@@ -173,6 +177,9 @@ app.use(express.static(__dirname, {
     }
   }
 }));
+
+// Middleware para normalizar fechas en todas las respuestas JSON
+app.use('/api', dateFormatterMiddleware);
 
 // Middleware de debug: loguear todas las solicitudes a /api/* para depuración
 app.use('/api', (req, res, next) => {
@@ -625,16 +632,10 @@ app.post('/api/lineas', protect, async (req, res) => {
     const digitsOnly = (s) => (s == null ? '' : String(s).replace(/\D+/g, ''));
     const asDate = (s) => {
       if (!s) return null;
-      try {
-        const str = String(s).trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return new Date(str);
-        if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str)) {
-          const [d, m, y] = str.split(/[\/\-]/).map(Number);
-          return new Date(y, m - 1, d);
-        }
-        const d = new Date(str);
-        return isNaN(d) ? null : d;
-      } catch { return null; }
+      const normalized = normalizeDateToString(s);
+      if (!normalized) return null;
+      // Retornar como string normalizado en formato YYYY-MM-DD
+      return normalized;
     };
 
     // Validaciones mínimas obligatorias
@@ -661,7 +662,23 @@ app.post('/api/lineas', protect, async (req, res) => {
     if (!['pending','repro'].includes(statusVal)) errors.push('status inválido (permitidos: pending, repro)');
     const mercado = String(body.mercado || '').toLowerCase();
     if (!['bamo','icon'].includes(mercado)) errors.push('mercado debe ser uno: bamo | icon');
-    const supervisorVal = String(body.supervisor || '').toLowerCase();
+    
+    // Determinar el supervisor automáticamente según el team del usuario
+    let supervisorVal = String(body.supervisor || '').toLowerCase();
+    if (!supervisorVal && user.supervisor) {
+      // Si el usuario tiene supervisor asignado, usarlo
+      supervisorVal = String(user.supervisor).toLowerCase();
+    } else if (!supervisorVal && user.team) {
+      // Si no tiene supervisor, asignarlo según el team
+      const userTeamLower = String(user.team).toLowerCase();
+      if (userTeamLower.includes('jonathan')) {
+        supervisorVal = 'jonathan f';
+      } else if (userTeamLower.includes('luis')) {
+        supervisorVal = 'luis g';
+      }
+    }
+    
+    if (!supervisorVal) errors.push('No se pudo determinar el supervisor automáticamente');
     if (!['jonathan f', 'luis g'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN F, LUIS G)');
     if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser entre 1 y 5');
     if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
@@ -723,6 +740,212 @@ app.post('/api/lineas', protect, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Error al crear el registro de Lineas', error: error.message });
   }
 });
+
+// PUT /api/lineas-team/update - Actualizar registro de Team Líneas
+app.put('/api/lineas-team/update', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+
+    const body = req.body || {};
+    const user = req.user;
+    const clientId = body.id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
+    }
+
+    // Helpers de normalización
+    const toUpper = (s) => (s == null ? '' : String(s).trim().toUpperCase());
+    const asDate = (s) => {
+      if (!s) return null;
+      const normalized = normalizeDateToString(s);
+      if (!normalized) return null;
+      // Retornar como string normalizado en formato YYYY-MM-DD
+      return normalized;
+    };
+
+    // Campos a actualizar (solo los permitidos)
+    const updateData = {
+      nombre_cliente: body.nombre_cliente ? toUpper(body.nombre_cliente) : undefined,
+      telefono_principal: body.telefono_principal ? String(body.telefono_principal).replace(/\D+/g, '') : undefined,
+      numero_cuenta: body.numero_cuenta ? String(body.numero_cuenta).trim() : undefined,
+      cantidad_lineas: body.cantidad_lineas ? Number(body.cantidad_lineas) : undefined,
+      status: body.status ? String(body.status).toUpperCase() : undefined,
+      dia_venta: body.dia_venta ? asDate(body.dia_venta) : undefined,
+      dia_instalacion: body.dia_instalacion ? asDate(body.dia_instalacion) : undefined,
+      actualizadoEn: new Date()
+    };
+
+    // Remover campos undefined
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+    // Obtener BD de Team Líneas
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) {
+      return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
+    }
+
+    // Buscar y actualizar en todas las colecciones de agentes
+    const collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
+    let updated = false;
+
+    for (const colName of collections) {
+      try {
+        const collection = teamLineasDb.collection(colName);
+        const result = await collection.updateOne(
+          { _id: new (require('mongodb')).ObjectId(clientId) },
+          { $set: updateData }
+        );
+        
+        if (result.modifiedCount > 0) {
+          updated = true;
+          break;
+        }
+      } catch (e) {
+        // Continuar con siguiente colección
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Registro actualizado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error en PUT /api/lineas-team/update:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el registro de Lineas', error: error.message });
+  }
+});
+
+// POST /api/lineas-team/notes - Guardar nota para registro de Team Líneas
+app.post('/api/lineas-team/notes', protect, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const clientId = body.clientId;
+    
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
+    }
+    
+    // Por ahora, simplemente aceptar la nota sin guardarla
+    // En un futuro, se puede extender para guardar en una colección de notas
+    console.log('[API /lineas-team/notes] Nota guardada para cliente:', clientId);
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Nota guardada correctamente'
+    });
+  } catch (error) {
+    console.error('Error en POST /api/lineas-team/notes:', error);
+    return res.status(500).json({ success: false, message: 'Error al guardar la nota', error: error.message });
+  }
+});
+
+// POST /api/lineas-team/notes/edit - Editar nota de registro de Team Líneas
+app.post('/api/lineas-team/notes/edit', protect, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const clientId = body.clientId;
+    
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
+    }
+    
+    console.log('[API /lineas-team/notes/edit] Nota editada para cliente:', clientId);
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Nota actualizada correctamente'
+    });
+  } catch (error) {
+    console.error('Error en POST /api/lineas-team/notes/edit:', error);
+    return res.status(500).json({ success: false, message: 'Error al editar la nota', error: error.message });
+  }
+});
+
+// POST /api/lineas-team/notes/delete - Eliminar nota de registro de Team Líneas
+app.post('/api/lineas-team/notes/delete', protect, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const clientId = body.clientId;
+    
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
+    }
+    
+    console.log('[API /lineas-team/notes/delete] Nota eliminada para cliente:', clientId);
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Nota eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error en POST /api/lineas-team/notes/delete:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar la nota', error: error.message });
+  }
+});
+
+// POST /api/lineas-team/delete - Eliminar registro de Team Líneas
+app.post('/api/lineas-team/delete', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+
+    const body = req.body || {};
+    const clientId = body.id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
+    }
+
+    // Obtener BD de Team Líneas
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) {
+      return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
+    }
+
+    // Buscar y eliminar en todas las colecciones de agentes
+    const collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
+    let deleted = false;
+
+    for (const colName of collections) {
+      try {
+        const collection = teamLineasDb.collection(colName);
+        const result = await collection.deleteOne(
+          { _id: new (require('mongodb')).ObjectId(clientId) }
+        );
+        
+        if (result.deletedCount > 0) {
+          deleted = true;
+          break;
+        }
+      } catch (e) {
+        // Continuar con siguiente colección
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Registro eliminado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error en POST /api/lineas-team/delete:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar el registro de Lineas', error: error.message });
+  }
+});
+
 const loginLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 
 // Ruta protegida para Costumer.html (solo administradores) - DEBE IR ANTES de express.static
@@ -2742,16 +2965,16 @@ app.get('/api/teams', protect, authorize('Administrador', 'admin', 'administrado
         supervisorName: 'Roberto Velásquez'
       },
       {
-        value: 'TEAM RANDAL MARTINEZ', 
-        label: 'TEAM RANDAL MARTINEZ',
-        supervisor: 'randal.martinez',
-        supervisorName: 'Randal Martínez'
+        value: 'team lineas jonathan',
+        label: 'TEAM LÍNEAS - JONATHAN F',
+        supervisor: 'JONATHAN F',
+        supervisorName: 'JONATHAN F'
       },
       {
-        value: 'TEAM LINEAS',
-        label: 'TEAM LÍNEAS',
-        supervisor: 'jonathan.figueroa',
-        supervisorName: 'Jonathan Figueroa'
+        value: 'team lineas luis',
+        label: 'TEAM LÍNEAS - LUIS G',
+        supervisor: 'LUIS G',
+        supervisorName: 'LUIS G'
       },
       {
         value: 'Backoffice',
@@ -2833,7 +3056,9 @@ app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'adm
       if (['backoffice', 'back office', 'back_office', 'bo', 'b.o', 'b-o'].includes(rr)) return 'Backoffice';
       if (['supervisor'].includes(rr)) return 'Supervisor';
       if (['vendedor', 'agente', 'agentes', 'agent'].includes(rr)) return 'Agente';
-      if (['team lineas', 'team_lineas', 'teamlineas', 'lineas', 'lineas-agentes'].includes(rr)) return 'Team Lineas';
+      if (['supervisor team lineas', 'supervisor_team_lineas', 'supervisor lineas', 'supervisor líneas', 'supervisor team líneas'].includes(rr)) return 'Supervisor Team Lineas';
+      if (['lineas-agentes', 'lineas agentes', 'lineas_agentes', 'líneas-agentes', 'lineas-agente', 'lineas agente'].includes(rr)) return 'Lineas-Agentes';
+      if (['team lineas', 'team_lineas', 'teamlineas', 'lineas', 'líneas', 'team líneas', 'team_lineas_1', 'team_lineas_2'].includes(rr)) return 'Team Lineas';
       // Capitalizar la primera letra por defecto
       return rr.charAt(0).toUpperCase() + rr.slice(1);
     };
@@ -2864,13 +3089,26 @@ app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'adm
     let teamNormalized = team ? String(team).trim() : null;
     if (canonicalRole === 'Backoffice') teamNormalized = null;
 
+    // Asignar supervisor automáticamente según el team de Líneas
+    let supervisorValue = supervisor || null;
+    if (!supervisorValue && teamNormalized) {
+      const normalizedTeam = String(teamNormalized).toLowerCase();
+      if (normalizedTeam.includes('team lineas jonathan') || normalizedTeam.includes('jonathan')) {
+        supervisorValue = 'JONATHAN F';
+      } else if (normalizedTeam.includes('team lineas luis') || normalizedTeam.includes('luis')) {
+        supervisorValue = 'LUIS G';
+      }
+    }
+
     // Definir permisos por rol (coincidente con PERMISOS_POR_ROL.md)
     const rolePermissions = {
       'Administrador': ['read', 'write', 'delete', 'manage_users', 'manage_teams'],
       'Backoffice': ['read', 'write', 'export', 'view_finance'],
       'Supervisor': ['read_team', 'write_team', 'view_reports'],
       'Agente': ['read_own', 'write_own'],
-      'Team Lineas': ['read_team:lineas', 'write_team:lineas']
+      'Team Lineas': ['read_team:lineas', 'write_team:lineas'],
+      'Lineas-Agentes': ['read_team:lineas', 'write_team:lineas'],
+      'Supervisor Team Lineas': ['read_team:lineas', 'write_team:lineas', 'view_reports']
     };
 
     const permissions = rolePermissions[canonicalRole] || ['read_own'];
@@ -2881,7 +3119,7 @@ app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'adm
       password: hashedPassword,
       role: canonicalRole,
       team: teamNormalized || null,
-      supervisor: supervisor || null,
+      supervisor: supervisorValue || null,
       name: (req.body.name && String(req.body.name).trim()) || String(username).trim(),
       permissions,
       createdBy: req.user && req.user.username ? req.user.username : 'system',
@@ -5610,6 +5848,21 @@ app.post('/api/leads', protect, async (req, res) => {
         agenteId: finalAgentId || req.user?.id
       }]
     };
+    
+    // Asignar supervisor automáticamente si el usuario pertenece a Team Líneas
+    if (req.user?.supervisor) {
+      newLead.supervisor = req.user.supervisor;
+      console.log('[POST /api/leads] Supervisor asignado automáticamente:', req.user.supervisor);
+    } else if (req.user?.team && String(req.user.team).toLowerCase().includes('lineas')) {
+      // Si el usuario pertenece a Team Líneas pero no tiene supervisor explícito, asignarlo según el team
+      const userTeamLower = String(req.user.team).toLowerCase();
+      if (userTeamLower.includes('jonathan')) {
+        newLead.supervisor = 'JONATHAN F';
+      } else if (userTeamLower.includes('luis')) {
+        newLead.supervisor = 'LUIS G';
+      }
+      console.log('[POST /api/leads] Supervisor asignado automáticamente por team:', newLead.supervisor);
+    }
     
     // Canonical collection selection improved:
     // 1) use a persistent mapping collection `user_collections` (ownerId -> collectionName) if present

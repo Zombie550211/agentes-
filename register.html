@@ -1056,6 +1056,53 @@
       const supervisorDisplay = document.getElementById('supervisorDisplay');
       const supervisorName = document.getElementById('supervisorName');
       let selectedSupervisor = null;
+      let loadedTeams = [];
+
+      function isLineasUserType(userType) {
+        const t = String(userType || '').trim().toLowerCase();
+        return t === 'supervisor team lineas' || t === 'lineas-agentes' || t === 'team lineas' || t === 'team líneas';
+      }
+
+      function renderTeamOptions() {
+        const userType = (document.querySelector('input[name="userType"]:checked') || {}).value || '';
+        const onlyLineas = isLineasUserType(userType);
+        const teamsToShow = onlyLineas
+          ? (loadedTeams || []).filter(t => /team\s*lineas/i.test(String(t?.value || '')))
+          : (loadedTeams || []);
+
+        teamSelect.innerHTML = '<option value="">Selecciona un team...</option>';
+        teamsToShow.forEach(team => {
+          const option = document.createElement('option');
+          option.value = team.value;
+
+          // Agregar iconos/emojis por team (case-insensitive)
+          const tv = String(team.value || '');
+          const tu = tv.toUpperCase();
+          let icon = '';
+          if (tu.includes('IRANIA')) icon = '🔴 ';
+          else if (tu.includes('BRYAN')) icon = '🟢 ';
+          else if (tu.includes('MARISOL')) icon = '🟠 ';
+          else if (tu.includes('ROBERTO')) icon = '🟣 ';
+          else if (tu.includes('RANDAL')) icon = '🔴 ';
+          else if (tu.includes('LINEAS')) icon = '📞 ';
+          else if (tv === 'Backoffice') icon = '💼 ';
+          else if (tv === 'Administración') icon = '⚙️ ';
+
+          option.textContent = icon + team.label;
+          option.dataset.supervisor = team.supervisor || '';
+          option.dataset.supervisorName = team.supervisorName || '';
+          teamSelect.appendChild(option);
+        });
+
+        // Si el team seleccionado ya no existe en la lista (por filtro), resetear
+        const current = teamSelect.value;
+        const exists = Array.from(teamSelect.options).some(o => o.value === current);
+        if (!exists) {
+          teamSelect.value = '';
+          selectedSupervisor = null;
+          supervisorDisplay.style.display = 'none';
+        }
+      }
       
       // Función para cargar teams
       async function loadTeams() {
@@ -1071,28 +1118,8 @@
           
           if (response.ok) {
             const data = await response.json();
-            teamSelect.innerHTML = '<option value="">Selecciona un team...</option>';
-            
-            data.teams.forEach(team => {
-              const option = document.createElement('option');
-              option.value = team.value;
-              
-              // Agregar iconos/emojis por team
-              let icon = '';
-              if (team.value.includes('IRANIA')) icon = '🔴 ';
-              else if (team.value.includes('BRYAN')) icon = '🟢 ';
-              else if (team.value.includes('MARISOL')) icon = '🟠 ';
-              else if (team.value.includes('ROBERTO')) icon = '🟣 ';
-              else if (team.value.includes('RANDAL')) icon = '🔴 ';
-              else if (team.value.includes('LINEAS')) icon = '📞 ';
-              else if (team.value === 'Backoffice') icon = '💼 ';
-              else if (team.value === 'Administración') icon = '⚙️ ';
-              
-              option.textContent = icon + team.label;
-              option.dataset.supervisor = team.supervisor || '';
-              option.dataset.supervisorName = team.supervisorName || '';
-              teamSelect.appendChild(option);
-            });
+            loadedTeams = Array.isArray(data.teams) ? data.teams : [];
+            renderTeamOptions();
           } else {
             console.error('Error cargando teams:', response.status);
           }
@@ -1142,6 +1169,13 @@
             supervisorDisplay.style.display = 'none';
           }, 300);
         }
+      });
+
+      // Re-filtrar equipos cuando cambie el tipo de cuenta
+      document.querySelectorAll('input[name="userType"]').forEach(r => {
+        r.addEventListener('change', function() {
+          try { renderTeamOptions(); } catch (_) {}
+        });
       });
       
       // Cargar teams al inicializar

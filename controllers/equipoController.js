@@ -466,51 +466,58 @@ async function obtenerEstadisticasEquipos(req, res) {
     const lineasPipeline = [
       { $addFields: {
           saleDateRaw: { $ifNull: ['$dia_venta', '$creadoEn'] },
-          saleDate: { $cond: [ { $eq: [ { $type: '$dia_venta' }, 'string' ] }, { $dateFromString: { dateString: '$dia_venta' } }, { $ifNull: ['$dia_venta', '$creadoEn'] } ] },
+          saleDate: { $cond: [ { $eq: [ { $type: '$dia_venta' }, 'string' ] }, { $dateFromString: { dateString: '$dia_venta', onError: null } }, { $ifNull: ['$dia_venta', '$creadoEn'] } ] },
           teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', 'TEAM LINEAS'] } } } },
           mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', '' ] } } } },
           puntajeNum: { $convert: { input: '$puntaje', to: 'double', onError: 0, onNull: 0 } }
       } }
     ];
-    if (String(all).trim() !== '1' && (start || endOfDay)) {
-      const sameDay = !!(start && end && start.toDateString() === end.toDateString());
-      // Usar límites en UTC
+    
+    // IMPORTANTE: Aplicar el MISMO filtro de fecha que se usa para equipos normales a Team Líneas
+    if (isDayOnly && start && endOfDay) {
+      // Para día específico: usar ambos formatos (fecha ISO y fecha de saleDate)
+      const sUTC = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0, 0));
+      const eUTC = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 23, 59, 59, 999));
+      const dateStr = `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}-${String(start.getUTCDate()).padStart(2, '0')}`;
+      
+      lineasPipeline.push({
+        $match: {
+          $or: [
+            // Match by saleDate (parsed dates)
+            { $expr: { $and: [ { $gte: ['$saleDate', sUTC] }, { $lte: ['$saleDate', eUTC] } ] } },
+            // Match by string format dia_venta
+            { dia_venta: { $regex: `^${dateStr}` } }
+          ]
+        }
+      });
+    } else if (String(all).trim() !== '1' && (start || endOfDay)) {
+      // Para rango de fechas (mes, etc.)
       const sUTC = start ? new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0, 0)) : null;
       const eUTC = end ? new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59, 999)) : null;
-      let sYMD = null, sDMY = null, sDMYDash = null;
+      let sYMD = null, sDMY = null;
       try {
         if (start) {
-          const d = new Date(start);
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
+          const y = start.getUTCFullYear();
+          const m = String(start.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(start.getUTCDate()).padStart(2, '0');
           sYMD = `${y}-${m}-${dd}`;
           sDMY = `${dd}/${m}/${y}`;
-          sDMYDash = `${dd}-${m}-${y}`;
         }
       } catch {}
-      if (sameDay && sUTC && eUTC) {
+      
+      const orExpr = [];
+      if (sUTC && eUTC) {
+        orExpr.push({ $and: [ { $gte: ['$saleDate', sUTC] }, { $lte: ['$saleDate', eUTC] } ] });
+      }
+      if (sYMD) {
+        orExpr.push({ dia_venta: { $regex: `^${sYMD}` } });
+        orExpr.push({ dia_venta: { $regex: `${sDMY}$` } });
+      }
+      
+      if (orExpr.length) {
         lineasPipeline.push({
-          $match: {
-            $or: [
-              { $expr: { $and: [ { $gte: ['$saleDate', sUTC] }, { $lte: ['$saleDate', eUTC] } ] } },
-              { dia_venta: { $in: [ sYMD, sDMY, sDMYDash ] } }
-            ]
-          }
+          $match: { $or: orExpr }
         });
-      } else {
-        const orExpr = [];
-        const andDate = { $and: [] };
-        if (sUTC) andDate.$and.push({ $gte: ['$saleDate', sUTC] });
-        if (eUTC) andDate.$and.push({ $lte: ['$saleDate', eUTC] });
-        if (andDate.$and.length) orExpr.push(andDate);
-
-        const andStr = { $and: [] };
-        if (fechaInicio) andStr.$and.push({ $gte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDate' } }, String(fechaInicio) ] });
-        if (fechaFin)    andStr.$and.push({ $lte: [ { $dateToString: { format: '%Y-%m-%d', date: '$saleDate' } }, String(fechaFin) ] });
-        if (andStr.$and.length) orExpr.push(andStr);
-
-        if (orExpr.length) lineasPipeline.push({ $match: { $expr: { $or: orExpr } } });
       }
     }
     lineasPipeline.push({ $group: {
