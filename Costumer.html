@@ -107,371 +107,373 @@
       })();
     </script>
     <script>
-      // Delegated handler: asegurar que los botones .date-filter-btn siempre abran el popup
-      document.addEventListener('click', function(e){
-        try {
-          const btn = e.target.closest && e.target.closest('.date-filter-btn');
-          if (!btn) return;
-          e.preventDefault(); e.stopPropagation();
-          const field = btn.getAttribute('data-field');
-          const lsKey = btn.getAttribute('data-lskey');
-          if (typeof window.openDateFilterPopup === 'function') {
-            window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
-          } else {
-            console.warn('openDateFilterPopup no está disponible todavía');
-          }
-        } catch(err) { console.error('date-filter delegated click error', err); }
-      });
-    </script>
-  <script>
       function maskPin(v){
         const s = String(v || '');
         return s ? '•'.repeat(Math.min(4, s.length)) : '';
       }
       function serviciosResumen(l){
-        const arr = Array.isArray(l.telefonos)? l.telefonos:[];
-        if(arr.length){ const m=new Map(); arr.forEach(t=>{ const k=(t?.servicio||t?.tipo||'').toString().trim()||'SERVICIO'; m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].map(([k,v])=> v>1?`${k} x${v}`:k).join('; '); }
-        return l.servicios_texto||l.tipo_servicios||l.servicios||l.producto||'';
+        const arr = Array.isArray(l.telefonos) ? l.telefonos : [];
+        if (arr.length) {
+          const m = new Map();
+          arr.forEach(t => {
+            const k = (t?.servicio || t?.tipo || '').toString().trim() || 'SERVICIO';
+            m.set(k, (m.get(k) || 0) + 1);
+          });
+          return [...m.entries()]
+            .map(([k, v]) => (v > 1 ? `${k} x${v}` : k))
+            .join('; ');
+        }
+        return l.servicios_texto || l.tipo_servicios || l.servicios || l.producto || '';
       }
-      // normDate ahora se carga desde js/date-formatter.js
-      function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
-      // Normalización de nombres de agente (alias -> canónico)
-      function __normStrAgent(s){
-        try {
-          return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,'');
-        } catch { return String(s||'').toLowerCase().replace(/\s+/g,'').replace(/\./g,''); }
-      }
-      function agentCanonicalName(name){
-        const n = __normStrAgent(name);
-        const map = {
-          'eduardor': 'Eduardo Rivas',
-          'eduardorivas': 'Eduardo Rivas',
-          'eduardorrivas': 'Eduardo Rivas',
-          'alexanderhernandez': 'Riquelmi Torres',
-          'julioMejia': 'Julio Chavez',
-          'juliomejia': 'Julio Chavez'
-        };
-        return map[n] || (name || '');
-      }
-      function agentName(l){
-        const raw = l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||'';
-        return agentCanonicalName(raw);
-      }
-      function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
-      // Efficient renderer: uses batched rendering with DocumentFragment to avoid
-      // repeated reflows when inserting many rows. Renders in micro-batches so
-      // the main thread is not blocked for long periods.
-      function renderRows(list){
-        const tbody = document.getElementById('costumer-tbody'); if(!tbody) return;
-        // Clear existing rows quickly
-        tbody.innerHTML = '';
+    // normDate ahora se carga desde js/date-formatter.js
+    function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
+    // Normalización de nombres de agente (alias -> canónico)
+    function __normStrAgent(s){
+      try {
+        return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,'');
+      } catch { return String(s||'').toLowerCase().replace(/\s+/g,'').replace(/\./g,''); }
+    }
+    function agentCanonicalName(name){
+      const n = __normStrAgent(name);
+      const map = {
+        'eduardor': 'Eduardo Rivas',
+        'eduardorivas': 'Eduardo Rivas',
+        'eduardorrivas': 'Eduardo Rivas',
+        'alexanderhernandez': 'Riquelmi Torres',
+        'julioMejia': 'Julio Chavez',
+        'juliomejia': 'Julio Chavez'
+      };
+      return map[n] || (name || '');
+    }
+    function agentName(l){
+      const raw = l.agenteNombre||l.nombreAgente||l.agente||l.agent||l.ownerName||l.vendedor||l.seller||'';
+      return agentCanonicalName(raw);
+    }
+    function applyHeader(){ const thead=document.querySelector('.costumer-table thead'); if(!thead) return; const hs=teamHeader(); thead.innerHTML=`<tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr>`; }
+    // Efficient renderer: uses batched rendering with DocumentFragment to avoid
+    // repeated reflows when inserting many rows. Renders in micro-batches so
+    // the main thread is not blocked for long periods.
+    function renderRows(list){
+      const tbody = document.getElementById('costumer-tbody'); if(!tbody) return;
+      // Clear existing rows quickly
+      tbody.innerHTML = '';
 
-        const rows = Array.isArray(list) ? list : (Array.isArray(list?.leads) ? list.leads : []);
-        if (rows.length === 0) return;
+      const rows = Array.isArray(list) ? list : (Array.isArray(list?.leads) ? list.leads : []);
+      if (rows.length === 0) return;
 
-        const batchSize = 200; // tuneable: number of rows rendered per tick
-        let idx = 0;
+      const batchSize = 200; // tuneable: number of rows rendered per tick
+      let idx = 0;
 
-        function makeTrFromLead(l) {
-          const autop = (l.autopay ?? l.autopago);
-          const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : (String(autop || '').toUpperCase() === 'NO' ? 'No' : String(autop || '')));
-          const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : (Array.isArray(l.telefonos) ? l.telefonos.length : '');
-          const statusRaw = (l.status || '').toString();
-          const statusNorm = statusRaw.trim().toLowerCase();
-          const idVal = (l.id_cliente || l._id || l.id || '');
+      function makeTrFromLead(l) {
+        const autop = (l.autopay ?? l.autopago);
+        const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : (String(autop || '').toUpperCase() === 'NO' ? 'No' : String(autop || '')));
+        const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : (Array.isArray(l.telefonos) ? l.telefonos.length : '');
+        const statusRaw = (l.status || '').toString();
+        const statusNorm = statusRaw.trim().toLowerCase();
+        const idVal = (l.id_cliente || l._id || l.id || '');
 
-          const values = [
-            l.nombre_cliente || '',
-            l.telefono_principal || '',
-            l.numero_cuenta || '',
-            autopTxt || '',
-            maskPin(l.pin_seguridad) || '',
-            l.direccion || '',
-            normDate(l.dia_venta || l.fecha_contratacion || l.fecha || ''),
-            normDate(l.dia_instalacion || ''),
-            statusRaw.toUpperCase(),
-            cant || '',
-            serviciosResumen(l) || '',
-            idVal,
-            l.supervisor || '',
-            l.mercado || ''
-          ];
+        const values = [
+          l.nombre_cliente || '',
+          l.telefono_principal || '',
+          l.numero_cuenta || '',
+          autopTxt || '',
+          maskPin(l.pin_seguridad) || '',
+          l.direccion || '',
+          normDate(l.dia_venta || l.fecha_contratacion || l.fecha || ''),
+          normDate(l.dia_instalacion || ''),
+          statusRaw.toUpperCase(),
+          cant || '',
+          serviciosResumen(l) || '',
+          idVal,
+          l.supervisor || '',
+          l.mercado || ''
+        ];
 
-          const tr = document.createElement('tr');
-          if (idVal) tr.setAttribute('data-lead-id', String(idVal));
-          if (statusNorm) {
-            let cls = 'row-status-';
-            if (/cancel/.test(statusNorm)) cls += 'canceled';
-            else if (/hold/.test(statusNorm)) cls += 'hold';
-            else if (/repro|resched/.test(statusNorm)) cls += 'rescheduled';
-            else if (/complete|active/.test(statusNorm)) cls += 'complete';
-            else cls += 'pending';
-            tr.classList.add(cls);
-          }
-
-          // Create TDs with textContent (safer and faster than innerHTML parsing)
-          for (let i = 0; i < values.length; i++) {
-            const td = document.createElement('td');
-            const v = values[i];
-            try { td.textContent = (v == null ? '' : v); } catch { td.textContent = '' + (v || ''); }
-            tr.appendChild(td);
-          }
-
-          // store status normalized for CSS and later coloring
-          try { const tdStatus = tr.children[8]; if (tdStatus) tdStatus.dataset.status = statusNorm; } catch {}
-          return tr;
+        const tr = document.createElement('tr');
+        if (idVal) tr.setAttribute('data-lead-id', String(idVal));
+        if (statusNorm) {
+          let cls = 'row-status-';
+          if (/cancel/.test(statusNorm)) cls += 'canceled';
+          else if (/hold/.test(statusNorm)) cls += 'hold';
+          else if (/repro|resched/.test(statusNorm)) cls += 'rescheduled';
+          else if (/complete|active/.test(statusNorm)) cls += 'complete';
+          else cls += 'pending';
+          tr.classList.add(cls);
         }
 
-        function renderBatch() {
-          const fragment = document.createDocumentFragment();
-          const end = Math.min(idx + batchSize, rows.length);
-          for (; idx < end; idx++) {
-            try { fragment.appendChild(makeTrFromLead(rows[idx])); } catch (e) { /* ignore single-row errors */ }
-          }
-          tbody.appendChild(fragment);
-
-          if (idx < rows.length) {
-            // yield to the event loop to keep UI responsive
-            setTimeout(renderBatch, 0);
-          } else {
-            // finalization: ensure row IDs and coloring applied
-            try {
-              ensureRowIds();
-              syncStatusDatasets();
-              applyRowStatusColors();
-              if (typeof window.rebuildStickyHead === 'function') window.rebuildStickyHead();
-            } catch (e) { /* ignore */ }
-            try {
-              document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: rows.length } }));
-            } catch (e) { /* ignore */ }
-          }
+        // Create TDs with textContent (safer and faster than innerHTML parsing)
+        for (let i = 0; i < values.length; i++) {
+          const td = document.createElement('td');
+          const v = values[i];
+          try { td.textContent = (v == null ? '' : v); } catch { td.textContent = '' + (v || ''); }
+          tr.appendChild(td);
         }
 
-        // Start rendering asynchronously
-        renderBatch();
-      }
-      // Guardar referencia al renderizador anterior
-      const originalRenderer = window.renderCostumerTable;
-      
-      // Sobrescribir con nuestro renderizador Team Líneas
-      // Aplicador global para el renderizado no-Team: colorea filas según texto del status en la col 9
-      function ensureRowIds(){
-        try{
-          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
-          const rows=[...tbody.querySelectorAll('tr')].filter(tr=>!tr.classList.contains('costumer-month-separator'));
-          rows.forEach(tr=>{
-            if (tr.hasAttribute('data-lead-id')) return;
-            // Intentar obtener ID desde el botón Editar
-            const btn = tr.querySelector('button[onclick^="editarLead("]');
-            if (btn){
-              const m = btn.getAttribute('onclick')?.match(/editarLead\('([^']+)'\)/);
-              if (m && m[1]) { tr.setAttribute('data-lead-id', m[1]); return; }
-            }
-            // Intentar obtener ID desde el select de status (onchange="updateLeadStatus('ID', this.value)")
-            const sel = tr.querySelector('select.status-select[onchange]');
-            if (sel){
-              const oc = sel.getAttribute('onchange')||'';
-              const m2 = oc.match(/updateLeadStatus\('([^']+)'/);
-              if (m2 && m2[1]) { tr.setAttribute('data-lead-id', m2[1]); return; }
-            }
-          });
-        }catch{}
-      }
-
-      window.syncStatusDatasets = function(){
-        try{
-          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
-          ensureRowIds();
-          const rows=[...tbody.querySelectorAll('tr')]
-            .filter(tr=>!tr.classList.contains('costumer-month-separator'));
-          // Construir mapa id->status desde memoria si existe
-          let map = null;
-          try{
-            const list = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
-            if (list.length && typeof getLeadId==='function') {
-              map = new Map(list.map(l=>[ String(getLeadId(l)), String(l?.status||'').trim().toLowerCase() ]));
-            }
-          }catch{}
-          rows.forEach(tr=>{
-            const td=tr.children[8]; if (!td) return;
-            const id = tr.getAttribute('data-lead-id') || '';
-            // 0) status desde memoria por id
-            let val = '';
-            if (map && id && map.has(String(id))) val = map.get(String(id));
-            // 1) select interno
-            if (!val) {
-              const sel = td.querySelector('select');
-              if (sel && sel.value) val = String(sel.value).trim().toLowerCase();
-            }
-            // 2) badge con data-value
-            if (!val) {
-              const badge = td.querySelector('[data-value], .badge, .badge-status, .status-badge');
-              if (badge && badge.getAttribute) {
-                const dv = String(badge.getAttribute('data-value')||'').trim().toLowerCase();
-                if (dv) val = dv;
-              }
-            }
-            // 3) clases comunes en badges
-            if (!val) {
-              const b = td.querySelector('.badge, .badge-status, .status-badge');
-              const cls = b ? (' '+b.className+' ') : (' '+td.className+' ');
-              if (/cancel/.test(cls)) val = 'cancelled';
-              else if (/hold/.test(cls)) val = 'hold';
-              else if (/resched|repro/.test(cls)) val = 'rescheduled';
-              else if (/complete|active/.test(cls)) val = 'completed';
-              else if (/pend/i.test(cls)) val = 'pending';
-            }
-            // 4) texto visible de la celda
-            if (!val) {
-              const txt = (td.textContent||'').trim().toLowerCase();
-              if (txt) val = txt;
-            }
-            if (val) td.dataset.status = val;
-          });
-        }catch{}
-      }
-
-      window.applyRowStatusColors = function(){
-        try{
-          const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
-          ensureRowIds();
-          const rows=[...tbody.querySelectorAll('tr')]
-            .filter(tr=>!tr.classList.contains('costumer-month-separator'));
-          rcLog('applyRowStatusColors start', {rows: rows.length});
-          // asegurar que cada celda STATUS tenga data-status actualizado antes de colorear
-          syncStatusDatasets();
-          rows.forEach(tr=>{
-            const td=tr.children[8]; // 9na columna (STATUS)
-            let txt='';
-            if (td){
-              // Priorizar select interno si existe
-              const sel = td.querySelector('select');
-              const ds = (td.dataset && td.dataset.status) ? String(td.dataset.status).trim().toLowerCase() : '';
-              if (ds) txt = ds;
-              else if (sel && sel.value) txt = String(sel.value).trim().toLowerCase();
-              else txt = (td.textContent||'').trim().toLowerCase();
-            }
-            tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active');
-            let cls='row-status-';
-            if(/cancel/.test(txt)) cls+='canceled';
-            else if(/hold/.test(txt)) cls+='hold';
-            else if(/repro|resched/.test(txt)) cls+='rescheduled';
-            else if(/complete|active/.test(txt)) cls+='complete';
-            else cls+='pending';
-            tr.classList.add(cls);
-            // Inline color para persistencia visual
-            const color = statusToColor(txt);
-            const tds = tr ? Array.from(tr.children) : [];
-            try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch{}
-            try{ tr.style.setProperty('background', 'none', 'important'); }catch{}
-            try{ tr.style.setProperty('background-color', color, 'important'); }catch{}
-            tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch{} });
-            tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch{} });
-            if (rcEnabled()) {
-              const id = tr?.getAttribute('data-lead-id') || '(sin-id)';
-              rcLog('row colored', {id, txt, cls, color, rowStatus: tr?.dataset?.rowStatus});
-            }
-          });
-          rcLog('applyRowStatusColors end');
-        }catch(e){ /* noop */ }
-      };
-
-      window.__suspendRender = false; // habilitado por defecto para que funcione el filtro
-      window.__suspendRenderTO = null;
-      window.disableGlobalRender = function(){
-        try{ window.__suspendRender = true; console.log('[Render] Global render DESHABILITADO'); }catch{}
-      };
-      window.enableGlobalRender = function(){
-        try{ window.__suspendRender = false; console.log('[Render] Global render HABILITADO'); }catch{}
-      };
-
-      // Monkey-patch robusto: impedir re-renders incluso si otro script reasigna la función
-      (function(){
+        // store status normalized for CSS and later coloring
         try {
-          let _renderFn = typeof originalRenderer==='function' ? originalRenderer.bind(window) : (typeof window.renderCostumerTable==='function' ? window.renderCostumerTable.bind(window) : null);
-          Object.defineProperty(window, 'renderCostumerTable', {
-            configurable: true,
-            enumerable: true,
-            get: function() {
-              return function(leads) {
-                try {
-                  if (window.__suspendRender) {
-                    if (!window.__initialPaintDone) {
-                      try {
-                        const arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
-                        const tbody = document.getElementById('costumer-tbody');
-                        if (tbody) tbody.innerHTML = '';
-                        if (typeof _renderFn === 'function') _renderFn(arr);
-                        else if (typeof renderWithMonthlySeparators === 'function') renderWithMonthlySeparators(arr);
-                        window.__initialPaintDone = true;
-                      } catch (e) { console.warn('[Render] fallo en pintado inicial', e); }
-                    }
-                    return;
-                  }
+          const tdStatus = tr.querySelector('td.status-col') || (tr.querySelector('select.status-select') ? tr.querySelector('select.status-select').closest('td') : null) || tr.children[8];
+          if (tdStatus) tdStatus.dataset.status = statusNorm;
+        } catch {}
+        return tr;
+      }
 
-                  let arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
-                  window.ultimaListaLeadsFull = [...arr];
+      function renderBatch() {
+        const fragment = document.createDocumentFragment();
+        const end = Math.min(idx + batchSize, rows.length);
+        for (; idx < end; idx++) {
+          try { fragment.appendChild(makeTrFromLead(rows[idx])); } catch (e) { /* ignore single-row errors */ }
+        }
+        tbody.appendChild(fragment);
 
-                  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                  const userRole = (currentUser.role || currentUser?.usuario?.role || '').toString().trim().toLowerCase();
+        if (idx < rows.length) {
+          // yield to the event loop to keep UI responsive
+          setTimeout(renderBatch, 0);
+        } else {
+          // finalization: ensure row IDs and coloring applied
+          try {
+            ensureRowIds();
+            syncStatusDatasets();
+            applyRowStatusColors();
+            if (typeof window.rebuildStickyHead === 'function') window.rebuildStickyHead();
+          } catch (e) { /* ignore */ }
+          try {
+            document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: rows.length } }));
+          } catch (e) { /* ignore */ }
+        }
+      }
 
-                  if (userRole.includes('supervisor')) {
-                    const supervisorName = (currentUser.username || currentUser.name || '').trim();
-                    let supervisorAgents = new Set();
-                    try {
-                      if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
-                        const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
-                        if (Array.isArray(agents)) agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
-                      }
-                    } catch (e) { console.warn('[SUPERVISOR FILTER] Error obteniendo agentes:', e); }
+      // Start rendering asynchronously
+      renderBatch();
+    }
+    // Guardar referencia al renderizador anterior
+    const originalRenderer = window.renderCostumerTable;
+    
+    // Sobrescribir con nuestro renderizador Team Líneas
+    // Aplicador global para el renderizado no-Team: colorea filas según texto del status en la col 9
+    function ensureRowIds(){
+      try{
+        const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+        const rows=[...tbody.querySelectorAll('tr')].filter(tr=>!tr.classList.contains('costumer-month-separator'));
+        rows.forEach(tr=>{
+          if (tr.hasAttribute('data-lead-id')) return;
+          // Intentar obtener ID desde el botón Editar
+          const btn = tr.querySelector('button[onclick^="editarLead("]');
+          if (btn){
+            const m = btn.getAttribute('onclick')?.match(/editarLead\('([^']+)'\)/);
+            if (m && m[1]) { tr.setAttribute('data-lead-id', m[1]); return; }
+          }
+          // Intentar obtener ID desde el select de status (onchange="updateLeadStatus('ID', this.value)")
+          const sel = tr.querySelector('select.status-select[onchange]');
+          if (sel){
+            const oc = sel.getAttribute('onchange')||'';
+            const m2 = oc.match(/updateLeadStatus\('([^']+)'/);
+            if (m2 && m2[1]) { tr.setAttribute('data-lead-id', m2[1]); return; }
+          }
+        });
+      }catch{}
+    }
 
-                    if (supervisorAgents.size > 0) {
-                      arr = arr.filter(lead => supervisorAgents.has((lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase()));
-                    } else {
-                      const matchSupervisor = (leadSupRaw, supName) => {
-                        try {
-                          const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '').replace(/[^a-z0-9]+/g, '').trim();
-                          const supCanon = norm(supName || '');
-                          const leadCanon = norm(leadSupRaw || '');
-                          if (!leadCanon || !supCanon) return false;
-                          return leadCanon === supCanon || supCanon.includes(leadCanon) || leadCanon.includes(supCanon);
-                        } catch (e) { return false; }
-                      };
-                      arr = arr.filter(lead => matchSupervisor((lead.supervisor || lead.team || ''), supervisorName));
-                    }
-                  }
+    window.syncStatusDatasets = function(){
+      try{
+        const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+        ensureRowIds();
+        const rows=[...tbody.querySelectorAll('tr')]
+          .filter(tr=>!tr.classList.contains('costumer-month-separator'));
 
-                  window.ultimaListaLeads = arr;
+        // Construir mapa id->status desde memoria si existe
+        let map = null;
+        try{
+          const list = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
+          if (list.length && typeof getLeadId==='function') {
+            map = new Map(list.map(l=>[ String(getLeadId(l)), String(l?.status||'').trim().toLowerCase() ]));
+          }
+        }catch{}
+        rows.forEach(tr=>{
+          const td = tr.querySelector('td.status-col') || (tr.querySelector('select.status-select') ? tr.querySelector('select.status-select').closest('td') : null) || tr.children[8];
+          if (!td) return;
+          const id = tr.getAttribute('data-lead-id') || '';
+          // 0) status desde memoria por id
+          let val = '';
+          if (map && id && map.has(String(id))) val = map.get(String(id));
 
-                  if (typeof _renderFn === 'function') {
-                    _renderFn(arr);
-                  } else {
-                    renderRows(arr);
-                  }
+          // 1) select interno
+          if (!val) {
+            const sel = td.querySelector('select');
+            if (sel && sel.value) val = String(sel.value).trim().toLowerCase();
+          }
+          // 2) badge con data-value
+          if (!val) {
+            const badge = td.querySelector('[data-value], .badge, .badge-status, .status-badge');
+            if (badge && badge.getAttribute) {
+              const dv = String(badge.getAttribute('data-value')||'').trim().toLowerCase();
+              if (dv) val = dv;
+            }
+          }
+          // 3) clases comunes en badges
+          if (!val) {
+            const b = td.querySelector('.badge, .badge-status, .status-badge');
+            const cls = b ? (' '+b.className+' ') : (' '+td.className+' ');
+            if (/cancel/.test(cls)) val = 'cancelled';
+            else if (/hold/.test(cls)) val = 'hold';
+            else if (/resched|repro/.test(cls)) val = 'rescheduled';
+            else if (/active/.test(cls)) val = 'active';
+            else if (/complete/.test(cls)) val = 'completed';
+            else if (/pend/i.test(cls)) val = 'pending';
+          }
 
-                  setTimeout(() => {
-                    try {
-                      syncStatusDatasets();
-                      window.applyRowStatusColors();
-                      document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: arr.length } }));
-                    } catch(e) {}
-                  }, 150);
+          // 4) texto visible de la celda
+          if (!val) {
+            const txt = (td.textContent||'').trim().toLowerCase();
+            if (txt) val = txt;
+          }
+          if (val) td.dataset.status = val;
+        });
+      }catch{}
+    }
 
-                } catch (e) {
-                  console.warn('[Render wrapper] error', e);
-                }
-              };
-            },
-            set: function(fn) {
+    window.applyRowStatusColors = function(){
+      try{
+        const tbody=document.getElementById('costumer-tbody'); if(!tbody) return;
+        ensureRowIds();
+        const rows=[...tbody.querySelectorAll('tr')]
+          .filter(tr=>!tr.classList.contains('costumer-month-separator'));
+
+        rcLog('applyRowStatusColors start', {rows: rows.length});
+        // asegurar que cada celda STATUS tenga data-status actualizado antes de colorear
+        syncStatusDatasets();
+        rows.forEach(tr=>{
+          const td = tr.querySelector('td.status-col') || (tr.querySelector('select.status-select') ? tr.querySelector('select.status-select').closest('td') : null) || tr.children[8];
+          let txt='';
+          if (td){
+            // Priorizar select interno si existe
+            const sel = td.querySelector('select');
+            const ds = (td.dataset && td.dataset.status) ? String(td.dataset.status).trim().toLowerCase() : '';
+
+            if (ds) txt = ds;
+            else if (sel && sel.value) txt = String(sel.value).trim().toLowerCase();
+            else txt = (td.textContent||'').trim().toLowerCase();
+          }
+          tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active');
+          let cls='row-status-';
+          if(/cancel/.test(txt)) cls+='canceled';
+          else if(/hold/.test(txt)) cls+='hold';
+          else if(/repro|resched/.test(txt)) cls+='rescheduled';
+          else if(/complete|active/.test(txt)) cls+='complete';
+          else cls+='pending';
+          tr.classList.add(cls);
+          // Inline color para persistencia visual
+          const color = statusToColor(txt);
+          const tds = tr ? Array.from(tr.children) : [];
+          try{ tr.dataset.rowStatus = cls.replace('row-status-',''); }catch{}
+          try{ tr.style.setProperty('background', 'none', 'important'); }catch{}
+          try{ tr.style.setProperty('background-color', color, 'important'); }catch{}
+          tds.forEach(td=>{ try{ td.style.setProperty('background', 'none', 'important'); }catch{} });
+          tds.forEach(td=>{ try{ td.style.setProperty('background-color', color, 'important'); }catch{} });
+          if (rcEnabled()) {
+            const id = tr?.getAttribute('data-lead-id') || '(sin-id)';
+            rcLog('row colored', {id, txt, cls, color, rowStatus: tr?.dataset?.rowStatus});
+          }
+        });
+        rcLog('applyRowStatusColors end');
+      }catch(e){ /* noop */ }
+    };
+
+    window.__suspendRender = false; // habilitado por defecto para que funcione el filtro
+    window.__suspendRenderTO = null;
+    window.disableGlobalRender = function(){
+      try{ window.__suspendRender = true; console.log('[Render] Global render DESHABILITADO'); }catch{}
+    };
+    window.enableGlobalRender = function(){
+      try{ window.__suspendRender = false; console.log('[Render] Global render HABILITADO'); }catch{}
+    };
+
+    // Monkey-patch robusto: impedir re-renders incluso si otro script reasigna la función
+    (function(){
+      try {
+        let _renderFn = typeof originalRenderer==='function' ? originalRenderer.bind(window) : (typeof window.renderCostumerTable==='function' ? window.renderCostumerTable.bind(window) : null);
+        Object.defineProperty(window, 'renderCostumerTable', {
+          configurable: true,
+          enumerable: true,
+          get: function() {
+            return function(leads) {
               try {
-                _renderFn = (typeof fn === 'function') ? fn.bind(window) : null;
-              } catch (e) { console.warn('[Render] setter error', e); }
-            }
-          });
-        } catch(e) { 
-          console.error('Monkey-patch renderCostumerTable error', e); 
-        }
-      })();
+                if (window.__suspendRender) {
+                  if (!window.__initialPaintDone) {
+                    try {
+                      const arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
+                      const tbody = document.getElementById('costumer-tbody');
+                      if (tbody) tbody.innerHTML = '';
+                      if (typeof _renderFn === 'function') _renderFn(arr);
+                      else if (typeof renderWithMonthlySeparators === 'function') renderWithMonthlySeparators(arr);
+                      window.__initialPaintDone = true;
+                    } catch (e) { console.warn('[Render] fallo en pintado inicial', e); }
+                  }
+                  return;
+                }
+
+                let arr = Array.isArray(leads) ? leads : (Array.isArray(leads?.leads) ? leads.leads : []);
+                window.ultimaListaLeadsFull = [...arr];
+
+                const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const userRole = (currentUser.role || currentUser?.usuario?.role || '').toString().trim().toLowerCase();
+
+                if (userRole.includes('supervisor')) {
+                  const supervisorName = (currentUser.username || currentUser.name || '').trim();
+                  let supervisorAgents = new Set();
+                  try {
+                    if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
+                      const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
+                      if (Array.isArray(agents)) agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
+                    }
+                  } catch (e) { console.warn('[SUPERVISOR FILTER] Error obteniendo agentes:', e); }
+
+                  if (supervisorAgents.size > 0) {
+                    arr = arr.filter(lead => supervisorAgents.has((lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase()));
+                  } else {
+                    const matchSupervisor = (leadSupRaw, supName) => {
+                      try {
+                        const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '').replace(/[^a-z0-9]+/g, '').trim();
+                        const supCanon = norm(supName || '');
+                        const leadCanon = norm(leadSupRaw || '');
+                        if (!leadCanon || !supCanon) return false;
+                        return leadCanon === supCanon || supCanon.includes(leadCanon) || leadCanon.includes(supCanon);
+                      } catch (e) { return false; }
+                    };
+                    arr = arr.filter(lead => matchSupervisor((lead.supervisor || lead.team || ''), supervisorName));
+                  }
+                }
+
+                window.ultimaListaLeads = arr;
+
+                if (typeof _renderFn === 'function') {
+                  _renderFn(arr);
+                } else {
+                  renderRows(arr);
+                }
+
+                setTimeout(() => {
+                  try {
+                    syncStatusDatasets();
+                    window.applyRowStatusColors();
+                    document.dispatchEvent(new CustomEvent('leads:rendered', { detail: { count: arr.length } }));
+                  } catch(e) {}
+                }, 150);
+
+              } catch (e) {
+                console.warn('[Render wrapper] error', e);
+              }
+            };
+          },
+          set: function(fn) {
+            try {
+              _renderFn = (typeof fn === 'function') ? fn.bind(window) : null;
+            } catch (e) { console.warn('[Render] setter error', e); }
+          }
+        });
+      } catch(e) { 
+        console.error('Monkey-patch renderCostumerTable error', e); 
+      }
+    })();
 
     // Helpers globales para colorear filas por STATUS inmediatamente
     (function(){
@@ -575,7 +577,7 @@
           rcLog('forceRecolorAllRows: processing', rows.length, 'rows');
           
           rows.forEach(tr => {
-            const statusTd = tr.children[8]; // columna de status
+            const statusTd = tr.querySelector('td.status-col') || (tr.querySelector('select.status-select') ? tr.querySelector('select.status-select').closest('td') : null) || tr.children[8];
             if (!statusTd) return;
             
             let statusValue = '';
@@ -621,7 +623,7 @@
           const tr = el.closest('tr');
           if (!tr) return;
           // Guardar el valor en la celda como dataset para persistencia
-          const td = tr.children[8];
+          const td = tr.querySelector('td.status-col') || el.closest('td') || tr.children[8];
           if (td) { try { td.dataset.status = String(el.value||''); } catch {} }
           rcLog('change(status) ->', {value: el.value, rowId: tr?.getAttribute('data-lead-id')});
 
@@ -2235,8 +2237,20 @@
             </div>
           </div>
         </div>
-
-        <!-- Pendientes -->
+        <div class="summary-card sales-month">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-bolt"></i>
+              </div>
+              <h3 class="card-title">Ventas Activas</h3>
+            </div>
+            <div class="card-value" id="costumer-ventas-activas">0</div>
+            <div class="card-footer">
+              <i class="fas fa-check-circle"></i> Mes seleccionado
+            </div>
+          </div>
+        </div>        <!-- Pendientes -->
         <div class="summary-card pending">
           <div class="card-content">
             <div class="card-header">
@@ -4388,7 +4402,7 @@
           }
           
           // Actualizar los KPIs con los datos del cache
-          updateSummaryCards(normalizedLeads);
+          updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
           
           // Cargar columnas adicionales si están disponibles
           try {
@@ -5122,7 +5136,7 @@
         
         // Logs de diagn¨®stico de asignaci¨®n (por TEAM y agente)
         try { if (typeof logDiagnosticoAsignacion === 'function') logDiagnosticoAsignacion(normalizedLeads); } catch(_) {}
-        updateSummaryCards(normalizedLeads);
+        updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
 
         return normalizedLeads;
       } catch (error) {
@@ -5312,12 +5326,13 @@
 
     // Helper: normalizar status hacia las 5 opciones y devolver etiqueta capitalizada
     function normalizeStatusLabel(s) {
-      const allowed = ['pending','hold','cancelled','rescheduled','completed'];
+      const allowed = ['pending','hold','cancelled','rescheduled','completed','active'];
       const v = (s || '').toString().trim();
       const lower = v.toLowerCase();
       const pick = allowed.includes(lower)
         ? lower
-        : (v.toLowerCase().includes('pend') ? 'pending' : null) ||
+        : (v.toLowerCase().includes('active') || v.toLowerCase().includes('activo') ? 'active' : null) ||
+          (v.toLowerCase().includes('pend') ? 'pending' : null) ||
           (v.toLowerCase().includes('hold') ? 'hold' : null) ||
           (v.toLowerCase().includes('cancel') ? 'cancelled' : null) ||
           (v.toLowerCase().includes('reprogram') || v.toLowerCase().includes('reagend') || v.toLowerCase().includes('resched') ? 'rescheduled' : null) ||
@@ -5334,6 +5349,7 @@
       if (lower === 'cancelled') return 'badge-danger';
       if (lower === 'rescheduled') return 'badge-primary';
       if (lower === 'completed') return 'badge-success';
+      if (lower === 'active') return 'badge-success';
       return 'badge-info';
     }
 
@@ -5829,7 +5845,7 @@
           <td class="status-col">
             ${editable ? `
               <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus('${getLeadId(lead)}', this.value)">
-                ${['Pending','Hold','Cancelled','Rescheduled','Completed'].map(opt => `
+                ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active'].map(opt => `
                   <option value="${opt.toLowerCase()}" ${opt===statusLabel?'selected':''}>${opt}</option>
                 `).join('')}
               </select>
@@ -6069,12 +6085,52 @@
         } catch(e) {
           console.warn('[AGENT FILTER] Error:', e);
         }
-        
+        // PASO 1.75: aplicar filtro de Mercado
+        try {
+          const mercadoDropdown = document.getElementById('mercadoFilter');
+          const selectedMercado = mercadoDropdown ? String(mercadoDropdown.value || '').trim().toUpperCase() : '';
+          if (selectedMercado && Array.isArray(list) && list.length > 0) {
+            const beforeFilter = list.length;
+            list = list.filter(item => {
+              const m = String(item?.mercado || item?._raw?.mercado || '').trim().toUpperCase();
+              return m === selectedMercado;
+            });
+            console.log('[MERCADO FILTER] Aplicado:', selectedMercado, '| Antes:', beforeFilter, '| Después:', list.length);
+          }
+        } catch(e) {
+          console.warn('[MERCADO FILTER] Error:', e);
+        }
+
+        // PASO 1.8: aplicar filtro de Status
+        try {
+          const statusDropdown = document.getElementById('statusFilter');
+          const selectedStatus = statusDropdown ? String(statusDropdown.value || '').trim().toLowerCase() : 'all';
+          if (selectedStatus && selectedStatus !== 'all' && Array.isArray(list) && list.length > 0) {
+            const beforeFilter = list.length;
+            const matchSelectedStatus = (statusNorm) => {
+              const s = String(statusNorm || '');
+              if (selectedStatus === 'pending') return (s.includes('pendient') || s.includes('pending'));
+              if (selectedStatus === 'cancelled') return (s.includes('cancel') || s.includes('anulad') || s.includes('no instalado'));
+              if (selectedStatus === 'completed') return (s.includes('complet') || s.includes('complete') || s.includes('active') || s.includes('activo'));
+              if (selectedStatus === 'hold') return (s.includes('hold') || s.includes('espera'));
+              if (selectedStatus === 'rescheduled') return (s.includes('resched') || s.includes('reprogram'));
+              return true;
+            };
+            list = list.filter(item => {
+              const s = normalizarTexto(item?.status || item?._raw?.status || '');
+              return matchSelectedStatus(s);
+            });
+            console.log('[STATUS FILTER] Aplicado:', selectedStatus, '| Antes:', beforeFilter, '| Después:', list.length);
+          }
+        } catch(e) {
+          console.warn('[STATUS FILTER] Error:', e);
+        }
         // ACTUALIZAR TARJETAS DE RESUMEN (KPIs)
         // Usar la lista filtrada por Team y Agente, pero ANTES de filtrar por mes.
         // Esto asegura que "Ventas del Mes" muestre el mes actual real para el agente seleccionado,
         // independientemente de si estamos visualizando un mes antiguo en la tabla.
         try {
+          try { window.__kpiLeadsLast = Array.isArray(list) ? list.slice() : []; } catch(_) {}
           if (typeof updateSummaryCards === 'function') {
             updateSummaryCards(list);
           }
@@ -7139,18 +7195,32 @@
       // Obtener referencias a los elementos del DOM primero
       const ventasHoyElement = document.getElementById('costumer-ventas-hoy');
       const ventasMesElement = document.getElementById('costumer-ventas-mes');
+      const ventasActivasElement = document.getElementById('costumer-ventas-activas');
       const pendientesElement = document.getElementById('costumer-pendientes');
       const canceladosElement = document.getElementById('costumer-cancelados');
       
       // Establecer valores por defecto
       let ventasHoy = 0;
       let ventasMes = 0;
+      let ventasActivas = 0;
       let pendientes = 0;
       let cancelados = 0;
       // Fecha de referencia para KPIs (siempre disponible aunque no haya leads)
       const todayISO = toISOInTZ(new Date(), BUSINESS_TZ_OFFSET_MIN); // YYYY-MM-DD
       const [yNow, mNow] = todayISO.split('-').map(Number);
-      
+
+      // Mes objetivo para KPIs (si hay filtro de mes, usarlo; si no, usar mes actual)
+      const monthSelectKpi = document.getElementById('monthFilter');
+      const __hasExplicitMonthFilter = !!(monthSelectKpi && monthSelectKpi.value && /^\d{4}-\d{2}$/.test(String(monthSelectKpi.value).trim()));
+      const targetMonthStr = __hasExplicitMonthFilter
+        ? String(monthSelectKpi.value).trim()
+        : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
+      const [yTarget, mTarget] = targetMonthStr.split('-').map(Number);
+
+      // Diagnóstico: conteo por status y fechas inválidas
+      const __kpiStatusCounts = {};
+      let __kpiMissingDate = 0;
+
       // Verificar si hay datos para procesar
       if (!leads || !Array.isArray(leads) || leads.length === 0) {
         console.log('No hay datos para mostrar en los gr¨¢ficos');
@@ -7172,8 +7242,30 @@
           try {
             // Verificar si el lead tiene status (normalizado)
             const status = normalizarTexto(lead.status || '');
-            const isCancel = /cancel/.test(status);
+            const isCancel = (
+              status.includes('cancel') ||
+              status.includes('anulad') ||
+              status.includes('no instalado')
+            );
             const isPending = /pendient/.test(status) || /pending/.test(status);
+            const isActive = status.includes('active') || status.includes('activo');
+
+            // Usar la misma extracción de fecha que el gráfico
+            const leadISO = getDateFromLead(lead); // YYYY-MM-DD en TZ de negocio
+            let inTargetMonth = false;
+            if (!leadISO) {
+              __kpiMissingDate++;
+              // Si el backend ya filtró por mes (month=YYYY-MM), asumir que pertenece al mes seleccionado
+              // para que los totales cuadren aunque la fecha sea inválida/no parseable.
+              if (!__hasExplicitMonthFilter) return;
+              inTargetMonth = true;
+            } else {
+              const [yL, mL] = leadISO.split('-').map(Number);
+              inTargetMonth = (yL === yTarget && mL === mTarget);
+              if (!inTargetMonth) return;
+            }
+
+            __kpiStatusCounts[status || '(vacio)'] = (__kpiStatusCounts[status || '(vacio)'] || 0) + 1;
 
             // Contar pendientes
             if (isPending) {
@@ -7181,23 +7273,15 @@
             }
 
             // Contar cancelados (soportar variantes y subcadenas)
-            if (
-              status.includes('cancel') ||    // engloba canceled/cancelled/cancelado
-              status.includes('anulad') ||    // espa?ol alternativo
-              status.includes('no instalado') // posibles estados combinados
-            ) {
+            if (isCancel) {
               cancelados++;
             }
 
-            // Usar la misma extracci¨®n de fecha que el gr¨¢fico
-            const leadISO = getDateFromLead(lead); // YYYY-MM-DD en TZ de negocio
-            if (leadISO) {
-              // Ventas hoy (solo efectivas: excluir canceladas)
-              if (leadISO === todayISO && !isCancel) ventasHoy++;
-              // Ventas del mes (solo efectivas)
-              const [yL, mL] = leadISO.split('-').map(Number);
-              if (yL === yNow && mL === mNow && !isCancel) ventasMes++;
-            }
+            // Ventas hoy (solo efectivas: excluir canceladas)
+            if (leadISO && leadISO === todayISO && !isCancel) ventasHoy++;
+            // Ventas del mes (TOTAL registros del mes seleccionado)
+            ventasMes++;
+            if (isActive && !isCancel) ventasActivas++;
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
           }
@@ -7209,6 +7293,28 @@
           pendientes,
           cancelados
         });
+
+        try {
+          const otros = Math.max(0, (ventasMes - pendientes - cancelados));
+          window.__lastKpiDebug = {
+            targetMonth: targetMonthStr,
+            totalMes: ventasMes,
+            pendientes,
+            cancelados,
+            otros,
+            statusCounts: __kpiStatusCounts,
+            missingDateCount: __kpiMissingDate,
+            totalInputLeads: Array.isArray(leads) ? leads.length : 0
+          };
+          console.log('[KPI DEBUG] Mes:', targetMonthStr, {
+            totalMes: ventasMes,
+            pendientes,
+            cancelados,
+            otros,
+            missingDateCount: __kpiMissingDate,
+            statusCounts: __kpiStatusCounts
+          });
+        } catch (_) {}
       }
       
       // Actualizar el DOM con los valores calculados
@@ -7216,10 +7322,15 @@
         ventasHoyElement.textContent = ventasHoy.toString();
         console.log('Actualizado ventas hoy:', ventasHoy);
       }
-      
+
       if (ventasMesElement) {
         ventasMesElement.textContent = ventasMes.toString();
         console.log('Actualizado ventas mes:', ventasMes);
+      }
+
+      if (ventasActivasElement) {
+        ventasActivasElement.textContent = ventasActivas.toString();
+        console.log('Actualizado ventas activas:', ventasActivas);
       }
       
       if (pendientesElement) {
@@ -7238,10 +7349,15 @@
         ventasHoyElement.textContent = ventasHoy.toString();
         console.log('Actualizado ventas hoy en el DOM');
       }
-      
+
       if (ventasMesElement) {
         ventasMesElement.textContent = ventasMes.toString();
         console.log('Actualizado ventas mes en el DOM');
+      }
+
+      if (ventasActivasElement) {
+        ventasActivasElement.textContent = ventasActivas.toString();
+        console.log('Actualizado ventas activas en el DOM');
       }
       
       if (pendientesElement) {
@@ -7283,6 +7399,11 @@
         // Redondear a entero si es prácticamente entero
         puntajeMensual = Math.round(puntajeMensual * 100) / 100;
 
+        const selectedMonthSafe = (selectedMonth && /^\d{4}-\d{2}$/.test(String(selectedMonth).trim()))
+          ? String(selectedMonth).trim()
+          : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
+        const [ySel, mSel] = selectedMonthSafe.split('-').map(Number);
+
         const iconVentas = leads.filter(l => {
           const mercado = String(l.mercado || '').trim().toUpperCase();
           const status = normalizarTexto(l.status || '');
@@ -7290,7 +7411,7 @@
           const leadISO = getDateFromLead(l);
           if (!leadISO) return false;
           const [yL, mL] = leadISO.split('-').map(Number);
-          return mercado === 'ICON' && yL === yNow && mL === mNow && !isCancel;
+          return mercado === 'ICON' && yL === ySel && mL === mSel && !isCancel;
         }).length;
 
         const bamoVentas = leads.filter(l => {
@@ -7300,7 +7421,7 @@
           const leadISO = getDateFromLead(l);
           if (!leadISO) return false;
           const [yL, mL] = leadISO.split('-').map(Number);
-          return mercado === 'BAMO' && yL === yNow && mL === mNow && !isCancel;
+          return mercado === 'BAMO' && yL === ySel && mL === mSel && !isCancel;
         }).length;
 
         const totalMercados = iconVentas + bamoVentas;
@@ -9180,7 +9301,24 @@
           }
         });
       }
-      
+      // Configurar filtro de status
+      const statusFilter = document.getElementById('statusFilter');
+      if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+          console.log('[STATUS FILTER] Cambiando a status:', this.value || 'all');
+          
+          // Re-renderizar tabla
+          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
+            const prevSuspend = window.__suspendRender;
+            try {
+              window.__suspendRender = false;
+              window.renderCostumerTable(window.ultimaListaLeads);
+            } finally {
+              window.__suspendRender = prevSuspend;
+            }
+          }
+        });
+      }
       // Configurar filtro de mercado
       const mercadoFilter = document.getElementById('mercadoFilter');
       if (mercadoFilter) {

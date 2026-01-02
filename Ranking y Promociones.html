@@ -45,11 +45,11 @@
     }
     .rank-side-arrow:hover{ opacity: .98; transform: translateY(-50%) scale(1.05); box-shadow: 0 10px 24px rgba(2,6,23,.22); }
     .rank-side-arrow:active{ opacity: 1; transform: translateY(-50%) scale(.97); }
-    .rank-side-arrow.left{ left: 18px; }
+    .rank-side-arrow.left{ left: calc(260px + 18px); }
     .rank-side-arrow.right{ right: 18px; }
     @media (max-width: 1024px){
       .rank-side-arrow{ width: 40px; height: 40px; font-size: 22px; }
-      .rank-side-arrow.left{ left: 14px; }
+      .rank-side-arrow.left{ left: calc(260px + 14px); }
       .rank-side-arrow.right{ right: 14px; }
     }
   </style>
@@ -2327,7 +2327,7 @@
     <div id="fullRankingModal" style="position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:9999;">
       <div style="background:#fff; width:min(1100px, 92vw); max-height:88vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:flex; flex-direction:column;">
         <div style="padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb;">
-          <h3 style="margin:0; font-size:1.1rem;">Ranking completo (mes actual)</h3>
+          <h3 id="full-ranking-title" style="margin:0; font-size:1.1rem;">Ranking completo (mes actual)</h3>
           <button id="btn-close-full-ranking" type="button" style="background:#111827; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Cerrar</button>
         </div>
         <div style="padding:12px 18px; overflow:auto;">
@@ -2746,6 +2746,8 @@
         window.__rankYear = (new Date()).getFullYear();
         window.__rankMonth = (new Date()).getMonth(); // 0-11
 
+        try { setPeriodLabel(window.__rankYear, window.__rankMonth); } catch(_) {}
+
         function monthBounds(y, m){
           const start = new Date(y, m, 1);
           const now = new Date();
@@ -2898,6 +2900,10 @@
             return el;
           })();
           label.textContent = `Ranking ÔÇö ${monthNames[m]} ${y}`;
+          try {
+            const modalTitle = document.getElementById('full-ranking-title');
+            if (modalTitle) modalTitle.textContent = `Ranking completo ÔÇö ${monthNames[m]} ${y}`;
+          } catch (_) {}
         }
 
         // Delegate monthly loader to external implementation in `js/ranking-page.js`
@@ -2905,12 +2911,14 @@
           try {
             if (typeof window.loadRankingByMonth === 'function' && window.loadRankingByMonth !== loadRankingByMonth) {
               await window.loadRankingByMonth(y,m);
+              try { setPeriodLabel(y, m); } catch(_) {}
               return;
             }
             const start = Date.now();
             while (Date.now() - start < 3000) {
               if (typeof window.loadRankingByMonth === 'function' && window.loadRankingByMonth !== loadRankingByMonth) {
                 await window.loadRankingByMonth(y,m);
+                try { setPeriodLabel(y, m); } catch(_) {}
                 return;
               }
               await new Promise(r => setTimeout(r, 150));
@@ -2918,6 +2926,14 @@
             console.warn('[RANKING] External loadRankingByMonth not found; skipping month load.');
           } catch (e) { console.warn('[RANKING] Error delegating loadRankingByMonth:', e); }
         }
+
+        document.addEventListener('rank-nav', () => {
+          try {
+            setTimeout(() => {
+              try { setPeriodLabel(window.__rankYear, window.__rankMonth); } catch(_) {}
+            }, 300);
+          } catch (_) {}
+        });
 
         // --- L├│gica de Resize ---
         let _resizeT;

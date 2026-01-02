@@ -438,13 +438,15 @@
           btn.textContent = window.__rankViewAll ? 'Ver menos' : 'Ver todos';
           if (window.__rankViewAll) {
             try {
-              const now = new Date();
-              const y = now.getFullYear();
-              const m = String(now.getMonth() + 1).padStart(2, '0');
-              const d = String(now.getDate()).padStart(2, '0');
-              const fechaInicio = `${y}-${m}-01`;
-              const fechaFin = `${y}-${m}-${d}`;
-              const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+              const y = Number(window.__rankYear);
+              const mIdx = Number(window.__rankMonth);
+              const b = (typeof monthBounds === 'function' && Number.isInteger(y) && Number.isInteger(mIdx))
+                ? monthBounds(y, mIdx)
+                : monthBounds((new Date()).getFullYear(), (new Date()).getMonth());
+              const fechaInicio = b.fechaInicio;
+              const fechaFin = b.fechaFin;
+              const fieldParam = b.isCurrent ? '' : '&field=createdAt';
+              const urlAll = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=500${fieldParam}`;
               const resAll = await fetch(urlAll, { credentials: 'include' });
               if (resAll.ok) {
                 const dataAll = await resAll.json();
@@ -561,6 +563,9 @@
         setCachedRanking(cacheKey, data);
       }
       const list=Array.isArray(data?.ranking)?data.ranking:[];
+      try {
+        window.__rankFullList = list;
+      } catch (_) {}
       updateRankingUI(list);
     }catch(e){ console.warn('[RANKING] No se pudo cargar mes', y,m,e); }
   }

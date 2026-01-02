@@ -566,7 +566,8 @@ app.get('/api/lineas', protect, async (req, res) => {
     const role = (user?.role || '').toLowerCase();
 
     // Determinar si es usuario privilegiado (puede ver todos los registros)
-    const isPrivileged = ['Administrador', 'Backoffice', 'Supervisor', 'Supervisor Team Lineas'].includes(role);
+    const privilegedRoles = ['admin', 'administrador', 'backoffice', 'back office', 'back_office', 'bo', 'b.o', 'supervisor', 'supervisor team lineas'];
+    const isPrivileged = privilegedRoles.some(r => role === r || role.includes(r));
 
     let filter = {};
     

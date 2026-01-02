@@ -307,9 +307,60 @@ router.get('/leads', protect, async (req, res) => {
         const fetchLimit = Math.max(0, remaining);
         console.log(`[API /leads] Preparando fetch en ${colName}: skip=${skip} limit=${fetchLimit} (remaining global=${remaining})`);
 
-        const cursor = col.find(query).sort({ createdAt: -1 }).skip(skip).limit(fetchLimit);
-        if (Object.keys(projection).length) cursor.project(projection);
-        const docs = await cursor.toArray();
+        const pipeline = [
+          { $match: query },
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: fetchLimit },
+          { $addFields: {
+              // Usar $convert para manejar de forma segura IDs inválidos, nulos o ausentes
+              agenteObjId: { 
+                $convert: {
+                  input: "$agenteId",
+                  to: "objectId",
+                  onError: null,
+                  onNull: null
+                }
+              },
+              supervisorObjId: {
+                $convert: {
+                  input: "$supervisorId",
+                  to: "objectId",
+                  onError: null,
+                  onNull: null
+                }
+              }
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'agenteObjId',
+              foreignField: '_id',
+              as: 'agenteDetails'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'supervisorObjId',
+              foreignField: '_id',
+              as: 'supervisorDetails'
+            }
+          },
+          {
+            $addFields: {
+              agenteNombre: { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agenteNombre', '$agente' ] },
+              supervisor: { $ifNull: [ { $arrayElemAt: ['$supervisorDetails.username', 0] }, '$supervisor' ] }
+            }
+          }
+        ];
+
+        if (Object.keys(projection).length > 0) {
+          pipeline.push({ $project: projection });
+        }
+
+        const docs = await col.aggregate(pipeline).toArray();
         console.log(`[API /leads] ${colName} -> docsFetched=${docs?.length||0}`);
         if (docs && docs.length) {
           collected.push(...docs);
@@ -896,8 +947,66 @@ router.get('/leads/:id', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
-    console.log(`[GET /leads/:id] Lead encontrado en ${foundInCollection}, tiene notas:`, Array.isArray(lead.notas) ? lead.notas.length : 'no');
-    return res.json({ success: true, data: lead, lead: lead, foundInCollection });
+    console.log(`[GET /leads/:id] Lead encontrado en ${foundInCollection}. Enriqueciendo con datos de usuario...`);
+
+    // Una vez encontrado el lead, enriquecerlo con una agregación para obtener nombres
+    try {
+      const collection = db.collection(foundInCollection);
+      const pipeline = [
+        { $match: { _id: lead._id } },
+        {
+          $addFields: {
+            agenteObjId: { $convert: { input: "$agenteId", to: "objectId", onError: null, onNull: null } },
+            supervisorObjId: { $convert: { input: "$supervisorId", to: "objectId", onError: null, onNull: null } }
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'agenteObjId',
+            foreignField: '_id',
+            as: 'agenteDetails'
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'supervisorObjId',
+            foreignField: '_id',
+            as: 'supervisorDetails'
+          }
+        },
+        {
+          $addFields: {
+            agenteNombre: { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agenteNombre', '$agente' ] },
+            supervisor: { $ifNull: [ { $arrayElemAt: ['$supervisorDetails.username', 0] }, '$supervisor' ] }
+          }
+        },
+        {
+          $project: {
+            agenteDetails: 0,
+            supervisorDetails: 0,
+            agenteObjId: 0,
+            supervisorObjId: 0
+          }
+        }
+      ];
+
+      const enrichedResult = await collection.aggregate(pipeline).toArray();
+
+      if (enrichedResult.length > 0) {
+        const enrichedLead = enrichedResult[0];
+        console.log(`[GET /leads/:id] Lead enriquecido exitosamente.`);
+        return res.json({ success: true, data: enrichedLead, lead: enrichedLead, foundInCollection });
+      } else {
+        console.warn(`[GET /leads/:id] No se pudo enriquecer el lead, devolviendo datos originales.`);
+        return res.json({ success: true, data: lead, lead: lead, foundInCollection });
+      }
+    } catch (enrichError) {
+      console.error(`[GET /leads/:id] Error durante el enriquecimiento del lead:`, enrichError);
+      // Fallback: devolver el lead original si el enriquecimiento falla
+      return res.json({ success: true, data: lead, lead: lead, foundInCollection });
+    }
   } catch (error) {
     console.error('[API GET LEAD] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
@@ -1043,8 +1152,8 @@ router.delete('/leads/:id', protect, async (req, res, next) => {
 
     // Verificar permisos: solo admin y backoffice pueden eliminar
     const user = req.user;
-    const role = (user?.role || '').toLowerCase();
-    const allowedRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
+    const role = (user?.role || '').toLowerCase().trim();
+    const allowedRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'back office', 'back_office', 'b.o', 'b:o', 'b-o', 'bo'];
     
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({ 
@@ -1620,7 +1729,12 @@ router.put('/users/:id/role', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nuevo rol requerido' });
     }
 
-    const allowedRoles = ['admin', 'Administrador', 'administrador', 'Administrativo', 'supervisor', 'vendedor', 'usuario', 'backoffice'];
+    const allowedRoles = [
+      'admin', 'Administrador', 'administrador', 'Administrativo', 
+      'supervisor', 'supervisora',
+      'vendedor', 'usuario', 'agente', 'agent',
+      'backoffice', 'back office', 'Back Office', 'back_office', 'bo', 'BO', 'b.o', 'b:o'
+    ];
     console.log('[USERS UPDATE ROLE] requested new role:', role);
     if (!allowedRoles.includes(role)) {
       console.warn('[USERS UPDATE ROLE] requested role not allowed:', role);
