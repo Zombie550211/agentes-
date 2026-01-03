@@ -261,7 +261,8 @@
                 }
 
                 if (cell) {
-                    cell.textContent = value;
+                    const displayValue = (String(value).trim() === '' || Number(value) === 0) ? '-' : value;
+                    cell.textContent = displayValue;
                     console.log(`Celda actualizada: ${cell.dataset.day}-${team}-${type} = ${value}`);
                 } else {
                     console.warn(`Celda no encontrada: ${dayLocal}/${dayUtc}-${team}-${type}`, record);
@@ -290,24 +291,30 @@
         }
 
         async function saveCell(cell) {
-            const value = cell.textContent.trim();
+            const value = (cell.textContent || '').trim();
             const day = cell.dataset.day;
             const team = cell.dataset.team;
             const type = cell.dataset.type;
 
             const originalValue = (cell.dataset.originalValue ?? '').trim();
+            const originalNormalized = (originalValue === '' || originalValue === '-') ? '0' : originalValue;
+            const normalizedValue = (value === '' || value === '-') ? '0' : value;
 
-            if (value === originalValue) {
+            if (normalizedValue === originalNormalized) {
                 return;
             }
 
-            if (value === '' || value === '-') {
-                cell.textContent = originalValue || '-';
-                return;
+            // Si el usuario borra, interpretarlo como 0 y permitir guardar.
+            // Visualmente mostramos '-' para 0 para mantener la tabla limpia.
+            const shouldShowDash = normalizedValue === '0';
+            if (shouldShowDash) {
+                cell.textContent = '-';
+            } else {
+                cell.textContent = normalizedValue;
             }
             
             // Guardar valor temporal para evitar que se borre
-            cell.dataset.tempValue = value;
+            cell.dataset.tempValue = normalizedValue;
             
             try {
                 const response = await fetch('/api/llamadas-ventas', {
@@ -319,7 +326,7 @@
                         day: parseInt(day),
                         team: team,
                         type: type,
-                        value: value
+                        value: normalizedValue
                     })
                 });
 
@@ -328,9 +335,9 @@
                 try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
                 
                 if (result.success) {
-                    console.log('Guardado en base de datos:', { day, team, type, value });
+                    console.log('Guardado en base de datos:', { day, team, type, value: normalizedValue });
 
-                    cell.dataset.originalValue = value;
+                    cell.dataset.originalValue = normalizedValue;
                     
                     // Después de guardar, recalcular los totales para el día afectado
                     if (type === 'LLAMADAS' || type === 'VENTAS') {
@@ -340,12 +347,12 @@
                 } else {
                     console.error('Error al guardar:', result.message, { status: response.status, result });
                     // NO revertir el cambio, mantener el valor escrito
-                    cell.textContent = cell.dataset.tempValue || value;
+                    cell.textContent = (cell.dataset.tempValue === '0') ? '-' : (cell.dataset.tempValue || normalizedValue);
                 }
             } catch (error) {
                 console.error('Error de conexión al guardar:', error);
                 // NO revertir el cambio, mantener el valor escrito
-                cell.textContent = cell.dataset.tempValue || value;
+                cell.textContent = (cell.dataset.tempValue === '0') ? '-' : (cell.dataset.tempValue || normalizedValue);
             }
         }
 
