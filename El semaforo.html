@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚦 El Semáforo - Ranking de Equipos</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+    <script src="js/fetch-interceptor.js" defer></script>
+    <script src="js/sidebar-loader.js" defer></script>
+    <script src="js/logout-handler.js" defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: linear-gradient(180deg, #87CEEB 0%, #4682B4 100%);
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            width: calc(100% - 250px);
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 200px;
+                width: calc(100% - 200px);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            color: #1f2937;
+            text-shadow: 3px 3px 0px rgba(255, 255, 255, 0.8);
+            margin-bottom: 10px;
+            font-weight: 900;
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            color: #1f2937;
+            font-weight: bold;
+        }
+        .scene {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+
+        .poste-superior {
+            width: 25px;
+            height: 80px;
+            background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+            border-radius: 5px 5px 0 0;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .poste-superior::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 2px;
+            width: 3px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .semaforo-body {
+            width: 280px;
+            background: linear-gradient(90deg, #1a1a1a 0%, #333 50%, #1a1a1a 100%);
+            border-radius: 40px;
+            padding: 30px 35px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), inset 0 2px 5px rgba(255, 255, 255, 0.1);
+            border: 8px solid #0a0a0a;
+            position: relative;
+        }
+
+        .semaforo-body::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 15px;
+            width: 8px;
+            height: calc(100% - 40px);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .tornillo {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle, #555 30%, #2a2a2a 100%);
+            border-radius: 50%;
+            box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .tornillo::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 2px;
+            background: #1a1a1a;
+        }
+
+        .tornillo.tl { top: 15px; left: 15px; }
+        .tornillo.tr { top: 15px; right: 15px; }
+        .tornillo.bl { bottom: 15px; left: 15px; }
+        .tornillo.br { bottom: 15px; right: 15px; }
+
+        .luz-circulo {
+            width: 210px;
+            height: 210px;
+            border-radius: 50%;
+            margin: 0 auto 35px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .luz-circulo:last-child {
+            margin-bottom: 0;
+        }
+
+        .luz-circulo::before {
+            content: '';
+            position: absolute;
+            inset: -15px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            z-index: -1;
+            box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .luz-circulo::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 35%;
+            height: 35%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6), transparent 60%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .luz-verde {
+            background: radial-gradient(circle at 35% 35%, #7ef07e, #22c55e 40%, #15803d 80%, #0d5025);
+            animation: pulso-verde 3s infinite;
+        }
+
+        .luz-amarilla {
+            background: radial-gradient(circle at 35% 35%, #fef08a, #eab308 40%, #ca8a04 80%, #854d0e);
+            animation: pulso-amarillo 3s infinite;
+        }
+
+        .luz-roja {
+            background: radial-gradient(circle at 35% 35%, #fca5a5, #ef4444 40%, #dc2626 80%, #991b1b);
+            animation: pulso-rojo 3s infinite;
+        }
+
+        @keyframes pulso-verde {
+            0%, 100% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 40px rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 60px rgba(34, 197, 94, 0.8); }
+        }
+
+        @keyframes pulso-amarillo {
+            0%, 100% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 40px rgba(234, 179, 8, 0.4); }
+            50% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 60px rgba(234, 179, 8, 0.8); }
+        }
+
+        @keyframes pulso-rojo {
+            0%, 100% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 40px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 60px rgba(239, 68, 68, 0.8); }
+        }
+
+        .equipos-luz {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1;
+        }
+
+        .team-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .team-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .team-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .position-badge {
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .trophy {
+            font-size: 1.2rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .team-name {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .team-metrics {
+            margin-top: 2px;
+            font-size: 0.8rem;
+            color: #111827;
+            opacity: 0.95;
+        }
+
+        .poste-inferior {
+            width: 25px;
+            height: 120px;
+            background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .poste-inferior::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 2px;
+            width: 3px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .base-semaforo {
+            width: 120px;
+            height: 20px;
+            background: linear-gradient(90deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.8);
+            margin-top: -5px;
+        }
+
+        .legend {
+            margin-top: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .legend-circle.verde {
+            background: radial-gradient(circle at 35% 35%, #7ef07e, #22c55e);
+        }
+
+        .legend-circle.amarilla {
+            background: radial-gradient(circle at 35% 35%, #fef08a, #eab308);
+        }
+
+        .legend-circle.roja {
+            background: radial-gradient(circle at 35% 35%, #fca5a5, #ef4444);
+        }
+
+        .legend-text {
+            font-weight: bold;
+            color: #1f2937;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <nav class="sidebar sidebar-inicio" data-active="semaforo"></nav>
+        <main class="main-content">
+            <div class="container">
+                <div class="scene">
+                    <div class="header">
+                        <h1>🚦 EL SEMÁFORO</h1>
+                        <p class="subtitle">Ranking de Equipos</p>
+                    </div>
+
+                    <div class="poste-superior"></div>
+
+                    <div class="semaforo-body">
+                        <div class="tornillo tl"></div>
+                        <div class="tornillo tr"></div>
+                        <div class="tornillo bl"></div>
+                        <div class="tornillo br"></div>
+
+                        <div class="luz-circulo luz-verde">
+                            <div class="equipos-luz" id="zona-verde"></div>
+                        </div>
+
+                        <div class="luz-circulo luz-amarilla">
+                            <div class="equipos-luz" id="zona-amarilla"></div>
+                        </div>
+
+                        <div class="luz-circulo luz-roja">
+                            <div class="equipos-luz" id="zona-roja"></div>
+                        </div>
+                    </div>
+
+                    <div class="poste-inferior"></div>
+                    <div class="base-semaforo"></div>
+
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-circle verde"></div>
+                            <span class="legend-text">TOP 3</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-circle amarilla"></div>
+                            <span class="legend-text">ALERTA</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-circle roja"></div>
+                            <span class="legend-text">PELIGRO</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let equipos = [
+            { id: 1, nombre: 'Pleitez', posicion: 1, ventas: 0 },
+            { id: 2, nombre: 'Roberto', posicion: 2, ventas: 0 },
+            { id: 3, nombre: 'Marisol', posicion: 3, ventas: 0 },
+            { id: 4, nombre: 'Johana', posicion: 4, ventas: 0 },
+            { id: 5, nombre: 'Irania', posicion: 5, ventas: 0 }
+        ];
+
+        function getColor(posicion) {
+            if (posicion <= 3) return 'verde';
+            if (posicion === 4) return 'amarillo';
+            return 'rojo';
+        }
+
+        function renderEquipos() {
+            const zonaVerde = document.getElementById('zona-verde');
+            const zonaAmarilla = document.getElementById('zona-amarilla');
+            const zonaRoja = document.getElementById('zona-roja');
+
+            if (!zonaVerde || !zonaAmarilla || !zonaRoja) {
+                return;
+            }
+
+            zonaVerde.innerHTML = '';
+            zonaAmarilla.innerHTML = '';
+            zonaRoja.innerHTML = '';
+
+            equipos.forEach((equipo, index) => {
+                const card = document.createElement('div');
+                card.className = 'team-card';
+
+                card.innerHTML = `
+                    <div class="team-info">
+                        <div class="position-badge">${equipo.posicion}</div>
+                        ${equipo.posicion === 1 ? '<span class="trophy">🏆</span>' : ''}
+                        <div>
+                            <div class="team-name">${equipo.nombre}</div>
+                            <div class="team-metrics">Ventas del mes: <strong>${Number(equipo.ventas || 0)}</strong></div>
+                        </div>
+                    </div>
+                `;
+
+                if (equipo.posicion <= 3) {
+                    zonaVerde.appendChild(card);
+                } else if (equipo.posicion === 4) {
+                    zonaAmarilla.appendChild(card);
+                } else {
+                    zonaRoja.appendChild(card);
+                }
+            });
+        }
+
+        function getMonthRange(date) {
+            const safe = (date instanceof Date && !Number.isNaN(date.getTime())) ? new Date(date) : new Date();
+            safe.setHours(12, 0, 0, 0);
+
+            const year = safe.getFullYear();
+            const monthIdx = safe.getMonth();
+            const month = String(monthIdx + 1).padStart(2, '0');
+            const lastDayNum = new Date(year, monthIdx + 1, 0).getDate();
+            const firstDay = `${year}-${month}-01`;
+            const lastDay = `${year}-${month}-${String(lastDayNum).padStart(2, '0')}`;
+            return { firstDay, lastDay, year, monthIdx };
+        }
+
+        function normalizeTeamName(name) {
+            const raw = String(name || '').trim();
+            return raw || 'Sin equipo';
+        }
+
+        function formatTeamDisplayName(name) {
+            try {
+                let v = String(name || '').trim();
+                if (!v) return 'Sin equipo';
+                if (/^TEAM\s+/i.test(v)) v = v.replace(/^TEAM\s+/i, '').trim();
+                const first = v.split(/\s+/)[0] || v;
+                const lower = first.toLowerCase();
+                return lower.charAt(0).toUpperCase() + lower.slice(1);
+            } catch (_) {
+                return 'Sin equipo';
+            }
+        }
+
+        function getAuthToken() {
+            try {
+                return sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        async function fetchWithAuth(url, config) {
+            const cfg = config && typeof config === 'object' ? { ...config } : {};
+            cfg.headers = cfg.headers && typeof cfg.headers === 'object' ? { ...cfg.headers } : {};
+            const token = getAuthToken();
+            if (token && !cfg.headers.Authorization) {
+                cfg.headers.Authorization = `Bearer ${token}`;
+            }
+            return fetch(url, cfg);
+        }
+
+        function normalizeVentasValue(row) {
+            try {
+                const raw = (row && (row.Total ?? row.TOTAL ?? row.total ?? row.cantidad ?? 0)) ?? 0;
+                const n = Number(raw);
+                return Number.isFinite(n) ? n : 0;
+            } catch (_) {
+                return 0;
+            }
+        }
+
+        function shouldExcludeFromSemaforo(name) {
+            try {
+                const cleaned = String(name || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .trim()
+                    .toUpperCase();
+                const base = cleaned.replace(/^TEAM\s+/, '').trim();
+                const first = (base.split(/\s+/)[0] || base).trim();
+                return first === 'JONATHAN' || first === 'LUIS';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        async function fetchMonthSalesByTeam(date) {
+            const { firstDay, lastDay } = getMonthRange(date);
+            let teamRows = [];
+
+            try {
+                let url = `/api/equipos/estadisticas?fechaInicio=${firstDay}&fechaFin=${lastDay}`;
+                try {
+                    const u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+                    const role = (u?.role || '').toString().trim().toLowerCase();
+                    if (role === 'agent' || role === 'agente') {
+                        url += '&forceAll=1';
+                    }
+                } catch (_) {}
+
+                const resp = await fetchWithAuth(url);
+                if (resp && resp.ok) {
+                    const json = await resp.json();
+                    const mainData = Array.isArray(json?.data) ? json.data : [];
+                    const lineasData = Array.isArray(json?.lineas) ? json.lineas : [];
+                    const payloadOk = (json && typeof json === 'object') ? (json.success !== false) : true;
+                    if (payloadOk) {
+                        teamRows = [...mainData, ...lineasData];
+                        if (!teamRows.length && Array.isArray(json)) {
+                            teamRows = json;
+                        }
+                    }
+                } else {
+                    const raw = resp ? await resp.text() : '';
+                    console.warn('[SEMAFORO] /api/equipos/estadisticas no OK', { status: resp?.status, raw });
+                }
+            } catch (err) {
+                console.warn('[SEMAFORO] Error solicitando estadísticas mensuales:', err);
+            }
+
+            const map = new Map();
+            for (const row of (teamRows || [])) {
+                const name = normalizeTeamName(row?.TEAM || row?.name || row?.team || row?.equipo);
+                if (shouldExcludeFromSemaforo(name)) {
+                    continue;
+                }
+                const ventas = normalizeVentasValue(row);
+                map.set(name, (map.get(name) || 0) + ventas);
+            }
+
+            const teams = Array.from(map.entries()).map(([nombre, ventas]) => ({ nombre: formatTeamDisplayName(nombre), ventas }));
+            teams.sort((a, b) => {
+                const diff = Number(b.ventas || 0) - Number(a.ventas || 0);
+                if (diff !== 0) return diff;
+                return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es');
+            });
+            return teams;
+        }
+
+        async function loadSemaforoMensual() {
+            try {
+                const now = new Date();
+                const teams = await fetchMonthSalesByTeam(now);
+                if (!Array.isArray(teams) || teams.length === 0) {
+                    console.warn('[SEMAFORO] Dataset mensual vacío; manteniendo lista local.');
+                    return;
+                }
+
+                equipos = teams.slice(0, 5).map((t, idx) => ({
+                    id: idx + 1,
+                    nombre: t.nombre,
+                    posicion: idx + 1,
+                    ventas: Number(t.ventas || 0)
+                }));
+                renderEquipos();
+            } catch (err) {
+                console.warn('[SEMAFORO] No se pudo cargar semáforo mensual:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.loadSidebar) {
+                window.loadSidebar();
+            }
+            renderEquipos();
+            loadSemaforoMensual();
+        });
+    </script>
+</body>
+</html>
