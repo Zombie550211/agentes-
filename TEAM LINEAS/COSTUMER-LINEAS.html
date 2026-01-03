@@ -10,7 +10,8 @@
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const role = String(user.role||'').toLowerCase();
         const team = String(user.team||'').toLowerCase();
-        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
+        const uname = String(user.username || user.name || user.email || '').toLowerCase();
+        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || uname.startsWith('lineas-');
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();
@@ -1199,10 +1200,10 @@
         
         if (name.includes('JONATHAN')) {
           defaultSupervisor = 'JONATHAN F';
-          agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ'];
+          agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ'];
         } else if (name.includes('GUTIERREZ') || name.includes('LUIS')) {
           defaultSupervisor = 'LUIS G';
-          agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ'];
+          agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ'];
         }
         
         // Poblar filtro de agentes si es supervisor
