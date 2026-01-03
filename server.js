@@ -891,8 +891,8 @@ app.post('/api/lineas-team/notes/delete', protect, async (req, res) => {
   }
 });
 
-// POST /api/lineas-team/delete - Eliminar registro de Team Líneas
-app.post('/api/lineas-team/delete', protect, async (req, res) => {
+// DELETE /api/lineas-team/delete - Eliminar registro de Team Líneas
+app.delete('/api/lineas-team/delete', protect, async (req, res) => {
   try {
     if (!isConnected()) {
       return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
@@ -1851,7 +1851,6 @@ app.get('/api/auth/verify-server', async (req, res) => {
   }
 
   try {
-    const jwt = require('jsonwebtoken');
     const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
     const decoded = jwt.verify(token, JWT_SECRET);
 
@@ -1905,7 +1904,195 @@ app.get('/api/auth/verify-server', async (req, res) => {
       username: null,
       error: error.message
     });
-  } // Fin del try/catch para /api/auth/verify-server
+  }
+});
+
+// GET /api/llamadas-ventas - Obtener datos de llamadas y ventas
+app.get('/api/llamadas-ventas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
+    if (!isAllowed) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { month, year } = req.query;
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    
+    const targetMonth = month ? parseInt(month) : currentMonth;
+    const targetYear = year ? parseInt(year) : currentYear;
+
+    // Crear filtro por mes y año
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+    console.log(`[GET /api/llamadas-ventas] Buscando datos para ${targetMonth}/${targetYear}`);
+
+    const registros = await db.collection('llamadas_ventas').aggregate([
+      {
+        $match: {
+          fecha: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        }
+      },
+      {
+        $addFields: {
+          __fechaKey: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } }
+        }
+      },
+      { $sort: { actualizadoEn: -1, creadoEn: -1, _id: -1 } },
+      {
+        $group: {
+          _id: { fechaKey: '$__fechaKey', team: '$team', tipo: '$tipo' },
+          doc: { $first: '$$ROOT' }
+        }
+      },
+      { $replaceRoot: { newRoot: '$doc' } },
+      { $project: { __fechaKey: 0 } },
+      { $sort: { fecha: 1, team: 1, tipo: 1 } }
+    ]).toArray();
+
+    console.log(`[GET /api/llamadas-ventas] Encontrados ${registros.length} registros`);
+
+    return res.json({
+      success: true,
+      data: registros,
+      count: registros.length,
+      month: targetMonth,
+      year: targetYear
+    });
+
+  } catch (error) {
+    console.error('[GET /api/llamadas-ventas] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener datos de llamadas y ventas',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/llamadas-ventas - Guardar o actualizar datos de llamadas y ventas
+app.post('/api/llamadas-ventas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
+    if (!isAllowed) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { day, team, type, value } = req.body;
+    const user = req.user;
+
+    // Validaciones
+    if (!day || !team || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos requeridos: day, team, type'
+      });
+    }
+
+    // Evitar sobrescrituras accidentales: no permitir guardar '-' / vacío en LLAMADAS o VENTAS
+    if (type === 'LLAMADAS' || type === 'VENTAS') {
+      const rawValue = (value ?? '').toString().trim();
+      if (rawValue === '' || rawValue === '-') {
+        return res.status(400).json({
+          success: false,
+          message: 'Valor inválido para LLAMADAS/VENTAS'
+        });
+      }
+
+      const n = Number(rawValue);
+      if (!Number.isFinite(n)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valor inválido para LLAMADAS/VENTAS'
+        });
+      }
+    }
+
+    // Crear rango de fecha para el día especificado (mes y año actual)
+    const now = new Date();
+    const fechaStart = new Date(now.getFullYear(), now.getMonth(), parseInt(day));
+    const fechaEnd = new Date(now.getFullYear(), now.getMonth(), parseInt(day) + 1);
+
+    // Determinar el valor a guardar
+    let valorFinal = value;
+    if (type === 'TOTALES') {
+      // Para totales, el valor viene como "llamadas/ventas"
+      const partes = value.split('/');
+      valorFinal = value; // Guardar el string completo
+    } else {
+      // Para llamadas y ventas individuales
+      valorFinal = parseFloat(value) || 0;
+    }
+
+    console.log(`[POST /api/llamadas-ventas] Guardando: ${day}/${team}/${type} = ${valorFinal}`);
+
+    const result = await db.collection('llamadas_ventas').updateMany(
+      {
+        fecha: { $gte: fechaStart, $lt: fechaEnd },
+        team: team,
+        tipo: type
+      },
+      {
+        $set: {
+          valor: valorFinal,
+          actualizadoEn: new Date(),
+          actualizadoPor: user?.username || 'unknown'
+        },
+        $setOnInsert: {
+          fecha: fechaStart,
+          creadoEn: new Date(),
+          creadoPor: user?.username || 'unknown'
+        }
+      },
+      { upsert: true }
+    );
+
+    console.log(`[POST /api/llamadas-ventas] Guardado exitoso: ${result.modifiedCount || result.upsertedCount} registros afectados`);
+
+    return res.json({
+      success: true,
+      message: 'Datos guardados correctamente',
+      data: {
+        day,
+        team,
+        type,
+        value: valorFinal,
+        fecha: fechaStart,
+        modifiedCount: result.modifiedCount,
+        upsertedCount: result.upsertedCount
+      }
+    });
+
+  } catch (error) {
+    console.error('[POST /api/llamadas-ventas] Error:', {
+      message: error?.message,
+      stack: error?.stack,
+      body: req?.body,
+      user: req?.user?.username
+    });
+    return res.status(500).json({
+      success: false,
+      message: 'Error al guardar datos de llamadas y ventas',
+      error: error.message,
+      details: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+    });
+  }
 });
 
 // ========== ENDPOINT INIT-DASHBOARD ==========

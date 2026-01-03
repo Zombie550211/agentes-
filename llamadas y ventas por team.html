@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llamadas y Ventas por Team</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+    <script src="js/fetch-interceptor.js" defer></script>
+    <script src="js/sidebar-loader.js" defer></script>
+    <style>
+        .editable-cell {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 700;
+            color: #000;
+        }
+        .editable-cell:hover {
+            background: #e3f2fd !important;
+            transform: scale(1.02);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .editable-cell:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: -2px;
+            background: #fff !important;
+        }
+        .editing {
+            background: #fff !important;
+            font-weight: 700;
+        }
+        th {
+            font-weight: 800 !important;
+            color: #000 !important;
+        }
+        td {
+            font-weight: 600 !important;
+            color: #000 !important;
+        }
+    </style>
+<script src="js/logout-handler.js" defer></script>
+</head>
+<body>
+    <div class="layout">
+        <nav class="sidebar sidebar-inicio" data-active="llamadas-team"></nav>
+        <main class="main-content">
+            <div style="padding: 20px;">
+                <h1 style="margin-bottom: 20px;">Llamadas y Ventas por Team</h1>
+                
+                <div style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: 1200px;">
+                        <thead>
+                            <tr>
+                                <!-- TEAM IRANIA -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #f8fbff;" colspan="4">TEAM IRANIA</th>
+                                <!-- TEAM BRYAN -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #faf5ff;" colspan="3">TEAM BRYAN</th>
+                                <!-- TEAM ROBERTO -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #f1f8f1;" colspan="3">TEAM ROBERTO</th>
+                                <!-- TEAM MARISOL -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #fff8f1;" colspan="3">TEAM MARISOL</th>
+                                <!-- TEAM SANTANA -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #fff0f5;" colspan="3">TEAM SANTANA</th>
+                                <!-- TOTALES -->
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #e8eaf6;" colspan="2">TOTALES</th>
+                            </tr>
+                            <tr style="background: var(--background-light);">
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 12px;">Fecha</th>
+                                <!-- TEAM IRANIA - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">VENTAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">TOTALES</th>
+                                <!-- TEAM BRYAN - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">VENTAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">TOTALES</th>
+                                <!-- TEAM ROBERTO - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">VENTAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">TOTALES</th>
+                                <!-- TEAM MARISOL - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">VENTAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">TOTALES</th>
+                                <!-- TEAM SANTANA - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">VENTAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">TOTALES</th>
+                                <!-- TOTALES - Columnas -->
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #e8eaf6;">TOTAL DE LLAMADAS</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #e8eaf6;">TOTAL DE VENTAS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td style="padding: 12px; text-align: left;">-</td>
+                                <!-- TEAM IRANIA - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
+                                <!-- TEAM BRYAN - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
+                                <!-- TEAM ROBERTO - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
+                                <!-- TEAM MARISOL - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
+                                <!-- TEAM SANTANA - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
+                                <!-- TOTALES - Datos -->
+                                <td style="padding: 12px; text-align: center; background: #e8eaf6;">-</td>
+                                <td style="padding: 12px; text-align: center; background: #e8eaf6;">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const rawUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+                const parsedUser = rawUser ? JSON.parse(rawUser) : null;
+                const role = String(parsedUser?.role || '').toLowerCase();
+                const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
+                if (!isAllowed) {
+                    window.location.href = '/inicio.html';
+                    return;
+                }
+            } catch (_) {
+                window.location.href = '/inicio.html';
+                return;
+            }
+            if (window.loadSidebar) {
+                window.loadSidebar();
+            }
+            generateDailyRows();
+        });
+
+        function generateDailyRows() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            const teams = [
+                { name: 'TEAM IRANIA', color: '#f8fbff' },
+                { name: 'TEAM BRYAN', color: '#faf5ff' },
+                { name: 'TEAM ROBERTO', color: '#f1f8f1' },
+                { name: 'TEAM MARISOL', color: '#fff8f1' },
+                { name: 'TEAM SANTANA', color: '#fff0f5' }
+            ];
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const row = document.createElement('tr');
+                const date = new Date(currentYear, currentMonth, day);
+                const dateStr = date.toLocaleDateString('es-ES', { 
+                    day: '2-digit', 
+                    month: '2-digit' 
+                });
+                
+                let rowHTML = `<td style="padding: 12px; text-align: left; font-weight: 800;">${dateStr}</td>`;
+                
+                // Generar celdas para los 5 teams
+                teams.forEach((team, teamIndex) => {
+                    const cellIndex = teamIndex * 3;
+                    rowHTML += `
+                        <td class="editable-cell" 
+                            style="padding: 12px; text-align: center; background: ${team.color};" 
+                            contenteditable="true" 
+                            data-day="${day}" 
+                            data-team="${team.name}" 
+                            data-type="LLAMADAS"
+                            onfocus="rememberCellValue(this)"
+                            onblur="saveCell(this)"
+                            onkeydown="handleKeydown(event, this)">-</td>
+                        <td class="editable-cell" 
+                            style="padding: 12px; text-align: center; background: ${team.color};" 
+                            contenteditable="true" 
+                            data-day="${day}" 
+                            data-team="${team.name}" 
+                            data-type="VENTAS"
+                            onfocus="rememberCellValue(this)"
+                            onblur="saveCell(this)"
+                            onkeydown="handleKeydown(event, this)">-</td>
+                        <td 
+                            style="padding: 12px; text-align: center; background: ${team.color};" 
+                            data-day="${day}" 
+                            data-team="${team.name}" 
+                            data-type="TOTALES">-</td>
+                    `;
+                });
+                
+                // Agregar columna TOTALES al final
+                rowHTML += `
+                    <td style="padding: 12px; text-align: center; background: #e8eaf6;" 
+                        data-day="${day}" 
+                        data-team="TOTALES" 
+                        data-type="TOTAL DE LLAMADAS">-</td>
+                    <td style="padding: 12px; text-align: center; background: #e8eaf6;" 
+                        data-day="${day}" 
+                        data-team="TOTALES" 
+                        data-type="TOTAL DE VENTAS">-</td>
+                `;
+                
+                row.innerHTML = rowHTML;
+                tbody.appendChild(row);
+            }
+            
+            // Cargar datos desde la base de datos DESPUÉS de generar las filas
+            loadDataFromDatabase();
+        }
+
+        async function loadDataFromDatabase() {
+            try {
+                const today = new Date();
+                const response = await fetch(`/api/llamadas-ventas?month=${today.getMonth() + 1}&year=${today.getFullYear()}`);
+                const raw = await response.text();
+                let result;
+                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
+                
+                if (result.success) {
+                    await populateTableWithData(result.data);
+                    console.log('Datos cargados desde la base de datos:', result.data.length, 'registros');
+                } else {
+                    console.error('Error al cargar datos:', result.message, { status: response.status, result });
+                }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+            }
+        }
+
+        async function populateTableWithData(data) {
+            console.log('Datos recibidos:', data);
+            
+            for (const record of data) {
+                const fecha = new Date(record.fecha);
+                const dayLocal = fecha.getDate();
+                const dayUtc = fecha.getUTCDate();
+                const team = (record.team || '').trim();
+                const type = (record.tipo || '').trim();
+                const value = (record.valor ?? 0);
+                
+                console.log(`Cargando: Día ${dayUtc}, Team ${team}, Tipo ${type}, Valor ${value}`);
+                
+                // Buscar la celda correspondiente
+                let cell = document.querySelector(`[data-day="${dayUtc}"][data-team="${team}"][data-type="${type}"]`);
+                if (!cell && dayLocal !== dayUtc) {
+                    cell = document.querySelector(`[data-day="${dayLocal}"][data-team="${team}"][data-type="${type}"]`);
+                }
+
+                if (cell) {
+                    cell.textContent = value;
+                    console.log(`Celda actualizada: ${cell.dataset.day}-${team}-${type} = ${value}`);
+                } else {
+                    console.warn(`Celda no encontrada: ${dayLocal}/${dayUtc}-${team}-${type}`, record);
+                }
+            }
+            
+            // Ahora que el DOM está actualizado, calcular todos los totales.
+            await calculateAllTotalsAfterPopulate();
+        }
+
+        async function calculateAllTotalsAfterPopulate() {
+            console.log('Calculando totales para todos los días del mes después de la carga inicial...');
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+                teams.forEach(team => {
+                    calculateTotals_InitialLoad(day, team);
+                });
+                calculateGeneralTotals_InitialLoad(day);
+            }
+            console.log('Cálculo de todos los totales completado.');
+        }
+
+        async function saveCell(cell) {
+            const value = cell.textContent.trim();
+            const day = cell.dataset.day;
+            const team = cell.dataset.team;
+            const type = cell.dataset.type;
+
+            const originalValue = (cell.dataset.originalValue ?? '').trim();
+
+            if (value === originalValue) {
+                return;
+            }
+
+            if (value === '' || value === '-') {
+                cell.textContent = originalValue || '-';
+                return;
+            }
+            
+            // Guardar valor temporal para evitar que se borre
+            cell.dataset.tempValue = value;
+            
+            try {
+                const response = await fetch('/api/llamadas-ventas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        day: parseInt(day),
+                        team: team,
+                        type: type,
+                        value: value
+                    })
+                });
+
+                const raw = await response.text();
+                let result;
+                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
+                
+                if (result.success) {
+                    console.log('Guardado en base de datos:', { day, team, type, value });
+
+                    cell.dataset.originalValue = value;
+                    
+                    // Después de guardar, recalcular los totales para el día afectado
+                    if (type === 'LLAMADAS' || type === 'VENTAS') {
+                        calculateTotals(day, team); // Recalcula el total del team
+                        calculateGeneralTotals(day); // Recalcula el total general del día
+                    }
+                } else {
+                    console.error('Error al guardar:', result.message, { status: response.status, result });
+                    // NO revertir el cambio, mantener el valor escrito
+                    cell.textContent = cell.dataset.tempValue || value;
+                }
+            } catch (error) {
+                console.error('Error de conexión al guardar:', error);
+                // NO revertir el cambio, mantener el valor escrito
+                cell.textContent = cell.dataset.tempValue || value;
+            }
+        }
+
+        async function saveCellWithoutRecalculation(cell) {
+            const value = cell.textContent.trim();
+            const day = cell.dataset.day;
+            const team = cell.dataset.team;
+            const type = cell.dataset.type;
+            
+            // Guardar valor temporal para evitar que se borre
+            cell.dataset.tempValue = value;
+            
+            try {
+                const response = await fetch('/api/llamadas-ventas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        day: parseInt(day),
+                        team: team,
+                        type: type,
+                        value: value
+                    })
+                });
+
+                const raw = await response.text();
+                let result;
+                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
+                
+                if (result.success) {
+                    console.log('Guardado en base de datos:', { day, team, type, value });
+                } else {
+                    console.error('Error al guardar:', result.message, { status: response.status, result });
+                    // NO revertir el cambio, mantener el valor escrito
+                    cell.textContent = cell.dataset.tempValue || value;
+                }
+            } catch (error) {
+                console.error('Error de conexión al guardar:', error);
+                // NO revertir el cambio, mantener el valor escrito
+                cell.textContent = cell.dataset.tempValue || value;
+            }
+        }
+
+        function calculateTotals_InitialLoad(day, team) {
+            // Versión de calculateTotals que NO guarda en la base de datos.
+            // Se usa solo para la carga inicial de la página.
+            const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+            const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+            const totalesCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="TOTALES"]`);
+
+            if (!llamadasCell || !ventasCell || !totalesCell) return;
+
+            const llamadas = parseFloat(llamadasCell.textContent) || 0;
+            const ventas = parseFloat(ventasCell.textContent) || 0;
+
+            totalesCell.textContent = `${llamadas}/${ventas}`;
+        }
+
+        function calculateTotals(day, team) {
+            console.log(`[DEBUG] calculateTotals llamado con day=${day}, team=${team}`);
+
+            const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+            const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+            const totalesCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="TOTALES"]`);
+
+            if (!llamadasCell || !ventasCell || !totalesCell) {
+                console.log(`[DEBUG] No se encontraron celdas para day=${day}, team=${team}`);
+                return;
+            }
+            
+            console.log(`[DEBUG] Celdas encontradas:`, {
+                llamadasCell: llamadasCell ? llamadasCell.textContent : 'null',
+                ventasCell: ventasCell ? ventasCell.textContent : 'null',
+                totalesCell: totalesCell ? totalesCell.textContent : 'null'
+            });
+            
+            const llamadas = parseFloat(llamadasCell.textContent) || 0;
+            const ventas = parseFloat(ventasCell.textContent) || 0;
+
+            totalesCell.textContent = `${llamadas}/${ventas}`;
+            
+            console.log(`[DEBUG] Total actualizado a: ${totalesCell.textContent}`);
+            
+            // Guardar el total también (pero sin recalcular para evitar bucle)
+            saveCellWithoutRecalculation(totalesCell);
+        }
+
+        function calculateGeneralTotals_InitialLoad(day) {
+            // Versión de calculateGeneralTotals que NO guarda en la base de datos.
+            let totalLlamadas = 0;
+            let totalVentas = 0;
+            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+
+            teams.forEach((team, index) => {
+                const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+                const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+                const llamadas = parseFloat(llamadasCell?.textContent) || 0;
+                const ventas = parseFloat(ventasCell?.textContent) || 0;
+                totalLlamadas += llamadas;
+                totalVentas += ventas;
+            });
+
+            const totalLlamadasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE LLAMADAS"]`);
+            const totalVentasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE VENTAS"]`);
+
+            if (!totalLlamadasCell || !totalVentasCell) return;
+
+            totalLlamadasCell.textContent = totalLlamadas;
+            totalVentasCell.textContent = totalVentas;
+        }
+
+        function calculateGeneralTotals(day) {
+            console.log(`[DEBUG] calculateGeneralTotals llamado con day=${day}`);
+
+            const totalLlamadasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE LLAMADAS"]`);
+            const totalVentasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE VENTAS"]`);
+
+            if (!totalLlamadasCell || !totalVentasCell) {
+                console.log(`[DEBUG] No se encontraron celdas de totales generales para day=${day}`);
+                return;
+            }
+            
+            // Calcular total de llamadas de todos los teams
+            let totalLlamadas = 0;
+            let totalVentas = 0;
+            
+            // Teams y sus posiciones base
+            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+            
+            teams.forEach((team, index) => {
+                const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+                const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+                const llamadas = parseFloat(llamadasCell?.textContent) || 0;
+                const ventas = parseFloat(ventasCell?.textContent) || 0;
+                
+                console.log(`[DEBUG] ${team}: llamadas=${llamadas}, ventas=${ventas}`);
+                
+                totalLlamadas += llamadas;
+                totalVentas += ventas;
+            });
+            
+            console.log(`[DEBUG] Totales generales: llamadas=${totalLlamadas}, ventas=${totalVentas}`);
+            
+            console.log(`[DEBUG] Celdas generales antes de actualizar:`, {
+                totalLlamadasCell: totalLlamadasCell ? totalLlamadasCell.textContent : 'null',
+                totalVentasCell: totalVentasCell ? totalVentasCell.textContent : 'null'
+            });
+            
+            totalLlamadasCell.textContent = totalLlamadas;
+            totalVentasCell.textContent = totalVentas;
+            
+            console.log(`[DEBUG] Celdas generales actualizadas a:`, {
+                totalLlamadas: totalLlamadasCell.textContent,
+                totalVentas: totalVentasCell.textContent
+            });
+            
+            // Guardar los totales generales también (sin recalcular para evitar bucle)
+            saveCellWithoutRecalculation(totalLlamadasCell);
+            saveCellWithoutRecalculation(totalVentasCell);
+        }
+
+        function handleKeydown(event, cell) {
+            // Guardar valor original antes de editar
+            if (!cell.dataset.originalValue) {
+                cell.dataset.originalValue = cell.textContent;
+            }
+            
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                cell.blur();
+            } else if (event.key === 'Tab') {
+                // Para Tab, no hacer nada, solo permitir el comportamiento normal
+                // El valor actual se mantendrá
+                return;
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                // Restaurar valor original solo con Escape
+                cell.textContent = cell.dataset.originalValue || '-';
+                cell.blur();
+            }
+        }
+
+        function rememberCellValue(cell) {
+            cell.dataset.originalValue = (cell.textContent || '').trim();
+            if (cell.dataset.originalValue === '-') {
+                cell.textContent = '';
+            }
+        }
+
+        // Función de debugging para forzar recálculo
+        function forceRecalculateDay1() {
+            console.log('[DEBUG] Forzando recálculo del día 1...');
+            
+            // Recalcular totales de cada team para el día 1
+            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+            teams.forEach(team => {
+                calculateTotals(1, team);
+            });
+            
+            // Recalcular totales generales
+            calculateGeneralTotals(1);
+            
+            console.log('[DEBUG] Recálculo del día 1 completado');
+        }
+
+        // Agregar botón de debugging para forzar recálculo del día 1
+        const debugButton = document.createElement('button');
+        debugButton.textContent = 'Forzar recálculo del día 1';
+        debugButton.onclick = forceRecalculateDay1;
+        document.body.appendChild(debugButton);
+    </script>
+</body>
+</html>

@@ -11,6 +11,16 @@
     'home': 'inicio',
     'dashboard': 'inicio',
     'admin': 'inicio',
+    'archivos': 'multimedia',
+    'archivo': 'multimedia',
+    'semaforo': 'semaforo',
+    'semáforo': 'semaforo',
+    'el semaforo': 'semaforo',
+    'el semáforo': 'semaforo',
+    'llamadas': 'llamadas-team',
+    'llamadas-team': 'llamadas-team',
+    'llamadas y ventas': 'llamadas-team',
+    'llamadas y ventas por team': 'llamadas-team',
     'lead': 'lead',
     'leads': 'lead',
     'nuevo-lead': 'lead',
@@ -177,6 +187,9 @@
       if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
 
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/semaforo|semáforo/.test(path)) return 'semaforo';
+      if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
+      if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
       if (/estadistic/.test(path)) return 'estadisticas';
       if (/factur/.test(path)) return 'facturacion';
       if (/rank/.test(path)) return 'ranking';
@@ -229,15 +242,61 @@
     return sidebarElement;
   }
 
+  function ensureSidebarSharedCss() {
+    try {
+      const DOC = document;
+      if (!DOC || !DOC.head) return;
+
+      const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-shared.css"]');
+      const desiredHref = '/css/sidebar-shared.css?v=20251124f';
+      if (!existing) {
+        const link = DOC.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = desiredHref;
+        DOC.head.appendChild(link);
+      } else {
+        try {
+          const href = String(existing.getAttribute('href') || '');
+          if (!href.includes('v=20251124f')) {
+            existing.setAttribute('href', desiredHref);
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      const hasFA = !!DOC.querySelector('link[rel="stylesheet"][href*="font-awesome"], link[rel="stylesheet"][href*="fontawesome"], link[rel="stylesheet"][href*="cdnjs.cloudflare.com/ajax/libs/font-awesome"]');
+      if (!hasFA) {
+        const fa = DOC.createElement('link');
+        fa.rel = 'stylesheet';
+        fa.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
+        DOC.head.appendChild(fa);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
   // Función principal para cargar el sidebar
   window.loadSidebar = async function(forceReload = false) {
+    try {
+      if (!forceReload) {
+        if (window.__SIDEBAR_LOADING === true) return true;
+        if (window.__SIDEBAR_LOADED === true && typeof window.__SIDEBAR_LOADED_AT === 'number') {
+          if (Date.now() - window.__SIDEBAR_LOADED_AT < 250) return true;
+        }
+      }
+      window.__SIDEBAR_LOADING = true;
+    } catch (_) { /* ignore */ }
+
+    ensureSidebarSharedCss();
     const sidebarElement = ensureSidebarElement();
     try {
       // Honrar sidebars locales si marcan preservación
       if (sidebarElement && (sidebarElement.hasAttribute('data-preserve') || sidebarElement.getAttribute('data-local') === '1')) {
         console.warn('[SidebarLoader] Sidebar local preservado, no se inyecta contenido.');
         // Aún configuramos el auto-hide para mantener layout consistente
-        try { setupGlobalAutoHideSidebar(); } catch(_){}
+        try { setupGlobalAutoHideSidebar(); } catch(_){ }
+        try {
+          window.__SIDEBAR_LOADED = true;
+          window.__SIDEBAR_LOADED_AT = Date.now();
+        } catch (_) { /* ignore */ }
         return true;
       }
     } catch(_){ }
@@ -317,6 +376,12 @@
         ensureStaticSidebarLayout();
       }
     } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
+
+    try {
+      window.__SIDEBAR_LOADING = false;
+      window.__SIDEBAR_LOADED = true;
+      window.__SIDEBAR_LOADED_AT = Date.now();
+    } catch (_) { /* ignore */ }
   };
 
   function ensureStaticSidebarLayout() {
@@ -435,9 +500,6 @@
     // Determinar menú según rol
     const menuItems = getMenuItems(normalizedRole, normalizeActiveKey(activePage), { isLineas });
 
-    // Preparar datos de estadísticas (placeholders iniciales)
-    const displayTeam = user.team || 'Sin equipo';
-
     return `
       <!-- Usuario -->
       <div class="user-info">
@@ -445,31 +507,6 @@
           ${avatarWrapper}
           <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
           <span class="user-role" id="user-role">${roleName}</span>
-        </div>
-      </div>
-
-      <!-- Stats del Usuario -->
-      <div class="user-stats">
-        <div class="stat-item">
-          <i class="fas fa-shopping-cart"></i>
-          <div class="stat-content">
-            <span class="stat-value" id="sidebar-stat-ventas">0</span>
-            <span class="stat-label">Ventas del mes</span>
-          </div>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-star"></i>
-          <div class="stat-content">
-            <span class="stat-value" id="sidebar-stat-puntos">0.0</span>
-            <span class="stat-label">Puntos</span>
-          </div>
-        </div>
-        <div class="stat-item">
-          <i class="fas fa-users"></i>
-          <div class="stat-content">
-            <span class="stat-value" id="sidebar-stat-team">${escapeHtml(displayTeam)}</span>
-            <span class="stat-label">Equipo</span>
-          </div>
         </div>
       </div>
 
@@ -569,17 +606,20 @@
     
     // Array ordenado de items del menú (orden específico)
     const allRoles = ['admin', 'supervisor', 'agente', 'backoffice'];
+    const adminBackofficeRoles = ['admin', 'backoffice'];
     const menuItemsOrder = [
       { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: allRoles },
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: allRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'index.html', roles: allRoles },
       { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: allRoles },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },
-      { key: 'multimedia', icon: 'fa-images', text: 'Multimedia', href: 'multimedia.html', roles: allRoles },
+      { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: 'multimedia.html', roles: allRoles },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: allRoles },
       { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles }
     ];
@@ -728,7 +768,6 @@
           body.auto-hide-sidebar.show-sidebar .sidebar .user-details,
           body.auto-hide-sidebar.show-sidebar .sidebar .user-info,
           body.auto-hide-sidebar.show-sidebar .sidebar .avatar,
-          body.auto-hide-sidebar.show-sidebar .sidebar .user-stats,
           body.auto-hide-sidebar.show-sidebar .sidebar h3,
           body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-footer-quote { display: block !important; }
 
@@ -1266,6 +1305,28 @@
         }
       } catch (_) { /* ignore */ }
     }, true);
+  })();
+
+  // Auto-cargar sidebar por defecto en todas las páginas que incluyan este loader.
+  // (Evita que cada HTML tenga que llamar manualmente window.loadSidebar())
+  (function autoLoadSidebarOnce(){
+    function run() {
+      try {
+        if (window.__SIDEBAR_AUTOLOAD_DISABLED === true) return;
+        if (window.__SIDEBAR_AUTOLOADED === true) return;
+        if (typeof window.loadSidebar !== 'function') return;
+        window.__SIDEBAR_AUTOLOADED = true;
+        window.loadSidebar(false);
+      } catch (_) { /* ignore */ }
+    }
+
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+      } else {
+        setTimeout(run, 0);
+      }
+    } catch (_) { /* ignore */ }
   })();
 
 })();
