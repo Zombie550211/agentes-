@@ -1258,7 +1258,13 @@ router.get('/lineas-team', protect, async (req, res) => {
     }
     
     // Normalizar _id a string para que el frontend reciba IDs válidos
-    leads = leads.map(d => ({ ...d, _id: d._id ? String(d._id) : d._id, id: d._id ? String(d._id) : (d.id || '') }));
+    // Enviar el campo ID del lead si existe, y no sobrescribirlo con el _id
+    leads = leads.map(d => ({
+      ...d,
+      _id: d._id ? String(d._id) : d._id,
+      id: d.id ? String(d.id) : (d._id ? String(d._id) : ''),
+      ID: d.ID ? String(d.ID) : (d.id ? String(d.id) : '')
+    }));
     console.log('[API /lineas-team] Leads encontrados:', leads.length);
     res.json({ success: true, data: leads });
   } catch (error) {
