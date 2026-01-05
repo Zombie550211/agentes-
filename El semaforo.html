@@ -20,7 +20,7 @@
 
         body {
             font-family: 'Arial Black', 'Arial Bold', sans-serif;
-            background: linear-gradient(180deg, #87CEEB 0%, #4682B4 100%);
+            background: #ffffff;
             min-height: 100vh;
             padding: 0;
         }
@@ -66,6 +66,43 @@
             margin-bottom: 30px;
         }
 
+        .header-actions {
+            margin-top: 14px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .view-toggle-btn {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0f172a;
+            font-weight: 900;
+            letter-spacing: 0.2px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+
+        .view-toggle-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.30);
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        .view-toggle-btn:active {
+            transform: translateY(0);
+        }
+
+        .view-toggle-btn i {
+            font-size: 1.05rem;
+        }
+
         h1 {
             font-size: 3.5rem;
             color: #1f2937;
@@ -84,6 +121,270 @@
             flex-direction: column;
             align-items: center;
             gap: 0;
+        }
+
+        .view-stack {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .view-panel {
+            width: fit-content;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: opacity .28s ease, transform .28s ease;
+            will-change: opacity, transform;
+        }
+
+        .view-panel.is-hidden {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            opacity: 0;
+            transform: translate(-50%, 10px) scale(0.98);
+            pointer-events: none;
+        }
+
+        .view-panel.is-visible {
+            position: relative;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .agents-panel {
+            width: min(1220px, 98vw);
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+            padding: 18px 18px 14px;
+        }
+
+        .agents-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 6px 8px 14px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            margin-bottom: 12px;
+        }
+
+        .agents-title {
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .agents-count {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: rgba(15, 23, 42, 0.72);
+        }
+
+        .agents-list {
+            max-height: min(82vh, 900px);
+            overflow: auto;
+            padding: 4px 6px 10px;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            background: #ffffff;
+            border: 1px solid rgba(2, 6, 23, 0.08);
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06);
+            margin: 10px 0;
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+
+        .agent-item.status-green {
+            border-left: 8px solid #16a34a;
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .agent-item.status-greenlight {
+            border-left: 8px solid #86efac;
+            background: rgba(134, 239, 172, 0.12);
+        }
+
+        .agent-item.status-yellow {
+            border-left: 8px solid #eab308;
+            background: rgba(234, 179, 8, 0.12);
+        }
+
+        .agent-item.status-red {
+            border-left: 8px solid #ef4444;
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .agent-item.status-black {
+            border-left: 8px solid #000000;
+            background: rgba(2, 6, 23, 0.92);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .agent-item.status-black .agent-name,
+        .agent-item.status-black .agent-sub {
+            color: rgba(255, 255, 255, 0.90);
+        }
+
+        .agent-item.status-black .agent-rank {
+            background: rgba(255, 255, 255, 0.10);
+            color: #fff;
+        }
+
+        .agent-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(2, 6, 23, 0.10);
+        }
+
+        .agent-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .agent-rank {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 0.95rem;
+            flex: 0 0 auto;
+        }
+
+        .agent-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            color: #fff;
+            font-weight: 900;
+            font-size: 0.9rem;
+            flex: 0 0 auto;
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.18);
+            overflow: hidden;
+        }
+
+        .agent-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .agent-meta {
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-weight: 900;
+            color: #0f172a;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .agent-sub {
+            margin-top: 2px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: rgba(15, 23, 42, 0.62);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .agent-right {
+            text-align: right;
+            flex: 0 0 auto;
+        }
+
+        .agent-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            min-width: 160px;
+        }
+
+        .agent-stats-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .agent-pill {
+            display: inline-flex;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 900;
+            font-size: 0.78rem;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .agent-pill.pill-points {
+            background: rgba(37, 99, 235, 0.12);
+            color: #1d4ed8;
+        }
+
+        .agent-pill.pill-sales {
+            background: rgba(2, 132, 199, 0.12);
+            color: #0369a1;
+        }
+
+        .agent-pill.pill-days {
+            background: rgba(15, 23, 42, 0.08);
+            color: rgba(15, 23, 42, 0.72);
+        }
+
+        .agent-item.status-black .agent-pill.pill-days {
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .agent-item.status-black .agent-pill.pill-sales {
+            background: rgba(56, 189, 248, 0.16);
+            color: #e0f2fe;
+        }
+
+        .agent-item.status-black .agent-pill.pill-points {
+            background: rgba(96, 165, 250, 0.18);
+            color: #dbeafe;
+        }
+
+        .agents-divider {
+            margin: 16px 0 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(2, 6, 23, 0.06);
+            border: 1px solid rgba(2, 6, 23, 0.08);
+            font-weight: 900;
+            color: rgba(15, 23, 42, 0.88);
         }
 
         .poste-superior {
@@ -161,6 +462,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.5);
         }
 
@@ -221,7 +523,7 @@
         }
 
         .equipos-luz {
-            width: 100%;
+            width: 180px;
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -232,6 +534,7 @@
             background: rgba(255, 255, 255, 0.95);
             border-radius: 12px;
             padding: 10px 12px;
+            width: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -369,44 +672,64 @@
                     <div class="header">
                         <h1>🚦 EL SEMÁFORO</h1>
                         <p class="subtitle">Ranking de Equipos</p>
-                    </div>
-
-                    <div class="poste-superior"></div>
-
-                    <div class="semaforo-body">
-                        <div class="tornillo tl"></div>
-                        <div class="tornillo tr"></div>
-                        <div class="tornillo bl"></div>
-                        <div class="tornillo br"></div>
-
-                        <div class="luz-circulo luz-verde">
-                            <div class="equipos-luz" id="zona-verde"></div>
-                        </div>
-
-                        <div class="luz-circulo luz-amarilla">
-                            <div class="equipos-luz" id="zona-amarilla"></div>
-                        </div>
-
-                        <div class="luz-circulo luz-roja">
-                            <div class="equipos-luz" id="zona-roja"></div>
+                        <div class="header-actions">
+                            <button id="btn-toggle-view" type="button" class="view-toggle-btn">
+                                <i class="fa-solid fa-users"></i>
+                                <span id="btn-toggle-view-text">Ver agentes</span>
+                            </button>
                         </div>
                     </div>
 
-                    <div class="poste-inferior"></div>
-                    <div class="base-semaforo"></div>
+                    <div class="view-stack" id="view-stack">
+                        <div id="semaforo-view" class="view-panel is-visible">
+                            <div class="poste-superior"></div>
 
-                    <div class="legend">
-                        <div class="legend-item">
-                            <div class="legend-circle verde"></div>
-                            <span class="legend-text">TOP 3</span>
+                            <div class="semaforo-body">
+                                <div class="tornillo tl"></div>
+                                <div class="tornillo tr"></div>
+                                <div class="tornillo bl"></div>
+                                <div class="tornillo br"></div>
+
+                                <div class="luz-circulo luz-verde">
+                                    <div class="equipos-luz" id="zona-verde"></div>
+                                </div>
+
+                                <div class="luz-circulo luz-amarilla">
+                                    <div class="equipos-luz" id="zona-amarilla"></div>
+                                </div>
+
+                                <div class="luz-circulo luz-roja">
+                                    <div class="equipos-luz" id="zona-roja"></div>
+                                </div>
+                            </div>
+
+                            <div class="poste-inferior"></div>
+                            <div class="base-semaforo"></div>
+
+                            <div class="legend">
+                                <div class="legend-item">
+                                    <div class="legend-circle verde"></div>
+                                    <span class="legend-text">TOP 3</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-circle amarilla"></div>
+                                    <span class="legend-text">ALERTA</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-circle roja"></div>
+                                    <span class="legend-text">PELIGRO</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="legend-item">
-                            <div class="legend-circle amarilla"></div>
-                            <span class="legend-text">ALERTA</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-circle roja"></div>
-                            <span class="legend-text">PELIGRO</span>
+
+                        <div id="agents-view" class="view-panel is-hidden">
+                            <div class="agents-panel">
+                                <div class="agents-header">
+                                    <div class="agents-title">Lista de agentes</div>
+                                    <div id="agents-count" class="agents-count">0 agentes</div>
+                                </div>
+                                <div id="agents-list" class="agents-list"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -506,12 +829,116 @@
             }
         }
 
+        const escapeAttr = (value) => String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/`/g, '&#96;');
+
+        function sanitizeAvatarUrl(rawUrl) {
+            try {
+                const url = (rawUrl == null ? '' : String(rawUrl)).trim();
+                if (!url) return '';
+                if (/^data:image\//i.test(url)) return url;
+                if (/^https?:\/\//i.test(url)) return url;
+                if (/^\/\//.test(url)) {
+                    try { return `${window.location.protocol}${url}`; } catch (_) { return `https:${url}`; }
+                }
+                if (url.startsWith('/')) return url;
+                if (/^uploads\//i.test(url)) return `/${url}`;
+                return '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function toTimestamp(value) {
+            try {
+                if (!value && value !== 0) return null;
+                if (typeof value === 'number' && Number.isFinite(value)) return value;
+                if (typeof value === 'object' && value !== null) {
+                    if (value.$date) {
+                        const parsed = Date.parse(value.$date);
+                        return Number.isNaN(parsed) ? null : parsed;
+                    }
+                    if (value instanceof Date && Number.isFinite(value.getTime())) return value.getTime();
+                }
+                const parsed = Date.parse(value);
+                return Number.isNaN(parsed) ? null : parsed;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function objectIdToHex(value) {
+            try {
+                if (!value) return '';
+                if (typeof value === 'string') return value;
+                if (typeof value === 'object') {
+                    if (value.$oid && typeof value.$oid === 'string') return value.$oid;
+                    if (typeof value.toHexString === 'function') return value.toHexString();
+                    if (value.buffer && typeof value.buffer === 'object') {
+                        const b = value.buffer;
+                        const bytes = [];
+                        for (let i = 0; i < 12; i++) {
+                            const v = b[i] ?? (Array.isArray(b.data) ? b.data[i] : undefined);
+                            if (typeof v !== 'number') return '';
+                            bytes.push(v);
+                        }
+                        return bytes.map(n => n.toString(16).padStart(2, '0')).join('');
+                    }
+                }
+                return String(value);
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function buildAgentAvatarUrl(agent) {
+            try {
+                if (!agent) return '';
+                const candidates = [];
+                const avatarHex = objectIdToHex(agent.avatarFileId);
+                if (avatarHex) candidates.push(`/api/user-avatars/${avatarHex}`);
+                candidates.push(agent.avatarUrl, agent.photoUrl, agent.photo, agent.imageUrl, agent.picture, agent.profilePhoto, agent.avatar);
+                let selected = '';
+                for (const c of candidates) {
+                    const s = sanitizeAvatarUrl(c);
+                    if (s) { selected = s; break; }
+                }
+                if (!selected) return '';
+                if (selected.includes('v=')) return selected;
+                const ts = toTimestamp(agent.avatarUpdatedAt || agent.avatarUpdatedAtMs);
+                if (ts) {
+                    const sep = selected.includes('?') ? '&' : '?';
+                    return `${selected}${sep}v=${ts}`;
+                }
+                return selected;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function renderAgentAvatarHtml(agent, initials, name) {
+            const url = buildAgentAvatarUrl(agent);
+            if (!url) return escapeAttr(initials);
+            const safeAlt = escapeAttr(name || 'Avatar');
+            const safeUrl = escapeAttr(url);
+            const fallbackText = escapeAttr(initials);
+            return `<img src="${safeUrl}" alt="${safeAlt}" loading="lazy" onerror="this.onerror=null;this.remove();this.parentNode.textContent='${fallbackText}'">`;
+        }
+
         async function fetchWithAuth(url, config) {
             const cfg = config && typeof config === 'object' ? { ...config } : {};
             cfg.headers = cfg.headers && typeof cfg.headers === 'object' ? { ...cfg.headers } : {};
             const token = getAuthToken();
             if (token && !cfg.headers.Authorization) {
                 cfg.headers.Authorization = `Bearer ${token}`;
+            }
+            if (!cfg.credentials) {
+                cfg.credentials = 'include';
             }
             return fetch(url, cfg);
         }
@@ -539,6 +966,489 @@
             } catch (_) {
                 return false;
             }
+        }
+
+        function formatScore(value) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return '0';
+            const rounded = Math.round((num + Number.EPSILON) * 100) / 100;
+            if (rounded === Math.floor(rounded)) return String(rounded);
+            return rounded.toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        function parseNumberFlexible(value) {
+            try {
+                if (value == null) return null;
+                if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+                if (typeof value === 'object') {
+                    const v = value.$numberInt ?? value.$numberDouble ?? value.$numberDecimal ?? value.value;
+                    if (v != null) return parseNumberFlexible(v);
+                    return null;
+                }
+                const s = String(value).trim();
+                if (!s) return null;
+                // Permitir strings tipo "12", "12.5", "12,5", "12 ventas"
+                const cleaned = s.replace(/[^0-9.,-]/g, '').replace(/,/g, '.');
+                if (!cleaned) return null;
+                const n = Number(cleaned);
+                return Number.isFinite(n) ? n : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function getScoreFromItem(item) {
+            try {
+                if (!item) return 0;
+                const candidates = [item.sumPuntaje, item.puntos, item.promedio, item.Puntaje, item.puntaje];
+                for (const c of candidates) {
+                    const n = parseNumberFlexible(c);
+                    if (n != null) return n;
+                }
+                return 0;
+            } catch (_) {
+                return 0;
+            }
+        }
+
+        function getVentasFromItem(item) {
+            try {
+                if (!item) return 0;
+                const candidates = [
+                    item.ventas,
+                    item.Ventas,
+                    item.totalVentas,
+                    item.total_ventas,
+                    item.total,
+                    item.Total
+                ];
+                for (const c of candidates) {
+                    const n = parseNumberFlexible(c);
+                    if (n != null) return n;
+                }
+                return 0;
+            } catch (_) {
+                return 0;
+            }
+        }
+
+        function resolveAgentDisplayName(agent) {
+            try {
+                const raw = (agent && (agent.name || agent.nombre || agent.fullName || agent.displayName || agent.username)) || '';
+                let cleaned = String(raw || '').trim();
+                if (!cleaned) return '—';
+                cleaned = cleaned.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
+                const lower = cleaned.toLowerCase();
+                const parts = lower.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+                if (parts.length > 2) return `${parts[0]} ${parts[parts.length - 1]}`;
+                return parts.join(' ');
+            } catch (_) {
+                return '—';
+            }
+        }
+
+        function normalizeKey(value) {
+            try {
+                let raw = value;
+                if (raw && typeof raw === 'object') {
+                    if (raw.$oid) raw = raw.$oid;
+                    else if (raw.oid) raw = raw.oid;
+                    else if (raw._id && typeof raw._id === 'string') raw = raw._id;
+                    else if (raw.id && typeof raw.id === 'string') raw = raw.id;
+                    else if (typeof raw.toHexString === 'function') raw = raw.toHexString();
+                    else if (typeof raw.toString === 'function' && raw.toString !== Object.prototype.toString) raw = raw.toString();
+                    else raw = '';
+                }
+                return String(raw || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-zA-Z0-9]/g, '')
+                    .toLowerCase();
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function initialsFromName(name) {
+            try {
+                const v = String(name || '').trim();
+                if (!v) return 'A';
+                const parts = v.split(/\s+/).filter(Boolean);
+                const first = parts[0] || '';
+                const last = parts.length > 1 ? parts[parts.length - 1] : '';
+                const a = first.charAt(0).toUpperCase();
+                const b = last ? last.charAt(0).toUpperCase() : '';
+                return (a + b) || 'A';
+            } catch (_) {
+                return 'A';
+            }
+        }
+
+        function monthBoundsNow() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return { fechaInicio: `${y}-${m}-01`, fechaFin: `${y}-${m}-${d}` };
+        }
+
+        async function fetchRankingStats() {
+            try {
+                const { fechaInicio, fechaFin } = monthBoundsNow();
+                const url = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=500`;
+                const resp = await fetchWithAuth(url);
+                if (!resp || !resp.ok) {
+                    const raw = resp ? await resp.text() : '';
+                    console.warn('[SEMAFORO] /api/ranking no OK', { status: resp?.status, raw });
+                    return [];
+                }
+                const json = await resp.json();
+                const list = Array.isArray(json?.ranking) ? json.ranking : [];
+                try {
+                    const sample = list.slice(0, 5).map(r => ({
+                        nombre: r?.nombre,
+                        username: r?.username,
+                        userId: r?.userId,
+                        ventasRaw: r?.ventas,
+                        ventasParsed: getVentasFromItem(r),
+                        puntos: r?.puntos,
+                        sumPuntaje: r?.sumPuntaje
+                    }));
+                    console.log('[SEMAFORO] rankingStats sample', sample);
+                    console.log('[SEMAFORO] rankingStats sample json', JSON.stringify(sample));
+                } catch (_) {}
+                return list;
+            } catch (err) {
+                console.warn('[SEMAFORO] Error cargando ranking de agentes:', err);
+                return [];
+            }
+        }
+
+        async function fetchAgentsDirectory() {
+            try {
+                const resp = await fetchWithAuth('/api/users/agents');
+                if (!resp || !resp.ok) {
+                    const raw = resp ? await resp.text() : '';
+                    console.warn('[SEMAFORO] /api/users/agents no OK', { status: resp?.status, raw });
+                    return [];
+                }
+                const json = await resp.json();
+                const list = Array.isArray(json?.agents) ? json.agents : [];
+                // El endpoint devuelve users; filtramos agentes en frontend
+                return list.filter(u => {
+                    const roleRaw = String(u?.role || '').trim();
+                    const role = roleRaw.toLowerCase();
+                    if (!role) return false;
+                    // Excluir roles no deseados explícitamente
+                    const deny = ['admin', 'administrador', 'supervisor', 'backoffice', 'back office', 'manager', 'gerente'];
+                    if (deny.some(k => role.includes(k))) return false;
+                    // Permitir únicamente agente/vendedor
+                    const allow = ['agente', 'agent', 'vendedor', 'seller'];
+                    return allow.some(k => role === k || role.includes(k));
+                });
+            } catch (err) {
+                console.warn('[SEMAFORO] Error cargando directorio de agentes:', err);
+                return [];
+            }
+        }
+
+        async function fetchSemaforoLogic() {
+            try {
+                const resp = await fetchWithAuth('/api/semaforo');
+                if (!resp || !resp.ok) {
+                    const raw = resp ? await resp.text() : '';
+                    console.warn('[SEMAFORO] /api/semaforo no OK', { status: resp?.status, raw });
+                    return { data: [], meta: null };
+                }
+                const json = await resp.json();
+                const list = Array.isArray(json?.data) ? json.data : [];
+                return { data: list, meta: json?.meta || null };
+            } catch (err) {
+                console.warn('[SEMAFORO] Error cargando lógica semáforo:', err);
+                return { data: [], meta: null };
+            }
+        }
+
+        function statusRank(status) {
+            if (status === 'green') return 0;
+            if (status === 'greenlight') return 1;
+            if (status === 'yellow') return 2;
+            if (status === 'red') return 3;
+            if (status === 'black') return 4;
+            return 9;
+        }
+
+        function computeStatusFromDays(daysWithout) {
+            const d = Number(daysWithout || 0);
+            if (d >= 4) return 'black';
+            if (d === 3) return 'red';
+            if (d === 2) return 'yellow';
+            if (d === 1) return 'greenlight';
+            return 'green';
+        }
+
+        function mergeAgentsWithSemaforo(directory, semaforoPayload) {
+            const dir = Array.isArray(directory) ? directory : [];
+            const semData = Array.isArray(semaforoPayload?.data) ? semaforoPayload.data : [];
+            const meta = semaforoPayload?.meta || null;
+
+            const byUserId = new Map();
+            const byUsername = new Map();
+            const byName = new Map();
+
+            semData.forEach((row) => {
+                const uidKey = normalizeKey(row?.userId);
+                const unameKey = normalizeKey(row?.username);
+                const nameKey = normalizeKey(row?.name || row?.nombre);
+                const payload = {
+                    ventas: parseNumberFlexible(row?.ventas) ?? 0,
+                    puntos: parseNumberFlexible(row?.puntos) ?? 0,
+                    daysWithout: parseNumberFlexible(row?.daysWithout) ?? 0,
+                    status: String(row?.status || '').trim() || computeStatusFromDays(row?.daysWithout)
+                };
+                if (uidKey) byUserId.set(uidKey, payload);
+                if (unameKey) byUsername.set(unameKey, payload);
+                if (nameKey) byName.set(nameKey, payload);
+            });
+
+            const safeNoonFromYMD = (ymd) => {
+                const parts = String(ymd || '').split('-').map(Number);
+                const y = parts[0];
+                const m = parts[1];
+                const d = parts[2];
+                if (!y || !m || !d) return null;
+                const dt = new Date(y, m - 1, d);
+                dt.setHours(12, 0, 0, 0);
+                return dt;
+            };
+
+            const todayNoon = safeNoonFromYMD(meta?.today) || (() => {
+                const t = new Date();
+                t.setHours(12, 0, 0, 0);
+                return t;
+            })();
+
+            const startNoon = safeNoonFromYMD(meta?.startDate) || (() => {
+                const t = new Date(todayNoon);
+                t.setDate(1);
+                return t;
+            })();
+
+            const fallbackDaysWithout = () => {
+                const diff = Math.floor((todayNoon.getTime() - startNoon.getTime()) / (24 * 60 * 60 * 1000));
+                return Math.max(0, diff) + 1;
+            };
+
+            const merged = dir.map((u) => {
+                const idKey = normalizeKey(u?._id?.$oid || u?._id || u?.id);
+                const unameKey = normalizeKey(u?.username);
+                const nameKey = normalizeKey(u?.name || resolveAgentDisplayName(u));
+                const sem = (idKey && byUserId.get(idKey)) || (unameKey && byUsername.get(unameKey)) || (nameKey && byName.get(nameKey)) || null;
+                const daysWithout = sem ? (parseNumberFlexible(sem.daysWithout) ?? 0) : fallbackDaysWithout();
+                const status = sem ? (String(sem.status || '').trim() || computeStatusFromDays(daysWithout)) : computeStatusFromDays(daysWithout);
+                return {
+                    ...u,
+                    ventas: sem ? (parseNumberFlexible(sem.ventas) ?? 0) : 0,
+                    puntos: sem ? (parseNumberFlexible(sem.puntos) ?? 0) : 0,
+                    daysWithout,
+                    status
+                };
+            });
+
+            merged.sort((a, b) => {
+                const ra = statusRank(a?.status);
+                const rb = statusRank(b?.status);
+                if (ra !== rb) return ra - rb;
+                const da = Number(a?.daysWithout || 0);
+                const db = Number(b?.daysWithout || 0);
+                if (da !== db) return da - db;
+                const va = Number(b?.ventas || 0) - Number(a?.ventas || 0);
+                if (va !== 0) return va;
+                const na = resolveAgentDisplayName(a);
+                const nb = resolveAgentDisplayName(b);
+                return na.localeCompare(nb, 'es');
+            });
+
+            return merged;
+        }
+
+        function mergeAgentsWithStats(agents, rankingStats) {
+            const dir = Array.isArray(agents) ? agents : [];
+            const stats = Array.isArray(rankingStats) ? rankingStats : [];
+
+            const statsByUserId = new Map();
+            const statsByUsername = new Map();
+            const statsByName = new Map();
+
+            stats.forEach((row) => {
+                const userIdKey = normalizeKey(row?.userId?.$oid || row?.userId || row?._id?.$oid || row?._id || row?.id);
+                const unameKey = normalizeKey(row?.username);
+                const nameKey = normalizeKey(row?.nombreNormalizado || row?.nombre || row?.nombreOriginal || row?.name || row?.agenteNombre || row?.agente);
+                const payload = {
+                    puntos: getScoreFromItem(row),
+                    ventas: getVentasFromItem(row)
+                };
+                if (userIdKey) statsByUserId.set(userIdKey, payload);
+                if (unameKey) statsByUsername.set(unameKey, payload);
+                if (nameKey) statsByName.set(nameKey, payload);
+            });
+
+            let matched = 0;
+            const merged = dir.map((u) => {
+                const uidKey = normalizeKey(u?._id?.$oid || u?._id || u?.id);
+                const unameKey = normalizeKey(u?.username);
+                const nameKey = normalizeKey(u?.name || resolveAgentDisplayName(u));
+                const byId = uidKey ? statsByUserId.get(uidKey) : null;
+                const byU = unameKey ? statsByUsername.get(unameKey) : null;
+                const byN = nameKey ? statsByName.get(nameKey) : null;
+                const statsRow = byId || byU || byN || null;
+                if (statsRow) matched++;
+                return {
+                    ...u,
+                    puntos: statsRow ? (parseNumberFlexible(statsRow.puntos) ?? 0) : 0,
+                    ventas: statsRow ? (parseNumberFlexible(statsRow.ventas) ?? 0) : 0
+                };
+            });
+
+            try {
+                const top = merged.slice(0, 10).map((x) => ({
+                    name: x?.name,
+                    username: x?.username,
+                    id: x?._id,
+                    puntos: x?.puntos,
+                    ventas: x?.ventas
+                }));
+                console.log('[SEMAFORO] mergeAgentsWithStats', { agents: dir.length, stats: stats.length, matched, top });
+                console.log('[SEMAFORO] mergeAgentsWithStats json', JSON.stringify({ agents: dir.length, stats: stats.length, matched, top }));
+            } catch (_) {}
+
+            merged.sort((a, b) => {
+                const pa = Number(a?.puntos || 0);
+                const pb = Number(b?.puntos || 0);
+                if (pb !== pa) return pb - pa;
+                const va = Number(a?.ventas || 0);
+                const vb = Number(b?.ventas || 0);
+                if (vb !== va) return vb - va;
+                const na = resolveAgentDisplayName(a);
+                const nb = resolveAgentDisplayName(b);
+                return na.localeCompare(nb, 'es');
+            });
+
+            return merged;
+        }
+
+        function renderAgentsList(users) {
+            const listEl = document.getElementById('agents-list');
+            const countEl = document.getElementById('agents-count');
+            if (!listEl) return;
+            const arr = Array.isArray(users) ? users.slice() : [];
+            listEl.innerHTML = '';
+            if (countEl) {
+                countEl.textContent = `${arr.length} agentes`;
+            }
+
+            const normal = arr.filter(a => String(a?.status || '') !== 'black');
+            const blacks = arr.filter(a => String(a?.status || '') === 'black');
+            const ordered = [...normal, ...blacks];
+
+            ordered.forEach((agent, idx) => {
+                if (idx === normal.length && blacks.length) {
+                    const div = document.createElement('div');
+                    div.className = 'agents-divider';
+                    div.textContent = `Sin ventas 4+ días (${blacks.length})`;
+                    listEl.appendChild(div);
+                }
+                const item = document.createElement('div');
+                const status = String(agent?.status || 'green');
+                item.className = `agent-item status-${status}`;
+                const name = resolveAgentDisplayName(agent);
+                const initials = initialsFromName(name);
+                const team = String(agent?.team || '').trim();
+                const username = String(agent?.username || '').trim();
+                const ventas = parseNumberFlexible(agent?.ventas) ?? 0;
+                const puntos = parseNumberFlexible(agent?.puntos ?? agent?.sumPuntaje) ?? 0;
+                const daysWithout = parseNumberFlexible(agent?.daysWithout) ?? 0;
+                const subParts = [team, username].filter(Boolean);
+                const subtitle = subParts.join(' • ');
+
+                item.innerHTML = `
+                    <div class="agent-left">
+                        <div class="agent-rank">${idx + 1}</div>
+                        <div class="agent-avatar">${renderAgentAvatarHtml(agent, initials, name)}</div>
+                        <div class="agent-meta">
+                            <div class="agent-name">${name}</div>
+                            <div class="agent-sub">${subtitle}</div>
+                        </div>
+                    </div>
+                    <div class="agent-right">
+                        <div class="agent-stats">
+                            <div class="agent-stats-row">
+                                <span class="agent-pill pill-sales">${ventas} ventas</span>
+                                <span class="agent-pill pill-points">${formatScore(puntos)} pts</span>
+                                <span class="agent-pill pill-days">${daysWithout}d sin venta</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function setupViewToggle() {
+            const btn = document.getElementById('btn-toggle-view');
+            const btnText = document.getElementById('btn-toggle-view-text');
+            const semView = document.getElementById('semaforo-view');
+            const agView = document.getElementById('agents-view');
+            if (!btn || !btnText || !semView || !agView) return;
+
+            let showingAgents = false;
+            const agentsCache = { ts: 0, data: [] };
+
+            const setBtnIcon = (mode) => {
+                const icon = btn.querySelector('i');
+                if (!icon) return;
+                if (mode === 'agents') {
+                    icon.className = 'fa-solid fa-traffic-light';
+                } else {
+                    icon.className = 'fa-solid fa-users';
+                }
+            };
+
+            const setViews = async (mode) => {
+                const nextAgents = mode === 'agents';
+                showingAgents = nextAgents;
+                if (showingAgents) {
+                    semView.classList.remove('is-visible');
+                    semView.classList.add('is-hidden');
+                    agView.classList.remove('is-hidden');
+                    agView.classList.add('is-visible');
+                    btnText.textContent = 'Ver semáforo';
+                    setBtnIcon('agents');
+                    const now = Date.now();
+                    const shouldRefresh = !agentsCache.ts || (now - agentsCache.ts) > 15000; // 15s
+                    if (shouldRefresh) {
+                        const [directory, semaforoPayload] = await Promise.all([
+                            fetchAgentsDirectory(),
+                            fetchSemaforoLogic()
+                        ]);
+                        const merged = mergeAgentsWithSemaforo(directory, semaforoPayload);
+                        agentsCache.ts = now;
+                        agentsCache.data = merged;
+                    }
+                    renderAgentsList(agentsCache.data);
+                } else {
+                    agView.classList.remove('is-visible');
+                    agView.classList.add('is-hidden');
+                    semView.classList.remove('is-hidden');
+                    semView.classList.add('is-visible');
+                    btnText.textContent = 'Ver agentes';
+                    setBtnIcon('semaforo');
+                }
+            };
+
+            btn.addEventListener('click', async () => {
+                await setViews(showingAgents ? 'semaforo' : 'agents');
+            });
         }
 
         async function fetchMonthSalesByTeam(date) {
@@ -621,6 +1531,7 @@
             }
             renderEquipos();
             loadSemaforoMensual();
+            setupViewToggle();
         });
     </script>
 </body>

@@ -29,9 +29,16 @@ function normalizeDatesInObject(obj) {
         const value = obj[key];
         
         // Detectar campos de fecha por nombre
-        const isDateField = /^(dia|date|fecha|instalacion|venta|creado|actualizado|creadoEn|actualizadoEn)/.test(key.toLowerCase());
+        const keyLower = key.toLowerCase();
+        const isVentasField = keyLower === 'ventas' || keyLower.endsWith('_ventas') || keyLower.endsWith('ventas');
+        const isDateField = !isVentasField && /^(dia|date|fecha|instalacion|creado|actualizado|creadoen|actualizadoen)/.test(keyLower);
+        const shouldNormalizeNumberAsDate = (n) => {
+          // Solo considerar timestamps en milisegundos (evita convertir conteos como ventas=5 -> 1969-12-31)
+          // 1e11 ~ 1973-03-03 en ms
+          return typeof n === 'number' && Number.isFinite(n) && Math.abs(n) >= 1e11;
+        };
         
-        if (isDateField && (value instanceof Date || typeof value === 'string' || typeof value === 'number')) {
+        if (isDateField && (value instanceof Date || typeof value === 'string' || shouldNormalizeNumberAsDate(value))) {
           // Intentar normalizar la fecha
           const normalizedDate = normalizeDateToString(value);
           normalized[key] = normalizedDate || value;
