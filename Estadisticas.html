@@ -3940,8 +3940,24 @@
       } else {
         base = new Date();
       }
-      btnPrev.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()-1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
-      btnNext.onclick = () => { const d = new Date(base); d.setMonth(d.getMonth()+1); location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+      try {
+        btnPrev.onclick = () => { 
+          const d = new Date(base); 
+          d.setMonth(d.getMonth()-1); 
+          location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
+        };
+      } catch(err) { 
+        console.error('[MES] Error al conectar flecha prev:', err); 
+      }
+      try {
+        btnNext.onclick = () => { 
+          const d = new Date(base); 
+          d.setMonth(d.getMonth()+1); 
+          location.href = `?m=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; 
+        };
+      } catch(err) { 
+        console.error('[MES] Error al conectar flecha next:', err); 
+      }
       const convTwoCol = card.querySelector('.conv-two-col');
       if (convTwoCol) card.insertBefore(toolbar, convTwoCol); else card.appendChild(toolbar);
     }
@@ -4415,91 +4431,58 @@
           }
         } catch(_) {}
         // Hook botón detalle
-        const btnDet = document.getElementById('btn-detalle-dia');
-        if (btnDet) {
-          btnDet.addEventListener('click', () => {
-            try { showDayDetailModal(); } catch (e) { console.error('No se pudo abrir detalle del día', e); }
-          });
-        }
-        // Hook flechas navegación día
         try {
-          const btnPrev = document.getElementById('day-prev-alt');
-          const btnNext = document.getElementById('day-next-alt');
-          if (btnPrev) {
-            btnPrev.onclick = () => { 
-              const d = new Date(effective); 
-              d.setDate(d.getDate()-1); 
-              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+          const btnDet = document.getElementById('btn-detalle-dia');
+          if (btnDet) {
+            const title = container.querySelector('.conversion-title');
+            const table = container.querySelector('.sales-table');
+            const btnDay = container.querySelector('#tab-dia-day');
+            const btnMonth = container.querySelector('#tab-dia-month');
+            const setActive = (which)=>{
+              if (!btnDay || !btnMonth) return;
+              btnDay.style.background = which==='day' ? '#22b3ec' : '';
+              btnDay.style.color = which==='day' ? '#fff' : '';
+              btnMonth.style.background = which==='month' ? '#22b3ec' : '';
+              btnMonth.style.color = which==='month' ? '#fff' : '';
             };
-            console.log('[DÍA] Botón anterior conectado');
-          } else {
-            console.warn('[DÍA] Botón anterior NO encontrado');
-          }
-          if (btnNext) {
-            btnNext.onclick = () => { 
-              const d = new Date(effective); 
-              d.setDate(d.getDate()+1); 
-              location.href = `?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+            const renderTable = (rows)=>{
+              const tbody = table?.querySelector('tbody');
+              if (!tbody) return;
+              const body = (rows||[]).map(r=>`<tr><td>${r.name}</td><td>${r.ICON||0}</td><td>${r.BAMO||0}</td><td>${r.Total||0}</td><td class="score-col">${parseFloat(r.Puntaje||0).toFixed(2)}</td></tr>`).join('');
+              const totals = (rows||[]).reduce((a,r)=>({ICON:a.ICON+(r.ICON||0),BAMO:a.BAMO+(r.BAMO||0),Total:a.Total+(r.Total||0),Puntaje:a.Puntaje+parseFloat(r.Puntaje||0)}),{ICON:0,BAMO:0,Total:0,Puntaje:0});
+              const total = `<tr class="total-row"><td>TOTAL</td><td>${totals.ICON}</td><td>${totals.BAMO}</td><td>${totals.Total}</td><td>${totals.Puntaje.toFixed(2)}</td></tr>`;
+              tbody.innerHTML = body + total;
             };
-            console.log('[DÍA] Botón siguiente conectado');
-          } else {
-            console.warn('[DÍA] Botón siguiente NO encontrado');
+            const showDay = ()=>{ 
+              try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
+              // As a robust fallback, temporarily force the front face visible
+              try {
+                const vp = document.getElementById('day-flip-local');
+                const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
+                if (front) {
+                  front.classList.add('force-visible');
+                  setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
+                }
+              } catch(_){}
+              setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${window.formatDMY(window.today)})`; renderTable(window.DayRowsOriginal||[]); };
+            const showMonth = ()=>{ 
+              try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
+              try {
+                const vp = document.getElementById('day-flip-local');
+                const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
+                if (front) {
+                  front.classList.add('force-visible');
+                  setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
+                }
+              } catch(_){}
+              setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${window.formatMY(window.today)})`; renderTable(window.MonthDisplayRows||[]); };
+            try {
+              if (btnDay) btnDay.onclick = showDay;
+              if (btnMonth) btnMonth.onclick = showMonth;
+            } catch (_) {}
+            // Selección por defecto: Día
+            showDay();
           }
-        } catch(err) { 
-          console.error('[DÍA] Error al conectar flechas:', err); 
-        }
-        // Tabs inline en tarjeta del Día
-        try {
-          const pad2 = (n)=> String(n).padStart(2,'0');
-          const formatDMY = (d)=> `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
-          const formatMY = (d)=> `${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
-          const today = new Date();
-          const title = container.querySelector('.conversion-title');
-          const table = container.querySelector('.sales-table');
-          const btnDay = container.querySelector('#tab-dia-day');
-          const btnMonth = container.querySelector('#tab-dia-month');
-          const setActive = (which)=>{
-            if (!btnDay || !btnMonth) return;
-            btnDay.style.background = which==='day' ? '#22b3ec' : '';
-            btnDay.style.color = which==='day' ? '#fff' : '';
-            btnMonth.style.background = which==='month' ? '#22b3ec' : '';
-            btnMonth.style.color = which==='month' ? '#fff' : '';
-          };
-          const renderTable = (rows)=>{
-            const tbody = table?.querySelector('tbody');
-            if (!tbody) return;
-            const body = (rows||[]).map(r=>`<tr><td>${r.name}</td><td>${r.ICON||0}</td><td>${r.BAMO||0}</td><td>${r.Total||0}</td><td class="score-col">${parseFloat(r.Puntaje||0).toFixed(2)}</td></tr>`).join('');
-            const totals = (rows||[]).reduce((a,r)=>({ICON:a.ICON+(r.ICON||0),BAMO:a.BAMO+(r.BAMO||0),Total:a.Total+(r.Total||0),Puntaje:a.Puntaje+parseFloat(r.Puntaje||0)}),{ICON:0,BAMO:0,Total:0,Puntaje:0});
-            const total = `<tr class="total-row"><td>TOTAL</td><td>${totals.ICON}</td><td>${totals.BAMO}</td><td>${totals.Total}</td><td>${totals.Puntaje.toFixed(2)}</td></tr>`;
-            tbody.innerHTML = body + total;
-          };
-          const showDay = ()=>{ 
-            try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
-            // As a robust fallback, temporarily force the front face visible
-            try {
-              const vp = document.getElementById('day-flip-local');
-              const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
-              if (front) {
-                front.classList.add('force-visible');
-                setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
-              }
-            } catch(_){}
-            setActive('day'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL DÍA (${formatDMY(today)})`; renderTable(window.DayRowsOriginal||[]); };
-          const showMonth = ()=>{ 
-            try { if (typeof window.__ensureDayFrontVisible === 'function') window.__ensureDayFrontVisible(); } catch(_){}
-            try {
-              const vp = document.getElementById('day-flip-local');
-              const front = vp && vp.querySelector ? vp.querySelector('.flip-face.front') : null;
-              if (front) {
-                front.classList.add('force-visible');
-                setTimeout(() => { try { front.classList.remove('force-visible'); } catch(_){} }, 500);
-              }
-            } catch(_){}
-            setActive('month'); if (title) title.textContent = `VENTAS POR MERCADO Y PUNTAJE DEL MES (${formatMY(today)})`; renderTable(window.MonthDisplayRows||[]); };
-          if (btnDay) btnDay.onclick = showDay;
-          if (btnMonth) btnMonth.onclick = showMonth;
-          // Selección por defecto: Día
-          showDay();
         } catch(_) {}
         // Control de equipos se mueve al modal "Ver detalle"
       } catch (e) {
@@ -4806,6 +4789,43 @@
   container.innerHTML = tablaHtml;
   // Clear inline hidden styles just in case a previous flip left elements hidden
   try { if (typeof window.__clearDayHiddenStyles === 'function') window.__clearDayHiddenStyles(); } catch(_){ }
+
+  // Conectar flechas del DÍA (usar el contenedor para evitar conflicto de IDs en otras tablas)
+  try {
+    const btnPrev = container.querySelector('#day-prev-alt');
+    const btnNext = container.querySelector('#day-next-alt');
+    const toYMD = (dt) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const navigateDay = (delta) => {
+      try {
+        const params = new URLSearchParams(location.search);
+        // Base: parámetro ?d= o la fecha efectiva calculada para el render
+        const dParam = params.get('d');
+        let base;
+        if (dParam && /^\d{4}-\d{2}-\d{2}$/.test(dParam)) {
+          const [yy, mm, dd] = dParam.split('-').map(Number);
+          base = new Date(yy, mm - 1, dd, 12, 0, 0);
+        } else {
+          base = new Date(effective);
+        }
+        base.setDate(base.getDate() + delta);
+        params.set('d', toYMD(base));
+        // preservar otros params (ej: m=) y navegar
+        location.search = params.toString();
+      } catch (e) {
+        console.warn('[DÍA] Error navegando día:', e);
+      }
+    };
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); navigateDay(-1); }, true);
+    }
+    if (btnNext) {
+      btnNext.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); navigateDay(1); }, true);
+    }
+  } catch (e) {
+    console.warn('[DÍA] No se pudieron conectar flechas:', e);
+  }
+
         // Helpers de animación (carrusel) para navegación con ?d=
         const animateSwap = async (rootEl, direction, update) => {
           try {
