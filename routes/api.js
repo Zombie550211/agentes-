@@ -2216,119 +2216,381 @@ router.get('/debug/search-lead/:id', protect, async (req, res) => {
   }
 });
 
-/**
- * @route POST /api/crm_agente
- * @desc Asignar lead a un agente especfico (endpoint de respaldo/explcito)
- * @access Private
- */
+// POST /api/crm_agente -> guardar lead en colección del agente asignado
 router.post('/crm_agente', protect, async (req, res) => {
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
 
-    const leadData = req.body;
-    const { agenteAsignado, agente, nombre_cliente, telefono_principal } = leadData;
-    
-    // Normalizar nombre del agente objetivo
+    const leadData = req.body || {};
+    const agenteAsignado = leadData.agenteAsignado;
+    const agente = leadData.agente;
+
     let targetAgentName = agenteAsignado || agente;
     if (!targetAgentName) {
       return res.status(400).json({ success: false, message: 'Se requiere agente o agenteAsignado' });
     }
 
-    // Limpieza del nombre (DIEGO_MEJIA -> Diego Mejia)
     targetAgentName = String(targetAgentName).replace(/_/g, ' ').trim();
-    
     console.log(`[API /crm_agente] Intentando asignar lead a: ${targetAgentName}`);
 
-    // Buscar el usuario agente en la BD
     const usersCol = db.collection('users');
     const agentUser = await usersCol.findOne({
       $or: [
         { username: { $regex: new RegExp(`^${targetAgentName}$`, 'i') } },
         { name: { $regex: new RegExp(`^${targetAgentName}$`, 'i') } },
-        // Intento flexible
         { username: { $regex: new RegExp(targetAgentName, 'i') } },
         { name: { $regex: new RegExp(targetAgentName, 'i') } }
       ]
     });
 
     if (!agentUser) {
-      console.warn(`[API /crm_agente] No se encontr�� usuario para: ${targetAgentName}`);
+      console.warn(`[API /crm_agente] No se encontró usuario para: ${targetAgentName}`);
       return res.status(404).json({ success: false, message: 'Agente no encontrado en el sistema' });
     }
 
     const agentId = agentUser._id || agentUser.id;
     const agentUsername = agentUser.username || agentUser.name;
-    
     console.log(`[API /crm_agente] Usuario encontrado: ${agentUsername} (${agentId})`);
 
-    // Determinar la colecci��n de destino
-    // 1. Verificar si tiene mapeo en user_collections
     let targetCollection = null;
-    const mapping = await db.collection('user_collections').findOne({ 
-      $or: [{ ownerId: agentId }, { ownerId: String(agentId) }] 
-    });
-    
-    if (mapping && mapping.collectionName) {
-      targetCollection = mapping.collectionName;
-    } else {
-      // 2. Buscar colecci��n existente que empiece por costumers_ y tenga leads de este agente
-      const allCols = await db.listCollections().toArray();
-      const potentialCols = allCols.filter(c => c.name.startsWith('costumers_'));
-      
-      // Buscar la mejor coincidencia
-      for (const col of potentialCols) {
-        // Simple heur��stica: si el nombre de la colecci��n contiene parte del nombre del agente
-        const simplifiedCol = col.name.replace('costumers_', '').toLowerCase();
-        const simplifiedAgent = String(agentUsername).toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (simplifiedCol.includes(simplifiedAgent.slice(0, 5))) {
-            targetCollection = col.name;
-            break;
-        }
+    try {
+      const mapping = await db.collection('user_collections').findOne({
+        $or: [{ ownerId: agentId }, { ownerId: String(agentId) }]
+      });
+      if (mapping && mapping.collectionName) {
+        targetCollection = mapping.collectionName;
       }
-      
-      // 3. Si no, generar nombre can��nico
-      if (!targetCollection) {
-        const shortId = String(agentId).slice(-6);
-        const normName = String(agentUsername).normalize('NFD').replace(/[\u0000-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '_');
-        targetCollection = `costumers_${normName}_${shortId}`.slice(0, 60); // Safety limit
+    } catch (_) {}
+
+    if (!targetCollection) {
+      const allCols = await db.listCollections().toArray();
+      const potentialCols = allCols.filter(c => String(c.name || '').startsWith('costumers_'));
+      for (const col of potentialCols) {
+        const simplifiedCol = String(col.name || '').replace('costumers_', '').toLowerCase();
+        const simplifiedAgent = String(agentUsername).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (simplifiedAgent && simplifiedCol.includes(simplifiedAgent.slice(0, 5))) {
+          targetCollection = col.name;
+          break;
+        }
       }
     }
 
-    console.log(`[API /crm_agente] Guardando en colecci��n: ${targetCollection}`);
+    if (!targetCollection) {
+      const shortId = String(agentId).slice(-6);
+      const normName = String(agentUsername)
+        .normalize('NFD')
+        .replace(/[\u0000-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_');
+      targetCollection = `costumers_${normName}_${shortId}`.slice(0, 60);
+    }
 
-    // Preparar documento
+    console.log(`[API /crm_agente] Guardando en colección: ${targetCollection}`);
+
     const newLead = {
       ...leadData,
       agente: agentUsername,
       agenteId: agentId,
       agenteNombre: agentUsername,
-      ownerId: agentId, // CR��TICO para que sea "suyo"
-      asignadoPor: req.user.username,
+      ownerId: agentId,
+      asignadoPor: req.user?.username,
       fecha_asignacion: new Date(),
-      // Asegurar fechas
       createdAt: new Date(),
       updatedAt: new Date(),
       fecha_creacion: new Date(),
       status: leadData.status || 'PENDING',
       _source: 'crm_agente_assignment'
     };
-
-    // Eliminar _id si viene en el body para crear uno nuevo
     delete newLead._id;
 
-    // Insertar
     const result = await db.collection(targetCollection).insertOne(newLead);
-
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: `Lead asignado correctamente a ${agentUsername}`,
       collection: targetCollection,
       id: result.insertedId
     });
-
   } catch (error) {
     console.error('[API /crm_agente] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/semaforo', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const toYMD = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startDate = String(req.query.fechaInicio || '').trim() || toYMD(startOfMonth);
+    const endDate = String(req.query.fechaFin || '').trim() || toYMD(now);
+
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+    if (!unifiedAvailable) {
+      return res.status(500).json({ success: false, message: 'No existe la colección costumers_unified' });
+    }
+
+    const pipeline = [
+      {
+        $addFields: {
+          _agenteFuente: { $ifNull: ["$agenteNombre", "$agente"] },
+          _statusStr: { $toUpper: { $trim: { input: { $ifNull: ["$status", ""] } } } }
+        }
+      },
+      {
+        $addFields: {
+          _statusNorm: {
+            $cond: [
+              { $regexMatch: { input: "$_statusStr", regex: /CANCEL/ } },
+              "CANCEL",
+              "$_statusStr"
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
+          puntajeEfectivo: {
+            $cond: [
+              { $eq: ["$_statusNorm", "CANCEL"] },
+              0,
+              { $toDouble: { $ifNull: ["$puntaje", 0] } }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $eq: [{ $type: "$dia_venta" }, "date"] },
+              "$dia_venta",
+              {
+                $let: {
+                  vars: { s: { $toString: "$dia_venta" } },
+                  in: {
+                    $cond: [
+                      { $regexMatch: { input: "$$s", regex: /^\d{4}-\d{2}-\d{2}$/ } },
+                      { $dateFromString: { dateString: "$$s", format: "%Y-%m-%d", timezone: "-06:00" } },
+                      {
+                        $cond: [
+                          { $regexMatch: { input: "$$s", regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                          {
+                            $let: {
+                              vars: { parts: { $split: ["$$s", "/"] } },
+                              in: {
+                                $dateFromParts: {
+                                  year: { $toInt: { $arrayElemAt: ["$$parts", 2] } },
+                                  month: { $toInt: { $arrayElemAt: ["$$parts", 1] } },
+                                  day: { $toInt: { $arrayElemAt: ["$$parts", 0] } }
+                                }
+                              }
+                            }
+                          },
+                          { $dateFromString: { dateString: "$$s", timezone: "-06:00" } }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                { agenteNombre: { $exists: true, $ne: null, $ne: "" } },
+                { agente: { $exists: true, $ne: null, $ne: "" } }
+              ]
+            },
+            { excluirDeReporte: { $ne: true } }
+          ]
+        }
+      },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              {
+                $gte: [
+                  {
+                    $dateToString: {
+                      format: "%Y-%m-%d",
+                      date: { $ifNull: ["$_diaParsed", "$createdAt"] },
+                      timezone: "-06:00"
+                    }
+                  },
+                  startDate
+                ]
+              },
+              {
+                $lte: [
+                  {
+                    $dateToString: {
+                      format: "%Y-%m-%d",
+                      date: { $ifNull: ["$_diaParsed", "$createdAt"] },
+                      timezone: "-06:00"
+                    }
+                  },
+                  endDate
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _nameNormLower: {
+            $toLower: {
+              $replaceAll: {
+                input: {
+                  $replaceAll: {
+                    input: {
+                      $replaceAll: {
+                        input: "$_agenteFuente",
+                        find: "_",
+                        replacement: ""
+                      }
+                    },
+                    find: ".",
+                    replacement: ""
+                  }
+                },
+                find: " ",
+                replacement: ""
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$_nameNormLower",
+          nombre: { $first: "$_agenteFuente" },
+          ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+          puntos: { $sum: "$puntajeEfectivo" },
+          lastSaleDate: { $max: { $cond: ["$isCancel", null, { $ifNull: ["$_diaParsed", "$createdAt"] }] } }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          nombreNormalizado: "$_id",
+          nombre: 1,
+          ventas: 1,
+          puntos: 1,
+          lastSaleYMD: {
+            $cond: [
+              { $ne: ["$lastSaleDate", null] },
+              { $dateToString: { format: "%Y-%m-%d", date: "$lastSaleDate", timezone: "-06:00" } },
+              null
+            ]
+          }
+        }
+      }
+    ];
+
+    const rows = await db.collection(unifiedCollectionName).aggregate(pipeline, { allowDiskUse: true }).toArray();
+
+    const normalizeNameKey = (value) => {
+      if (!value) return '';
+      return String(value)
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toLowerCase();
+    };
+
+    const usersDocs = await db.collection('users').find({}, {
+      projection: { username: 1, name: 1, email: 1, aliases: 1 }
+    }).toArray();
+
+    const userMap = new Map();
+    for (const userDoc of usersDocs) {
+      const keys = new Set();
+      [userDoc.username, userDoc.name, userDoc.email && String(userDoc.email).split('@')[0]].forEach((val) => {
+        const k = normalizeNameKey(val);
+        if (k) keys.add(k);
+      });
+      if (Array.isArray(userDoc.aliases)) {
+        userDoc.aliases.forEach((alias) => {
+          const k = normalizeNameKey(alias);
+          if (k) keys.add(k);
+        });
+      }
+      keys.forEach((k) => {
+        if (!userMap.has(k)) userMap.set(k, userDoc);
+      });
+    }
+
+    const safeNoon = (ymd) => {
+      const [y, m, d] = String(ymd).split('-').map(Number);
+      const dt = new Date(y, (m || 1) - 1, d || 1);
+      dt.setHours(12, 0, 0, 0);
+      return dt;
+    };
+    const todayNoon = new Date(now);
+    todayNoon.setHours(12, 0, 0, 0);
+    const startNoon = safeNoon(startDate);
+
+    const data = rows.map((row) => {
+      const candidates = [row.nombreNormalizado, row.nombre].filter(Boolean).map(normalizeNameKey);
+      let matchedUser = null;
+      for (const c of candidates) {
+        matchedUser = userMap.get(c);
+        if (matchedUser) break;
+      }
+      const last = row.lastSaleYMD ? safeNoon(row.lastSaleYMD) : null;
+      const daysWithout = last
+        ? Math.max(0, Math.floor((todayNoon.getTime() - last.getTime()) / (24 * 60 * 60 * 1000)))
+        : Math.max(0, Math.floor((todayNoon.getTime() - startNoon.getTime()) / (24 * 60 * 60 * 1000))) + 1;
+
+      let status = 'green';
+      if (daysWithout >= 4) status = 'black';
+      else if (daysWithout === 3) status = 'red';
+      else if (daysWithout === 2) status = 'yellow';
+      else if (daysWithout === 1) status = 'greenlight';
+      else status = 'green';
+
+      return {
+        userId: matchedUser?._id ? String(matchedUser._id) : null,
+        username: matchedUser?.username || null,
+        name: matchedUser?.name || row.nombre || null,
+        ventas: Number(row.ventas || 0) || 0,
+        puntos: Number(row.puntos || 0) || 0,
+        lastSaleYMD: row.lastSaleYMD || null,
+        daysWithout,
+        status
+      };
+    });
+
+    return res.json({
+      success: true,
+      data,
+      meta: { startDate, endDate, today: toYMD(now) }
+    });
+  } catch (error) {
+    console.error('[API /semaforo] Error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -2356,6 +2618,15 @@ router.get('/users/agents', protect, async (req, res) => {
         supervisorId: 1,
         manager: 1,
         managerId: 1,
+        avatarUrl: 1,
+        avatarFileId: 1,
+        avatarUpdatedAt: 1,
+        photoUrl: 1,
+        photo: 1,
+        imageUrl: 1,
+        picture: 1,
+        profilePhoto: 1,
+        avatar: 1,
         _id: 1,
         id: 1 
       })

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Llamadas y Ventas</title>
+</head>
+<body>
+    <h1>Test Endpoints Llamadas y Ventas</h1>
+    <div id="results"></div>
+    
+    <script>
+        // Simular un token JWT (debes reemplazar con uno real)
+        const testToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InRlc3QiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE2MzAwMDAwMDAsImV4cCI6OTk5OTk5OTk5OX0.test';
+        
+        async function testEndpoints() {
+            const results = document.getElementById('results');
+            
+            try {
+                // Test GET endpoint
+                console.log('Probando GET /api/llamadas-ventas...');
+                const getResponse = await fetch('/api/llamadas-ventas?month=1&year=2026', {
+                    headers: {
+                        'Authorization': `Bearer ${testToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const getData = await getResponse.json();
+                console.log('GET Response:', getData);
+                
+                results.innerHTML += `
+                    <h2>GET /api/llamadas-ventas</h2>
+                    <p>Status: ${getResponse.status}</p>
+                    <pre>${JSON.stringify(getData, null, 2)}</pre>
+                `;
+                
+                // Test POST endpoint
+                console.log('Probando POST /api/llamadas-ventas...');
+                const postResponse = await fetch('/api/llamadas-ventas', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${testToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        day: 3,
+                        team: 'TEAM IRANIA',
+                        type: 'LLAMADAS',
+                        value: '25'
+                    })
+                });
+                
+                const postData = await postResponse.json();
+                console.log('POST Response:', postData);
+                
+                results.innerHTML += `
+                    <h2>POST /api/llamadas-ventas</h2>
+                    <p>Status: ${postResponse.status}</p>
+                    <pre>${JSON.stringify(postData, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                results.innerHTML += `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Ejecutar pruebas
+        testEndpoints();
+    </script>
+</body>
+</html>
