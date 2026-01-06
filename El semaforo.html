@@ -243,7 +243,7 @@
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            display: flex;
+            display: none !important;
             align-items: center;
             justify-content: center;
             font-weight: 700;
@@ -789,7 +789,7 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            display: flex;
+            display: none !important;
             align-items: center;
             justify-content: center;
             font-size: 1rem;
@@ -890,6 +890,148 @@
             color: #1f2937;
             font-size: 0.9rem;
         }
+
+        .ranking-podium-final {
+            position: relative;
+            width: 100%;
+            max-width: 820px;
+            margin: 10px auto 22px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ranking-podium-final .ranking-base-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 18px 40px rgba(2, 6, 23, 0.18));
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .ranking-podium-final .astronauts-overlay {
+            position: absolute;
+            inset: 0;
+        }
+
+        .ranking-podium-final .astronaut-position {
+            position: absolute;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .ranking-podium-final .second-pos { left: 25%; top: 15%; }
+        .ranking-podium-final .first-pos { left: 50%; top: -18%; }
+        .ranking-podium-final .third-pos { left: 75%; top: 22%; }
+
+        .ranking-podium-final .astronaut-wrapper {
+            width: 280px;
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .ranking-podium-final .astronaut-wrapper.winner {
+            width: 320px;
+            height: 320px;
+        }
+
+        .ranking-podium-final .astronaut-image {
+            width: 92%;
+            height: 92%;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.25));
+        }
+
+        .ranking-podium-final .astronaut-wrapper.winner .astronaut-image {
+            width: 96%;
+            height: 96%;
+            filter: drop-shadow(0 12px 24px rgba(0,0,0,0.28)) drop-shadow(0 0 18px rgba(34,197,94,0.35));
+        }
+
+        .ranking-podium-final .position-badge {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            display: none !important;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 18px;
+            color: #0f172a;
+            background: rgba(255,255,255,0.92);
+            border: 2px solid rgba(15,23,42,0.12);
+            box-shadow: 0 10px 26px rgba(2,6,23,0.18);
+        }
+
+        .ranking-podium-final .position-badge.gold {
+            background: linear-gradient(135deg, #fde68a, #f59e0b);
+            color: #1f2937;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .ranking-podium-final .astronaut-info {
+            width: 190px;
+            text-align: center;
+            background: rgba(2, 6, 23, 0.66);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: 0 16px 40px rgba(2,6,23,0.28);
+            backdrop-filter: blur(6px);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: -120px;
+            z-index: 4;
+        }
+
+        .ranking-podium-final .first-pos .astronaut-info { bottom: -170px; }
+        .ranking-podium-final .second-pos .astronaut-info { bottom: -95px; }
+        .ranking-podium-final .third-pos .astronaut-info { bottom: -80px; }
+
+        .ranking-podium-final .astronaut-name {
+            font-weight: 900;
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .ranking-podium-final .astronaut-score {
+            font-weight: 900;
+            color: #fde68a;
+            font-size: 26px;
+            line-height: 1.1;
+            margin-top: 2px;
+        }
+
+        .ranking-podium-final .astronaut-score.winner {
+            color: #fff;
+        }
+
+        @media (max-width: 980px) {
+            .ranking-podium-final { max-width: 720px; }
+            .ranking-podium-final .astronaut-wrapper { width: 220px; height: 220px; }
+            .ranking-podium-final .astronaut-wrapper.winner { width: 260px; height: 260px; }
+            .ranking-podium-final .astronaut-info { width: 170px; }
+        }
+
+        @media (max-width: 720px) {
+            .ranking-podium-final { max-width: 520px; }
+            .ranking-podium-final .astronaut-wrapper { width: 160px; height: 160px; }
+            .ranking-podium-final .astronaut-wrapper.winner { width: 190px; height: 190px; }
+            .ranking-podium-final .astronaut-info { width: 140px; padding: 8px 10px; }
+            .ranking-podium-final .astronaut-score { font-size: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -933,6 +1075,44 @@
                         <div class="ranking-container">
                             <div class="ranking-header">
                                 <h2>Clasificación del Mes</h2>
+                            </div>
+
+                            <div class="ranking-podium-final" id="teams-top3-podium">
+                                <img src="images/podioazul.png" alt="Podio Ranking" class="ranking-base-image">
+                                <div class="astronauts-overlay">
+                                    <div class="astronaut-position second-pos">
+                                        <div class="astronaut-wrapper">
+                                            <img src="images/segundo lugar.png" class="astronaut-image" alt="Segundo lugar">
+                                            <div class="position-badge">2</div>
+                                        </div>
+                                        <div class="astronaut-info">
+                                            <div class="astronaut-name">—</div>
+                                            <div class="astronaut-score">0</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="astronaut-position first-pos">
+                                        <div class="astronaut-wrapper winner">
+                                            <img src="images/primer lugar.png" class="astronaut-image" alt="Primer lugar">
+                                            <div class="position-badge gold">1</div>
+                                        </div>
+                                        <div class="astronaut-info">
+                                            <div class="astronaut-name">—</div>
+                                            <div class="astronaut-score winner">0</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="astronaut-position third-pos">
+                                        <div class="astronaut-wrapper">
+                                            <img src="images/tercer lugar.png" class="astronaut-image" alt="Tercer lugar">
+                                            <div class="position-badge">3</div>
+                                        </div>
+                                        <div class="astronaut-info">
+                                            <div class="astronaut-name">—</div>
+                                            <div class="astronaut-score">0</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div id="ranking-table" class="ranking-table"></div>
@@ -1017,6 +1197,80 @@
                 return '🚨 PELIGRO';
             };
 
+            const stripDiacritics = (str) => String(str || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+
+            const supervisorSlug = (name) => {
+                const base = stripDiacritics(String(name || '').trim()).toLowerCase();
+                return base
+                    .replace(/[^a-z0-9\s._-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^[-.]+|[-.]+$/g, '');
+            };
+
+            const setSupervisorPhoto = (imgEl, supervisorName) => {
+                if (!imgEl) return;
+
+                const original = imgEl.dataset.originalSrc || imgEl.getAttribute('src') || '';
+                if (!imgEl.dataset.originalSrc) imgEl.dataset.originalSrc = original;
+
+                const slug = supervisorSlug(supervisorName);
+                if (!slug) {
+                    if (original) imgEl.src = original;
+                    return;
+                }
+
+                const candidates = [
+                    `images/supervisores/${slug}.png`,
+                    `images/supervisores/${slug}.jpg`,
+                    `images/supervisores/${slug}.jpeg`,
+                    `images/supervisores/${slug}.webp`,
+                ];
+
+                let idx = 0;
+                const tryNext = () => {
+                    if (idx >= candidates.length) {
+                        if (original) imgEl.src = original;
+                        return;
+                    }
+                    const nextSrc = candidates[idx++];
+                    imgEl.onerror = tryNext;
+                    imgEl.src = nextSrc;
+                };
+
+                imgEl.onerror = null;
+                tryNext();
+            };
+
+            const updateTeamTop3Podium = () => {
+                const podium = document.getElementById('teams-top3-podium');
+                if (!podium) return;
+                const list = Array.isArray(equipos) ? equipos.slice() : [];
+                list.sort((a, b) => (Number(b?.ventas || 0) - Number(a?.ventas || 0)));
+                const top = list.slice(0, 3);
+                const top1 = top[0] || null;
+                const top2 = top[1] || null;
+                const top3 = top[2] || null;
+
+                const setSlot = (selectorBase, item) => {
+                    const nameEl = podium.querySelector(`${selectorBase} .astronaut-name`);
+                    const scoreEl = podium.querySelector(`${selectorBase} .astronaut-score`);
+                    const imgEl = podium.querySelector(`${selectorBase} .astronaut-image`);
+                    const score = Number(item?.ventas || 0);
+                    const name = formatTeamDisplayName(item?.nombre || '');
+                    if (nameEl) nameEl.textContent = name || '—';
+                    if (scoreEl) scoreEl.textContent = String(score);
+
+                    setSupervisorPhoto(imgEl, name);
+                };
+
+                setSlot('.first-pos', top1);
+                setSlot('.second-pos', top2);
+                setSlot('.third-pos', top3);
+            };
+
             (equipos || []).forEach((equipo) => {
                 const pos = Number(equipo?.posicion || 0);
                 const ventas = Number(equipo?.ventas || 0);
@@ -1052,6 +1306,8 @@
             if (metricWarning) metricWarning.textContent = String(warning);
             if (metricDanger) metricDanger.textContent = String(danger);
             if (metricTotal) metricTotal.textContent = String(totalVentas);
+
+            updateTeamTop3Podium();
         }
 
         function getMonthRange(date) {
