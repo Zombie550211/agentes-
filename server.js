@@ -120,6 +120,11 @@ app.get('/health', (req, res) => {
   res.json({ ok: state === 1, mongo: map[state] || String(state) });
 });
 
+// Guard de acceso: crear-cuenta.html solo para Administrador
+app.get(['/crear-cuenta.html', '/crear-cuenta'], protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), (req, res) => {
+  return res.sendFile(path.join(__dirname, 'crear-cuenta.html'));
+});
+
 // Configuración de rutas de archivos estáticos
 app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
   setHeaders: (res, path) => {

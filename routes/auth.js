@@ -10,7 +10,8 @@ router.post('/register', async (req, res) => {
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
-    const { name, username, email, password, role, team } = req.body;
+    const { name, username: usernameRaw, email, password, role, team } = req.body;
+    const username = String(usernameRaw || '').trim();
     if (!username || !password || !role) {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios (usuario, contraseña, rol)' });
     }
@@ -216,7 +217,7 @@ router.post('/reset-password', protect, authorize('admin', 'Administrador', 'adm
       uname.replace(/[.\s]+/g, '.')
     ].filter(Boolean)));
     const ors = variants.flatMap(v => {
-      const rx = new RegExp(`^${esc(v)}$`, 'i');
+      const rx = new RegExp(`^\\s*${esc(v)}\\s*$`, 'i');
       return [ { username: rx }, { name: rx } ];
     });
 
@@ -299,7 +300,7 @@ router.post('/login', async (req, res) => {
     const esc = (s) => String(s||'').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     const ors = variants.flatMap(v => {
-      const rx = new RegExp(`^${esc(v)}$`, 'i');
+      const rx = new RegExp(`^\\s*${esc(v)}\\s*$`, 'i');
       return [ { username: rx }, { name: rx } ];
     });
 
