@@ -423,7 +423,7 @@
         .user-tab.active::after { content:''; position:absolute; left:0; right:0; bottom:-2px; height:3px; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 3px 3px 0 0; }
         .user-modal-body { padding: 24px 28px; max-height: calc(90vh - 180px); overflow:auto; }
         .user-tab-panel { display: none; }
-        .user-tab-panel.active { display: block; }
+        .user-tab-panel.active { display: block; }  
 
         .user-list { display: grid; gap: 12px; margin-top: 18px; }
         .user-item { display:flex; align-items:center; justify-content:space-between; padding: 14px 16px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 14px; }
@@ -847,6 +847,41 @@
         const deleteUserList = document.getElementById('deleteUserList');
         let currentUserId = null;
 
+        async function enforceAdminOnly() {
+            const allowed = ['Administrador', 'admin', 'administrador', 'Administrativo'];
+            const toRole = (v) => String(v || '').trim();
+
+            const readStoredRole = () => {
+                try {
+                    const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+                    if (!raw) return '';
+                    const parsed = JSON.parse(raw);
+                    return toRole(parsed?.role);
+                } catch (_) {
+                    return '';
+                }
+            };
+
+            let role = '';
+            try {
+                const res = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
+                if (res && res.ok) {
+                    const data = await res.json();
+                    role = toRole(data?.user?.role || data?.tokenUser?.role);
+                }
+            } catch (_) {
+                // ignore
+            }
+
+            if (!role) role = readStoredRole();
+
+            if (!allowed.includes(role)) {
+                window.location.replace('/inicio.html');
+            }
+        }
+
+        enforceAdminOnly();
+
         function switchTab(tabName) {
             const panels = document.querySelectorAll('.user-tab-panel');
             panels.forEach(p => p.classList.remove('active'));
@@ -1248,7 +1283,7 @@
             if (!resp.ok || !data.success) {
                 throw new Error(data.message || 'Error desconocido');
             }
-            [editUserSelect, editCredentialsUser, deleteUserSelect].forEach((selectEl) => {
+            [editUserSelect, editCredentialsUser].forEach((selectEl) => {
                 if (!selectEl) return;
                 const option = Array.from(selectEl.options || []).find(opt => String(opt.value) === String(userId));
                 if (option) option.remove();
@@ -1324,7 +1359,7 @@
                     }
 
                     const cachedUser = findCachedUser(userId);
-                    const requestedUsername = (editNewUsername?.value || '').trim();
+                    const requestedUsername = (editNewUsername?.value || '');
                     const newPassword = editNewPassword?.value || '';
                     const confirmPasswordValue = editConfirmNewPassword?.value || '';
 
