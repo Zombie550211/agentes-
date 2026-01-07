@@ -108,10 +108,12 @@ const authorize = (...roles) => {
         });
       }
 
-      const userRole = req.user.role;
+      const normRole = (v) => String(v || '').trim().toLowerCase();
+      const userRole = normRole(req.user.role);
+      const allowed = roles.map(normRole);
 
       // Verificar si el rol del usuario está en la lista de roles permitidos
-      if (!roles.includes(userRole)) {
+      if (!allowed.includes(userRole)) {
         return res.status(403).json({
           success: false,
           message: `Acceso denegado. Se requiere uno de los siguientes roles: ${roles.join(', ')}`

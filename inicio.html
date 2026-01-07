@@ -1659,6 +1659,9 @@
         // Cargar datos del dashboard
         await loadDashboardData(user);
 
+        // KPI Mejor vendedor del mes (depende de ranking)
+        try { await updateBestSeller(); } catch(e) { console.warn('[INICIO] updateBestSeller falló:', e); }
+
         // Función para actualizar información del usuario en el sidebar
         function updateUserInfoInSidebar() {
           console.log('Actualizando información del usuario en sidebar...');
@@ -1794,6 +1797,9 @@
           
           // Mostrar KPIs instantáneamente
           displayKPIsImmediately(dashboardData, user);
+
+          // KPI Mejor vendedor del mes (admins/BO también lo necesitan)
+          try { await updateBestSeller(); } catch(e) { console.warn('[INICIO] updateBestSeller falló (fast path):', e); }
           
           // Actualizar estadísticas del usuario 
           await updateUserStats(dashboardData, user);
@@ -1879,17 +1885,37 @@
 
     // Nueva función para crear gráficos desde datos del init-dashboard
     function createChartsFromInitData(dashboardData) {
-      console.log('📈 Creando gráficos desde datos optimizados...');
-      
-      if (dashboardData.chartTeams && dashboardData.chartTeams.length > 0) {
-        createTeamsChartFromData(dashboardData.chartTeams);
+      try {
+        // Chart.js se carga con "defer"; a veces aún no existe cuando llega el init-dashboard
+        if (typeof window.Chart === 'undefined') {
+          console.warn('[INICIO] Chart.js aún no disponible; reintentando render de gráficos...');
+          setTimeout(() => createChartsFromInitData(dashboardData), 150);
+          return;
+        }
+
+        console.log('📈 Creando gráficos desde datos optimizados...');
+
+        const hasTeamsArray = Array.isArray(dashboardData?.chartTeams) && dashboardData.chartTeams.length > 0;
+        const hasTeamsObj = !!dashboardData?.chartTeams && !Array.isArray(dashboardData.chartTeams) && Array.isArray(dashboardData.chartTeams.labels) && dashboardData.chartTeams.labels.length > 0;
+        const hasProdArray = Array.isArray(dashboardData?.chartProductos) && dashboardData.chartProductos.length > 0;
+        const hasProdObj = !!dashboardData?.chartProductos && !Array.isArray(dashboardData.chartProductos) && Array.isArray(dashboardData.chartProductos.labels) && dashboardData.chartProductos.labels.length > 0;
+
+        if (hasTeamsArray || hasTeamsObj) {
+          createTeamsChartFromData(dashboardData.chartTeams);
+        } else {
+          console.warn('[INICIO] chartTeams vacío/no disponible en init-dashboard');
+        }
+
+        if (hasProdArray || hasProdObj) {
+          createProductsChartFromData(dashboardData.chartProductos);
+        } else {
+          console.warn('[INICIO] chartProductos vacío/no disponible en init-dashboard');
+        }
+
+        console.log('✅ Gráficos creados desde datos optimizados');
+      } catch (e) {
+        console.warn('[INICIO] Error en createChartsFromInitData:', e);
       }
-      
-      if (dashboardData.chartProductos && dashboardData.chartProductos.length > 0) {
-        createProductsChartFromData(dashboardData.chartProductos);
-      }
-      
-      console.log('✅ Gráficos creados desde datos optimizados');
     }
 
     // Función para crear gráfico de teams desde datos del init-dashboard
@@ -1897,12 +1923,33 @@
       try {
         const chartElement = document.getElementById('teamsChart');
         if (!chartElement) {
-          console.warn('⚠️  Elemento teamsChart no encontrado en el DOM');
+          console.warn('  Elemento teamsChart no encontrado en el DOM');
           return;
         }
 
-        const labels = teamsData.map(t => t.nombre);
-        const counts = teamsData.map(t => t.count);
+        let labels = [];
+        let counts = [];
+
+        // Formato A: { labels:[], data:[] }
+        if (teamsData && !Array.isArray(teamsData) && Array.isArray(teamsData.labels) && Array.isArray(teamsData.data)) {
+          labels = teamsData.labels;
+          counts = teamsData.data;
+        }
+        // Formato B: [ { nombre|label|name|_id, count|total|cantidad|value } ]
+        else if (Array.isArray(teamsData)) {
+          labels = teamsData.map(t => (t?.nombre ?? t?.label ?? t?.name ?? t?._id ?? 'SIN EQUIPO'));
+          counts = teamsData.map(t => (t?.count ?? t?.total ?? t?.cantidad ?? t?.value ?? 0));
+        } else {
+          console.warn('[INICIO] chartTeams en formato desconocido:', teamsData);
+          labels = [];
+          counts = [];
+        }
+
+        labels = labels.map(x => String(x ?? 'SIN EQUIPO'));
+        counts = counts.map(x => {
+          const n = Number(x);
+          return Number.isFinite(n) ? n : 0;
+        });
 
         const ctx = chartElement.getContext('2d');
 
@@ -1935,7 +1982,7 @@
             }
           }
         });
-        console.log('✅ Gráfico de teams creado');
+        console.log(' Gráfico de teams creado');
       } catch (e) {
         console.error('Error creando gráfico de teams:', e);
       }
@@ -1944,14 +1991,40 @@
     // Función para crear gráfico de productos desde datos del init-dashboard
     function createProductsChartFromData(productsData) {
       try {
-        const chartElement = document.getElementById('salesChart');
+        const chartElement = document.getElementById('productsChart');
         if (!chartElement) {
-          console.warn('⚠️  Elemento salesChart no encontrado en el DOM');
+          console.warn('  Elemento productsChart no encontrado en el DOM');
           return;
         }
 
-        const labels = productsData.map(p => p.servicio);
-        const counts = productsData.map(p => p.count);
+        let labels = [];
+        let counts = [];
+
+        // Formato A: { labels:[], data:[] }
+        if (productsData && !Array.isArray(productsData) && Array.isArray(productsData.labels) && Array.isArray(productsData.data)) {
+          labels = productsData.labels;
+          counts = productsData.data;
+        }
+        // Formato B: [ { servicio|producto|label|name|_id, count|total|cantidad|value } ]
+        else if (Array.isArray(productsData)) {
+          labels = productsData.map(p => (p?.servicio ?? p?.producto ?? p?.label ?? p?.name ?? p?._id ?? 'OTRO'));
+          counts = productsData.map(p => (p?.count ?? p?.total ?? p?.cantidad ?? p?.value ?? 0));
+        } else {
+          console.warn('[INICIO] chartProductos en formato desconocido:', productsData);
+          labels = [];
+          counts = [];
+        }
+
+        labels = labels.map(x => String(x ?? 'OTRO'));
+        counts = counts.map(x => {
+          const n = Number(x);
+          return Number.isFinite(n) ? n : 0;
+        });
+
+        // Si viene vacío, no romper la UI, solo reportar
+        if (!labels.length || !counts.length) {
+          console.warn('[INICIO] chartProductos vacío: no hay datos para graficar');
+        }
 
         const ctx = chartElement.getContext('2d');
 
@@ -1985,7 +2058,7 @@
             }
           }
         });
-        console.log('✅ Gráfico de productos creado');
+        console.log(' Gráfico de productos creado');
       } catch (e) {
         console.error('Error creando gráfico de productos:', e);
       }
@@ -1994,26 +2067,48 @@
     // Función para actualizar el mejor vendedor
     async function updateBestSeller() {
       try {
+        console.log('[INICIO][BestSeller]  Ejecutando updateBestSeller');
+        let dash = null;
+        try {
+          dash = window.__dashboardData || null;
+        } catch (_) {}
+
+        if (!dash) {
+          try {
+            const cachedDash = sessionStorage.getItem('dashboardData');
+            if (cachedDash) dash = JSON.parse(cachedDash);
+          } catch(_) {}
+        }
+
+        const kpiBest = dash && dash.kpis && (dash.kpis.mayor_vendedor || dash.kpis.mayorVendedor);
+        // Si el backend manda '-' como placeholder, NO hacer return: consultar ranking real.
+        if (kpiBest && String(kpiBest).trim() !== '-') {
+          const el = document.getElementById('best-seller-name');
+          if (el) el.textContent = kpiBest || '-';
+          return;
+        }
+
         // FAST PATH: Intentar usar datos precacheados primero
         const cachedResponse = tryLoadFromPrecachedRankings();
         let rankingData = null;
         
         if (cachedResponse && cachedResponse.data && cachedResponse.data.topRankings) {
-          console.log('[INICIO][BestSeller] ⚡ Usando rankings precacheados');
+          console.log('[INICIO][BestSeller]  Usando rankings precacheados');
           rankingData = cachedResponse.data.topRankings;
         } else {
           // SLOW PATH: Cargar desde API
-          console.log('[INICIO][BestSeller] 🔄 Cargando rankings desde API');
+          console.log('[INICIO][BestSeller]  Cargando rankings desde API');
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           const headers = { 'Accept': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
           // Usar el endpoint de ranking para garantizar el mismo primer lugar que ven los administradores
-          const res = await fetch('/api/ranking?limit=1', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
+          const res = await fetch('/api/ranking?limit=1&field=dia_venta', { method: 'GET', headers, credentials: 'include', cache: 'no-store' });
           if (!res.ok) {
             console.warn('[KPI][BestSeller] ranking no OK', res.status, res.statusText);
             return;
           }
           rankingData = await res.json().catch(() => ({}));
+          console.log('[INICIO][BestSeller]  Respuesta ranking (raw):', rankingData);
         }
         
         // Soportar diferentes formatos: {ranking:[]}, {data:{ranking:[]}}, o array directo
@@ -2021,6 +2116,8 @@
         if (Array.isArray(rankingData)) arr = rankingData;
         else if (Array.isArray(rankingData.ranking)) arr = rankingData.ranking;
         else if (rankingData && rankingData.data && Array.isArray(rankingData.data.ranking)) arr = rankingData.data.ranking;
+
+        console.log('[INICIO][BestSeller]  ranking array length=', Array.isArray(arr) ? arr.length : -1);
 
         const top = Array.isArray(arr) && arr.length ? (arr[0].nombre || arr[0].name || '-') : '-';
         const el = document.getElementById('best-seller-name');
@@ -2030,266 +2127,115 @@
       }
     }
 
-    // Función para actualizar estadísticas del usuario
     async function updateUserStats(leadsOrDashboardData, user) {
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const userRole = (user.role || '').toLowerCase();
-      const isAdminOrBackoffice = ['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(r=>userRole.includes(r));
-
-      // Mostrar TODOS los KPIs para todos los usuarios
-      const pointsCard = document.getElementById('points-stat-card');
-      const teamCard = document.getElementById('team-stat-card');
-      const rankingCard = document.getElementById('ranking-stat-card');
-      const cancelledCard = document.getElementById('cancelled-stat-card');
-      const pendingCard = document.getElementById('pending-stat-card');
-      
-      // Mostrar tarjetas según rol
-      if (pointsCard) pointsCard.style.display = 'flex';
-      if (teamCard) teamCard.style.display = 'flex';
-      if (rankingCard) rankingCard.style.display = 'flex';
-      if (cancelledCard) cancelledCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
-      if (pendingCard) pendingCard.style.display = isAdminOrBackoffice ? 'flex' : 'none';
-      
-      // Detectar si son datos del init-dashboard o leads normales
-      const isInitData = leadsOrDashboardData && leadsOrDashboardData.kpis && !Array.isArray(leadsOrDashboardData);
-      
-      if (isInitData) {
-        // CASO 1: Datos del init-dashboard (optimizados)
-        console.log('✅ Usando datos optimizados del init-dashboard');
-        const dashData = leadsOrDashboardData;
-        
-        if (isAdminOrBackoffice) {
-          // Admin/Backoffice: usar datos precalculados
-          document.getElementById('user-sales-count').textContent = dashData.kpis.ventas;
-          document.getElementById('cancelled-count').textContent = dashData.kpis.canceladas;
-          document.getElementById('pending-count').textContent = dashData.kpis.pendientes;
-        } else {
-          // Agente: usar estadísticas personales
-          const el1=document.getElementById('user-sales-count'); 
-          if(el1) el1.textContent = dashData.userStats.ventasUsuario;
-          const el2=document.getElementById('user-points-total'); 
-          if(el2) el2.textContent = dashData.userStats.puntosUsuario.toFixed(2).replace(/\.00$/,'');
-          document.getElementById('user-team-name').textContent = dashData.userStats.equipoUsuario;
-          document.getElementById('user-ranking').textContent = dashData.userStats.rankingUsuario;
-        }
-      } else {
-        // CASO 2: Leads normales (fallback)
-        console.log('⚠️  Usando datos de leads normales (fallback)');
-        const leads = leadsOrDashboardData || [];
-        
-        if (isAdminOrBackoffice) {
-          // Para Admin/Backoffice: calcular métricas globales
-          const allLeads = leads;
-          
-          const monthlySales = allLeads.filter(lead => {
-            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-            return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-          }).length;
-          
-          const cancelledSales = allLeads.filter(lead => {
-            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-            const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-            const status = (lead.status || '').toLowerCase();
-            return isThisMonth && (status.includes('cancel') || status.includes('anulad') || status === 'cancelado');
-          }).length;
-          
-          const pendingSales = allLeads.filter(lead => {
-            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-            const isThisMonth = leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-            const status = (lead.status || '').toLowerCase();
-            return isThisMonth && (status.includes('pend') || status.includes('espera') || status === 'pendiente');
-          }).length;
-          
-          document.getElementById('user-sales-count').textContent = monthlySales;
-          document.getElementById('cancelled-count').textContent = cancelledSales;
-          document.getElementById('pending-count').textContent = pendingSales;
-          
-        } else {
-          // Para Agentes: calcular métricas personales
-          const uname = (user.username||'').toString().trim().toLowerCase();
-          const userLeads = leads.filter(lead => {
-            const a = (lead.agenteNombre||'').toString().trim().toLowerCase();
-            const b = (lead.agente||'').toString().trim().toLowerCase();
-            const c = (lead.usuario||'').toString().trim().toLowerCase();
-            return a===uname || b===uname || c===uname;
-          });
-          
-          const userMonthlySales = userLeads.filter(lead => {
-            const leadDate = new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
-            return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
-          }).length;
-          
-          const userTotalPoints = userLeads.reduce((sum, lead) => {
-            return sum + parseFloat(lead.puntaje || lead.points || 0);
-          }, 0);
-          
-          const el1=document.getElementById('user-sales-count'); if(el1) el1.textContent = userMonthlySales;
-          const el2=document.getElementById('user-points-total'); if(el2) el2.textContent = userTotalPoints.toFixed(2).replace(/\.00$/,'');
-          document.getElementById('user-team-name').textContent = user.team || 'Sin equipo';
-          
-          const allAgents = [...new Set(leads.map(lead => lead.agenteNombre || lead.agente).filter(Boolean))];
-          const userRanking = Math.floor(Math.random() * allAgents.length) + 1;
-          document.getElementById('user-ranking').textContent = `#${userRanking}`;
-        }
-      }
-      
-      console.log(`🔍 KPIs configurados - Usuario: ${user.username}, Rol: ${userRole}, Admin/BO: ${isAdminOrBackoffice}`);
-    }
-
-    // Variables globales para rastrear gráficos
-    let salesChartRef = null;
-    let teamsChartRefMain = null;
-
-    // Función para crear gráficos
-    async function createCharts(leads) {
-      // Gráfico de ventas por mes
-      createSalesChart(leads);
-      
-      // Gráfico de distribución por teams
-      createTeamsChart(leads);
-    }
-
-    function createSalesChart(leads) {
-      const chartElement = document.getElementById('salesChart');
-      if (!chartElement) {
-        console.warn('⚠️ Elemento salesChart no encontrado en el DOM, saltando creación del gráfico');
-        return;
-      }
-      
-      // Destruir gráfico existente si existe (manejar registro interno de Chart.js)
       try {
-        const existing = Chart.getChart(chartElement);
-        if (existing) {
-          existing.destroy();
-        }
-      } catch (e) {
-        console.warn('Error al destruir gráfico salesChart desde registry:', e);
-      }
-      salesChartRef = null;
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const userRole = (user?.role || '').toLowerCase();
+        const isAdminOrBackoffice = ['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(r=>userRole.includes(r));
 
-      const ctx = chartElement.getContext('2d');
-      
-      // Preparar datos por mes (últimos 6 meses)
-      const months = [];
-      const salesData = [];
-      const currentDate = new Date();
-      
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        const monthName = date.toLocaleDateString('es-ES', { month: 'short' });
-        months.push(monthName);
-        
-        const monthlySales = leads.filter(lead => {
-          const leadDate = new Date(lead.fecha_contratacion || lead.createdAt || lead.fecha);
-          return leadDate.getMonth() === date.getMonth() && leadDate.getFullYear() === date.getFullYear();
-        }).length;
-        
-        salesData.push(monthlySales);
-      }
-      
-      // Instanciar chart fuera del hilo crítico
-      salesChartRef = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: months,
-          datasets: [{
-            label: 'Ventas',
-            data: salesData,
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
+        const parseLeadDate = (lead) => {
+          try {
+            const v = lead?.dia_venta ?? lead?.fecha_contratacion ?? lead?.createdAt ?? lead?.fecha;
+            if (!v) return null;
+            if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+            if (typeof v === 'number') {
+              const dt = new Date(v);
+              return Number.isNaN(dt.getTime()) ? null : dt;
             }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                color: 'rgba(0,0,0,0.1)'
-              }
-            },
-            x: {
-              grid: {
-                display: false
-              }
+            const s = String(v).trim();
+            const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (m) {
+              const d = parseInt(m[1], 10);
+              const mo = parseInt(m[2], 10);
+              const y = parseInt(m[3], 10);
+              const dt = new Date(y, mo - 1, d);
+              return Number.isNaN(dt.getTime()) ? null : dt;
             }
+            const dt = new Date(s);
+            return Number.isNaN(dt.getTime()) ? null : dt;
+          } catch (_) {
+            return null;
+          }
+        };
+
+        const isInitData = leadsOrDashboardData && leadsOrDashboardData.kpis && !Array.isArray(leadsOrDashboardData);
+        if (isInitData) {
+          const dashData = leadsOrDashboardData;
+          if (isAdminOrBackoffice) {
+            const el1 = document.getElementById('user-sales-count');
+            if (el1) el1.textContent = dashData?.kpis?.ventas ?? 0;
+            const el2 = document.getElementById('cancelled-count');
+            if (el2) el2.textContent = dashData?.kpis?.canceladas ?? 0;
+            const el3 = document.getElementById('pending-count');
+            if (el3) el3.textContent = dashData?.kpis?.pendientes ?? 0;
+          } else {
+            const el1 = document.getElementById('user-sales-count');
+            if (el1) el1.textContent = dashData?.userStats?.ventasUsuario ?? 0;
+            const el2 = document.getElementById('user-points-total');
+            if (el2) el2.textContent = (dashData?.userStats?.puntosUsuario ?? 0).toFixed(2).replace(/\.00$/,'');
+            const el3 = document.getElementById('user-team-name');
+            if (el3) el3.textContent = dashData?.userStats?.equipoUsuario ?? (user?.team || 'Sin equipo');
+            const el4 = document.getElementById('user-ranking');
+            if (el4) el4.textContent = dashData?.userStats?.rankingUsuario ?? '-';
+          }
+        } else {
+          const leads = Array.isArray(leadsOrDashboardData) ? leadsOrDashboardData : (leadsOrDashboardData || []);
+          if (isAdminOrBackoffice) {
+            const monthlySales = leads.filter(lead => {
+              const d = parseLeadDate(lead);
+              return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            }).length;
+
+            const cancelledSales = leads.filter(lead => {
+              const d = parseLeadDate(lead);
+              const isThisMonth = d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+              const status = (lead.status || '').toLowerCase();
+              return isThisMonth && (status.includes('cancel') || status.includes('anulad') || status === 'cancelado');
+            }).length;
+
+            const pendingSales = leads.filter(lead => {
+              const d = parseLeadDate(lead);
+              const isThisMonth = d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+              const status = (lead.status || '').toLowerCase();
+              return isThisMonth && (status.includes('pend') || status.includes('espera') || status === 'pendiente');
+            }).length;
+
+            const el1 = document.getElementById('user-sales-count');
+            if (el1) el1.textContent = monthlySales;
+            const el2 = document.getElementById('cancelled-count');
+            if (el2) el2.textContent = cancelledSales;
+            const el3 = document.getElementById('pending-count');
+            if (el3) el3.textContent = pendingSales;
+          } else {
+            const uname = (user?.username || '').toString().trim().toLowerCase();
+            const userLeads = leads.filter(lead => {
+              const a = (lead.agenteNombre || '').toString().trim().toLowerCase();
+              const b = (lead.agente || '').toString().trim().toLowerCase();
+              const c = (lead.usuario || '').toString().trim().toLowerCase();
+              return a === uname || b === uname || c === uname;
+            });
+
+            const userMonthlySales = userLeads.filter(lead => {
+              const d = parseLeadDate(lead);
+              return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            }).length;
+
+            const userTotalPoints = userLeads.reduce((sum, lead) => sum + (parseFloat(lead.puntaje || lead.points || 0) || 0), 0);
+
+            const el1 = document.getElementById('user-sales-count');
+            if (el1) el1.textContent = userMonthlySales;
+            const el2 = document.getElementById('user-points-total');
+            if (el2) el2.textContent = userTotalPoints.toFixed(2).replace(/\.00$/,'');
+            const el3 = document.getElementById('user-team-name');
+            if (el3) el3.textContent = user?.team || 'Sin equipo';
           }
         }
-      });
-    }
 
-    function createTeamsChart(leads) {
-      const chartElement = document.getElementById('teamsChart');
-      if (!chartElement) {
-        console.warn('⚠️ Elemento teamsChart no encontrado en el DOM, saltando creación del gráfico');
-        return;
-      }
-
-      // Destruir gráfico existente si existe (usar Chart.getChart para cubrir todos los casos)
-      try {
-        const existing = Chart.getChart(chartElement);
-        if (existing) {
-          existing.destroy();
-        }
+        console.log(`  KPIs configurados - Usuario: ${user?.username}, Rol: ${userRole}, Admin/BO: ${isAdminOrBackoffice}`);
       } catch (e) {
-        console.warn('Error al destruir gráfico teamsChart desde registry:', e);
+        console.warn('Error en updateUserStats:', e);
       }
-      // Limpieza de referencias locales
-      try { if (chartElement.__chartInstance) chartElement.__chartInstance = null; } catch(_) {}
-      try { if (teamsChartRefMain) { teamsChartRefMain = null; } } catch(_) {}
-
-      const ctx = chartElement.getContext('2d');
-
-      // Contar leads por team
-      const teamCounts = {};
-      leads.forEach(lead => {
-        const team = lead.team || lead.supervisor || 'Sin Team';
-        teamCounts[team] = (teamCounts[team] || 0) + 1;
-      });
-
-      const teams = Object.keys(teamCounts);
-      const counts = Object.values(teamCounts);
-      const colors = [
-        '#667eea', '#f093fb', '#4facfe', '#43e97b', 
-        '#fa709a', '#feb47b', '#a8edea', '#d299c2'
-      ];
-
-      teamsChartRefMain = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: teams,
-          datasets: [{
-            data: counts,
-            backgroundColor: colors.slice(0, teams.length),
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                padding: 20,
-                usePointStyle: true
-              }
-            }
-          }
-        }
-      });
-      chartElement.__chartInstance = teamsChartRefMain;
     }
 
     // Debug: Verificar elementos del sidebar
@@ -2548,30 +2494,30 @@
   <script>
     // Función global para normalizar multimedia
     window.forceNormalizeMultimedia = function() {
-      console.log('🎬 [INICIO] Ejecutando normalización inmediata de multimedia...');
+      console.log(' [INICIO] Ejecutando normalización inmediata de multimedia...');
       
       const multimediaElements = document.querySelectorAll(
         '.sidebar a[href*="multimedia"], .sidebar .btn-sidebar[href*="multimedia"], a[title*="Multimedia"]'
       );
       
-      console.log('🎬 [INICIO] Elementos multimedia encontrados:', multimediaElements.length);
+      console.log(' [INICIO] Elementos multimedia encontrados:', multimediaElements.length);
       
       if (multimediaElements.length === 0) {
         // Intentar con selectores más amplios
         const allSidebarLinks = document.querySelectorAll('.sidebar a, .sidebar .btn-sidebar');
-        console.log('🎬 [INICIO] Total elementos sidebar:', allSidebarLinks.length);
+        console.log(' [INICIO] Total elementos sidebar:', allSidebarLinks.length);
         
         allSidebarLinks.forEach((el, i) => {
           const text = el.textContent?.trim().toLowerCase();
           const href = el.href || '';
           if (text.includes('multimedia') || href.includes('multimedia')) {
-            console.log(`🎬 [INICIO] Encontrado multimedia por texto/href ${i}:`, el);
+            console.log(` [INICIO] Encontrado multimedia por texto/href ${i}:`, el);
             window.normalizeElement(el);
           }
         });
       } else {
         multimediaElements.forEach((el, i) => {
-          console.log(`🎬 [INICIO] Normalizando elemento ${i}:`, el);
+          console.log(` [INICIO] Normalizando elemento ${i}:`, el);
           window.normalizeElement(el);
         });
       }
@@ -2595,7 +2541,7 @@
         icon.style.setProperty('box-shadow', 'none', 'important');
         icon.style.setProperty('filter', 'none', 'important');
         
-        console.log('🎬 [INICIO] Ícono normalizado:', {
+        console.log(' [INICIO] Ícono normalizado:', {
           element: icon,
           fontWeight: icon.style.fontWeight,
           fontSize: icon.style.fontSize
@@ -2609,13 +2555,13 @@
     
     const intervalId = setInterval(() => {
       attempts++;
-      console.log(`🎬 [INICIO] Intento ${attempts}/${maxAttempts}`);
+      console.log(` [INICIO] Intento ${attempts}/${maxAttempts}`);
       
       window.forceNormalizeMultimedia();
       
       if (attempts >= maxAttempts) {
         clearInterval(intervalId);
-        console.log('🎬 [INICIO] Máximo de intentos alcanzado');
+        console.log(' [INICIO] Máximo de intentos alcanzado');
       }
     }, 1000);
     
@@ -2629,34 +2575,52 @@
   <script>
     // KPIs y Gráfica: Productos vendidos en el mes
     (function(){
-      const SOLD = new Set(['vendido','cerrado','aprobado','approved','sold','closed']);
-      const now = new Date(); const M = now.getMonth(); const Y = now.getFullYear();
+      const SOLD = new Set(['vendido','cerrado','cerrada','aprobado','aprobada','approved','sold','closed','completed','completado','completada']);
+      const CANCELLED = new Set(['cancel','anulad','rechaz','pend','espera','hold']);
 
-      function pickDate(lead){
-        return new Date(lead.dia_venta || lead.fecha_contratacion || lead.createdAt || lead.fecha);
+      function isSoldStatus(status){
+        const s = String(status || '').trim().toLowerCase();
+        if (!s) return false;
+        if (SOLD.has(s)) return true;
+        // soportar estados como "Vendido OK", "Cerrado - instalado", etc.
+        return /(vendid|cerrad|aprob|approved|sold|closed|complete|finaliz)/i.test(s);
       }
 
-      function updateKPIs(leads){
-        const monthly = leads.filter(l => { const d = pickDate(l); return d.getMonth()===M && d.getFullYear()===Y; });
-        const soldMonthly = monthly.filter(l => SOLD.has(String(l.status||'').toLowerCase()));
+      function isCancelledOrPending(status){
+        const s = String(status || '').trim().toLowerCase();
+        if (!s) return false;
+        return /(cancel|anulad|rechaz|pend|espera|hold)/i.test(s);
+      }
 
-        // Ventas totales del mes (usar todos los leads del mes para asegurar dato real)
-        const ventasMes = monthly.length;
-        // Puntos totales del mes
-        const puntosMes = monthly.reduce((s,l)=>s+(parseFloat(l.puntaje||l.points||0)||0),0);
-        // Mejor team del mes
-        const teamCounts = {}; monthly.forEach(l=>{ const t=l.team||l.TEAM||'Sin equipo'; teamCounts[t]=(teamCounts[t]||0)+1;});
-        let bestTeam = Object.entries(teamCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
-        bestTeam = formatTeam(bestTeam);
-        // Mejor vendedor del mes
-        const sellerCounts={}; monthly.forEach(l=>{ const a=getAgentName(l); sellerCounts[a]=(sellerCounts[a]||0)+1;});
-        const bestSeller = Object.entries(sellerCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+      function parseDMY(dateStr){
+        const s = String(dateStr || '').trim();
+        const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) return null;
+        const d = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10);
+        const y = parseInt(m[3], 10);
+        if (!y || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+        const dt = new Date(y, mo - 1, d);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
 
-        const q=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
-        q('month-sales-count', ventasMes);
-        q('month-points-total', (puntosMes||0).toFixed(2).replace(/\.00$/,''));
-        q('best-team-name', bestTeam);
-        // NO TOCAR best-seller-name - se maneja en updateBestSeller
+      function pickDate(lead){
+        const v = lead?.dia_venta ?? lead?.fecha_contratacion ?? lead?.createdAt ?? lead?.fecha;
+        if (!v) return null;
+        if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+        if (typeof v === 'number') {
+          const dt = new Date(v);
+          return Number.isNaN(dt.getTime()) ? null : dt;
+        }
+        const s = String(v).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+          const dt = new Date(s);
+          return Number.isNaN(dt.getTime()) ? null : dt;
+        }
+        const dmy = parseDMY(s);
+        if (dmy) return dmy;
+        const dt = new Date(s);
+        return Number.isNaN(dt.getTime()) ? null : dt;
       }
 
       function formatTeam(name){
@@ -2665,27 +2629,141 @@
         return cleaned ? `TEAM ${cleaned}` : 'TEAM -';
       }
 
-      let productsChartRef=null;
-      function renderProducts(leads){
-        let monthSales = leads.filter(l=>{ const d=pickDate(l); return d.getMonth()===M && d.getFullYear()===Y && SOLD.has(String(l.status||'').toLowerCase());});
-        // Si no hay registros con estado de venta, usar todos los del mes para no dejar la gráfica vacía
-        if (monthSales.length === 0) {
-          monthSales = leads.filter(l=>{ const d=pickDate(l); return d.getMonth()===M && d.getFullYear()===Y;});
+      function getAgentName(l){
+        const candidates = [
+          l.agenteNombre, l.agente, l.AGENTE, l.vendedor, l.VENDEDOR,
+          l.createdBy, l.ownerId, l.username, l.user, l.name, l.NOMBRE
+        ];
+        const value = candidates.find(v => typeof v === 'string' && v.trim().length > 0) || null;
+        return value ? String(value).trim() : 'DESCONOCIDO';
+      }
+
+      function updateKPIs(leads){
+        const now = new Date();
+        const M = now.getMonth();
+        const Y = now.getFullYear();
+
+        const monthly = (Array.isArray(leads) ? leads : []).filter(l => {
+          const d = pickDate(l);
+          return d && d.getMonth()===M && d.getFullYear()===Y;
+        });
+
+        const ventasMes = monthly.length;
+        const puntosMes = monthly.reduce((s,l)=>s+(parseFloat(l.puntaje||l.points||0)||0),0);
+
+        const teamCounts = {};
+        monthly.forEach(l=>{
+          const t = l.team || l.TEAM || l.supervisor || 'Sin equipo';
+          teamCounts[t]=(teamCounts[t]||0)+1;
+        });
+        let bestTeam = Object.entries(teamCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+        bestTeam = formatTeam(bestTeam);
+
+        const q=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+        q('month-sales-count', ventasMes);
+        q('month-points-total', (puntosMes||0).toFixed(2).replace(/\.00$/,''));
+        q('best-team-name', bestTeam);
+      }
+
+      function getProdList(l){
+        const raw = l.servicios_texto||l.tipo_servicios||l.tipo_servicio||l.producto||l.product||l.service||l.servicio||l.servicios||'';
+        // En la BD suele venir como lead.servicios (array o string)
+        if (Array.isArray(raw)) {
+          const parts = raw.map(x => {
+            if (x == null) return '';
+            if (typeof x === 'string' || typeof x === 'number') return String(x).trim();
+            if (typeof x === 'object') {
+              return String(x.nombre || x.name || x.servicio || x.producto || x.label || '').trim();
+            }
+            return '';
+          }).filter(Boolean);
+          return (parts.length ? parts : ['SIN PRODUCTO']).map(p => p.replace(/[-_]/g,' ').toUpperCase());
         }
-        const getProd=(l)=>{ const v=l.servicios_texto||l.tipo_servicios||l.tipo_servicio||l.servicios||l.producto||l.product||l.service||l.servicio||''; return v?String(v).replace(/[-_]/g,' ').toUpperCase():'SIN PRODUCTO'; };
-        const counts={}; monthSales.forEach(l=>{ const k=getProd(l); counts[k]=(counts[k]||0)+1; });
-        const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-        const labels=entries.map(e=>e[0]); const data=entries.map(e=>e[1]);
-        const canvas=document.getElementById('productsChart'); if(!canvas) return; const ctx=canvas.getContext('2d');
-        if(productsChartRef){ try{productsChartRef.destroy();}catch(e){} }
-        productsChartRef=new Chart(ctx,{ type:'bar', data:{ labels, datasets:[{ label:'Cantidad', data, backgroundColor:'rgba(54,162,235,.7)', borderColor:'rgba(54,162,235,1)', borderWidth:1, borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } }, x:{ ticks:{ autoSkip:false, maxRotation:45, minRotation:45 } } } } });
+        if (raw && typeof raw === 'object') {
+          const v = raw.nombre || raw.name || raw.servicio || raw.producto || raw.label;
+          const s0 = String(v || '').replace(/[-_]/g,' ').trim();
+          return (s0 ? [s0.toUpperCase()] : ['SIN PRODUCTO']);
+        }
+        if (!raw) return ['SIN PRODUCTO'];
+        const s = String(raw).replace(/[-_]/g,' ').trim();
+        const parts = s.split(/\s*[|,;+]+\s*/g).map(p => p.trim()).filter(Boolean);
+        return (parts.length ? parts : [s]).map(p => p.toUpperCase());
+      }
+
+      let productsChartRef = null;
+      function renderProducts(leads){
+        if (typeof window.Chart === 'undefined') {
+          setTimeout(() => renderProducts(leads), 150);
+          return;
+        }
+        const src = (Array.isArray(leads) ? leads : []);
+
+        // /api/leads ya viene filtrado del 1 hasta hoy (mes actual).
+        // Contar TODOS los registros del mes sin importar el status.
+        const monthSales = src;
+
+        const counts = {};
+        monthSales.forEach(l => {
+          const prods = getProdList(l);
+          prods.forEach((k) => { counts[k] = (counts[k]||0) + 1; });
+        });
+
+        // Si hay ventas pero no hay producto identificable, evitar gráfica vacía
+        if (monthSales.length > 0 && Object.keys(counts).length === 0) {
+          counts['SIN PRODUCTO'] = monthSales.length;
+        }
+
+        if (Object.keys(counts).length === 0 && src.length > 0) {
+          counts['SIN PRODUCTO'] = monthSales.length || src.length;
+        }
+
+        console.log('[INICIO][Products] leads_mes=', src.length, 'ventas_usadas=', monthSales.length, 'productos_distintos=', Object.keys(counts).length);
+
+        const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+        const labels = entries.map(e=>e[0]);
+        const data = entries.map(e=>e[1]);
+
+        const canvas = document.getElementById('productsChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        if (productsChartRef) { try { productsChartRef.destroy(); } catch(_){} }
+
+        productsChartRef = new Chart(ctx, {
+          type:'bar',
+          data:{
+            labels,
+            datasets:[{
+              label:'Cantidad',
+              data,
+              backgroundColor:'rgba(54,162,235,.7)',
+              borderColor:'rgba(54,162,235,1)',
+              borderWidth:1,
+              borderRadius:4
+            }]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{ legend:{ display:false } },
+            scales:{
+              y:{ beginAtZero:true, ticks:{ stepSize:1 } },
+              x:{ ticks:{ autoSkip:false, maxRotation:45, minRotation:45 } }
+            }
+          }
+        });
       }
 
       function getCurrentMonthRange(){
-        const start = new Date(Date.UTC(Y, M, 1));
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
         const end = new Date();
-        const yyyyS = start.getUTCFullYear(); const mmS = String(start.getUTCMonth()+1).padStart(2,'0'); const ddS = String(start.getUTCDate()).padStart(2,'0');
-        const yyyyE = end.getUTCFullYear(); const mmE = String(end.getUTCMonth()+1).padStart(2,'0'); const ddE = String(end.getUTCDate()).padStart(2,'0');
+        const yyyyS = start.getFullYear();
+        const mmS = String(start.getMonth()+1).padStart(2,'0');
+        const ddS = String(start.getDate()).padStart(2,'0');
+        const yyyyE = end.getFullYear();
+        const mmE = String(end.getMonth()+1).padStart(2,'0');
+        const ddE = String(end.getDate()).padStart(2,'0');
         return { inicio: `${yyyyS}-${mmS}-${ddS}`, fin: `${yyyyE}-${mmE}-${ddE}` };
       }
 
@@ -2703,18 +2781,76 @@
         } catch(e){ console.warn('Error obteniendo estadisticas equipos', e); return null; }
       }
 
+      function renderTeamsChart(leads){
+        if (typeof window.Chart === 'undefined') {
+          setTimeout(() => renderTeamsChart(leads), 150);
+          return;
+        }
+        const src = (Array.isArray(leads) ? leads : []);
+        if (!src.length) return;
+
+        // /api/leads ya viene del mes actual: evitar depender del parseo de fecha
+        const monthly = src;
+        const counts = {};
+        monthly.forEach(l=>{ const t = l.team || l.TEAM || l.supervisor || 'Sin equipo'; counts[t] = (counts[t]||0)+1; });
+
+        const labels = Object.keys(counts);
+        const data = Object.values(counts);
+        const canvas = document.getElementById('teamsChart');
+        if (!canvas) return;
+
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) existingChart.destroy();
+        if (window.teamsChartRefMain) { try { window.teamsChartRefMain.destroy(); } catch(_){} window.teamsChartRefMain = null; }
+
+        const ctx = canvas.getContext('2d');
+        const palette = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feb47b','#a8edea','#d299c2','#5ee7df','#b490ca'];
+        window.teamsChartRefMain = new Chart(ctx, {
+          type: 'doughnut',
+          data: { labels, datasets: [{ data, backgroundColor: palette.slice(0, labels.length), borderWidth: 0 }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding: 20 } } } }
+        });
+      }
+
       async function loadLeads(){
         try{
+          if (window.__inicioLeadsLoading || window.__inicioLeadsLoaded) return;
+          window.__inicioLeadsLoading = true;
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           const headers = { 'Accept':'application/json', 'Cache-Control':'no-cache' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          const res=await fetch('/api/leads',{ method:'GET', credentials:'include', headers });
-          if(!res.ok){ console.warn('API /api/leads no OK', res.status); return; }
-          const json=await res.json(); const leads=json?.data||json?.leads||json||[];
-          // Calcular KPIs: si es admin/BO/supervisor usar estadística por equipos; si es agente usar solo sus leads (backend ya filtra)
+
+          const fetchPage = async (page, limit) => {
+            const url = `/api/leads?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
+            const res = await fetch(url, { method:'GET', credentials:'include', headers });
+            if(!res.ok){ throw new Error(`API /api/leads no OK ${res.status}`); }
+            const json = await res.json();
+            const data = json?.data || json?.leads || (Array.isArray(json) ? json : []);
+            const total = Number(json?.total || json?.meta?.total || 0) || 0;
+            const pages = Number(json?.pages || json?.meta?.pages || 0) || 0;
+            return { data: Array.isArray(data) ? data : [], total, pages };
+          };
+
+          // Cargar todas las páginas del mes (para que la gráfica sea correcta)
+          const limit = 200;
+          const first = await fetchPage(1, limit);
+          let leads = first.data;
+          const totalPages = first.pages || (first.total ? Math.ceil(first.total / limit) : 1);
+          for (let p = 2; p <= totalPages; p++) {
+            const nxt = await fetchPage(p, limit);
+            leads = leads.concat(nxt.data);
+          }
+
+          console.log('[INICIO][Leads] leads cargados para gráfica=', leads.length, 'pages=', totalPages);
+
           let isAdminOrBO = false;
-          try { const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); const r=(u.role||'').toLowerCase(); isAdminOrBO=['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(x=>r.includes(x)); } catch{}
-          if (isAdminOrBO){
+          try {
+            const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+            const r = (u.role||'').toLowerCase();
+            isAdminOrBO = ['admin','administrator','administrador','administradora','backoffice','bo','supervisor'].some(x=>r.includes(x));
+          } catch(_) {}
+
+          if (isAdminOrBO) {
             const equipos = await loadMonthlyTeamStats();
             if (Array.isArray(equipos) && equipos.length){
               const totalVentas = equipos.reduce((s,e)=> s + (parseFloat(e.Total)||0), 0);
@@ -2728,84 +2864,21 @@
               updateKPIs(leads);
             }
           } else {
-            // Agente: usar directamente leads (ya filtrados por backend al agente)
             updateKPIs(leads);
           }
-          
-          // Mejor vendedor del mes según RANKING (sumatoria de puntos del mes)
-          // IMPORTANTE: Esto debe ejecutarse DESPUÉS de updateKPIs para no ser sobrescrito
-          setTimeout(() => {
-            const monthly = leads.filter(l => { const d = pickDate(l); return d.getMonth()===M && d.getFullYear()===Y; });
-            const sellerAgg = {};
-            monthly.forEach(l=>{
-              const a = getAgentName(l);
-              const pts = parseFloat(l.puntaje || l.points || l.Puntos || 0) || 0;
-              if (!sellerAgg[a]) sellerAgg[a] = { puntos: 0, ventas: 0 };
-              sellerAgg[a].puntos += pts;
-              sellerAgg[a].ventas += 1;
-            });
-            
-            let bestSeller = '-';
-            if (Object.keys(sellerAgg).length){
-              // Filtrar nombres válidos (no DESCONOCIDO)
-              const validSellers = Object.entries(sellerAgg).filter(([name]) => name !== 'DESCONOCIDO');
-              if (validSellers.length > 0) {
-                const sortedSellers = validSellers.sort(([,A],[,B]) => (B.puntos - A.puntos) || (B.ventas - A.ventas));
-                bestSeller = sortedSellers[0][0];
-              }
-            }
-            
-            // NO ACTUALIZAR AQUÍ - se maneja en updateBestSeller
-          }, 100);
 
           renderProducts(leads);
           renderTeamsChart(leads);
-        }catch(e){ console.error('Error cargando leads para inicio:', e); }
-      }
-
-      function getAgentName(l){
-        const candidates = [
-          l.agenteNombre, l.agente, l.AGENTE, l.vendedor, l.VENDEDOR,
-          l.createdBy, l.ownerId, l.username, l.user, l.name, l.NOMBRE
-        ];
-        const value = candidates.find(v => typeof v === 'string' && v.trim().length > 0) || null;
-        return value ? String(value).trim() : 'DESCONOCIDO';
-      }
-
-      function renderTeamsChart(leads){
-        const monthly = leads.filter(l => { const d = pickDate(l); return d.getMonth()===M && d.getFullYear()===Y; });
-        if (!monthly.length) return;
-        const counts = {};
-        monthly.forEach(l=>{ const t = l.team || l.TEAM || l.supervisor || 'Sin equipo'; counts[t] = (counts[t]||0)+1; });
-        const labels = Object.keys(counts);
-        const data = Object.values(counts);
-        const canvas = document.getElementById('teamsChart');
-        if (!canvas) return;
-
-        // Destruir gráfico existente usando Chart.getChart()
-        const existingChart = Chart.getChart(canvas);
-        if (existingChart) {
-          existingChart.destroy();
+          window.__inicioLeadsLoaded = true;
+        } catch(e){
+          console.error('Error cargando leads para inicio:', e);
+        } finally {
+          window.__inicioLeadsLoading = false;
         }
-
-        // Destruir instancia global si existe
-        if (window.teamsChartRefMain) { 
-          try { window.teamsChartRefMain.destroy(); } catch(_) {} 
-          window.teamsChartRefMain = null;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const palette = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feb47b','#a8edea','#d299c2','#5ee7df','#b490ca'];
-        window.teamsChartRefMain = new Chart(ctx, {
-          type: 'doughnut',
-          data: { labels, datasets: [{ data, backgroundColor: palette.slice(0, labels.length), borderWidth: 0 }] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding: 20 } } } }
-        });
       }
 
-      // Evitar doble carga si otro módulo ya inició
-      const startLoad = () => { if (!window.__dashboardLoading && !window.__dashboardLoaded) loadLeads(); };
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startLoad); else startLoad();
+      const startLoad = () => { loadLeads(); };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startLoad); else startLoad();
     })();
   </script>
 
