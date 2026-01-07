@@ -104,6 +104,12 @@ router.get('/leads', protect, async (req, res) => {
       
       console.log(`[API /leads GLOBAL] Total de ${costumersCollections.length} colecciones costumers*, ${leads.length} documentos`);
       console.log(`[API /leads] Solicitud GLOBAL sin filtros (mapa u otros). Total combinado: ${leads.length}`);
+      // Normalizar _id a string para evitar que llegue como objeto BSON al navegador
+      leads = (leads || []).map(d => ({
+        ...d,
+        _id: d && d._id ? String(d._id) : d?._id,
+        id: (d && d.id) ? String(d.id) : (d && d._id ? String(d._id) : '')
+      }));
       return res.json({ success: true, data: leads, queryUsed: { global: true } });
     }
     // ===== FIN SOLICITUD GLOBAL =====
@@ -161,6 +167,10 @@ router.get('/leads', protect, async (req, res) => {
         
         const dateObj = new Date(targetYear, targetMonth - 1, day);
         dateRegexes.push(new RegExp(`^${dateObj.toDateString()}`, 'i'));
+        // También aceptar strings ISO con hora y formato DD-MM-YYYY
+        dateRegexes.push(new RegExp(`^${targetYear}-${monthStr}-${dayStr}`));
+        dateRegexes.push(new RegExp(`^${dayStr}\\/${monthStr}\\/${targetYear}`));
+        dateRegexes.push(new RegExp(`^${dayStr}-${monthStr}-${targetYear}`));
       }
       
       const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
@@ -168,11 +178,13 @@ router.get('/leads', protect, async (req, res) => {
       
       const dateOrConditions = [
         { dia_venta: { $in: dateStrings } },
+        { fecha_contratacion: { $in: dateStrings } },
         { createdAt: { $gte: monthStart, $lte: monthEnd } }
       ];
       
       dateRegexes.forEach(regex => {
         dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ fecha_contratacion: { $regex: regex.source, $options: 'i' } });
       });
       
       const dateQuery = { $or: dateOrConditions };
@@ -202,18 +214,24 @@ router.get('/leads', protect, async (req, res) => {
         dateStrings.push(`${year}-${month}-${day}`);
         dateStrings.push(`${day}/${month}/${year}`);
         dateRegexes.push(new RegExp(`^${current.toDateString()}`, 'i'));
+        // También aceptar strings ISO con hora y formato DD-MM-YYYY
+        dateRegexes.push(new RegExp(`^${year}-${month}-${day}`));
+        dateRegexes.push(new RegExp(`^${day}\\/${month}\\/${year}`));
+        dateRegexes.push(new RegExp(`^${day}-${month}-${year}`));
         
         current.setDate(current.getDate() + 1);
       }
 
       const dateOrConditions = [
         { dia_venta: { $in: dateStrings } },
+        { fecha_contratacion: { $in: dateStrings } },
         { createdAt: { $gte: start, $lte: end } }
       ];
       
       // Agregar condiciones de regex individualmente usando el source del RegExp
       dateRegexes.forEach(regex => {
         dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ fecha_contratacion: { $regex: regex.source, $options: 'i' } });
       });
 
       const dateQuery = { $or: dateOrConditions };
@@ -285,6 +303,8 @@ router.get('/leads', protect, async (req, res) => {
     let offset = offsetGlobal;
     const collected = [];
     let totalCount = 0;
+
+    const debugSource = String(req.query.debugSource || '') === '1';
 
     for (const collInfo of allCollections) {
       const colName = collInfo.name;
@@ -360,7 +380,15 @@ router.get('/leads', protect, async (req, res) => {
           pipeline.push({ $project: projection });
         }
 
-        const docs = await col.aggregate(pipeline).toArray();
+        let docs = await col.aggregate(pipeline).toArray();
+        if (debugSource && docs && docs.length) {
+          const dbName = (collInfo.db && (collInfo.db.databaseName || collInfo.db.s && collInfo.db.s.databaseName)) || '';
+          docs = docs.map(d => ({
+            ...d,
+            __sourceDb: dbName,
+            __sourceCollection: colName
+          }));
+        }
         console.log(`[API /leads] ${colName} -> docsFetched=${docs?.length||0}`);
         if (docs && docs.length) {
           collected.push(...docs);
@@ -393,7 +421,14 @@ router.get('/leads', protect, async (req, res) => {
       return cB - cA;
     });
 
-    return res.json({ success: true, data: collected, total: totalCount, page, pages, queryUsed: query });
+    // Normalizar _id a string para que el frontend pueda borrar con DELETE /api/leads/:id
+    const normalized = (collected || []).map(d => ({
+      ...d,
+      _id: d && d._id ? String(d._id) : d?._id,
+      id: (d && d.id) ? String(d.id) : (d && d._id ? String(d._id) : '')
+    }));
+
+    return res.json({ success: true, data: normalized, total: totalCount, page, pages, queryUsed: query });
     // ====== FIN AGREGACIÓN MULTI-COLECCIÓN (PAGINADA) ======
 
   } catch (error) {

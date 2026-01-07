@@ -82,11 +82,19 @@ async function obtenerEstadisticasEquipos(req, res) {
     // Esto evita falsos 0 que activan el fallback y nos asegura que costumers (primaryOnly) coincide con Atlas.
     if (strictMonthPrefix && !isDayOnly) {
       try {
+        // Incluir también variantes comunes no-ISO (DD/MM/YYYY y DD-MM-YYYY).
+        // Ej: 06/01/2026 o 06-01-2026
+        const dmySlash = new RegExp(`^\\d{2}\\/${String(strictMonthKey).slice(5)}\\/${String(strictMonthKey).slice(0,4)}`);
+        const dmyDash = new RegExp(`^\\d{2}-${String(strictMonthKey).slice(5)}-${String(strictMonthKey).slice(0,4)}`);
         pipeline.push({
           $match: {
             $or: [
               { dia_venta: { $regex: strictMonthPrefix } },
-              { fecha_contratacion: { $regex: strictMonthPrefix } }
+              { fecha_contratacion: { $regex: strictMonthPrefix } },
+              { dia_venta: { $regex: dmySlash } },
+              { fecha_contratacion: { $regex: dmySlash } },
+              { dia_venta: { $regex: dmyDash } },
+              { fecha_contratacion: { $regex: dmyDash } }
             ]
           }
         });
@@ -127,8 +135,8 @@ async function obtenerEstadisticasEquipos(req, res) {
           : {
               $ifNull: [ '$dia_venta', { $ifNull: [ '$fecha_contratacion', null ] } ]
             },
-        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', '$TEAM', ''] } } } },
-        mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', ''] } } } },
+        teamNorm: { $toUpper: { $trim: { input: { $ifNull: ['$supervisor', '$team', '$equipo', '$TEAM', 'SIN EQUIPO'] } } } },
+        mercadoNorm: { $toUpper: { $trim: { input: { $ifNull: ['$mercado', 'SIN MERCADO'] } } } },
   // Normalizar status/estado (simplificado) para contar 'activas' basadas en status
   statusRaw: { $ifNull: [ '$status', '$estado' ] },
   statusNorm: { 
