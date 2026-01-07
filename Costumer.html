@@ -64,6 +64,48 @@
         return null;
       }
     };
+
+    window.eliminarLeadKey = async function(key) {
+      try {
+        if (!key) { alert('Error: No se proporcionó clave local'); return false; }
+        const map = (window.__leadKeyMap instanceof Map) ? window.__leadKeyMap : null;
+        if (!map) { console.warn('eliminarLeadKey: no hay mapa de leads locales'); return false; }
+        const lead = map.get(key);
+        if (!lead) { alert('Error: No se encontró el registro local'); return false; }
+        const id = (typeof getLeadId === 'function') ? getLeadId(lead) : (lead?._id?.$oid || lead?._id || lead?.id || '');
+        const cleanId = String(id || '').trim();
+        if (!cleanId) {
+          try {
+            const keys = Object.keys(lead || {});
+            const rawKeys = Object.keys((lead && lead._raw) || {});
+            let preview = '';
+            try {
+              preview = JSON.stringify(lead && lead._raw ? lead._raw : lead);
+              if (preview && preview.length > 500) preview = preview.slice(0, 500) + '...';
+            } catch (_) { preview = '[no-json]'; }
+            const diag = {
+              key,
+              leadKeys: keys,
+              rawKeys,
+              candidateRawId: lead?._raw?._id,
+              candidateId: lead?._id,
+              preview
+            };
+            try { window.__lastDeleteDiag = diag; } catch (_) {}
+            console.error('[eliminarLeadKey] No se pudo resolver ID', diag);
+          } catch (_) {}
+          alert('Error: ID de registro no válido. Abre consola (F12) y ejecuta: copy(window.__lastDeleteDiag) y pégamelo aquí.');
+          return false;
+        }
+        if (typeof window.eliminarLead !== 'function') { alert('Error: función eliminarLead no disponible'); return false; }
+        await window.eliminarLead(cleanId);
+        return true;
+      } catch (e) {
+        console.warn('eliminarLeadKey error:', e);
+        alert('No se pudo eliminar el registro: ' + (e?.message || e));
+        return false;
+      }
+    };
       (function initSidebarAutoHide(){
         const doInit = () => {
           try {
@@ -2010,7 +2052,9 @@
             { name: "TEAM IRANIA", supervisor: "Irania Serrano", agents: ["Giselle Diaz", "Josue Renderos", "Miguel Nunez", "Roxana Martinez", "Nicole Cruz", "Jorge Segovia", "Tatiana Ayala"] },
             { name: "TEAM MARISOL BELTRAN", supervisor: "Marisol Beltran", agents: ["Fernanda Castillo", "Jonathan Morales", "Katerine Gomez", "Eduardo R", "Kimberly Iglesias", "Eduardo Ruiz", "Stefani Martinez"] },
             { name: "TEAM RANDAL MARTINEZ", supervisor: "Randal Martinez", agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres", "Guadalupe Santana"] },
-            { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] }
+            { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] },
+            { name: "TEAM LINEA", supervisor: "Team Líneas", agents: [] },
+            { name: "TEAM LINEAS", supervisor: "Team Líneas", agents: [] }
         ];
 
         // FILTRADO DE TEAMS SEGÚN ROL
@@ -3966,6 +4010,26 @@
     // Helpers de identificadores
     function extractLeadId(raw) {
       if (!raw) return '';
+      const normalizeAnyId = (v) => {
+        try {
+          if (!v) return '';
+          if (typeof v === 'string') {
+            const s = v.trim();
+            const m = s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/);
+            return m ? m[1] : s;
+          }
+          if (typeof v === 'number') return String(v);
+          if (typeof v === 'object') {
+            const inner = v.$oid || v.oid || v.id || v._id || v.value || v.Id;
+            if (inner && inner !== v) return normalizeAnyId(inner);
+            // casos raros: {_id:{'$oid':'...'}} ya cubiertos arriba; si aún es objeto, intentar toString
+            const s = (v && typeof v.toString === 'function') ? String(v.toString()) : '';
+            const m = s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/);
+            return m ? m[1] : (s && s !== '[object Object]' ? s.trim() : '');
+          }
+          return '';
+        } catch { return ''; }
+      };
       // Casos: {_id: '...'} | {_id: {$oid: '...'}} | {id: '...'}
       const _id = raw._id;
       if (typeof _id === 'string') return _id;
@@ -3974,6 +4038,33 @@
         if (typeof _id.oid === 'string') return _id.oid;
       }
       if (typeof raw.id === 'string') return raw.id;
+      if (typeof raw.leadId === 'string') return raw.leadId;
+      if (typeof raw.lead_id === 'string') return raw.lead_id;
+      if (typeof raw.leadID === 'string') return raw.leadID;
+      try {
+        // Búsqueda profunda (por si el backend devuelve {_id:{...}} en otros niveles)
+        if (typeof deepFindByKey === 'function') {
+          const deep = deepFindByKey(raw, ['_id', 'id', 'leadId', 'lead_id', '$oid', 'oid']);
+          const nid = normalizeAnyId(deep);
+          if (nid) return nid;
+        }
+      } catch (_) {}
+      try {
+        // Fallback final: buscar el _id en JSON por patrones comunes
+        const json = JSON.stringify(raw);
+        let m = json.match(/"_id"\s*:\s*\{\s*"\$oid"\s*:\s*"([a-fA-F0-9]{24})"/);
+        if (m && m[1]) return m[1];
+        m = json.match(/"_id"\s*:\s*"([a-fA-F0-9]{24})"/);
+        if (m && m[1]) return m[1];
+        // Último recurso: cualquier $oid
+        m = json.match(/"\$oid"\s*:\s*"([a-fA-F0-9]{24})"/);
+        if (m && m[1]) return m[1];
+      } catch (_) {}
+      try {
+        if (raw._raw && typeof raw._raw === 'object') {
+          return extractLeadId(raw._raw);
+        }
+      } catch (_) {}
       return '';
     }
 
@@ -4211,27 +4302,26 @@
         }
         // Cadenas
         if (typeof raw === 'string') {
-          const s = raw.trim();
           // ISO puro YYYY-MM-DD
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-            const year = parseInt(s.slice(0,4), 10);
-            return isValidYear(year) ? s : '';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            const year = parseInt(raw.slice(0,4), 10);
+            return isValidYear(year) ? raw : '';
           }
           // ISO con hora
-          if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
-            const dt = new Date(s);
+          if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+            const dt = new Date(raw);
             return isNaN(dt) ? '' : toYMD(dt);
           }
           // Formato D/M/YYYY o DD/MM/YYYY
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
-            const [d, m, y] = s.split('/').map(n => parseInt(n, 10));
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) {
+            const [d, m, y] = raw.split('/').map(n => parseInt(n, 10));
             if (!isValidYear(y)) return '';
             const dt = new Date(y, m - 1, d);
             return isNaN(dt) ? '' : toYMD(dt);
           }
           // Formato en inglés tipo "Fri Nov 08 2025 ..." (toString/toDateString)
-          if (/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}/.test(s)) {
-            const dt = new Date(s);
+          if (/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{4}/.test(raw)) {
+            const dt = new Date(raw);
             return isNaN(dt) ? '' : toYMD(dt);
           }
           // NO parsear otros strings arbitrarios - causa fechas incorrectas
@@ -4892,10 +4982,10 @@
         if (role === 'agente') {
           const norm = (s) => {
             try {
-              const x = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+              const x = String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
               return x.replace(/[^a-z0-9]+/g,''); // quitar espacios y no alfanuméricos
             } catch {
-              return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
+              return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
             }
           };
           const str = (v) => (v == null ? '' : String(v));
@@ -4918,9 +5008,10 @@
             const raw = (
               l?.agenteId || l?._raw?.agenteId || l?.agente_id || l?._raw?.agente_id ||
               l?.idAgente || l?._raw?.idAgente || l?.agentId || l?._raw?.agentId ||
-              l?.creadoPor || l?._raw?.creadoPor || l?.creado_por || l?._raw?.creado_por ||
-              l?.createdBy || l?._raw?.createdBy || l?.ownerId || l?._raw?.ownerId ||
-              l?.registeredById || l?._raw?.registeredById ||
+              l?.creadoPor || l?._raw?.creadoPor ||
+              l?.creado_por || l?._raw?.creado_por ||
+              l?.createdBy || l?._raw?.createdBy ||
+              l?.ownerId || l?._raw?.ownerId ||
               l?.assignedId || l?._raw?.assignedId || ''
             );
             try {
@@ -5311,7 +5402,7 @@
     // NOTA: Renombrado a getUserRole_local para no sobreescribir la versi¨®n global de script.js
     function getUserRole_local() {
       try {
-        const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         return (user.role || '').toString().trim().toLowerCase();
       } catch { return ''; }
     }
@@ -5487,7 +5578,7 @@
           for (const v of candidates) {
             if (!v) continue;
             if (typeof v === 'object') {
-              const oid = v.$oid || v.id || v._id || v.value;
+              const oid = v.$oid || v.id || v._id || v.value || (v.toString ? v.toString() : '');
               if (oid) ids.push(String(oid));
             } else {
               let s = String(v);
@@ -5818,6 +5909,8 @@
           }
         })();
 
+        const __delOnClick = __id ? `eliminarLead('${__id}')` : `eliminarLeadKey('${__key}')`;
+
         tr.innerHTML = `
           <td>${lead.nombre_cliente || 'N/A'}</td>
           <td>${lead.telefono_principal || 'N/A'}</td>
@@ -5844,7 +5937,7 @@
           <td>${lead.dia_instalacion ? String(lead.dia_instalacion).slice(0,10) : 'N/A'}</td>
           <td class="status-col">
             ${editable ? `
-              <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus('${getLeadId(lead)}', this.value)">
+              <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus('${__id}', this.value)">
                 ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active'].map(opt => `
                   <option value="${opt.toLowerCase()}" ${opt===statusLabel?'selected':''}>${opt}</option>
                 `).join('')}
@@ -5865,9 +5958,15 @@
               <button class="action-btn" title="Editar" onclick="${__id ? `editarLead('${__id}')` : `editarLeadKey('${__key}')`}">
                 <i class="fas fa-edit"></i>
               </button>
-              <button class="action-btn" title="Eliminar" onclick="eliminarLead('${getLeadId(lead)}')">
-                <i class="fas fa-trash"></i>
-              </button>
+              ${(() => {
+                try {
+                  return (typeof canDeleteLead === 'function' && canDeleteLead())
+                    ? `<button class="action-btn" title="Eliminar" onclick="${__delOnClick}"><i class="fas fa-trash"></i></button>`
+                    : '';
+                } catch (_) {
+                  return '';
+                }
+              })()}
             </div>
           </td>
         `;
@@ -5889,6 +5988,17 @@
           return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice';
         }catch{ return false; }
       }
+      function canDeleteLead(){
+        try{
+          const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const r = String(u.role||u?.usuario?.role||'').toLowerCase().trim();
+          if (!r) return false;
+          if (r==='admin' || r==='administrador' || r==='administrator') return true;
+          if (r==='backoffice' || r==='back office' || r==='back_office' || r==='bo' || r==='b.o' || r==='b-o' || r==='b:o') return true;
+          return false;
+        } catch { return false; }
+      }
+      window.canDeleteLead = canDeleteLead;
       window.updateLeadStatus = async function(id, newStatus){
         try{
           if (!canEditStatus()) { alert('No tienes permisos para cambiar el STATUS'); return; }
@@ -6379,6 +6489,7 @@
               if (c) setFT.add(c);
             });
             teamAgentsFT = Array.from(setFT);
+            console.log('[Toolbar ForceTeam] Agentes derivados =', teamAgentsFT);
           }
           try {
             console.log('[Toolbar ForceTeam] teamKey =', teamKeyFT);
@@ -6635,17 +6746,12 @@
                 b.textContent = label;
                 b.type = 'button';
                 b.style.padding = '6px 10px';
-                b.style.border = '1px solid #e2e8f0';
-                b.style.borderRadius = '999px';
-                b.style.background = '#ffffff';
+                b.style.border = '1px solid #e5e7eb';
+                b.style.borderRadius = '9999px';
+                b.style.background = (window.supervisorAgentFilter === value) ? '#1d4ed8' : '#f9fafb';
+                b.style.color = (window.supervisorAgentFilter === value) ? '#fff' : '#111827';
                 b.style.cursor = 'pointer';
                 b.style.fontSize = '12px';
-                const active = (window.supervisorAgentFilter || null) === value;
-                if (active) {
-                  b.style.background = '#1d4ed8';
-                  b.style.color = '#ffffff';
-                  b.style.borderColor = '#1d4ed8';
-                }
                 b.addEventListener('click', () => {
                   window.supervisorAgentFilter = value; // null = Todos
                   try { 
@@ -7241,7 +7347,7 @@
         leads.forEach(lead => {
           try {
             // Verificar si el lead tiene status (normalizado)
-            const status = normalizarTexto(lead.status || '');
+            const status = normalizarTexto(lead.status);
             const isCancel = (
               status.includes('cancel') ||
               status.includes('anulad') ||
@@ -7524,7 +7630,8 @@
       }
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await fetch(`/api/leads/${id}`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const res = await fetch(`/api/leads/${encodeURIComponent(id)}`, { method: 'GET', credentials: 'include', headers });
         if (!res.ok) throw new Error('No se pudo obtener el registro del servidor');
         const data = await res.json();
         const lead = data.data || data.lead || data;
@@ -7533,6 +7640,58 @@
       } catch (error) {
         console.error('Error al cargar lead para edición:', error);
         alert('Error al cargar los datos del registro: ' + (error?.message || error));
+      }
+    };
+
+    window.eliminarLead = async function(id) {
+      try {
+        if (!(typeof canDeleteLead === 'function' && canDeleteLead())) {
+          alert('No tienes permisos para eliminar leads');
+          return;
+        }
+        const leadId = String(id || '').trim();
+        if (!leadId) { alert('ID inválido'); return; }
+        if (!confirm('¿Seguro que deseas eliminar este lead? Esta acción no se puede deshacer.')) return;
+
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers
+        });
+        if (!res.ok) {
+          let t = '';
+          try { t = await res.text(); } catch (_) {}
+          throw new Error(`HTTP ${res.status}${t ? ` - ${t.slice(0,200)}` : ''}`);
+        }
+
+        // Remover fila
+        try {
+          const tr = document.querySelector(`tr[data-lead-id="${leadId}"]`);
+          if (tr && tr.parentElement) tr.parentElement.removeChild(tr);
+        } catch (_) {}
+
+        // Remover de memoria si existe
+        try {
+          if (Array.isArray(window.ultimaListaLeads)) {
+            window.ultimaListaLeads = window.ultimaListaLeads.filter(l => {
+              try {
+                const lid = (typeof getLeadId === 'function') ? getLeadId(l) : (l?._id?.$oid || l?._id || l?.id || '');
+                return String(lid) !== leadId;
+              } catch (_) {
+                return true;
+              }
+            });
+          }
+        } catch (_) {}
+
+        alert('Lead eliminado correctamente');
+      } catch (e) {
+        console.error('Error eliminando lead:', e);
+        alert('No se pudo eliminar el lead: ' + (e?.message || e));
       }
     };
 
@@ -7550,7 +7709,7 @@
         const cachedComments = JSON.parse(localStorage.getItem(cacheKey) || '[]');
         cachedComments.push(nuevoComentario);
         localStorage.setItem(cacheKey, JSON.stringify(cachedComments));
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
         await fetch(`/api/leads/${encodeURIComponent(leadId)}/comentarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
@@ -7581,6 +7740,30 @@
       const modal = document.getElementById('editarModal');
       if (!modal) return;
 
+      try { modal.style.display = 'block'; } catch(_) {}
+
+      const setVal = (id, value) => {
+        try {
+          const el = document.getElementById(id);
+          if (!el) return false;
+          el.value = (value == null) ? '' : String(value);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
+
+      const setText = (id, value) => {
+        try {
+          const el = document.getElementById(id);
+          if (!el) return false;
+          el.textContent = (value == null) ? '' : String(value);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
+
       const leadId = (lead._id?.$oid || lead._id || lead.id).toString();
 
       const getValue = (...keys) => {
@@ -7590,24 +7773,27 @@
         return '';
       };
 
-      document.getElementById('edit-id').value = leadId;
-      document.getElementById('edit-lead-id-display').textContent = '#' + formatLeadIdShort(leadId);
+      setVal('edit-id', leadId);
+      setText('edit-lead-id-display', '#' + formatLeadIdShort(leadId));
 
       const fullName = getValue('nombre_cliente', 'nombre', 'name', 'cliente').trim();
       const parts = fullName.split(' ');
       const nombres = parts.slice(0, Math.max(1, parts.length - 1)).join(' ');
       const apellidos = parts.length > 1 ? parts.slice(-1).join(' ') : '';
-      document.getElementById('edit-nombres').value = nombres;
-      document.getElementById('edit-apellidos').value = apellidos;
+      setVal('edit-nombres', nombres);
+      setVal('edit-apellidos', apellidos);
 
-      document.getElementById('edit-telefono').value = getValue('telefono_principal', 'telefono', 'phone', 'tel');
-      document.getElementById('edit-telefono-alt').value = getValue('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2');
-      document.getElementById('edit-numero-cuenta').value = getValue('numero_cuenta', 'account', 'cuenta', 'accountNumber');
-      document.getElementById('edit-direccion').value = getValue('direccion', 'address', 'domicilio');
+      setVal('edit-telefono', getValue('telefono_principal', 'telefono', 'phone', 'tel'));
+      setVal('edit-telefono-alt', getValue('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2'));
+      setVal('edit-numero-cuenta', getValue('numero_cuenta', 'account', 'cuenta', 'accountNumber'));
+      setVal('edit-direccion', getValue('direccion', 'address', 'domicilio'));
 
       // Asignar Representante (Agente) y Supervisor con fallbacks
-      document.getElementById('edit-representante').value = getValue('agenteNombre', 'agente', 'agenteId', 'agent');
-      document.getElementById('edit-sup').value = getValue('supervisor', 'supervisorId', 'team');
+      setVal('edit-representante', getValue('agenteNombre', 'agente', 'agenteId', 'agent'));
+      // Algunos builds usan edit-supervisor (no edit-sup)
+      if (!setVal('edit-sup', getValue('supervisor', 'supervisorId', 'team'))) {
+        setVal('edit-supervisor', getValue('supervisor', 'supervisorId', 'team'));
+      }
 
       function setSelectValue(selectId, value) {
         const sel = document.getElementById(selectId);
@@ -8503,7 +8689,6 @@
         
       } catch (e) {
         console.error('[RefrescarNotas] Error:', e);
-        alert('Error al refrescar notas: ' + (e?.message || e));
       }
     };
 
@@ -8559,34 +8744,60 @@
       const leadId = document.getElementById('edit-id').value;
       
       const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
+      const curLead = window.__currentEditingLead || {};
+      const getInput = (id) => {
+        try {
+          const el = document.getElementById(id);
+          const v = el ? el.value : '';
+          return (v == null) ? '' : String(v).trim();
+        } catch (_) {
+          return '';
+        }
+      };
+      const getFromLead = (...keys) => {
+        for (const k of keys) {
+          const v = curLead && curLead[k];
+          if (v !== undefined && v !== null) {
+            const s = String(v).trim();
+            if (s) return s;
+          }
+        }
+        return '';
+      };
+
       let datosActualizados = {};
       if (isFull) {
         const nombreCompleto = [
-          document.getElementById('edit-nombres').value.trim(),
-          document.getElementById('edit-apellidos').value.trim()
+          getInput('edit-nombres'),
+          getInput('edit-apellidos')
         ].filter(Boolean).join(' ');
         const tipoServicio = (
           (document.getElementById('edit-servicios') && document.getElementById('edit-servicios').value)
           || (window.__currentEditingLead && (window.__currentEditingLead.servicios || window.__currentEditingLead.tipo_servicio || window.__currentEditingLead.tipo_servicios || window.__currentEditingLead.servicios_texto))
           || ''
         ).toString().trim();
-        if (!tipoServicio) {
+        const telefonoPrincipal = getInput('edit-telefono') || getFromLead('telefono_principal', 'telefono', 'phone', 'tel');
+        const direccion = getInput('edit-direccion') || getFromLead('direccion', 'address', 'domicilio');
+        const nombreCliente = nombreCompleto || getFromLead('nombre_cliente', 'nombre', 'name', 'cliente');
+        const tipoServicioFinal = tipoServicio || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto');
+
+        if (!tipoServicioFinal) {
           alert('Falta el campo "Tipo de servicio"');
           try { document.getElementById('edit-tipo-servicios').focus(); } catch(_) {}
           return;
         }
         datosActualizados = {
-          nombre_cliente: nombreCompleto,
-          telefono_principal: document.getElementById('edit-telefono').value,
-          telefono_alterno: document.getElementById('edit-telefono-alt').value,
+          nombre_cliente: nombreCliente,
+          telefono_principal: telefonoPrincipal,
+          telefono_alterno: getInput('edit-telefono-alt') || getFromLead('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2'),
           numero_cuenta: document.getElementById('edit-numero-cuenta').value,
           autopago: document.getElementById('edit-autopago').value,
-          direccion: document.getElementById('edit-direccion').value,
+          direccion: direccion,
           representante: document.getElementById('edit-representante').value,
           // Compatibilidad: enviar ambos nombres de campo
-          servicios: tipoServicio,
-          tipo_servicio: tipoServicio,
-          tipo_servicios: tipoServicio,
+          servicios: tipoServicioFinal,
+          tipo_servicio: tipoServicioFinal,
+          tipo_servicios: tipoServicioFinal,
           sistema: document.getElementById('edit-sistema').value,
           riesgo: (document.getElementById('edit-riesgo').value||'').toString().toLowerCase(),
           dia_venta: document.getElementById('edit-dia-venta').value,
@@ -8604,7 +8815,14 @@
         // Modo restringido: solo fechas de venta/instalación
         datosActualizados = {
           dia_venta: document.getElementById('edit-dia-venta').value,
-          dia_instalacion: document.getElementById('edit-dia-instalacion').value
+          dia_instalacion: document.getElementById('edit-dia-instalacion').value,
+          // Backend requiere estos campos: conservar valores actuales si no se editan
+          nombre_cliente: getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
+          telefono_principal: getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
+          direccion: getFromLead('direccion', 'address', 'domicilio'),
+          servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicio: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto')
         };
       }
 
@@ -8762,10 +8980,11 @@
       }
     };
   </script>
-  <!-- Cargar primero el m¨®dulo de datos de clientes -->
+  
+  <!-- Cargar primero el módulo de datos de clientes -->
   <!-- <script src="js/data/costumer-mock-data.js"></script> -->
   <script>
-    // Funci¨®n para mostrar mensajes de depuraci¨®n
+    // Función para mostrar mensajes de depuración
     function debugLog(message, data) {
       if (data !== undefined) {
         console.log(`[DEBUG] ${message}`, data);

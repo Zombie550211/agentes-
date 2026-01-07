@@ -15,20 +15,6 @@
             font-weight: 700;
             color: #000;
         }
-        .editable-cell:hover {
-            background: #e3f2fd !important;
-            transform: scale(1.02);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .editable-cell:focus {
-            outline: 2px solid #3b82f6;
-            outline-offset: -2px;
-            background: #fff !important;
-        }
-        .editing {
-            background: #fff !important;
-            font-weight: 700;
-        }
         th {
             font-weight: 800 !important;
             color: #000 !important;
@@ -36,6 +22,157 @@
         td {
             font-weight: 600 !important;
             color: #000 !important;
+        }
+
+        .topbar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-label {
+            font-weight: 800;
+            color: var(--text-color);
+            white-space: nowrap;
+        }
+
+        .toggle-btn {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 52px;
+            height: 30px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid rgba(0,0,0,0.12);
+            transition: background 160ms ease;
+        }
+
+        .toggle-btn::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+            transition: transform 160ms ease;
+        }
+
+        .toggle-btn:checked {
+            background: #22c55e;
+        }
+
+        .toggle-btn:checked::after {
+            transform: translateX(22px);
+        }
+
+        #excelView { display: none; }
+
+        .excel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 260px;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .excel-slot {
+            min-width: 0;
+        }
+
+        .excel-card {
+            border: 1px solid #000;
+            background: #fff;
+        }
+
+        .excel-card table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .excel-card th, .excel-card td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .excel-card th {
+            background: #000;
+            color: #fff !important;
+            font-weight: 900 !important;
+        }
+
+        .excel-name {
+            background: #ffeb3b;
+            text-align: left !important;
+            font-weight: 900 !important;
+        }
+
+        .excel-total-row td {
+            background: #000;
+            color: #fff !important;
+            font-weight: 900 !important;
+        }
+
+        .excel-footer {
+            background: #22d3ee;
+            border-top: 0;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .excel-side {
+            display: grid;
+            gap: 12px;
+        }
+
+        .excel-mini {
+            border: 1px solid #000;
+            background: #fff;
+            padding: 10px;
+        }
+
+        .excel-mini input {
+            width: 100%;
+            border: 1px solid #000;
+            padding: 6px 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .excel-mini table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .excel-mini td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-weight: 900;
+            text-align: right;
+        }
+
+        .excel-mini td:first-child { text-align: left; }
+
+        .excel-editable {
+            background: #fff;
+            font-weight: 900;
         }
     </style>
 <script src="js/logout-handler.js" defer></script>
@@ -45,9 +182,15 @@
         <nav class="sidebar sidebar-inicio" data-active="llamadas-team"></nav>
         <main class="main-content">
             <div style="padding: 20px;">
-                <h1 style="margin-bottom: 20px;">Llamadas y Ventas por Team</h1>
-                
-                <div style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
+                <div class="topbar-row">
+                    <h1 style="margin: 0;">Llamadas y Ventas por Team</h1>
+                    <div class="toggle-wrap">
+                        <span class="toggle-label">Vista Excel</span>
+                        <input id="excelToggle" class="toggle-btn" type="checkbox" />
+                    </div>
+                </div>
+
+                <div id="monthlyView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; min-width: 1200px;">
                         <thead>
                             <tr>
@@ -121,6 +264,10 @@
                         </tbody>
                     </table>
                 </div>
+
+                <div id="excelView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
+                    <div id="excelRoot" class="excel-grid"></div>
+                </div>
             </div>
         </main>
     </div>
@@ -142,8 +289,117 @@
             if (window.loadSidebar) {
                 window.loadSidebar();
             }
+            initExcelToggle();
             generateDailyRows();
         });
+
+        function initExcelToggle() {
+            const toggle = document.getElementById('excelToggle');
+            const monthlyView = document.getElementById('monthlyView');
+            const excelView = document.getElementById('excelView');
+            const excelRoot = document.getElementById('excelRoot');
+            if (!toggle || !monthlyView || !excelView || !excelRoot) return;
+
+            const renderExcel = () => {
+                try {
+                    // Generar estructura tipo Excel por teams (editable)
+                    const teams = [
+                        { name: 'TEAM IRANIA', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['IRANIA S','MIGUEL NÚÑEZ','JOSUE RENDEROS','ROXANA MARTINEZ','GISELLE DIAZ','EMELY AYALA','NICOLE CRUZ','JORGE SEGOVIA','WLADIMIR VENTURA'] },
+                        { name: 'TEAM ROBERTO', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['FRANCISCO AGUILAR','LUCIA FERMAN','LISBETH CORTEZ','NELSON CEREN','CINDY FLORES','MICHELLE LEIVA','LEVI MARTINEZ','BRYAN PEREZ','JONATHAN LOZANO'] },
+                        { name: 'TEAM SANTANA', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['GUADALUPE SANTANA','ANDERSON GUZMAN','JULIO MEJIA','PRISCILA HERNANDEZ','RIQUELMI TORRES','ABIGAIL BERNAL'] },
+                        { name: 'TEAM BRYAN', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['BRYAN PLEITEZ','DIEGO MEJIA','ALEXANDER RIVERA','LUIS CHAVARRIA','STEVEN VALERA','RENE GUTIERREZ','EMANUEL VELASQUEZ','JAIRO FLORES','JORGE ESCOBAR'] },
+                        { name: 'TEAM MARISOL', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['MARISOL BELTRAN','KATERINE GOMEZ','FERNANDA CASTILLO','KIMBERLY IGLESIAS','EDUARDO ESPAÑA','STEFANI MARTINEZ','JONATHAN MORALES','INGRID GARCIA'] },
+                        { name: 'TEAM LINEAS', cols: ['CALIS','VENTAS'], people: ['LUIS GUTIERREZ','KARLA RODRIGUEZ','FERNANDO BELTRAN','TATIANA GIRON','DANIEL DEL CID','JONATHAN FIGUEROA','OSCAR RIVERA','MIGUEL HERRERA','CRISTIAN RIVERA','EDWARD RAMIREZ','JOCELYN REYES','NANCY LOPEZ','VICTOR HURTADO','MANUEL FLORES','MELANY HURTADO','ALEXIS RODRIGUEZ'] }
+                    ];
+
+                    const cardHtml = (t) => {
+                        const hasLineas = t.name === 'TEAM LINEAS';
+                        const nameWidth = hasLineas ? '64%' : '52%';
+                        const thead = `
+                            <thead>
+                                <tr>
+                                    <th style="width:${nameWidth};">${t.name}</th>
+                                    ${t.cols.map(() => '<th style="width:16%;">&nbsp;</th>').join('')}
+                                </tr>
+                                <tr>
+                                    <th style="width:${nameWidth};">&nbsp;</th>
+                                    ${t.cols.map(c => `<th>${c}</th>`).join('')}
+                                </tr>
+                            </thead>
+                        `;
+
+                        const rows = t.people.map(p => {
+                            const cells = t.cols
+                                .map((c) => `<td class="excel-editable" contenteditable="true" data-team="${t.name}" data-person="${p}" data-col="${c}"></td>`)
+                                .join('');
+                            return `<tr><td class="excel-name">${p}</td>${cells}</tr>`;
+                        }).join('');
+
+                        const totalCells = t.cols
+                            .map((c) => `<td class="excel-editable" contenteditable="true" data-team="${t.name}" data-person="TOTAL" data-col="${c}"></td>`)
+                            .join('');
+
+                        const tbody = `
+                            <tbody>
+                                ${rows}
+                                <tr class="excel-total-row"><td>TOTAL</td>${totalCells}</tr>
+                            </tbody>
+                        `;
+
+                        return `
+                            <div class="excel-card">
+                                <table>${thead}${tbody}</table>
+                                <div class="excel-footer" contenteditable="true" data-team="${t.name}" data-metric="score">0</div>
+                            </div>
+                        `;
+                    };
+
+                    const side = `
+                        <div class="excel-side" style="grid-column: 4; grid-row: 1 / span 2;">
+                            <div class="excel-mini">
+                                <input value="MARKETING" />
+                            </div>
+                            <div class="excel-mini">
+                                <table>
+                                    <tbody>
+                                        <tr><td>LLAMADAS</td><td contenteditable="true" class="excel-editable" data-metric="LLAMADAS"></td></tr>
+                                        <tr><td>CALIS</td><td contenteditable="true" class="excel-editable" data-metric="CALIS"></td></tr>
+                                        <tr><td>VENTAS</td><td contenteditable="true" class="excel-editable" data-metric="VENTAS"></td></tr>
+                                        <tr><td>PERDIDAS</td><td contenteditable="true" class="excel-editable" data-metric="PERDIDAS"></td></tr>
+                                        <tr><td>RECICLADAS</td><td contenteditable="true" class="excel-editable" data-metric="RECICLADAS"></td></tr>
+                                        <tr><td>TOTAL</td><td contenteditable="true" class="excel-editable" data-metric="TOTAL"></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+
+                    const topA = `<div class="excel-slot" style="grid-column: 1; grid-row: 1;">${cardHtml(teams[0])}</div>`;
+                    const topB = `<div class="excel-slot" style="grid-column: 2; grid-row: 1;">${cardHtml(teams[1])}</div>`;
+                    const topC = `<div class="excel-slot" style="grid-column: 3; grid-row: 1;">${cardHtml(teams[2])}</div>`;
+                    const botA = `<div class="excel-slot" style="grid-column: 1; grid-row: 2;">${cardHtml(teams[3])}</div>`;
+                    const botB = `<div class="excel-slot" style="grid-column: 2; grid-row: 2;">${cardHtml(teams[4])}</div>`;
+                    const botC = `<div class="excel-slot" style="grid-column: 3; grid-row: 2;">${cardHtml(teams[5])}</div>`;
+
+                    excelRoot.innerHTML = topA + topB + topC + side + botA + botB + botC;
+                } catch (e) {
+                    console.error('[Vista Excel] Error renderizando:', e);
+                    excelRoot.innerHTML = `<div style="grid-column: 1 / -1; padding: 12px; border: 1px solid #ef4444; background: #fee2e2; color: #7f1d1d; font-weight: 800;">Error renderizando Vista Excel: ${String(e && e.message ? e.message : e)}</div>`;
+                }
+            };
+
+            const apply = () => {
+                const on = !!toggle.checked;
+                monthlyView.style.display = on ? 'none' : '';
+                excelView.style.display = on ? '' : 'none';
+                if (on) {
+                    renderExcel();
+                }
+            };
+
+            toggle.addEventListener('change', apply);
+            apply();
+        }
 
         function generateDailyRows() {
             const tbody = document.getElementById('tableBody');

@@ -153,12 +153,16 @@ router.get('/leads', protect, async (req, res) => {
         console.warn('[API /leads] Valores de mes/año inválidos tras parseo; usando mes actual:', targetYear, targetMonth);
       }
       
-      // Generar strings para todo el mes objetivo
+      // Generar strings para el mes objetivo
+      // Si el mes objetivo es el mes actual, limitar hasta el día de hoy.
       const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+      const now = new Date();
+      const isCurrentTargetMonth = (targetYear === now.getFullYear()) && (targetMonth === (now.getMonth() + 1));
+      const lastDay = isCurrentTargetMonth ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
       const dateStrings = [];
       const dateRegexes = [];
       
-      for (let day = 1; day <= daysInMonth; day++) {
+      for (let day = 1; day <= lastDay; day++) {
         const dayStr = String(day).padStart(2, '0');
         const monthStr = String(targetMonth).padStart(2, '0');
         
@@ -174,7 +178,7 @@ router.get('/leads', protect, async (req, res) => {
       }
       
       const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
-      const monthEnd = new Date(targetYear, targetMonth - 1, daysInMonth, 23, 59, 59, 999);
+      const monthEnd = new Date(targetYear, targetMonth - 1, lastDay, 23, 59, 59, 999);
       
       const dateOrConditions = [
         { dia_venta: { $in: dateStrings } },

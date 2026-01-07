@@ -2130,7 +2130,11 @@
 
         // Construir rango de fechas para el mes seleccionado
         const startDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth(), 1, 12, 0, 0);
-        const endDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth() + 1, 0, 12, 0, 0);
+        const now = new Date();
+        const isCurrentMonth = (currentProductsDate.getFullYear() === now.getFullYear()) && (currentProductsDate.getMonth() === now.getMonth());
+        const endDate = isCurrentMonth
+          ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0)
+          : new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth() + 1, 0, 12, 0, 0);
         const startStr = fmtYMDLocal(startDate);
         const endStr = fmtYMDLocal(endDate);
 

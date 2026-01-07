@@ -6,6 +6,11 @@ const MONGODB_URI_ATLAS = process.env.MONGODB_URI;
 const MONGODB_URI_LOCAL = process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/crmagente_local';
 const DB_NAME = process.env.MONGODB_DBNAME || 'crmagente';
 
+const TLS_INSECURE = String(process.env.TLS_INSECURE || '').trim() === '1';
+const SERVER_SELECTION_TIMEOUT_MS = Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 20000;
+const CONNECT_TIMEOUT_MS = Number(process.env.MONGODB_CONNECT_TIMEOUT_MS) || 20000;
+const SOCKET_TIMEOUT_MS = Number(process.env.MONGODB_SOCKET_TIMEOUT_MS) || 45000;
+
 // --- Estado de la Conexión --- //
 let db = null;
 let __nativeClient = null;
@@ -38,8 +43,11 @@ async function connectToMongoDB() {
   try {
     console.log(`[DB] Intentando conectar a MongoDB ${connectionTarget}...`);
     const client = new MongoClient(connectionUri, {
-      serverSelectionTimeoutMS: 5000, // Falla rápido si no hay red
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+      connectTimeoutMS: CONNECT_TIMEOUT_MS,
+      socketTimeoutMS: SOCKET_TIMEOUT_MS,
+      tlsAllowInvalidCertificates: TLS_INSECURE,
+      tlsAllowInvalidHostnames: TLS_INSECURE,
       appName: 'dashboard-backend'
     });
     await client.connect();
@@ -49,7 +57,13 @@ async function connectToMongoDB() {
     console.log(`[DB] Conexión nativa a MongoDB ${connectionTarget} establecida.`);
 
     // Sincronizar conexión de Mongoose
-    mongoose.connect(connectionUri, { useNewUrlParser: true })
+    mongoose.connect(connectionUri, {
+      serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+      connectTimeoutMS: CONNECT_TIMEOUT_MS,
+      socketTimeoutMS: SOCKET_TIMEOUT_MS,
+      tlsAllowInvalidCertificates: TLS_INSECURE,
+      tlsAllowInvalidHostnames: TLS_INSECURE
+    })
       .then(() => console.log(`[Mongoose] Conectado a ${connectionTarget}`))
       .catch(err => console.error(`[Mongoose] Error conectando a ${connectionTarget}:`, err.message));
 
@@ -62,14 +76,23 @@ async function connectToMongoDB() {
       connectionTarget = 'Local';
       console.log('[DB] Fallback: Intentando conectar a MongoDB Local...');
       try {
-        const localClient = new MongoClient(connectionUri, { serverSelectionTimeoutMS: 2000 });
+        const localClient = new MongoClient(connectionUri, {
+          serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 5000,
+          socketTimeoutMS: 30000,
+          appName: 'dashboard-backend'
+        });
         await localClient.connect();
         db = localClient.db(DB_NAME);
         __nativeClient = localClient;
         isConnected = true;
         console.log('[DB] Conexión nativa a MongoDB Local establecida.');
 
-        mongoose.connect(connectionUri)
+        mongoose.connect(connectionUri, {
+          serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 5000,
+          socketTimeoutMS: 30000
+        })
           .then(() => console.log('[Mongoose] Conectado a Local'))
           .catch(err => console.error('[Mongoose] Error conectando a Local:', err.message));
 
