@@ -1236,7 +1236,16 @@
             const ORDER_B = ['Pleitez','Roberto','Marisol'];
             let order = ORDER_ALL;
             const canonRows = (fallbackTeamData||[]).map(t=>({ ...t, name: teamCanon(t?.name) }));
-            const map = new Map(canonRows.map(t=>[norm(t?.name), t]));
+            const map = new Map();
+            canonRows.forEach(t => {
+              const k = norm(t?.name);
+              const cur = map.get(k) || { name: t?.name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+              cur.ICON += Number(t?.ICON || 0);
+              cur.BAMO += Number(t?.BAMO || 0);
+              cur.Total += Number(t?.Total || 0);
+              cur.Puntaje += parseFloat(t?.Puntaje || 0);
+              map.set(k, cur);
+            });
             const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
             const ordered = order.map(ensureRow);
             const displayRows = ordered;
@@ -2090,6 +2099,28 @@
     async function loadProductsChart(){
       try{
         if (!checkAuth()) return;
+
+        // Sincronizar mes con el parámetro ?m=YYYY-MM si existe
+        try {
+          const p = new URLSearchParams(location.search);
+          const mParam = p.get('m');
+          if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+            const parts = mParam.split('-').map(Number);
+            const y = parts[0];
+            const m = parts[1];
+            if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+              currentProductsDate = new Date(y, m - 1, 15, 12, 0, 0);
+            }
+          }
+        } catch (_) {}
+
+        const fmtYMDLocal = (dt) => {
+          const d = (dt instanceof Date && !isNaN(dt)) ? dt : new Date();
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
         
         // Actualizar título del mes primero para feedback inmediato
         const titleElement = document.getElementById('products-month-title');
@@ -2098,15 +2129,15 @@
         }
 
         // Construir rango de fechas para el mes seleccionado
-        const startDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth(), 1);
-        const endDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth() + 1, 0);
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        const startDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth(), 1, 12, 0, 0);
+        const endDate = new Date(currentProductsDate.getFullYear(), currentProductsDate.getMonth() + 1, 0, 12, 0, 0);
+        const startStr = fmtYMDLocal(startDate);
+        const endStr = fmtYMDLocal(endDate);
 
         console.log('Cargando productos para:', monthNames[currentProductsDate.getMonth()], currentProductsDate.getFullYear());
         console.log('Rango de fechas:', { startStr, endStr });
 
-        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}`);
+        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}&limit=5000&offset=0`);
         if (!resp || !resp.ok) { 
           console.warn('loadProductsChart: error en la respuesta de /api/leads'); 
           showNoDataMessage();
@@ -2117,10 +2148,40 @@
         const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
         console.log(`Obtenidos ${leads.length} leads para el mes`);
 
-        // Filtrar ventas del mes seleccionado
+        const leadDateKey = (lead) => {
+          try {
+            const raw = (lead && (lead.dia_venta || lead.fecha_contratacion || lead.fecha || lead.createdAt || lead.created_at || lead.createdOn)) || '';
+            if (!raw) return '';
+            if (typeof raw === 'string') {
+              const s = raw.trim();
+              if (!s) return '';
+              if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+              const iso = s.match(/^(\d{4}-\d{2}-\d{2})T/);
+              if (iso) return iso[1];
+              if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) {
+                const parts = s.split(/[\/\-]/).map(Number);
+                const dd = parts[0], mm = parts[1], yy = parts[2];
+                if (!yy || !mm || !dd) return '';
+                return `${yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+              }
+              const tmp = new Date(s);
+              if (!isNaN(tmp)) return fmtYMDLocal(tmp);
+              return '';
+            }
+            const tmp = new Date(raw);
+            if (!isNaN(tmp)) return fmtYMDLocal(tmp);
+            return '';
+          } catch (_) {
+            return '';
+          }
+        };
+
+        // Filtrar por rango (sin TZ). Contar TODOS los leads del mes (sin excluir por status).
         const monthSales = leads.filter(l => {
-          const d = new Date(l.dia_venta || l.fecha_contratacion || l.createdAt || l.fecha || l.created_at || l.createdOn);
-          return d.getMonth() === currentProductsDate.getMonth() && d.getFullYear() === currentProductsDate.getFullYear();
+          const key = leadDateKey(l);
+          if (!key) return false;
+          if (key < startStr || key > endStr) return false;
+          return true;
         });
         console.log(`Filtrados ${monthSales.length} ventas para el mes`);
 
@@ -4557,6 +4618,39 @@
 
         function render(filterTeam){
           const data = rows.filter(r => !filterTeam || String(r.team).trim() === filterTeam);
+
+          const formatFechaExacta = (value) => {
+            try {
+              if (value == null) return '';
+              if (typeof value === 'string') {
+                const s = value.trim();
+                if (!s) return '';
+                // Mantener formatos de día explícitos
+                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) return s;
+                // Si viene ISO (con hora), extraer solo la fecha
+                const isoDate = s.match(/^(\d{4}-\d{2}-\d{2})T/);
+                if (isoDate) return isoDate[1];
+                return s;
+              }
+              if (value instanceof Date && !isNaN(value)) {
+                // Usar parte YYYY-MM-DD del ISO para evitar corrimientos de TZ
+                return value.toISOString().slice(0, 10);
+              }
+              if (typeof value === 'number' && isFinite(value)) {
+                const dt = new Date(value < 1e12 ? value * 1000 : value);
+                return isNaN(dt) ? '' : dt.toISOString().slice(0, 10);
+              }
+              if (typeof value === 'object' && value.$date) {
+                const dt = new Date(value.$date);
+                return isNaN(dt) ? String(value.$date) : dt.toISOString().slice(0, 10);
+              }
+              return String(value);
+            } catch (_) {
+              return '';
+            }
+          };
+
           tbody.innerHTML = data.map(r => `
             <tr>
               <td>${r.team || ''}</td>
@@ -4564,7 +4658,7 @@
               <td>${r.servicio || ''}</td>
               <td>${r.mercado || ''}</td>
               <td>${Number(r.puntaje||0).toFixed(2)}</td>
-              <td>${typeof r.fecha==='string' ? r.fecha : (r.fecha instanceof Date ? r.fecha.toISOString() : (r.fecha||''))}</td>
+              <td>${formatFechaExacta(r.fecha)}</td>
             </tr>
           `).join('');
         }
@@ -4917,6 +5011,13 @@
           console.error('No se encontró el elemento canvas para la gráfica de ventas y puntaje');
           return null;
         }
+
+        // Asegurar que el plugin de datalabels esté registrado si está disponible
+        try {
+          if (window.ChartDataLabels && window.Chart && typeof window.Chart.register === 'function') {
+            window.Chart.register(window.ChartDataLabels);
+          }
+        } catch (_) {}
         
         if (ventasPuntajeChart) {
           console.log('Destruyendo instancia anterior del gráfico...');
@@ -4996,9 +5097,8 @@
                 }
               },
               datalabels: {
-                display: false,
-                formatter: () => '',
-                clamp: true,
+                display: true,
+                clamp: false,
                 clip: false
               }
             },
@@ -5010,7 +5110,7 @@
                 title: { display: false, text: 'Ventas' },
                 grid: { display: false, drawTicks: false },
                 border: { display: false },
-                ticks: { display: false, callback: () => '' }
+                ticks: { display: true, color: '#475569' }
               },
               y1: {
                 type: 'linear',
@@ -5019,14 +5119,14 @@
                 grid: { display: false, drawOnChartArea: false, drawTicks: false },
                 border: { display: false },
                 title: { display: false, text: 'Puntaje' },
-                ticks: { display: false, callback: () => '' },
+                ticks: { display: true, color: '#475569' },
                 min: 0,
                 max: 100
               },
               x: {
                 display: true,
                 grid: { display: false },
-                ticks: { display: false, callback: () => '' },
+                ticks: { display: true, color: '#475569' },
                 title: { display: false, text: '' }
               }
             },
@@ -5090,27 +5190,66 @@
         const team = ((userData && userData.team) || '').toString().toLowerCase();
         const isTeamLineas = /lineas/.test(team) || /lineas/.test(roleLower) || roleLower.includes('supervisor');
         
-        // Usar siempre /api/leads ya que ahora consulta ambas bases de datos
-        // para supervisores de Team Lineas
-        let url = '/api/leads';
-        
+        // Usar /api/leads con rango de fechas (últimos 7 días) para no cargar todo.
+        // El rango se calcula con base en el selector (día/mes/año) o en hoy si no está.
+        const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // UTC-6 fijo
+        const toISOInTZ_local = (date, tzOffsetMinutes) => {
+          const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
+          const y = target.getUTCFullYear();
+          const m = String(target.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(target.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+
+        const daySelect = document.getElementById('day-select');
+        const monthSelect = document.getElementById('month-select');
+        const yearSelect = document.getElementById('year-select');
+
+        let anchor = new Date();
         try {
+          const yRaw = yearSelect ? yearSelect.value : '';
+          const mRaw = monthSelect ? monthSelect.value : '';
+          const dRaw = daySelect ? daySelect.value : '';
+          const y = yRaw === '' ? NaN : Number(yRaw);
+          const m = mRaw === '' ? NaN : Number(mRaw); // 0-11
+          const d = dRaw === '' ? NaN : Number(dRaw);
+
+          // Evitar que d=0 (por select vacío) se convierta en el último día del mes anterior
+          if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d) && d >= 1 && d <= 31) {
+            anchor = new Date(y, m, d, 12, 0, 0);
+          }
+        } catch (_) {}
+
+        const anchorISO = toISOInTZ_local(anchor, BUSINESS_TZ_OFFSET_MIN);
+        const [ay, am, ad] = anchorISO.split('-').map(Number);
+        const anchorUTCNoon = new Date(Date.UTC(ay, am - 1, ad, 12, 0, 0));
+        const startUTCNoon = new Date(anchorUTCNoon);
+        startUTCNoon.setUTCDate(anchorUTCNoon.getUTCDate() - 6);
+        const startISO = toISOInTZ_local(startUTCNoon, BUSINESS_TZ_OFFSET_MIN);
+
+        // Construir URL de forma segura (evita perder fechaInicio/fechaFin por manipulación de querystring)
+        let url = '/api/leads';
+        try {
+          const u = new URL('/api/leads', location.origin);
+          u.searchParams.set('fechaInicio', startISO);
+          u.searchParams.set('fechaFin', anchorISO);
+          u.searchParams.set('limit', '5000');
+          u.searchParams.set('offset', '0');
+
           const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
           const user = JSON.parse(userStr);
           const agenteNombreQuery = (user && (user.username || user.name)) || nombreAgente || '';
-          const u = new URL(url, location.origin);
-          const params = new URLSearchParams(u.search);
-          
+
           // Para Team Lineas, el endpoint ya maneja la lógica de supervisor vs agente
           // Para otros equipos, solo los agentes se filtran por su propio nombre
           if (!isTeamLineas && roleLower === 'agent' && agenteNombreQuery) {
-            params.set('agente', agenteNombreQuery);
+            u.searchParams.set('agente', agenteNombreQuery);
             console.info('[Filtro agente] (rol agent) Enviado en query a /api/leads:', agenteNombreQuery);
           } else {
             console.info('[Filtro agente] Rol privilegiado o Team Lineas detectado (', roleLower, team, '): endpoint maneja la lógica');
           }
-          const qs = params.toString();
-          url = qs ? `${u.pathname}?${qs}` : `${u.pathname}`;
+
+          url = `${u.pathname}?${u.searchParams.toString()}`;
         } catch (e) {
           console.warn('No se pudo construir la URL con filtro por agente:', e?.message);
         }
@@ -5164,21 +5303,10 @@
         }
 
         // Procesar datos para agrupar por día
-        const BUSINESS_TZ_OFFSET_MIN = -6 * 60; // UTC-6 fijo
-        const toISOInTZ_local = (date, tzOffsetMinutes) => {
-          const target = new Date(date.getTime() + tzOffsetMinutes * 60000);
-          const y = target.getUTCFullYear();
-          const m = String(target.getUTCMonth() + 1).padStart(2, '0');
-          const d = String(target.getUTCDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
-        };
-
-        // Inicializar los últimos 7 días
+        // Inicializar los últimos 7 días (basado en anchorISO)
         const ventasPorDia = {};
         const fechasUltimos7Dias = new Set();
-        const hoyISO = toISOInTZ_local(new Date(), BUSINESS_TZ_OFFSET_MIN);
-        const [hy, hm, hd] = hoyISO.split('-').map(Number);
-        const baseUTCNoon = new Date(Date.UTC(hy, hm - 1, hd, 12, 0, 0));
+        const baseUTCNoon = new Date(Date.UTC(ay, am - 1, ad, 12, 0, 0));
         
         for (let i = 6; i >= 0; i--) {
           const fechaUTC = new Date(baseUTCNoon);
@@ -5234,7 +5362,8 @@
               '_raw.creadoEn','_raw.fecha_creacion','_raw.fechaCreacion','_raw.createdAt','_raw.created_at','_raw.fecha',
               'metadata.createdAt','audit.createdAt','timestamps.createdAt'
             ];
-            const diaVentaPaths = ['dia_venta','diaVenta'];
+            // Priorizar fechas de venta/contratación por encima de createdAt
+            const diaVentaPaths = ['dia_venta','diaVenta','fecha_contratacion','fechaContratacion','_raw.dia_venta','_raw.fecha_contratacion'];
 
             let fecha = null;
             const diaVentaVal = findFirst(costumer, diaVentaPaths);
@@ -5314,15 +5443,15 @@
       try {
         ventasPuntajeChart = inicializarGraficaVentasPuntaje();
         if (ventasPuntajeChart) {
+          // Configurar filtros de fecha ANTES de cargar datos (evita día=0 -> rangos 2024-12-xx)
+          setupDateFilters();
+
           // Cargar datos reales de la API
           actualizarGraficaVentasPuntaje().catch(() => {
             // Fallback a datos de prueba si falla la API
             procesarDatosGraficaEstadisticas(datosPrueba);
           });
           console.log('Gráfica de ventas y puntaje inicializada correctamente');
-          
-          // Configurar filtros de fecha
-          setupDateFilters();
         }
       } catch (error) {
         console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
@@ -5518,7 +5647,7 @@
                 beginAtZero: true,
                 grid: { display: false },
                 border: { display: false },
-                ticks: { display: false },
+                ticks: { display: true, color: '#475569' },
                 max: Math.max(5, Math.ceil(maxBoth * 1.2))
               },
               y1: {
@@ -5531,7 +5660,7 @@
                 beginAtZero: true,
                 min: 0,
                 max: Math.max(5, Math.ceil(maxBoth * 1.2)),
-                ticks: { display: false }
+                ticks: { display: true, color: '#475569' }
               }
             },
             plugins: {
