@@ -1,6 +1,8 @@
 const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas de red.');
+if (process.env.NODE_ENV !== 'production') {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+  console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas de red.');
+}
 
 const express = require('express');
 const http = require('http');
@@ -26,19 +28,34 @@ let helmet = null;
 let rateLimit = null;
 try { 
   helmet = require('helmet'); 
-  console.log('[INIT] Helmet cargado correctamente');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[INIT] Helmet cargado correctamente');
+  }
 } catch (e) { 
-  console.warn('[INIT] helmet no instalado, se recomienda instalarlo:', e.message); 
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[INIT] helmet no instalado, se recomienda instalarlo:', e.message); 
+  }
 }
 try { 
   rateLimit = require('express-rate-limit'); 
-  console.log('[INIT] Rate limit cargado correctamente');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[INIT] Rate limit cargado correctamente');
+  }
 } catch (e) { 
-  console.warn('[INIT] express-rate-limit no instalado, se recomienda instalarlo:', e.message); 
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[INIT] express-rate-limit no instalado, se recomienda instalarlo:', e.message); 
+  }
 }
 // Carga condicional de cookie-parser (para soportar JWT en cookies si se usa)
 let cookieParser = null;
-try { cookieParser = require('cookie-parser'); } catch { console.warn('[INIT] cookie-parser no instalado (opcional si usas JWT en header)'); }
+try { 
+  cookieParser = require('cookie-parser'); 
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[INIT] cookie-parser no instalado (opcional si usas JWT en header)'); 
+  }
+} catch (e) { 
+  // Silenciar error en producción
+}
 
 // Importar configuración de base de datos
 const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./config/db');
@@ -89,11 +106,37 @@ if (!process.env.JWT_SECRET) {
 }
 const JWT_EXPIRES_IN = '24h'; // El token expira en 24 horas
 
-// Silenciar logs en producción (mantener warn/error)
-if (process.env.NODE_ENV === 'production' && process.env.DEBUG_LOGS !== '1') {
+// Silenciar logs en producción (mantener solo errores críticos)
+if (process.env.NODE_ENV === 'production') {
+  // Desactivar completamente logs informativos
   console.log = () => {};
   console.info = () => {};
   console.debug = () => {};
+  console.warn = () => {};
+  
+  // Mantener solo errores críticos sin información sensible
+  const originalError = console.error;
+  console.error = (...args) => {
+    // Filtrar información sensible en errores
+    const filteredArgs = args.map(arg => {
+      if (typeof arg === 'string') {
+        return arg.replace(/password|token|secret|key|authorization/gi, '[REDACTED]');
+      }
+      if (typeof arg === 'object' && arg !== null) {
+        const filtered = { ...arg };
+        // Eliminar campos sensibles
+        delete filtered.password;
+        delete filtered.token;
+        delete filtered.secret;
+        delete filtered.key;
+        delete filtered.authorization;
+        delete filtered.headers;
+        return filtered;
+      }
+      return arg;
+    });
+    originalError(...filteredArgs);
+  };
 }
 
 // Inicializar Express app
@@ -186,18 +229,21 @@ app.use(express.static(__dirname, {
 // Middleware para normalizar fechas en todas las respuestas JSON
 app.use('/api', dateFormatterMiddleware);
 
-// Middleware de debug: loguear todas las solicitudes a /api/* para depuración
-app.use('/api', (req, res, next) => {
-  try {
-    console.log('[API DEBUG] Incoming request', { method: req.method, url: req.originalUrl, headersPreview: Object.fromEntries(Object.keys(req.headers).slice(0,6).map(k=>[k, req.headers[k]])) });
-  } catch (e) { console.warn('[API DEBUG] Error logging request', e); }
-  next();
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api', (req, res, next) => {
+    try {
+      console.log('[API DEBUG] Incoming request', { method: req.method, url: req.originalUrl, headersPreview: Object.fromEntries(Object.keys(req.headers).slice(0,6).map(k=>[k, req.headers[k]])) });
+    } catch (e) { console.warn('[API DEBUG] Error logging request', e); }
+    next();
+  });
+}
 
 // Montar ruta de teams (autenticada)
 if (teamsRoutes) {
   app.use('/api/teams', teamsRoutes);
-  console.log('[INIT] Ruta /api/teams montada');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[INIT] Ruta /api/teams montada');
+  }
 }
 
 // La conexión de Mongoose ahora es gestionada centralmente por config/db.js
@@ -229,12 +275,14 @@ const CLOUDINARY_BG_REMOVAL_FLAG = String(process.env.CLOUDINARY_BG_REMOVAL || '
 const CLOUDINARY_BG_REMOVAL_ENABLED = CLOUDINARY_HAS_CREDENTIALS && CLOUDINARY_BG_REMOVAL_FLAG !== '0' && CLOUDINARY_BG_REMOVAL_FLAG !== 'false';
 const CLOUDINARY_AVATAR_FOLDER = process.env.CLOUDINARY_AVATAR_FOLDER || 'dashboard/user-avatars';
 
-if (CLOUDINARY_BG_REMOVAL_ENABLED) {
-  console.log('[CLOUDINARY] Background removal habilitado para avatares (cloudinary_ai).');
-} else if (CLOUDINARY_HAS_CREDENTIALS) {
-  console.log('[CLOUDINARY] Background removal deshabilitado. Establece CLOUDINARY_BG_REMOVAL=1 para activarlo.');
-} else {
-  console.log('[CLOUDINARY] Credenciales no configuradas. Se omitirá el background removal.');
+if (process.env.NODE_ENV !== 'production') {
+  if (CLOUDINARY_BG_REMOVAL_ENABLED) {
+    console.log('[CLOUDINARY] Background removal habilitado para avatares (cloudinary_ai).');
+  } else if (CLOUDINARY_HAS_CREDENTIALS) {
+    console.log('[CLOUDINARY] Background removal deshabilitado. Establece CLOUDINARY_BG_REMOVAL=1 para activarlo.');
+  } else {
+    console.log('[CLOUDINARY] Credenciales no configuradas. Se omitirá el background removal.');
+  }
 }
 
 // Configuración de Multer para subida de archivos (diskStorage temporal antes de subir a Cloudinary)
@@ -7020,16 +7068,20 @@ function startServer(port) {
           refreshInitDashboardCache(getDb()).catch(err => console.warn('[INIT-DASHBOARD] background refresh error', err));
         } catch (inner) { console.warn('[INIT-DASHBOARD] background schedule error', inner); }
       }, Math.max(10000, INIT_DASHBOARD_TTL));
-      console.log('[INIT-DASHBOARD] background refresh scheduled (ms):', INIT_DASHBOARD_TTL);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[INIT-DASHBOARD] background refresh scheduled (ms):', INIT_DASHBOARD_TTL);
+      }
     } catch (e) {
       console.warn('[INIT-DASHBOARD] Could not schedule background refresh:', e?.message || e);
     }
 
     httpServer.listen(port, () => {
-      console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
-      console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`[SERVER] URL: http://localhost:${port}`);
-      console.log(`[Socket.io] WebSocket activo`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
+        console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`[SERVER] URL: http://localhost:${port}`);
+        console.log(`[Socket.io] WebSocket activo`);
+      }
     });
   })();
 
