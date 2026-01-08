@@ -100,6 +100,50 @@
             font-weight: 900;
             cursor: pointer;
             white-space: nowrap;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .excel-tab .close-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            margin-left: 4px;
+        }
+
+        .excel-tab .close-btn:hover {
+            background: #dc2626;
+        }
+
+        .excel-tab .edit-input {
+            background: transparent;
+            border: 1px solid #000;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: inherit;
+            font-weight: inherit;
+            font-family: inherit;
+            color: inherit;
+            outline: none;
+            width: 120px;
+        }
+
+        .excel-tab .edit-input:focus {
+            background: #fff;
+            box-shadow: 0 0 0 2px #3b82f6;
         }
 
         .excel-tab.active {
@@ -574,7 +618,7 @@
                     const id = normalizeSheetId(s && s._id);
                     const name = String(s.name || '').trim() || id;
                     const active = (id === String(currentSheetId)) ? 'active' : '';
-                    return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}">${name}</button>`;
+                    return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}" data-original-name="${name}"><span class="tab-name">${name}</span><button class="close-btn" type="button" data-delete-sheet-id="${id}" title="Eliminar página">×</button></button>`;
                 }).join('') + plus;
                 excelTabs.innerHTML = tabsHtml;
                 excelTabs.style.display = '';
@@ -582,6 +626,38 @@
                 excelTabs.onclick = async (ev) => {
                     const t = ev && ev.target;
                     if (!t) return;
+                    
+                    // Handle delete button
+                    const deleteBtn = t.closest && t.closest('[data-delete-sheet-id]');
+                    if (deleteBtn) {
+                        ev.stopPropagation();
+                        const sheetId = deleteBtn.getAttribute('data-delete-sheet-id');
+                        if (sheetId) {
+                            if (confirm('¿Estás seguro de que quieres eliminar esta página? Esta acción no se puede deshacer.')) {
+                                try {
+                                    await fetchJson(API_SHEET(sheetId), {
+                                        method: 'DELETE'
+                                    });
+                                    
+                                    // If we deleted the current sheet, switch to another one
+                                    if (sheetId === String(currentSheetId)) {
+                                        currentSheetId = null;
+                                        setLastSheetId(null);
+                                    }
+                                    
+                                    await renderTabs();
+                                    if (currentSheetId) {
+                                        await loadSheet(currentSheetId);
+                                    }
+                                } catch (e) {
+                                    console.error('[Vista Excel] Error eliminando hoja:', e);
+                                    alert('Error al eliminar la página: ' + (e.message || e));
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    
                     const plusBtn = t.closest && t.closest('[data-plus="1"]');
                     if (plusBtn) {
                         const created = await createSheet();
@@ -601,6 +677,93 @@
                             await loadSheet(currentSheetId);
                         }
                     }
+                };
+
+                // Add double-click handler for editing tab names
+                excelTabs.ondblclick = async (ev) => {
+                    const t = ev && ev.target;
+                    if (!t) return;
+                    
+                    const tabName = t.closest && t.closest('.tab-name');
+                    if (!tabName) return;
+                    
+                    const tab = t.closest && t.closest('[data-sheet-id]');
+                    if (!tab) return;
+                    
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    
+                    const sheetId = tab.getAttribute('data-sheet-id');
+                    const originalName = tab.getAttribute('data-original-name');
+                    
+                    // Create input field
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'edit-input';
+                    input.value = originalName;
+                    input.placeholder = 'MM/DD/YYYY';
+                    
+                    // Replace span with input
+                    tabName.parentNode.replaceChild(input, tabName);
+                    input.focus();
+                    input.select();
+                    
+                    // Handle save on blur or enter
+                    const saveEdit = async () => {
+                        const newName = input.value.trim();
+                        
+                        // Validate date format MM/DD/YYYY
+                        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+                        if (!newName || !dateRegex.test(newName)) {
+                            alert('Por favor ingrese una fecha válida en formato MM/DD/YYYY');
+                            input.blur();
+                            return;
+                        }
+                        
+                        try {
+                            await fetchJson(API_SHEET(sheetId), {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: newName })
+                            });
+                            
+                            // Update tab display
+                            tab.setAttribute('data-original-name', newName);
+                            const newSpan = document.createElement('span');
+                            newSpan.className = 'tab-name';
+                            newSpan.textContent = newName;
+                            input.parentNode.replaceChild(newSpan, input);
+                            
+                            // Update current sheet name if this is the active sheet
+                            if (sheetId === String(currentSheetId)) {
+                                currentSheetName = newName;
+                            }
+                            
+                        } catch (e) {
+                            console.error('[Vista Excel] Error actualizando nombre:', e);
+                            alert('Error al actualizar la fecha: ' + (e.message || e));
+                            // Revert to original name
+                            const revertSpan = document.createElement('span');
+                            revertSpan.className = 'tab-name';
+                            revertSpan.textContent = originalName;
+                            input.parentNode.replaceChild(revertSpan, input);
+                        }
+                    };
+                    
+                    input.onblur = saveEdit;
+                    input.onkeydown = (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            saveEdit();
+                        } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            // Revert to original name
+                            const revertSpan = document.createElement('span');
+                            revertSpan.className = 'tab-name';
+                            revertSpan.textContent = originalName;
+                            input.parentNode.replaceChild(revertSpan, input);
+                        }
+                    };
                 };
             };
 
@@ -1085,7 +1248,7 @@
         }
 
         async function populateTableWithData(data) {
-            console.log('Datos recibidos:', data);
+            console.log('Datos recibidos:', data.length, 'registros');
             
             for (const record of data) {
                 const fecha = new Date(record.fecha);
@@ -1094,8 +1257,6 @@
                 const team = (record.team || '').trim();
                 const type = (record.tipo || '').trim();
                 const value = (record.valor ?? 0);
-                
-                console.log(`Cargando: Día ${dayUtc}, Team ${team}, Tipo ${type}, Valor ${value}`);
                 
                 // Buscar la celda correspondiente
                 let cell = document.querySelector(`[data-day="${dayUtc}"][data-team="${team}"][data-type="${type}"]`);
@@ -1106,7 +1267,6 @@
                 if (cell) {
                     const displayValue = (String(value).trim() === '' || Number(value) === 0) ? '-' : value;
                     cell.textContent = displayValue;
-                    console.log(`Celda actualizada: ${cell.dataset.day}-${team}-${type} = ${value}`);
                 } else {
                     console.warn(`Celda no encontrada: ${dayLocal}/${dayUtc}-${team}-${type}`, record);
                 }
@@ -1117,7 +1277,6 @@
         }
 
         async function calculateAllTotalsAfterPopulate() {
-            console.log('Calculando totales para todos los días del mes después de la carga inicial...');
             const today = new Date();
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth();
@@ -1130,7 +1289,6 @@
                 });
                 calculateGeneralTotals_InitialLoad(day);
             }
-            console.log('Cálculo de todos los totales completado.');
         }
 
         async function saveCell(cell) {
@@ -1256,29 +1414,18 @@
         }
 
         function calculateTotals(day, team) {
-            console.log(`[DEBUG] calculateTotals llamado con day=${day}, team=${team}`);
-
             const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
             const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
             const totalesCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="TOTALES"]`);
 
             if (!llamadasCell || !ventasCell || !totalesCell) {
-                console.log(`[DEBUG] No se encontraron celdas para day=${day}, team=${team}`);
                 return;
             }
-            
-            console.log(`[DEBUG] Celdas encontradas:`, {
-                llamadasCell: llamadasCell ? llamadasCell.textContent : 'null',
-                ventasCell: ventasCell ? ventasCell.textContent : 'null',
-                totalesCell: totalesCell ? totalesCell.textContent : 'null'
-            });
             
             const llamadas = parseFloat(llamadasCell.textContent) || 0;
             const ventas = parseFloat(ventasCell.textContent) || 0;
 
             totalesCell.textContent = `${llamadas}/${ventas}`;
-            
-            console.log(`[DEBUG] Total actualizado a: ${totalesCell.textContent}`);
             
             // Guardar el total también (pero sin recalcular para evitar bucle)
             saveCellWithoutRecalculation(totalesCell);
@@ -1309,13 +1456,10 @@
         }
 
         function calculateGeneralTotals(day) {
-            console.log(`[DEBUG] calculateGeneralTotals llamado con day=${day}`);
-
             const totalLlamadasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE LLAMADAS"]`);
             const totalVentasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE VENTAS"]`);
 
             if (!totalLlamadasCell || !totalVentasCell) {
-                console.log(`[DEBUG] No se encontraron celdas de totales generales para day=${day}`);
                 return;
             }
             
@@ -1332,26 +1476,12 @@
                 const llamadas = parseFloat(llamadasCell?.textContent) || 0;
                 const ventas = parseFloat(ventasCell?.textContent) || 0;
                 
-                console.log(`[DEBUG] ${team}: llamadas=${llamadas}, ventas=${ventas}`);
-                
                 totalLlamadas += llamadas;
                 totalVentas += ventas;
             });
             
-            console.log(`[DEBUG] Totales generales: llamadas=${totalLlamadas}, ventas=${totalVentas}`);
-            
-            console.log(`[DEBUG] Celdas generales antes de actualizar:`, {
-                totalLlamadasCell: totalLlamadasCell ? totalLlamadasCell.textContent : 'null',
-                totalVentasCell: totalVentasCell ? totalVentasCell.textContent : 'null'
-            });
-            
             totalLlamadasCell.textContent = totalLlamadas;
             totalVentasCell.textContent = totalVentas;
-            
-            console.log(`[DEBUG] Celdas generales actualizadas a:`, {
-                totalLlamadas: totalLlamadasCell.textContent,
-                totalVentas: totalVentasCell.textContent
-            });
             
             // Guardar los totales generales también (sin recalcular para evitar bucle)
             saveCellWithoutRecalculation(totalLlamadasCell);
@@ -1385,28 +1515,6 @@
                 cell.textContent = '';
             }
         }
-
-        // Función de debugging para forzar recálculo
-        function forceRecalculateDay1() {
-            console.log('[DEBUG] Forzando recálculo del día 1...');
-            
-            // Recalcular totales de cada team para el día 1
-            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-            teams.forEach(team => {
-                calculateTotals(1, team);
-            });
-            
-            // Recalcular totales generales
-            calculateGeneralTotals(1);
-            
-            console.log('[DEBUG] Recálculo del día 1 completado');
-        }
-
-        // Agregar botón de debugging para forzar recálculo del día 1
-        const debugButton = document.createElement('button');
-        debugButton.textContent = 'Forzar recálculo del día 1';
-        debugButton.onclick = forceRecalculateDay1;
-        document.body.appendChild(debugButton);
     </script>
 </body>
 </html>
