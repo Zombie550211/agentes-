@@ -80,6 +80,43 @@
 
         #excelView { display: none; }
 
+        .excel-tabs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 10px;
+            background: #fff;
+            margin-bottom: 12px;
+            overflow-x: auto;
+        }
+
+        .excel-tab {
+            border: 1px solid rgba(0,0,0,0.2);
+            background: #f3f4f6;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-weight: 900;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .excel-tab.active {
+            background: #dbeafe;
+            border-color: rgba(0,0,0,0.35);
+        }
+
+        .excel-tab.plus {
+            background: #fff;
+            width: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            line-height: 1;
+        }
+
         .excel-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 260px;
@@ -127,14 +164,6 @@
             font-weight: 900 !important;
         }
 
-        .excel-footer {
-            background: #22d3ee;
-            border-top: 0;
-            padding: 6px 8px;
-            font-size: 12px;
-            font-weight: 900;
-        }
-
         .excel-side {
             display: grid;
             gap: 12px;
@@ -152,6 +181,8 @@
             padding: 6px 8px;
             font-weight: 900;
             text-transform: uppercase;
+            background: #ffeb3b;
+            text-align: center;
         }
 
         .excel-mini table {
@@ -168,11 +199,98 @@
             text-align: right;
         }
 
-        .excel-mini td:first-child { text-align: left; }
+        .excel-mini td:first-child { text-align: left; background: #e5e7eb; }
 
         .excel-editable {
             background: #fff;
             font-weight: 900;
+        }
+
+        .excel-add-btn {
+            background: #111827;
+            color: #fff;
+            border: 1px solid rgba(0,0,0,0.25);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .excel-add-btn:hover {
+            filter: brightness(1.05);
+        }
+
+        .excel-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            z-index: 9999;
+        }
+
+        .excel-modal.open {
+            display: flex;
+        }
+
+        .excel-modal-card {
+            width: min(520px, 100%);
+            background: #fff;
+            border: 1px solid #000;
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .excel-modal-title {
+            font-weight: 900;
+            font-size: 16px;
+            margin: 0 0 10px 0;
+        }
+
+        .excel-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .excel-form-grid label {
+            display: block;
+            font-weight: 900;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .excel-form-grid input,
+        .excel-form-grid select {
+            width: 100%;
+            border: 1px solid #000;
+            border-radius: 10px;
+            padding: 10px;
+            font-weight: 900;
+            font-size: 12px;
+        }
+
+        .excel-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .excel-btn {
+            border: 1px solid #000;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-weight: 900;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .excel-btn.primary {
+            background: #22c55e;
+            color: #000;
         }
     </style>
 <script src="js/logout-handler.js" defer></script>
@@ -185,6 +303,7 @@
                 <div class="topbar-row">
                     <h1 style="margin: 0;">Llamadas y Ventas por Team</h1>
                     <div class="toggle-wrap">
+                        <button id="excelAddUserBtn" class="excel-add-btn" type="button" style="display:none;">Agregar usuario</button>
                         <span class="toggle-label">Vista Excel</span>
                         <input id="excelToggle" class="toggle-btn" type="checkbox" />
                     </div>
@@ -266,7 +385,46 @@
                 </div>
 
                 <div id="excelView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
+                    <div id="excelTabs" class="excel-tabs" style="display:none;"></div>
                     <div id="excelRoot" class="excel-grid"></div>
+                </div>
+
+                <div id="excelUserModal" class="excel-modal" aria-hidden="true">
+                    <div class="excel-modal-card" role="dialog" aria-modal="true">
+                        <h2 class="excel-modal-title">Agregar usuario</h2>
+                        <form id="excelUserForm">
+                            <div class="excel-form-grid">
+                                <div style="grid-column: 1 / -1;">
+                                    <label for="excelUserName">Nombre</label>
+                                    <input id="excelUserName" name="name" autocomplete="off" required />
+                                </div>
+                                <div>
+                                    <label for="excelUserRole">Rol</label>
+                                    <select id="excelUserRole" name="role" required>
+                                        <option value="agente">Agente</option>
+                                        <option value="supervisor">Supervisor</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="backoffice">Backoffice</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="excelUserTeam">Team</label>
+                                    <select id="excelUserTeam" name="team" required>
+                                        <option value="TEAM IRANIA">TEAM IRANIA</option>
+                                        <option value="TEAM ROBERTO">TEAM ROBERTO</option>
+                                        <option value="TEAM SANTANA">TEAM SANTANA</option>
+                                        <option value="TEAM BRYAN">TEAM BRYAN</option>
+                                        <option value="TEAM MARISOL">TEAM MARISOL</option>
+                                        <option value="TEAM LINEAS">TEAM LINEAS</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="excel-form-actions">
+                                <button id="excelUserCancel" class="excel-btn" type="button">Cancelar</button>
+                                <button class="excel-btn primary" type="submit">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </main>
@@ -298,11 +456,179 @@
             const monthlyView = document.getElementById('monthlyView');
             const excelView = document.getElementById('excelView');
             const excelRoot = document.getElementById('excelRoot');
+            const excelTabs = document.getElementById('excelTabs');
+            const addBtn = document.getElementById('excelAddUserBtn');
+            const modal = document.getElementById('excelUserModal');
+            const form = document.getElementById('excelUserForm');
+            const cancelBtn = document.getElementById('excelUserCancel');
             if (!toggle || !monthlyView || !excelView || !excelRoot) return;
+
+            const API_SHEETS = '/api/llamadas-ventas-excel/sheets';
+            const API_SHEET = (id) => `/api/llamadas-ventas-excel/sheets/${id}`;
+            const API_CELL = '/api/llamadas-ventas-excel/cell';
+            const API_USER = '/api/llamadas-ventas-excel/user';
+
+            let currentSheetId = null;
+            let currentSheetName = '';
+            let currentSheetUsers = [];
+            let currentSheetData = [];
+            const saveDebounce = new Map();
+
+            const toKeyName = (s) => String(s || '').trim().toUpperCase();
+            const safeJsonParse = (s, fallback) => {
+                try { return JSON.parse(s); } catch (_) { return fallback; }
+            };
+
+            const fetchJson = async (url, options) => {
+                const res = await fetch(url, options);
+                const raw = await res.text();
+                let data;
+                try { data = JSON.parse(raw); } catch (_) { data = { success: false, message: raw }; }
+                if (!res.ok || data?.success === false) {
+                    const msg = data?.message || `HTTP ${res.status}`;
+                    throw new Error(msg);
+                }
+                return data;
+            };
+
+            const fmtTodayName = () => {
+                const d = new Date();
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = String(d.getFullYear());
+                return `${dd}/${mm}/${yyyy}`;
+            };
+
+            const loadSheets = async () => {
+                const r = await fetchJson(API_SHEETS);
+                const sheets = Array.isArray(r.data) ? r.data : [];
+                return sheets;
+            };
+
+            const createSheet = async () => {
+                const r = await fetchJson(API_SHEETS, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: fmtTodayName() })
+                });
+                return r.data;
+            };
+
+            const loadSheet = async (sheetId) => {
+                const r = await fetchJson(API_SHEET(sheetId));
+                currentSheetId = String(r.sheet && r.sheet._id || sheetId);
+                currentSheetName = String(r.sheet && r.sheet.name || '');
+                currentSheetUsers = Array.isArray(r.users) ? r.users : [];
+                currentSheetData = Array.isArray(r.data) ? r.data : [];
+                renderExcel();
+            };
+
+            const renderTabs = async () => {
+                if (!excelTabs) return;
+                const sheets = await loadSheets();
+                if (!sheets.length) {
+                    const created = await createSheet();
+                    sheets.push(created);
+                }
+
+                // Set default sheet
+                if (!currentSheetId) {
+                    currentSheetId = String(sheets[sheets.length - 1]._id);
+                }
+
+                const plus = `<button class="excel-tab plus" type="button" data-plus="1">+</button>`;
+                const tabsHtml = sheets.map(s => {
+                    const id = String(s._id);
+                    const name = String(s.name || '').trim() || id;
+                    const active = (id === String(currentSheetId)) ? 'active' : '';
+                    return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}">${name}</button>`;
+                }).join('') + plus;
+                excelTabs.innerHTML = tabsHtml;
+                excelTabs.style.display = '';
+
+                excelTabs.onclick = async (ev) => {
+                    const t = ev && ev.target;
+                    if (!t) return;
+                    const plusBtn = t.closest && t.closest('[data-plus="1"]');
+                    if (plusBtn) {
+                        const created = await createSheet();
+                        currentSheetId = String(created._id);
+                        await renderTabs();
+                        await loadSheet(currentSheetId);
+                        return;
+                    }
+                    const btn = t.closest && t.closest('[data-sheet-id]');
+                    if (btn) {
+                        const sid = btn.getAttribute('data-sheet-id');
+                        if (sid && sid !== String(currentSheetId)) {
+                            currentSheetId = sid;
+                            await renderTabs();
+                            await loadSheet(currentSheetId);
+                        }
+                    }
+                };
+            };
+
+            const openModal = () => {
+                if (!modal) return;
+                modal.classList.add('open');
+                modal.setAttribute('aria-hidden', 'false');
+                const nameInput = document.getElementById('excelUserName');
+                if (nameInput) nameInput.focus();
+            };
+
+            const closeModal = () => {
+                if (!modal) return;
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+                if (form) form.reset();
+            };
+
+            if (addBtn) {
+                addBtn.addEventListener('click', openModal);
+            }
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', closeModal);
+            }
+            if (modal) {
+                modal.addEventListener('click', (ev) => {
+                    if (ev && ev.target === modal) closeModal();
+                });
+            }
+            document.addEventListener('keydown', (ev) => {
+                if (ev && ev.key === 'Escape' && modal && modal.classList.contains('open')) {
+                    closeModal();
+                }
+            });
+            if (form) {
+                form.addEventListener('submit', (ev) => {
+                    ev.preventDefault();
+                    const name = toKeyName(form.elements.name && form.elements.name.value);
+                    const role = String(form.elements.role && form.elements.role.value || '').trim();
+                    const team = String(form.elements.team && form.elements.team.value || '').trim();
+                    if (!name || !team) return;
+
+                    (async () => {
+                        try {
+                            if (!currentSheetId) return;
+                            await fetchJson(API_USER, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sheetId: currentSheetId, name, role, team })
+                            });
+                            closeModal();
+                            await loadSheet(currentSheetId);
+                        } catch (e) {
+                            console.error('[Vista Excel] Error guardando usuario:', e);
+                        }
+                    })();
+                });
+            }
 
             const renderExcel = () => {
                 try {
                     // Generar estructura tipo Excel por teams (editable)
+                    const extraUsers = currentSheetUsers;
                     const teams = [
                         { name: 'TEAM IRANIA', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['IRANIA S','MIGUEL NÚÑEZ','JOSUE RENDEROS','ROXANA MARTINEZ','GISELLE DIAZ','EMELY AYALA','NICOLE CRUZ','JORGE SEGOVIA','WLADIMIR VENTURA'] },
                         { name: 'TEAM ROBERTO', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['FRANCISCO AGUILAR','LUCIA FERMAN','LISBETH CORTEZ','NELSON CEREN','CINDY FLORES','MICHELLE LEIVA','LEVI MARTINEZ','BRYAN PEREZ','JONATHAN LOZANO'] },
@@ -315,6 +641,7 @@
                     const cardHtml = (t) => {
                         const hasLineas = t.name === 'TEAM LINEAS';
                         const nameWidth = hasLineas ? '64%' : '52%';
+
                         const thead = `
                             <thead>
                                 <tr>
@@ -336,7 +663,7 @@
                         }).join('');
 
                         const totalCells = t.cols
-                            .map((c) => `<td class="excel-editable" contenteditable="true" data-team="${t.name}" data-person="TOTAL" data-col="${c}"></td>`)
+                            .map((c) => `<td class="excel-editable excel-total-cell" contenteditable="false" data-team="${t.name}" data-person="TOTAL" data-col="${c}"></td>`)
                             .join('');
 
                         const tbody = `
@@ -349,7 +676,6 @@
                         return `
                             <div class="excel-card">
                                 <table>${thead}${tbody}</table>
-                                <div class="excel-footer" contenteditable="true" data-team="${t.name}" data-metric="score">0</div>
                             </div>
                         `;
                     };
@@ -362,12 +688,12 @@
                             <div class="excel-mini">
                                 <table>
                                     <tbody>
-                                        <tr><td>LLAMADAS</td><td contenteditable="true" class="excel-editable" data-metric="LLAMADAS"></td></tr>
-                                        <tr><td>CALIS</td><td contenteditable="true" class="excel-editable" data-metric="CALIS"></td></tr>
-                                        <tr><td>VENTAS</td><td contenteditable="true" class="excel-editable" data-metric="VENTAS"></td></tr>
+                                        <tr><td>LLAMADAS</td><td class="excel-editable" contenteditable="false" data-metric="LLAMADAS"></td></tr>
+                                        <tr><td>CALIS</td><td class="excel-editable" contenteditable="false" data-metric="CALIS"></td></tr>
+                                        <tr><td>VENTAS</td><td class="excel-editable" contenteditable="false" data-metric="VENTAS"></td></tr>
                                         <tr><td>PERDIDAS</td><td contenteditable="true" class="excel-editable" data-metric="PERDIDAS"></td></tr>
                                         <tr><td>RECICLADAS</td><td contenteditable="true" class="excel-editable" data-metric="RECICLADAS"></td></tr>
-                                        <tr><td>TOTAL</td><td contenteditable="true" class="excel-editable" data-metric="TOTAL"></td></tr>
+                                        <tr><td>TOTAL</td><td class="excel-editable" contenteditable="false" data-metric="TOTAL"></td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -382,6 +708,131 @@
                     const botC = `<div class="excel-slot" style="grid-column: 3; grid-row: 2;">${cardHtml(teams[5])}</div>`;
 
                     excelRoot.innerHTML = topA + topB + topC + side + botA + botB + botC;
+
+                    const restoreFromSheet = () => {
+                        // dataset cells
+                        const cellMap = new Map();
+                        (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
+                            if (!d) return;
+                            if (d.kind === 'cell') {
+                                const k = `${String(d.team)}||${String(d.person)}||${String(d.col || '').toUpperCase()}`;
+                                cellMap.set(k, String(d.value ?? ''));
+                            }
+                        });
+                        const summaryMap = new Map();
+                        (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
+                            if (d && d.kind === 'summary' && d.metric) {
+                                summaryMap.set(String(d.metric).toUpperCase(), String(d.value ?? ''));
+                            }
+                        });
+
+                        const editableCells = Array.from(excelRoot.querySelectorAll('.excel-editable'));
+                        editableCells.forEach((el) => {
+                            if (!el || !el.dataset) return;
+                            const metric = (el.dataset.metric || '').toUpperCase();
+                            const team = el.dataset.team;
+                            const person = el.dataset.person;
+                            const col = (el.dataset.col || '').toUpperCase();
+
+                            if (metric === 'PERDIDAS' || metric === 'RECICLADAS') {
+                                const v = summaryMap.get(metric);
+                                if (v !== undefined && v !== null && String(v) !== '') el.textContent = String(v);
+                                return;
+                            }
+                            if (team && person && col && person !== 'TOTAL') {
+                                const v = cellMap.get(`${team}||${person}||${col}`);
+                                if (v !== undefined && v !== null && String(v) !== '') el.textContent = String(v);
+                            }
+                        });
+                    };
+
+                    const toNum = (v) => {
+                        const n = parseFloat(String(v || '').replace(/[^0-9.\-]/g, ''));
+                        return Number.isFinite(n) ? n : 0;
+                    };
+                    const fmtInt = (n) => {
+                        const x = Number.isFinite(n) ? n : 0;
+                        const r = Math.round(x);
+                        return String(r);
+                    };
+                    const getCell = (team, col) => excelRoot.querySelector(`.excel-editable[data-team="${team}"][data-person="TOTAL"][data-col="${col}"]`);
+                    const getPersonCells = (team, col) => Array.from(excelRoot.querySelectorAll(`.excel-editable[data-team="${team}"][data-col="${col}"]`))
+                        .filter(el => el && el.dataset && el.dataset.person && el.dataset.person !== 'TOTAL');
+                    const setSummaryMetric = (metric, text) => {
+                        const el = excelRoot.querySelector(`.excel-editable[data-metric="${metric}"]`);
+                        if (el) el.textContent = text;
+                    };
+
+                    const getSummaryMetricNum = (metric) => {
+                        const el = excelRoot.querySelector(`.excel-editable[data-metric="${metric}"]`);
+                        return toNum(el ? el.textContent : '0');
+                    };
+
+                    const updateTotalsAndSummary = () => {
+                        const totalsByTeam = {};
+                        teams.forEach(t => {
+                            totalsByTeam[t.name] = {};
+                            t.cols.forEach(col => {
+                                const sum = getPersonCells(t.name, col)
+                                    .reduce((acc, el) => acc + toNum(el.textContent), 0);
+                                totalsByTeam[t.name][col] = sum;
+                                const totalCell = getCell(t.name, col);
+                                if (totalCell) totalCell.textContent = fmtInt(sum);
+                            });
+                        });
+
+                        const globalLlamadas = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].LLAMADAS || 0), 0);
+                        const globalCalis = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].CALIS || 0), 0);
+                        const globalVentas = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].VENTAS || 0), 0);
+
+                        setSummaryMetric('LLAMADAS', fmtInt(globalLlamadas));
+                        setSummaryMetric('CALIS', fmtInt(globalCalis));
+                        setSummaryMetric('VENTAS', fmtInt(globalVentas));
+
+                        const perdidas = getSummaryMetricNum('PERDIDAS');
+                        const recicladas = getSummaryMetricNum('RECICLADAS');
+                        const total = globalLlamadas + perdidas + recicladas;
+                        setSummaryMetric('TOTAL', fmtInt(total));
+                    };
+
+                    const persistToDb = (target) => {
+                        if (!currentSheetId || !target || !target.dataset) return;
+                        const metricRaw = target.dataset.metric;
+                        const metric = (metricRaw || '').toUpperCase();
+                        const team = target.dataset.team;
+                        const person = target.dataset.person;
+                        const col = (target.dataset.col || '').toUpperCase();
+                        const value = (target.textContent || '').trim();
+
+                        const payload = metric ? { sheetId: currentSheetId, metric, value } : { sheetId: currentSheetId, team, person, col, value };
+                        const key = metric ? `m:${metric}` : `c:${team}:${person}:${col}`;
+
+                        if (saveDebounce.has(key)) {
+                            clearTimeout(saveDebounce.get(key));
+                        }
+                        const to = setTimeout(async () => {
+                            try {
+                                await fetchJson(API_CELL, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                            } catch (e) {
+                                console.error('[Vista Excel] Error guardando celda:', e);
+                            }
+                        }, 250);
+                        saveDebounce.set(key, to);
+                    };
+
+                    restoreFromSheet();
+                    updateTotalsAndSummary();
+                    excelRoot.oninput = (ev) => {
+                        const t = ev && ev.target;
+                        if (t && t.classList && t.classList.contains('excel-editable')) {
+                            persistToDb(t);
+                            updateTotalsAndSummary();
+                        }
+                    };
                 } catch (e) {
                     console.error('[Vista Excel] Error renderizando:', e);
                     excelRoot.innerHTML = `<div style="grid-column: 1 / -1; padding: 12px; border: 1px solid #ef4444; background: #fee2e2; color: #7f1d1d; font-weight: 800;">Error renderizando Vista Excel: ${String(e && e.message ? e.message : e)}</div>`;
@@ -391,9 +842,21 @@
             const apply = () => {
                 const on = !!toggle.checked;
                 monthlyView.style.display = on ? 'none' : '';
-                excelView.style.display = on ? '' : 'none';
+                excelView.style.display = on ? 'block' : 'none';
+                if (addBtn) addBtn.style.display = on ? '' : 'none';
+                if (excelTabs) excelTabs.style.display = on ? '' : 'none';
                 if (on) {
-                    renderExcel();
+                    (async () => {
+                        try {
+                            await renderTabs();
+                            if (currentSheetId) {
+                                await loadSheet(currentSheetId);
+                            }
+                        } catch (e) {
+                            console.error('[Vista Excel] Error cargando sheets:', e);
+                            renderExcel();
+                        }
+                    })();
                 }
             };
 

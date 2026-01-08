@@ -2100,6 +2100,260 @@ app.post('/api/llamadas-ventas', protect, async (req, res) => {
   }
 });
 
+// ======================
+// VISTA EXCEL (SHEETS)
+// ======================
+const LLAMADAS_EXCEL_SHEETS = 'llamadas_ventas_excel_sheets';
+const LLAMADAS_EXCEL_DATA = 'llamadas_ventas_excel_data';
+const LLAMADAS_EXCEL_USERS = 'llamadas_ventas_excel_users';
+
+const isAllowedLlamadasExcel = (roleRaw) => {
+  const role = String(roleRaw || '').toLowerCase();
+  return role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
+};
+
+const normalizeSheetName = (name) => {
+  const s = String(name || '').trim();
+  return s || null;
+};
+
+// GET /api/llamadas-ventas-excel/sheets
+app.get('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const sheets = await db.collection(LLAMADAS_EXCEL_SHEETS)
+      .find({})
+      .project({ _id: 1, name: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1 })
+      .sort({ createdAt: 1, _id: 1 })
+      .toArray();
+
+    return res.json({ success: true, data: sheets });
+  } catch (error) {
+    console.error('[GET /api/llamadas-ventas-excel/sheets] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener sheets', error: error.message });
+  }
+});
+
+// POST /api/llamadas-ventas-excel/sheets
+app.post('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const user = req.user;
+    const now = new Date();
+    const fallbackName = now.toISOString().slice(0, 10);
+    const requestedName = normalizeSheetName(req.body?.name);
+    const baseName = requestedName || fallbackName;
+
+    let name = baseName;
+    const exists = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ name });
+    if (exists) {
+      name = `${baseName} (${now.toISOString().slice(11, 19)})`;
+    }
+
+    const doc = {
+      name,
+      createdAt: now,
+      createdBy: user?.username || 'unknown',
+      updatedAt: now,
+      updatedBy: user?.username || 'unknown'
+    };
+
+    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).insertOne(doc);
+    return res.json({ success: true, data: { _id: result.insertedId, ...doc } });
+  } catch (error) {
+    console.error('[POST /api/llamadas-ventas-excel/sheets] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al crear sheet', error: error.message });
+  }
+});
+
+// GET /api/llamadas-ventas-excel/sheets/:sheetId
+app.get('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const sheetId = String(req.params.sheetId || '').trim();
+    if (!sheetId) return res.status(400).json({ success: false, message: 'sheetId inválido' });
+
+    let _id;
+    try { _id = new ObjectId(sheetId); } catch { return res.status(400).json({ success: false, message: 'sheetId inválido' }); }
+
+    const sheet = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ _id }, { projection: { name: 1 } });
+    if (!sheet) return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+
+    const data = await db.collection(LLAMADAS_EXCEL_DATA)
+      .find({ sheetId })
+      .project({ _id: 0, kind: 1, team: 1, person: 1, col: 1, metric: 1, value: 1 })
+      .toArray();
+
+    const users = await db.collection(LLAMADAS_EXCEL_USERS)
+      .find({ sheetId })
+      .project({ _id: 0, name: 1, role: 1, team: 1 })
+      .toArray();
+
+    return res.json({ success: true, sheet: { _id: sheet._id, name: sheet.name }, data, users });
+  } catch (error) {
+    console.error('[GET /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al cargar sheet', error: error.message });
+  }
+});
+
+// POST /api/llamadas-ventas-excel/cell
+app.post('/api/llamadas-ventas-excel/cell', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const user = req.user;
+    const { sheetId, team, person, col, metric, value } = req.body || {};
+    const sid = String(sheetId || '').trim();
+    if (!sid) return res.status(400).json({ success: false, message: 'Falta sheetId' });
+
+    const now = new Date();
+    const v = (value ?? '').toString().trim();
+
+    let filter;
+    let kind;
+    if (metric) {
+      const m = String(metric).trim().toUpperCase();
+      kind = 'summary';
+      filter = { sheetId: sid, kind, metric: m };
+    } else {
+      if (!team || !person || !col) {
+        return res.status(400).json({ success: false, message: 'Faltan campos requeridos: team, person, col' });
+      }
+      kind = 'cell';
+      filter = { sheetId: sid, kind, team: String(team).trim(), person: String(person).trim(), col: String(col).trim().toUpperCase() };
+    }
+
+    if (v === '') {
+      await db.collection(LLAMADAS_EXCEL_DATA).deleteOne(filter);
+    } else {
+      await db.collection(LLAMADAS_EXCEL_DATA).updateOne(
+        filter,
+        {
+          $set: { value: v, updatedAt: now, updatedBy: user?.username || 'unknown' },
+          $setOnInsert: { sheetId: sid, kind, createdAt: now, createdBy: user?.username || 'unknown' }
+        },
+        { upsert: true }
+      );
+    }
+
+    // Touch sheet (si existe)
+    try {
+      await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne(
+        { _id: new ObjectId(sid) },
+        { $set: { updatedAt: now, updatedBy: user?.username || 'unknown' } }
+      );
+    } catch (_) {}
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[POST /api/llamadas-ventas-excel/cell] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al guardar celda', error: error.message });
+  }
+});
+
+// POST /api/llamadas-ventas-excel/user
+app.post('/api/llamadas-ventas-excel/user', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { sheetId, name, role, team } = req.body || {};
+    const sid = String(sheetId || '').trim();
+    if (!sid || !name || !team) {
+      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: sheetId, name, team' });
+    }
+
+    const doc = {
+      sheetId: sid,
+      name: String(name).trim().toUpperCase(),
+      role: String(role || '').trim(),
+      team: String(team).trim(),
+      updatedAt: new Date(),
+      updatedBy: req.user?.username || 'unknown'
+    };
+
+    await db.collection(LLAMADAS_EXCEL_USERS).updateOne(
+      { sheetId: sid, name: doc.name, team: doc.team },
+      {
+        $set: doc,
+        $setOnInsert: { createdAt: new Date(), createdBy: req.user?.username || 'unknown' }
+      },
+      { upsert: true }
+    );
+
+    return res.json({ success: true, data: { name: doc.name, role: doc.role, team: doc.team } });
+  } catch (error) {
+    console.error('[POST /api/llamadas-ventas-excel/user] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al guardar usuario', error: error.message });
+  }
+});
+
+app.post('/api/llamadas-ventas-excel/user-delete', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { sheetId, name, team } = req.body || {};
+    const sid = String(sheetId || '').trim();
+    const n = String(name || '').trim().toUpperCase();
+    const t = String(team || '').trim();
+    if (!sid || !n || !t) {
+      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: sheetId, name, team' });
+    }
+
+    await db.collection(LLAMADAS_EXCEL_USERS).deleteOne({ sheetId: sid, name: n, team: t });
+    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid, kind: 'cell', team: t, person: n });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[POST /api/llamadas-ventas-excel/user-delete] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar usuario', error: error.message });
+  }
+});
+
 // ========== ENDPOINT INIT-DASHBOARD ==========
 // Carga todos los datos del dashboard en una sola petición (solución optimizada)
 // OPTIMIZADO: Endpoint ultra-rápido para cargar solo datos esenciales del dashboard
