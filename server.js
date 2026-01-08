@@ -2135,7 +2135,16 @@ app.get('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
       .sort({ createdAt: 1, _id: 1 })
       .toArray();
 
-    return res.json({ success: true, data: sheets });
+    const normalized = sheets.map(s => ({
+      _id: (s && s._id) ? s._id.toString() : '',
+      name: s?.name,
+      createdAt: s?.createdAt,
+      createdBy: s?.createdBy,
+      updatedAt: s?.updatedAt,
+      updatedBy: s?.updatedBy
+    }));
+
+    return res.json({ success: true, data: normalized });
   } catch (error) {
     console.error('[GET /api/llamadas-ventas-excel/sheets] Error:', error);
     return res.status(500).json({ success: false, message: 'Error al obtener sheets', error: error.message });
@@ -2175,7 +2184,7 @@ app.post('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
     };
 
     const result = await db.collection(LLAMADAS_EXCEL_SHEETS).insertOne(doc);
-    return res.json({ success: true, data: { _id: result.insertedId, ...doc } });
+    return res.json({ success: true, data: { _id: result.insertedId ? result.insertedId.toString() : '', ...doc } });
   } catch (error) {
     console.error('[POST /api/llamadas-ventas-excel/sheets] Error:', error);
     return res.status(500).json({ success: false, message: 'Error al crear sheet', error: error.message });
@@ -2213,7 +2222,7 @@ app.get('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) 
       .project({ _id: 0, name: 1, role: 1, team: 1 })
       .toArray();
 
-    return res.json({ success: true, sheet: { _id: sheet._id, name: sheet.name }, data, users });
+    return res.json({ success: true, sheet: { _id: sheet._id ? sheet._id.toString() : sheetId, name: sheet.name }, data, users });
   } catch (error) {
     console.error('[GET /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
     return res.status(500).json({ success: false, message: 'Error al cargar sheet', error: error.message });
@@ -4589,6 +4598,9 @@ app.get('/api/customers', protect, async (req, res) => {
       console.log('[INFO] Supervisor: agregando de colecciones de sus agentes');
       
       const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
+      const supervisorUsername = String(req.user?.username || '').trim();
+      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
+      const supervisorTeam = String(req.user?.team || '').trim();
       
       // 1. Obtener agentes asignados al supervisor
       let agentIds = [];
@@ -4598,13 +4610,24 @@ app.get('/api/customers', protect, async (req, res) => {
         // Buscar usuarios que tengan este supervisor asignado
         let supOid = null;
         try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch {}
-        
-        const agentes = await db.collection('users').find({
-          $or: [
-            { supervisorId: currentUserId },
-            ...(supOid ? [{ supervisorId: supOid }] : [])
-          ]
-        }).toArray();
+
+        const supNameCandidates = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+        const supNameRegex = supNameCandidates.length ? new RegExp(supNameCandidates.map(s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i') : null;
+
+        const or = [
+          { supervisorId: currentUserId },
+          ...(supOid ? [{ supervisorId: supOid }] : [])
+        ];
+        if (supNameRegex) {
+          or.push({ supervisor: { $regex: supNameRegex } });
+          or.push({ supervisorName: { $regex: supNameRegex } });
+          or.push({ manager: { $regex: supNameRegex } });
+        }
+        if (supervisorTeam) {
+          or.push({ team: supervisorTeam });
+        }
+
+        const agentes = await db.collection('users').find({ $or: or }).toArray();
         
         console.log(`[INFO] Supervisor: encontrados ${agentes.length} agentes asignados`);
         
@@ -4624,21 +4647,25 @@ app.get('/api/customers', protect, async (req, res) => {
             console.warn(`[WARN] Error resolviendo colección para agente ${agenteId}:`, e?.message);
           }
         }
-      } catch (e) {
-        console.warn('[WARN] Error obteniendo agentes del supervisor:', e?.message);
-      }
-      
-      // Si no encontramos colecciones mapeadas, usar convención de nombres
-      if (agentCollections.size === 0) {
-        console.log('[INFO] No se encontraron colecciones mapeadas, intentando convención de nombres...');
-        const allCollections = collections.map(c => c.name);
-        
-        // Buscar colecciones costumers_* que correspondan a los agentes
-        for (const col of allCollections) {
-          if (/^costumers_/i.test(col)) {
-            agentCollections.add(col);
+
+        // 3. Si no hay mapeos, intentar resolver por nombre de usuario (costumers_<username>) solo si existe
+        if (agentCollections.size === 0 && agentes.length) {
+          const sanitize = (s) => String(s || '').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+          for (const agente of agentes) {
+            const uname = sanitize(agente?.username || agente?.name || agente?.nombre || '');
+            if (!uname) continue;
+            const proposed = `costumers_${uname}`;
+            try {
+              const exists = (await db.listCollections({ name: proposed }).toArray()).length > 0;
+              if (exists) {
+                agentCollections.add(proposed);
+                console.log(`[INFO] Agente ${uname} -> colección detectada: ${proposed}`);
+              }
+            } catch (_) {}
           }
         }
+      } catch (e) {
+        console.warn('[WARN] Error obteniendo agentes del supervisor:', e?.message);
       }
       
       if (agentCollections.size === 0) {

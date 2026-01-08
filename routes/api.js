@@ -73,7 +73,7 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate } = req.query;
+    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate, noAutoMonth, agentName, agents } = req.query;
     let query = {};
     const andConditions = [];
 
@@ -119,8 +119,65 @@ router.get('/leads', protect, async (req, res) => {
       andConditions.push({ status: status });
     }
 
+    // Filtro por agente (por nombre) — usado por Supervisores para ver su equipo o un agente específico
+    const roleLower0 = String(req.user?.role || '').toLowerCase();
+    const isSupervisor0 = roleLower0 === 'supervisor' || roleLower0.includes('supervisor');
+    const normalizeList = (v) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
+      return String(v).split(',').map(s => s.trim()).filter(Boolean);
+    };
+    const agentList = normalizeList(agents);
+    const singleAgent = String(agentName || '').trim();
+    const escaped = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const makeExactAnyRegex = (names) => {
+      const uniq = Array.from(new Set((names || []).map(s => String(s).trim()).filter(Boolean)));
+      if (!uniq.length) return null;
+      return new RegExp(`^(${uniq.map(escaped).join('|')})$`, 'i');
+    };
+    const agentRegex = singleAgent ? makeExactAnyRegex([singleAgent]) : (agentList.length ? makeExactAnyRegex(agentList) : null);
+    if (isSupervisor0 && agentRegex) {
+      andConditions.push({
+        $or: [
+          { agenteNombre: { $regex: agentRegex } },
+          { agente: { $regex: agentRegex } },
+          { createdBy: { $regex: agentRegex } },
+          { creadoPor: { $regex: agentRegex } }
+        ]
+      });
+    }
+
+    // Para supervisores sin filtro por agente: filtrar por campos de equipo/supervisor dentro del lead
+    // (evita depender del mapeo users->agents y evita exponer otros equipos).
+    if (isSupervisor0 && !agentRegex) {
+      const supervisorUsername = String(req.user?.username || '').trim();
+      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
+      const supervisorTeam = String(req.user?.team || '').trim();
+
+      const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameParts = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+      const nameRegex = nameParts.length ? new RegExp(nameParts.map(escapeRe).join('|'), 'i') : null;
+      const teamRegex = supervisorTeam ? new RegExp(escapeRe(supervisorTeam), 'i') : null;
+
+      const or = [];
+      if (nameRegex) {
+        or.push({ supervisor: { $regex: nameRegex } });
+        or.push({ supervisorName: { $regex: nameRegex } });
+        or.push({ manager: { $regex: nameRegex } });
+      }
+      if (teamRegex) {
+        or.push({ team: { $regex: teamRegex } });
+        or.push({ equipo: { $regex: teamRegex } });
+      }
+      if (or.length) {
+        andConditions.push({ $or: or });
+      }
+    }
+
+    const disableAutoMonth = String(noAutoMonth || '').toLowerCase() === '1' || String(noAutoMonth || '').toLowerCase() === 'true';
+
     // Filtro por mes específico o mes actual si no se especifican fechas
-    if (!fechaInicio && !fechaFin) {
+    if (!fechaInicio && !fechaFin && !disableAutoMonth) {
       let targetYear, targetMonth;
       
       if (month) {
@@ -271,14 +328,149 @@ router.get('/leads', protect, async (req, res) => {
     const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
 
+    const roleLower = String(req.user?.role || '').toLowerCase();
+    const isSupervisor = roleLower === 'supervisor' || roleLower.includes('supervisor');
+
     // Recolectar todas las colecciones a iterar (incluye TEAM_LINEAS si existe)
     const allCollections = [];
     const collectionsList = await db.listCollections().toArray();
     const allNames = collectionsList.map(c => c.name);
+
+    // Preferir colección unificada cuando exista (reduce costo). El filtrado por rol se aplica en `query`.
     const unifiedAvailable = preferUnified && allNames.includes(unifiedCollectionName);
-    const collectionNamesList = unifiedAvailable
+
+    let collectionNamesList = unifiedAvailable
       ? [unifiedCollectionName]
       : allNames.filter(n => /^costumers(_|$)/i.test(n));
+
+    // Para supervisores: limitar a colecciones de sus agentes (equipo) SOLO cuando no hay colección unificada
+    if (isSupervisor && !unifiedAvailable) {
+      const supervisorUsername = String(req.user?.username || '').trim();
+      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
+      const supervisorTeam = String(req.user?.team || '').trim();
+      const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || '')).trim();
+
+      const sanitize = (s) => String(s || '').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+      const shortId = (id) => String(id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+
+      // Resolver agentes asignados
+      let agentes = [];
+      try {
+        let supOid = null;
+        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch (_) {}
+
+        const supNameCandidates = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+        const supNameRegex = supNameCandidates.length
+          ? new RegExp(supNameCandidates.map(s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')
+          : null;
+
+        const or = [
+          ...(currentUserId ? [{ supervisorId: currentUserId }] : []),
+          ...(supOid ? [{ supervisorId: supOid }] : [])
+        ];
+        if (supNameRegex) {
+          or.push({ supervisor: { $regex: supNameRegex } });
+          or.push({ supervisorName: { $regex: supNameRegex } });
+          or.push({ manager: { $regex: supNameRegex } });
+        }
+        if (supervisorTeam) {
+          or.push({ team: supervisorTeam });
+        }
+
+        agentes = await db.collection('users').find(or.length ? { $or: or } : {}).toArray();
+        console.log('[API /leads] Supervisor agentes detectados:', {
+          supervisorUsername,
+          supervisorTeam,
+          count: Array.isArray(agentes) ? agentes.length : 0,
+          sample: (agentes || []).slice(0, 5).map(a => ({ username: a.username, name: a.name || a.nombre, supervisorId: a.supervisorId, supervisor: a.supervisor, team: a.team }))
+        });
+      } catch (e) {
+        console.warn('[API /leads] Supervisor: error resolviendo agentes:', e?.message || e);
+      }
+
+      // Resolver colecciones de esos agentes
+      const agentCollections = new Set();
+      try {
+        const uc = db.collection('user_collections');
+        for (const a of (agentes || [])) {
+          const aidStr = a && a._id ? (a._id.toString ? a._id.toString() : String(a._id)) : '';
+          const aidObj = (a && a._id && typeof a._id === 'object') ? a._id : null;
+          // 1) Mapping ownerId
+          try {
+            const mapping = await uc.findOne({
+              $or: [
+                { ownerId: aidStr },
+                ...(aidObj ? [{ ownerId: aidObj }] : []),
+                { userId: aidStr },
+                ...(aidObj ? [{ userId: aidObj }] : [])
+              ]
+            });
+            if (mapping && mapping.collectionName) {
+              agentCollections.add(mapping.collectionName);
+              continue;
+            }
+          } catch (_) {}
+          // 2) Convención costumers_<username>
+          const uname = sanitize(a?.username || a?.name || a?.nombre || '');
+          if (uname) {
+            const candidates = [];
+            const sid = shortId(aidStr);
+            if (sid) candidates.push(`costumers_${uname}_${sid}`);
+            candidates.push(`costumers_${uname}`);
+            for (const proposed of candidates) {
+              if (allNames.includes(proposed)) {
+                agentCollections.add(proposed);
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[API /leads] Supervisor: error resolviendo colecciones de agentes:', e?.message || e);
+      }
+
+      if (agentCollections.size === 0) {
+        // Fallback seguro: no limitar por colecciones (porque no pudimos resolverlas), pero SÍ limitar por
+        // campos en documentos (supervisor/team) para no filtrar a vacío y no exponer otros equipos.
+        console.warn('[API /leads] Supervisor sin colecciones detectadas. Usando fallback por campos supervisor/team.', {
+          supervisorUsername,
+          supervisorTeam,
+          agentes: (agentes || []).length
+        });
+
+        const nameParts = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+        const nameRegex = nameParts.length
+          ? new RegExp(nameParts.map(s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')
+          : null;
+        const teamRegex = supervisorTeam ? new RegExp(String(supervisorTeam).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+
+        const supervisorDocOr = [];
+        if (nameRegex) {
+          supervisorDocOr.push({ supervisor: { $regex: nameRegex } });
+          supervisorDocOr.push({ supervisorName: { $regex: nameRegex } });
+          supervisorDocOr.push({ manager: { $regex: nameRegex } });
+        }
+        if (teamRegex) {
+          supervisorDocOr.push({ team: { $regex: teamRegex } });
+        }
+
+        if (supervisorDocOr.length) {
+          const supFilter = { $or: supervisorDocOr };
+          if (query && query.$and && Array.isArray(query.$and)) {
+            query.$and.push(supFilter);
+          } else if (query && Object.keys(query).length) {
+            query = { $and: [query, supFilter] };
+          } else {
+            query = supFilter;
+          }
+        }
+      } else {
+        const allowed = new Set(Array.from(agentCollections));
+        collectionNamesList = collectionNamesList.filter(n => allowed.has(n));
+        console.log('[API /leads] Supervisor: colecciones resueltas:', Array.from(agentCollections));
+        console.log('[API /leads] Supervisor: colecciones finales a iterar:', collectionNamesList);
+      }
+    }
 
     collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
 
@@ -316,12 +508,12 @@ router.get('/leads', protect, async (req, res) => {
         const col = collInfo.db.collection(colName);
         // Contar documentos que coinciden con la query en esta colección
         const cnt = await col.countDocuments(query);
-        console.log(`[API /leads] Colección ${colName} -> count=${cnt}`);
+        if (debugSource) console.log(`[API /leads] Colección ${colName} -> count=${cnt}`);
         totalCount += cnt;
 
         if (offset >= cnt) {
           // aún saltamos esta colección completa
-          console.log(`[API /leads] Saltando colección ${colName} (offset remaining=${offset} >= count=${cnt})`);
+          if (debugSource) console.log(`[API /leads] Saltando colección ${colName} (offset remaining=${offset} >= count=${cnt})`);
           offset -= cnt;
           continue;
         }
@@ -329,7 +521,7 @@ router.get('/leads', protect, async (req, res) => {
         // calcular skip para esta colección
         const skip = offset > 0 ? offset : 0;
         const fetchLimit = Math.max(0, remaining);
-        console.log(`[API /leads] Preparando fetch en ${colName}: skip=${skip} limit=${fetchLimit} (remaining global=${remaining})`);
+        if (debugSource) console.log(`[API /leads] Preparando fetch en ${colName}: skip=${skip} limit=${fetchLimit} (remaining global=${remaining})`);
 
         const pipeline = [
           { $match: query },
@@ -393,7 +585,7 @@ router.get('/leads', protect, async (req, res) => {
             __sourceCollection: colName
           }));
         }
-        console.log(`[API /leads] ${colName} -> docsFetched=${docs?.length||0}`);
+        if (debugSource) console.log(`[API /leads] ${colName} -> docsFetched=${docs?.length||0}`);
         if (docs && docs.length) {
           collected.push(...docs);
           remaining -= docs.length;
@@ -402,7 +594,7 @@ router.get('/leads', protect, async (req, res) => {
         // reset offset una vez consumida la primera colección que requería skipping
         offset = 0;
         if (remaining <= 0) {
-          console.log('[API /leads] Ventana completada — remaining <= 0, deteniendo iteración de colecciones');
+          if (debugSource) console.log('[API /leads] Ventana completada — remaining <= 0, deteniendo iteración de colecciones');
           break;
         }
       } catch (err) {
