@@ -2363,6 +2363,43 @@ app.post('/api/llamadas-ventas-excel/user-delete', protect, async (req, res) => 
   }
 });
 
+// DELETE /api/llamadas-ventas-excel/sheets/:sheetId
+app.delete('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { sheetId } = req.params;
+    const sid = String(sheetId || '').trim();
+    
+    if (!sid) {
+      return res.status(400).json({ success: false, message: 'Sheet ID es requerido' });
+    }
+
+    // Delete the sheet
+    const sheetResult = await db.collection(LLAMADAS_EXCEL_SHEETS).deleteOne({ _id: new ObjectId(sid) });
+    
+    if (sheetResult.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+    }
+
+    // Delete all associated data
+    await db.collection(LLAMADAS_EXCEL_USERS).deleteMany({ sheetId: sid });
+    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid });
+
+    return res.json({ success: true, message: 'Sheet eliminado correctamente' });
+  } catch (error) {
+    console.error('[DELETE /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al eliminar sheet', error: error.message });
+  }
+});
+
 // ========== ENDPOINT INIT-DASHBOARD ==========
 // Carga todos los datos del dashboard en una sola petición (solución optimizada)
 // OPTIMIZADO: Endpoint ultra-rápido para cargar solo datos esenciales del dashboard
