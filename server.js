@@ -2400,6 +2400,56 @@ app.delete('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, re
   }
 });
 
+// PATCH /api/llamadas-ventas-excel/sheets/:sheetId
+app.patch('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    }
+    if (!db) db = getDb();
+
+    if (!isAllowedLlamadasExcel(req.user?.role)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const { sheetId } = req.params;
+    const { name } = req.body || {};
+    const sid = String(sheetId || '').trim();
+    const newName = String(name || '').trim();
+    
+    if (!sid || !newName) {
+      return res.status(400).json({ success: false, message: 'Sheet ID y nombre son requeridos' });
+    }
+
+    // Validate date format MM/DD/YYYY
+    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+    if (!dateRegex.test(newName)) {
+      return res.status(400).json({ success: false, message: 'Formato de fecha inválido. Use MM/DD/YYYY' });
+    }
+
+    // Update sheet name
+    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne(
+      { _id: new ObjectId(sid) },
+      { 
+        $set: { 
+          name: newName, 
+          updatedAt: new Date(), 
+          updatedBy: req.user?.username || 'unknown' 
+        } 
+      }
+    );
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+    }
+
+    return res.json({ success: true, message: 'Nombre actualizado correctamente', data: { name: newName } });
+  } catch (error) {
+    console.error('[PATCH /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar nombre', error: error.message });
+  }
+});
+
 // ========== ENDPOINT INIT-DASHBOARD ==========
 // Carga todos los datos del dashboard en una sola petición (solución optimizada)
 // OPTIMIZADO: Endpoint ultra-rápido para cargar solo datos esenciales del dashboard
