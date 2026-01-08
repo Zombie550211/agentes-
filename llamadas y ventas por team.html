@@ -468,6 +468,14 @@
             const API_CELL = '/api/llamadas-ventas-excel/cell';
             const API_USER = '/api/llamadas-ventas-excel/user';
 
+            const EXCEL_LAST_SHEET_KEY = 'llamadasVentasExcel.lastSheetId';
+            const getLastSheetId = () => {
+                try { return localStorage.getItem(EXCEL_LAST_SHEET_KEY); } catch (_) { return null; }
+            };
+            const setLastSheetId = (id) => {
+                try { localStorage.setItem(EXCEL_LAST_SHEET_KEY, String(id || '')); } catch (_) {}
+            };
+
             let currentSheetId = null;
             let currentSheetName = '';
             let currentSheetUsers = [];
@@ -480,7 +488,16 @@
             };
 
             const fetchJson = async (url, options) => {
-                const res = await fetch(url, options);
+                const rawToken = (() => {
+                    try { return localStorage.getItem('token') || sessionStorage.getItem('token') || null; } catch (_) { return null; }
+                })();
+                const inHeaders = (options && options.headers) ? options.headers : {};
+                const headers = Object.assign({}, inHeaders);
+                if (rawToken && !headers['Authorization'] && !headers['authorization']) {
+                    headers['Authorization'] = `Bearer ${rawToken}`;
+                }
+                const opts = Object.assign({ credentials: 'include' }, (options || {}), { headers });
+                const res = await fetch(url, opts);
                 const raw = await res.text();
                 let data;
                 try { data = JSON.parse(raw); } catch (_) { data = { success: false, message: raw }; }
@@ -488,7 +505,19 @@
                     const msg = data?.message || `HTTP ${res.status}`;
                     throw new Error(msg);
                 }
+
                 return data;
+            };
+
+            const normalizeSheetId = (v) => {
+                if (!v) return '';
+                if (typeof v === 'string' || typeof v === 'number') return String(v);
+                if (typeof v === 'object') {
+                    if (v._id) return normalizeSheetId(v._id);
+                    if (v.$oid) return String(v.$oid);
+                    try { return String(v); } catch (_) { return ''; }
+                }
+                return String(v);
             };
 
             const fmtTodayName = () => {
@@ -515,11 +544,13 @@
             };
 
             const loadSheet = async (sheetId) => {
-                const r = await fetchJson(API_SHEET(sheetId));
-                currentSheetId = String(r.sheet && r.sheet._id || sheetId);
+                const sid = normalizeSheetId(sheetId);
+                const r = await fetchJson(API_SHEET(sid));
+                currentSheetId = normalizeSheetId((r.sheet && r.sheet._id) || sid);
                 currentSheetName = String(r.sheet && r.sheet.name || '');
                 currentSheetUsers = Array.isArray(r.users) ? r.users : [];
                 currentSheetData = Array.isArray(r.data) ? r.data : [];
+                setLastSheetId(currentSheetId);
                 renderExcel();
             };
 
@@ -533,12 +564,14 @@
 
                 // Set default sheet
                 if (!currentSheetId) {
-                    currentSheetId = String(sheets[sheets.length - 1]._id);
+                    const last = getLastSheetId();
+                    const found = last ? sheets.find(s => normalizeSheetId(s && s._id) === String(last)) : null;
+                    currentSheetId = found ? normalizeSheetId(found && found._id) : normalizeSheetId(sheets[sheets.length - 1] && sheets[sheets.length - 1]._id);
                 }
 
                 const plus = `<button class="excel-tab plus" type="button" data-plus="1">+</button>`;
                 const tabsHtml = sheets.map(s => {
-                    const id = String(s._id);
+                    const id = normalizeSheetId(s && s._id);
                     const name = String(s.name || '').trim() || id;
                     const active = (id === String(currentSheetId)) ? 'active' : '';
                     return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}">${name}</button>`;
@@ -552,7 +585,8 @@
                     const plusBtn = t.closest && t.closest('[data-plus="1"]');
                     if (plusBtn) {
                         const created = await createSheet();
-                        currentSheetId = String(created._id);
+                        currentSheetId = normalizeSheetId(created && created._id);
+                        setLastSheetId(currentSheetId);
                         await renderTabs();
                         await loadSheet(currentSheetId);
                         return;
@@ -562,6 +596,7 @@
                         const sid = btn.getAttribute('data-sheet-id');
                         if (sid && sid !== String(currentSheetId)) {
                             currentSheetId = sid;
+                            setLastSheetId(currentSheetId);
                             await renderTabs();
                             await loadSheet(currentSheetId);
                         }
@@ -768,6 +803,93 @@
                         return toNum(el ? el.textContent : '0');
                     };
 
+                    const monthlySaveDebounce = new Map();
+
+                    const parseDayFromSheetName = () => {
+                        const raw = String(currentSheetName || '').trim();
+                        if (!raw) return null;
+                        const m1 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        if (m1) {
+                            const d = parseInt(m1[1], 10);
+                            return Number.isFinite(d) ? d : null;
+                        }
+                        const m2 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                        if (m2) {
+                            const d = parseInt(m2[3], 10);
+                            return Number.isFinite(d) ? d : null;
+                        }
+                        return null;
+                    };
+
+                    const setMonthlyCell = (day, team, type, valueText) => {
+                        const el = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="${type}"]`);
+                        if (!el) return;
+                        el.textContent = String(valueText);
+                        el.dataset.originalValue = String(valueText === '-' ? '0' : valueText);
+                    };
+
+                    const persistMonthlyCell = (day, team, type, valueText) => {
+                        const key = `${day}::${team}::${type}`;
+                        if (monthlySaveDebounce.has(key)) {
+                            clearTimeout(monthlySaveDebounce.get(key));
+                        }
+
+                        const normalizedValue = (String(valueText || '').trim() === '' || String(valueText || '').trim() === '-')
+                            ? '0'
+                            : String(valueText).trim();
+
+                        const to = setTimeout(async () => {
+                            try {
+                                await fetchJson('/api/llamadas-ventas', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        day: parseInt(day, 10),
+                                        team: String(team),
+                                        type: String(type),
+                                        value: normalizedValue
+                                    })
+                                });
+                            } catch (e) {
+                                console.error('[Vista Excel] Error persistiendo totales en tabla mensual:', e);
+                            }
+                        }, 350);
+                        monthlySaveDebounce.set(key, to);
+                    };
+
+                    const syncTotalsToMonthlyTable = (totalsByTeam) => {
+                        const day = parseDayFromSheetName();
+                        if (!day) return;
+
+                        const monthlyTeams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+                        let totalLlamadas = 0;
+                        let totalVentas = 0;
+
+                        monthlyTeams.forEach((teamName) => {
+                            const ll = Math.round(Number(totalsByTeam?.[teamName]?.LLAMADAS || 0));
+                            const ve = Math.round(Number(totalsByTeam?.[teamName]?.VENTAS || 0));
+                            totalLlamadas += ll;
+                            totalVentas += ve;
+
+                            const llText = ll === 0 ? '-' : String(ll);
+                            const veText = ve === 0 ? '-' : String(ve);
+                            setMonthlyCell(day, teamName, 'LLAMADAS', llText);
+                            setMonthlyCell(day, teamName, 'VENTAS', veText);
+                            setMonthlyCell(day, teamName, 'TOTALES', `${ll}/${ve}`);
+
+                            persistMonthlyCell(day, teamName, 'LLAMADAS', llText);
+                            persistMonthlyCell(day, teamName, 'VENTAS', veText);
+                            persistMonthlyCell(day, teamName, 'TOTALES', `${ll}/${ve}`);
+                        });
+
+                        const totalLlamadasText = totalLlamadas === 0 ? '-' : String(totalLlamadas);
+                        const totalVentasText = totalVentas === 0 ? '-' : String(totalVentas);
+                        setMonthlyCell(day, 'TOTALES', 'TOTAL DE LLAMADAS', totalLlamadasText);
+                        setMonthlyCell(day, 'TOTALES', 'TOTAL DE VENTAS', totalVentasText);
+                        persistMonthlyCell(day, 'TOTALES', 'TOTAL DE LLAMADAS', totalLlamadasText);
+                        persistMonthlyCell(day, 'TOTALES', 'TOTAL DE VENTAS', totalVentasText);
+                    };
+
                     const updateTotalsAndSummary = () => {
                         const totalsByTeam = {};
                         teams.forEach(t => {
@@ -793,6 +915,8 @@
                         const recicladas = getSummaryMetricNum('RECICLADAS');
                         const total = globalLlamadas + perdidas + recicladas;
                         setSummaryMetric('TOTAL', fmtInt(total));
+
+                        syncTotalsToMonthlyTable(totalsByTeam);
                     };
 
                     const persistToDb = (target) => {
