@@ -460,29 +460,9 @@
                 const userRole = (currentUser.role || currentUser?.usuario?.role || '').toString().trim().toLowerCase();
 
                 if (userRole.includes('supervisor')) {
-                  const supervisorName = (currentUser.username || currentUser.name || '').trim();
-                  let supervisorAgents = new Set();
-                  try {
-                    if (window.teamsApiRoot && typeof window.teamsApiRoot.getAgentsForSupervisor === 'function') {
-                      const agents = window.teamsApiRoot.getAgentsForSupervisor(supervisorName);
-                      if (Array.isArray(agents)) agents.forEach(agent => supervisorAgents.add(String(agent).toLowerCase().trim()));
-                    }
-                  } catch (e) { console.warn('[SUPERVISOR FILTER] Error obteniendo agentes:', e); }
-
-                  if (supervisorAgents.size > 0) {
-                    arr = arr.filter(lead => supervisorAgents.has((lead.agenteNombre || lead.nombreAgente || lead.agente || '').toString().trim().toLowerCase()));
-                  } else {
-                    const matchSupervisor = (leadSupRaw, supName) => {
-                      try {
-                        const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu, '').replace(/[^a-z0-9]+/g, '').trim();
-                        const supCanon = norm(supName || '');
-                        const leadCanon = norm(leadSupRaw || '');
-                        if (!leadCanon || !supCanon) return false;
-                        return leadCanon === supCanon || supCanon.includes(leadCanon) || leadCanon.includes(supCanon);
-                      } catch (e) { return false; }
-                    };
-                    arr = arr.filter(lead => matchSupervisor((lead.supervisor || lead.team || ''), supervisorName));
-                  }
+                  // Para supervisor, el backend (/api/leads) ya filtra por sus agentes.
+                  // Evitar re-filtrar en frontend por nombre de supervisor, porque en costumers_unified
+                  // lead.team/lead.supervisor suele ser el nombre corto del team (ej. "JOHANA").
                 }
 
                 window.ultimaListaLeads = arr;
@@ -2051,7 +2031,7 @@
             { name: "TEAM BRYAN PLEITEZ", supervisor: "Bryan Pleitez", agents: ["Abigail Galdamez", "Alexander Rivera", "Diego Mejia", "Evelin Garcia", "Fabricio Panameño", "Luis Chavarria", "Jairo Flores", "Steven Varela"] },
             { name: "TEAM IRANIA", supervisor: "Irania Serrano", agents: ["Giselle Diaz", "Josue Renderos", "Miguel Nunez", "Roxana Martinez", "Nicole Cruz", "Jorge Segovia", "Tatiana Ayala"] },
             { name: "TEAM MARISOL BELTRAN", supervisor: "Marisol Beltran", agents: ["Fernanda Castillo", "Jonathan Morales", "Katerine Gomez", "Eduardo R", "Kimberly Iglesias", "Eduardo Ruiz", "Stefani Martinez"] },
-            { name: "TEAM RANDAL MARTINEZ", supervisor: "Randal Martinez", agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres", "Guadalupe Santana"] },
+            { name: "TEAM JOHANA", supervisor: "Guadalupe Santana", agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres"] },
             { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] },
             { name: "TEAM LINEA", supervisor: "Team Líneas", agents: [] },
             { name: "TEAM LINEAS", supervisor: "Team Líneas", agents: [] }
@@ -4474,7 +4454,9 @@
       try {
         // Si hay un mes seleccionado, NO usar cache precalentado (normalmente solo contiene el mes actual)
         const __monthFilterEl = document.getElementById('monthFilter');
-        const __selectedMonth = (__monthFilterEl && __monthFilterEl.value) ? String(__monthFilterEl.value).trim() : '';
+        const __selectedMonthRaw = (__monthFilterEl && __monthFilterEl.value) ? String(__monthFilterEl.value).trim() : '';
+        const __selectedMonthLc = __selectedMonthRaw.toLowerCase();
+        const __selectedMonth = (__selectedMonthLc === '' || __selectedMonthLc.includes('todos')) ? '' : __selectedMonthRaw;
         const __bypassPrecache = !!__selectedMonth;
 
         // FAST PATH: Intentar cargar desde cache precalentado en login
@@ -4527,32 +4509,44 @@
         })(roleRaw);
         const username = (userData.username || userData?.usuario?.username || '').toString().trim().toLowerCase();
         const isTeamLineasUser = role === 'teamlineas' || username.startsWith('lineas-') || username.includes('lineas');
+        const isSupervisorUser = role === 'supervisor';
 
-        // Construir URL según el tipo de usuario
-        // IMPORTANTE: no enviar agenteId/agente al backend para evitar mismatch (ObjectId vs string)
-        // Traemos un lote más grande y filtramos en frontend
-        // Para evitar 404, usar siempre /api/leads y aplicar render Team Líneas solo en UI
-        
         // Definir variables para el fetch
         const fetchTimeoutMs = 60000;
         const forceAll = new URLSearchParams(window.location.search).get('forceAll') === '1';
         const alreadyFilteredByAgent = false;
         let url = isTeamLineasUser ? '/api/lineas' : '/api/leads?limit=5000';
+
         try {
           if (!isTeamLineasUser && __selectedMonth) {
             url += `&month=${encodeURIComponent(__selectedMonth)}`;
+          } else if (!isTeamLineasUser && !__selectedMonth) {
+            url += `&noAutoMonth=1`;
+          }
+
+          // Para supervisor: filtrar por agenteNombre usando lista del equipo o un agente seleccionado
+          if (!isTeamLineasUser && isSupervisorUser) {
+            const agentDropdown = document.getElementById('agentFilter');
+            const selectedAgent = agentDropdown ? String(agentDropdown.value || '').trim() : '';
+            if (selectedAgent) {
+              url += `&agentName=${encodeURIComponent(selectedAgent)}`;
+            } else {
+              try {
+                const supName = (userData.username || userData.name || userData.nombre || '').toString().trim();
+                const teamsApi = window && window.Teams;
+                const agents = (teamsApi && typeof teamsApi.getAgentsBySupervisor === 'function') ? (teamsApi.getAgentsBySupervisor(supName) || []) : [];
+                if (Array.isArray(agents) && agents.length) {
+                  url += `&agents=${encodeURIComponent(agents.join(','))}`;
+                }
+              } catch (_) {}
+            }
           }
         } catch(_) {}
-
-        // Para usuarios no Team Líneas: NO filtrar por agente en backend, se hará en frontend
-        if (!isTeamLineasUser) {
-          console.log('[fetchLeadsAgente] Sin filtro de agente en backend. Se filtrará en frontend por role=agente');
-        }
 
         if (forceAll) console.warn('[fetchLeadsAgente] forceAll=1 activo: NO se aplica filtrado por agente (backend ni frontend)');
         console.log('[fetchLeadsAgente] URL solicitada:', url, 'alreadyFilteredByAgent=', alreadyFilteredByAgent, 'forceAll=', forceAll);
         // Mostrar overlay de carga
-        try { showLoadingOverlay('Cargando clientes...'); } catch(_){}
+        try { showLoadingOverlay('Cargando clientes...'); } catch(_){ }
 
         // AbortController para timeout
         const controller = new AbortController();
@@ -5070,6 +5064,16 @@
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
         const role = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
         if (role === 'supervisor' && window.Teams) {
+          // Si el backend ya viene filtrando por agentes (agents/agentName), no volver a filtrar aquí
+          try {
+            const u = (typeof url === 'string') ? url : '';
+            if (u.includes('agents=') || u.includes('agentName=')) {
+              console.log('[Filtro rol=supervisor] Omitido: backend ya aplicó filtrado por agentes (agents/agentName).');
+              throw new Error('__SKIP_SUPERVISOR_FILTER__');
+            }
+          } catch (e) {
+            if (String(e?.message || '') === '__SKIP_SUPERVISOR_FILTER__') throw e;
+          }
           const supName = (userData.name || userData.nombre || userData.username || userData?.usuario?.name || userData?.usuario?.nombre || '').toString();
           // Intentar obtener agentes desde la API local (fuente autoritativa) primero, y caer
           // en el wrapper `window.Teams` si la API no está disponible o no devuelve agentes.
@@ -5133,12 +5137,18 @@
               return v ? String(v).trim() : '';
             };
             const before = normalizedLeads.length;
-            normalizedLeads = normalizedLeads.filter(l => teamAgentsCanon.has(canonicalFromName(getName(l))));
-            console.log(`[Filtro rol=supervisor] ${before} -> ${normalizedLeads.length} leads del equipo de`, supName);
+            const filtered = normalizedLeads.filter(l => teamAgentsCanon.has(canonicalFromName(getName(l))));
+            if (!filtered.length) {
+              console.warn('[Filtro rol=supervisor] Resultado 0 al filtrar por agents (posible mismatch de nombres). Se omitirá el filtro.', { supName, agentsCount: agents.length });
+            } else {
+              normalizedLeads = filtered;
+              console.log(`[Filtro rol=supervisor] ${before} -> ${normalizedLeads.length} leads del equipo de`, supName);
+            }
           } else {
             // Fallback: si no hay lista de agentes en Teams, intentar filtrar por campo 'supervisor' en los leads
             try {
               const supCanon = canonicalFromName(supName);
+
               const getSupervisorField = (l) => {
                 const cand = [
                   l?.supervisor, l?.supervisorName, l?.supervisor_nombre, l?.supervisorNombre,
@@ -5187,7 +5197,9 @@
           }
         }
       } catch (e) {
-        console.warn('[Filtro rol=supervisor] No se pudo aplicar filtro por equipo:', e?.message);
+        if (String(e?.message || '') !== '__SKIP_SUPERVISOR_FILTER__') {
+          console.warn('[Filtro rol=supervisor] No se pudo aplicar filtro por equipo:', e?.message);
+        }
       }
     }
 

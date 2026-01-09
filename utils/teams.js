@@ -39,7 +39,7 @@
     'TEAM JOHANA': {
       name: 'TEAM JOHANA',
       supervisor: 'johana.supervisor',
-      supervisorName: 'Johana',
+      supervisorName: 'Guadalupe Santana',
       color: '#00f2fe',
       agents: []
     },

@@ -65,6 +65,11 @@ async function getCostumerById(db, recordId) {
  * @access Private
  */
 router.get('/leads', protect, async (req, res) => {
+  console.log('[API /leads] ===== INICIO PETICIÓN =====');
+  console.log('[API /leads] Método:', req.method);
+  console.log('[API /leads] URL:', req.url);
+  console.log('[API /leads] Usuario:', req.user?.username, 'Role:', req.user?.role, 'Team:', req.user?.team);
+  console.log('[API /leads] Query params:', req.query);
   try {
     const db = getDb();
     console.log('[USERS UPDATE ROLE] after getDb, db present?', !!db);
@@ -73,7 +78,7 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate, noAutoMonth, agentName, agents } = req.query;
+    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate, noAutoMonth, agentName, agents, vendedor } = req.query;
     let query = {};
     const andConditions = [];
 
@@ -127,8 +132,30 @@ router.get('/leads', protect, async (req, res) => {
       if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
       return String(v).split(',').map(s => s.trim()).filter(Boolean);
     };
-    const agentList = normalizeList(agents);
-    const singleAgent = String(agentName || '').trim();
+    const agentListRaw = normalizeList(agents);
+
+    const toComparable = (s) => String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0000-\u036f]/g, '')
+      .replace(/\s+/g, '');
+
+    const rawVendor = String(vendedor || '').trim();
+    let singleAgent = String(agentName || rawVendor || '').trim();
+    if (isSupervisor0 && rawVendor) {
+      const u1 = toComparable(req.user?.username || '');
+      const u2 = toComparable(req.user?.name || req.user?.nombre || '');
+      const v = toComparable(rawVendor);
+      if (v && (v === u1 || v === u2)) {
+        // El frontend a veces manda vendedor=<supervisor>; eso filtra a 0.
+        // Para supervisores, ignorarlo y dejar que corra la lógica supervisor->agents.
+        singleAgent = '';
+      }
+    }
+
+    // Para supervisores, NO confiar en `agents=` del frontend cuando NO hay agente seleccionado.
+    // Ese param puede contener agentes de otros teams.
+    const agentList = (isSupervisor0 && !String(agentName || '').trim()) ? [] : agentListRaw;
     const escaped = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const makeExactAnyRegex = (names) => {
       const uniq = Array.from(new Set((names || []).map(s => String(s).trim()).filter(Boolean)));
@@ -145,33 +172,6 @@ router.get('/leads', protect, async (req, res) => {
           { creadoPor: { $regex: agentRegex } }
         ]
       });
-    }
-
-    // Para supervisores sin filtro por agente: filtrar por campos de equipo/supervisor dentro del lead
-    // (evita depender del mapeo users->agents y evita exponer otros equipos).
-    if (isSupervisor0 && !agentRegex) {
-      const supervisorUsername = String(req.user?.username || '').trim();
-      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
-      const supervisorTeam = String(req.user?.team || '').trim();
-
-      const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const nameParts = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
-      const nameRegex = nameParts.length ? new RegExp(nameParts.map(escapeRe).join('|'), 'i') : null;
-      const teamRegex = supervisorTeam ? new RegExp(escapeRe(supervisorTeam), 'i') : null;
-
-      const or = [];
-      if (nameRegex) {
-        or.push({ supervisor: { $regex: nameRegex } });
-        or.push({ supervisorName: { $regex: nameRegex } });
-        or.push({ manager: { $regex: nameRegex } });
-      }
-      if (teamRegex) {
-        or.push({ team: { $regex: teamRegex } });
-        or.push({ equipo: { $regex: teamRegex } });
-      }
-      if (or.length) {
-        andConditions.push({ $or: or });
-      }
     }
 
     const disableAutoMonth = String(noAutoMonth || '').toLowerCase() === '1' || String(noAutoMonth || '').toLowerCase() === 'true';
@@ -338,6 +338,362 @@ router.get('/leads', protect, async (req, res) => {
 
     // Preferir colección unificada cuando exista (reduce costo). El filtrado por rol se aplica en `query`.
     const unifiedAvailable = preferUnified && allNames.includes(unifiedCollectionName);
+
+    // Para supervisores + colección unificada: filtrar por agentes asignados.
+    // En `costumers_unified` puede que NO existan campos supervisor/team dentro del lead; si filtramos por ellos, el resultado queda en 0.
+    // Mantener fallback seguro (no exponer otros equipos) si no se puede resolver el equipo.
+    if (isSupervisor && unifiedAvailable && !agentRegex) {
+      console.log('[API /leads] Supervisor con unified, resolviendo agentes...');
+      const supervisorUsername = String(req.user?.username || '').trim();
+      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
+      const supervisorTeam = String(req.user?.team || '').trim();
+      const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || '')).trim();
+
+      console.log('[API /leads] Supervisor info:', { supervisorUsername, supervisorName, supervisorTeam, currentUserId });
+
+      let agentes = [];
+      try {
+        let supOid = null;
+        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch (_) {}
+
+        // Algunos supervisores “cuelgan” de un supervisorId padre; en ese caso los agentes usan ese supervisorId,
+        // no el _id del supervisor actual.
+        let parentSupervisorId = null;
+        try {
+          const selfUser = await db.collection('users').findOne(
+            { _id: supOid || currentUserId },
+            { projection: { supervisorId: 1 } }
+          );
+          parentSupervisorId = selfUser?.supervisorId || null;
+        } catch (_) { parentSupervisorId = null; }
+
+        const supNameCandidates = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+        const supNameRegex = supNameCandidates.length
+          ? new RegExp(supNameCandidates.map(s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')
+          : null;
+
+        const or = [
+          ...(currentUserId ? [{ supervisorId: currentUserId }] : []),
+          ...(supOid ? [{ supervisorId: supOid }] : [])
+        ];
+        if (parentSupervisorId) {
+          or.push({ supervisorId: parentSupervisorId });
+          try {
+            const ps = (typeof parentSupervisorId === 'string' && /^[a-fA-F0-9]{24}$/.test(parentSupervisorId))
+              ? new ObjectId(parentSupervisorId)
+              : parentSupervisorId;
+            or.push({ supervisorId: ps });
+          } catch (_) {}
+        }
+        if (supNameRegex) {
+          or.push({ supervisor: { $regex: supNameRegex } });
+          or.push({ supervisorName: { $regex: supNameRegex } });
+          or.push({ manager: { $regex: supNameRegex } });
+        }
+        if (supervisorTeam) {
+          or.push({ team: supervisorTeam });
+        }
+
+        console.log('[API /leads] Query para buscar agentes:', or.length ? { $or: or } : 'sin filtros');
+        const and = [];
+        if (or.length) and.push({ $or: or });
+        // No considerar al supervisor como “agente”
+        if (supOid) and.push({ _id: { $ne: supOid } });
+        // Excluir roles de supervisor (case-insensitive)
+        and.push({ role: { $not: /supervisor/i } });
+        const userQuery = and.length ? { $and: and } : { role: { $not: /supervisor/i } };
+        agentes = await db.collection('users').find(userQuery).toArray();
+        console.log('[API /leads] Agentes encontrados:', agentes.length);
+      if (agentes.length > 0) {
+        console.log('[API /leads] Primer agente encontrado (campos):', Object.keys(agentes[0] || {}));
+        console.log('[API /leads] Primer agente encontrado (datos):', JSON.stringify(agentes[0], null, 2));
+      }
+      } catch (e) {
+        console.warn('[API /leads] Supervisor(unified): error resolviendo agentes:', e?.message || e);
+        agentes = [];
+      }
+
+      const agentIdStrings = (agentes || [])
+        .map(a => (a && a._id ? (a._id.toString ? a._id.toString() : String(a._id)) : ''))
+        .filter(Boolean);
+      const agentIdObjs = [];
+      for (const id of agentIdStrings) {
+        try { if (/^[a-fA-F0-9]{24}$/.test(id)) agentIdObjs.push(new ObjectId(id)); } catch (_) {}
+      }
+
+      const agentNameCandidates = (agentes || [])
+        .flatMap(a => [
+          a?.username, 
+          a?.name, 
+          a?.nombre,
+          a?.fullName,
+          a?.displayName,
+          a?.email,
+          a?.correo,
+          a?.user,
+          a?.agente,
+          a?.agenteNombre
+        ])
+        .map(v => String(v || '').trim())
+        .filter(v => v && v.length > 0);
+
+      const teamCandidates = (agentes || [])
+        .flatMap(a => [a?.team, a?.supervisor, a?.supervisorName, a?.manager])
+        .map(v => String(v || '').trim())
+        .filter(v => v && v.length > 0);
+
+      console.log('[API /leads] Agentes IDs strings:', agentIdStrings);
+      console.log('[API /leads] Agentes nombres:', agentNameCandidates);
+      console.log('[API /leads] Agentes team candidates:', teamCandidates);
+
+      const derivedAgentRegex = agentNameCandidates.length ? makeExactAnyRegex(agentNameCandidates) : null;
+      console.log('[API /leads] derivedAgentRegex:', derivedAgentRegex);
+      console.log('[API /leads] derivedAgentRegex source:', derivedAgentRegex?.source);
+      console.log('[API /leads] derivedAgentRegex toString:', derivedAgentRegex?.toString());
+
+      let dominantTeam = '';
+
+      // Derivar team real desde costumers_unified para cubrir agentes no ligados en `users`.
+      // (p.ej. leads viajan con team/supervisor = "JOHANA" aunque en users no esté bien asignado).
+      try {
+        const unifiedCol = db.collection(unifiedCollectionName);
+        const hintOr = [];
+        if (agentIdStrings.length) hintOr.push({ agenteId: { $in: agentIdStrings } });
+        if (agentIdObjs.length) hintOr.push({ agenteId: { $in: agentIdObjs } });
+        if (derivedAgentRegex) {
+          hintOr.push({ agenteNombre: { $regex: derivedAgentRegex } });
+          hintOr.push({ agente: { $regex: derivedAgentRegex } });
+          hintOr.push({ createdBy: { $regex: derivedAgentRegex } });
+          hintOr.push({ creadoPor: { $regex: derivedAgentRegex } });
+        }
+        if (hintOr.length) {
+          const hintQuery = { $or: hintOr };
+
+          // 1) Determinar team dominante para NO abrir a otros equipos
+          try {
+            const agg = await unifiedCol.aggregate([
+              { $match: hintQuery },
+              {
+                $project: {
+                  _t: { $ifNull: ['$team', '$supervisor'] },
+                  _s: '$supervisor',
+                  _sn: '$supervisorName'
+                }
+              },
+              {
+                $addFields: {
+                  _teamKey: {
+                    $ifNull: [
+                      '$_t',
+                      { $ifNull: ['$_s', '$_sn'] }
+                    ]
+                  }
+                }
+              },
+              { $group: { _id: '$_teamKey', n: { $sum: 1 } } },
+              { $sort: { n: -1 } },
+              { $limit: 1 }
+            ]).toArray();
+            dominantTeam = String(agg?.[0]?._id || '').trim();
+          } catch (e) {
+            dominantTeam = '';
+          }
+
+          // 2) Mantener candidatos como fallback (si no se pudo determinar dominante)
+          if (!dominantTeam) {
+            const tVals = await unifiedCol.distinct('team', hintQuery);
+            const sVals = await unifiedCol.distinct('supervisor', hintQuery);
+            const snVals = await unifiedCol.distinct('supervisorName', hintQuery);
+            [...(tVals || []), ...(sVals || []), ...(snVals || [])]
+              .map(v => String(v || '').trim())
+              .filter(Boolean)
+              .forEach(v => teamCandidates.push(v));
+            console.log('[API /leads] team candidates (from unified distinct):', { team: tVals?.length || 0, supervisor: sVals?.length || 0, supervisorName: snVals?.length || 0 });
+          } else {
+            console.log('[API /leads] dominantTeam (from unified):', dominantTeam);
+          }
+        }
+      } catch (e) {
+        console.log('[API /leads] No se pudo derivar team desde unified:', e?.message || e);
+      }
+
+      const teamCanonSource = dominantTeam ? [dominantTeam] : teamCandidates;
+      const teamCanon = Array.from(new Set(
+        (teamCanonSource || [])
+          .map(s => String(s || '').trim())
+          .filter(Boolean)
+          .flatMap(s => {
+            const upper = s.toUpperCase();
+            const first = upper.split(/\s+/).filter(Boolean)[0] || upper;
+            return [s, upper, first];
+          })
+      ));
+
+      const supOr = [];
+      if (agentIdStrings.length) supOr.push({ agenteId: { $in: agentIdStrings } });
+      if (agentIdObjs.length) supOr.push({ agenteId: { $in: agentIdObjs } });
+      if (derivedAgentRegex) {
+        supOr.push({ agenteNombre: { $regex: derivedAgentRegex } });
+        supOr.push({ agente: { $regex: derivedAgentRegex } });
+        supOr.push({ createdBy: { $regex: derivedAgentRegex } });
+        supOr.push({ creadoPor: { $regex: derivedAgentRegex } });
+      }
+      if (teamCanon.length) {
+        supOr.push({ team: { $in: teamCanon } });
+        supOr.push({ supervisor: { $in: teamCanon } });
+        supOr.push({ supervisorName: { $in: teamCanon } });
+      }
+
+      // Si no se pudieron resolver agentes para el supervisor, en `costumers_unified` casi nunca existen
+      // campos supervisor/team. En ese caso, filtramos por el propio usuario (self) para evitar regresar 0.
+      if (!supOr.length) {
+        const ownName = String(supervisorUsername || '').trim();
+        const ownNameRegex = ownName ? makeExactAnyRegex([ownName]) : null;
+
+        let ownOid = null;
+        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) ownOid = new ObjectId(currentUserId); } catch (_) { ownOid = null; }
+
+        // Derivar team/supervisor real para costumers_unified (ej. lead.team="JOHANA")
+        // Usar user.supervisor (string) o supervisorId (apunta a un supervisor padre)
+        const leadTeamCandidates = [];
+        const rawSup = String(req.user?.supervisor || '').trim();
+        if (rawSup) leadTeamCandidates.push(rawSup);
+        try {
+          const selfLookupOr = [];
+          if (ownOid) selfLookupOr.push({ _id: ownOid });
+          if (currentUserId) selfLookupOr.push({ _id: currentUserId });
+          if (supervisorUsername) selfLookupOr.push({ username: supervisorUsername });
+          if (supervisorName) selfLookupOr.push({ name: supervisorName });
+          if (supervisorName) selfLookupOr.push({ nombre: supervisorName });
+          if (supervisorUsername) selfLookupOr.push({ email: supervisorUsername });
+          if (supervisorUsername) selfLookupOr.push({ correo: supervisorUsername });
+
+          const selfDbUser = await db.collection('users').findOne(
+            selfLookupOr.length ? { $or: selfLookupOr } : { username: supervisorUsername },
+            { projection: { supervisorId: 1 } }
+          );
+          console.log('[API /leads] Fallback(unified): selfDbUser supervisorId:', selfDbUser?.supervisorId);
+          const supId = selfDbUser?.supervisorId;
+          if (supId) {
+            let parent = null;
+            let supObj = supId;
+            try {
+              supObj = (typeof supId === 'string' && /^[a-fA-F0-9]{24}$/.test(supId)) ? new ObjectId(supId) : supId;
+              parent = await db.collection('users').findOne(
+                { _id: supObj },
+                { projection: { username: 1, name: 1, nombre: 1 } }
+              );
+            } catch (_) { parent = null; }
+            const parentName = String(parent?.name || parent?.nombre || parent?.username || '').trim();
+            console.log('[API /leads] Fallback(unified): parentName:', parentName);
+            if (parentName) leadTeamCandidates.push(parentName);
+
+            // Fallback extra: si el supervisor padre no tiene name/username, derivar team/supervisor
+            // desde los agentes que cuelgan de ese supervisorId.
+            if (!parentName) {
+              try {
+                const agentsBySup = await db.collection('users').find(
+                  {
+                    $and: [
+                      { $or: [ { supervisorId: supObj }, { supervisorId: (supObj?.toString ? supObj.toString() : supObj) } ] },
+                      { role: { $not: /supervisor/i } }
+                    ]
+                  },
+                  { projection: { team: 1, supervisor: 1, supervisorName: 1, manager: 1, username: 1, name: 1, nombre: 1 } }
+                ).limit(50).toArray();
+
+                const derived = (agentsBySup || [])
+                  .flatMap(a => [a?.team, a?.supervisor, a?.supervisorName, a?.manager])
+                  .map(v => String(v || '').trim())
+                  .filter(Boolean);
+
+                if (derived.length) {
+                  console.log('[API /leads] Fallback(unified): derived team/sup from agents:', Array.from(new Set(derived)).slice(0, 20));
+                  derived.forEach(v => leadTeamCandidates.push(v));
+                } else {
+                  console.log('[API /leads] Fallback(unified): no derived team/sup from agents');
+                }
+              } catch (e) {
+                console.log('[API /leads] Fallback(unified): error deriving from agents:', e?.message || e);
+              }
+            }
+          }
+        } catch (_) {}
+
+        const leadTeamCanon = Array.from(new Set(
+          leadTeamCandidates
+            .map(s => String(s || '').trim())
+            .filter(Boolean)
+            .flatMap(s => {
+              const upper = s.toUpperCase();
+              const first = upper.split(/\s+/).filter(Boolean)[0] || upper;
+              return [s, upper, first];
+            })
+        ));
+
+        console.log('[API /leads] Fallback(unified): leadTeamCanon:', leadTeamCanon);
+
+        if (currentUserId) supOr.push({ agenteId: currentUserId });
+        if (ownOid) supOr.push({ agenteId: ownOid });
+        if (ownNameRegex) {
+          supOr.push({ agenteNombre: { $regex: ownNameRegex } });
+          supOr.push({ agente: { $regex: ownNameRegex } });
+          supOr.push({ createdBy: { $regex: ownNameRegex } });
+          supOr.push({ creadoPor: { $regex: ownNameRegex } });
+        }
+
+        if (leadTeamCanon.length) {
+          supOr.push({ team: { $in: leadTeamCanon } });
+          supOr.push({ supervisor: { $in: leadTeamCanon } });
+          supOr.push({ supervisorName: { $in: leadTeamCanon } });
+        }
+
+        console.log('[API /leads] Fallback supervisor->self aplicado (no se resolvieron agentes)');
+      }
+
+      console.log('[API /leads] Filtro supervisor $or:', supOr);
+
+      if (supOr.length) {
+        const supFilter = { $or: supOr };
+        console.log('[API /leads] Aplicando filtro supervisor:', JSON.stringify(supFilter, null, 2));
+        if (query && query.$and && Array.isArray(query.$and)) {
+          query.$and.push(supFilter);
+        } else if (query && Object.keys(query).length) {
+          query = { $and: [query, supFilter] };
+        } else {
+          query = supFilter;
+        }
+      } else {
+        console.log('[API /leads] No se encontraron agentes, usando fallback...');
+        const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const nameParts = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
+        const nameRegex = nameParts.length ? new RegExp(nameParts.map(escapeRe).join('|'), 'i') : null;
+        const teamRegex = supervisorTeam ? new RegExp(escapeRe(supervisorTeam), 'i') : null;
+
+        const fallbackOr = [];
+        if (nameRegex) {
+          fallbackOr.push({ supervisor: { $regex: nameRegex } });
+          fallbackOr.push({ supervisorName: { $regex: nameRegex } });
+          fallbackOr.push({ manager: { $regex: nameRegex } });
+        }
+        if (teamRegex) {
+          fallbackOr.push({ team: { $regex: teamRegex } });
+          fallbackOr.push({ equipo: { $regex: teamRegex } });
+        }
+        if (fallbackOr.length) {
+          const supFilter = { $or: fallbackOr };
+          if (query && query.$and && Array.isArray(query.$and)) {
+            query.$and.push(supFilter);
+          } else if (query && Object.keys(query).length) {
+            query = { $and: [query, supFilter] };
+          } else {
+            query = supFilter;
+          }
+        }
+      }
+    }
+
+    console.log('[API /leads] Query final antes de ejecutar:', JSON.stringify(query, null, 2));
 
     let collectionNamesList = unifiedAvailable
       ? [unifiedCollectionName]
