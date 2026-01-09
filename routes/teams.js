@@ -26,10 +26,30 @@ router.get('/agents', protect, async (req, res) => {
     let agentes = [];
     if (supUser && supUser._id) {
       // Prefer supervisorId mapping
-      agentes = await usersCol.find({ $or: [ { supervisorId: supUser._id.toString() }, { supervisorId: supUser._id }, { supervisor: { $regex: supUser.username || supUser.name || '', $options: 'i' } } ] }).toArray();
+      const supName = (supUser.username || supUser.name || supUser.nombre || '').toString();
+      const or = [
+        { supervisorId: supUser._id.toString() },
+        { supervisorId: supUser._id },
+        ...(supName ? [{ supervisor: { $regex: supName, $options: 'i' } }] : []),
+        ...(supName ? [{ supervisorName: { $regex: supName, $options: 'i' } }] : []),
+        ...(supUser.team ? [{ team: supUser.team }] : [])
+      ];
+
+      agentes = await usersCol.find({
+        $and: [
+          { $or: or },
+          { _id: { $ne: supUser._id } },
+          { role: { $not: /supervisor/i } }
+        ]
+      }).toArray();
     } else {
       // Fallback: match by supervisor name (case-insensitive)
-      agentes = await usersCol.find({ $or: [ { supervisor: { $regex: supervisor, $options: 'i' } }, { supervisorName: { $regex: supervisor, $options: 'i' } } ] }).toArray();
+      agentes = await usersCol.find({
+        $and: [
+          { $or: [ { supervisor: { $regex: supervisor, $options: 'i' } }, { supervisorName: { $regex: supervisor, $options: 'i' } } ] },
+          { role: { $not: /supervisor/i } }
+        ]
+      }).toArray();
     }
 
     const out = (agentes || []).map(a => ({ id: a._id && a._id.toString ? a._id.toString() : String(a._id||''), username: a.username, name: a.name || a.nombre, role: a.role }));

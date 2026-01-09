@@ -1224,6 +1224,30 @@
                 tbody.appendChild(row);
             }
             
+            // Agregar fila de totales generales al final
+            const totalsRow = document.createElement('tr');
+            totalsRow.innerHTML = `
+                <td style="padding: 12px; text-align: left; font-weight: 800; background: #f3f4f6; border-top: 2px solid #374151;">TOTALES GENERALES</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL VENTAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL GENERAL">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL VENTAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL GENERAL">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL VENTAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL GENERAL">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL VENTAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL GENERAL">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL VENTAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL GENERAL">-</td>
+                <td style="padding: 12px; text-align: center; background: #e8eaf6; border-top: 2px solid #374151; font-weight: bold;" data-day="TOTALS" data-team="TOTALS" data-type="TOTAL GENERAL LLAMADAS">-</td>
+                <td style="padding: 12px; text-align: center; background: #e8eaf6; border-top: 2px solid #374151; font-weight: bold;" data-day="TOTALS" data-team="TOTALS" data-type="TOTAL GENERAL VENTAS">-</td>
+            `;
+            tbody.appendChild(totalsRow);
+            
             // Cargar datos desde la base de datos DESPUÉS de generar las filas
             loadDataFromDatabase();
         }
@@ -1289,6 +1313,9 @@
                 });
                 calculateGeneralTotals_InitialLoad(day);
             }
+            
+            // Calcular totales generales de la fila TOTALS al final
+            calculateGeneralTotalsForTotalsRow();
         }
 
         async function saveCell(cell) {
@@ -1486,6 +1513,85 @@
             // Guardar los totales generales también (sin recalcular para evitar bucle)
             saveCellWithoutRecalculation(totalLlamadasCell);
             saveCellWithoutRecalculation(totalVentasCell);
+
+            // Calcular y guardar totales generales de la fila TOTALS
+            calculateGeneralTotalsForTotalsRow();
+        }
+
+        function calculateGeneralTotalsForTotalsRow() {
+            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
+            
+            // Calcular totales de todos los días del mes para cada team
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            // Calcular y actualizar totales para cada team individual
+            teams.forEach(team => {
+                let totalTeamLlamadas = 0;
+                let totalTeamVentas = 0;
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+                    const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+                    const llamadas = parseFloat(llamadasCell?.textContent) || 0;
+                    const ventas = parseFloat(ventasCell?.textContent) || 0;
+                    
+                    totalTeamLlamadas += llamadas;
+                    totalTeamVentas += ventas;
+                }
+                
+                // Actualizar celdas de totales del team
+                const totalTeamLlamadasCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL LLAMADAS"]`);
+                const totalTeamVentasCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL VENTAS"]`);
+                const totalTeamGeneralCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL GENERAL"]`);
+                
+                if (totalTeamLlamadasCell) {
+                    totalTeamLlamadasCell.textContent = totalTeamLlamadas;
+                    saveCellWithoutRecalculation(totalTeamLlamadasCell);
+                }
+                
+                if (totalTeamVentasCell) {
+                    totalTeamVentasCell.textContent = totalTeamVentas;
+                    saveCellWithoutRecalculation(totalTeamVentasCell);
+                }
+                
+                if (totalTeamGeneralCell) {
+                    totalTeamGeneralCell.textContent = `${totalTeamLlamadas}/${totalTeamVentas}`;
+                    saveCellWithoutRecalculation(totalTeamGeneralCell);
+                }
+            });
+            
+            // Calcular totales generales de todos los teams
+            let totalGeneralLlamadas = 0;
+            let totalGeneralVentas = 0;
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                teams.forEach(team => {
+                    const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
+                    const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
+                    const llamadas = parseFloat(llamadasCell?.textContent) || 0;
+                    const ventas = parseFloat(ventasCell?.textContent) || 0;
+                    
+                    totalGeneralLlamadas += llamadas;
+                    totalGeneralVentas += ventas;
+                });
+            }
+            
+            // Actualizar celdas de totales generales
+            const totalGeneralLlamadasCell = document.querySelector(`[data-day="TOTALS"][data-team="TOTALS"][data-type="TOTAL GENERAL LLAMADAS"]`);
+            const totalGeneralVentasCell = document.querySelector(`[data-day="TOTALS"][data-team="TOTALS"][data-type="TOTAL GENERAL VENTAS"]`);
+            
+            if (totalGeneralLlamadasCell) {
+                totalGeneralLlamadasCell.textContent = totalGeneralLlamadas;
+                saveCellWithoutRecalculation(totalGeneralLlamadasCell);
+            }
+            
+            if (totalGeneralVentasCell) {
+                totalGeneralVentasCell.textContent = totalGeneralVentas;
+                saveCellWithoutRecalculation(totalGeneralVentasCell);
+            }
         }
 
         function handleKeydown(event, cell) {

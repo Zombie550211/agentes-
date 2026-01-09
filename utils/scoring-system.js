@@ -30,6 +30,10 @@ const SCORING_TABLE = {
     base: 1.0
   },
 
+  'vivint': {
+    base: 1.0
+  },
+
   // ========== AT&T AIR ==========
   'att-air': {
     base: 0.45
