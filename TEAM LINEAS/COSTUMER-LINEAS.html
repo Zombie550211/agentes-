@@ -1074,8 +1074,28 @@
               e.preventDefault();
               
               const formData = new FormData(e.target);
+              // Normalizar clientId a string para evitar [object Object]
+              const normalizedId = (() => {
+                if (typeof clientId === 'string' && clientId && clientId !== '[object Object]') return clientId;
+                try {
+                  const cur = clientData || {};
+                  // Intentar usar helper si existe (importado desde otro script)
+                  if (typeof extractLeadId === 'function') {
+                    const extracted = extractLeadId(cur);
+                    if (extracted) return String(extracted).trim();
+                  }
+                  // Fallback manual a _id/id/$oid
+                  const raw = cur._id || cur.id || cur.leadId || cur.$oid || cur.oid;
+                  if (raw && typeof raw === 'object' && raw.$oid) return String(raw.$oid).trim();
+                  if (raw && typeof raw === 'object' && raw._id) return String(raw._id).trim();
+                  return String(raw || '').trim();
+                } catch (_) {
+                  return '';
+                }
+              })();
+
               const updateData = {
-                id: clientId,
+                id: normalizedId,
                 nombre_cliente: formData.get('nombre_cliente'),
                 telefono_principal: formData.get('telefono_principal'),
                 numero_cuenta: formData.get('numero_cuenta'),
@@ -1084,6 +1104,11 @@
                 dia_venta: formData.get('dia_venta'),
                 dia_instalacion: formData.get('dia_instalacion')
               };
+              
+              if (!normalizedId) {
+                showNotification('ID de cliente no válido', 'error');
+                return;
+              }
               
               try {
                 const token = localStorage.getItem('token') || sessionStorage.getItem('token');

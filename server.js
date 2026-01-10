@@ -848,10 +848,14 @@ app.put('/api/lineas-team/update', protect, async (req, res) => {
     for (const colName of collections) {
       try {
         const collection = teamLineasDb.collection(colName);
-        const result = await collection.updateOne(
-          { _id: new (require('mongodb')).ObjectId(clientId) },
-          { $set: updateData }
-        );
+        // Intentar buscar por _id como ObjectId o como string
+        let filter;
+        try {
+          filter = { _id: new (require('mongodb')).ObjectId(clientId) };
+        } catch (_) {
+          filter = { _id: clientId };
+        }
+        const result = await collection.updateOne(filter, { $set: updateData });
         
         if (result.modifiedCount > 0) {
           updated = true;
