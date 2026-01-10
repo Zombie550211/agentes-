@@ -848,15 +848,30 @@
         let currentUserId = null;
 
         async function enforceAdminOnly() {
-            const allowed = ['Administrador', 'admin', 'administrador', 'Administrativo'];
-            const toRole = (v) => String(v || '').trim();
+            const normalizeRole = (v) => String(v || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+
+            const isAdminRole = (role) => {
+                const r = normalizeRole(role);
+                return r.includes('admin');
+            };
+
+            const authHeaders = () => {
+                const h = { 'Accept': 'application/json' };
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                if (token) h['Authorization'] = `Bearer ${token}`;
+                return h;
+            };
 
             const readStoredRole = () => {
                 try {
                     const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
                     if (!raw) return '';
                     const parsed = JSON.parse(raw);
-                    return toRole(parsed?.role);
+                    return parsed?.role || '';
                 } catch (_) {
                     return '';
                 }
@@ -864,10 +879,10 @@
 
             let role = '';
             try {
-                const res = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
+                const res = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include', headers: authHeaders() });
                 if (res && res.ok) {
                     const data = await res.json();
-                    role = toRole(data?.user?.role || data?.tokenUser?.role);
+                    role = data?.user?.role || data?.tokenUser?.role || '';
                 }
             } catch (_) {
                 // ignore
@@ -875,7 +890,7 @@
 
             if (!role) role = readStoredRole();
 
-            if (!allowed.includes(role)) {
+            if (!isAdminRole(role)) {
                 window.location.replace('/inicio.html');
             }
         }
@@ -1017,7 +1032,13 @@
             // Enviar datos al backend para crear usuario real
             fetch('/api/auth/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: (function(){
+                    const h = { 'Content-Type': 'application/json' };
+                    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                    if (token) h['Authorization'] = `Bearer ${token}`;
+                    return h;
+                })(),
+                credentials: 'include',
                 body: JSON.stringify(formData)
             })
             .then(async res => {
@@ -1185,7 +1206,7 @@
                 const meData = await meResp.json();
                 currentUserId = (meData && meData.tokenUser && (meData.tokenUser.id || meData.tokenUser._id)) || null;
                 const role = (meData && meData.tokenUser && meData.tokenUser.role) || '';
-                const isAdmin = ['Administrador', 'admin', 'administrador', 'Administrativo'].includes(role);
+                const isAdmin = String(role || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes('admin');
                 if (!isAdmin) return;
 
                 if (editUserSection) editUserSection.style.display = 'block';
