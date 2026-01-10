@@ -8753,10 +8753,21 @@
 
     // Función para guardar los cambios
     window.guardarCambiosLead = async function() {
-      const leadId = document.getElementById('edit-id').value;
-      
+      const leadIdRaw = document.getElementById('edit-id').value;
+
       const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
       const curLead = window.__currentEditingLead || {};
+      const leadId = (() => {
+        const rawStr = String(leadIdRaw || '').trim();
+        if (rawStr && rawStr !== '[object Object]') return rawStr;
+        try {
+          const extracted = (typeof extractLeadId === 'function') ? extractLeadId(curLead) : '';
+          return String(extracted || '').trim();
+        } catch (_) {
+          return '';
+        }
+      })();
+
       const getInput = (id) => {
         try {
           const el = document.getElementById(id);
@@ -8842,7 +8853,7 @@
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         let method = 'PUT';
         // Intentar customers primero, luego leads
-        let candidates = leadId ? [`/api/customers/${leadId}`, `/api/leads/${leadId}`] : ['/api/leads'];
+        let candidates = leadId ? [`/api/customers/${encodeURIComponent(leadId)}`, `/api/leads/${encodeURIComponent(leadId)}`] : ['/api/leads'];
         let url = candidates[0];
         // Si no hay ID, crear (POST)
         if (!leadId) {
@@ -8867,7 +8878,8 @@
         for (const uurl of candidates) {
           const resp = await fetch(uurl, {
             method,
-            headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : undefined },
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            credentials: 'include',
             body: JSON.stringify(datosActualizados)
           });
           if (resp.ok) { ok = true; break; }
@@ -8881,7 +8893,7 @@
 
         alert('✅ Registro actualizado exitosamente');
         cerrarModalEdicion();
-        
+
         // Actualizar STATUS/color en la fila sin recargar
         try{
           const tbody = document.getElementById('costumer-tbody');
