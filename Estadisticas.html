@@ -889,6 +889,7 @@
         // Leer parámetro ?m= si existe para navegación de mes
         const urlParams = new URLSearchParams(location.search);
         const mParam = urlParams.get('m');
+        const debugParam = urlParams.get('debug');
         let targetMonth;
         if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
           const [y,m] = mParam.split('-').map(Number);
@@ -916,6 +917,7 @@
         
         if (fechaInicio) params.append('fechaInicio', fechaInicio);
         if (fechaFin) params.append('fechaFin', fechaFin);
+        if (String(debugParam) === '1') params.append('debug', '1');
         // Si el rol es agente, forzar que el backend devuelva TODOS los equipos
         try {
           const u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
@@ -958,6 +960,13 @@
           total: data.total,
           data: data.data ? `Array de ${data.data.length} elementos` : 'No hay datos'
         });
+
+        try {
+          if (String(debugParam) === '1' && data && data.debug && data.debug.teamLineasRange) {
+            console.log('[ESTADISTICAS][TEAM LINEAS][DEBUG][MES] range:', data.debug.teamLineasRange);
+            console.log('[ESTADISTICAS][TEAM LINEAS][DEBUG][MES] agents:', data.debug.teamLineasAgents);
+          }
+        } catch (_) {}
         
         // Eliminado fallback all=1 para mostrar solo datos del MES ACTUAL
         
@@ -4074,7 +4083,8 @@
         const y = effective.getFullYear();
         const m = String(effective.getMonth()+1).padStart(2,'0');
         const d = String(effective.getDate()).padStart(2,'0');
-        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
+        const debugSuffix = (new URLSearchParams(location.search).get('debug') === '1') ? '&debug=1' : '';
+        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day${debugSuffix}`;
         let dayData = [];
         const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
         // Si navegamos con ?d=, capturar TODO el día (00:00 a 23:59:59)
@@ -4167,6 +4177,13 @@
                 }));
                 console.log('[DÍA] Datos LINEAS procesados:', lineasDataFromBackend);
               }
+
+              try {
+                if (new URLSearchParams(location.search).get('debug') === '1' && dj && dj.debug && dj.debug.teamLineasRange) {
+                  console.log('[ESTADISTICAS][TEAM LINEAS][DEBUG][DÍA] range:', dj.debug.teamLineasRange);
+                  console.log('[ESTADISTICAS][TEAM LINEAS][DEBUG][DÍA] agents:', dj.debug.teamLineasAgents);
+                }
+              } catch (_) {}
             }
           }
         } catch(err) { console.error('[DÍA] Error en fetch principal:', err); }

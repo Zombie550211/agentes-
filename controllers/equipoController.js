@@ -796,52 +796,155 @@ async function obtenerEstadisticasEquipos(req, res) {
               };
               
               // Recorrer cada agente y contar sus ventas
+              const __buildDateRange = (start, end) => {
+                const s = start ? new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0, 0)) : null;
+                const e = end ? new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1, 0, 0, 0, 0)) : null;
+                return { s, e };
+              };
+
+              const __countWithDateRange = async (collection, start, end, onlyActivas) => {
+                const { s, e } = __buildDateRange(start, end);
+                if (!s || !e) return 0;
+
+                const dateRaw = {
+                  $ifNull: [
+                    '$dia_venta',
+                    { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$creadoEn', '$fecha' ] } ] } ] }
+                  ]
+                };
+
+                const pipeline = [
+                  {
+                    $addFields: {
+                      __dateRaw: dateRaw,
+                      __statusRaw: { $ifNull: [ '$status', { $ifNull: [ '$estado', '' ] } ] }
+                    }
+                  },
+                  {
+                    $addFields: {
+                      __date: {
+                        $cond: [
+                          { $eq: [ { $type: '$__dateRaw' }, 'date' ] },
+                          '$__dateRaw',
+                          {
+                            $let: {
+                              vars: { s: { $toString: '$__dateRaw' } },
+                              in: {
+                                $cond: [
+                                  { $regexMatch: { input: '$$s', regex: /^\d{4}-\d{2}-\d{2}/ } },
+                                  { $dateFromString: { dateString: { $substrBytes: ['$$s', 0, 10] }, format: '%Y-%m-%d', timezone: '-06:00', onError: null, onNull: null } },
+                                  {
+                                    $cond: [
+                                      { $regexMatch: { input: '$$s', regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                                      {
+                                        $let: {
+                                          vars: { parts: { $split: ['$$s', '/'] } },
+                                          in: {
+                                            $dateFromParts: {
+                                              year: { $toInt: { $arrayElemAt: ['$$parts', 2] } },
+                                              month: { $toInt: { $arrayElemAt: ['$$parts', 1] } },
+                                              day: { $toInt: { $arrayElemAt: ['$$parts', 0] } }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      { $dateFromString: { dateString: '$$s', timezone: '-06:00', onError: null, onNull: null } }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      __statusStr: { $toUpper: { $trim: { input: { $toString: '$__statusRaw' } } } }
+                    }
+                  },
+                  {
+                    $match: {
+                      __date: { $ne: null },
+                      $expr: {
+                        $and: [
+                          { $gte: [ '$__date', s ] },
+                          { $lt: [ '$__date', e ] }
+                        ]
+                      }
+                    }
+                  }
+                ];
+
+                if (onlyActivas) {
+                  pipeline.push({
+                    $match: {
+                      $expr: {
+                        $or: [
+                          { $regexMatch: { input: '$__statusStr', regex: /COMPLET|FINALIZ|VENDID/ } },
+                          { $eq: [ '$activated', true ] },
+                          { $eq: [ '$sold', true ] },
+                          { $eq: [ '$vendido', true ] }
+                        ]
+                      }
+                    }
+                  });
+                }
+
+                pipeline.push({ $count: 'count' });
+
+                try {
+                  const arr = await collection.aggregate(pipeline, { allowDiskUse: true }).toArray();
+                  return arr && arr[0] && typeof arr[0].count === 'number' ? arr[0].count : 0;
+                } catch (_) {
+                  return 0;
+                }
+              };
+
+              const __range = (() => {
+                let sDate = fechaInicio ? parseDateInput(fechaInicio) : null;
+                let eDate = fechaFin ? parseDateInput(fechaFin) : null;
+                if (!sDate || !eDate) {
+                  const now = new Date();
+                  const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+                  const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+                  sDate = first;
+                  eDate = last;
+                }
+                return { sDate, eDate };
+              })();
+
+              const __lineasDebug = [];
+
               for (const agent of agents) {
                 try {
                   const colName = __normName(agent.username);
                   const col = dbTL.collection(colName);
-                  
-                  // Construir filtro de fecha si aplica
-                  let dateFilter = {};
-                  if (fechaInicio && fechaFin) {
-                    const sDate = parseDateInput(fechaInicio);
-                    const eDate = parseDateInput(fechaFin);
-                    
-                    if (sDate && eDate) {
-                      const sYMD = sDate.toISOString().split('T')[0];
-                      const eYMD = eDate.toISOString().split('T')[0];
-                      
-                      // Filtro flexible para diferentes formatos de fecha
-                      dateFilter = {
-                        $or: [
-                          { createdAt: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
-                          { creadoEn: { $gte: sDate, $lte: new Date(eDate.getTime() + 24*60*60*1000) } },
-                          { dia_venta: { $gte: sYMD, $lte: eYMD } }
-                        ]
-                      };
-                    }
-                  }
-                  
-                  // Contar el total de clientes del agente
-                  const count = await col.countDocuments(dateFilter);
+
+                  const count = await __countWithDateRange(col, __range.sDate, __range.eDate, false);
+                  const activasCount = await __countWithDateRange(col, __range.sDate, __range.eDate, true);
                   totalVentas += count;
-                  
-                  // Contar ventas ACTIVAS (status = "Completed" - case insensitive)
-                  const activasFilter = { 
-                    ...dateFilter, 
-                    $or: [
-                      { status: 'Completed' },
-                      { status: 'completed' },
-                      { status: 'COMPLETED' }
-                    ]
-                  };
-                  const activasCount = await col.countDocuments(activasFilter);
                   ventasActivas += activasCount;
+
+                  if (isDebug) {
+                    __lineasDebug.push({
+                      agent: agent.username,
+                      collection: colName,
+                      total: count,
+                      activas: activasCount
+                    });
+                  }
                   
                   console.log(`[EQUIPOS] Agente ${agent.username}: ${count} ventas totales, ${activasCount} activas (Completed)`);
                 } catch (err) {
                   console.warn(`[EQUIPOS] Error procesando agente ${agent.username}:`, err.message);
                 }
+              }
+
+              if (isDebug) {
+                response.debug = response.debug || {};
+                response.debug.teamLineasRange = {
+                  fechaInicio: __range.sDate ? __range.sDate.toISOString().slice(0, 10) : null,
+                  fechaFin: __range.eDate ? __range.eDate.toISOString().slice(0, 10) : null
+                };
+                response.debug.teamLineasAgents = __lineasDebug;
               }
               
               // Agregar el supervisor a los datos de TEAM LINEAS (separado de equipos principales)
