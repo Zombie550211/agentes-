@@ -841,13 +841,16 @@ app.put('/api/lineas-team/update', protect, async (req, res) => {
       return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
     }
 
-    // Buscar y actualizar en todas las colecciones de agentes
-    const collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
+    // Buscar y actualizar en todas las colecciones disponibles (no depender de lista fija)
+    const collections = (await teamLineasDb.listCollections().toArray())
+      .map(c => c && c.name)
+      .filter(Boolean);
     let updated = false;
 
     for (const colName of collections) {
       try {
         const collection = teamLineasDb.collection(colName);
+
         // Intentar buscar por _id como ObjectId o como string
         let filter;
         try {
@@ -857,7 +860,8 @@ app.put('/api/lineas-team/update', protect, async (req, res) => {
         }
         const result = await collection.updateOne(filter, { $set: updateData });
         
-        if (result.modifiedCount > 0) {
+        // matchedCount>0 significa que el registro existe (aunque no cambie nada => modifiedCount=0)
+        if (result && result.matchedCount > 0) {
           updated = true;
           break;
         }
