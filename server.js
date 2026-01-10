@@ -163,8 +163,9 @@ app.get('/health', (req, res) => {
   res.json({ ok: state === 1, mongo: map[state] || String(state) });
 });
 
-// Guard de acceso: crear-cuenta.html solo para Administrador
-app.get(['/crear-cuenta.html', '/crear-cuenta'], protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), (req, res) => {
+// Servir crear-cuenta.html sin middleware auth a nivel de HTML.
+// El control de acceso se hace en el frontend y los endpoints API ya están protegidos.
+app.get(['/crear-cuenta.html', '/crear-cuenta'], (req, res) => {
   return res.sendFile(path.join(__dirname, 'crear-cuenta.html'));
 });
 

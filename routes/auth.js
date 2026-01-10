@@ -1,12 +1,18 @@
 const express = require('express');
 const router = express.Router();
 
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { getDb } = require('../config/db');
+const { protect, authorize } = require('../middleware/auth');
+const nodemailer = require('nodemailer');
+
 /**
  * @route POST /api/auth/register
  * @desc Registrar nuevo usuario
  * @access Public (solo para pruebas, proteger en producción)
  */
-router.post('/register', async (req, res) => {
+router.post('/register', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), async (req, res) => {
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
@@ -43,11 +49,6 @@ router.post('/register', async (req, res) => {
   }
 });
 // ...existing code...
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { getDb } = require('../config/db');
-const { protect, authorize } = require('../middleware/auth');
-const nodemailer = require('nodemailer');
 
 // Configuración JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
