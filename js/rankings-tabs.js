@@ -290,7 +290,7 @@
         puntos: Number(r.puntos ?? r.sumPuntaje ?? 0) || 0
       }));
 
-      setMeta('meta-activation', `Mes ${tabs.month} — ${activationScope === 'team' ? 'Agrupado por Team' : 'Agrupado por Agente'} — Puntos solo COMPLETED`);
+      setMeta('meta-activation', `Mes ${tabs.month} — ${activationScope === 'team' ? 'Agrupado por Team' : 'Agrupado por Agente'} — orden: puntos, desempate ventas — Puntos solo COMPLETED`);
       if (activationScope === 'team') {
         const topByPoints = rankActivation.reduce((best, cur) => {
           if (!best) return cur;
