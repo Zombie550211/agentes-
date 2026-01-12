@@ -184,6 +184,21 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'agentes')));
 
+// Evitar cache agresivo del navegador para HTML en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    try {
+      if (req.path && /\.html?$/i.test(req.path)) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+      }
+    } catch (_) {}
+    next();
+  });
+}
+
 // Servir archivos HTML
 // Middleware: soportar peticiones con doble-encoding en la URL (p. ej. %2520)
 // Esto detecta rutas que contienen '%25' (el caracter '%' codificado) y prueba
@@ -4518,8 +4533,16 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
     // Roles permitidos para actualizar status
     const role = req.user?.role || '';
     console.log('[PUT /api/leads/:id/status] Rol del usuario:', role);
-    const allowedRoles = ['Administrador', 'Backoffice'];
-    if (!allowedRoles.includes(role)) {
+    const normRole = (v) => String(v || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/-+/g, '_');
+    const roleNorm = normRole(role);
+    const allowedRoles = new Set(['administrador', 'admin', 'backoffice', 'rol_icon', 'rol_bamo']);
+    if (!allowedRoles.has(roleNorm)) {
       return res.status(403).json({ success: false, message: 'No autorizado para actualizar el estado' });
     }
 

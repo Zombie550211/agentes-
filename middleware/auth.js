@@ -108,9 +108,19 @@ const authorize = (...roles) => {
         });
       }
 
-      const normRole = (v) => String(v || '').trim().toLowerCase();
-      const userRole = normRole(req.user.role);
-      const allowed = roles.map(normRole);
+      const normRole = (v) => String(v || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const canonicalRole = (v) => {
+        const r = normRole(v);
+        const r2 = r.replace(/\s+/g, '_').replace(/-+/g, '_');
+        if (r2 === 'rol_icon' || r2 === 'rol_bamo') return 'backoffice';
+        return r;
+      };
+      const userRole = canonicalRole(req.user.role);
+      const allowed = roles.map(canonicalRole);
 
       // Verificar si el rol del usuario está en la lista de roles permitidos
       if (!allowed.includes(userRole)) {
@@ -155,7 +165,15 @@ const checkPermission = (permission) => {
         'Agente': ['read']
       };
 
-      const userPermissions = rolePermissions[req.user.role] || [];
+      const normRole = (v) => String(v || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const userRoleNorm = normRole(req.user.role);
+      const userRoleNorm2 = userRoleNorm.replace(/\s+/g, '_').replace(/-+/g, '_');
+      const userRoleKey = (userRoleNorm2 === 'rol_icon' || userRoleNorm2 === 'rol_bamo') ? 'Backoffice' : req.user.role;
+      const userPermissions = rolePermissions[userRoleKey] || rolePermissions[userRoleNorm] || [];
 
       if (!userPermissions.includes(permission)) {
         return res.status(403).json({

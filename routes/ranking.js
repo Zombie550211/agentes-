@@ -3,6 +3,294 @@ const router = express.Router();
 const { getDb } = require('../config/db');
 const { protect, authorize } = require('../middleware/auth');
 
+function parseMonthQuery(query) {
+  const raw = (query?.month ?? '').toString().trim();
+  const rawYear = (query?.year ?? '').toString().trim();
+
+  // Prefer YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    const [y, m] = raw.split('-').map(Number);
+    if (y > 2000 && m >= 1 && m <= 12) return { year: y, month: m };
+  }
+
+  // Support month=1..12 & year=YYYY
+  if (raw && rawYear && /^\d{4}$/.test(rawYear)) {
+    const y = Number(rawYear);
+    const m = Number(raw);
+    if (y > 2000 && m >= 1 && m <= 12) return { year: y, month: m };
+  }
+
+  // Default current month
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+function buildMonthRange(year, month1to12) {
+  const monthIndex = Math.max(0, Math.min(11, Number(month1to12) - 1));
+  const startOfMonth = new Date(Number(year), monthIndex, 1);
+  const startOfNextMonth = new Date(Number(year), monthIndex + 1, 1);
+  const monthPadded = String(monthIndex + 1).padStart(2, '0');
+  return { monthIndex, monthPadded, startOfMonth, startOfNextMonth };
+}
+
+function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false }) {
+  const sortStage = (() => {
+    if (sortBy === 'puntos_then_ventas') return { $sort: { puntos: -1, ventas: -1, nombre: 1 } };
+    return { $sort: { ventas: -1, puntos: -1, nombre: 1 } };
+  })();
+
+  // Nota: mantenemos la misma lógica de parsing/normalización que ya usa /api/ranking
+  const pipeline = [
+    {
+      $addFields: {
+        _diaParsed: {
+          $cond: [
+            { $eq: [ { $type: "$dia_venta" }, "date" ] },
+            "$dia_venta",
+            {
+              $let: { vars: { s: { $toString: "$dia_venta" } }, in: {
+                $cond: [
+                  { $regexMatch: { input: "$$s", regex: /^\d{4}-\d{2}-\d{2}$/ } },
+                  { $dateFromString: { dateString: "$$s", format: "%Y-%m-%d", timezone: "-06:00" } },
+                  {
+                    $cond: [
+                      { $regexMatch: { input: "$$s", regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                      { $let: { vars: { parts: { $split: ["$$s", "/"] } }, in: {
+                        $dateFromParts: {
+                          year: { $toInt: { $arrayElemAt: ["$$parts", 2] } },
+                          month: { $toInt: { $arrayElemAt: ["$$parts", 1] } },
+                          day: { $toInt: { $arrayElemAt: ["$$parts", 0] } }
+                        }
+                      }}} ,
+                      { $dateFromString: { dateString: "$$s", timezone: "-06:00" } }
+                    ]
+                  }
+                ]
+              }}
+            }
+          ]
+        }
+      }
+    },
+    {
+      $addFields: {
+        _diaParsed: {
+          $cond: [
+            { $ne: ["$_diaParsed", null] },
+            "$_diaParsed",
+            {
+              $cond: [
+                { $eq: [ { $type: "$createdAt" }, "date" ] },
+                "$createdAt",
+                {
+                  $cond: [
+                    { $eq: [ { $type: "$createdAt" }, "string" ] },
+                    { $dateFromString: { dateString: { $toString: "$createdAt" }, timezone: "-06:00" } },
+                    null
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      $match: {
+        _diaParsed: { $ne: null },
+        $expr: { $and: [
+          { $gte: ["$_diaParsed", startOfMonth] },
+          { $lt:  ["$_diaParsed", startOfNextMonth] }
+        ]}
+      }
+    },
+    {
+      $match: {
+        $or: [
+          { agenteNombre: { $exists: true, $ne: null, $ne: "" } },
+          { agente: { $exists: true, $ne: null, $ne: "" } }
+        ],
+        excluirDeReporte: { $ne: true }
+      }
+    },
+    {
+      $addFields: {
+        _statusStr: { $toUpper: { $trim: { input: { $ifNull: ["$status", ""] } } } },
+        _agenteFuente: { $ifNull: ["$agenteNombre", "$agente"] },
+        _teamFuente: { $ifNull: ["$supervisor", { $ifNull: ["$team", { $ifNull: ["$equipo", { $ifNull: ["$TEAM", "SIN EQUIPO"] } ] } ] } ] },
+        _tipoServicioRaw: {
+          $concat: [
+            { $toString: { $ifNull: ["$tipo_servicio", ""] } },
+            " ",
+            { $toString: { $ifNull: ["$tipo_servicios", ""] } },
+            " ",
+            { $toString: { $ifNull: ["$servicios_texto", ""] } },
+            " ",
+            { $toString: { $ifNull: ["$servicios", ""] } },
+            " ",
+            { $toString: { $ifNull: ["$sistema", ""] } }
+          ]
+        },
+        _puntajeRaw: { $ifNull: ["$puntaje", { $ifNull: ["$puntuacion", { $ifNull: ["$points", "$score"] } ] } ] }
+      }
+    },
+    {
+      $addFields: {
+        // Soportar tipo_servicio como array: concatenar a string para poder detectar ATT
+        _tipoServicioRawStr: {
+          $cond: [
+            { $eq: [ { $type: "$_tipoServicioRaw" }, "array" ] },
+            {
+              $reduce: {
+                input: "$_tipoServicioRaw",
+                initialValue: "",
+                in: {
+                  $concat: [
+                    "$$value",
+                    " ",
+                    { $toString: { $ifNull: ["$$this", ""] } }
+                  ]
+                }
+              }
+            },
+            { $toString: { $ifNull: ["$_tipoServicioRaw", ""] } }
+          ]
+        }
+      }
+    },
+    {
+      $addFields: {
+        _tipoServicioUpper: { $toUpper: { $trim: { input: "$_tipoServicioRawStr" } } },
+        // Normalización robusta: removemos separadores comunes para poder detectar ATT/AT&T
+        // Ej: "AT&T 300 - 500 MB" -> "ATT300500MB"
+        _tipoServicioKey: {
+          $replaceAll: {
+            input: {
+              $replaceAll: {
+                input: {
+                  $replaceAll: {
+                    input: {
+                      $replaceAll: {
+                        input: {
+                          $replaceAll: {
+                            input: {
+                              $replaceAll: {
+                                input: {
+                                  $replaceAll: {
+                                    input: { $toUpper: { $trim: { input: "$_tipoServicioRawStr" } } },
+                                    find: "&",
+                                    replacement: ""
+                                  }
+                                },
+                                find: " ",
+                                replacement: ""
+                              }
+                            },
+                            find: "-",
+                            replacement: ""
+                          }
+                        },
+                        find: "_",
+                        replacement: ""
+                      }
+                    },
+                    find: ".",
+                    replacement: ""
+                  }
+                },
+                find: "/",
+                replacement: ""
+              }
+            },
+            find: ":",
+            replacement: ""
+          }
+        },
+        _teamNorm: { $toUpper: { $trim: { input: { $toString: "$_teamFuente" } } } }
+      }
+    },
+    {
+      $addFields: {
+        _statusNorm: {
+          $cond: [
+            { $regexMatch: { input: "$_statusStr", regex: /CANCEL/ } },
+            "CANCEL",
+            {
+              $cond: [
+                { $regexMatch: { input: "$_statusStr", regex: /PENDIENT/ } },
+                "PENDING",
+                "$_statusStr"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    ...(filterAtt ? [{
+      $match: {
+        $expr: {
+          // Algunos registros no empiezan con ATT (p.ej. "INTERNET ATT ..."), por eso usamos contiene.
+          // Usamos _tipoServicioKey (sin separadores) para reducir falsos negativos.
+          $regexMatch: { input: "$_tipoServicioKey", regex: /ATT/ }
+        }
+      }
+    }] : []),
+    {
+      $addFields: {
+        isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
+        isCompleted: { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
+        puntajeEfectivo: {
+          $cond: [
+            { $eq: ["$_statusNorm", "CANCEL"] },
+            0,
+            {
+              $cond: [
+                pointsCompletedOnly ? { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } } : true,
+                { $toDouble: { $ifNull: ["$_puntajeRaw", 0] } },
+                0
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      $addFields: {
+        _nameNoSpaces: {
+          $replaceAll: { input: { $replaceAll: { input: { $replaceAll: { input: "$_agenteFuente", find: "_", replacement: "" } }, find: ".", replacement: "" } }, find: " ", replacement: "" }
+        },
+        _nameNormLower: {
+          $toLower: {
+            $replaceAll: { input: { $replaceAll: { input: { $replaceAll: { input: "$_agenteFuente", find: "_", replacement: "" } }, find: ".", replacement: "" } }, find: " ", replacement: "" }
+          }
+        }
+      }
+    },
+    {
+      $group: {
+        _id: groupBy === 'team' ? "$_teamNorm" : "$_nameNormLower",
+        ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+        sumPuntaje: { $sum: "$puntajeEfectivo" },
+        anyName: { $first: (groupBy === 'team' ? "$_teamNorm" : "$_nameNoSpaces") },
+        anyOriginal: { $first: (groupBy === 'team' ? "$_teamNorm" : "$_agenteFuente") }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        nombre: { $ifNull: ["$anyOriginal", "$anyName"] },
+        ventas: 1,
+        puntos: "$sumPuntaje",
+        sumPuntaje: "$sumPuntaje"
+      }
+    },
+    sortStage,
+    { $limit: hardLimit }
+  ];
+
+  return pipeline;
+}
+
 /**
  * @route GET /api/ranking
  * @desc Obtener datos de ranking
@@ -968,6 +1256,290 @@ router.get('/', protect, async (req, res) => {
       success: false,
       message: 'Error interno del servidor'
     });
+  }
+});
+
+/**
+ * @route GET /api/ranking/debug-att-agent
+ * @desc Debug: listar ventas AT&T (por tipo_servicio) para un agente en un mes
+ * @access Private
+ */
+router.get('/debug-att-agent', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a la base de datos' });
+
+    const name = String(req.query?.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, message: 'Missing name parameter' });
+
+    const { year, month } = parseMonthQuery(req.query);
+    const { startOfMonth, startOfNextMonth, monthPadded } = buildMonthRange(year, month);
+    const baseCollection = 'costumers_unified';
+
+    const nameRegex = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+    const pipeline = [
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $eq: [ { $type: "$dia_venta" }, "date" ] },
+              "$dia_venta",
+              {
+                $let: { vars: { s: { $toString: "$dia_venta" } }, in: {
+                  $cond: [
+                    { $regexMatch: { input: "$$s", regex: /^\d{4}-\d{2}-\d{2}$/ } },
+                    { $dateFromString: { dateString: "$$s", format: "%Y-%m-%d", timezone: "-06:00" } },
+                    {
+                      $cond: [
+                        { $regexMatch: { input: "$$s", regex: /^\d{1,2}\/\d{1,2}\/\d{4}$/ } },
+                        { $let: { vars: { parts: { $split: ["$$s", "/"] } }, in: {
+                          $dateFromParts: {
+                            year: { $toInt: { $arrayElemAt: ["$$parts", 2] } },
+                            month: { $toInt: { $arrayElemAt: ["$$parts", 1] } },
+                            day: { $toInt: { $arrayElemAt: ["$$parts", 0] } }
+                          }
+                        }}} ,
+                        { $dateFromString: { dateString: "$$s", timezone: "-06:00" } }
+                      ]
+                    }
+                  ]
+                }}
+              }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $ne: ["$_diaParsed", null] },
+              "$_diaParsed",
+              {
+                $cond: [
+                  { $eq: [ { $type: "$createdAt" }, "date" ] },
+                  "$createdAt",
+                  {
+                    $cond: [
+                      { $eq: [ { $type: "$createdAt" }, "string" ] },
+                      { $dateFromString: { dateString: { $toString: "$createdAt" }, timezone: "-06:00" } },
+                      null
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          _tipoServicioRaw: {
+            $concat: [
+              { $toString: { $ifNull: ["$tipo_servicio", ""] } },
+              " ",
+              { $toString: { $ifNull: ["$tipo_servicios", ""] } },
+              " ",
+              { $toString: { $ifNull: ["$servicios_texto", ""] } },
+              " ",
+              { $toString: { $ifNull: ["$servicios", ""] } },
+              " ",
+              { $toString: { $ifNull: ["$sistema", ""] } }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _tipoServicioRawStr: {
+            $cond: [
+              { $eq: [ { $type: "$_tipoServicioRaw" }, "array" ] },
+              { $reduce: { input: "$_tipoServicioRaw", initialValue: "", in: { $concat: ["$$value", " ", { $toString: { $ifNull: ["$$this", ""] } } ] } } },
+              { $toString: { $ifNull: ["$_tipoServicioRaw", ""] } }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _tipoServicioKey: {
+            $replaceAll: {
+              input: {
+                $replaceAll: {
+                  input: {
+                    $replaceAll: {
+                      input: {
+                        $replaceAll: {
+                          input: {
+                            $replaceAll: {
+                              input: {
+                                $replaceAll: {
+                                  input: {
+                                    $replaceAll: {
+                                      input: { $toUpper: { $trim: { input: "$_tipoServicioRawStr" } } },
+                                      find: "&",
+                                      replacement: ""
+                                    }
+                                  },
+                                  find: " ",
+                                  replacement: ""
+                                }
+                              },
+                              find: "-",
+                              replacement: ""
+                            }
+                          },
+                          find: "_",
+                          replacement: ""
+                        }
+                      },
+                      find: ".",
+                      replacement: ""
+                    }
+                  },
+                  find: "/",
+                  replacement: ""
+                }
+              },
+              find: ":",
+              replacement: ""
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          _diaParsed: { $ne: null },
+          $expr: { $and: [
+            { $gte: ["$_diaParsed", startOfMonth] },
+            { $lt:  ["$_diaParsed", startOfNextMonth] }
+          ]},
+          $or: [ { agenteNombre: { $regex: nameRegex } }, { agente: { $regex: nameRegex } } ]
+        }
+      },
+      { $match: { $expr: { $regexMatch: { input: "$_tipoServicioKey", regex: /ATT/ } } } },
+      {
+        $project: {
+          _id: 1,
+          agenteNombre: 1,
+          agente: 1,
+          status: 1,
+          dia_venta: 1,
+          createdAt: 1,
+          tipo_servicio: 1,
+          tipo_servicios: 1,
+          puntaje: 1,
+          puntuacion: 1,
+          points: 1,
+          score: 1,
+          _tipoServicioRawStr: 1,
+          _tipoServicioKey: 1,
+          _diaParsed: 1
+        }
+      },
+      { $sort: { _diaParsed: -1, createdAt: -1 } }
+    ];
+
+    const docs = await db.collection(baseCollection).aggregate(pipeline).toArray();
+
+    // Stats rápidos
+    const total = Array.isArray(docs) ? docs.length : 0;
+    const byTipo = new Map();
+    for (const d of (docs || [])) {
+      const k = String(d?.tipo_servicio || d?.tipo_servicios || d?._tipoServicioRawStr || '').trim();
+      byTipo.set(k, (byTipo.get(k) || 0) + 1);
+    }
+
+    res.json({
+      success: true,
+      month: `${year}-${monthPadded}`,
+      name,
+      total,
+      byTipo: Array.from(byTipo.entries()).map(([tipo, n]) => ({ tipo, n })).sort((a,b)=>b.n-a.n),
+      sample: (docs || []).slice(0, 50)
+    });
+  } catch (e) {
+    console.error('[RANKING DEBUG ATT AGENT] Error:', e);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * @route GET /api/ranking/tabs
+ * @desc Obtener rankings (Activación/Ventas/AT&T) por mes desde BD
+ * @access Private
+ */
+router.get('/tabs', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a la base de datos' });
+    }
+
+    const { year, month } = parseMonthQuery(req.query);
+    const { startOfMonth, startOfNextMonth, monthPadded } = buildMonthRange(year, month);
+
+    const baseCollection = 'costumers_unified';
+    let unifiedAvailable = false;
+    try {
+      const u = await db.listCollections({ name: baseCollection }).toArray();
+      unifiedAvailable = Array.isArray(u) && u.length > 0;
+    } catch (_) {}
+    if (!unifiedAvailable) {
+      return res.status(500).json({
+        success: false,
+        message: 'No existe la colección costumers_unified (fuente única). No se puede calcular el ranking.'
+      });
+    }
+
+    const hardLimit = Math.max(10, Math.min(500, parseInt(req.query?.limit, 10) || 200));
+    const activationGroup = String(req.query?.activationGroup || req.query?.activationBy || '').trim().toLowerCase();
+    const activationGroupBy = activationGroup === 'team' ? 'team' : 'agent';
+
+    const activationPipeline = buildRankingPipeline({
+      startOfMonth,
+      startOfNextMonth,
+      filterAtt: false,
+      sortBy: 'ventas_then_puntos',
+      hardLimit,
+      groupBy: activationGroupBy,
+      pointsCompletedOnly: true
+    });
+
+    const salesPipeline = buildRankingPipeline({
+      startOfMonth,
+      startOfNextMonth,
+      filterAtt: false,
+      sortBy: 'ventas_then_puntos',
+      hardLimit
+    });
+
+    // AT&T: ambos (ventas+puntos) con desempate por puntos -> ventas desc, puntos desc
+    const attPipeline = buildRankingPipeline({
+      startOfMonth,
+      startOfNextMonth,
+      filterAtt: true,
+      sortBy: 'ventas_then_puntos',
+      hardLimit
+    });
+
+    const [activation, sales, att] = await Promise.all([
+      db.collection(baseCollection).aggregate(activationPipeline).toArray(),
+      db.collection(baseCollection).aggregate(salesPipeline).toArray(),
+      db.collection(baseCollection).aggregate(attPipeline).toArray()
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Datos de rankings por pestaña obtenidos',
+      month: `${year}-${monthPadded}`,
+      data: { activation, sales, att },
+      meta: {
+        collectionUsed: baseCollection,
+        limit: hardLimit,
+        month: { year, month, monthPadded }
+      }
+    });
+  } catch (error) {
+    console.error('[RANKING TABS] Error:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 

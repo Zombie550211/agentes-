@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb, getDbFor, connectToMongoDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 
 // ============================
@@ -82,6 +82,29 @@ router.get('/leads', protect, async (req, res) => {
     let query = {};
     const andConditions = [];
 
+    // ===== Restricción por MERCADO según rol =====
+    const roleLowerMarket = String(req.user?.role || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const mercadoRestrict = (() => {
+      if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
+      if (roleLowerMarket === 'rol_bamo' || roleLowerMarket === 'bamo' || roleLowerMarket.includes('rol bamo')) return 'BAMO';
+      return '';
+    })();
+
+    const mercadoCondition = (m) => ({
+      $or: [
+        { mercado: String(m).toUpperCase() },
+        { mercado: String(m).toLowerCase() },
+        { mercado: String(m) },
+        { 'mercado': { $regex: `^${String(m)}$`, $options: 'i' } },
+        { '_raw.mercado': { $regex: `^${String(m)}$`, $options: 'i' } }
+      ]
+    });
+
     // ===== SOLICITUD GLOBAL (para mapa, etc.) =====
     const isGlobalRequest = (String(allData).toLowerCase() === 'true') ||
                             (String(noFilter).toLowerCase() === 'true') ||
@@ -109,6 +132,18 @@ router.get('/leads', protect, async (req, res) => {
       
       console.log(`[API /leads GLOBAL] Total de ${costumersCollections.length} colecciones costumers*, ${leads.length} documentos`);
       console.log(`[API /leads] Solicitud GLOBAL sin filtros (mapa u otros). Total combinado: ${leads.length}`);
+
+      // Aplicar restricción por mercado si corresponde
+      if (mercadoRestrict) {
+        const before = leads.length;
+        const target = String(mercadoRestrict).toUpperCase();
+        leads = leads.filter(d => {
+          const m = String(d?.mercado || d?._raw?.mercado || '').trim().toUpperCase();
+          return m === target;
+        });
+        console.log(`[API /leads GLOBAL] Filtro por mercado (rol): ${target}. Antes=${before} Después=${leads.length}`);
+      }
+
       // Normalizar _id a string para evitar que llegue como objeto BSON al navegador
       leads = (leads || []).map(d => ({
         ...d,
@@ -118,6 +153,12 @@ router.get('/leads', protect, async (req, res) => {
       return res.json({ success: true, data: leads, queryUsed: { global: true } });
     }
     // ===== FIN SOLICITUD GLOBAL =====
+
+    // Restricción por mercado para queries normales
+    if (mercadoRestrict) {
+      andConditions.push(mercadoCondition(mercadoRestrict));
+      console.log('[API /leads] Restricción por mercado (rol):', mercadoRestrict);
+    }
 
     // Filtro por status (si se proporciona)
     if (status && status.toLowerCase() !== 'todos') {
@@ -180,6 +221,7 @@ router.get('/leads', protect, async (req, res) => {
     if (!fechaInicio && !fechaFin && !disableAutoMonth) {
       let targetYear, targetMonth;
       
+      const explicitMonthProvided = !!month;
       if (month) {
         // Soportar formatos: YYYY-MM OR MM (con ?year=YYYY)
         if (/^\d{4}-\d{2}$/.test(month)) {
@@ -215,38 +257,115 @@ router.get('/leads', protect, async (req, res) => {
       const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
       const now = new Date();
       const isCurrentTargetMonth = (targetYear === now.getFullYear()) && (targetMonth === (now.getMonth() + 1));
-      const lastDay = isCurrentTargetMonth ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
-      const dateStrings = [];
-      const dateRegexes = [];
-      
-      for (let day = 1; day <= lastDay; day++) {
-        const dayStr = String(day).padStart(2, '0');
-        const monthStr = String(targetMonth).padStart(2, '0');
-        
-        dateStrings.push(`${targetYear}-${monthStr}-${dayStr}`);
-        dateStrings.push(`${dayStr}/${monthStr}/${targetYear}`);
-        
-        const dateObj = new Date(targetYear, targetMonth - 1, day);
-        dateRegexes.push(new RegExp(`^${dateObj.toDateString()}`, 'i'));
-        // También aceptar strings ISO con hora y formato DD-MM-YYYY
-        dateRegexes.push(new RegExp(`^${targetYear}-${monthStr}-${dayStr}`));
-        dateRegexes.push(new RegExp(`^${dayStr}\\/${monthStr}\\/${targetYear}`));
-        dateRegexes.push(new RegExp(`^${dayStr}-${monthStr}-${targetYear}`));
+      const lastDay = (isCurrentTargetMonth && !explicitMonthProvided) ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
+      // Marcar en request si se trata del mes actual (del 1 hasta hoy)
+      // Esto permite más adelante forzar lectura desde todas las colecciones (costumers*)
+      // cuando la colección unificada esté desactualizada.
+      try { req.__isCurrentMonthQuery = !!(isCurrentTargetMonth && !explicitMonthProvided); } catch (_) {}
+
+      // Evitar queries gigantes (por día). Construir regex compactos por mes + día<=lastDay
+      const monthStr = String(targetMonth).padStart(2, '0');
+      const monthNoPad = String(targetMonth);
+      const dayVals = [];
+      for (let d = 1; d <= lastDay; d++) {
+        dayVals.push(String(d));
+        dayVals.push(String(d).padStart(2, '0'));
       }
-      
+      const uniqDayVals = Array.from(new Set(dayVals)).sort((a, b) => a.length - b.length || a.localeCompare(b));
+      const dayAlt = uniqDayVals.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const mAlt = [monthStr, monthNoPad].map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const yEsc = String(targetYear).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Formatos soportados:
+      // - YYYY-MM-DD / YYYY-M-D
+      // - YYYY/MM/DD
+      // - DD/MM/YYYY y DD-MM-YYYY
+      // - MM/DD/YYYY (US)
+      const reYMD = new RegExp(`^${yEsc}-(?:${mAlt})-(?:${dayAlt})(?:\\b|T|\\s|$)`, 'i');
+      const reYMDSlash = new RegExp(`^${yEsc}\\/(?:${mAlt})\\/(?:${dayAlt})(?:\\b|T|\\s|$)`, 'i');
+      const reDMYSlash = new RegExp(`^(?:${dayAlt})\\/(?:${mAlt})\\/${yEsc}(?:\\b|\\s|$)`, 'i');
+      const reDMYDash = new RegExp(`^(?:${dayAlt})-(?:${mAlt})-${yEsc}(?:\\b|\\s|$)`, 'i');
+      const reMDYSlash = new RegExp(`^(?:${mAlt})\\/(?:${dayAlt})\\/${yEsc}(?:\\b|\\s|$)`, 'i');
+
       const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
       const monthEnd = new Date(targetYear, targetMonth - 1, lastDay, 23, 59, 59, 999);
       
       const dateOrConditions = [
-        { dia_venta: { $in: dateStrings } },
-        { fecha_contratacion: { $in: dateStrings } },
-        { createdAt: { $gte: monthStart, $lte: monthEnd } }
+        { dia_venta: { $regex: reYMD.source, $options: 'i' } },
+        { dia_venta: { $regex: reYMDSlash.source, $options: 'i' } },
+        { dia_venta: { $regex: reDMYSlash.source, $options: 'i' } },
+        { dia_venta: { $regex: reDMYDash.source, $options: 'i' } },
+        { dia_venta: { $regex: reMDYSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reYMD.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reYMDSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reDMYSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reDMYDash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reMDYSlash.source, $options: 'i' } },
+        // Algunos documentos guardan las fechas dentro de _raw (ej. costumers_unified)
+        { '_raw.dia_venta': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reMDYSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reMDYSlash.source, $options: 'i' } },
+        // Variantes camelCase comunes
+        { '_raw.diaVenta': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.diaVenta': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.diaVenta': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.diaVenta': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.diaVenta': { $regex: reMDYSlash.source, $options: 'i' } },
+        { '_raw.fechaContratacion': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.fechaContratacion': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.fechaContratacion': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.fechaContratacion': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.fechaContratacion': { $regex: reMDYSlash.source, $options: 'i' } },
+        // Soportar casos donde dia_venta/fecha_contratacion se guardaron como Date
+        { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+        { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+        { createdAt: { $gte: monthStart, $lte: monthEnd } },
+        { creadoEn: { $gte: monthStart, $lte: monthEnd } },
+        { actualizadoEn: { $gte: monthStart, $lte: monthEnd } }
       ];
-      
-      dateRegexes.forEach(regex => {
-        dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
-        dateOrConditions.push({ fecha_contratacion: { $regex: regex.source, $options: 'i' } });
-      });
+
+      // Más variantes de campos de fecha (visto en bases con formatos mixtos)
+      const extraDateFields = [
+        'diaVenta',
+        'fechaVenta',
+        'fecha_venta',
+        'fechaDeVenta',
+        'saleDate',
+        'sale_date',
+        'dia_instalacion',
+        'fecha_instalacion',
+        'diaInstalacion',
+        'fechaInstalacion'
+      ];
+      const extraPaths = [...extraDateFields, ...extraDateFields.map(f => `_raw.${f}`)];
+      for (const p of extraPaths) {
+        dateOrConditions.push({ [p]: { $regex: reYMD.source, $options: 'i' } });
+        dateOrConditions.push({ [p]: { $regex: reYMDSlash.source, $options: 'i' } });
+        dateOrConditions.push({ [p]: { $regex: reDMYSlash.source, $options: 'i' } });
+        dateOrConditions.push({ [p]: { $regex: reDMYDash.source, $options: 'i' } });
+        dateOrConditions.push({ [p]: { $regex: reMDYSlash.source, $options: 'i' } });
+        // y por si ese campo es Date
+        dateOrConditions.push({ [p]: { $gte: monthStart, $lte: monthEnd } });
+      }
+
+      // Soportar strings tipo Date.toDateString() (ej: "Thu Jan 01 2026")
+      // Visto en diagnósticos donde `costumers_unified` guarda dia_venta en ese formato.
+      for (let d = 1; d <= lastDay; d++) {
+        const dateObj = new Date(targetYear, targetMonth - 1, d);
+        const prefix = String(dateObj.toDateString() || '').trim();
+        if (!prefix) continue;
+        const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        dateOrConditions.push({ dia_venta: { $regex: `^${esc}`, $options: 'i' } });
+        dateOrConditions.push({ '_raw.dia_venta': { $regex: `^${esc}`, $options: 'i' } });
+        dateOrConditions.push({ '_raw.diaVenta': { $regex: `^${esc}`, $options: 'i' } });
+      }
       
       const dateQuery = { $or: dateOrConditions };
       andConditions.push(dateQuery);
@@ -286,7 +405,9 @@ router.get('/leads', protect, async (req, res) => {
       const dateOrConditions = [
         { dia_venta: { $in: dateStrings } },
         { fecha_contratacion: { $in: dateStrings } },
-        { createdAt: { $gte: start, $lte: end } }
+        { createdAt: { $gte: start, $lte: end } },
+        { creadoEn: { $gte: start, $lte: end } },
+        { actualizadoEn: { $gte: start, $lte: end } }
       ];
       
       // Agregar condiciones de regex individualmente usando el source del RegExp
@@ -328,7 +449,11 @@ router.get('/leads', protect, async (req, res) => {
     const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
 
-    const roleLower = String(req.user?.role || '').toLowerCase();
+    const roleLower = String(req.user?.role || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
     const isSupervisor = roleLower === 'supervisor' || roleLower.includes('supervisor');
 
     // Recolectar todas las colecciones a iterar (incluye TEAM_LINEAS si existe)
@@ -339,10 +464,24 @@ router.get('/leads', protect, async (req, res) => {
     // Preferir colección unificada cuando exista (reduce costo). El filtrado por rol se aplica en `query`.
     const unifiedAvailable = preferUnified && allNames.includes(unifiedCollectionName);
 
+    // En mes actual, preferir siempre costumers* (la unificada puede estar desactualizada)
+    let unifiedAvailableFinal = unifiedAvailable;
+    try {
+      if (req.__isCurrentMonthQuery) {
+        const isAdminRole = (roleLower === 'admin' || roleLower === 'administrador' || roleLower.includes('admin'));
+        if (!isAdminRole) {
+          unifiedAvailableFinal = false;
+          console.log('[API /leads] Mes actual detectado: usando costumers* en vez de costumers_unified');
+        } else {
+          console.log('[API /leads] Mes actual detectado (admin): manteniendo costumers_unified si está disponible');
+        }
+      }
+    } catch (_) {}
+
     // Para supervisores + colección unificada: filtrar por agentes asignados.
     // En `costumers_unified` puede que NO existan campos supervisor/team dentro del lead; si filtramos por ellos, el resultado queda en 0.
     // Mantener fallback seguro (no exponer otros equipos) si no se puede resolver el equipo.
-    if (isSupervisor && unifiedAvailable && !agentRegex) {
+    if (isSupervisor && unifiedAvailableFinal && !agentRegex) {
       console.log('[API /leads] Supervisor con unified, resolviendo agentes...');
       const supervisorUsername = String(req.user?.username || '').trim();
       const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
@@ -693,14 +832,23 @@ router.get('/leads', protect, async (req, res) => {
       }
     }
 
-    console.log('[API /leads] Query final antes de ejecutar:', JSON.stringify(query, null, 2));
+    const debugQuery = String(req.query.debugQuery || '') === '1';
+    if (debugQuery) {
+      let s = '';
+      try { s = JSON.stringify(query, null, 2); } catch (_) { s = String(query); }
+      console.log('[API /leads] Query final antes de ejecutar:', s.length > 5000 ? (s.slice(0, 5000) + '...<truncated>') : s);
+    } else {
+      const andLen = (query && query.$and && Array.isArray(query.$and)) ? query.$and.length : 0;
+      console.log('[API /leads] Query final antes de ejecutar: $and=', andLen);
+    }
 
-    let collectionNamesList = unifiedAvailable
+    let collectionNamesList = unifiedAvailableFinal
       ? [unifiedCollectionName]
-      : allNames.filter(n => /^costumers(_|$)/i.test(n));
+      : allNames
+          .filter(n => /^costumers(_|$)/i.test(n));
 
     // Para supervisores: limitar a colecciones de sus agentes (equipo) SOLO cuando no hay colección unificada
-    if (isSupervisor && !unifiedAvailable) {
+    if (isSupervisor && !unifiedAvailableFinal) {
       const supervisorUsername = String(req.user?.username || '').trim();
       const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
       const supervisorTeam = String(req.user?.team || '').trim();
@@ -828,27 +976,17 @@ router.get('/leads', protect, async (req, res) => {
       }
     }
 
-    collectionNamesList.forEach(n => allCollections.push({ db: db, name: n }));
-
-    // Si no estamos usando unified (ya sea por preferencia o no disponibilidad), incluir TEAM_LINEAS
-    if (!unifiedAvailable) {
-      try {
-        const dbTL = getDbFor('TEAM_LINEAS');
-        if (dbTL) {
-          const tlCols = await dbTL.listCollections().toArray();
-          tlCols.forEach(c => {
-            if (c.name && c.name !== 'system.indexes') {
-              allCollections.push({ db: dbTL, name: c.name });
-            }
-          });
-          console.log(`[API /leads] Incluidas ${tlCols.length} colecciones de TEAM_LINEAS`);
-        }
-      } catch (e) {
-        console.warn('[API /leads] Error al incluir TEAM_LINEAS:', e.message);
+    try {
+      allCollections.length = 0;
+      for (const n of (collectionNamesList || [])) {
+        if (!n) continue;
+        allCollections.push({ db, name: n });
       }
+    } catch (e) {
+      console.warn('[API /leads] Error armando allCollections:', e?.message || e);
     }
 
-    console.log(`[API /leads] Source mode: ${unifiedAvailable ? 'costumers_unified' : 'costumers* + TEAM_LINEAS'} (legacy=${String(legacy || '')})`);
+    console.log(`[API /leads] Source mode: ${unifiedAvailableFinal ? 'costumers_unified' : 'costumers* + TEAM_LINEAS'} (legacy=${String(legacy || '')})`);
 
     // Paginación a través de colecciones: calcular total y tomar la ventana [offsetGlobal, offsetGlobal+limit)
     let remaining = limit;
@@ -881,7 +1019,8 @@ router.get('/leads', protect, async (req, res) => {
 
         const pipeline = [
           { $match: query },
-          { $sort: { createdAt: -1 } },
+          // Orden robusto: algunas colecciones no tienen createdAt pero sí creadoEn/actualizadoEn
+          { $sort: { createdAt: -1, creadoEn: -1, actualizadoEn: -1 } },
           { $skip: skip },
           { $limit: fetchLimit },
           { $addFields: {
@@ -980,7 +1119,10 @@ router.get('/leads', protect, async (req, res) => {
       id: (d && d.id) ? String(d.id) : (d && d._id ? String(d._id) : '')
     }));
 
-    return res.json({ success: true, data: normalized, total: totalCount, page, pages, queryUsed: query });
+    return res.json(Object.assign(
+      { success: true, data: normalized, total: totalCount, page, pages },
+      debugQuery ? { queryUsed: query } : {}
+    ));
     // ====== FIN AGREGACIÓN MULTI-COLECCIÓN (PAGINADA) ======
 
   } catch (error) {
@@ -1037,6 +1179,130 @@ router.get('/leads/debug-dates', protect, async (req, res) => {
   } catch (error) {
     console.error('[DEBUG] Error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Diagnóstico: comparar conteos en costumers_unified (mes completo vs 1..hoy) y ver samples de fechas
+router.get('/leads/unified-month-debug', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'No DB' });
+
+    const month = String(req.query.month || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ success: false, message: 'month debe ser YYYY-MM' });
+    }
+
+    const [targetYear, targetMonth] = month.split('-').map(Number);
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+    const now = new Date();
+    const isCurrentTargetMonth = (targetYear === now.getFullYear()) && (targetMonth === (now.getMonth() + 1));
+    const lastDay = isCurrentTargetMonth ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
+
+    const monthStartFull = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+    const monthEndFull = new Date(targetYear, targetMonth - 1, daysInMonth, 23, 59, 59, 999);
+    const monthStartToday = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+    const monthEndToday = new Date(targetYear, targetMonth - 1, lastDay, 23, 59, 59, 999);
+
+    const monthStr = String(targetMonth).padStart(2, '0');
+    const monthNoPad = String(targetMonth);
+    const yEsc = String(targetYear).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const mAlt = [monthStr, monthNoPad].map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const reMonthYMD = new RegExp(`^${yEsc}-(?:${mAlt})-`, 'i');
+    const reMonthYMDSlash = new RegExp(`^${yEsc}\\/(?:${mAlt})\\/`, 'i');
+
+    const unifiedCol = db.collection('costumers_unified');
+
+    const fieldsToCheck = [
+      'dia_venta',
+      'fecha_contratacion',
+      'diaVenta',
+      'fechaVenta',
+      'fecha_venta',
+      'saleDate',
+      'sale_date',
+      'dia_instalacion',
+      'fecha_instalacion',
+      'diaInstalacion',
+      'fechaInstalacion',
+      '_raw.dia_venta',
+      '_raw.fecha_contratacion',
+      '_raw.diaVenta',
+      '_raw.fechaContratacion',
+      '_raw.fechaVenta',
+      '_raw.fecha_venta',
+      '_raw.saleDate',
+      '_raw.sale_date',
+      '_raw.dia_instalacion',
+      '_raw.fecha_instalacion'
+    ];
+
+    const monthFieldOr = [];
+    for (const p of fieldsToCheck) {
+      monthFieldOr.push({ [p]: { $regex: reMonthYMD.source, $options: 'i' } });
+      monthFieldOr.push({ [p]: { $regex: reMonthYMDSlash.source, $options: 'i' } });
+    }
+
+    const queryFullMonth = {
+      $or: [
+        ...monthFieldOr,
+        { createdAt: { $gte: monthStartFull, $lte: monthEndFull } },
+        { creadoEn: { $gte: monthStartFull, $lte: monthEndFull } },
+        { actualizadoEn: { $gte: monthStartFull, $lte: monthEndFull } }
+      ]
+    };
+
+    const queryUptoToday = {
+      $or: [
+        ...monthFieldOr,
+        { createdAt: { $gte: monthStartToday, $lte: monthEndToday } },
+        { creadoEn: { $gte: monthStartToday, $lte: monthEndToday } },
+        { actualizadoEn: { $gte: monthStartToday, $lte: monthEndToday } }
+      ]
+    };
+
+    const [countFull, countUptoToday] = await Promise.all([
+      unifiedCol.countDocuments(queryFullMonth),
+      unifiedCol.countDocuments(queryUptoToday)
+    ]);
+
+    const samples = await unifiedCol
+      .find(queryFullMonth, {
+        projection: {
+          dia_venta: 1,
+          fecha_contratacion: 1,
+          diaVenta: 1,
+          fechaVenta: 1,
+          fecha_venta: 1,
+          saleDate: 1,
+          sale_date: 1,
+          dia_instalacion: 1,
+          fecha_instalacion: 1,
+          diaInstalacion: 1,
+          fechaInstalacion: 1,
+          _raw: 1,
+          createdAt: 1,
+          creadoEn: 1,
+          actualizadoEn: 1
+        }
+      })
+      .limit(10)
+      .toArray();
+
+    return res.json({
+      success: true,
+      month,
+      isCurrentTargetMonth,
+      lastDay,
+      counts: {
+        fullMonth: countFull,
+        uptoToday: countUptoToday
+      },
+      samples
+    });
+  } catch (error) {
+    console.error('[API /leads/unified-month-debug] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -1343,7 +1609,7 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
  * @desc Actualizar el estado de un lead
  * @access Private
  */
-router.put('/leads/:id/status', protect, async (req, res) => {
+router.put('/leads/:id/status', protect, authorize('Administrador','Backoffice'), async (req, res) => {
   try {
     const db = getDb();
     if (!db) {
@@ -1605,7 +1871,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
  * @desc Actualizar un lead completo
  * @access Private
  */
-router.put('/leads/:id', protect, async (req, res, next) => {
+router.put('/leads/:id', protect, authorize('Administrador','Backoffice'), async (req, res, next) => {
   try {
     const { id: recordId } = req.params;
     
