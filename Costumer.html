@@ -578,6 +578,7 @@
             rcLog('observer batch', {mutations: muts?.length||0});
             debouncedApply();
           });
+          try { window._statusObserver = _statusObserver; } catch(_) {}
           // Observar solo cambios estructurales para evitar bucles por cambios de estilo
           _statusObserver.observe(tbody, { childList: true, subtree: true });
           // aplicar una vez al instalar
@@ -2461,9 +2462,9 @@
             <label for="pageSizeSelect">Por página</label>
             <select id="pageSizeSelect">
               <option value="50">50</option>
-              <option value="100">100</option>
+              <option value="100" selected>100</option>
               <option value="200">200</option>
-              <option value="500" selected>500</option>
+              <option value="500">500</option>
               <option value="1000">1000</option>
               <option value="99999">Todos</option>
             </select>
@@ -3071,10 +3072,11 @@
       function isAdminOrBackofficeLocal(){
         try{
           const u = safeParseUser();
-          const r = (u.role || u?.usuario?.role || '').toString().toLowerCase().trim();
+          const r0 = (u.role || u?.usuario?.role || '').toString().toLowerCase().trim();
+          const r = r0.replace(/\s+/g,'_').replace(/-+/g,'_');
           if (!r) return false;
           if (['admin','administrador','administrator'].includes(r)) return true;
-          if (['backoffice','back office','back_office','bo','b.o','b-o','b:o'].includes(r)) return true;
+          if (['backoffice','back office','back_office','bo','b.o','b-o','b:o','rol_icon','rol_bamo'].includes(r)) return true;
           return false;
         }catch{return false;}
       }
@@ -3639,6 +3641,37 @@
       try { window.supervisorAgentFilter = null; } catch(_) {}
       try { window.adminTeamFilter = null; } catch(_) {}
 
+      // Por defecto: cargar SOLO el mes actual en la primera carga
+      // (el usuario puede seleccionar "Todos los meses" manualmente)
+      try {
+        const monthFilterEl = document.getElementById('monthFilter');
+        if (monthFilterEl && (!monthFilterEl.value || String(monthFilterEl.value).trim() === '')) {
+          const now = new Date();
+          const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+          // Si el mes actual no existe en el select (porque las opciones están hardcodeadas), agregarlo.
+          const hasOption = Array.from(monthFilterEl.options || []).some(o => String(o.value) === currentMonth);
+          if (!hasOption) {
+            const opt = document.createElement('option');
+            opt.value = currentMonth;
+            // Mantener label simple: YYYY-MM (evita traducciones/locale)
+            opt.textContent = currentMonth;
+
+            // Insertar después de "Todos los meses" si existe.
+            if (monthFilterEl.options && monthFilterEl.options.length > 0) {
+              monthFilterEl.insertBefore(opt, monthFilterEl.options[1] || null);
+            } else {
+              monthFilterEl.appendChild(opt);
+            }
+          }
+
+          monthFilterEl.value = currentMonth;
+          console.log('[INIT] monthFilter por defecto (mes actual):', currentMonth);
+        }
+      } catch (e) {
+        console.warn('[INIT] No se pudo inicializar monthFilter al mes actual:', e);
+      }
+
       // Cargar datos iniciales
       console.log('[INIT] Cargando datos desde el servidor...');
       if (typeof fetchLeadsAgente === 'function') {
@@ -3648,6 +3681,71 @@
       } else {
         console.warn('[INIT] fetchLeadsAgente no está definido');
       }
+
+      try {
+        const pageInfoEl = document.getElementById('pageInfo');
+        const prevBtn = document.getElementById('pagePrev');
+        const nextBtn = document.getElementById('pageNext');
+        const pageSizeEl = document.getElementById('pageSizeSelect');
+
+        const updatePageInfo = () => {
+          const p = Number(window.__apiPage || window.__page || 1) || 1;
+          const totalPages = Number(window.__totalPages || 1) || 1;
+          if (pageInfoEl) pageInfoEl.textContent = `Página ${p} de ${totalPages}`;
+          if (prevBtn) prevBtn.disabled = p <= 1;
+          if (nextBtn) nextBtn.disabled = p >= totalPages;
+        };
+
+        if (prevBtn && !prevBtn.__bound) {
+          prevBtn.__bound = true;
+          prevBtn.addEventListener('click', async () => {
+            const p = Number(window.__apiPage || window.__page || 1) || 1;
+            const target = Math.max(1, p - 1);
+            window.__page = target;
+            await fetchLeadsAgente(target);
+            updatePageInfo();
+          });
+        }
+        if (nextBtn && !nextBtn.__bound) {
+          nextBtn.__bound = true;
+          nextBtn.addEventListener('click', async () => {
+            const p = Number(window.__apiPage || window.__page || 1) || 1;
+            const totalPages = Number(window.__totalPages || 1) || 1;
+            const target = Math.min(totalPages, p + 1);
+            window.__page = target;
+            await fetchLeadsAgente(target);
+            updatePageInfo();
+          });
+        }
+        if (pageSizeEl && !pageSizeEl.__bound) {
+          pageSizeEl.__bound = true;
+          pageSizeEl.addEventListener('change', async () => {
+            window.__page = 1;
+            await fetchLeadsAgente(1);
+            updatePageInfo();
+          });
+        }
+
+        const originalFetchLeads = fetchLeadsAgente;
+        if (!window.__paginationWrapped && typeof originalFetchLeads === 'function') {
+          window.__paginationWrapped = true;
+          window.fetchLeadsAgente = async function wrappedFetchLeadsAgente(page) {
+            const r = await originalFetchLeads(page);
+            try { updatePageInfo(); } catch (_) {}
+            return r;
+          };
+        }
+        updatePageInfo();
+      } catch (e) {
+        console.warn('[PAGINATION] Error inicializando paginación:', e?.message || e);
+      }
+    });
+  </script>
+
+  <script>
+    // Inicializaci¨®n de UI: toggle compacto y refrescar tabla
+    document.addEventListener('DOMContentLoaded', function() {
+      // ...
     });
 
     let leadActual = null;
@@ -4039,11 +4137,6 @@
         // Último recurso: cualquier $oid
         m = json.match(/"\$oid"\s*:\s*"([a-fA-F0-9]{24})"/);
         if (m && m[1]) return m[1];
-      } catch (_) {}
-      try {
-        if (raw._raw && typeof raw._raw === 'object') {
-          return extractLeadId(raw._raw);
-        }
       } catch (_) {}
       return '';
     }
@@ -4460,7 +4553,7 @@
         const __bypassPrecache = !!__selectedMonth;
 
         // FAST PATH: Intentar cargar desde cache precalentado en login
-        const cachedCustomers = __bypassPrecache ? null : await tryLoadFromPrecachedData();
+        const cachedCustomers = null;
         if (cachedCustomers && cachedCustomers.length > 0) {
           console.log('[fetchLeadsAgente] 🚀 Renderizando desde cache precalentado');
           // Usar los datos precacheados directamente
@@ -4515,7 +4608,16 @@
         const fetchTimeoutMs = 60000;
         const forceAll = new URLSearchParams(window.location.search).get('forceAll') === '1';
         const alreadyFilteredByAgent = false;
-        let url = isTeamLineasUser ? '/api/lineas' : '/api/leads?limit=5000';
+
+        // Paginación server-side: por rendimiento se capea a 100 por página
+        const pageSizeEl = document.getElementById('pageSizeSelect');
+        const pageSizeRaw = pageSizeEl ? parseInt(pageSizeEl.value, 10) : 100;
+        const pageSize = Math.max(1, Math.min(5000, Number.isFinite(pageSizeRaw) ? pageSizeRaw : 100));
+        window.__limit = pageSize;
+        __page = Math.max(1, parseInt(page, 10) || 1);
+        window.__page = __page;
+
+        let url = isTeamLineasUser ? '/api/lineas' : `/api/leads?page=${encodeURIComponent(__page)}&limit=${encodeURIComponent(pageSize)}`;
 
         try {
           if (!isTeamLineasUser && __selectedMonth) {
@@ -4575,10 +4677,11 @@
         }
         
         let data = null;
+        let metaFromWorker = null;
         // Medir tiempo de parseo (response.json()/JSON.parse)
         let parseStart = null, parseEnd = null;
         try {
-          try { updateLoadingOverlay('Parseando respuesta...'); } catch(_){}
+          try { updateLoadingOverlay('Parseando respuesta...'); } catch(_){ }
           const ct = (response.headers.get('content-type')||'').toLowerCase();
           parseStart = (performance && performance.now) ? performance.now() : Date.now();
           // Usar Web Worker para parsear JSON y evitar bloquear el hilo principal
@@ -4595,7 +4698,6 @@
             // Intentar parseo en worker
             let parsedFromWorker = null;
             let workerError = null;
-            let metaFromWorker = null;
             if (typeof Worker !== 'undefined') {
               const worker = new Worker('/js/parseWorker.js');
               const parsedAccum = [];
@@ -4609,12 +4711,12 @@
                     metaFromWorker = d.meta || null;
                   } else if (d.type === 'done') {
                     worker.removeEventListener('message', onMsg);
-                    try { worker.terminate(); } catch(_){}
+                    try { worker.terminate(); } catch(_){ }
                     parsedFromWorker = parsedAccum;
                     resolve();
                   } else if (d.type === 'error') {
                     worker.removeEventListener('message', onMsg);
-                    try { worker.terminate(); } catch(_){}
+                    try { worker.terminate(); } catch(_){ }
                     workerError = d.message || 'worker error';
                     resolve();
                   }
@@ -4632,6 +4734,18 @@
             } else {
               try { data = JSON.parse(responseText); } catch (e) { data = null; }
             }
+
+            // Si la respuesta del backend es un objeto JSON (p.ej. /api/leads -> {success,data,total,page,pages}),
+            // preferir parseo normal para NO perder metadata de paginación.
+            try {
+              const trimmed = String(responseText || '').trim();
+              if (trimmed && trimmed[0] === '{') {
+                const parsedObj = JSON.parse(trimmed);
+                if (parsedObj && typeof parsedObj === 'object' && !Array.isArray(parsedObj)) {
+                  data = parsedObj;
+                }
+              }
+            } catch (_) {}
           } catch (e) {
             console.warn('[fetchLeadsAgente] Error usando Web Worker para parseo:', e?.message);
             try { data = responseText ? JSON.parse(responseText) : null; } catch (pe) { data = null; }
@@ -4667,6 +4781,18 @@
           window.__totalCount = Array.isArray(apiArray) ? apiArray.length : 0;
         }
 
+        // Refrescar UI de paginación (evita quedar en "Página 1 de 1" si el callback externo no se ejecuta)
+        try {
+          const pageInfoEl = document.getElementById('pageInfo');
+          const prevBtn = document.getElementById('pagePrev');
+          const nextBtn = document.getElementById('pageNext');
+          const p = Number(window.__apiPage || window.__page || 1) || 1;
+          const totalPages = Number(window.__totalPages || 1) || 1;
+          if (pageInfoEl) pageInfoEl.textContent = `Página ${p} de ${totalPages}`;
+          if (prevBtn) prevBtn.disabled = p <= 1;
+          if (nextBtn) nextBtn.disabled = p >= totalPages;
+        } catch (_) {}
+
           // Debug específico: conteo por mes (para diagnóstico) — usar campo precomputado si existe
           if (Array.isArray(apiArray)) {
             const datesByMonth = {};
@@ -4691,68 +4817,7 @@
           leadsRaw = apiArray.slice();
         }
 
-        // Si la respuesta incluye metadata de paginación, solicitar páginas adicionales (hasta un tope)
-        try {
-          const meta = apiMeta || null;
-          if (meta && meta.pages && (meta.pages > (meta.page || 1))) {
-            const maxPages = (window.__maxPages && Number(window.__maxPages)) || 10;
-            const startPage = meta.page || 1;
-            const endPage = Math.min(meta.pages, startPage + maxPages - 1);
-            const buildUrlForPage = (p) => {
-              try {
-                if (url.match(/([?&])page=\d+/)) return url.replace(/page=\d+/, `page=${p}`);
-                if (url.includes('?')) return `${url}&page=${p}`;
-                return `${url}?page=${p}`;
-              } catch (_) { return url; }
-            };
-
-            for (let p = startPage + 1; p <= endPage; p++) {
-              try {
-                try { updateLoadingOverlay(`Cargando página ${p}/${meta.pages}...`); } catch(_){ }
-                const pageUrl = buildUrlForPage(p);
-                const controller2 = new AbortController();
-                const to2 = setTimeout(()=>{ try{ controller2.abort(); }catch(_){ } }, fetchTimeoutMs);
-                let resp = null;
-                try {
-                  resp = await fetch(pageUrl, Object.assign({}, fetchOptions, { signal: controller2.signal }));
-                } catch (err) {
-                  if (err.name === 'AbortError') { console.warn('[fetchLeadsAgente] Fetch pagina abortada', p); clearTimeout(to2); continue; }
-                  clearTimeout(to2);
-                  console.warn('[fetchLeadsAgente] Error fetching page', p, err);
-                  continue;
-                } finally { clearTimeout(to2); }
-
-                if (!resp || !resp.ok) { console.warn('[fetchLeadsAgente] Página', p, 'respuesta no OK', resp && resp.status); continue; }
-                const text = await resp.text();
-                // parsear en worker si es posible
-                try {
-                  if (typeof Worker !== 'undefined') {
-                    const worker2 = new Worker('/js/parseWorker.js');
-                    const parsedAccum2 = [];
-                    await new Promise((resolve) => {
-                      const onMsg2 = (ev) => {
-                        const d = ev.data || {};
-                        if (d.type === 'chunk' && Array.isArray(d.chunk)) parsedAccum2.push(...d.chunk);
-                        else if (d.type === 'done') { worker2.removeEventListener('message', onMsg2); try{worker2.terminate();}catch(_){}; resolve(); }
-                      };
-                      worker2.addEventListener('message', onMsg2);
-                      worker2.postMessage({ text });
-                    });
-                    leadsRaw.push(...parsedAccum2);
-                  } else {
-                    const parsed = JSON.parse(text);
-                    const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.leads) ? parsed.leads : []));
-                    leadsRaw.push(...arr);
-                  }
-                } catch (e) {
-                  try { const parsed = JSON.parse(text); const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.leads) ? parsed.leads : [])); leadsRaw.push(...arr); } catch(_) { console.warn('[fetchLeadsAgente] No se pudo parsear pagina', p); }
-                }
-              } catch (e) {
-                console.warn('[fetchLeadsAgente] Error iterando páginas adicionales:', e?.message || e);
-              }
-            }
-          }
-        } catch (e) { console.warn('[fetchLeadsAgente] Error procesando paginación adicional:', e?.message || e); }
+        // Paginación server-side: no auto-cargar páginas adicionales (evita sobrecarga)
 
         // Debug adicional: si no hay leads, volcar un resumen de la respuesta para diagnóstico
         try {
@@ -5424,7 +5489,8 @@
     function canEditStatus_local() {
       const r = getUserRole_local();
       // Aceptar variantes comunes desde frontend (referencial, no usada por la tabla)
-      return ['admin','administrador','backoffice','b:o','b.o','b-o','bo'].includes(r);
+      const r2 = String(r || '').toLowerCase().trim().replace(/\s+/g,'_').replace(/-+/g,'_');
+      return ['admin','administrador','backoffice','b:o','b.o','b-o','bo','rol_icon','rol_bamo'].includes(r2);
     }
 
     // Helper: normalizar status hacia las 5 opciones y devolver etiqueta capitalizada
@@ -5731,9 +5797,9 @@
             const candidates = [
               l?.agenteNombre,
               l?.nombreAgente,
+              l?.agente, l?.Agente, l?.agent, l?.Agent, l?.vendedor, l?.seller,
               l?._raw?.agenteNombre,
               l?._raw?.nombreAgente,
-              l?.agente, l?.Agente, l?.agent, l?.Agent, l?.vendedor, l?.seller,
               l?._raw?.agente, l?._raw?.Agente, l?._raw?.agent, l?._raw?.Agent, l?._raw?.vendedor, l?._raw?.seller,
               l?.nombre_agente, l?.agente_nombre, l?.agentName, l?.salesAgent,
               l?._raw?.nombre_agente, l?._raw?.agente_nombre, l?._raw?.agentName, l?._raw?.salesAgent,
@@ -5949,7 +6015,7 @@
           <td>${lead.dia_instalacion ? String(lead.dia_instalacion).slice(0,10) : 'N/A'}</td>
           <td class="status-col">
             ${editable ? `
-              <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus('${__id}', this.value)">
+              <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus(this, '${__id}')">
                 ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active'].map(opt => `
                   <option value="${opt.toLowerCase()}" ${opt===statusLabel?'selected':''}>${opt}</option>
                 `).join('')}
@@ -5996,31 +6062,34 @@
       function canEditStatus(){
         try{
           const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-          const r = String(u.role||u?.usuario?.role||'').toLowerCase();
-          return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice';
+          const r0 = String(u.role||u?.usuario?.role||'').toLowerCase().trim();
+          const r = r0.replace(/\s+/g,'_').replace(/-+/g,'_');
+          return r==='admin' || r==='administrador' || r==='administrator' || r==='backoffice' || r==='rol_icon' || r==='rol_bamo';
         }catch{ return false; }
       }
       function canDeleteLead(){
         try{
           const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-          const r = String(u.role||u?.usuario?.role||'').toLowerCase().trim();
+          const r = String(u.role||u?.usuario?.role||'').toLowerCase().trim().replace(/\s+/g,'_').replace(/-+/g,'_');
           if (!r) return false;
           if (r==='admin' || r==='administrador' || r==='administrator') return true;
-          if (r==='backoffice' || r==='back office' || r==='back_office' || r==='bo' || r==='b.o' || r==='b-o' || r==='b:o') return true;
+          if (r==='backoffice' || r==='back office' || r==='back_office' || r==='bo' || r==='b.o' || r==='b-o' || r==='b:o' || r==='rol_icon' || r==='rol_bamo') return true;
           return false;
         } catch { return false; }
       }
       window.canDeleteLead = canDeleteLead;
-      window.updateLeadStatus = async function(id, newStatus){
+      window.updateLeadStatus = async function(selectEl, id){
         try{
           if (!canEditStatus()) { alert('No tienes permisos para cambiar el STATUS'); return; }
           if (!id) { alert('ID inválido'); return; }
+          const newStatus = String(selectEl && selectEl.value || '').trim();
+          if (!newStatus) { alert('STATUS inválido'); return; }
           // Solicitar motivo ANTES de cualquier await para no perder el gesto del usuario
           try {
             const newStatusLower = String(newStatus || '').toLowerCase();
             const triggerStatuses = ['cancel', 'hold', 'resched', 'repro', 'anulad', 'no instalado'];
             if (triggerStatuses.some(s => newStatusLower.includes(s))) {
-              const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+              const sel = selectEl;
               const prev = String(sel?.getAttribute('data-prev') || '').trim();
               const clientName = ((sel?.closest('tr')?.querySelector('td')?.textContent || '')).trim();
               const title = 'Motivo del Cambio de Status';
@@ -6062,7 +6131,7 @@
           console.log('[STATUS] Guardando', { id, newStatus, endpoint: target.url });
           // feedback visual: desactivar todos los selects de esa fila
           try{
-            const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+            const sel = selectEl;
             if (sel) sel.disabled = true;
           }catch{}
           try{
@@ -6098,7 +6167,7 @@
             // PASO 2: localizar fila
             const tr = document.querySelector(`tr[data-lead-id="${id}"]`) || (function(){
               try{
-                const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+                const sel = selectEl;
                 return sel ? sel.closest('tr') : null;
               }catch{ return null; }
             })();
@@ -6122,6 +6191,7 @@
                   sel.value = String(newStatus||'').trim();
                   sel.disabled = false;
                   sel.removeAttribute('disabled');
+                  try { sel.setAttribute('data-prev', String(newStatus||'').trim()); } catch(_) {}
                 });
                 console.log('[STATUS] Selects actualizados y reactivados:', sels.length);
               } catch(e) { 
@@ -6140,7 +6210,7 @@
         } finally {
           // Rehabilitar por si hubo error temprano
           try{
-            const sel = document.querySelector(`select.status-select[onchange*="${id}"]`);
+            const sel = selectEl;
             if (sel) { sel.disabled = false; sel.removeAttribute('disabled'); }
           }catch{}
         }
@@ -6246,6 +6316,53 @@
           }
         } catch(e) {
           console.warn('[STATUS FILTER] Error:', e);
+        }
+
+        // PASO 1.85: aplicar búsqueda de texto (sobre los datos ya cargados/paginados)
+        try {
+          const searchEl = document.getElementById('costumer-search');
+          const termRaw = searchEl ? String(searchEl.value || '') : '';
+          const term = termRaw.trim();
+          if (term && Array.isArray(list) && list.length > 0) {
+            const beforeFilter = list.length;
+            const norm = (s) => {
+              try {
+                return String(s || '')
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}+/gu,'')
+                  .toLowerCase()
+                  .trim();
+              } catch {
+                return String(s || '').toLowerCase().trim();
+              }
+            };
+            const t = norm(term);
+            list = list.filter(item => {
+              const fields = [
+                item?.nombre_cliente,
+                item?.telefono_principal,
+                item?.telefono_alterno,
+                item?.numero_cuenta,
+                item?.direccion,
+                item?.zip_code,
+                item?.zip,
+                item?.mercado,
+                item?.supervisor,
+                item?.servicios,
+                item?.tipo_servicios,
+                item?.comentario,
+                item?.motivo_llamada,
+                item?._raw?.nombre_cliente,
+                item?._raw?.telefono_principal,
+                item?._raw?.numero_cuenta,
+                item?._raw?.direccion
+              ];
+              return fields.some(v => norm(v).includes(t));
+            });
+            console.log('[SEARCH FILTER] Aplicado:', term, '| Antes:', beforeFilter, '| Después:', list.length);
+          }
+        } catch(e) {
+          console.warn('[SEARCH FILTER] Error:', e);
         }
         // ACTUALIZAR TARJETAS DE RESUMEN (KPIs)
         // Usar la lista filtrada por Team y Agente, pero ANTES de filtrar por mes.
@@ -8135,7 +8252,9 @@
       const currentUsername = (currentUser.username || currentUser.name || currentUser.nombre || '').toLowerCase().trim();
       const noteAuthor = (author || '').toLowerCase().trim();
       const isOwner = currentUsername && noteAuthor && (currentUsername === noteAuthor || noteAuthor.includes(currentUsername) || currentUsername.includes(noteAuthor));
-      const isAdmin = (currentUser.role || '').toLowerCase() === 'administrador' || (currentUser.role || '').toLowerCase() === 'backoffice';
+      const __role0 = (currentUser.role || '').toLowerCase().trim();
+      const __role = __role0.replace(/\s+/g,'_').replace(/-+/g,'_');
+      const isAdmin = __role === 'administrador' || __role === 'backoffice' || __role === 'rol_icon' || __role === 'rol_bamo';
       const canEditDelete = isOwner || isAdmin;
       
       // Info de creación
@@ -9337,11 +9456,24 @@
           const statusFilter = document.getElementById('statusFilter');
           const mercadoFilter = document.getElementById('mercadoFilter');
           
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+          const roleNorm = (function normalizeRole(r){
+            if (!r) return '';
+            if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+            if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+            if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+            if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
+            return r;
+          })(roleRaw);
+          const mercadoRestrict = (roleNorm === 'rol_icon' || roleNorm === 'icon' || roleNorm.includes('rol icon')) ? 'ICON'
+            : ((roleNorm === 'rol_bamo' || roleNorm === 'bamo' || roleNorm.includes('rol bamo')) ? 'BAMO' : '');
+          
           if (monthFilter) monthFilter.value = '';
           if (teamFilter) teamFilter.value = '';
           if (agentFilter) agentFilter.value = '';
           if (statusFilter) statusFilter.value = 'all';
-          if (mercadoFilter) mercadoFilter.value = '';
+          if (mercadoFilter) mercadoFilter.value = mercadoRestrict ? mercadoRestrict : '';
           
           // Limpiar filtros residuales de window
           window.supervisorAgentFilter = null;
@@ -9565,6 +9697,29 @@
       // Configurar filtro de mercado
       const mercadoFilter = document.getElementById('mercadoFilter');
       if (mercadoFilter) {
+        try {
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+          const roleNorm = (function normalizeRole(r){
+            if (!r) return '';
+            if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+            if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+            if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+            if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
+            return r;
+          })(roleRaw);
+
+          const mercadoRestrict = (roleNorm === 'rol_icon' || roleNorm === 'icon' || roleNorm.includes('rol icon')) ? 'ICON'
+            : ((roleNorm === 'rol_bamo' || roleNorm === 'bamo' || roleNorm.includes('rol bamo')) ? 'BAMO' : '');
+
+          if (mercadoRestrict) {
+            mercadoFilter.value = mercadoRestrict;
+            mercadoFilter.disabled = true;
+          }
+        } catch (e) {
+          console.warn('[MERCADO FILTER] Error determinando restricción por rol:', e);
+        }
+
         mercadoFilter.addEventListener('change', function() {
           console.log('[MERCADO FILTER] Cambiando a mercado:', this.value || 'Todos los mercados');
           

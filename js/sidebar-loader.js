@@ -44,6 +44,8 @@
     'tabla-de-puntaje': 'tabla-puntaje',
     'puntaje': 'tabla-puntaje',
     'tabla puntaje': 'tabla-puntaje',
+    'rankings': 'rankings',
+    'rankings-page': 'rankings',
     'crearcuenta': 'crearcuenta',
     'crear-cuenta': 'crearcuenta',
     'register': 'crearcuenta',
@@ -187,6 +189,7 @@
       if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
 
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
@@ -459,7 +462,7 @@
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName || 'U');
   const normalizedRole = normalizeRole(user.role);
-  const roleName = getRoleName(normalizedRole);
+  const roleName = getRoleDisplayName(normalizedRole);
   // Detectar si el usuario pertenece a Team Líneas. Seguimos la misma lógica que el servidor (__isTeamLineas):
   // - team contiene 'lineas'
   // - role contiene 'teamlineas' o contiene 'lineas'
@@ -587,15 +590,20 @@
   }
 
   // Obtener nombre del rol
-  function getRoleName(role) {
+  function getRoleDisplayName(roleRaw) {
+    const role = (roleRaw || '').toString().trim().toLowerCase();
+    const role2 = role.replace(/\s+/g, '_').replace(/-+/g, '_');
     const roles = {
       'admin': 'Administrador',
+      'administrador': 'Administrador',
       'supervisor': 'Supervisor',
       'agente': 'Agente',
       'agent': 'Agente',  // Soporte para inglés
-      'backoffice': 'Back Office'
+      'backoffice': 'Back Office',
+      'rol_icon': 'Back Office',
+      'rol_bamo': 'Back Office'
     };
-    return roles[role] || 'Usuario';
+    return roles[role] || roles[role2] || 'Usuario';
   }
 
   // Obtener items del menú según rol
@@ -612,6 +620,7 @@
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'Rankings.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
@@ -664,6 +673,7 @@
           'lead': { href: 'lead.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
           'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
           'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
+          'rankings': { href: 'Rankings.html', icon: 'fa-chart-line', text: 'Rankings' },
           'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' }
       };
       
@@ -685,17 +695,19 @@
   }
 
   // Normalizar roles (inglés -> español)
-  function normalizeRole(role) {
-    const r = (role == null ? '' : String(role)).trim().toLowerCase();
+  function normalizeRole(roleRaw) {
+    const r = (roleRaw == null ? '' : String(roleRaw)).trim().toLowerCase();
+    const r2 = r.replace(/\s+/g, '_').replace(/-+/g, '_');
     if (!r) return 'agente';
     // equivalentes de agente
-    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales','lineas-agentes','lineas-agente','lineas agentes'].includes(r)) return 'agente';
+    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
     // equivalentes de supervisor
     if (['supervisor','supervisora','supervisores','supervisor team lineas','supervisor lineas'].includes(r)) return 'supervisor';
     // equivalentes de admin
     if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
     // equivalentes de backoffice
-    if (['backoffice','back office','back_office','bo'].includes(r)) return 'backoffice';
+    if (['backoffice','back office','back_office','bo','rol_icon','rol_bamo'].includes(r)) return 'backoffice';
+    if (['rol_icon','rol_bamo'].includes(r2)) return 'backoffice';
     return r;
   }
 
