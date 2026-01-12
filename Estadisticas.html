@@ -34,12 +34,20 @@
     } else {
       console.log('Chart.js cargado correctamente');
       
-      // NO registrar ChartDataLabels globalmente para evitar duplicados
-      // Lo agregaremos solo en las gráficas específicas que lo necesiten
-      if (typeof ChartDataLabels !== 'undefined') {
-        console.log('ChartDataLabels disponible (no registrado globalmente)');
-      } else {
-        console.error('ChartDataLabels no disponible');
+      // Registrar ChartDataLabels una sola vez (necesario para que las gráficas muestren etiquetas)
+      // Nota: En "Ventas Activas" se desactiva datalabels a nivel de chart para evitar duplicados.
+      try {
+        if (typeof ChartDataLabels !== 'undefined' && typeof Chart.register === 'function') {
+          if (!window.__CHART_DATALABELS_REGISTERED) {
+            Chart.register(ChartDataLabels);
+            window.__CHART_DATALABELS_REGISTERED = true;
+          }
+          console.log('ChartDataLabels registrado');
+        } else {
+          console.warn('ChartDataLabels no disponible');
+        }
+      } catch (e) {
+        console.warn('No se pudo registrar ChartDataLabels:', e);
       }
     }
 
@@ -543,6 +551,16 @@
       height: 400px;
       width: 100%;
       min-height: 300px;
+      overflow: hidden;
+    }
+
+    /* Asegurar que el canvas nunca se salga del wrapper */
+    .chart-wrapper canvas {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      display: block;
     }
     
     .chart-loading {
@@ -1208,7 +1226,7 @@
                 for (const t of targetSet) {
                   if (!have.has(t)) {
                     // no incluir TEAM LINEAS aquí (va aparte)
-                    out.push({ name: t.charAt(0).toUpperCase()+t.slice(1), ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 });
+                    out.push({ name: t.charAt(0).toUpperCase()+t.slice(1), ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 });
                   }
                 }
                 return out;
@@ -1248,14 +1266,15 @@
             const map = new Map();
             canonRows.forEach(t => {
               const k = norm(t?.name);
-              const cur = map.get(k) || { name: t?.name, ICON: 0, BAMO: 0, Total: 0, Puntaje: 0 };
+              const cur = map.get(k) || { name: t?.name, ICON: 0, ACTIVAS: 0, BAMO: 0, Total: 0, Puntaje: 0 };
               cur.ICON += Number(t?.ICON || 0);
+              cur.ACTIVAS += Number(t?.ACTIVAS || 0);
               cur.BAMO += Number(t?.BAMO || 0);
               cur.Total += Number(t?.Total || 0);
               cur.Puntaje += parseFloat(t?.Puntaje || 0);
               map.set(k, cur);
             });
-            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, BAMO:0, Total:0, Puntaje:0 };
+            const ensureRow = (name)=> map.get(norm(name)) || { name, ICON:0, ACTIVAS: 0, BAMO:0, Total:0, Puntaje:0 };
             const ordered = order.map(ensureRow);
             const displayRows = ordered;
             fallbackTeamData = displayRows;
@@ -1828,12 +1847,11 @@
                 }
               }
             }
-          },
-          plugins: [ChartDataLabels]
+          }
         });
 
         // Forzar resize por si el canvas parent cambió de tamaño
-        try { if (window.porcentajeActivacionChart && typeof window.porcentajeActivacionChart.resize === 'function') window.porcentajeActivacionChart.resize(); } catch(_){}
+        try { if (window.porcentajeActivacionChart && typeof window.porcentajeActivacionChart.resize === 'function') window.porcentajeActivacionChart.resize(); } catch(_){ }
         showChartSpinner(canvas, false);
       } catch (e) { showChartSpinner(canvas, false); console.warn('renderPorcentajeActivacion error', e); }
     }
@@ -1980,18 +1998,7 @@
                     }
                   },
                   datalabels: {
-                    display: true,
-                    anchor: 'end',
-                    align: 'top',
-                    color: '#1f3b63',
-                    font: {
-                      weight: 'bold',
-                      size: 13
-                    },
-                    offset: 4,
-                    formatter: function(value, context) {
-                      return value;
-                    }
+                    display: false
                   }
                 }
               },
@@ -2010,7 +2017,30 @@
                     chart.ctx.restore();
                   }
                 },
-                ChartDataLabels
+                {
+                  id: 'ventasActivasValueLabels',
+                  afterDatasetsDraw: (chart) => {
+                    try {
+                      const ctx = chart.ctx;
+                      const meta = chart.getDatasetMeta(0);
+                      if (!meta || !meta.data) return;
+                      ctx.save();
+                      ctx.fillStyle = '#1f3b63';
+                      ctx.font = 'bold 13px Roboto, Segoe UI, Arial';
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'bottom';
+                      meta.data.forEach((bar, i) => {
+                        const v = Number(chart.data?.datasets?.[0]?.data?.[i] ?? 0);
+                        if (!Number.isFinite(v)) return;
+                        const txt = String(v);
+                        const x = bar.x;
+                        const y = bar.y - 6;
+                        ctx.fillText(txt, x, y);
+                      });
+                      ctx.restore();
+                    } catch (_) {}
+                  }
+                }
               ]
             });
             // Forzar un resize para asegurar que el gráfico se renderice correctamente
@@ -5033,13 +5063,6 @@
           return null;
         }
 
-        // Asegurar que el plugin de datalabels esté registrado si está disponible
-        try {
-          if (window.ChartDataLabels && window.Chart && typeof window.Chart.register === 'function') {
-            window.Chart.register(window.ChartDataLabels);
-          }
-        } catch (_) {}
-        
         if (ventasPuntajeChart) {
           console.log('Destruyendo instancia anterior del gráfico...');
           ventasPuntajeChart.destroy();

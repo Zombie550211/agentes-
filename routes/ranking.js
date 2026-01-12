@@ -1497,7 +1497,7 @@ router.get('/tabs', protect, async (req, res) => {
       startOfMonth,
       startOfNextMonth,
       filterAtt: false,
-      sortBy: 'ventas_then_puntos',
+      sortBy: 'puntos_then_ventas',
       hardLimit,
       groupBy: activationGroupBy,
       pointsCompletedOnly: true
