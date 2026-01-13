@@ -33,7 +33,7 @@ function buildMonthRange(year, month1to12) {
   return { monthIndex, monthPadded, startOfMonth, startOfNextMonth };
 }
 
-function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false }) {
+function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false, salesCompletedOnly = false }) {
   const sortStage = (() => {
     if (sortBy === 'puntos_then_ventas') return { $sort: { puntos: -1, ventas: -1, nombre: 1 } };
     return { $sort: { ventas: -1, puntos: -1, nombre: 1 } };
@@ -229,15 +229,17 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
     ...(filterAtt ? [{
       $match: {
         $expr: {
-          // Algunos registros no empiezan con ATT (p.ej. "INTERNET ATT ..."), por eso usamos contiene.
-          // Usamos _tipoServicioKey (sin separadores) para reducir falsos negativos.
-          $regexMatch: { input: "$_tipoServicioKey", regex: /ATT/ }
+          // Algunos registros no empiezan con ATT (p.ej. "INTERNET ATT ...") o pueden ser Frontier,
+          // por eso usamos contiene. Usamos _tipoServicioKey (sin separadores) para reducir falsos negativos.
+          $regexMatch: { input: "$_tipoServicioKey", regex: /ATT|FRONTIER/ }
         }
       }
     }] : []),
     {
       $addFields: {
         isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
+        isAttType: { $regexMatch: { input: "$_tipoServicioKey", regex: /ATT/ } },
+        isFrontierType: { $regexMatch: { input: "$_tipoServicioKey", regex: /FRONTIER/ } },
         isCompleted: { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
         puntajeEfectivo: {
           $cond: [
@@ -245,7 +247,7 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
             0,
             {
               $cond: [
-                pointsCompletedOnly ? { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } } : true,
+                pointsCompletedOnly ? { $regexMatch: { input: { $toUpper: "$_statusStr" }, regex: /COMPLET/ } } : true,
                 { $toDouble: { $ifNull: ["$_puntajeRaw", 0] } },
                 0
               ]
@@ -269,7 +271,42 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
     {
       $group: {
         _id: groupBy === 'team' ? "$_teamNorm" : "$_nameNormLower",
-        ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+        ventas: {
+          $sum: {
+            $cond: [
+              (salesCompletedOnly
+                ? { $and: [ { $not: "$isCancel" }, "$isCompleted" ] }
+                : { $not: "$isCancel" }
+              ),
+              1,
+              0
+            ]
+          }
+        },
+        ventasAtt: {
+          $sum: {
+            $cond: [
+              (salesCompletedOnly
+                ? { $and: [ { $not: "$isCancel" }, "$isCompleted", "$isAttType", { $not: "$isFrontierType" } ] }
+                : { $and: [ { $not: "$isCancel" }, "$isAttType", { $not: "$isFrontierType" } ] }
+              ),
+              1,
+              0
+            ]
+          }
+        },
+        ventasFrontier: {
+          $sum: {
+            $cond: [
+              (salesCompletedOnly
+                ? { $and: [ { $not: "$isCancel" }, "$isCompleted", "$isFrontierType" ] }
+                : { $and: [ { $not: "$isCancel" }, "$isFrontierType" ] }
+              ),
+              1,
+              0
+            ]
+          }
+        },
         sumPuntaje: { $sum: "$puntajeEfectivo" },
         anyName: { $first: (groupBy === 'team' ? "$_teamNorm" : "$_nameNoSpaces") },
         anyOriginal: { $first: (groupBy === 'team' ? "$_teamNorm" : "$_agenteFuente") }
@@ -278,8 +315,120 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
     {
       $project: {
         _id: 0,
-        nombre: { $ifNull: ["$anyOriginal", "$anyName"] },
+        nombre: (groupBy === 'team'
+          ? { $ifNull: ["$anyOriginal", "$anyName"] }
+          : {
+              $let: {
+                vars: {
+                  raw: { $toString: { $ifNull: ["$anyOriginal", "$anyName"] } }
+                },
+                in: {
+                  $let: {
+                    vars: {
+                      cleaned: {
+                        $trim: {
+                          input: {
+                            $replaceAll: {
+                              input: {
+                                $replaceAll: {
+                                  input: "$$raw",
+                                  find: "_",
+                                  replacement: " "
+                                }
+                              },
+                              find: ".",
+                              replacement: " "
+                            }
+                          }
+                        }
+                      }
+                    },
+                    in: {
+                      $let: {
+                        vars: {
+                          parts: {
+                            $filter: {
+                              input: { $split: ["$$cleaned", " "] },
+                              as: "p",
+                              cond: { $gt: [{ $strLenCP: { $trim: { input: "$$p" } } }, 0] }
+                            }
+                          }
+                        },
+                        in: {
+                          $let: {
+                            vars: {
+                              first: { $ifNull: [{ $arrayElemAt: ["$$parts", 0] }, ""] },
+                              last: {
+                                $ifNull: [
+                                  { $arrayElemAt: ["$$parts", { $subtract: [{ $size: "$$parts" }, 1] }] },
+                                  ""
+                                ]
+                              }
+                            },
+                            in: {
+                              $let: {
+                                vars: {
+                                  firstLower: { $toLower: "$$first" },
+                                  lastLower: { $toLower: "$$last" }
+                                },
+                                in: {
+                                  $trim: {
+                                    input: {
+                                      $concat: [
+                                        {
+                                          $cond: [
+                                            { $gt: [{ $strLenCP: "$$firstLower" }, 0] },
+                                            {
+                                              $concat: [
+                                                { $toUpper: { $substrCP: ["$$firstLower", 0, 1] } },
+                                                {
+                                                  $substrCP: [
+                                                    "$$firstLower",
+                                                    1,
+                                                    { $subtract: [{ $strLenCP: "$$firstLower" }, 1] }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            ""
+                                          ]
+                                        },
+                                        " ",
+                                        {
+                                          $cond: [
+                                            { $gt: [{ $strLenCP: "$$lastLower" }, 0] },
+                                            {
+                                              $concat: [
+                                                { $toUpper: { $substrCP: ["$$lastLower", 0, 1] } },
+                                                {
+                                                  $substrCP: [
+                                                    "$$lastLower",
+                                                    1,
+                                                    { $subtract: [{ $strLenCP: "$$lastLower" }, 1] }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            ""
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }),
         ventas: 1,
+        ventasAtt: { $ifNull: ["$ventasAtt", 0] },
+        ventasFrontier: { $ifNull: ["$ventasFrontier", 0] },
         puntos: "$sumPuntaje",
         sumPuntaje: "$sumPuntaje"
       }
@@ -1260,6 +1409,135 @@ router.get('/', protect, async (req, res) => {
 });
 
 /**
+ * @route GET /api/ranking/debug-activation-agent
+ * @desc Debug: listar ventas/activaciones para un agente en un mes, mostrando status/puntaje y si contó para puntos (solo COMPLETED)
+ * @access Private
+ */
+router.get('/debug-activation-agent', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a la base de datos' });
+
+    const unifiedCollectionName = 'costumers_unified';
+    const baseCollection = unifiedCollectionName;
+
+    const month = String(req.query?.month || '').trim();
+    const name = String(req.query?.name || req.query?.agent || '').trim();
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ success: false, message: 'Parámetro month requerido con formato YYYY-MM' });
+    }
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Parámetro name requerido (nombre del agente)' });
+    }
+
+    const [yearStr, monthStr] = month.split('-');
+    const year = parseInt(yearStr, 10);
+    const monthIndex = parseInt(monthStr, 10) - 1;
+    const startOfMonth = new Date(year, monthIndex, 1);
+    const startOfNextMonth = new Date(year, monthIndex + 1, 1);
+
+    const nameLower = name.toLowerCase();
+    const pipeline = [
+      {
+        $addFields: {
+          _diaParsed: {
+            $cond: [
+              { $eq: [ { $type: "$dia_venta" }, "date" ] },
+              "$dia_venta",
+              {
+                $cond: [
+                  { $eq: [ { $type: "$createdAt" }, "date" ] },
+                  "$createdAt",
+                  {
+                    $cond: [
+                      { $eq: [ { $type: "$createdAt" }, "string" ] },
+                      { $dateFromString: { dateString: { $toString: "$createdAt" }, timezone: "-06:00" } },
+                      null
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $match: {
+          _diaParsed: { $ne: null },
+          $expr: { $and: [ { $gte: ["$_diaParsed", startOfMonth] }, { $lt: ["$_diaParsed", startOfNextMonth] } ] }
+        }
+      },
+      {
+        $addFields: {
+          _agenteFuente: { $ifNull: ["$agenteNombre", "$agente"] },
+          _agenteLower: { $toLower: { $toString: { $ifNull: ["$agenteNombre", "$agente"] } } },
+          _statusStrRaw: { $toString: { $ifNull: ["$status", ""] } },
+          _statusUpper: { $toUpper: { $trim: { input: { $toString: { $ifNull: ["$status", ""] } } } } },
+          _puntajeRaw: { $ifNull: ["$puntaje", { $ifNull: ["$puntuacion", { $ifNull: ["$points", "$score"] } ] } ] }
+        }
+      },
+      {
+        $match: {
+          $expr: { $eq: ["$_agenteLower", nameLower] }
+        }
+      },
+      {
+        $addFields: {
+          _puntajeNum: { $convert: { input: "$_puntajeRaw", to: "double", onError: 0, onNull: 0 } },
+          _isCancel: { $regexMatch: { input: "$_statusUpper", regex: /CANCEL/ } },
+          _isCompleted: { $regexMatch: { input: "$_statusUpper", regex: /COMPLET/ } },
+          _countedPoints: { $cond: [ { $regexMatch: { input: "$_statusUpper", regex: /COMPLET/ } }, "$_puntajeNum", 0 ] }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          dia: "$_diaParsed",
+          agente: "$_agenteFuente",
+          status: "$_statusStrRaw",
+          statusUpper: "$_statusUpper",
+          puntajeRaw: "$_puntajeRaw",
+          puntajeNum: "$_puntajeNum",
+          countedForPoints: "$_isCompleted",
+          isCancel: "$_isCancel",
+          puntosContados: "$_countedPoints",
+          tipo_servicio: 1,
+          tipo_servicios: 1,
+          servicios_texto: 1,
+          servicios: 1,
+          sistema: 1
+        }
+      },
+      { $sort: { dia: 1 } },
+      { $limit: 300 }
+    ];
+
+    const docs = await db.collection(baseCollection).aggregate(pipeline).toArray();
+    const totalVentas = docs.reduce((acc, d) => acc + (d.isCancel ? 0 : 1), 0);
+    const totalCompleted = docs.reduce((acc, d) => acc + (d.countedForPoints ? 1 : 0), 0);
+    const sumPuntos = docs.reduce((acc, d) => acc + (Number(d.puntosContados || 0) || 0), 0);
+    const missingPuntaje = docs.reduce((acc, d) => acc + ((Number(d.puntajeNum || 0) === 0) ? 1 : 0), 0);
+
+    return res.json({
+      success: true,
+      month,
+      name,
+      totals: {
+        ventas: totalVentas,
+        completed: totalCompleted,
+        puntos: sumPuntos,
+        docs: docs.length,
+        puntajeCero: missingPuntaje
+      },
+      sample: docs.slice(0, 100)
+    });
+  } catch (e) {
+    console.error('[RANKING DEBUG ACTIVATION AGENT] Error:', e);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+/**
  * @route GET /api/ranking/debug-att-agent
  * @desc Debug: listar ventas AT&T (por tipo_servicio) para un agente en un mes
  * @access Private
@@ -1511,7 +1789,7 @@ router.get('/tabs', protect, async (req, res) => {
       hardLimit
     });
 
-    // AT&T: ambos (ventas+puntos) con desempate por puntos -> ventas desc, puntos desc
+    // AT&T + Frontier: contar todas las ventas no canceladas (sin requerir COMPLETED)
     const attPipeline = buildRankingPipeline({
       startOfMonth,
       startOfNextMonth,
