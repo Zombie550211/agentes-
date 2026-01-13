@@ -1131,6 +1131,290 @@ router.get('/leads', protect, async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/leads/kpis
+ * @desc KPIs de leads (totales del mes sin paginación)
+ * @access Private
+ */
+router.get('/leads/kpis', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+
+    const { month, status, noAutoMonth, agentName, agents, vendedor } = req.query;
+    let query = {};
+    const andConditions = [];
+
+    const roleLowerMarket = String(req.user?.role || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const mercadoRestrict = (() => {
+      if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
+      if (roleLowerMarket === 'rol_bamo' || roleLowerMarket === 'bamo' || roleLowerMarket.includes('rol bamo')) return 'BAMO';
+      return '';
+    })();
+
+    const mercadoCondition = (m) => ({
+      $or: [
+        { mercado: String(m).toUpperCase() },
+        { mercado: String(m).toLowerCase() },
+        { mercado: String(m) },
+        { 'mercado': { $regex: `^${String(m)}$`, $options: 'i' } },
+        { '_raw.mercado': { $regex: `^${String(m)}$`, $options: 'i' } }
+      ]
+    });
+
+    if (mercadoRestrict) andConditions.push(mercadoCondition(mercadoRestrict));
+
+    if (status && String(status).toLowerCase() !== 'todos') {
+      andConditions.push({ status: status });
+    }
+
+    const roleLower0 = String(req.user?.role || '').toLowerCase();
+    const isSupervisor0 = roleLower0 === 'supervisor' || roleLower0.includes('supervisor');
+    const normalizeList = (v) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
+      return String(v).split(',').map(s => s.trim()).filter(Boolean);
+    };
+    const agentListRaw = normalizeList(agents);
+
+    const toComparable = (s) => String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0000-\u036f]/g, '')
+      .replace(/\s+/g, '');
+
+    const rawVendor = String(vendedor || '').trim();
+    let singleAgent = String(agentName || rawVendor || '').trim();
+    if (isSupervisor0 && rawVendor) {
+      const u1 = toComparable(req.user?.username || '');
+      const u2 = toComparable(req.user?.name || req.user?.nombre || '');
+      const v = toComparable(rawVendor);
+      if (v && (v === u1 || v === u2)) singleAgent = '';
+    }
+
+    const agentList = (isSupervisor0 && !String(agentName || '').trim()) ? [] : agentListRaw;
+    const escaped = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const makeExactAnyRegex = (names) => {
+      const uniq = Array.from(new Set((names || []).map(s => String(s).trim()).filter(Boolean)));
+      if (!uniq.length) return null;
+      return new RegExp(`^(${uniq.map(escaped).join('|')})$`, 'i');
+    };
+    const agentRegex = singleAgent ? makeExactAnyRegex([singleAgent]) : (agentList.length ? makeExactAnyRegex(agentList) : null);
+    if (isSupervisor0 && agentRegex) {
+      andConditions.push({
+        $or: [
+          { agenteNombre: { $regex: agentRegex } },
+          { agente: { $regex: agentRegex } },
+          { createdBy: { $regex: agentRegex } },
+          { creadoPor: { $regex: agentRegex } }
+        ]
+      });
+    }
+
+    const disableAutoMonth = String(noAutoMonth || '').toLowerCase() === '1' || String(noAutoMonth || '').toLowerCase() === 'true';
+
+    if (!disableAutoMonth) {
+      let targetYear;
+      let targetMonth;
+
+      if (month) {
+        if (/^\d{4}-\d{2}$/.test(String(month))) {
+          const [year, monthNum] = String(month).split('-').map(Number);
+          targetYear = year;
+          targetMonth = monthNum;
+        } else if (/^\d{1,2}$/.test(String(month)) && req.query.year && /^\d{4}$/.test(String(req.query.year))) {
+          targetYear = Number(req.query.year);
+          targetMonth = Number(month);
+        }
+      }
+
+      if (!Number.isInteger(targetYear) || !Number.isInteger(targetMonth) || targetMonth < 1 || targetMonth > 12) {
+        const now = new Date();
+        targetYear = now.getFullYear();
+        targetMonth = now.getMonth() + 1;
+      }
+
+      const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+      const monthStr = String(targetMonth).padStart(2, '0');
+      const monthNoPad = String(targetMonth);
+      const dayVals = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        dayVals.push(String(d));
+        dayVals.push(String(d).padStart(2, '0'));
+      }
+      const uniqDayVals = Array.from(new Set(dayVals)).sort((a, b) => a.length - b.length || a.localeCompare(b));
+      const dayAlt = uniqDayVals.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const mAlt = [monthStr, monthNoPad].map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const yEsc = String(targetYear).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      const reYMD = new RegExp(`^${yEsc}-(?:${mAlt})-(?:${dayAlt})(?:\\b|T|\\s|$)`, 'i');
+      const reYMDSlash = new RegExp(`^${yEsc}\\/(?:${mAlt})\\/(?:${dayAlt})(?:\\b|T|\\s|$)`, 'i');
+      const reDMYSlash = new RegExp(`^(?:${dayAlt})\\/(?:${mAlt})\\/${yEsc}(?:\\b|\\s|$)`, 'i');
+      const reDMYDash = new RegExp(`^(?:${dayAlt})-(?:${mAlt})-${yEsc}(?:\\b|\\s|$)`, 'i');
+      const reMDYSlash = new RegExp(`^(?:${mAlt})\\/(?:${dayAlt})\\/${yEsc}(?:\\b|\\s|$)`, 'i');
+
+      const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(targetYear, targetMonth - 1, daysInMonth, 23, 59, 59, 999);
+
+      const dateOrConditions = [
+        { dia_venta: { $regex: reYMD.source, $options: 'i' } },
+        { dia_venta: { $regex: reYMDSlash.source, $options: 'i' } },
+        { dia_venta: { $regex: reDMYSlash.source, $options: 'i' } },
+        { dia_venta: { $regex: reDMYDash.source, $options: 'i' } },
+        { dia_venta: { $regex: reMDYSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reYMD.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reYMDSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reDMYSlash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reDMYDash.source, $options: 'i' } },
+        { fecha_contratacion: { $regex: reMDYSlash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.dia_venta': { $regex: reMDYSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reYMD.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reYMDSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reDMYSlash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reDMYDash.source, $options: 'i' } },
+        { '_raw.fecha_contratacion': { $regex: reMDYSlash.source, $options: 'i' } },
+        { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+        { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+        { createdAt: { $gte: monthStart, $lte: monthEnd } },
+        { creadoEn: { $gte: monthStart, $lte: monthEnd } },
+        { actualizadoEn: { $gte: monthStart, $lte: monthEnd } }
+      ];
+
+      andConditions.push({ $or: dateOrConditions });
+    }
+
+    if (andConditions.length > 0) query = { $and: andConditions };
+
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+
+    const collectionsList = await db.listCollections().toArray();
+    const allNames = collectionsList.map(c => c.name);
+    const unifiedAvailable = preferUnified && allNames.includes(unifiedCollectionName);
+
+    const collectionNamesList = unifiedAvailable
+      ? [unifiedCollectionName]
+      : allNames.filter(n => /^costumers(_|$)/i.test(n));
+
+    let total = 0;
+    let canceladas = 0;
+    let activas = 0;
+    let activasEfectivas = 0;
+    let pendientes = 0;
+
+    for (const colName of (collectionNamesList || [])) {
+      try {
+        const col = db.collection(colName);
+        const reCancel = /cancel|anulad|no instalado/;
+        const rePending = /pendient|pending/;
+        const reActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/;
+        const agg = await col.aggregate([
+          { $match: query },
+          {
+            $project: {
+              _status: {
+                $toLower: {
+                  $trim: {
+                    input: {
+                      $toString: {
+                        $ifNull: [
+                          '$status',
+                          { $ifNull: ['$_raw.status', ''] }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              canceladas: {
+                $sum: {
+                  $cond: [
+                    { $regexMatch: { input: '$_status', regex: reCancel } },
+                    1,
+                    0
+                  ]
+                }
+              },
+              pendientes: {
+                $sum: {
+                  $cond: [
+                    { $regexMatch: { input: '$_status', regex: rePending } },
+                    1,
+                    0
+                  ]
+                }
+              },
+              activas: {
+                $sum: {
+                  $cond: [
+                    { $regexMatch: { input: '$_status', regex: reActive } },
+                    1,
+                    0
+                  ]
+                }
+              },
+              activasEfectivas: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $regexMatch: { input: '$_status', regex: reActive } },
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] }
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        ]).toArray();
+
+        const row = agg && agg[0] ? agg[0] : null;
+        total += Number(row?.total || 0);
+        canceladas += Number(row?.canceladas || 0);
+        pendientes += Number(row?.pendientes || 0);
+        activas += Number(row?.activas || 0);
+        activasEfectivas += Number(row?.activasEfectivas || 0);
+      } catch (e) {
+        console.warn('[API /leads/kpis] Error en colección', colName, e?.message || e);
+      }
+    }
+
+    return res.json({
+      success: true,
+      kpis: {
+        totalMes: total,
+        canceladas,
+        pendientes,
+        activas,
+        activasEfectivas,
+        ventasEfectivasMes: Math.max(0, total - canceladas)
+      }
+    });
+  } catch (e) {
+    console.error('[API] Error en GET /api/leads/kpis:', e);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
 
 
 // Endpoint de diagnóstico para ver formatos de fecha
@@ -2671,7 +2955,15 @@ router.get('/users/admin-list', protect, async (req, res) => {
       email: u.email || null,
       role: u.role || null,
       team: u.team || null,
-      supervisor: u.supervisor || null
+      equipo: u.equipo || null,
+      TEAM: u.TEAM || null,
+      Team: u.Team || null,
+      supervisor: u.supervisor || null,
+      supervisorName: u.supervisorName || u.supervisor_nombre || u.supervisorNombre || null,
+      supervisorId: (u.supervisorId && u.supervisorId.toString) ? u.supervisorId.toString() : (u.supervisorId || null),
+      supervisor_id: (u.supervisor_id && u.supervisor_id.toString) ? u.supervisor_id.toString() : (u.supervisor_id || null),
+      supervisorObjId: (u.supervisorObjId && u.supervisorObjId.toString) ? u.supervisorObjId.toString() : (u.supervisorObjId || null),
+      supervisorObjectId: (u.supervisorObjectId && u.supervisorObjectId.toString) ? u.supervisorObjectId.toString() : (u.supervisorObjectId || null)
     }));
 
     return res.json({ success: true, users: sanitized, agents: sanitized });

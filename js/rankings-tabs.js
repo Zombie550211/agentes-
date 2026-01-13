@@ -349,30 +349,37 @@
         { key: 'puntos', value: r => formatScore(r.puntos), className: 'num' }
       ]);
 
-      // AT&T: desde BD, filtrado por tipo_servicio y orden ventas desc + puntos desc
+      // AT&T + Frontier: desde BD, filtrado por tipo_servicio y orden ventas desc + puntos desc
       const rankAtt = (tabs.att || []).map((r, idx) => ({
         pos: idx + 1,
         agent: r.nombre || r.agent || r.name || 'Sin asignar',
-        ventas: Number(r.ventas || 0) || 0,
+        ventasAtt: Number(r.ventasAtt || 0) || 0,
+        ventasFrontier: Number(r.ventasFrontier || 0) || 0,
+        ventasTotal: (Number(r.ventasAtt || 0) || 0) + (Number(r.ventasFrontier || 0) || 0),
         puntos: Number(r.puntos ?? r.sumPuntaje ?? 0) || 0
       }));
 
-      setMeta('meta-att', `Mes ${tabs.month} — AT&T por tipo_servicio | orden: ventas, desempate puntos`);
+      setMeta('meta-att', `Mes ${tabs.month} — AT&T + Frontier por tipo_servicio | orden: ventas, desempate puntos`);
       const topAttByPoints = rankAtt.reduce((best, cur) => {
         if (!best) return cur;
         if ((cur.puntos || 0) !== (best.puntos || 0)) return (cur.puntos || 0) > (best.puntos || 0) ? cur : best;
-        if ((cur.ventas || 0) !== (best.ventas || 0)) return (cur.ventas || 0) > (best.ventas || 0) ? cur : best;
+        const curVentas = (cur.ventasAtt || 0) + (cur.ventasFrontier || 0);
+        const bestVentas = (best.ventasAtt || 0) + (best.ventasFrontier || 0);
+        if (curVentas !== bestVentas) return curVentas > bestVentas ? cur : best;
         return best;
       }, null);
       setKpis('kpi-att', [
-        { label: 'Agentes con AT&T', value: formatNumber(rankAtt.length) },
+        { label: 'Agentes con AT&T + Frontier', value: formatNumber(rankAtt.length) },
+        { label: 'Total de ventas', value: formatNumber(rankAtt.reduce((sum, r) => sum + (r.ventasTotal || 0), 0)) },
         { label: 'Top 1 (Puntos)', value: topAttByPoints ? `${topAttByPoints.agent}` : '—' },
         { label: 'Puntaje Top 1', value: topAttByPoints ? formatScore(topAttByPoints.puntos) : '0' }
       ]);
       fillTable('table-att', 'empty-att', rankAtt.slice(0, 50), [
         { key: 'pos', value: r => String(r.pos) },
         { key: 'agent', value: r => r.agent },
-        { key: 'ventas', value: r => formatNumber(r.ventas), className: 'num' },
+        { key: 'ventasAtt', value: r => formatNumber(r.ventasAtt), className: 'num' },
+        { key: 'ventasFrontier', value: r => formatNumber(r.ventasFrontier), className: 'num' },
+        { key: 'ventasTotal', value: r => formatNumber(r.ventasTotal), className: 'num' },
         { key: 'puntos', value: r => formatScore(r.puntos), className: 'num' }
       ]);
 

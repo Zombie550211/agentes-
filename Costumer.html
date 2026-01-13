@@ -1,3 +1,4 @@
+
  
 <!DOCTYPE html>
 <html lang="es">
@@ -5304,6 +5305,52 @@
         
         // Logs de diagn¨®stico de asignaci¨®n (por TEAM y agente)
         try { if (typeof logDiagnosticoAsignacion === 'function') logDiagnosticoAsignacion(normalizedLeads); } catch(_) {}
+
+        try {
+          if (!isTeamLineasUser) {
+            let kpiUrl = '/api/leads/kpis';
+            const kpiParams = [];
+            if (__selectedMonth) {
+              kpiParams.push(`month=${encodeURIComponent(__selectedMonth)}`);
+            }
+
+            // Para supervisor: mandar los mismos filtros que /api/leads para que el KPI sea consistente
+            try {
+              if (isSupervisorUser) {
+                const agentDropdown = document.getElementById('agentFilter');
+                const selectedAgent = agentDropdown ? String(agentDropdown.value || '').trim() : '';
+                if (selectedAgent) {
+                  kpiParams.push(`agentName=${encodeURIComponent(selectedAgent)}`);
+                } else {
+                  try {
+                    const supName = (userData.username || userData.name || userData.nombre || '').toString().trim();
+                    const teamsApi = window && window.Teams;
+                    const agents = (teamsApi && typeof teamsApi.getAgentsBySupervisor === 'function') ? (teamsApi.getAgentsBySupervisor(supName) || []) : [];
+                    if (Array.isArray(agents) && agents.length) {
+                      kpiParams.push(`agents=${encodeURIComponent(agents.join(','))}`);
+                    }
+                  } catch (_) {}
+                }
+              }
+            } catch (_) {}
+
+            if (kpiParams.length) {
+              kpiUrl += `?${kpiParams.join('&')}`;
+            }
+            const kpiRes = await fetch(kpiUrl, fetchOptions);
+            if (kpiRes && kpiRes.ok) {
+              const kpiJson = await kpiRes.json();
+              window.__kpisTotals = (kpiJson && (kpiJson.kpis || kpiJson.data)) ? (kpiJson.kpis || kpiJson.data) : null;
+            } else {
+              window.__kpisTotals = null;
+            }
+          } else {
+            window.__kpisTotals = null;
+          }
+        } catch (_) {
+          window.__kpisTotals = null;
+        }
+
         updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
 
         return normalizedLeads;
@@ -7452,6 +7499,17 @@
         : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
       const [yTarget, mTarget] = targetMonthStr.split('-').map(Number);
 
+      // Preferir KPIs globales (backend) cuando estén disponibles, porque leads llega paginado.
+      try {
+        if (window.__kpisTotals && typeof window.__kpisTotals === 'object') {
+          const kt = window.__kpisTotals;
+          if (typeof kt.ventasEfectivasMes === 'number') ventasMes = kt.ventasEfectivasMes;
+          if (typeof kt.activasEfectivas === 'number') ventasActivas = kt.activasEfectivas;
+          if (typeof kt.canceladas === 'number') cancelados = kt.canceladas;
+          if (typeof kt.pendientes === 'number') pendientes = kt.pendientes;
+        }
+      } catch (_) { /* ignore */ }
+
       // Diagnóstico: conteo por status y fechas inválidas
       const __kpiStatusCounts = {};
       let __kpiMissingDate = 0;
@@ -7483,7 +7541,8 @@
               status.includes('no instalado')
             );
             const isPending = /pendient/.test(status) || /pending/.test(status);
-            const isActive = status.includes('active') || status.includes('activo');
+            const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/.test(status);
+
 
             // Usar la misma extracción de fecha que el gráfico
             const leadISO = getDateFromLead(lead); // YYYY-MM-DD en TZ de negocio
@@ -7502,21 +7561,28 @@
 
             __kpiStatusCounts[status || '(vacio)'] = (__kpiStatusCounts[status || '(vacio)'] || 0) + 1;
 
-            // Contar pendientes
-            if (isPending) {
-              pendientes++;
-            }
+            // Contar pendientes/cancelados: si hay KPIs globales del backend,
+            // NO recalcular aquí para no depender de paginación.
+            if (!(window.__kpisTotals && typeof window.__kpisTotals === 'object')) {
+              // Contar pendientes
+              if (isPending) {
+                pendientes++;
+              }
 
-            // Contar cancelados (soportar variantes y subcadenas)
-            if (isCancel) {
-              cancelados++;
+              // Contar cancelados
+              if (isCancel) {
+                cancelados++;
+              }
             }
 
             // Ventas hoy (solo efectivas: excluir canceladas)
             if (leadISO && leadISO === todayISO && !isCancel) ventasHoy++;
-            // Ventas del mes (TOTAL registros del mes seleccionado)
-            ventasMes++;
-            if (isActive && !isCancel) ventasActivas++;
+
+            // Ventas del mes / Ventas activas (fallback local)
+            if (!(window.__kpisTotals && typeof window.__kpisTotals === 'object')) {
+              if (!isCancel) ventasMes++;
+              if (isActive && !isCancel) ventasActivas++;
+            }
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
           }
