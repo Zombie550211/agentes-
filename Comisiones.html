@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comisiones - CRM</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/sidebar-shared.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="js/sidebar-loader.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body { height: 100%; overflow-x: hidden; }
+        .layout { min-height: 100vh; display: flex; }
+        .main-content { flex: 1; margin-left: 260px; width: calc(100% - 260px); }
+        @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; } }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down { animation: slideDown 0.4s ease-out; }
+
+        .kanban-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 auto-hide-sidebar">
+    <div class="layout">
+        <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
+        <main class="main-content">
+
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200">
+                <div class="w-full px-6 py-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center">
+                                    <svg class="text-white" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="14" width="7" height="7"></rect>
+                                        <rect x="3" y="14" width="7" height="7"></rect>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h1 class="text-2xl font-bold text-gray-900">Comisiones</h1>
+                                    <p class="text-sm text-gray-500">Panel de gestión</p>
+                                </div>
+                            </div>
+
+                            <nav class="hidden md:flex items-center gap-1 ml-8">
+                                <a href="#" class="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg">Dashboard</a>
+                                <a href="#" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Agentes</a>
+                                <a href="#" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Reportes</a>
+                                <a href="#" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Analytics</a>
+                            </nav>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                            </button>
+                            <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                            </button>
+                            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 shadow-sm transition-all">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Agregar Agente
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="w-full px-6 py-8">
+
+                <!-- Stats Overview -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-6">Resumen General</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-blue-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">PUNTAJE TOTAL</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalRevenue">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 12%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-emerald-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                        <polyline points="17 6 23 6 23 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">COMISIONES</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalCommissions">$0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 8%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-purple-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="8" r="7"></circle>
+                                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">SCORE PROMEDIO</p>
+                                    <p class="text-2xl font-bold text-gray-900"><span id="avgScore">0</span>/100</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 5%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-orange-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="8.5" cy="7" r="4"></circle>
+                                        <line x1="20" y1="8" x2="20" y2="14"></line>
+                                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">VENTAS TOTALES</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalSales">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 15%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban Style Columns -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Top Performers -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                        <div class="border-b border-gray-200 px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                    Top Performers
+                                </h3>
+                                <span class="text-xs font-medium text-gray-500" id="topCount">0</span>
+                            </div>
+                        </div>
+                        <div id="topPerformers" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Good Performance -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                        <div class="border-b border-gray-200 px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    Buen Rendimiento
+                                </h3>
+                                <span class="text-xs font-medium text-gray-500" id="goodCount">0</span>
+                            </div>
+                        </div>
+                        <div id="goodPerformers" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Needs Improvement -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                        <div class="border-b border-gray-200 px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                                    En Desarrollo
+                                </h3>
+                                <span class="text-xs font-medium text-gray-500" id="needsCount">0</span>
+                            </div>
+                        </div>
+                        <div id="needsImprovement" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div id="modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 animate-slide-down">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900">Nuevo Agente</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+                            <input type="text" id="agentName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="María González">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ventas</label>
+                                <input type="number" id="agentSales" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="45">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Score (0-100)</label>
+                                <input type="number" id="agentScore" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="Auto" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Puntaje</label>
+                            <input type="number" id="agentPoints" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Comisión ($) <span class="text-gray-400">- Opcional</span></label>
+                            <input type="number" id="agentCommission" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="Auto 5%">
+                        </div>
+
+                        <button onclick="addAgent()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-lg font-semibold shadow-sm transition-all mt-2">
+                            Agregar Agente
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                const demoAgents = [
+                    { id: 1, name: 'María González', sales: 45, points: 120, commission: 6250, score: 92, trend: 'up', change: 8 },
+                    { id: 2, name: 'Carlos Romero', sales: 38, points: 98, commission: 4900, score: 85, trend: 'up', change: 3 },
+                    { id: 3, name: 'Ana Martínez', sales: 52, points: 142, commission: 7100, score: 98, trend: 'up', change: 12 },
+                    { id: 4, name: 'Juan Pérez', sales: 31, points: 76, commission: 3800, score: 78, trend: 'up', change: 5 },
+                    { id: 5, name: 'Luis Fernández', sales: 42, points: 115, commission: 5750, score: 72, trend: 'down', change: 3 }
+                ];
+                let agents = demoAgents.slice();
+
+                function resolveAgentName(u) {
+                    return (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? String(u.name || u.nombre || u.fullName || u.username || u.email).trim() : '—';
+                }
+
+                async function loadAgentsFromDB() {
+                    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+                    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                    try {
+                        const res = await fetch('/api/comisiones/agents', {
+                            method: 'GET',
+                            credentials: 'include',
+                            headers
+                        });
+
+                        if (!res.ok) {
+                            return false;
+                        }
+
+                        const payload = await res.json();
+                        const list = Array.isArray(payload?.data) ? payload.data : [];
+                        if (!list.length) return false;
+
+                        const maxPoints = Math.max(0, ...list.map(it => Number(it?.puntos || 0) || 0));
+                        const mapped = list.map((it, idx) => {
+                            const name = String(it?.nombre || '—').trim();
+                            const sales = Number(it?.ventas || 0) || 0;
+                            const points = Number(it?.puntos || 0) || 0;
+                            const base = demoAgents[idx % demoAgents.length];
+                            const score = maxPoints > 0 ? Math.max(0, Math.min(100, Math.round((points / maxPoints) * 100))) : (base.score || 0);
+                            return {
+                                id: String(name || idx),
+                                name,
+                                sales,
+                                points,
+                                commission: base.commission,
+                                score,
+                                trend: base.trend,
+                                change: base.change
+                            };
+                        });
+
+                        agents = mapped;
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                function getInitials(name) {
+                    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+                }
+
+                function getScoreColor(score) {
+                    if (score >= 90) return 'bg-emerald-500';
+                    if (score >= 75) return 'bg-blue-500';
+                    if (score >= 60) return 'bg-amber-500';
+                    return 'bg-rose-500';
+                }
+
+                function getAvatarColor(score) {
+                    if (score >= 90) return 'bg-emerald-100 text-emerald-700';
+                    if (score >= 75) return 'bg-blue-100 text-blue-700';
+                    if (score >= 60) return 'bg-amber-100 text-amber-700';
+                    return 'bg-rose-100 text-rose-700';
+                }
+
+                function updateStats() {
+                    const totalRevenue = agents.reduce((sum, a) => sum + (Number(a.points || 0) || 0), 0);
+                    const totalCommissions = agents.reduce((sum, a) => sum + a.commission, 0);
+                    const totalSales = agents.reduce((sum, a) => sum + a.sales, 0);
+                    const avgScore = Math.round(agents.reduce((sum, a) => sum + a.score, 0) / agents.length);
+
+                    document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString();
+                    document.getElementById('totalCommissions').textContent = '$' + totalCommissions.toLocaleString();
+                    document.getElementById('totalSales').textContent = totalSales;
+                    document.getElementById('avgScore').textContent = avgScore;
+                }
+
+                function renderAgents() {
+                    const topPerformers = agents.filter(a => a.score >= 90);
+                    const goodPerformers = agents.filter(a => a.score >= 75 && a.score < 90);
+                    const needsImprovement = agents.filter(a => a.score < 75);
+
+                    document.getElementById('topCount').textContent = topPerformers.length;
+                    document.getElementById('goodCount').textContent = goodPerformers.length;
+                    document.getElementById('needsCount').textContent = needsImprovement.length;
+
+                    renderColumn('topPerformers', topPerformers);
+                    renderColumn('goodPerformers', goodPerformers);
+                    renderColumn('needsImprovement', needsImprovement);
+                }
+
+                function renderColumn(containerId, agentsList) {
+                    const container = document.getElementById(containerId);
+                    container.innerHTML = agentsList.map(agent => `
+                        <div class="kanban-card bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-sm">
+                                        ${getInitials(agent.name)}
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-900 text-sm">${agent.name}</h4>
+                                        <p class="text-xs text-gray-500">${agent.sales} ventas</p>
+                                    </div>
+                                </div>
+                                <button onclick="deleteAgent(${agent.id})" class="text-gray-400 hover:text-rose-600 transition-colors">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="space-y-2 mb-3">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Puntaje</span>
+                                    <span class="font-semibold text-gray-900">${Number(agent.points || 0)}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Comisión</span>
+                                    <span class="font-semibold text-emerald-600">$${(agent.commission/1000).toFixed(1)}K</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <div class="flex items-center justify-between text-xs mb-1">
+                                    <span class="text-gray-500">Score</span>
+                                    <span class="font-semibold text-gray-900">${agent.score}/100</span>
+                                </div>
+                                <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="${getScoreColor(agent.score)} h-full rounded-full transition-all" style="width: ${agent.score}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                                <span class="text-xs ${agent.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'} font-semibold">
+                                    ${agent.trend === 'up' ? '↑' : '↓'} ${agent.change}%
+                                </span>
+                                <span class="text-xs text-gray-400">vs anterior</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                function openModal() {
+                    document.getElementById('modal').classList.remove('hidden');
+                }
+
+                function closeModal() {
+                    document.getElementById('modal').classList.add('hidden');
+                    document.getElementById('agentName').value = '';
+                    document.getElementById('agentSales').value = '';
+                    document.getElementById('agentPoints').value = '';
+                    document.getElementById('agentCommission').value = '';
+                    document.getElementById('agentScore').value = '';
+                }
+
+                function addAgent() {
+                    const name = document.getElementById('agentName').value;
+                    const sales = parseInt(document.getElementById('agentSales').value);
+                    const points = parseFloat(document.getElementById('agentPoints').value);
+                    const commission = parseFloat(document.getElementById('agentCommission').value) || 0;
+                    const score = parseInt(document.getElementById('agentScore').value) || Math.min(100, Math.round(sales * 2));
+
+                    if (name && sales) {
+                        agents.push({
+                            id: Date.now(),
+                            name, sales, points: Number(points || 0) || 0, commission, score,
+                            trend: 'up',
+                            change: Math.floor(Math.random() * 15) + 1
+                        });
+
+                        updateStats();
+                        renderAgents();
+                        closeModal();
+                    }
+                }
+
+                function deleteAgent(id) {
+                    agents = agents.filter(a => a.id !== id);
+                    updateStats();
+                    renderAgents();
+                }
+
+                (async function init() {
+                    try { if (typeof window.loadSidebar === 'function') window.loadSidebar(); } catch (_) {}
+                    try { await loadAgentsFromDB(); } catch (_) {}
+                    updateStats();
+                    renderAgents();
+                })();
+            </script>
+
+        </main>
+    </div>
+</body>
+</html>

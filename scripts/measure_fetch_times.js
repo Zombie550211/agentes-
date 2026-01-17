@@ -19,16 +19,17 @@
 
     window.fetch = async function(input, init){
       const url = (typeof input === 'string') ? input : (input && input.url) || '';
+      const method = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
       const start = (performance && performance.now) ? performance.now() : Date.now();
       try{
         const res = await origFetch(input, init);
         const end = (performance && performance.now) ? performance.now() : Date.now();
-        const entry = { url: String(url||''), status: res && res.status, durationMs: Math.round((end-start)*100)/100, time: (new Date()).toISOString() };
+        const entry = { url: String(url||''), method, status: res && res.status, durationMs: Math.round((end-start)*100)/100, time: (new Date()).toISOString() };
         record(entry);
         return res;
       }catch(err){
         const end = (performance && performance.now) ? performance.now() : Date.now();
-        const entry = { url: String(url||''), error: String(err||''), durationMs: Math.round((end-start)*100)/100, time: (new Date()).toISOString() };
+        const entry = { url: String(url||''), method, error: String(err||''), durationMs: Math.round((end-start)*100)/100, time: (new Date()).toISOString() };
         record(entry);
         throw err;
       }

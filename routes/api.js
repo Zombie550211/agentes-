@@ -9,6 +9,178 @@ const bcrypt = require('bcryptjs');
 // Funciones auxiliares
 // ============================
 
+let __costumersCollectionsCache = { ts: 0, names: null };
+let __teamLineasCollectionsCache = { ts: 0, names: null };
+
+async function __getCostumersCollectionsCached(db) {
+  const now = Date.now();
+  if (__costumersCollectionsCache.names && (now - (__costumersCollectionsCache.ts || 0)) < 60_000) {
+    return __costumersCollectionsCache.names;
+  }
+
+  const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+  const names = (collections || []).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+  __costumersCollectionsCache = { ts: now, names };
+  return names;
+}
+
+async function __getTeamLineasCollectionsCached(dbTL) {
+  const now = Date.now();
+  if (__teamLineasCollectionsCache.names && (now - (__teamLineasCollectionsCache.ts || 0)) < 60_000) {
+    return __teamLineasCollectionsCache.names;
+  }
+  const collections = await dbTL.listCollections({}, { nameOnly: true }).toArray();
+  const names = (collections || []).map(c => c.name);
+  __teamLineasCollectionsCache = { ts: now, names };
+  return names;
+}
+
+async function __collectionExists(db, name) {
+  try {
+    const u = await db.listCollections({ name }, { nameOnly: true }).toArray();
+    return Array.isArray(u) && u.length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function __findLeadInCollection(collection, recordId, objId) {
+  // 1) Búsqueda rápida por _id (indexado) para evitar scans
+  if (objId) {
+    const byObj = await collection.findOne({ _id: objId }, { maxTimeMS: 2_000 });
+    if (byObj) return byObj;
+  }
+  const byStr = await collection.findOne({ _id: recordId }, { maxTimeMS: 2_000 });
+  if (byStr) return byStr;
+
+  // 2) Fallback por otros campos (puede ser más lento si no hay índices)
+  const altKeys = ['id_cliente','idCliente','clienteId','cliente_id','clientId','client_id'];
+  const or = [
+    { id: recordId },
+    { leadId: recordId },
+    { sourceId: recordId }
+  ];
+  for (const k of altKeys) {
+    or.push({ [k]: recordId });
+    if (objId) or.push({ [k]: objId });
+  }
+  return await collection.findOne({ $or: or }, { maxTimeMS: 6_000 });
+}
+
+async function __findLeadByIdOnly(collection, recordId, objId) {
+  try {
+    if (objId) {
+      const byObj = await collection.findOne({ _id: objId }, { maxTimeMS: 1_500 });
+      if (byObj) return byObj;
+    }
+    return await collection.findOne({ _id: recordId }, { maxTimeMS: 1_500 });
+  } catch (_) {
+    return null;
+  }
+}
+
+function __buildLeadIdFilters(recordId, objId) {
+  const altKeys = ['id_cliente','idCliente','clienteId','cliente_id','clientId','client_id'];
+  const filters = [];
+  if (objId) filters.push({ _id: objId });
+  filters.push({ _id: recordId });
+
+  const extra = ['id', 'ID', 'leadId', 'sourceId'];
+  for (const k of extra) {
+    filters.push({ [k]: recordId });
+    if (objId) filters.push({ [k]: objId });
+  }
+  for (const k of altKeys) {
+    filters.push({ [k]: recordId });
+    if (objId) filters.push({ [k]: objId });
+  }
+  return filters;
+}
+
+function __buildLeadOrQuery(recordId, objId) {
+  const filters = __buildLeadIdFilters(recordId, objId);
+  return { $or: filters };
+}
+
+async function __tryUpdateByFilters(collection, filters, updateData, maxTimeMS) {
+  for (const f of filters) {
+    try {
+      const r = await collection.updateOne(f, { $set: updateData }, { maxTimeMS });
+      if (r && r.matchedCount && r.matchedCount > 0) return r;
+    } catch (_) {
+      // continue
+    }
+  }
+  return null;
+}
+
+async function __findLeadInTeamLineasDb(req, recordId, objId) {
+  const dbTL = getDbFor('TEAM_LINEAS');
+  if (!dbTL) return null;
+
+  const role = String(req.user?.role || '').toLowerCase();
+  const team = String(req.user?.team || '').toLowerCase();
+  const username = String(req.user?.username || req.user?.name || '').trim();
+
+  const canSearchAll = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('supervisor');
+  const canUseTeamLineas = team.includes('lineas') || role.includes('lineas') || canSearchAll;
+  if (!canUseTeamLineas) return null;
+
+  const preferred = username ? username.toUpperCase().replace(/\s+/g, '_') : '';
+  if (preferred) {
+    try {
+      const col = dbTL.collection(preferred);
+      const lead = await __findLeadInCollection(col, recordId, objId);
+      if (lead) return { lead, collectionName: preferred };
+    } catch (_) {}
+  }
+
+  if (canSearchAll) {
+    let collections = [];
+    try {
+      collections = await __getTeamLineasCollectionsCached(dbTL);
+    } catch (_) {
+      collections = [];
+    }
+
+    const start = Date.now();
+    for (const colName of collections) {
+      if (preferred && colName === preferred) continue;
+      if ((Date.now() - start) > 7_000) break;
+      try {
+        const col = dbTL.collection(colName);
+        const lead = await __findLeadByIdOnly(col, recordId, objId);
+        if (lead) return { lead, collectionName: colName };
+      } catch (_) {
+        // continue
+      }
+    }
+
+    // Segundo intento: buscar por otros campos con un presupuesto corto
+    for (const colName of collections) {
+      if (preferred && colName === preferred) continue;
+      if ((Date.now() - start) > 9_000) break;
+      try {
+        const col = dbTL.collection(colName);
+        const filters = __buildLeadIdFilters(recordId, objId);
+        let lead = null;
+        for (const f of filters.slice(0, 10)) {
+          try {
+            lead = await col.findOne(f, { maxTimeMS: 400 });
+          } catch (_) {
+            lead = null;
+          }
+          if (lead) break;
+        }
+        if (lead) return { lead, collectionName: colName };
+      } catch (_) {
+        // continue
+      }
+    }
+  }
+  return null;
+}
+
 function __isTeamLineas(req) {
   try {
     const t = String(req.user?.team||'').toLowerCase();
@@ -78,9 +250,66 @@ router.get('/leads', protect, async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate, noAutoMonth, agentName, agents, vendedor } = req.query;
+    const { fechaInicio, fechaFin, status, month, allData, noFilter, skipDate, noAutoMonth, agentName, agents, vendedor, telefono, telefono_principal, nombre_cliente, direccion } = req.query;
     let query = {};
     const andConditions = [];
+
+    // ===== Filtros directos por campos (usados para evitar duplicados / búsquedas puntuales) =====
+    // Nota: se aplican como $or incluyendo variantes dentro de _raw.*
+    const makeLooseTextRegex = (v) => {
+      const s = String(v || '').trim();
+      if (!s) return null;
+      // Escapar regex
+      const esc = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(esc, 'i');
+    };
+
+    try {
+      const telVal = String(telefono_principal || telefono || '').trim();
+      const telRx = makeLooseTextRegex(telVal);
+      if (telRx) {
+        andConditions.push({
+          $or: [
+            { telefono_principal: { $regex: telRx.source, $options: 'i' } },
+            { telefono: { $regex: telRx.source, $options: 'i' } },
+            { phone: { $regex: telRx.source, $options: 'i' } },
+            { '_raw.telefono_principal': { $regex: telRx.source, $options: 'i' } },
+            { '_raw.telefono': { $regex: telRx.source, $options: 'i' } },
+            { '_raw.phone': { $regex: telRx.source, $options: 'i' } }
+          ]
+        });
+      }
+    } catch (_) {}
+
+    try {
+      const nameRx = makeLooseTextRegex(nombre_cliente);
+      if (nameRx) {
+        andConditions.push({
+          $or: [
+            { nombre_cliente: { $regex: nameRx.source, $options: 'i' } },
+            { nombre: { $regex: nameRx.source, $options: 'i' } },
+            { name: { $regex: nameRx.source, $options: 'i' } },
+            { '_raw.nombre_cliente': { $regex: nameRx.source, $options: 'i' } },
+            { '_raw.nombre': { $regex: nameRx.source, $options: 'i' } },
+            { '_raw.name': { $regex: nameRx.source, $options: 'i' } }
+          ]
+        });
+      }
+    } catch (_) {}
+
+    try {
+      const addrRx = makeLooseTextRegex(direccion);
+      if (addrRx) {
+        andConditions.push({
+          $or: [
+            { direccion: { $regex: addrRx.source, $options: 'i' } },
+            { address: { $regex: addrRx.source, $options: 'i' } },
+            { '_raw.direccion': { $regex: addrRx.source, $options: 'i' } },
+            { '_raw.address': { $regex: addrRx.source, $options: 'i' } }
+          ]
+        });
+      }
+    } catch (_) {}
 
     // ===== Restricción por MERCADO según rol =====
     const roleLowerMarket = String(req.user?.role || '')
@@ -1752,10 +1981,7 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
     const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
     let unifiedAvailable = false;
-    try {
-      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
-      unifiedAvailable = Array.isArray(u) && u.length > 0;
-    } catch (_) {}
+    unifiedAvailable = await __collectionExists(db, unifiedCollectionName);
 
     // 2. Construir filtros
     let filter = {};
@@ -1904,10 +2130,7 @@ router.put('/leads/:id/status', protect, authorize('Administrador','Backoffice')
     const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
     let unifiedAvailable = false;
-    try {
-      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
-      unifiedAvailable = Array.isArray(u) && u.length > 0;
-    } catch (_) {}
+    unifiedAvailable = await __collectionExists(db, unifiedCollectionName);
 
     const { id: recordId } = req.params;
     const { status: newStatus } = req.body || {};
@@ -2028,52 +2251,53 @@ router.get('/leads/:id', protect, async (req, res, next) => {
     const preferUnified = String(legacy) !== '1';
     const unifiedCollectionName = 'costumers_unified';
     let unifiedAvailable = false;
-    try {
-      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
-      unifiedAvailable = Array.isArray(u) && u.length > 0;
-    } catch (_) {}
+    unifiedAvailable = await __collectionExists(db, unifiedCollectionName);
 
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
     
-    // Preferir colección unificada cuando exista; legacy=1 mantiene búsqueda multi-colección.
+    const allCostumersCollections = await __getCostumersCollectionsCached(db);
     const costumersCollections = (preferUnified && unifiedAvailable)
-      ? [unifiedCollectionName]
-      : (await db.listCollections().toArray()).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+      ? [unifiedCollectionName, ...allCostumersCollections.filter(n => n !== unifiedCollectionName)]
+      : allCostumersCollections;
     
     let lead = null;
     let foundInCollection = null;
     
-    // Buscar en cada colección
-    for (const colName of costumersCollections) {
-      const collection = db.collection(colName);
-      
-      // Intenta buscar por ObjectId primero
-      if (objId) {
-        lead = await collection.findOne({ _id: objId });
+    if (preferUnified && unifiedAvailable) {
+      try {
+        const unifiedCol = db.collection(unifiedCollectionName);
+        lead = await __findLeadInCollection(unifiedCol, recordId, objId);
         if (lead) {
-          foundInCollection = colName;
-          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por ObjectId`);
-          break;
+          foundInCollection = unifiedCollectionName;
+          console.log(`[GET /leads/:id] Lead encontrado en ${unifiedCollectionName}`);
         }
+      } catch (e) {
+        console.warn('[GET /leads/:id] Error buscando en unificada:', e && e.message);
       }
-      
-      // Luego por string ID
-      if (!lead) {
-        lead = await collection.findOne({ _id: recordId });
+    }
+
+    if (!lead) {
+      try {
+        const primaryCol = db.collection('costumers');
+        lead = await __findLeadInCollection(primaryCol, recordId, objId);
         if (lead) {
-          foundInCollection = colName;
-          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por string ID`);
-          break;
+          foundInCollection = 'costumers';
+          console.log('[GET /leads/:id] Lead encontrado en costumers');
         }
+      } catch (e) {
+        console.warn('[GET /leads/:id] Error buscando en costumers:', e && e.message);
       }
-      
-      // También buscar por campo 'id' (por si acaso)
-      if (!lead) {
-        lead = await collection.findOne({ id: recordId });
+    }
+
+    if (!lead) {
+      for (const colName of costumersCollections) {
+        if (colName === unifiedCollectionName || colName === 'costumers') continue;
+        const collection = db.collection(colName);
+        lead = await __findLeadInCollection(collection, recordId, objId);
         if (lead) {
           foundInCollection = colName;
-          console.log(`[GET /leads/:id] Lead encontrado en ${colName} por campo 'id'`);
+          console.log(`[GET /leads/:id] Lead encontrado en ${colName}`);
           break;
         }
       }
@@ -2081,7 +2305,14 @@ router.get('/leads/:id', protect, async (req, res, next) => {
 
     if (!lead) {
       console.warn(`[GET /leads/:id] Lead ${recordId} no encontrado en ninguna colección`);
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+      // Fallback: TEAM_LINEAS
+      const tl = await __findLeadInTeamLineasDb(req, recordId, objId);
+      if (!tl || !tl.lead) {
+        return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+      }
+
+      console.log(`[GET /leads/:id] Lead encontrado en TEAM_LINEAS.${tl.collectionName}`);
+      return res.json({ success: true, data: tl.lead, lead: tl.lead, foundInCollection: `TEAM_LINEAS.${tl.collectionName}` });
     }
 
     console.log(`[GET /leads/:id] Lead encontrado en ${foundInCollection}. Enriqueciendo con datos de usuario...`);
@@ -2129,7 +2360,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
         }
       ];
 
-      const enrichedResult = await collection.aggregate(pipeline).toArray();
+      const enrichedResult = await collection.aggregate(pipeline, { maxTimeMS: 10_000 }).toArray();
 
       if (enrichedResult.length > 0) {
         const enrichedLead = enrichedResult[0];
@@ -2155,7 +2386,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
  * @desc Actualizar un lead completo
  * @access Private
  */
-router.put('/leads/:id', protect, authorize('Administrador','Backoffice'), async (req, res, next) => {
+router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Supervisor','Agente'), async (req, res, next) => {
   try {
     const { id: recordId } = req.params;
     
@@ -2173,15 +2404,6 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice'), async
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const { legacy } = req.query || {};
-    const preferUnified = String(legacy) !== '1';
-    const unifiedCollectionName = 'costumers_unified';
-    let unifiedAvailable = false;
-    try {
-      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
-      unifiedAvailable = Array.isArray(u) && u.length > 0;
-    } catch (_) {}
-
     const updateData = req.body || {};
 
     // Remover campos que no deben actualizarse
@@ -2194,70 +2416,231 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice'), async
 
     let objId = null;
     try { objId = new ObjectId(recordId); } catch { objId = null; }
+
+    try {
+      const keys = Object.keys(updateData || {});
+      const onlyNotas = keys.length === 1 && keys[0] === 'notas';
+      if (onlyNotas) {
+        const q = __buildLeadOrQuery(recordId, objId);
+
+        const hint = String((req.query && (req.query.collection || req.query.collectionName)) || req.headers['x-collection-hint'] || '').trim();
+        const tasks = [];
+        const wrap = async (label, fn) => {
+          try {
+            const r = await fn();
+            return { label, r };
+          } catch (e) {
+            return { label, error: e };
+          }
+        };
+
+        tasks.push(wrap('costumers_unified', async () => {
+          return await db.collection('costumers_unified').updateOne(q, { $set: updateData }, { maxTimeMS: 3_500 });
+        }));
+
+        tasks.push(wrap('costumers', async () => {
+          return await db.collection('costumers').updateOne(q, { $set: updateData }, { maxTimeMS: 3_500 });
+        }));
+
+        if (hint) {
+          tasks.push(wrap(`TEAM_LINEAS.${hint}`, async () => {
+            const dbTL = getDbFor('TEAM_LINEAS');
+            if (!dbTL) throw new Error('TEAM_LINEAS DB no disponible');
+            return await dbTL.collection(hint).updateOne(q, { $set: updateData }, { maxTimeMS: 3_500 });
+          }));
+        }
+
+        // Ejecutar en paralelo para que el wall time sea ~maxTimeMS (no la suma)
+        const results = await Promise.all(tasks);
+        const hit = results.find(x => x && x.r && x.r.matchedCount && x.r.matchedCount > 0);
+        if (hit) {
+          return res.json({ success: true, message: 'Lead actualizado correctamente', data: { id: recordId, ...updateData }, updatedCollection: hit.label });
+        }
+
+        // Fallback rápido: buscar en otras colecciones costumers* (sin escaneo largo)
+        try {
+          const idOnlyOr = (() => {
+            const or = [];
+            if (objId) or.push({ _id: objId });
+            or.push({ _id: recordId });
+            return { $or: or };
+          })();
+
+          const collections = await __getCostumersCollectionsCached(db);
+          const start = Date.now();
+          for (const colName of collections) {
+            if (colName === 'costumers' || colName === 'costumers_unified') continue;
+            if ((Date.now() - start) > 6_000) break;
+            try {
+              const rX = await db.collection(colName).updateOne(idOnlyOr, { $set: updateData }, { maxTimeMS: 900 });
+              if (rX && rX.matchedCount && rX.matchedCount > 0) {
+                return res.json({ success: true, message: 'Lead actualizado correctamente', data: { id: recordId, ...updateData }, updatedCollection: colName });
+              }
+            } catch (_) {
+              // continue
+            }
+          }
+        } catch (_) {
+          // ignore
+        }
+
+        return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+      }
+    } catch (_) {
+      // continuar flujo normal
+    }
+
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    let unifiedAvailable = false;
+    unifiedAvailable = await __collectionExists(db, unifiedCollectionName);
     
-    // Preferir colección unificada cuando exista; legacy=1 mantiene búsqueda multi-colección.
+    // Actualizar en TODAS las colecciones costumers*; si existe unificada, priorizarla primero.
+    const allCostumersCollections = await __getCostumersCollectionsCached(db);
+
     const costumersCollections = (preferUnified && unifiedAvailable)
-      ? [unifiedCollectionName]
-      : (await db.listCollections().toArray()).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+      ? [unifiedCollectionName, ...allCostumersCollections.filter(n => n !== unifiedCollectionName)]
+      : allCostumersCollections;
     
     let result = null;
     let updatedCollection = null;
-    
-    for (const colName of costumersCollections) {
-      const collection = db.collection(colName);
-      
-      // Intentar actualizar por ObjectId primero
-      if (objId) {
-        result = await collection.updateOne({ _id: objId }, { $set: updateData });
-        if (result && result.matchedCount > 0) {
-          updatedCollection = colName;
-          console.log(`[PUT /leads/:id] Lead actualizado en ${colName} por ObjectId`);
-          break;
+    let matchedFilter = null;
+
+    // Primero localizar el lead (find) en las colecciones para evitar múltiples escrituras
+    let foundLead = null;
+    if (preferUnified && unifiedAvailable) {
+      try {
+        const unifiedCol = db.collection(unifiedCollectionName);
+        foundLead = await __findLeadInCollection(unifiedCol, recordId, objId);
+        if (foundLead) {
+          updatedCollection = unifiedCollectionName;
+          matchedFilter = (foundLead && foundLead._id !== undefined) ? { _id: foundLead._id } : (objId ? { _id: objId } : { _id: recordId });
+          console.log(`[PUT /leads/:id] Lead encontrado en ${unifiedCollectionName}`);
         }
+      } catch (e) {
+        console.warn('[PUT /leads/:id] Error buscando en unificada:', e && e.message);
       }
-      
-      // Si no se encontró, intentar por string ID
-      if (!result || result.matchedCount === 0) {
-        result = await collection.updateOne({ _id: recordId }, { $set: updateData });
-        if (result && result.matchedCount > 0) {
+    }
+
+    if (!foundLead) {
+      try {
+        const primaryCol = db.collection('costumers');
+        foundLead = await __findLeadInCollection(primaryCol, recordId, objId);
+        if (foundLead) {
+          updatedCollection = 'costumers';
+          matchedFilter = (foundLead && foundLead._id !== undefined) ? { _id: foundLead._id } : (objId ? { _id: objId } : { _id: recordId });
+          console.log('[PUT /leads/:id] Lead encontrado en costumers');
+        }
+      } catch (e) {
+        console.warn('[PUT /leads/:id] Error buscando en costumers:', e && e.message);
+      }
+    }
+
+    if (!foundLead) {
+      for (const colName of costumersCollections) {
+        if (colName === unifiedCollectionName || colName === 'costumers') continue;
+        const collection = db.collection(colName);
+        foundLead = await __findLeadInCollection(collection, recordId, objId);
+        if (foundLead) {
           updatedCollection = colName;
-          console.log(`[PUT /leads/:id] Lead actualizado en ${colName} por string ID`);
+          matchedFilter = (foundLead && foundLead._id !== undefined) ? { _id: foundLead._id } : (objId ? { _id: objId } : { _id: recordId });
+          console.log(`[PUT /leads/:id] Lead encontrado en ${colName}`);
           break;
         }
       }
     }
 
-    if (!result || result.matchedCount === 0) {
+    if (!foundLead) {
       console.log('[PUT /leads/:id] Lead no encontrado en ninguna colección');
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+      // Fallback: TEAM_LINEAS (principalmente para guardar notas)
+      const tl = await __findLeadInTeamLineasDb(req, recordId, objId);
+      if (!tl || !tl.lead) {
+        return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+      }
+
+      const dbTL = getDbFor('TEAM_LINEAS');
+      try {
+        const targetCol = dbTL.collection(tl.collectionName);
+        const filter = (tl.lead && tl.lead._id !== undefined) ? { _id: tl.lead._id } : (objId ? { _id: objId } : { _id: recordId });
+        const r = await targetCol.updateOne(filter, { $set: updateData }, { maxTimeMS: 12_000 });
+        console.log(`[PUT /leads/:id] updateOne ejecutado en TEAM_LINEAS.${tl.collectionName}`, { matched: r.matchedCount, modified: r.modifiedCount });
+        return res.json({
+          success: true,
+          message: 'Lead actualizado correctamente',
+          data: { id: recordId, ...updateData },
+          updatedCollection: `TEAM_LINEAS.${tl.collectionName}`
+        });
+      } catch (e) {
+        console.error('[PUT /leads/:id] Error actualizando en TEAM_LINEAS:', e && e.message);
+        return res.status(500).json({ success: false, message: 'Error interno al actualizar lead', error: e && e.message });
+      }
+    }
+
+    // Si el documento encontrado en la colección unificada indica la colección origen,
+    // preferir actualizar en esa colección si existe (evita inconsistencias).
+    try {
+      if (foundLead && foundLead.sourceCollection && foundLead.sourceId) {
+        const possible = String(foundLead.sourceCollection || '').trim();
+        if (possible) {
+          const exists = (await db.listCollections({ name: possible }).toArray()).length > 0;
+          if (exists) {
+            // Preferir la colección origen
+            const srcIdRaw = String(foundLead.sourceId || '').trim();
+            let srcFilter = { sourceId: srcIdRaw };
+            try {
+              if (/^[a-fA-F0-9]{24}$/.test(srcIdRaw)) srcFilter = { _id: new ObjectId(srcIdRaw) };
+            } catch (e) { /* noop */ }
+            updatedCollection = possible;
+            matchedFilter = srcFilter;
+            console.log('[PUT /leads/:id] Usando sourceCollection para update:', possible, matchedFilter);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[PUT /leads/:id] Error comprobando sourceCollection:', e && e.message);
+    }
+
+    // Ejecutar una sola actualización en la colección encontrada
+    try {
+      if (!matchedFilter) {
+        // Si matchedFilter no fue establecido en altKeys, inferirlo desde el documento encontrado
+        if (foundLead && foundLead._id) matchedFilter = { _id: foundLead._id };
+        else if (foundLead && foundLead.id) matchedFilter = { id: foundLead.id };
+        else matchedFilter = { _id: recordId };
+      }
+      result = await db.collection(updatedCollection).updateOne(matchedFilter, { $set: updateData }, { maxTimeMS: 12_000 });
+      console.log(`[PUT /leads/:id] updateOne ejecutado en ${updatedCollection}`, { matched: result.matchedCount, modified: result.modifiedCount });
+    } catch (uErr) {
+      console.error('[PUT /leads/:id] Error realizando updateOne en la colección encontrada:', uErr && uErr.message);
+      return res.status(500).json({ success: false, message: 'Error interno al actualizar lead', error: uErr && uErr.message });
     }
 
     // Emitir notificación Socket.io si se actualizaron notas
     if (updateData.notas && global.io) {
-      try {
-        // Obtener info del lead para saber quién es el dueño
-        const collection = db.collection(updatedCollection || 'costumers');
-        const lead = await collection.findOne(objId ? { _id: objId } : { _id: recordId });
-        if (lead) {
-          const ownerId = lead.agenteId || lead.agente || lead.odigo || lead.createdBy;
-          const clientName = lead.nombre_cliente || lead.nombre || 'Cliente';
-          const author = req.user?.username || req.user?.name || 'Usuario';
-          
-          // Si quien edita NO es el dueño, notificar al dueño
-          const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
-          if (ownerId && ownerId !== currentUserId) {
-            global.io.to(`user:${ownerId}`).emit('note-added', {
-              leadId: recordId,
-              clientName,
-              author,
-              timestamp: new Date().toISOString()
-            });
-            console.log(`[Socket.io] Notificación enviada a ${ownerId}`);
+      (async () => {
+        try {
+          const collection = db.collection(updatedCollection || 'costumers');
+          const lead = await collection.findOne(matchedFilter || (objId ? { _id: objId } : { _id: recordId }));
+          if (lead) {
+            const ownerId = lead.agenteId || lead.agente || lead.odigo || lead.createdBy;
+            const clientName = lead.nombre_cliente || lead.nombre || 'Cliente';
+            const author = req.user?.username || req.user?.name || 'Usuario';
+            const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
+            if (ownerId && ownerId !== currentUserId) {
+              global.io.to(`user:${ownerId}`).emit('note-added', {
+                leadId: recordId,
+                clientName,
+                author,
+                timestamp: new Date().toISOString()
+              });
+              console.log(`[Socket.io] Notificación enviada a ${ownerId}`);
+            }
           }
+        } catch (socketErr) {
+          console.error('[Socket.io] Error al emitir notificación:', socketErr.message);
         }
-      } catch (socketErr) {
-        console.error('[Socket.io] Error al emitir notificación:', socketErr.message);
-      }
+      })();
     }
 
     console.log('[PUT /leads/:id] Actualizado correctamente en', updatedCollection, '. matchedCount:', result.matchedCount, 'modifiedCount:', result.modifiedCount);
@@ -3785,6 +4168,340 @@ router.get('/users/agents', protect, async (req, res) => {
     });
   } catch (error) {
     console.error('[API /users/agents] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/comisiones/agents
+ * @desc Obtener puntaje por agente SOLO de ventas con status "completed" (rango opcional)
+ * @access Private
+ */
+router.get('/comisiones/agents', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const { fechaInicio, fechaFin, debug, month, year } = req.query;
+    const parseMonthQuery = (qMonth, qYear) => {
+      const raw = (qMonth ?? '').toString().trim();
+      const rawYear = (qYear ?? '').toString().trim();
+
+      // Prefer YYYY-MM
+      if (/^\d{4}-\d{2}$/.test(raw)) {
+        const [y, m] = raw.split('-').map(Number);
+        if (y > 2000 && m >= 1 && m <= 12) return { year: y, month: m };
+      }
+
+      // Support month=1..12 & year=YYYY
+      if (raw && rawYear && /^\d{4}$/.test(rawYear)) {
+        const y = Number(rawYear);
+        const m = Number(raw);
+        if (y > 2000 && m >= 1 && m <= 12) return { year: y, month: m };
+      }
+
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    };
+    const { year: y, month: m } = parseMonthQuery(month, year);
+    const toYMD = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    let startDate = (fechaInicio || '').toString().trim();
+    let endDate = (fechaFin || '').toString().trim();
+
+    if (!startDate || !endDate) {
+      const now = new Date();
+      const start = new Date(Number(y), Number(m) - 1, 1);
+      const endOfMonth = new Date(Number(y), Number(m), 0);
+      const isCurrentMonth = now.getFullYear() === Number(y) && (now.getMonth() + 1) === Number(m);
+      startDate = toYMD(start);
+      endDate = toYMD(isCurrentMonth ? now : endOfMonth);
+    }
+
+    const unifiedCollectionName = 'costumers_unified';
+    const unifiedAvailable = await db.listCollections({ name: unifiedCollectionName }).toArray();
+    if (!Array.isArray(unifiedAvailable) || unifiedAvailable.length === 0) {
+      return res.status(500).json({ success: false, message: 'No existe la colección costumers_unified' });
+    }
+
+    const pipeline = [
+      {
+        $addFields: {
+          _statusLower: {
+            $toLower: {
+              $toString: {
+                $ifNull: [
+                  '$status',
+                  { $ifNull: ['$estatus', { $ifNull: ['$estado', { $ifNull: ['$Status', { $ifNull: ['$STATUS', ''] }] }] }] }
+                ]
+              }
+            }
+          },
+          _agentName: {
+            $ifNull: [
+              { $ifNull: ['$agenteNombre', '$agente'] },
+              { $ifNull: ['$usuario', { $ifNull: ['$nombreAgente', '$vendedor'] }] }
+            ]
+          },
+          _dateRaw: {
+            $ifNull: [
+              '$dia_venta',
+              { $ifNull: ['$fecha_contratacion', { $ifNull: ['$creadoEn', { $ifNull: ['$createdAt', { $ifNull: ['$fecha', null] }] }] }] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          _date: {
+            $cond: [
+              { $eq: [{ $type: '$_dateRaw' }, 'date'] },
+              '$_dateRaw',
+              {
+                $cond: [
+                  {
+                    $in: [
+                      { $type: '$_dateRaw' },
+                      ['int', 'long', 'double', 'decimal']
+                    ]
+                  },
+                  { $toDate: '$_dateRaw' },
+                  {
+                    $cond: [
+                      { $eq: [{ $type: '$_dateRaw' }, 'string'] },
+                      {
+                        $let: {
+                          vars: {
+                            _rawStr: { $trim: { input: { $toString: '$_dateRaw' } } },
+                            _asDate: {
+                              $dateFromString: {
+                                dateString: { $toString: '$_dateRaw' },
+                                timezone: '-06:00',
+                                onError: null,
+                                onNull: null
+                              }
+                            }
+                          },
+                          in: {
+                            $ifNull: [
+                              '$$_asDate',
+                              {
+                                $cond: [
+                                  { $regexMatch: { input: '$$_rawStr', regex: /^\d{10,13}$/ } },
+                                  { $toDate: { $toLong: '$$_rawStr' } },
+                                  null
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      null
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          _points: {
+            $convert: {
+              input: {
+                $ifNull: [
+                  '$puntaje',
+                  { $ifNull: ['$puntajeEfectivo', { $ifNull: ['$puntos', { $ifNull: ['$score', 0] }] }] }
+                ]
+              },
+              to: 'double',
+              onError: 0,
+              onNull: 0
+            }
+          }
+        }
+      },
+      ...(String(debug || '').trim() === '1' ? [
+        {
+          $facet: {
+            total: [ { $count: 'count' } ],
+            statusTop: [
+              { $group: { _id: '$_statusLower', count: { $sum: 1 } } },
+              { $sort: { count: -1 } },
+              { $limit: 12 }
+            ],
+            completedAllTime: [
+              {
+                $match: {
+                  _agentName: { $ne: null },
+                  _date: { $ne: null },
+                  $expr: { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete)/ } }
+                }
+              },
+              { $count: 'count' }
+            ],
+            completedInRange: [
+              {
+                $match: {
+                  _agentName: { $ne: null },
+                  _date: { $ne: null },
+                  $expr: {
+                    $and: [
+                      { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete)/ } },
+                      { $gte: [{ $dateToString: { format: '%Y-%m-%d', date: '$_date' } }, startDate] },
+                      { $lte: [{ $dateToString: { format: '%Y-%m-%d', date: '$_date' } }, endDate] }
+                    ]
+                  }
+                }
+              },
+              { $count: 'count' }
+            ],
+            sample: [
+              {
+                $project: {
+                  status: 1,
+                  estatus: 1,
+                  estado: 1,
+                  agenteNombre: 1,
+                  agente: 1,
+                  usuario: 1,
+                  nombreAgente: 1,
+                  vendedor: 1,
+                  puntaje: 1,
+                  puntajeEfectivo: 1,
+                  puntos: 1,
+                  createdAt: 1,
+                  creadoEn: 1,
+                  dia_venta: 1,
+                  fecha_contratacion: 1,
+                  fecha: 1,
+                  _statusLower: 1,
+                  _agentName: 1,
+                  _dateRaw: 1,
+                  _date: 1,
+                  _points: 1
+                }
+              },
+              { $limit: 5 }
+            ]
+          }
+        }
+      ] : []),
+      ...(String(debug || '').trim() === '1' ? [] : [
+      {
+        $match: {
+          _agentName: { $ne: null },
+          _date: { $ne: null },
+          $expr: {
+            $and: [
+              { $regexMatch: { input: "$_statusLower", regex: /(completed|completado|complete)/ } },
+              { $gte: [{ $dateToString: { format: '%Y-%m-%d', date: "$_date" } }, startDate] },
+              { $lte: [{ $dateToString: { format: '%Y-%m-%d', date: "$_date" } }, endDate] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $toString: '$_agentName' },
+          ventas: { $sum: 1 },
+          puntos: { $sum: '$_points' }
+        }
+      },
+      { $project: { _id: 0, nombre: '$_id', ventas: 1, puntos: 1 } },
+      { $sort: { puntos: -1, ventas: -1, nombre: 1 } },
+      { $limit: 500 }
+      ])
+    ];
+
+    const rows = await db.collection(unifiedCollectionName).aggregate(pipeline, { allowDiskUse: true }).toArray();
+    if (String(debug || '').trim() === '1') {
+      return res.json({
+        success: true,
+        debug: true,
+        meta: { startDate, endDate, month: `${String(y)}-${String(m).padStart(2, '0')}` },
+        data: rows && rows[0] ? rows[0] : {}
+      });
+    }
+
+    const normalizeKey = (v) => String(v || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+
+    // Mapear resultados agregados por nombre normalizado
+    const aggMap = new Map();
+    for (const r of (rows || [])) {
+      const k = normalizeKey(r?.nombre);
+      if (!k) continue;
+      aggMap.set(k, {
+        ventas: Number(r?.ventas || 0) || 0,
+        puntos: Number(r?.puntos || 0) || 0
+      });
+    }
+
+    // Obtener SOLO usuarios con rol de agente (y no supervisores/admin)
+    // Nota: en algunas BD el rol puede venir como role/rol/roles/cargo (string o array).
+    const usersAll = await db.collection('users')
+      .find(
+        {},
+        { projection: { username: 1, name: 1, nombre: 1, fullName: 1, email: 1, role: 1, rol: 1, roles: 1, cargo: 1 } }
+      )
+      .sort({ name: 1, username: 1 })
+      .toArray();
+
+    const getRoleBlob = (u) => {
+      const parts = [];
+      const pushVal = (v) => {
+        if (!v) return;
+        if (Array.isArray(v)) { v.forEach(pushVal); return; }
+        parts.push(String(v));
+      };
+      pushVal(u?.role);
+      pushVal(u?.rol);
+      pushVal(u?.roles);
+      pushVal(u?.cargo);
+      return parts.join(' ');
+    };
+    const isAgentUser = (u) => {
+      const blob = getRoleBlob(u).toLowerCase();
+      if (!/agente/.test(blob)) return false;
+      if (/supervisor/.test(blob)) return false;
+      if (/admin/.test(blob)) return false;
+      if (/back\s*office/.test(blob)) return false;
+      if (/backoffice/.test(blob)) return false;
+      return true;
+    };
+    const usersAgents = (usersAll || []).filter(isAgentUser);
+
+    const pickDisplayName = (u) => {
+      const v = (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? (u.name || u.nombre || u.fullName || u.username || u.email) : '';
+      return String(v || '').trim() || '—';
+    };
+
+    const data = (usersAgents || []).map((u) => {
+      const displayName = pickDisplayName(u);
+      const keys = [u.username, u.name, u.nombre, u.fullName, u.email, displayName].filter(Boolean).map(normalizeKey);
+      let found = null;
+      for (const k of keys) {
+        if (aggMap.has(k)) {
+          found = aggMap.get(k);
+          break;
+        }
+      }
+      return {
+        nombre: displayName,
+        ventas: Number(found?.ventas || 0) || 0,
+        puntos: Number(found?.puntos || 0) || 0
+      };
+    });
+
+    return res.json({ success: true, data, meta: { startDate, endDate, totalAgents: data.length } });
+  } catch (error) {
+    console.error('[API /comisiones/agents] Error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });

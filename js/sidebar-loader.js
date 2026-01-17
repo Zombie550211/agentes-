@@ -11,6 +11,8 @@
     'home': 'inicio',
     'dashboard': 'inicio',
     'admin': 'inicio',
+    'comisiones': 'comisiones',
+    'comision': 'comisiones',
     'archivos': 'multimedia',
     'archivo': 'multimedia',
     'semaforo': 'semaforo',
@@ -189,6 +191,7 @@
       if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
 
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/comision/.test(path)) return 'comisiones';
       if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
@@ -622,6 +625,7 @@
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'Rankings.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: allRoles },
@@ -666,7 +670,7 @@
     // Fallback de seguridad: si no hay items visibles, tratar como 'agente'
     if (visibleItems.length === 0) {
       console.warn('⚠️ Ningún item visible para rol:', normalizedRole, '— aplicando fallback AGENTE');
-      const agentKeys = ['inicio','lead','costumer','ranking','estadisticas'];
+      const agentKeys = ['inicio','lead','costumer','ranking','estadisticas','comisiones'];
       // Mapeo manual para fallback
       const fallbackMap = {
           'inicio': { href: '/inicio.html', icon: 'fa-home', text: 'Inicio' },
@@ -674,7 +678,8 @@
           'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
           'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
           'rankings': { href: 'Rankings.html', icon: 'fa-chart-line', text: 'Rankings' },
-          'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' }
+          'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
+          'comisiones': { href: 'Comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
       };
       
       for (const key of agentKeys) {
