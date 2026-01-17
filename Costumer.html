@@ -7927,56 +7927,80 @@
           if (permission === 'granted') {
             new Notification(title, { body: body, icon: '/img/logo-slogan.png' });
           }
-        });
+        }).catch(() => {});
       }
     }
 
-    async function abrirModalEdicion(lead) {
+    function abrirModalEdicion(lead) {
       const modal = document.getElementById('editarModal');
       if (!modal) return;
 
-      try { modal.style.display = 'block'; } catch(_) {}
-
-      const setVal = (id, value) => {
+      const leadId = (() => {
         try {
-          const el = document.getElementById(id);
-          if (!el) return false;
-          el.value = (value == null) ? '' : String(value);
-          return true;
+          const candidates = [lead?._id?.$oid, lead?._id, lead?.id, lead?.leadId, lead?.leadID];
+          for (const c of candidates) {
+            const s = String((c && c.$oid) ? c.$oid : c || '').trim();
+            if (/^[a-fA-F0-9]{24}$/.test(s)) return s;
+          }
+          try {
+            const blob = JSON.stringify(lead || {});
+            const m = blob.match(/[a-fA-F0-9]{24}/);
+            if (m) return m[0];
+          } catch (_) {}
+          return '';
         } catch (_) {
-          return false;
+          return '';
         }
-      };
+      })();
 
-      const setText = (id, value) => {
+      const editIdEl = document.getElementById('edit-id');
+      if (editIdEl) editIdEl.value = leadId;
+
+      const idDisplayEl = document.getElementById('edit-lead-id-display');
+      if (idDisplayEl) {
         try {
-          const el = document.getElementById(id);
-          if (!el) return false;
-          el.textContent = (value == null) ? '' : String(value);
-          return true;
+          idDisplayEl.textContent = leadId ? `#${formatLeadIdShort(leadId)}` : '#----';
         } catch (_) {
-          return false;
+          idDisplayEl.textContent = leadId ? `#${String(leadId).slice(0, 6)}` : '#----';
         }
-      };
+      }
 
-      const leadId = (lead._id?.$oid || lead._id || lead.id).toString();
-
-      const getValue = (...keys) => {
-        for (const key of keys) {
-          if (lead[key] !== undefined && lead[key] !== null && lead[key] !== '') return lead[key];
+      function getValue(...keys) {
+        for (const k of keys) {
+          if (!k) continue;
+          const v = (lead && lead[k] !== undefined && lead[k] !== null) ? lead[k]
+            : (lead && lead._raw && lead._raw[k] !== undefined && lead._raw[k] !== null) ? lead._raw[k]
+            : undefined;
+          if (v !== undefined && v !== null) return v;
         }
         return '';
-      };
+      }
 
-      setVal('edit-id', leadId);
-      setText('edit-lead-id-display', '#' + formatLeadIdShort(leadId));
+      function setVal(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return false;
+        el.value = (value === undefined || value === null) ? '' : value;
+        return true;
+      }
 
-      const fullName = getValue('nombre_cliente', 'nombre', 'name', 'cliente').trim();
-      const parts = fullName.split(' ');
-      const nombres = parts.slice(0, Math.max(1, parts.length - 1)).join(' ');
-      const apellidos = parts.length > 1 ? parts.slice(-1).join(' ') : '';
-      setVal('edit-nombres', nombres);
-      setVal('edit-apellidos', apellidos);
+      try {
+        const nombreCompleto = String(getValue('nombre_cliente', 'nombre', 'name', 'cliente') || '').trim();
+        const nombresDirecto = String(getValue('nombres', 'firstName', 'firstname') || '').trim();
+        const apellidosDirecto = String(getValue('apellidos', 'lastName', 'lastname') || '').trim();
+        if (nombresDirecto || apellidosDirecto) {
+          setVal('edit-nombres', nombresDirecto);
+          setVal('edit-apellidos', apellidosDirecto);
+        } else if (nombreCompleto) {
+          const parts = nombreCompleto.split(/\s+/).filter(Boolean);
+          setVal('edit-nombres', parts.shift() || '');
+          setVal('edit-apellidos', parts.join(' '));
+        }
+      } catch (_) {}
+
+      setVal('edit-zip-code', getValue('zip_code', 'zip', 'zipcode', 'postal', 'postal_code'));
+      setVal('edit-mercado', getValue('mercado', 'market'));
+      setVal('edit-motivo-llamada', getValue('motivo_llamada', 'motivo', 'call_reason', 'reason'));
+      setVal('edit-comentario', getValue('comentario', 'comment', 'comentarios'));
 
       setVal('edit-telefono', getValue('telefono_principal', 'telefono', 'phone', 'tel'));
       setVal('edit-telefono-alt', getValue('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2'));
@@ -7993,29 +8017,56 @@
       function setSelectValue(selectId, value) {
         const sel = document.getElementById(selectId);
         if (!sel) return;
-        const val = String(value || '').toLowerCase().trim();
-        let found = false;
-        for (let opt of sel.options) {
-          if (String(opt.value || '').toLowerCase().trim() === val) {
-            sel.value = opt.value;
-            found = true;
-            return;
-          }
+        const raw = String(value ?? '').trim();
+        if (!raw) return;
+
+        const norm = (s) => String(s ?? '').toLowerCase().trim().replace(/[\s_-]+/g, '');
+        let target = raw;
+
+        if (selectId === 'edit-autopago') {
+          const s = String(raw).toLowerCase().trim();
+          target = (s === 'true' || s === '1' || s === 'si' || s === 'sí' || s === 'yes' || s === 'y') ? 'SI'
+            : (s === 'false' || s === '0' || s === 'no' || s === 'n') ? 'NO'
+            : raw;
         }
-        if (!found && value) {
-          const newOpt = document.createElement('option');
-          newOpt.value = value;
-          newOpt.textContent = value;
-          sel.appendChild(newOpt);
-          sel.value = value;
+
+        if (selectId === 'edit-riesgo') {
+          const s = String(raw).toLowerCase().trim();
+          target = (s.includes('low')) ? 'low'
+            : (s.includes('medium') || s.includes('med')) ? 'medium'
+            : (s.includes('high')) ? 'high'
+            : (s === 'n/a' || s === 'na') ? 'na'
+            : raw;
         }
+
+        if (selectId === 'edit-status') {
+          const s = String(raw).toLowerCase().trim();
+          target = (s.includes('cancel') || s.includes('anulad') || s.includes('no instalado')) ? 'CANCELED'
+            : (s.includes('active') || s.includes('complet') || s.includes('install') || s.includes('termin')) ? 'ACTIVE'
+            : raw;
+        }
+
+        const want = norm(target);
+        for (const opt of Array.from(sel.options)) {
+          if (norm(opt.value) === want) { sel.value = opt.value; return; }
+        }
+        for (const opt of Array.from(sel.options)) {
+          if (norm(opt.textContent) === want) { sel.value = opt.value; return; }
+        }
+
+        const newOpt = document.createElement('option');
+        newOpt.value = raw;
+        newOpt.textContent = raw;
+        sel.appendChild(newOpt);
+        sel.value = raw;
       }
 
-      setSelectValue('edit-servicios', getValue('servicios', 'tipo_servicios', 'service'));
+      setSelectValue('edit-servicios', getValue('servicios', 'tipo_servicios', 'tipo_servicio', 'service', 'servicios_texto'));
       setSelectValue('edit-autopago', getValue('autopago', 'autopay').toString());
       setSelectValue('edit-sistema', getValue('sistema', 'system'));
       setSelectValue('edit-riesgo', getValue('riesgo', 'risk').toString());
       setSelectValue('edit-status', getValue('status', 'estado').toString());
+      setSelectValue('edit-puntaje', getValue('puntaje', 'puntos', 'score', 'puntaje_calculado').toString());
 
       const statusSelect = document.getElementById('edit-status');
       if (statusSelect) {
@@ -8050,6 +8101,29 @@
       if (instEl) instEl.value = formatDateForInput(getValue('dia_instalacion', 'fecha_instalacion'));
 
       try { window.__currentEditingLead = lead; } catch(_) {}
+
+      try {
+        const list = document.getElementById('edit-notes-list');
+        if (list) {
+          list.innerHTML = '';
+          let notas = Array.isArray(lead?.notas) ? lead.notas : (Array.isArray(lead?.notes) ? lead.notes : []);
+          notas = notas.slice().sort((a, b) => {
+            const da = new Date(a?.at || a?.fecha || a?.createdAt || 0);
+            const db = new Date(b?.at || b?.fecha || b?.createdAt || 0);
+            return db - da;
+          });
+          if (notas.length && typeof createNoteCard === 'function') {
+            notas.forEach((n, idx) => list.appendChild(createNoteCard(n, idx)));
+          } else {
+            list.innerHTML = '<p style="color: #9ca3af; text-align: center; padding: 20px;">Sin notas</p>';
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const textarea = document.getElementById('edit-nueva-nota');
+        if (textarea) textarea.value = '';
+      } catch (_) {}
       modal.style.display = 'block';
     }
 
@@ -8536,12 +8610,25 @@
       console.log('[NOTA EDIT] Editor detectado:', editorName, 'User object:', u);
       
       // Guardar en backend
-      const leadId = document.getElementById('edit-id').value;
+      const leadId = (() => {
+        const raw = String(document.getElementById('edit-id')?.value || '').trim();
+        if (raw && raw !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(raw)) return raw;
+        const cur = window.__currentEditingLead || {};
+        const candidates = [cur?._id?.$oid, cur?._id, cur?.id, cur?.leadId, cur?.leadID];
+        for (const c of candidates) {
+          const s = String((c && c.$oid) ? c.$oid : c || '').trim();
+          if (s && s !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(s)) return s;
+        }
+        return raw;
+      })();
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const hint = String(window.__currentEditingLead?._collectionName || '').trim();
+      const hintQ = hint ? `?collection=${encodeURIComponent(hint)}` : '';
       
       try {
-        const res = await fetch(`/api/leads/${leadId}`, {
+        const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}${hintQ}`, {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
           body: JSON.stringify({ notas })
         });
@@ -8588,12 +8675,25 @@
       notas.splice(index, 1);
       
       // Guardar en backend
-      const leadId = document.getElementById('edit-id').value;
+      const leadId = (() => {
+        const raw = String(document.getElementById('edit-id')?.value || '').trim();
+        if (raw && raw !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(raw)) return raw;
+        const cur = window.__currentEditingLead || {};
+        const candidates = [cur?._id?.$oid, cur?._id, cur?.id, cur?.leadId, cur?.leadID];
+        for (const c of candidates) {
+          const s = String((c && c.$oid) ? c.$oid : c || '').trim();
+          if (s && s !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(s)) return s;
+        }
+        return raw;
+      })();
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const hint = String(window.__currentEditingLead?._collectionName || '').trim();
+      const hintQ = hint ? `?collection=${encodeURIComponent(hint)}` : '';
       
       try {
-        const res = await fetch(`/api/leads/${leadId}`, {
+        const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}${hintQ}`, {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
           body: JSON.stringify({ notas })
         });
@@ -8747,7 +8847,17 @@
         
         if (!text && !hasAttachments) return alert('Escribe una nota o adjunta un archivo');
         
-        const leadId = document.getElementById('edit-id').value;
+        const leadId = (() => {
+          const raw = String(document.getElementById('edit-id')?.value || '').trim();
+          if (raw && raw !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(raw)) return raw;
+          const cur = window.__currentEditingLead || {};
+          const candidates = [cur?._id?.$oid, cur?._id, cur?.id, cur?.leadId, cur?.leadID];
+          for (const c of candidates) {
+            const s = String((c && c.$oid) ? c.$oid : c || '').trim();
+            if (s && s !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(s)) return s;
+          }
+          return raw;
+        })();
         console.log('[NOTA] Lead ID obtenido del formulario:', leadId, 'longitud:', leadId?.length);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         console.log('[NOTA] Token presente:', !!token);
@@ -8785,16 +8895,30 @@
         if (leadId) {
           try {
             console.log('[NOTA] Guardando nota para lead:', leadId, 'notas:', notas);
-            const putRes = await fetch(`/api/leads/${leadId}`, {
-              method: 'PUT',
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': token ? `Bearer ${token}` : '' 
-              },
-              body: JSON.stringify({ notas })
-            });
+            let putRes;
+            try {
+              const hint = String(window.__currentEditingLead?._collectionName || '').trim();
+              const hintQ = hint ? `?collection=${encodeURIComponent(hint)}` : '';
+              putRes = await timedFetch(`/api/leads/${encodeURIComponent(leadId)}${hintQ}`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: { 
+                  'Content-Type': 'application/json', 
+                  'Authorization': token ? `Bearer ${token}` : '' 
+                },
+                body: JSON.stringify({ notas })
+              }, 20000);
+            } catch (e) {
+              console.error('[NOTA] Error al guardar nota (fetch):', e);
+              if (e && e.message === 'timeout') {
+                alert('❌ El servidor no respondió a tiempo al guardar la nota (timeout). Intenta de nuevo.');
+              } else {
+                alert('❌ No se pudo conectar al servidor al guardar la nota. Verifica que el servidor esté levantado.');
+              }
+              return;
+            }
             console.log('[NOTA] Respuesta:', putRes.status, putRes.statusText);
-            if (putRes.ok) { 
+            if (putRes && putRes.ok) { 
               ok = true; 
               // Actualizar el objeto en memoria
               if (window.__currentEditingLead) {
@@ -8834,7 +8958,17 @@
     // Función para refrescar notas desde el servidor
     window.refrescarNotasLead = async function() {
       try {
-        const leadId = document.getElementById('edit-id')?.value;
+        const leadId = (() => {
+          const raw = String(document.getElementById('edit-id')?.value || '').trim();
+          if (raw && raw !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(raw)) return raw;
+          const cur = window.__currentEditingLead || {};
+          const candidates = [cur?._id?.$oid, cur?._id, cur?.id, cur?.leadId, cur?.leadID];
+          for (const c of candidates) {
+            const s = String((c && c.$oid) ? c.$oid : c || '').trim();
+            if (s && s !== '[object Object]' && /^[a-fA-F0-9]{24}$/.test(s)) return s;
+          }
+          return raw;
+        })();
         if (!leadId) {
           alert('No hay lead abierto');
           return;
@@ -8842,7 +8976,8 @@
         
         console.log('[RefrescarNotas] Recargando notas para lead:', leadId);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await fetch(`/api/leads/${leadId}`, {
+        const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, {
+          credentials: 'include',
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         
@@ -8899,7 +9034,6 @@
 
     // Función para abrir imagen en modal grande
     window.abrirImagenModal = function(imageUrl) {
-      // Crear modal si no existe
       let modal = document.getElementById('imagenGrandeModal');
       if (!modal) {
         modal = document.createElement('div');
@@ -8921,8 +9055,7 @@
         });
         document.body.appendChild(modal);
       }
-      
-      // Mostrar imagen
+
       const img = document.getElementById('imagenGrandeImg');
       const downloadBtn = document.getElementById('imagenGrandeDownload');
       if (img) img.src = imageUrl;
@@ -8937,10 +9070,64 @@
     };
 
     // Función para guardar los cambios
+    // Helper: fetch con timeout usando AbortController
+    async function timedFetch(url, opts = {}, timeout = 10000) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const merged = Object.assign({}, opts, { signal: controller.signal });
+        const res = await fetch(url, merged);
+        clearTimeout(id);
+        return res;
+      } catch (err) {
+        clearTimeout(id);
+        if (err && err.name === 'AbortError') throw new Error('timeout');
+        throw err;
+      }
+    }
+
+    // Comprueba rápidamente si el servidor responde (intenta /api/health, luego /api/leads)
+    async function checkServerAlive(timeout = 3000) {
+      try {
+        // Preferir endpoint de health si existe
+        const health = await timedFetch('/api/health', { method: 'GET', credentials: 'include' }, timeout);
+        if (health && health.ok) return true;
+      } catch (e) {
+        // ignorar
+      }
+      try {
+        const r = await timedFetch('/api/leads?page=1&limit=1', { method: 'GET', credentials: 'include' }, timeout);
+        if (r && r.ok) return true;
+      } catch (e) {
+        // ignorar
+      }
+      return false;
+    }
+
     window.guardarCambiosLead = async function() {
+      // Si el servidor no responde rápido, informar y abortar para evitar duplicados
+      try {
+        const alive = await checkServerAlive(3000);
+        if (!alive) {
+          alert('❌ El servidor no está disponible (conexión rechazada o muy lenta). Intenta arrancar el servidor y reintenta.');
+          try { window.__savingLead = false; } catch(_){}
+          return;
+        }
+      } catch (e) {
+        console.debug('[guardarCambiosLead] checkServerAlive falló:', e);
+      }
       const leadIdRaw = document.getElementById('edit-id').value;
 
       const isFull = typeof canFullEdit==='function' ? canFullEdit() : false;
+      // Prevención de doble envío: bandera global + deshabilitar botón de guardar
+      if (window.__savingLead) {
+        console.warn('[guardarCambiosLead] Guardado ya en progreso, ignorando segundo intento');
+        return;
+      }
+      const modalEl = document.getElementById('editarModal');
+      const saveBtnEl = modalEl ? (modalEl.querySelector('.edit-actions button:last-of-type') || null) : null;
+      const setSaving = (v) => { try { window.__savingLead = !!v; if (saveBtnEl) saveBtnEl.disabled = !!v; } catch(e){} };
+      setSaving(true);
       const curLead = window.__currentEditingLead || {};
       const leadId = (() => {
         const rawStr = String(leadIdRaw || '').trim();
@@ -8952,6 +9139,36 @@
           return '';
         }
       })();
+
+      // Si el id es inválido, intentar guardar como nuevo lead (POST)
+      const isValidId = leadId && /^[a-fA-F0-9]{24}$/.test(String(leadId).trim());
+      if (!isValidId) {
+        // Guardar como nuevo lead
+        try {
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          const resp = await timedFetch('/api/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            credentials: 'include',
+            body: JSON.stringify(window.__currentEditingLead || {})
+          }, 15000);
+          if (!resp.ok) {
+            let lastErrTxt = '';
+            try { lastErrTxt = await resp.text(); } catch(_) {}
+            let msg = 'Error al crear el registro';
+            if (lastErrTxt) msg += ': ' + lastErrTxt;
+            throw new Error(msg);
+          }
+          alert('✅ Lead creado exitosamente');
+          cerrarModalEdicion();
+          setSaving(false);
+          location.reload();
+        } catch (error) {
+          console.error('Error al crear lead:', error);
+          alert('❌ Error al crear el lead: ' + error.message);
+        }
+        return;
+      }
 
       const getInput = (id) => {
         try {
@@ -9002,7 +9219,6 @@
           autopago: document.getElementById('edit-autopago').value,
           direccion: direccion,
           representante: document.getElementById('edit-representante').value,
-          // Compatibilidad: enviar ambos nombres de campo
           servicios: tipoServicioFinal,
           tipo_servicio: tipoServicioFinal,
           tipo_servicios: tipoServicioFinal,
@@ -9020,11 +9236,9 @@
           puntaje: parseFloat(document.getElementById('edit-puntaje').value) || 0
         };
       } else {
-        // Modo restringido: solo fechas de venta/instalación
         datosActualizados = {
           dia_venta: document.getElementById('edit-dia-venta').value,
           dia_instalacion: document.getElementById('edit-dia-instalacion').value,
-          // Backend requiere estos campos: conservar valores actuales si no se editan
           nombre_cliente: getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
           telefono_principal: getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
           direccion: getFromLead('direccion', 'address', 'domicilio'),
@@ -9036,41 +9250,243 @@
 
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        let method = 'PUT';
-        // Intentar customers primero, luego leads
-        let candidates = leadId ? [`/api/customers/${encodeURIComponent(leadId)}`, `/api/leads/${encodeURIComponent(leadId)}`] : ['/api/leads'];
-        let url = candidates[0];
-        // Si no hay ID, crear (POST)
-        if (!leadId) {
-          method = 'POST';
-          url = '/api/leads';
-          try {
-            const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-            const agenteId = u.id || u._id || u?.usuario?._id || u?.user?._id || '';
-            const agenteNombre = u.username || u.name || u.nombre || u?.usuario?.name || u?.usuario?.nombre || '';
-            if (agenteId) datosActualizados.agenteId = agenteId;
-            if (agenteNombre) {
-              datosActualizados.agenteNombre = agenteNombre;
-              datosActualizados.nombreAgente = agenteNombre;
-              datosActualizados.agente = agenteNombre;
-            }
-          } catch(_) {}
+        const uurl = `/api/leads/${encodeURIComponent(leadId)}`;
+        console.debug('[guardarCambiosLead] Verificando existencia antes de PUT:', uurl, { datosActualizados });
+        // Comprobar si el lead existe para evitar PUT que devuelvan 404
+        let existCheck = null;
+        let existCheckTimedOut = false;
+        try {
+          existCheck = await timedFetch(uurl, { method: 'GET', credentials: 'include', headers: (token ? { 'Authorization': `Bearer ${token}` } : {}) }, 15000);
+        } catch (e) {
+          if (e && e.message === 'timeout') {
+            console.warn('[guardarCambiosLead] Existence check timed out, will try prolonged PUT');
+            existCheckTimedOut = true;
+          }
+          existCheck = null;
         }
 
-        // Intentar en cadena sobre las URLs candidatas
-        let lastErrTxt = '';
-        let ok = false;
-        for (const uurl of candidates) {
-          const resp = await fetch(uurl, {
-            method,
+        let resp;
+        if (existCheck && existCheck.ok) {
+          console.debug('[guardarCambiosLead] Lead existe, realizando PUT:', uurl);
+          console.debug('[guardarCambiosLead] Enviando PUT:', uurl, { datosActualizados });
+          resp = await timedFetch(uurl, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
             credentials: 'include',
             body: JSON.stringify(datosActualizados)
-          });
-          if (resp.ok) { ok = true; break; }
-          try { lastErrTxt = await resp.text(); } catch(_) {}
+          }, 15000);
+        } else {
+          // Si la comprobación de existencia expiró, intentaremos un PUT prolongado (no asumimos inexistencia)
+          if (existCheck === null) {
+            existCheckTimedOut = true;
+            console.warn('[guardarCambiosLead] Existence check no respondió a tiempo, intentando PUT prolongado');
+            try {
+              resp = await timedFetch(uurl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                credentials: 'include',
+                body: JSON.stringify(datosActualizados)
+              }, 30000);
+            } catch (e) {
+              console.error('[guardarCambiosLead] PUT prolongado falló:', e);
+              if (e && e.message === 'timeout') {
+                throw new Error('El servidor tardó demasiado intentando actualizar el lead. Reintenta.');
+              }
+              throw e;
+            }
+          } else {
+            // Simular respuesta 404 para reutilizar la lógica de fallback sin hacer PUT
+            resp = { ok: false, status: 404, statusText: 'Not Found', text: async () => JSON.stringify({ success: false, message: 'Lead no encontrado' }) };
+          }
         }
-        if (!ok) {
+
+        if (!resp.ok) {
+          let lastErrTxt = '';
+          try { lastErrTxt = await resp.text(); } catch(_) {}
+          console.error('[guardarCambiosLead] PUT no OK', { url: uurl, status: resp.status, statusText: resp.statusText, body: lastErrTxt, payload: datosActualizados });
+
+          // Si el lead no existe (404), intentar crear uno nuevo con POST
+          if (resp.status === 404) {
+            // Intentar encontrar un lead existente por campos clave para evitar duplicados
+            try {
+              const cur = window.__currentEditingLead || {};
+              const digitsOnly = (s) => String(s||'').replace(/\D+/g, '').trim();
+              const toISODate = (s) => {
+                try {
+                  if (!s) return '';
+                  const d = (s instanceof Date) ? s : new Date(s);
+                  if (isNaN(d)) return String(s).slice(0,10);
+                  return d.toISOString().slice(0,10);
+                } catch { return String(s).slice(0,10); }
+              };
+
+              const vals = {
+                numero_cuenta: String(datosActualizados.numero_cuenta || cur.numero_cuenta || datosActualizados.numeroCuenta || cur.numeroCuenta || '').trim(),
+                numero_cuenta_digits: digitsOnly(datosActualizados.numero_cuenta || cur.numero_cuenta || datosActualizados.numeroCuenta || cur.numeroCuenta),
+                telefono: String(datosActualizados.telefono_principal || datosActualizados.telefono || cur.telefono_principal || cur.telefono || cur.phone || '').trim(),
+                telefono_digits: digitsOnly(datosActualizados.telefono_principal || datosActualizados.telefono || cur.telefono_principal || cur.telefono || cur.phone),
+                dia_venta: toISODate(datosActualizados.dia_venta || cur.dia_venta || datosActualizados.diaVenta || cur.diaVenta || ''),
+                servicios: String(datosActualizados.servicios || datosActualizados.tipo_servicio || cur.servicios || cur.tipo_servicio || '').trim(),
+                zip_code: String(datosActualizados.zip_code || cur.zip_code || datosActualizados.zip || cur.zip || '').trim()
+              };
+
+              const fetchOptsBase = { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } };
+              const normalizeId = (v) => {
+                if (!v) return '';
+                if (typeof v === 'object') return String(v.$oid||v.id||v._id||v.value||'');
+                const s = String(v); const m = s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/); return m?m[1]:s;
+              };
+
+              const tryQueries = [];
+              // Prefer exact match: phone_digits + account_digits
+              if (vals.telefono_digits && vals.numero_cuenta_digits) {
+                tryQueries.push({ q: `telefono=${encodeURIComponent(vals.telefono_digits)}&numero_cuenta=${encodeURIComponent(vals.numero_cuenta_digits)}`, reason: 'tel+cuenta_digits' });
+              }
+              // phone + date
+              if (vals.telefono_digits && vals.dia_venta) {
+                tryQueries.push({ q: `telefono=${encodeURIComponent(vals.telefono_digits)}&dia_venta=${encodeURIComponent(vals.dia_venta)}`, reason: 'tel+dia' });
+              }
+              // account digits
+              if (vals.numero_cuenta_digits) tryQueries.push({ q: `numero_cuenta=${encodeURIComponent(vals.numero_cuenta_digits)}`, reason: 'cuenta_digits' });
+              // phone digits
+              if (vals.telefono_digits) tryQueries.push({ q: `telefono=${encodeURIComponent(vals.telefono_digits)}`, reason: 'telefono_digits' });
+              // zip + phone
+              if (vals.zip_code && vals.telefono_digits) tryQueries.push({ q: `zip_code=${encodeURIComponent(vals.zip_code)}&telefono=${encodeURIComponent(vals.telefono_digits)}`, reason: 'zip+tel' });
+              // servicios
+              if (vals.servicios) tryQueries.push({ q: `servicios=${encodeURIComponent(vals.servicios)}`, reason: 'servicios' });
+              // fallback: numero_cuenta raw, telefono raw, dia_venta raw
+              if (vals.numero_cuenta) tryQueries.push({ q: `numero_cuenta=${encodeURIComponent(vals.numero_cuenta)}`, reason: 'cuenta_raw' });
+              if (vals.telefono) tryQueries.push({ q: `telefono=${encodeURIComponent(vals.telefono)}`, reason: 'telefono_raw' });
+
+              let found = null;
+              for (const item of tryQueries) {
+                try {
+                  const url = `/api/leads?page=1&limit=10&${item.q}`;
+                  console.debug('[guardarCambiosLead] intentando búsqueda:', item.reason, url, { vals });
+                  const r = await timedFetch(url, fetchOptsBase, 10000);
+                  if (!r.ok) { console.debug('[guardarCambiosLead] búsqueda HTTP no OK', r.status, url); continue; }
+                  const text = await r.text();
+                  let data;
+                  try { data = JSON.parse(text); } catch(_) { data = text; }
+                  const leads = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+                  console.debug('[guardarCambiosLead] resultados búsqueda', item.reason, 'count=', (leads && leads.length) || 0, { rawResponse: data });
+                  if (leads && leads.length) {
+                    const candidateId = normalizeId(leads[0]._id) || normalizeId(leads[0].id) || normalizeId(leads[0].leadId) || '';
+                    if (candidateId) { found = { id: candidateId, lead: leads[0], reason: item.reason }; break; }
+                  }
+                } catch (e) {
+                  if (e && e.message === 'timeout') throw new Error('El servidor tardó demasiado realizando búsquedas. Reintenta.');
+                  console.debug('[guardarCambiosLead] error en búsqueda:', e);
+                }
+              }
+
+              if (found && found.id) {
+                // Actualizar el lead encontrado
+                const putUrl = `/api/leads/${encodeURIComponent(found.id)}`;
+                console.debug('[guardarCambiosLead] Actualizando lead encontrado via PUT:', putUrl, { datosActualizados, foundReason: found.reason });
+                const putResp = await timedFetch(putUrl, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                  credentials: 'include',
+                  body: JSON.stringify(datosActualizados)
+                }, 15000);
+                if (!putResp.ok) {
+                  let t = '';
+                  try { t = await putResp.text(); } catch(_){ }
+                  console.error('[guardarCambiosLead] PUT sobre found.id falló', { putUrl, status: putResp.status, body: t });
+                  throw new Error('Error al actualizar lead encontrado: ' + (t || putResp.status));
+                }
+                alert('✅ Registro actualizado exitosamente (coincidencia encontrada)');
+                cerrarModalEdicion();
+                location.reload();
+                return;
+              }
+
+              // Antes de crear, hacer una última búsqueda combinada (teléfono + cuenta + fecha)
+              try {
+                const combParams = [];
+                if (vals.telefono_digits) combParams.push(`telefono=${encodeURIComponent(vals.telefono_digits)}`);
+                if (vals.numero_cuenta_digits) combParams.push(`numero_cuenta=${encodeURIComponent(vals.numero_cuenta_digits)}`);
+                if (vals.dia_venta) combParams.push(`dia_venta=${encodeURIComponent(vals.dia_venta)}`);
+                const combQuery = combParams.join('&');
+                if (combQuery) {
+                  const combUrl = `/api/leads?page=1&limit=10&${combQuery}`;
+                  console.debug('[guardarCambiosLead] última búsqueda combinada antes de POST:', combUrl);
+                  const combRes = await timedFetch(combUrl, fetchOptsBase, 10000);
+                  if (combRes && combRes.ok) {
+                    const combText = await combRes.text();
+                    let combData; try { combData = JSON.parse(combText); } catch(_) { combData = combText; }
+                    const combLeads = Array.isArray(combData) ? combData : (Array.isArray(combData?.data) ? combData.data : []);
+                    if (combLeads && combLeads.length) {
+                      // Mostrar confirmación al usuario con resumen de coincidencias
+                      const summary = combLeads.slice(0,5).map(l => {
+                        const n = (l.nombre_cliente || l.name || l.nombre || l.cliente) || '';
+                        const p = (l.telefono_principal || l.telefono || l.phone) || '';
+                        const a = (l.numero_cuenta || l.account || l.numeroCuenta) || '';
+                        const d = (l.dia_venta || l.fecha || l.fecha_venta) || '';
+                        return `ID:${normalizeId(l._id||l.id||l.leadId)} | ${n} | ${p} | ${a} | ${d}`;
+                      }).join('\n');
+                      const ok = confirm(`Se encontraron ${combLeads.length} registros similares:\n\n${summary}\n\n¿Deseas actualizar la primera coincidencia en lugar de crear un nuevo lead? (Aceptar = actualizar)`);
+                      if (ok) {
+                        const target = combLeads[0];
+                        const targetId = normalizeId(target._id) || normalizeId(target.id) || normalizeId(target.leadId) || '';
+                        if (targetId) {
+                          console.debug('[guardarCambiosLead] Usuario eligió actualizar coincidencia:', targetId);
+                          const putUrl2 = `/api/leads/${encodeURIComponent(targetId)}`;
+                          const putResp2 = await timedFetch(putUrl2, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                            credentials: 'include',
+                            body: JSON.stringify(datosActualizados)
+                          }, 15000);
+                          let put2txt = '';
+                          try { put2txt = await putResp2.text(); } catch(_){}
+                          if (!putResp2.ok) {
+                            console.error('[guardarCambiosLead] PUT sobre coincidencia falló', { putUrl2, status: putResp2.status, body: put2txt });
+                            throw new Error('Error al actualizar la coincidencia: ' + (put2txt || putResp2.status));
+                          }
+                          alert('✅ Registro actualizado exitosamente (coincidencia)');
+                          cerrarModalEdicion();
+                          location.reload();
+                          return;
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                if (e && e.message && e.message.toLowerCase().includes('timeout')) {
+                  throw new Error('El servidor tardó demasiado en la búsqueda final. Reintenta.');
+                }
+                console.debug('[guardarCambiosLead] error en búsqueda combinada pre-POST:', e);
+                // Si falla la búsqueda combinada por otra razón, continuar al POST para no bloquear al usuario
+              }
+
+              // Si no se eligió actualizar una coincidencia, proceder a crear
+              console.debug('[guardarCambiosLead] Creando nuevo lead via POST /api/leads', { datosActualizados });
+              const postResp = await timedFetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                credentials: 'include',
+                body: JSON.stringify(datosActualizados)
+              }, 15000);
+              let postTxt = '';
+              try { postTxt = await postResp.text(); } catch(_) {}
+              console.debug('[guardarCambiosLead] POST response', { status: postResp.status, body: postTxt });
+              if (!postResp.ok) {
+                throw new Error('Error al crear el registro: ' + (postTxt || postResp.status));
+              }
+              alert('✅ Registro creado exitosamente');
+              cerrarModalEdicion();
+              location.reload();
+              return;
+            } catch (e) {
+              let msg = 'Error tratando 404: ';
+              if (e && e.message) msg += e.message; else msg += String(e);
+              throw new Error(msg);
+            }
+          }
+
           let msg = 'Error al actualizar el registro';
           if (lastErrTxt) msg += ': ' + lastErrTxt;
           throw new Error(msg);
@@ -9079,13 +9495,11 @@
         alert('✅ Registro actualizado exitosamente');
         cerrarModalEdicion();
 
-        // Actualizar STATUS/color en la fila sin recargar
         try{
           const tbody = document.getElementById('costumer-tbody');
           const statusNew = (datosActualizados.status||'').toString().toUpperCase();
           let tr = tbody ? tbody.querySelector(`tr[data-lead-id="${CSS.escape(leadId)}"]`) : null;
           if (!tr && tbody) {
-            // Fallback: buscar por coincidencia exacta del ID en alguna celda (idealmente col 12)
             const rows = Array.from(tbody.querySelectorAll('tr'));
             tr = rows.find(r=>{
               const tds = Array.from(r.children);
@@ -9093,7 +9507,7 @@
             }) || null;
           }
           if (tr) {
-            const statusTd = tr.children[8]; // 9na columna
+            const statusTd = tr.children[8];
             if (statusTd) statusTd.textContent = statusNew || (statusTd.textContent||'');
             if (window._statusRowHelpers && typeof window._statusRowHelpers.applyRowClass==='function') {
               window._statusRowHelpers.applyRowClass(tr, statusNew);
@@ -9101,91 +9515,14 @@
               window.applyRowStatusColors();
             }
           } else {
-            // Si no encontramos la fila, como último recurso recargar
             location.reload();
           }
-        }catch{ /* si falla, no romper UX */ }
+        }catch{ }
       } catch (error) {
         console.error('Error al guardar cambios:', error);
         alert('❌ Error al actualizar el registro: ' + error.message);
-      }
-    };
-
-    window.eliminarLead = async function(id) {
-      // Verificar permisos: solo admin y backoffice pueden eliminar
-      function canDelete() {
-        try {
-          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-          const role = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
-          const allowedRoles = ['admin', 'administrador', 'administrator', 'backoffice', 'b.o', 'b:o', 'bo'];
-          return allowedRoles.includes(role);
-        } catch { return false; }
-      }
-
-      if (!canDelete()) {
-        alert('⛔ No tienes permisos para eliminar registros.\nSolo Administradores y Backoffice pueden hacerlo.');
-        return;
-      }
-
-      if (!id) {
-        alert('Error: ID de registro no válido');
-        return;
-      }
-
-      if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar este registro?\n\nEsta acción no se puede deshacer.')) {
-        return;
-      }
-
-      try {
-        console.log('Eliminando lead:', id);
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        
-        const response = await fetch(`/api/leads/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          credentials: 'include'
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.message || `Error ${response.status}`);
-        }
-
-        alert('✅ Registro eliminado correctamente');
-
-        // Eliminar la fila de la tabla
-        try {
-          const tbody = document.getElementById('costumer-tbody');
-          if (tbody) {
-            // Buscar la fila que contiene el botón de eliminar con este ID
-            const rows = tbody.querySelectorAll('tr');
-            rows.forEach(row => {
-              const deleteBtn = row.querySelector(`button[onclick*="eliminarLead('${id}')"]`);
-              if (deleteBtn) {
-                row.remove();
-              }
-            });
-          }
-          // También eliminar de la lista en memoria
-          if (Array.isArray(window.ultimaListaLeads)) {
-            window.ultimaListaLeads = window.ultimaListaLeads.filter(l => {
-              const leadId = (typeof getLeadId === 'function') ? getLeadId(l) : (l._id || l.id);
-              return leadId !== id;
-            });
-          }
-        } catch (e) {
-          console.warn('No se pudo actualizar la UI:', e);
-          // Recargar la página como fallback
-          location.reload();
-        }
-
-      } catch (error) {
-        console.error('Error al eliminar lead:', error);
-        alert('❌ Error al eliminar el registro: ' + (error.message || error));
+      } finally {
+        setSaving(false);
       }
     };
   </script>
