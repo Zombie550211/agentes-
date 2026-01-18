@@ -513,6 +513,7 @@
       function statusToClass(val){
         try{
           const t=String(val||'').trim().toLowerCase();
+          if((/active|activo/.test(t)) && /oficina/.test(t)) return 'row-status-active-oficina';
           if(/cancel/.test(t)) return 'row-status-canceled';
           if(/hold/.test(t)) return 'row-status-hold';
           if(/repro|resched/.test(t)) return 'row-status-rescheduled';
@@ -527,6 +528,7 @@
           
           if (isDarkTheme) {
             // Colores para tema oscuro
+            if((/active|activo/.test(t)) && /oficina/.test(t)) return '#0b2a4a';
             if(/cancel/.test(t)) return '#5b2121';
             if(/hold/.test(t)) return '#5a3a1a';
             if(/repro|resched/.test(t)) return '#4c1d95';
@@ -534,6 +536,7 @@
             return '#2c3a51'; // pending color for dark theme
           } else {
             // Colores para tema claro (originales)
+            if((/active|activo/.test(t)) && /oficina/.test(t)) return '#eff6ff';
             if(/cancel/.test(t)) return '#ffe7e7';
             if(/hold/.test(t)) return '#fff8db';
             if(/repro|resched/.test(t)) return '#f2e9ff';
@@ -550,7 +553,7 @@
           const cls=statusToClass(statusVal);
           const id = tr?.getAttribute('data-lead-id') || '(sin-id)';
           rcLog('applyRowClass ->', {id, statusVal, cls});
-          tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active');
+          tr.classList.remove('row-status-pending','row-status-hold','row-status-rescheduled','row-status-canceled','row-status-cancelled','row-status-complete','row-status-active','row-status-active-oficina');
           tr.classList.add(cls);
           // Aplicar color inline para vencer cualquier re-pintado externo
           const color = statusToColor(statusVal);
@@ -1478,6 +1481,7 @@
     .costumer-table tbody tr.row-status-cancelled td { background-color: #ffe7e7 !important; }
     .costumer-table tbody tr.row-status-complete td,
     .costumer-table tbody tr.row-status-active td { background-color: #e9f9ee !important; }
+    .costumer-table tbody tr.row-status-active-oficina td { background-color: #eff6ff !important; }
     /* Mejorar legibilidad de separadores */
     .costumer-table tbody tr[class^="row-status-"] td { border-bottom-color: #e6edf5; }
     /* Reglas por data-row-status (mÃ¡s robusto contra re-pintados) */
@@ -1495,6 +1499,7 @@
     .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="resched"]) td { background-color: #f2e9ff !important; }
     .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="complete"]) td,
     .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="active"]) td { background-color: #e9f9ee !important; }
+    .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="oficina"]) td { background-color: #eff6ff !important; }
     .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="pending"]) td { background-color: #f8fafc !important; }
 
     /* Forzar estilo por clase (mÃ¡s especÃ­fico y robusto) */
@@ -1691,6 +1696,12 @@
     .badge-danger {
       background-color: #fdecea;
       color: #e53935;
+    }
+
+    .badge-active-oficina {
+      background-color: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
     }
     
     .action-btn {
@@ -1905,6 +1916,10 @@
     body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="complete"]) td,
     body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="active"]) td {
       background-color: #164e3b !important;
+    }
+    body.dark-theme .costumer-table tbody tr.row-status-active-oficina td,
+    body.dark-theme .costumer-table tbody tr:has(> td:nth-child(9)[data-status*="oficina"]) td {
+      background-color: #0b2a4a !important;
     }
 
     body.dark-theme .costumer-table tbody tr[class^="row-status-"] td {
@@ -5586,6 +5601,10 @@
       const allowed = ['pending','hold','cancelled','rescheduled','completed','active'];
       const v = (s || '').toString().trim();
       const lower = v.toLowerCase();
+      // Caso especial: Active Oficina (debe mantenerse como etiqueta separada)
+      if ((lower.includes('active') || lower.includes('activo')) && lower.includes('oficina')) {
+        return 'Active Oficina';
+      }
       const pick = allowed.includes(lower)
         ? lower
         : (v.toLowerCase().includes('active') || v.toLowerCase().includes('activo') ? 'active' : null) ||
@@ -5607,6 +5626,7 @@
       if (lower === 'rescheduled') return 'badge-primary';
       if (lower === 'completed') return 'badge-success';
       if (lower === 'active') return 'badge-success';
+      if (lower === 'active oficina' || lower === 'active_oficina') return 'badge-active-oficina';
       return 'badge-info';
     }
 
@@ -6109,7 +6129,7 @@
           <td class="status-col">
             ${editable ? `
               <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus(this, '${__id}')">
-                ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active'].map(opt => `
+                ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active','Active Oficina'].map(opt => `
                   <option value="${opt.toLowerCase()}" ${opt===statusLabel?'selected':''}>${opt}</option>
                 `).join('')}
               </select>
@@ -6317,6 +6337,33 @@
         
         // Limpiar tbody antes de renderizar
         tbodyLoc.innerHTML = '';
+
+        // PASO 0.5: ocultar Active Oficina en vista general para admin/backoffice
+        try {
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+          const roleNorm = (function normalizeRole(r){
+            if (!r) return 'agente';
+            if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+            if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+            if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+            if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
+            return r;
+          })(roleRaw);
+          const teamDropdown0 = document.getElementById('teamFilter');
+          const selectedTeam0 = teamDropdown0 ? String(teamDropdown0.value || '').trim().toLowerCase() : '';
+          const isAdminLike = (roleNorm === 'admin' || roleNorm === 'backoffice');
+          const isTeamOficina = (selectedTeam0 === 'oficina');
+          if (isAdminLike && !isTeamOficina && Array.isArray(list) && list.length > 0) {
+            list = list.filter(item => {
+              const s = normalizarTexto(item?.status || item?._raw?.status || '');
+              const isActiveOficina = ((s.includes('active') || s.includes('activo')) && s.includes('oficina'));
+              return !isActiveOficina;
+            });
+          }
+        } catch(e) {
+          console.warn('[ActiveOficina] Error en filtro de visibilidad:', e);
+        }
         
         // PASO 1: SIEMPRE aplicar filtro de Team si hay un valor en el dropdown
         try {
@@ -6334,7 +6381,24 @@
             if (!alreadyFiltered) {
               list = list.filter(item => {
                 const itemSup = (item?.supervisor || item?.team || '').toLowerCase().trim();
-                return itemSup === selectedTeamNorm;
+                if (itemSup === selectedTeamNorm) return true;
+
+                // Caso especial: Team = Oficina
+                // En algunos registros, Oficina no viene en supervisor/team, sino en status o en el campo oficina.
+                if (selectedTeamNorm === 'oficina') {
+                  try {
+                    const s = normalizarTexto(item?.status || item?._raw?.status || '');
+                    const isActiveOficina = ((s.includes('active') || s.includes('activo')) && s.includes('oficina'));
+                    if (isActiveOficina) return true;
+                  } catch (_) {}
+
+                  try {
+                    const of = (item?.oficina ?? item?._raw?.oficina ?? item?.OFICINA ?? '').toString().toLowerCase().trim();
+                    if (of === 'oficina' || of === 'si' || of === 'sí' || of === 'true' || of === '1') return true;
+                  } catch (_) {}
+                }
+
+                return false;
               });
               console.log('[TEAM FILTER] Aplicado:', selectedTeam, '| Antes:', beforeFilter, '| DespuÃ©s:', list.length);
             } else {
@@ -6397,6 +6461,7 @@
               if (selectedStatus === 'pending') return (s.includes('pendient') || s.includes('pending'));
               if (selectedStatus === 'cancelled') return (s.includes('cancel') || s.includes('anulad') || s.includes('no instalado'));
               if (selectedStatus === 'completed') return (s.includes('complet') || s.includes('complete') || s.includes('active') || s.includes('activo'));
+              if (selectedStatus === 'active_oficina') return ((s.includes('active') || s.includes('activo')) && s.includes('oficina'));
               if (selectedStatus === 'hold') return (s.includes('hold') || s.includes('espera'));
               if (selectedStatus === 'rescheduled') return (s.includes('resched') || s.includes('reprogram'));
               return true;
@@ -7526,6 +7591,23 @@
       const ventasActivasElement = document.getElementById('costumer-ventas-activas');
       const pendientesElement = document.getElementById('costumer-pendientes');
       const canceladosElement = document.getElementById('costumer-cancelados');
+
+      // Roles para los que Active Oficina NO suma puntaje (pero sí se muestra)
+      const __excludeActiveOficinaFromPoints = (() => {
+        try {
+          const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
+          const role = (function normalizeRole(r){
+            if (!r) return 'agente';
+            if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+            if (['supervisor','supervisora','supervisores'].includes(r)) return 'supervisor';
+            if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+            if (['backoffice','back office','back_office','bo','b.o','b:o','b-o'].includes(r)) return 'backoffice';
+            return r;
+          })(roleRaw);
+          return role === 'agente' || role === 'supervisor';
+        } catch { return false; }
+      })();
       
       // Establecer valores por defecto
       let ventasHoy = 0;
@@ -7731,6 +7813,9 @@
             const status = normalizarTexto(l.status || '');
             const isCancel = status.includes('cancel') || status.includes('anulad');
             if (isCancel) return;
+            // Active Oficina: para roles agente/vendedor/supervisor NO suma puntaje
+            const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
+            if (__excludeActiveOficinaFromPoints && isActiveOficina) return;
             const leadISO = getDateFromLead(l);
             if (!leadISO) return;
             const leadMonth = leadISO.slice(0,7); // YYYY-MM
@@ -7819,7 +7904,9 @@
           return leads.reduce((sum, lead) => {
             const status = normalizarTexto(lead.status || '');
             const isCancel = /cancel/.test(status);
+            const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
             if (!isCancel && getDateFromLead(lead) === fechaISO) {
+              if (__excludeActiveOficinaFromPoints && isActiveOficina) return sum;
               return sum + (parseFloat(lead.puntaje) || 0);
             }
             return sum;
@@ -10069,6 +10156,22 @@
         teamFilter.addEventListener('change', function() {
           console.log('========== [TEAM FILTER] EVENTO CHANGE ==========');
           console.log('[TEAM FILTER] Valor seleccionado:', this.value || '(vacÃ­o = Todos)');
+
+          // Conectar Team=Oficina con Status=Active Oficina
+          try {
+            const statusFilterEl = document.getElementById('statusFilter');
+            const teamVal = String(this.value || '').trim().toLowerCase();
+            if (statusFilterEl) {
+              if (teamVal === 'oficina') {
+                statusFilterEl.value = 'active_oficina';
+              } else {
+                // Si antes estaba forzado por Oficina, regresar a "Todos"
+                if (String(statusFilterEl.value || '').toLowerCase() === 'active_oficina') {
+                  statusFilterEl.value = 'all';
+                }
+              }
+            }
+          } catch (_) {}
           
           // IMPORTANTE: Limpiar SIDEBAR_FILTER_OVERRIDE cuando el usuario usa el dropdown directamente
           // PERO respetar si es una actualizaciÃ³n programÃ¡tica desde el sidebar
@@ -10160,6 +10263,28 @@
       if (statusFilter) {
         statusFilter.addEventListener('change', function() {
           console.log('[STATUS FILTER] Cambiando a status:', this.value || 'all');
+
+          // Conectar Status=Active Oficina con Team=Oficina
+          try {
+            const teamFilterEl = document.getElementById('teamFilter');
+            const statusVal = String(this.value || '').trim().toLowerCase();
+            if (teamFilterEl) {
+              if (statusVal === 'active_oficina') {
+                // Guardar valor previo para restaurarlo al salir de Active Oficina
+                if (teamFilterEl.getAttribute('data-prev-manual') == null) {
+                  teamFilterEl.setAttribute('data-prev-manual', String(teamFilterEl.value || ''));
+                }
+                teamFilterEl.value = 'Oficina';
+              } else {
+                // Si el team estaba forzado por Active Oficina, restaurar
+                const prev = teamFilterEl.getAttribute('data-prev-manual');
+                if (prev != null && String(teamFilterEl.value || '').trim().toLowerCase() === 'oficina') {
+                  teamFilterEl.value = prev;
+                }
+                teamFilterEl.removeAttribute('data-prev-manual');
+              }
+            }
+          } catch (_) {}
           
           // Re-renderizar tabla
           if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
