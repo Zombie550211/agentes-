@@ -1,6 +1,4 @@
-﻿
- 
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -2053,13 +2051,11 @@
 
         const TEAMS = [
             { name: "Oficina", supervisor: "Oficina", agents: [] },
-            { name: "TEAM BRYAN PLEITEZ", supervisor: "Bryan Pleitez", agents: ["Abigail Galdamez", "Alexander Rivera", "Diego Mejia", "Evelin Garcia", "Fabricio PanameÃ±o", "Luis Chavarria", "Jairo Flores", "Steven Varela"] },
-            { name: "TEAM IRANIA", supervisor: "Irania Serrano", agents: ["Giselle Diaz", "Josue Renderos", "Miguel Nunez", "Roxana Martinez", "Nicole Cruz", "Jorge Segovia", "Tatiana Ayala"] },
-            { name: "TEAM MARISOL BELTRAN", supervisor: "Marisol Beltran", agents: ["Fernanda Castillo", "Jonathan Morales", "Katerine Gomez", "Eduardo R", "Kimberly Iglesias", "Eduardo Ruiz", "Stefani Martinez"] },
-            { name: "TEAM JOHANA", supervisor: "Guadalupe Santana", agents: ["Anderson Guzman", "Carlos Grande", "Julio Chavez", "Priscila Hernandez", "Abigail Bernal", "Riquelmi Torres"] },
-            { name: "TEAM ROBERTO VELASQUEZ", supervisor: "Roberto Velasquez", agents: ["Cindy Flores", "Daniela Bonilla", "Francisco Aguilar", "Lisbeth Cortez", "Lucia Ferman", "Alejandra Melara", "Nelson Ceren", "Levy Ceren"] },
-            { name: "TEAM LINEA", supervisor: "Team LÃ­neas", agents: [] },
-            { name: "TEAM LINEAS", supervisor: "Team LÃ­neas", agents: [] }
+            { name: "TEAM IRANIA", supervisor: "Irania Serrano", agents: ["NICOLE.CRUZ", "Melissa Escobar", "Roxana Martinez", "Josue Renderos", "Miguel Nunez", "Tatiana Ayala", "Giselle Diaz", "Jorge Segovia", "Jairo Flores", "Mauricio Martinez"] },
+            { name: "TEAM JOHANA", supervisor: "Guadalupe Santana", agents: ["Carlos Grande", "abigail.bernal", "Anderson Guzman", "Riquelmi Torres", "Priscila Hernandez", "Julio Chavez", "Abigail Bernal", "Guadalupe Santana"] },
+            { name: "TEAM MARISOL", supervisor: "Marisol Beltran", agents: ["Fernanda Castillo", "Jonathan Morales", "Stefani Martinez", "Eduardo R", "Francisco Aguilar", "Katerine Gomez", "Kimberly Iglesias", "INGRID.GARCIA"] },
+            { name: "TEAM PLEITEZ", supervisor: "Bryan Pleitez", agents: ["Luis Chavarria", "Evelin Garcia", "Diego Mejia", "Alexander Rivera", "Steven Varela", "Julio Chavez", "Bryan Pleitez"] },
+            { name: "TEAM ROBERTO", supervisor: "Roberto Velasquez", agents: ["Lucia Ferman", "Nelson Ceren", "Daniela Bonilla", "Lisbeth Cortez", "Francisco Aguilar", "Michelle Leiva", "Cindy Flores", "Alejandra Melara", "alejandraMelara"] }
         ];
 
         // FILTRADO DE TEAMS SEGÃšN ROL
@@ -2146,11 +2142,36 @@
                     try {
                         console.log('[Sidebar] applyFilters triggered:', { teamName, supervisorName, agentName });
                         
+                        // Mapeo especial para Jorge Segovia - buscar todas las variaciones
+                        let searchNames = [agentName];
+                        if (agentName === "Jorge Segovia") {
+                            searchNames = [
+                                "JORGE LUIS SEGOVIA RIVERA",
+                                "JORGE.SERGOVIA", 
+                                "Jorge Segovia",
+                                "jorge segovia",
+                                "JORGE SEGOVIA",
+                                "Jorge Luis Segovia Rivera"
+                            ];
+                        }
+                        // Mapeo especial para Jairo Flores - buscar todas las variaciones
+                        else if (agentName === "Jairo Flores") {
+                            searchNames = [
+                                "Jairo Flores",
+                                "JAIRO IVAN FLORES PINO",
+                                "Jairo.Flores",
+                                "jairo flores",
+                                "JAIRO FLORES",
+                                "Jairo Ivan Flores Pino"
+                            ];
+                        }
+                        
                         // 1. Establecer OVERRIDE para filtrado robusto
                         window.SIDEBAR_FILTER_OVERRIDE = {
                             team: teamName,
                             supervisor: supervisorName,
-                            agent: agentName
+                            agent: agentName,
+                            searchNames: searchNames // Agregar variaciones para búsqueda
                         };
                         
                         // Flag para indicar que estamos actualizando desde el sidebar
@@ -3175,22 +3196,24 @@
       async function parseFile(file){
         await loadSheetJS();
         return new Promise((resolve,reject)=>{
-          const reader = new FileReader();
-          reader.onload = (e)=>{
-            try{
-              const data = e.target.result;
-              const wb = window.XLSX.read(data, {type: 'binary'});
-              const first = wb.SheetNames[0];
-              const ws = wb.Sheets[first];
-              const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval: ''});
-              resolve(rows);
-            }catch(err){ reject(err); }
-          };
-          reader.onerror = (err)=>reject(err);
-          // read as binary string (works for xlsx and csv)
-          try{ reader.readAsBinaryString(file); }catch(e){ // fallback for some browsers
-            reader.readAsArrayBuffer(file);
-          }
+            const reader = new FileReader();
+            
+            reader.onload = (e)=>{
+                try{
+                    const data = e.target.result;
+                    // CAMBIO AQUÍ: Usar type: 'array' en lugar de 'binary'
+                    const wb = window.XLSX.read(data, {type: 'array'}); 
+                    const first = wb.SheetNames[0];
+                    const ws = wb.Sheets[first];
+                    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval: ''});
+                    resolve(rows);
+                }catch(err){ reject(err); }
+            };
+            
+            reader.onerror = (err)=>reject(err);
+            
+            // CAMBIO AQUÍ: Leer siempre como ArrayBuffer (es más seguro para tildes y ñ)
+            reader.readAsArrayBuffer(file); 
         });
       }
 
@@ -6424,12 +6447,23 @@
             const beforeFilter = list.length;
             const selectedAgentNorm = selectedAgent.toLowerCase().trim();
             
+            // Obtener variaciones de búsqueda si existen (para Jorge Segovia)
+            let searchNames = [selectedAgent];
+            if (window.SIDEBAR_FILTER_OVERRIDE && window.SIDEBAR_FILTER_OVERRIDE.searchNames) {
+              searchNames = window.SIDEBAR_FILTER_OVERRIDE.searchNames;
+            }
+            
             list = list.filter(item => {
               const itemAgent = (item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || '').toLowerCase().trim();
-              return itemAgent === selectedAgentNorm || 
-                     (itemAgent && selectedAgentNorm && (itemAgent.includes(selectedAgentNorm) || selectedAgentNorm.includes(itemAgent)));
+              
+              // Buscar coincidencia con cualquiera de las variaciones
+              return searchNames.some(searchName => {
+                const searchNorm = searchName.toLowerCase().trim();
+                return itemAgent === searchNorm || 
+                       (itemAgent && searchNorm && (itemAgent.includes(searchNorm) || searchNorm.includes(itemAgent)));
+              });
             });
-            console.log('[AGENT FILTER] Aplicado:', selectedAgent, '| Antes:', beforeFilter, '| DespuÃ©s:', list.length);
+            console.log('[AGENT FILTER] Aplicado:', selectedAgent, '| Variaciones:', searchNames.length, '| Antes:', beforeFilter, '| Después:', list.length);
           }
         } catch(e) {
           console.warn('[AGENT FILTER] Error:', e);
