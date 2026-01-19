@@ -626,6 +626,7 @@ if (helmet) {
 // Rate limiting (si disponible)
 const makeLimiter = (opts) => rateLimit ? rateLimit.rateLimit(opts) : ((req, res, next) => next());
 const authLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: 'draft-7', legacyHeaders: false });
+const loginLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
 
 // Crear registro para Team Lineas en colección dedicada "Lineas"
 // Consultar registros de Team Lineas (con filtrado por agente)
@@ -1018,24 +1019,16 @@ app.delete('/api/lineas-team/delete', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en POST /api/lineas-team/delete:', error);
+    console.error('Error en DELETE /api/lineas-team/delete:', error);
     return res.status(500).json({ success: false, message: 'Error al eliminar el registro de Lineas', error: error.message });
   }
-});
-
-const loginLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
-
-// Ruta protegida para Costumer.html (solo administradores) - DEBE IR ANTES de express.static
-app.get('/Costumer.html', protect, (req, res) => {
-  // Servir Costumer.html a cualquier usuario autenticado (visibilidad de datos se controla en los endpoints)
-  return res.sendFile(path.join(__dirname, 'Costumer.html'));
 });
 
 // Ruta específica para el video
 app.get('/videos/:filename', (req, res) => {
   const filename = req.params.filename;
   // Asegurarse de que la ruta sea correcta
-  const videoPath = path.join(__dirname, 'public', 'images', filename);
+  const videoPath = path.join(__dirname, 'public', 'videos', filename);
   console.log('Buscando video en:', videoPath);
   console.log('El archivo existe?', fs.existsSync(videoPath) ? 'Sí' : 'No');
   
@@ -5636,7 +5629,8 @@ app.get('/inicio', (req, res) => {
 app.get('/Costumer.html', protect, (req, res, next) => {
   // Verificar si el usuario es administrador
   if (req.user && req.user.role === 'admin') {
-    // Si es administrador, servir el archivo
+    // Si es administrador, servir el archivo con encoding UTF-8
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     return res.sendFile(path.join(__dirname, 'Costumer.html'));
   } else {
     // Si no es administrador, redirigir a página de inicio con mensaje de error
