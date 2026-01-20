@@ -6463,15 +6463,38 @@
             if (window.SIDEBAR_FILTER_OVERRIDE && window.SIDEBAR_FILTER_OVERRIDE.searchNames) {
               searchNames = window.SIDEBAR_FILTER_OVERRIDE.searchNames;
             }
+
+            const normalizeNameForMatch = (s) => {
+              try {
+                return String(s || '')
+                  .toLowerCase()
+                  .trim()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/[^a-z0-9]+/g, ' ')
+                  .trim()
+                  .replace(/\s+/g, ' ');
+              } catch (_) {
+                return String(s || '').toLowerCase().trim();
+              }
+            };
             
             list = list.filter(item => {
-              const itemAgent = (item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || '').toLowerCase().trim();
+              const itemAgent = (item?.agente || item?.agenteNombre || item?.nombreAgente || item?.agent || item?.usuario || '').toLowerCase().trim();
+              const itemAgentNorm2 = normalizeNameForMatch(itemAgent);
               
               // Buscar coincidencia con cualquiera de las variaciones
               return searchNames.some(searchName => {
-                const searchNorm = searchName.toLowerCase().trim();
-                return itemAgent === searchNorm || 
-                       (itemAgent && searchNorm && (itemAgent.includes(searchNorm) || searchNorm.includes(itemAgent)));
+                const searchNormRaw = searchName.toLowerCase().trim();
+                const searchNorm2 = normalizeNameForMatch(searchNormRaw);
+
+                if (!itemAgentNorm2 || !searchNorm2) return false;
+                if (itemAgentNorm2 === searchNorm2) return true;
+                if (itemAgentNorm2.includes(searchNorm2) || searchNorm2.includes(itemAgentNorm2)) return true;
+
+                const tokens = searchNorm2.split(' ').filter(Boolean);
+                const keyTokens = tokens.length >= 2 ? [tokens[0], tokens[tokens.length - 1]] : tokens;
+                return keyTokens.length ? keyTokens.every(t => itemAgentNorm2.includes(t)) : false;
               });
             });
             console.log('[AGENT FILTER] Aplicado:', selectedAgent, '| Variaciones:', searchNames.length, '| Antes:', beforeFilter, '| Después:', list.length);
@@ -7852,29 +7875,41 @@
         const monthSelect = document.getElementById('monthFilter');
         const selectedMonth = monthSelect && monthSelect.value ? monthSelect.value : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
         const todayISOcmp = todayISO; // YYYY-MM-DD
-        let puntajeMensual = 0;
-        leads.forEach(l => {
-          try {
-            const status = normalizarTexto(l.status || '');
-            const isCancel = status.includes('cancel') || status.includes('anulad');
-            if (isCancel) return;
-            // Active Oficina: para roles agente/vendedor/supervisor NO suma puntaje
-            const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
-            if (__excludeActiveOficinaFromPoints && isActiveOficina) return;
-            const leadISO = getDateFromLead(l);
-            if (!leadISO) return;
-            const leadMonth = leadISO.slice(0,7); // YYYY-MM
-            if (leadMonth !== selectedMonth) return;
-            // Si el mes seleccionado es el mes actual, solo sumar hasta hoy
-            if (selectedMonth === `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`) {
-              if (leadISO > todayISOcmp) return;
-            }
-            const p = parseFloat(l.puntaje || l.puntaje_calculado || 0) || 0;
-            puntajeMensual += p;
-          } catch (e) { /* noop */ }
-        });
-        // Redondear a entero si es prÃ¡cticamente entero
-        puntajeMensual = Math.round(puntajeMensual * 100) / 100;
+        let puntajeMensual = null;
+        try {
+          const kt = window.__kpisTotals;
+          if (kt && typeof kt === 'object' && typeof kt.puntajeMensual === 'number') {
+            puntajeMensual = kt.puntajeMensual;
+          }
+        } catch (_) { puntajeMensual = null; }
+
+        if (puntajeMensual === null) {
+          puntajeMensual = 0;
+          leads.forEach(l => {
+            try {
+              const status = normalizarTexto(l.status || '');
+              const isCancel = status.includes('cancel') || status.includes('anulad');
+              if (isCancel) return;
+              // Active Oficina: para roles agente/vendedor/supervisor NO suma puntaje
+              const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
+              if (__excludeActiveOficinaFromPoints && isActiveOficina) return;
+              const leadISO = getDateFromLead(l);
+              if (!leadISO) return;
+              const leadMonth = leadISO.slice(0,7); // YYYY-MM
+              if (leadMonth !== selectedMonth) return;
+              // Si el mes seleccionado es el mes actual, solo sumar hasta hoy
+              if (selectedMonth === `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`) {
+                if (leadISO > todayISOcmp) return;
+              }
+              const p = parseFloat(l.puntaje || l.puntaje_calculado || 0) || 0;
+              puntajeMensual += p;
+            } catch (e) { /* noop */ }
+          });
+          // Redondear a entero si es prÃ¡cticamente entero
+          puntajeMensual = Math.round(puntajeMensual * 100) / 100;
+        } else {
+          puntajeMensual = Math.round(puntajeMensual * 100) / 100;
+        }
 
         const selectedMonthSafe = (selectedMonth && /^\d{4}-\d{2}$/.test(String(selectedMonth).trim()))
           ? String(selectedMonth).trim()

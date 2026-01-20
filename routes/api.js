@@ -407,7 +407,7 @@ router.get('/leads', protect, async (req, res) => {
     const toComparable = (s) => String(s || '')
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0000-\u036f]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, '');
 
     const rawVendor = String(vendedor || '').trim();
@@ -891,9 +891,21 @@ router.get('/leads', protect, async (req, res) => {
           .map(s => String(s || '').trim())
           .filter(Boolean)
           .flatMap(s => {
-            const upper = s.toUpperCase();
-            const first = upper.split(/\s+/).filter(Boolean)[0] || upper;
-            return [s, upper, first];
+            const raw = String(s || '').trim();
+            const upper = raw.toUpperCase();
+            const rawNoTeam = raw.replace(/^TEAM\s+/i, '').trim();
+            const upperNoTeam = upper.replace(/^TEAM\s+/, '').trim();
+            const tokens = upper.split(/\s+/).filter(Boolean);
+            const first = (tokens[0] && tokens[0] !== 'TEAM') ? tokens[0] : '';
+            const firstNoTeam = (upperNoTeam.split(/\s+/).filter(Boolean)[0] || '');
+            return [
+              raw,
+              upper,
+              rawNoTeam,
+              upperNoTeam,
+              first,
+              firstNoTeam
+            ].filter(Boolean);
           })
       ));
 
@@ -993,9 +1005,21 @@ router.get('/leads', protect, async (req, res) => {
             .map(s => String(s || '').trim())
             .filter(Boolean)
             .flatMap(s => {
-              const upper = s.toUpperCase();
-              const first = upper.split(/\s+/).filter(Boolean)[0] || upper;
-              return [s, upper, first];
+              const raw = String(s || '').trim();
+              const upper = raw.toUpperCase();
+              const rawNoTeam = raw.replace(/^TEAM\s+/i, '').trim();
+              const upperNoTeam = upper.replace(/^TEAM\s+/, '').trim();
+              const tokens = upper.split(/\s+/).filter(Boolean);
+              const first = (tokens[0] && tokens[0] !== 'TEAM') ? tokens[0] : '';
+              const firstNoTeam = (upperNoTeam.split(/\s+/).filter(Boolean)[0] || '');
+              return [
+                raw,
+                upper,
+                rawNoTeam,
+                upperNoTeam,
+                first,
+                firstNoTeam
+              ].filter(Boolean);
             })
         ));
 
@@ -1373,6 +1397,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
     const { month, status, noAutoMonth, agentName, agents, vendedor } = req.query;
     let query = {};
     const andConditions = [];
+    const baseAndConditions = [];
 
     const roleLowerMarket = String(req.user?.role || '')
       .trim()
@@ -1396,10 +1421,14 @@ router.get('/leads/kpis', protect, async (req, res) => {
       ]
     });
 
-    if (mercadoRestrict) andConditions.push(mercadoCondition(mercadoRestrict));
+    if (mercadoRestrict) {
+      andConditions.push(mercadoCondition(mercadoRestrict));
+      baseAndConditions.push(mercadoCondition(mercadoRestrict));
+    }
 
     if (status && String(status).toLowerCase() !== 'todos') {
       andConditions.push({ status: status });
+      baseAndConditions.push({ status: status });
     }
 
     const roleLower0 = String(req.user?.role || '').toLowerCase();
@@ -1414,7 +1443,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
     const toComparable = (s) => String(s || '')
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0000-\u036f]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, '');
 
     const rawVendor = String(vendedor || '').trim();
@@ -1435,17 +1464,27 @@ router.get('/leads/kpis', protect, async (req, res) => {
     };
     const agentRegex = singleAgent ? makeExactAnyRegex([singleAgent]) : (agentList.length ? makeExactAnyRegex(agentList) : null);
     if (isSupervisor0 && agentRegex) {
-      andConditions.push({
+      const agentCond = {
         $or: [
           { agenteNombre: { $regex: agentRegex } },
           { agente: { $regex: agentRegex } },
           { createdBy: { $regex: agentRegex } },
           { creadoPor: { $regex: agentRegex } }
         ]
-      });
+      };
+      andConditions.push(agentCond);
+      baseAndConditions.push(agentCond);
     }
 
     const disableAutoMonth = String(noAutoMonth || '').toLowerCase() === '1' || String(noAutoMonth || '').toLowerCase() === 'true';
+
+    let querySale = null;
+    let queryInstall = null;
+    let queryColchon = null;
+    let __colchonApplicable = false;
+    let __targetYear = null;
+    let __targetMonth = null;
+    let __daysInMonth = null;
 
     if (!disableAutoMonth) {
       let targetYear;
@@ -1469,6 +1508,9 @@ router.get('/leads/kpis', protect, async (req, res) => {
       }
 
       const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+      __targetYear = targetYear;
+      __targetMonth = targetMonth;
+      __daysInMonth = daysInMonth;
       const monthStr = String(targetMonth).padStart(2, '0');
       const monthNoPad = String(targetMonth);
       const dayVals = [];
@@ -1490,38 +1532,104 @@ router.get('/leads/kpis', protect, async (req, res) => {
       const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
       const monthEnd = new Date(targetYear, targetMonth - 1, daysInMonth, 23, 59, 59, 999);
 
-      const dateOrConditions = [
-        { dia_venta: { $regex: reYMD.source, $options: 'i' } },
-        { dia_venta: { $regex: reYMDSlash.source, $options: 'i' } },
-        { dia_venta: { $regex: reDMYSlash.source, $options: 'i' } },
-        { dia_venta: { $regex: reDMYDash.source, $options: 'i' } },
-        { dia_venta: { $regex: reMDYSlash.source, $options: 'i' } },
-        { fecha_contratacion: { $regex: reYMD.source, $options: 'i' } },
-        { fecha_contratacion: { $regex: reYMDSlash.source, $options: 'i' } },
-        { fecha_contratacion: { $regex: reDMYSlash.source, $options: 'i' } },
-        { fecha_contratacion: { $regex: reDMYDash.source, $options: 'i' } },
-        { fecha_contratacion: { $regex: reMDYSlash.source, $options: 'i' } },
-        { '_raw.dia_venta': { $regex: reYMD.source, $options: 'i' } },
-        { '_raw.dia_venta': { $regex: reYMDSlash.source, $options: 'i' } },
-        { '_raw.dia_venta': { $regex: reDMYSlash.source, $options: 'i' } },
-        { '_raw.dia_venta': { $regex: reDMYDash.source, $options: 'i' } },
-        { '_raw.dia_venta': { $regex: reMDYSlash.source, $options: 'i' } },
-        { '_raw.fecha_contratacion': { $regex: reYMD.source, $options: 'i' } },
-        { '_raw.fecha_contratacion': { $regex: reYMDSlash.source, $options: 'i' } },
-        { '_raw.fecha_contratacion': { $regex: reDMYSlash.source, $options: 'i' } },
-        { '_raw.fecha_contratacion': { $regex: reDMYDash.source, $options: 'i' } },
-        { '_raw.fecha_contratacion': { $regex: reMDYSlash.source, $options: 'i' } },
-        { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-        { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      const buildDateOr = (fields) => {
+        const out = [];
+        const paths = (fields || []).flatMap(f => [f, `_raw.${f}`]);
+        for (const p of paths) {
+          out.push({ [p]: { $regex: reYMD.source, $options: 'i' } });
+          out.push({ [p]: { $regex: reYMDSlash.source, $options: 'i' } });
+          out.push({ [p]: { $regex: reDMYSlash.source, $options: 'i' } });
+          out.push({ [p]: { $regex: reDMYDash.source, $options: 'i' } });
+          out.push({ [p]: { $regex: reMDYSlash.source, $options: 'i' } });
+          out.push({ [p]: { $gte: monthStart, $lte: monthEnd } });
+        }
+        return out;
+      };
+
+      const saleDateOrConditions = [
+        ...buildDateOr(['dia_venta', 'fecha_contratacion', 'diaVenta', 'fechaVenta', 'fecha_venta', 'fechaDeVenta', 'saleDate', 'sale_date']),
         { createdAt: { $gte: monthStart, $lte: monthEnd } },
         { creadoEn: { $gte: monthStart, $lte: monthEnd } },
         { actualizadoEn: { $gte: monthStart, $lte: monthEnd } }
       ];
 
-      andConditions.push({ $or: dateOrConditions });
+      const installDateOrConditions = [
+        ...buildDateOr(['dia_instalacion', 'fecha_instalacion', 'diaInstalacion', 'fechaInstalacion'])
+      ];
+
+      const saleQueryObj = baseAndConditions.length
+        ? { $and: [...baseAndConditions, { $or: saleDateOrConditions }] }
+        : { $or: saleDateOrConditions };
+
+      const installQueryObj = baseAndConditions.length
+        ? { $and: [...baseAndConditions, { $or: installDateOrConditions }] }
+        : { $or: installDateOrConditions };
+
+      querySale = saleQueryObj;
+      queryInstall = installQueryObj;
+
+      andConditions.push({ $or: saleDateOrConditions });
+
+      try {
+        const prev = new Date(targetYear, targetMonth - 2, 1);
+        const prevYear = prev.getFullYear();
+        const prevMonth = prev.getMonth() + 1;
+        const prevDays = new Date(prevYear, prevMonth, 0).getDate();
+        const prevMonthStr = String(prevMonth).padStart(2, '0');
+        const prevMonthNoPad = String(prevMonth);
+        const prevDayVals = [];
+        for (let d = 1; d <= prevDays; d++) {
+          prevDayVals.push(String(d));
+          prevDayVals.push(String(d).padStart(2, '0'));
+        }
+        const prevUniqDayVals = Array.from(new Set(prevDayVals)).sort((a, b) => a.length - b.length || a.localeCompare(b));
+        const prevDayAlt = prevUniqDayVals.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const prevMAlt = [prevMonthStr, prevMonthNoPad].map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const prevYEsc = String(prevYear).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const prevReYMD = new RegExp(`^${prevYEsc}-(?:${prevMAlt})-(?:${prevDayAlt})(?:\\b|T|\\s|$)`, 'i');
+        const prevReYMDSlash = new RegExp(`^${prevYEsc}\\/(?:${prevMAlt})\\/(?:${prevDayAlt})(?:\\b|T|\\s|$)`, 'i');
+        const prevReDMYSlash = new RegExp(`^(?:${prevDayAlt})\\/(?:${prevMAlt})\\/${prevYEsc}(?:\\b|\\s|$)`, 'i');
+        const prevReDMYDash = new RegExp(`^(?:${prevDayAlt})-(?:${prevMAlt})-${prevYEsc}(?:\\b|\\s|$)`, 'i');
+        const prevReMDYSlash = new RegExp(`^(?:${prevMAlt})\\/(?:${prevDayAlt})\\/${prevYEsc}(?:\\b|\\s|$)`, 'i');
+        const prevMonthStart = new Date(prevYear, prevMonth - 1, 1, 0, 0, 0, 0);
+        const prevMonthEnd = new Date(prevYear, prevMonth - 1, prevDays, 23, 59, 59, 999);
+
+        const buildPrevDateOr = (fields) => {
+          const out = [];
+          const paths = (fields || []).flatMap(f => [f, `_raw.${f}`]);
+          for (const p of paths) {
+            out.push({ [p]: { $regex: prevReYMD.source, $options: 'i' } });
+            out.push({ [p]: { $regex: prevReYMDSlash.source, $options: 'i' } });
+            out.push({ [p]: { $regex: prevReDMYSlash.source, $options: 'i' } });
+            out.push({ [p]: { $regex: prevReDMYDash.source, $options: 'i' } });
+            out.push({ [p]: { $regex: prevReMDYSlash.source, $options: 'i' } });
+            out.push({ [p]: { $gte: prevMonthStart, $lte: prevMonthEnd } });
+          }
+          return out;
+        };
+
+        const prevSaleOr = [
+          ...buildPrevDateOr(['dia_venta', 'fecha_contratacion', 'diaVenta', 'fechaVenta', 'fecha_venta', 'fechaDeVenta', 'saleDate', 'sale_date']),
+          { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } },
+          { creadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } },
+          { actualizadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } }
+        ];
+
+        __colchonApplicable = !(status && String(status).toLowerCase() !== 'todos');
+        if (__colchonApplicable) {
+          queryColchon = baseAndConditions.length
+            ? { $and: [...baseAndConditions, { $or: prevSaleOr }, { $or: installDateOrConditions }] }
+            : { $and: [{ $or: prevSaleOr }, { $or: installDateOrConditions }] };
+        }
+      } catch (_) {
+        queryColchon = null;
+        __colchonApplicable = false;
+      }
     }
 
     if (andConditions.length > 0) query = { $and: andConditions };
+    if (!querySale) querySale = (andConditions.length > 0) ? { $and: andConditions } : {};
+    if (!queryInstall) queryInstall = (andConditions.length > 0) ? { $and: andConditions } : {};
 
     const { legacy } = req.query || {};
     const preferUnified = String(legacy) !== '1';
@@ -1540,6 +1648,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
     let activas = 0;
     let activasEfectivas = 0;
     let pendientes = 0;
+    let puntajeMes = 0;
+    let puntajeColchonExtra = 0;
 
     for (const colName of (collectionNamesList || [])) {
       try {
@@ -1547,8 +1657,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
         const reCancel = /cancel|anulad|no instalado/;
         const rePending = /pendient|pending/;
         const reActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/;
-        const agg = await col.aggregate([
-          { $match: query },
+        const aggSale = await col.aggregate([
+          { $match: querySale },
           {
             $project: {
               _status: {
@@ -1563,6 +1673,24 @@ router.get('/leads/kpis', protect, async (req, res) => {
                       }
                     }
                   }
+                }
+              },
+              _puntaje: {
+                $convert: {
+                  input: {
+                    $ifNull: [
+                      '$puntaje',
+                      {
+                        $ifNull: [
+                          '$puntaje_calculado',
+                          { $ifNull: ['$_raw.puntaje', { $ifNull: ['$_raw.puntaje_calculado', 0] }] }
+                        ]
+                      }
+                    ]
+                  },
+                  to: 'double',
+                  onError: 0,
+                  onNull: 0
                 }
               }
             }
@@ -1589,6 +1717,48 @@ router.get('/leads/kpis', protect, async (req, res) => {
                   ]
                 }
               },
+              puntajeMes: {
+                $sum: {
+                  $cond: [
+                    { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
+                    '$_puntaje',
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        ]).toArray();
+
+        const saleRow = aggSale && aggSale[0] ? aggSale[0] : null;
+        total += Number(saleRow?.total || 0);
+        canceladas += Number(saleRow?.canceladas || 0);
+        pendientes += Number(saleRow?.pendientes || 0);
+        puntajeMes += Number(saleRow?.puntajeMes || 0);
+
+        const aggInstall = await col.aggregate([
+          { $match: queryInstall },
+          {
+            $project: {
+              _status: {
+                $toLower: {
+                  $trim: {
+                    input: {
+                      $toString: {
+                        $ifNull: [
+                          '$status',
+                          { $ifNull: ['$_raw.status', ''] }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
               activas: {
                 $sum: {
                   $cond: [
@@ -1616,16 +1786,80 @@ router.get('/leads/kpis', protect, async (req, res) => {
           }
         ]).toArray();
 
-        const row = agg && agg[0] ? agg[0] : null;
-        total += Number(row?.total || 0);
-        canceladas += Number(row?.canceladas || 0);
-        pendientes += Number(row?.pendientes || 0);
-        activas += Number(row?.activas || 0);
-        activasEfectivas += Number(row?.activasEfectivas || 0);
+        const instRow = aggInstall && aggInstall[0] ? aggInstall[0] : null;
+        activas += Number(instRow?.activas || 0);
+        activasEfectivas += Number(instRow?.activasEfectivas || 0);
+
+        if (__colchonApplicable && queryColchon) {
+          const aggColchon = await col.aggregate([
+            { $match: queryColchon },
+            {
+              $project: {
+                _status: {
+                  $toLower: {
+                    $trim: {
+                      input: {
+                        $toString: {
+                          $ifNull: [
+                            '$status',
+                            { $ifNull: ['$_raw.status', ''] }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                _puntaje: {
+                  $convert: {
+                    input: {
+                      $ifNull: [
+                        '$puntaje',
+                        {
+                          $ifNull: [
+                            '$puntaje_calculado',
+                            { $ifNull: ['$_raw.puntaje', { $ifNull: ['$_raw.puntaje_calculado', 0] }] }
+                          ]
+                        }
+                      ]
+                    },
+                    to: 'double',
+                    onError: 0,
+                    onNull: 0
+                  }
+                }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                puntajeColchonExtra: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          { $regexMatch: { input: '$_status', regex: reActive } },
+                          { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] }
+                        ]
+                      },
+                      '$_puntaje',
+                      0
+                    ]
+                  }
+                }
+              }
+            }
+          ]).toArray();
+          const cRow = aggColchon && aggColchon[0] ? aggColchon[0] : null;
+          puntajeColchonExtra += Number(cRow?.puntajeColchonExtra || 0);
+        }
       } catch (e) {
         console.warn('[API /leads/kpis] Error en colección', colName, e?.message || e);
       }
     }
+
+    puntajeMes = Math.round(puntajeMes * 100) / 100;
+    puntajeColchonExtra = Math.round(puntajeColchonExtra * 100) / 100;
+    const puntajeMensual = Math.round((puntajeMes + puntajeColchonExtra) * 100) / 100;
 
     return res.json({
       success: true,
@@ -1635,6 +1869,9 @@ router.get('/leads/kpis', protect, async (req, res) => {
         pendientes,
         activas,
         activasEfectivas,
+        puntajeMensual,
+        puntajeColchonExtra,
+        puntajeBaseMes: puntajeMes,
         ventasEfectivasMes: Math.max(0, total - canceladas)
       }
     });
@@ -3808,7 +4045,7 @@ router.post('/crm_agente', protect, async (req, res) => {
       const shortId = String(agentId).slice(-6);
       const normName = String(agentUsername)
         .normalize('NFD')
-        .replace(/[\u0000-\u036f]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '_');
       targetCollection = `costumers_${normName}_${shortId}`.slice(0, 60);
