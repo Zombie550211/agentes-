@@ -2848,6 +2848,55 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       }
       result = await db.collection(updatedCollection).updateOne(matchedFilter, { $set: updateData }, { maxTimeMS: 12_000 });
       console.log(`[PUT /leads/:id] updateOne ejecutado en ${updatedCollection}`, { matched: result.matchedCount, modified: result.modifiedCount });
+
+      // Si estamos actualizando en una colección origen distinta, sincronizar también en costumers_unified.
+      // De lo contrario, el GET /api/leads/:id puede seguir devolviendo datos antiguos desde la unificada.
+      try {
+        if (unifiedAvailable && updatedCollection && updatedCollection !== unifiedCollectionName) {
+          const unifiedCol = db.collection(unifiedCollectionName);
+          const qId = __buildLeadOrQuery(recordId, objId);
+          const tasks = [];
+          const wrap = async (label, fn) => {
+            try {
+              const r = await fn();
+              return { label, r };
+            } catch (e) {
+              return { label, error: e };
+            }
+          };
+
+          // 1) Si el ID de edición corresponde al documento unificado, esto lo actualiza.
+          tasks.push(wrap('unified.byId', async () => {
+            return await unifiedCol.updateOne(qId, { $set: updateData }, { maxTimeMS: 6_000 });
+          }));
+
+          // 2) Si el lead unificado tiene referencia a origen, intentar por sourceCollection/sourceId.
+          if (foundLead && foundLead.sourceCollection && foundLead.sourceId) {
+            const sc = String(foundLead.sourceCollection || '').trim();
+            const sid = String(foundLead.sourceId || '').trim();
+            if (sc && sid) {
+              tasks.push(wrap('unified.bySource', async () => {
+                return await unifiedCol.updateOne({ sourceCollection: sc, sourceId: sid }, { $set: updateData }, { maxTimeMS: 6_000 });
+              }));
+            }
+          } else {
+            // 3) Fallback: intentar relacionar por (sourceCollection = updatedCollection, sourceId = recordId)
+            tasks.push(wrap('unified.bySourceFallback', async () => {
+              return await unifiedCol.updateOne({ sourceCollection: String(updatedCollection), sourceId: String(recordId) }, { $set: updateData }, { maxTimeMS: 6_000 });
+            }));
+          }
+
+          const uniResults = await Promise.all(tasks);
+          const uniHit = uniResults.find(x => x && x.r && x.r.matchedCount && x.r.matchedCount > 0);
+          if (uniHit) {
+            console.log('[PUT /leads/:id] Sincronizado en costumers_unified:', uniHit.label, { matched: uniHit.r.matchedCount, modified: uniHit.r.modifiedCount });
+          } else {
+            console.log('[PUT /leads/:id] No se encontró documento correspondiente en costumers_unified para sincronizar');
+          }
+        }
+      } catch (syncErr) {
+        console.warn('[PUT /leads/:id] Error sincronizando costumers_unified:', syncErr && syncErr.message);
+      }
     } catch (uErr) {
       console.error('[PUT /leads/:id] Error realizando updateOne en la colección encontrada:', uErr && uErr.message);
       return res.status(500).json({ success: false, message: 'Error interno al actualizar lead', error: uErr && uErr.message });
