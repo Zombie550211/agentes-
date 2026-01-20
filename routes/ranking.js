@@ -33,7 +33,8 @@ function buildMonthRange(year, month1to12) {
   return { monthIndex, monthPadded, startOfMonth, startOfNextMonth };
 }
 
-function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false, salesCompletedOnly = false }) {
+function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false, salesCompletedOnly = false, dateFieldPrimary = 'dia_venta' }) {
+  const dateFieldPath = '$' + String(dateFieldPrimary || 'dia_venta');
   const sortStage = (() => {
     if (sortBy === 'puntos_then_ventas') return { $sort: { puntos: -1, ventas: -1, nombre: 1 } };
     return { $sort: { ventas: -1, puntos: -1, nombre: 1 } };
@@ -45,10 +46,10 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
       $addFields: {
         _diaParsed: {
           $cond: [
-            { $eq: [ { $type: "$dia_venta" }, "date" ] },
-            "$dia_venta",
+            { $eq: [ { $type: dateFieldPath }, "date" ] },
+            dateFieldPath,
             {
-              $let: { vars: { s: { $toString: "$dia_venta" } }, in: {
+              $let: { vars: { s: { $toString: dateFieldPath } }, in: {
                 $cond: [
                   { $regexMatch: { input: "$$s", regex: /^\d{4}-\d{2}-\d{2}$/ } },
                   { $dateFromString: { dateString: "$$s", format: "%Y-%m-%d", timezone: "-06:00" } },
@@ -1790,7 +1791,9 @@ router.get('/tabs', protect, async (req, res) => {
       sortBy: 'puntos_then_ventas',
       hardLimit,
       groupBy: activationGroupBy,
-      pointsCompletedOnly: true
+      pointsCompletedOnly: true,
+      salesCompletedOnly: true,
+      dateFieldPrimary: 'dia_instalacion'
     });
 
     const salesPipeline = buildRankingPipeline({
