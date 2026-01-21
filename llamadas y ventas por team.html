@@ -202,6 +202,48 @@
             font-weight: 900 !important;
         }
 
+        .excel-name-cell {
+            background: #fff;
+            text-align: left !important;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 !important;
+        }
+
+        .excel-name-cell .excel-name {
+            flex: 1;
+            padding: 6px 8px;
+            margin: 0;
+            background: transparent;
+            color: #000;
+        }
+
+        .excel-delete-btn {
+            background: #999;
+            color: white;
+            border: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            margin: 2px;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .excel-delete-btn:hover {
+            background: #666;
+        }
+
         .excel-total-row td {
             background: #000;
             color: #fff !important;
@@ -248,6 +290,26 @@
         .excel-editable {
             background: #fff;
             font-weight: 900;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .excel-editable[contenteditable="true"] {
+            background: #fffacd;
+            border: 2px solid #ffb300;
+            outline: none;
+            box-shadow: inset 0 0 3px rgba(255, 179, 0, 0.3);
+        }
+        
+        .excel-name[contenteditable="false"]:hover {
+            background: #fff9e6;
+            cursor: pointer;
+        }
+        
+        .excel-name[contenteditable="true"] {
+            background: #fffacd;
+            border: 2px solid #ffb300;
+            outline: none;
         }
 
         .excel-add-btn {
@@ -523,6 +585,7 @@
             let currentSheetId = null;
             let currentSheetName = '';
             let currentSheetUsers = [];
+            let deletedUsers = new Set(); // Usuarios eliminados (persistir en localStorage)
             let currentSheetData = [];
             const saveDebounce = new Map();
 
@@ -563,6 +626,20 @@
                 }
                 return String(v);
             };
+            
+            // Convertir fecha entre formatos DD/MM/YYYY y MM/DD/YYYY
+            const convertDateFormat = (dateStr, fromFormat, toFormat) => {
+                if (!dateStr || typeof dateStr !== 'string') return dateStr;
+                const parts = dateStr.split('/');
+                if (parts.length !== 3) return dateStr;
+                
+                // Ambos formatos son iguales (solo intercambiar posiciones 0 y 1)
+                if ((fromFormat === 'DD/MM/YYYY' && toFormat === 'MM/DD/YYYY') || 
+                    (fromFormat === 'MM/DD/YYYY' && toFormat === 'DD/MM/YYYY')) {
+                    return `${parts[1]}/${parts[0]}/${parts[2]}`;
+                }
+                return dateStr;
+            };
 
             const fmtTodayName = () => {
                 const d = new Date();
@@ -593,7 +670,34 @@
                 currentSheetId = normalizeSheetId((r.sheet && r.sheet._id) || sid);
                 currentSheetName = String(r.sheet && r.sheet.name || '');
                 currentSheetUsers = Array.isArray(r.users) ? r.users : [];
+                
+                // Restaurar usuarios eliminados desde localStorage
+                const saved = localStorage.getItem(`deletedUsers_${sid}`);
+                deletedUsers = saved ? new Set(JSON.parse(saved)) : new Set();
                 currentSheetData = Array.isArray(r.data) ? r.data : [];
+                
+                // Aplicar cambios de nombres desde currentSheetData a currentSheetUsers
+                const nameChanges = {};
+                (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
+                    if (d && d.col === 'NOMBRE' && d.team && d.person && d.value) {
+                        // d.person = nombre original, d.value = nombre nuevo
+                        const key = `${String(d.team).toUpperCase()}||${String(d.person).trim()}`;
+                        nameChanges[key] = String(d.value).trim();
+                    }
+                });
+                
+                // Actualizar nombres en currentSheetUsers
+                if (Object.keys(nameChanges).length > 0 && Array.isArray(currentSheetUsers)) {
+                    currentSheetUsers = currentSheetUsers.map(user => {
+                        if (!user || !user.team) return user;
+                        const key = `${String(user.team).toUpperCase()}||${String(user.name).trim()}`;
+                        return {
+                            ...user,
+                            name: nameChanges[key] || user.name
+                        };
+                    });
+                }
+                
                 setLastSheetId(currentSheetId);
                 renderExcel();
             };
@@ -616,7 +720,7 @@
                 const plus = `<button class="excel-tab plus" type="button" data-plus="1">+</button>`;
                 const tabsHtml = sheets.map(s => {
                     const id = normalizeSheetId(s && s._id);
-                    const name = String(s.name || '').trim() || id;
+                    let name = String(s.name || '').trim() || id;
                     const active = (id === String(currentSheetId)) ? 'active' : '';
                     return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}" data-original-name="${name}"><span class="tab-name">${name}</span><button class="close-btn" type="button" data-delete-sheet-id="${id}" title="Eliminar página">×</button></button>`;
                 }).join('') + plus;
@@ -701,21 +805,27 @@
                     input.type = 'text';
                     input.className = 'edit-input';
                     input.value = originalName;
-                    input.placeholder = 'MM/DD/YYYY';
+                    input.placeholder = 'DD/MM/YYYY';
                     
                     // Replace span with input
                     tabName.parentNode.replaceChild(input, tabName);
                     input.focus();
                     input.select();
                     
+                    // Guardar estado anterior
+                    const parentNode = input.parentNode;
+                    let saveInProgress = false;
+                    
                     // Handle save on blur or enter
                     const saveEdit = async () => {
+                        if (saveInProgress) return;
+                        saveInProgress = true;
+                        
                         const newName = input.value.trim();
                         
-                        // Validate date format MM/DD/YYYY
-                        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
-                        if (!newName || !dateRegex.test(newName)) {
-                            alert('Por favor ingrese una fecha válida en formato MM/DD/YYYY');
+                        if (!newName) {
+                            alert('Por favor ingrese una fecha');
+                            saveInProgress = false;
                             input.blur();
                             return;
                         }
@@ -732,7 +842,9 @@
                             const newSpan = document.createElement('span');
                             newSpan.className = 'tab-name';
                             newSpan.textContent = newName;
-                            input.parentNode.replaceChild(newSpan, input);
+                            if (parentNode && input.parentNode) {
+                                parentNode.replaceChild(newSpan, input);
+                            }
                             
                             // Update current sheet name if this is the active sheet
                             if (sheetId === String(currentSheetId)) {
@@ -746,8 +858,11 @@
                             const revertSpan = document.createElement('span');
                             revertSpan.className = 'tab-name';
                             revertSpan.textContent = originalName;
-                            input.parentNode.replaceChild(revertSpan, input);
+                            if (parentNode && input.parentNode) {
+                                parentNode.replaceChild(revertSpan, input);
+                            }
                         }
+                        saveInProgress = false;
                     };
                     
                     input.onblur = saveEdit;
@@ -801,23 +916,40 @@
             if (form) {
                 form.addEventListener('submit', (ev) => {
                     ev.preventDefault();
-                    const name = toKeyName(form.elements.name && form.elements.name.value);
+                    const nameInput = String(form.elements.name && form.elements.name.value || '').trim();
                     const role = String(form.elements.role && form.elements.role.value || '').trim();
                     const team = String(form.elements.team && form.elements.team.value || '').trim();
-                    if (!name || !team) return;
+                    
+                    if (!nameInput || !team) {
+                        alert('Por favor completa todos los campos');
+                        return;
+                    }
 
                     (async () => {
                         try {
                             if (!currentSheetId) return;
+                            
+                            console.log('[Vista Excel] Agregando usuario:', { nameInput, team });
+                            
                             await fetchJson(API_USER, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ sheetId: currentSheetId, name, role, team })
+                                body: JSON.stringify({ sheetId: currentSheetId, name: nameInput, role, team })
                             });
+                            
+                            console.log('[Vista Excel] Usuario agregado exitosamente');
+                            
+                            // Remover de deletedUsers si estaba eliminado
+                            const key = `${team}||${nameInput}`;
+                            deletedUsers.delete(key);
+                            localStorage.setItem(`deletedUsers_${currentSheetId}`, JSON.stringify([...deletedUsers]));
+                            
                             closeModal();
                             await loadSheet(currentSheetId);
+                            renderExcel();
                         } catch (e) {
                             console.error('[Vista Excel] Error guardando usuario:', e);
+                            alert('Error al guardar usuario: ' + e.message);
                         }
                     })();
                 });
@@ -825,15 +957,45 @@
 
             const renderExcel = () => {
                 try {
-                    // Generar estructura tipo Excel por teams (editable)
-                    const extraUsers = currentSheetUsers;
+                    const allTeamUsers = {
+                        'TEAM IRANIA': ['IRANIA S','MIGUEL NÚÑEZ','JOSUE RENDEROS','ROXANA MARTINEZ','GISELLE DIAZ','EMELY AYALA','NICOLE CRUZ','JORGE SEGOVIA','WLADIMIR VENTURA'],
+                        'TEAM ROBERTO': ['FRANCISCO AGUILAR','LUCIA FERMAN','LISBETH CORTEZ','NELSON CEREN','CINDY FLORES','MICHELLE LEIVA','LEVI MARTINEZ','BRYAN PEREZ','JONATHAN LOZANO'],
+                        'TEAM SANTANA': ['GUADALUPE SANTANA','ANDERSON GUZMAN','JULIO MEJIA','PRISCILA HERNANDEZ','RIQUELMI TORRES','ABIGAIL BERNAL'],
+                        'TEAM BRYAN': ['BRYAN PLEITEZ','DIEGO MEJIA','ALEXANDER RIVERA','LUIS CHAVARRIA','STEVEN VALERA','RENE GUTIERREZ','EMANUEL VELASQUEZ','JAIRO FLORES','JORGE ESCOBAR'],
+                        'TEAM MARISOL': ['MARISOL BELTRAN','KATERINE GOMEZ','FERNANDA CASTILLO','KIMBERLY IGLESIAS','EDUARDO ESPAÑA','STEFANI MARTINEZ','JONATHAN MORALES','INGRID GARCIA'],
+                        'TEAM LINEAS': ['LUIS GUTIERREZ','KARLA RODRIGUEZ','FERNANDO BELTRAN','TATIANA GIRON','DANIEL DEL CID','JONATHAN FIGUEROA','OSCAR RIVERA','MIGUEL HERRERA','CRISTIAN RIVERA','EDWARD RAMIREZ','JOCELYN REYES','NANCY LOPEZ','VICTOR HURTADO','MANUEL FLORES','MELANY HURTADO','ALEXIS RODRIGUEZ']
+                    };
+                    
+                    // Agregar usuarios nuevos desde currentSheetUsers que no estén en la lista
+                    if (Array.isArray(currentSheetUsers)) {
+                        currentSheetUsers.forEach(u => {
+                            if (u && u.name && u.team) {
+                                if (!allTeamUsers[u.team]) {
+                                    allTeamUsers[u.team] = [];
+                                }
+                                if (!allTeamUsers[u.team].includes(u.name)) {
+                                    allTeamUsers[u.team].push(u.name);
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Filtrar: excluir usuarios eliminados
+                    const teamMap = {};
+                    Object.keys(allTeamUsers).forEach(teamName => {
+                        teamMap[teamName] = allTeamUsers[teamName].filter(person => {
+                            const key = `${teamName}||${person}`;
+                            return !deletedUsers.has(key);
+                        });
+                    });
+
                     const teams = [
-                        { name: 'TEAM IRANIA', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['IRANIA S','MIGUEL NÚÑEZ','JOSUE RENDEROS','ROXANA MARTINEZ','GISELLE DIAZ','EMELY AYALA','NICOLE CRUZ','JORGE SEGOVIA','WLADIMIR VENTURA'] },
-                        { name: 'TEAM ROBERTO', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['FRANCISCO AGUILAR','LUCIA FERMAN','LISBETH CORTEZ','NELSON CEREN','CINDY FLORES','MICHELLE LEIVA','LEVI MARTINEZ','BRYAN PEREZ','JONATHAN LOZANO'] },
-                        { name: 'TEAM SANTANA', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['GUADALUPE SANTANA','ANDERSON GUZMAN','JULIO MEJIA','PRISCILA HERNANDEZ','RIQUELMI TORRES','ABIGAIL BERNAL'] },
-                        { name: 'TEAM BRYAN', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['BRYAN PLEITEZ','DIEGO MEJIA','ALEXANDER RIVERA','LUIS CHAVARRIA','STEVEN VALERA','RENE GUTIERREZ','EMANUEL VELASQUEZ','JAIRO FLORES','JORGE ESCOBAR'] },
-                        { name: 'TEAM MARISOL', cols: ['LLAMADAS','CALIS','VENTAS'], people: ['MARISOL BELTRAN','KATERINE GOMEZ','FERNANDA CASTILLO','KIMBERLY IGLESIAS','EDUARDO ESPAÑA','STEFANI MARTINEZ','JONATHAN MORALES','INGRID GARCIA'] },
-                        { name: 'TEAM LINEAS', cols: ['CALIS','VENTAS'], people: ['LUIS GUTIERREZ','KARLA RODRIGUEZ','FERNANDO BELTRAN','TATIANA GIRON','DANIEL DEL CID','JONATHAN FIGUEROA','OSCAR RIVERA','MIGUEL HERRERA','CRISTIAN RIVERA','EDWARD RAMIREZ','JOCELYN REYES','NANCY LOPEZ','VICTOR HURTADO','MANUEL FLORES','MELANY HURTADO','ALEXIS RODRIGUEZ'] }
+                        { name: 'TEAM IRANIA', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM IRANIA'] || [] },
+                        { name: 'TEAM ROBERTO', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM ROBERTO'] || [] },
+                        { name: 'TEAM SANTANA', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM SANTANA'] || [] },
+                        { name: 'TEAM BRYAN', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM BRYAN'] || [] },
+                        { name: 'TEAM MARISOL', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM MARISOL'] || [] },
+                        { name: 'TEAM LINEAS', cols: ['CALIS','VENTAS'], people: teamMap['TEAM LINEAS'] || [] }
                     ];
 
                     const cardHtml = (t) => {
@@ -857,7 +1019,7 @@
                             const cells = t.cols
                                 .map((c) => `<td class="excel-editable" contenteditable="true" data-team="${t.name}" data-person="${p}" data-col="${c}"></td>`)
                                 .join('');
-                            return `<tr><td class="excel-name">${p}</td>${cells}</tr>`;
+                            return `<tr><td class="excel-name-cell"><span class="excel-name excel-editable" contenteditable="false" data-team="${t.name}" data-person="${p}" data-type="name"></span><button class="excel-delete-btn" data-team="${t.name}" data-person="${p}" title="Eliminar usuario">×</button></td>${cells}</tr>`;
                         }).join('');
 
                         const totalCells = t.cols
@@ -923,14 +1085,21 @@
                                 summaryMap.set(String(d.metric).toUpperCase(), String(d.value ?? ''));
                             }
                         });
-
+                        
                         const editableCells = Array.from(excelRoot.querySelectorAll('.excel-editable'));
                         editableCells.forEach((el) => {
                             if (!el || !el.dataset) return;
                             const metric = (el.dataset.metric || '').toUpperCase();
                             const team = el.dataset.team;
                             const person = el.dataset.person;
+                            const dataType = el.dataset.type;
                             const col = (el.dataset.col || '').toUpperCase();
+
+                            // Llenar nombres de agentes
+                            if (dataType === 'name' && person) {
+                                el.textContent = person;
+                                return;
+                            }
 
                             if (metric === 'PERDIDAS' || metric === 'RECICLADAS') {
                                 const v = summaryMap.get(metric);
@@ -1084,15 +1253,76 @@
 
                     const persistToDb = (target) => {
                         if (!currentSheetId || !target || !target.dataset) return;
+                        
                         const metricRaw = target.dataset.metric;
                         const metric = (metricRaw || '').toUpperCase();
-                        const team = target.dataset.team;
-                        const person = target.dataset.person;
-                        const col = (target.dataset.col || '').toUpperCase();
+                        const team = (target.dataset.team || '').trim();
+                        const person = (target.dataset.person || '').trim();
+                        const dataType = (target.dataset.type || '').trim();
+                        const col = (target.dataset.col || '').toUpperCase().trim();
                         const value = (target.textContent || '').trim();
-
-                        const payload = metric ? { sheetId: currentSheetId, metric, value } : { sheetId: currentSheetId, team, person, col, value };
-                        const key = metric ? `m:${metric}` : `c:${team}:${person}:${col}`;
+                        
+                        // Para métrica, guardar siempre que haya métrica y sheetId
+                        if (metric) {
+                            const payload = { sheetId: currentSheetId, metric, value };
+                            const key = `m:${metric}`;
+                            
+                            if (saveDebounce.has(key)) {
+                                clearTimeout(saveDebounce.get(key));
+                            }
+                            const to = setTimeout(async () => {
+                                try {
+                                    await fetchJson(API_CELL, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload)
+                                    });
+                                } catch (e) {
+                                    console.error('[Vista Excel] Error guardando celda:', e);
+                                }
+                            }, 250);
+                            saveDebounce.set(key, to);
+                            return;
+                        }
+                        
+                        // Para nombres editados (tipo 'name'), guardar con team y el nuevo nombre
+                        if (dataType === 'name' && team && person && value) {
+                            const payload = { sheetId: currentSheetId, team, person, col: 'NOMBRE', value };
+                            const key = `n:${team}:${person}`;
+                            
+                            if (saveDebounce.has(key)) {
+                                clearTimeout(saveDebounce.get(key));
+                            }
+                            const to = setTimeout(async () => {
+                                try {
+                                    await fetchJson(API_CELL, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload)
+                                    });
+                                    // Actualizar el atributo data-person con el nuevo nombre
+                                    target.dataset.person = value;
+                                    
+                                    // Actualizar currentSheetUsers para persistir el cambio
+                                    if (Array.isArray(currentSheetUsers)) {
+                                        const userIndex = currentSheetUsers.findIndex(u => u && u.name === person);
+                                        if (userIndex !== -1) {
+                                            currentSheetUsers[userIndex].name = value;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error('[Vista Excel] Error guardando nombre:', e);
+                                }
+                            }, 250);
+                            saveDebounce.set(key, to);
+                            return;
+                        }
+                        
+                        // Para celdas de datos, requiere team, person, col
+                        if (!team || !person || !col) return;
+                        
+                        const payload = { sheetId: currentSheetId, team, person, col, value };
+                        const key = `c:${team}:${person}:${col}`;
 
                         if (saveDebounce.has(key)) {
                             clearTimeout(saveDebounce.get(key));
@@ -1113,6 +1343,35 @@
 
                     restoreFromSheet();
                     updateTotalsAndSummary();
+                    
+                    // Manejador para doble click en celdas editables
+                    excelRoot.ondblclick = (ev) => {
+                        const t = ev && ev.target;
+                        if (t && t.classList && t.classList.contains('excel-editable')) {
+                            t.contentEditable = 'true';
+                            t.focus();
+                            // Seleccionar todo el texto
+                            const range = document.createRange();
+                            range.selectNodeContents(t);
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        }
+                    };
+                    
+                    // Manejador para cuando se pierde el focus
+                    excelRoot.addEventListener('blur', (ev) => {
+                        const t = ev && ev.target;
+                        if (t && t.classList && t.classList.contains('excel-editable')) {
+                            // Guardar cambios antes de hacer no-editable
+                            persistToDb(t);
+                            // Hacer no-editable nuevamente
+                            if (t.dataset.type === 'name') {
+                                t.contentEditable = 'false';
+                            }
+                        }
+                    }, true);
+                    
                     excelRoot.oninput = (ev) => {
                         const t = ev && ev.target;
                         if (t && t.classList && t.classList.contains('excel-editable')) {
@@ -1120,6 +1379,49 @@
                             updateTotalsAndSummary();
                         }
                     };
+
+                    // Agregar event listener para botones de eliminar usuario
+                    excelRoot.addEventListener('click', async (ev) => {
+                        const deleteBtn = ev.target.closest && ev.target.closest('.excel-delete-btn');
+                        if (!deleteBtn) return;
+
+                        const team = deleteBtn.dataset.team;
+                        const person = deleteBtn.dataset.person;
+
+                        if (!team || !person) return;
+                        if (!confirm(`¿Estás seguro de que quieres eliminar a ${person} de ${team}?`)) return;
+
+                        try {
+                            console.log('[Vista Excel] Eliminando usuario:', { sheetId: currentSheetId, name: person, team });
+                            
+                            const response = await fetch(API_USER, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ sheetId: currentSheetId, name: person, team, action: 'delete' })
+                            });
+
+                            const raw = await response.text();
+                            let result;
+                            try { result = JSON.parse(raw); } catch (_) { result = { success: false, message: raw }; }
+
+                            console.log('[Vista Excel] Respuesta de eliminar:', result);
+
+                            if (response.ok && (result.success !== false)) {
+                                console.log(`✅ Usuario ${person} eliminado`);
+                                // Agregar a deletedUsers y guardar en localStorage
+                                const key = `${team}||${person}`;
+                                deletedUsers.add(key);
+                                localStorage.setItem(`deletedUsers_${currentSheetId}`, JSON.stringify([...deletedUsers]));
+                                renderExcel();
+                            } else {
+                                throw new Error(result.message || 'Error desconocido');
+                            }
+                        } catch (e) {
+                            console.error('[Vista Excel] Error eliminando usuario:', e);
+                            alert('Error al eliminar usuario: ' + (e.message || e));
+                        }
+                    });
                 } catch (e) {
                     console.error('[Vista Excel] Error renderizando:', e);
                     excelRoot.innerHTML = `<div style="grid-column: 1 / -1; padding: 12px; border: 1px solid #ef4444; background: #fee2e2; color: #7f1d1d; font-weight: 800;">Error renderizando Vista Excel: ${String(e && e.message ? e.message : e)}</div>`;
@@ -1385,10 +1687,18 @@
         }
 
         async function saveCellWithoutRecalculation(cell) {
+            if (!cell || !cell.dataset) return;
+            
             const value = cell.textContent.trim();
             const day = cell.dataset.day;
             const team = cell.dataset.team;
             const type = cell.dataset.type;
+            
+            // NO guardar celdas sin los campos requeridos
+            if (!day || !team || !type) {
+                console.warn('saveCellWithoutRecalculation: Ignorando celda sin day/team/type');
+                return;
+            }
             
             // Guardar valor temporal para evitar que se borre
             cell.dataset.tempValue = value;
@@ -1453,9 +1763,7 @@
             const ventas = parseFloat(ventasCell.textContent) || 0;
 
             totalesCell.textContent = `${llamadas}/${ventas}`;
-            
-            // Guardar el total también (pero sin recalcular para evitar bucle)
-            saveCellWithoutRecalculation(totalesCell);
+            // Los totales son calculados, no se guardan en BD
         }
 
         function calculateGeneralTotals_InitialLoad(day) {
@@ -1510,10 +1818,7 @@
             totalLlamadasCell.textContent = totalLlamadas;
             totalVentasCell.textContent = totalVentas;
             
-            // Guardar los totales generales también (sin recalcular para evitar bucle)
-            saveCellWithoutRecalculation(totalLlamadasCell);
-            saveCellWithoutRecalculation(totalVentasCell);
-
+            // Los totales son calculados, no se guardan en BD
             // Calcular y guardar totales generales de la fila TOTALS
             calculateGeneralTotalsForTotalsRow();
         }
@@ -1549,17 +1854,14 @@
                 
                 if (totalTeamLlamadasCell) {
                     totalTeamLlamadasCell.textContent = totalTeamLlamadas;
-                    saveCellWithoutRecalculation(totalTeamLlamadasCell);
                 }
                 
                 if (totalTeamVentasCell) {
                     totalTeamVentasCell.textContent = totalTeamVentas;
-                    saveCellWithoutRecalculation(totalTeamVentasCell);
                 }
                 
                 if (totalTeamGeneralCell) {
                     totalTeamGeneralCell.textContent = `${totalTeamLlamadas}/${totalTeamVentas}`;
-                    saveCellWithoutRecalculation(totalTeamGeneralCell);
                 }
             });
             
@@ -1585,12 +1887,10 @@
             
             if (totalGeneralLlamadasCell) {
                 totalGeneralLlamadasCell.textContent = totalGeneralLlamadas;
-                saveCellWithoutRecalculation(totalGeneralLlamadasCell);
             }
             
             if (totalGeneralVentasCell) {
                 totalGeneralVentasCell.textContent = totalGeneralVentas;
-                saveCellWithoutRecalculation(totalGeneralVentasCell);
             }
         }
 
