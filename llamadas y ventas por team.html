@@ -88,8 +88,33 @@
             border: 1px solid rgba(0,0,0,0.15);
             border-radius: 10px;
             background: #fff;
-            margin-bottom: 12px;
             overflow-x: auto;
+            flex: 1;
+            min-width: 0;
+            scroll-behavior: smooth;
+        }
+
+        .excel-tabs-scroll-btn {
+            background: #f0f0f0;
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+            transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .excel-tabs-scroll-btn:hover {
+            background: #e0e0e0;
+            border-color: rgba(0,0,0,0.3);
+        }
+
+        .excel-tabs-scroll-btn:active {
+            background: #d0d0d0;
         }
 
         .excel-tab {
@@ -491,7 +516,11 @@
                 </div>
 
                 <div id="excelView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
-                    <div id="excelTabs" class="excel-tabs" style="display:none;"></div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <button id="excelTabsScrollLeft" class="excel-tabs-scroll-btn" title="Scroll izquierda">‹</button>
+                        <div id="excelTabs" class="excel-tabs" style="display:none;"></div>
+                        <button id="excelTabsScrollRight" class="excel-tabs-scroll-btn" title="Scroll derecha">›</button>
+                    </div>
                     <div id="excelRoot" class="excel-grid"></div>
                 </div>
 
@@ -563,6 +592,8 @@
             const excelView = document.getElementById('excelView');
             const excelRoot = document.getElementById('excelRoot');
             const excelTabs = document.getElementById('excelTabs');
+            const excelTabsScrollLeft = document.getElementById('excelTabsScrollLeft');
+            const excelTabsScrollRight = document.getElementById('excelTabsScrollRight');
             const addBtn = document.getElementById('excelAddUserBtn');
             const modal = document.getElementById('excelUserModal');
             const form = document.getElementById('excelUserForm');
@@ -726,6 +757,15 @@
                 }).join('') + plus;
                 excelTabs.innerHTML = tabsHtml;
                 excelTabs.style.display = '';
+                
+                // Event listeners para scroll
+                excelTabsScrollLeft.addEventListener('click', () => {
+                    excelTabs.scrollLeft -= 150;
+                });
+                
+                excelTabsScrollRight.addEventListener('click', () => {
+                    excelTabs.scrollLeft += 150;
+                });
 
                 excelTabs.onclick = async (ev) => {
                     const t = ev && ev.target;
