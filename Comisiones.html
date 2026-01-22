@@ -175,48 +175,17 @@
                 </div>
 
                 <!-- Kanban Style Columns -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Top Performers -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
-                        <div class="border-b border-gray-200 px-6 py-4">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                    Top Performers
-                                </h3>
-                                <span class="text-xs font-medium text-gray-500" id="topCount">0</span>
-                            </div>
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                                Todos los Agentes
+                            </h3>
+                            <span class="text-xs font-medium text-gray-500" id="totalCount">0</span>
                         </div>
-                        <div id="topPerformers" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
                     </div>
-
-                    <!-- Good Performance -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
-                        <div class="border-b border-gray-200 px-6 py-4">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                    Buen Rendimiento
-                                </h3>
-                                <span class="text-xs font-medium text-gray-500" id="goodCount">0</span>
-                            </div>
-                        </div>
-                        <div id="goodPerformers" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
-                    </div>
-
-                    <!-- Needs Improvement -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
-                        <div class="border-b border-gray-200 px-6 py-4">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-                                    En Desarrollo
-                                </h3>
-                                <span class="text-xs font-medium text-gray-500" id="needsCount">0</span>
-                            </div>
-                        </div>
-                        <div id="needsImprovement" class="p-4 space-y-3 max-h-[600px] overflow-y-auto"></div>
-                    </div>
+                    <div id="allAgents" class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 </div>
             </div>
 
@@ -281,46 +250,100 @@
                     return (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? String(u.name || u.nombre || u.fullName || u.username || u.email).trim() : '—';
                 }
 
+                function normalizeAgentName(fullName) {
+                    const parts = String(fullName || '').trim().split(/\s+/).filter(p => p);
+                    if (parts.length === 0) return '—';
+                    if (parts.length === 1) return parts[0];
+                    // Tomar primer palabra como nombre, resto como apellido
+                    return `${parts[0]} ${parts.slice(1).join(' ')}`;
+                }
+
                 async function loadAgentsFromDB() {
                     const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
-                    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                    
                     try {
-                        const res = await fetch('/api/comisiones/agents', {
+                        console.log('[Comisiones] Intentando conectar a /api/comisiones/agentes-mes');
+                        
+                        const res = await fetch(`/api/comisiones/agentes-mes`, {
                             method: 'GET',
                             credentials: 'include',
                             headers
                         });
 
+                        console.log('[Comisiones] Response status:', res.status);
+
                         if (!res.ok) {
+                            const errorText = await res.text();
+                            console.error('[Comisiones] Error response:', errorText);
                             return false;
                         }
 
                         const payload = await res.json();
-                        const list = Array.isArray(payload?.data) ? payload.data : [];
-                        if (!list.length) return false;
+                        console.log('[Comisiones] Payload recibido:', payload);
 
-                        const maxPoints = Math.max(0, ...list.map(it => Number(it?.puntos || 0) || 0));
-                        const mapped = list.map((it, idx) => {
-                            const name = String(it?.nombre || '—').trim();
-                            const sales = Number(it?.ventas || 0) || 0;
-                            const points = Number(it?.puntos || 0) || 0;
-                            const base = demoAgents[idx % demoAgents.length];
-                            const score = maxPoints > 0 ? Math.max(0, Math.min(100, Math.round((points / maxPoints) * 100))) : (base.score || 0);
-                            return {
-                                id: String(name || idx),
-                                name,
-                                sales,
-                                points,
-                                commission: base.commission,
-                                score,
-                                trend: base.trend,
-                                change: base.change
-                            };
+                        // Manejar tanto { success: true, data: [...] } como array directo
+                        let list = [];
+                        if (payload?.success && Array.isArray(payload?.data)) {
+                            list = payload.data;
+                        } else if (Array.isArray(payload)) {
+                            list = payload;
+                        } else if (payload?.data) {
+                            list = Array.isArray(payload.data) ? payload.data : [];
+                        }
+
+                        console.log('[Comisiones] Agentes encontrados en BD:', list.length);
+                        console.log('[Comisiones] Primeros 5 agentes:', list.slice(0, 5));
+                        list.forEach((a, i) => {
+                            console.log(`[Comisiones] Agente ${i}: ${a.nombre || a.name} - Ventas: ${a.ventas}, Puntaje: ${a.puntos}`);
                         });
 
-                        agents = mapped;
+                        if (!list || !list.length) {
+                            console.warn('[Comisiones] No hay agentes en la BD');
+                            return false;
+                        }
+
+                        const maxPoints = Math.max(0, ...list.map(it => Number(it?.puntos || it?.points || 0) || 0));
+                        console.log('[Comisiones] Max points:', maxPoints);
+
+                        const mapped = list.map((it, idx) => {
+                            const name = String(it?.nombre || it?.name || '—').trim();
+                            const sales = Number(it?.ventas || it?.sales || 0) || 0;
+                            const points = Number(it?.puntos || it?.points || 0) || 0;
+                            const commission = Number(it?.comisión || it?.commission || (sales * 0.05)) || 0;
+                            
+                            // Calcular score basado en puntos
+                            let score = 50;
+                            if (maxPoints > 0) {
+                                score = Math.max(0, Math.min(100, Math.round((points / maxPoints) * 100)));
+                            }
+                            
+                            return {
+                                id: String(it?._id || it?.id || name || idx),
+                                name: normalizeAgentName(name),
+                                sales,
+                                points,
+                                commission,
+                                score,
+                                trend: points > 0 ? 'up' : 'down',
+                                change: Math.floor(Math.random() * 15) + 1
+                            };
+                        }).filter(agent => {
+                            // Filtrar agentes de TEAM LINEAS
+                            return !agent.name.toUpperCase().includes('LINEAS');
+                        });
+
+                        console.log('[Comisiones] Agentes mapeados:', mapped.length);                        
+                        // Filtrar solo agentes con movimiento (ventas > 0)
+                        const withMovement = mapped.filter(a => a.sales > 0);
+                        // Ordenar por ventas descendente (mayor a menor)
+                        withMovement.sort((a, b) => b.sales - a.sales);
+                        console.log('[Comisiones] Agentes con movimiento:', withMovement.length);
+                        agents = withMovement;
                         return true;
                     } catch (e) {
+                        console.error('[Comisiones] Error cargando agentes:', e.message, e);
                         return false;
                     }
                 }
@@ -356,34 +379,25 @@
                 }
 
                 function renderAgents() {
-                    const topPerformers = agents.filter(a => a.score >= 90);
-                    const goodPerformers = agents.filter(a => a.score >= 75 && a.score < 90);
-                    const needsImprovement = agents.filter(a => a.score < 75);
-
-                    document.getElementById('topCount').textContent = topPerformers.length;
-                    document.getElementById('goodCount').textContent = goodPerformers.length;
-                    document.getElementById('needsCount').textContent = needsImprovement.length;
-
-                    renderColumn('topPerformers', topPerformers);
-                    renderColumn('goodPerformers', goodPerformers);
-                    renderColumn('needsImprovement', needsImprovement);
+                    document.getElementById('totalCount').textContent = agents.length;
+                    renderColumn('allAgents', agents);
                 }
 
                 function renderColumn(containerId, agentsList) {
                     const container = document.getElementById(containerId);
                     container.innerHTML = agentsList.map(agent => `
-                        <div class="kanban-card bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer">
+                        <div class="kanban-card bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow">
                             <div class="flex items-start justify-between mb-3">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-sm">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-10 h-10 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0">
                                         ${getInitials(agent.name)}
                                     </div>
-                                    <div>
-                                        <h4 class="font-semibold text-gray-900 text-sm">${agent.name}</h4>
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-semibold text-gray-900 text-sm truncate">${agent.name}</h4>
                                         <p class="text-xs text-gray-500">${agent.sales} ventas</p>
                                     </div>
                                 </div>
-                                <button onclick="deleteAgent(${agent.id})" class="text-gray-400 hover:text-rose-600 transition-colors">
+                                <button onclick="deleteAgent(${agent.id})" class="text-gray-400 hover:text-rose-600 transition-colors flex-shrink-0 ml-2">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <polyline points="3 6 5 6 21 6"></polyline>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -393,18 +407,22 @@
 
                             <div class="space-y-2 mb-3">
                                 <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Ventas</span>
+                                    <span class="font-semibold text-gray-900">${agent.sales}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs">
                                     <span class="text-gray-500">Puntaje</span>
                                     <span class="font-semibold text-gray-900">${Number(agent.points || 0)}</span>
                                 </div>
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-gray-500">Comisión</span>
-                                    <span class="font-semibold text-emerald-600">$${(agent.commission/1000).toFixed(1)}K</span>
+                                    <span class="font-semibold text-emerald-600">$${(agent.commission/1000).toFixed(2)}K</span>
                                 </div>
                             </div>
 
                             <div class="mb-2">
                                 <div class="flex items-center justify-between text-xs mb-1">
-                                    <span class="text-gray-500">Score</span>
+                                    <span class="text-gray-500">Meta</span>
                                     <span class="font-semibold text-gray-900">${agent.score}/100</span>
                                 </div>
                                 <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
