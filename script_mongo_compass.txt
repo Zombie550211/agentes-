@@ -1,0 +1,35 @@
+// COPIAR Y PEGAR ESTE CÓDIGO EN LA TERMINAL DE MONGODB COMPASS
+
+// 1. Ver todos los teams con sus agentes
+db.users.aggregate([
+  { $match: { role: { $regex: /agente/i } } },
+  { $group: { 
+      _id: "$supervisor", 
+      agentes: { $push: { username: "$username", name: "$name" } }, 
+      total: { $sum: 1 } 
+    } 
+  },
+  { $sort: { total: -1 } },
+  { $project: { supervisor: "$_id", totalAgentes: "$total", agentes: "$agentes", _id: 0 } }
+]).forEach(function(doc) {
+  print("==========================================");
+  print("TEAM: " + (doc.supervisor || "SIN SUPERVISOR"));
+  print("Total Agentes: " + doc.totalAgentes);
+  print("Agentes:");
+  doc.agentes.forEach(function(agente) {
+    print("  - " + (agente.name || agente.username));
+  });
+  print("");
+});
+
+// 2. Resumen general
+print("==========================================");
+print("RESUMEN GENERAL");
+print("Total de Agentes: " + db.users.countDocuments({role: { $regex: /agente/i }}));
+print("Total de Supervisores con agentes: " + db.users.distinct("supervisor", {role: { $regex: /agente/i }}).length);
+
+// 3. Lista de supervisores
+print("\nSUPERVISORES REGISTRADOS:");
+db.users.find({role: { $regex: /supervisor/i }}).forEach(function(sup) {
+  print("  - " + (sup.name || sup.username));
+});

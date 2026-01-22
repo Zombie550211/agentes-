@@ -4562,8 +4562,8 @@ router.get('/comisiones/agents', protect, async (req, res) => {
                       {
                         $let: {
                           vars: {
-                            _rawStr: { $trim: { input: { $toString: '$_dateRaw' } } },
-                            _asDate: {
+                            rawStr: { $trim: { input: { $toString: '$_dateRaw' } } },
+                            asDate: {
                               $dateFromString: {
                                 dateString: { $toString: '$_dateRaw' },
                                 timezone: '-06:00',
@@ -4574,11 +4574,11 @@ router.get('/comisiones/agents', protect, async (req, res) => {
                           },
                           in: {
                             $ifNull: [
-                              '$$_asDate',
+                              '$$asDate',
                               {
                                 $cond: [
-                                  { $regexMatch: { input: '$$_rawStr', regex: /^\d{10,13}$/ } },
-                                  { $toDate: { $toLong: '$$_rawStr' } },
+                                  { $regexMatch: { input: '$$rawStr', regex: /^\d{10,13}$/ } },
+                                  { $toDate: { $toLong: '$$rawStr' } },
                                   null
                                 ]
                               }
@@ -4788,6 +4788,217 @@ router.get('/comisiones/agents', protect, async (req, res) => {
     return res.json({ success: true, data, meta: { startDate, endDate, totalAgents: data.length } });
   } catch (error) {
     console.error('[API /comisiones/agents] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/comisiones/agentes-mes
+ * @desc Obtener agentes con ventas y puntaje del mes actual (simplificado)
+ * @access Private
+ */
+router.get('/comisiones/agentes-mes', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    
+    // Usar el rango del 01 al 31 del mes (o último día del mes)
+    const startDate = `${year}-${month}-01`;
+    const lastDayOfMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+    const endDate = `${year}-${month}-${lastDayOfMonth}`;
+    
+    // Lógica de colchón: incluir registros 2 días antes y 2 días después del mes
+    const startDateMinusBuffer = new Date(year, now.getMonth(), -1); // 2 días antes del mes
+    const endDatePlusBuffer = new Date(year, now.getMonth() + 1, 2);  // 2 días después del mes
+    
+    const bufferStartDate = String(startDateMinusBuffer.getFullYear()) + '-' + 
+                           String(startDateMinusBuffer.getMonth() + 1).padStart(2, '0') + '-' +
+                           String(startDateMinusBuffer.getDate()).padStart(2, '0');
+    const bufferEndDate = String(endDatePlusBuffer.getFullYear()) + '-' + 
+                         String(endDatePlusBuffer.getMonth() + 1).padStart(2, '0') + '-' +
+                         String(endDatePlusBuffer.getDate()).padStart(2, '0');
+
+    console.log(`[API /comisiones/agentes-mes] Rango principal: ${startDate} a ${endDate}`);
+    console.log(`[API /comisiones/agentes-mes] Rango con colchón: ${bufferStartDate} a ${bufferEndDate}`);
+
+    // Obtener todos los agentes
+    const usersAll = await db.collection('users')
+      .find({}, { projection: { username: 1, name: 1, nombre: 1, fullName: 1, email: 1, role: 1, rol: 1, roles: 1, cargo: 1 } })
+      .sort({ name: 1, username: 1 })
+      .toArray();
+
+    const getRoleBlob = (u) => {
+      const parts = [];
+      const pushVal = (v) => {
+        if (!v) return;
+        if (Array.isArray(v)) { v.forEach(pushVal); return; }
+        parts.push(String(v));
+      };
+      pushVal(u?.role);
+      pushVal(u?.rol);
+      pushVal(u?.roles);
+      pushVal(u?.cargo);
+      return parts.join(' ');
+    };
+    
+    const isAgentUser = (u) => {
+      const blob = getRoleBlob(u).toLowerCase();
+      if (!/agente/.test(blob)) return false;
+      if (/supervisor/.test(blob)) return false;
+      if (/admin/.test(blob)) return false;
+      if (/back\s*office/.test(blob)) return false;
+      if (/backoffice/.test(blob)) return false;
+      return true;
+    };
+
+    const usersAgents = (usersAll || []).filter(isAgentUser);
+    console.log(`[API /comisiones/agentes-mes] Agentes encontrados: ${usersAgents.length}`);
+
+    const pickDisplayName = (u) => {
+      const v = (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? (u.name || u.nombre || u.fullName || u.username || u.email) : '';
+      return String(v || '').trim() || '—';
+    };
+
+    // Para cada agente, buscar sus ventas en costumers_unified SOLO DEL MES ACTUAL
+    // Restando las ventas con status "Cancelled"
+    const results = [];
+    for (const agent of usersAgents) {
+      const displayName = pickDisplayName(agent);
+      
+      // Query base para encontrar registros del agente en el rango de fechas
+      const baseQuery = {
+        $or: [
+          { agenteNombre: { $regex: displayName, $options: 'i' } },
+          { agente: { $regex: displayName, $options: 'i' } },
+          { usuario: { $regex: displayName, $options: 'i' } },
+          { nombreAgente: { $regex: displayName, $options: 'i' } },
+          { vendedor: { $regex: displayName, $options: 'i' } }
+        ]
+      };
+
+      const dateQuery = {
+        $or: [
+          { dia_venta: { $gte: startDate, $lte: endDate } },
+          { fecha_contratacion: { $gte: startDate, $lte: endDate } },
+          { creadoEn: { $gte: new Date(`${startDate}T00:00:00Z`), $lte: new Date(`${endDate}T23:59:59Z`) } },
+          { createdAt: { $gte: new Date(`${startDate}T00:00:00Z`), $lte: new Date(`${endDate}T23:59:59Z`) } },
+          { fecha: { $gte: startDate, $lte: endDate } }
+        ]
+      };
+
+      // Agregar ventas y puntajes sumando los válidos y restando los cancelados
+      const agentData = await db.collection('costumers_unified')
+        .aggregate([
+          {
+            $match: {
+              $and: [baseQuery, dateQuery]
+            }
+          },
+          {
+            $facet: {
+              todos: [
+                {
+                  $group: {
+                    _id: null,
+                    totalRecords: { $sum: 1 },
+                    cancelledCount: {
+                      $sum: {
+                        $cond: [
+                          { $eq: ['$status', 'Cancelled'] },
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    ventasValidas: {
+                      $sum: {
+                        $cond: [
+                          { $ne: ['$status', 'Cancelled'] },
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    ventasCanceladas: {
+                      $sum: {
+                        $cond: [
+                          { $eq: ['$status', 'Cancelled'] },
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    puntosValidos: {
+                      $sum: {
+                        $cond: [
+                          { $ne: ['$status', 'Cancelled'] },
+                          { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
+                          0
+                        ]
+                      }
+                    },
+                    puntosCancelados: {
+                      $sum: {
+                        $cond: [
+                          { $eq: ['$status', 'Cancelled'] },
+                          { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
+                          0
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    totalRecords: 1,
+                    cancelledCount: 1,
+                    ventas: { $subtract: ['$ventasValidas', '$ventasCanceladas'] },
+                    puntos: { $subtract: ['$puntosValidos', '$puntosCancelados'] }
+                  }
+                }
+              ],
+              cancelled: [
+                { $match: { status: 'Cancelled' } },
+                { $limit: 5 }
+              ]
+            }
+          }
+        ])
+        .toArray();
+
+      // Debug - mostrar registros cancelados para this agent
+      if (displayName.toLowerCase().includes('julio')) {
+        const facetResults = agentData && agentData.length > 0 ? agentData[0] : {};
+        console.log(`[DEBUG JULIO] Facet results:`, JSON.stringify(facetResults, null, 2));
+      }
+
+      const stats = agentData && agentData.length > 0 && agentData[0].todos && agentData[0].todos.length > 0 ? agentData[0].todos[0] : { ventas: 0, puntos: 0 };
+      const result = {
+        nombre: displayName,
+        ventas: Number(stats.ventas || 0),
+        puntos: Number((stats.puntos || 0).toFixed(2))
+      };
+      
+      // Debug para agentes específicos
+      if (displayName.toLowerCase().includes('julio')) {
+        console.log(`[DEBUG JULIO] ${displayName}: Ventas=${result.ventas}, Puntos=${result.puntos}, Full stats=${JSON.stringify(stats)}`);
+      }
+      if (displayName.toLowerCase().includes('luis')) {
+        console.log(`[DEBUG] ${displayName}: Ventas=${result.ventas}, Puntos=${result.puntos} (rango: ${startDate} a ${endDate})`);
+      }
+      
+      results.push(result);
+    }
+
+    console.log(`[API /comisiones/agentes-mes] Retornando ${results.length} agentes`);
+    return res.json({ success: true, data: results, meta: { startDate, endDate, month: `${year}-${month}` } });
+  } catch (error) {
+    console.error('[API /comisiones/agentes-mes] Error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
