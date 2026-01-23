@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comisiones - CRM</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/sidebar-shared.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="js/sidebar-loader.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body { height: 100%; overflow-x: hidden; }
+        .layout { min-height: 100vh; display: flex; }
+        .main-content { flex: 1; margin-left: 260px; width: calc(100% - 260px); }
+        @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; } }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down { animation: slideDown 0.4s ease-out; }
+
+        .kanban-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .tab-content {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .tab-btn {
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 auto-hide-sidebar">
+    <script>
+        // Verificar acceso solo para administradores
+        (async function checkAdminAccess() {
+            try {
+                const response = await fetch('/api/auth/me');
+                const userData = await response.json();
+                
+                if (!userData.user || !userData.user.role) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                const role = String(userData.user.role || '').toLowerCase();
+                const isAdmin = role.includes('admin') || role.includes('administrador') || role.includes('backoffice');
+                
+                if (!isAdmin) {
+                    // No es administrador, redirigir a página de acceso denegado
+                    document.body.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <div style="text-align: center; color: white; padding: 40px;">
+                                <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
+                                <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 10px;">Acceso Denegado</h1>
+                                <p style="font-size: 18px; opacity: 0.9; margin-bottom: 30px;">Esta página está reservada solo para administradores</p>
+                                <a href="/" style="display: inline-block; background: white; color: #667eea; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s;">
+                                    Volver al Inicio
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                    document.body.style.margin = '0';
+                    return;
+                }
+            } catch (error) {
+                console.error('Error verificando acceso:', error);
+                window.location.href = '/login.html';
+            }
+        })();
+    </script>
+    <div class="layout">
+        <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
+        <main class="main-content">
+
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200">
+                <div class="w-full px-6 py-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center">
+                                    <svg class="text-white" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="14" width="7" height="7"></rect>
+                                        <rect x="3" y="14" width="7" height="7"></rect>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h1 class="text-2xl font-bold text-gray-900">Comisiones</h1>
+                                    <p class="text-sm text-gray-500">Panel de gestión</p>
+                                </div>
+                            </div>
+
+                            <nav class="hidden md:flex items-center gap-1 ml-8">
+                                <button onclick="switchTab('dashboard')" class="tab-btn px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg">Dashboard</button>
+                                <button onclick="switchTab('agentes')" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Agentes</button>
+                                <button onclick="switchTab('reportes')" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Reportes</button>
+                                <button onclick="switchTab('analytics')" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Analytics</button>
+                            </nav>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                            </button>
+                            <button class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                            </button>
+                            <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 shadow-sm transition-all">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Agregar Agente
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="w-full px-6 py-8">
+                
+                <!-- TAB DASHBOARD (Default) -->
+                <div id="tab-dashboard" class="tab-content"
+
+                <!-- Stats Overview -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-6">Resumen General</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-blue-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">PUNTAJE TOTAL</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalRevenue">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 12%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-emerald-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                        <polyline points="17 6 23 6 23 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">COMISIONES</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalCommissions">$0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 8%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-purple-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="8" r="7"></circle>
+                                        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">SCORE PROMEDIO</p>
+                                    <p class="text-2xl font-bold text-gray-900"><span id="avgScore">0</span>/100</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 5%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                    <svg class="text-orange-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="8.5" cy="7" r="4"></circle>
+                                        <line x1="20" y1="8" x2="20" y2="14"></line>
+                                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 font-medium">VENTAS TOTALES</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalSales">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 text-xs">
+                                <span class="text-emerald-600 font-semibold">↑ 15%</span>
+                                <span class="text-gray-500">vs mes anterior</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban Style Columns -->
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                                Todos los Agentes
+                            </h3>
+                            <span class="text-xs font-medium text-gray-500" id="totalCount">0</span>
+                        </div>
+                    </div>
+                    <div id="allAgents" class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+                </div>
+
+                <!-- TAB AGENTES -->
+                <div id="tab-agentes" class="tab-content hidden">
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900">Gesión de Agentes</h2>
+                            <div class="flex gap-2">
+                                <input type="text" id="searchAgentes" placeholder="Buscar agente..." class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="filterAgentesTable()">
+                                <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-all">+ Agregar</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-gray-200 bg-gray-50">
+                                        <th class="px-6 py-3 text-left font-semibold text-gray-700">Agente</th>
+                                        <th class="px-6 py-3 text-center font-semibold text-gray-700">Ventas</th>
+                                        <th class="px-6 py-3 text-center font-semibold text-gray-700">Puntaje</th>
+                                        <th class="px-6 py-3 text-center font-semibold text-gray-700">Comisión</th>
+                                        <th class="px-6 py-3 text-center font-semibold text-gray-700">Score</th>
+                                        <th class="px-6 py-3 text-center font-semibold text-gray-700">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="agentesTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB REPORTES -->
+                <div id="tab-reportes" class="tab-content hidden">
+                    <div class="space-y-6">
+                        <!-- Panel Superior de Filtros -->
+                        <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-2xl p-8 shadow-xl">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h2 class="text-3xl font-bold">Reportes de Comisiones</h2>
+                                    <p class="text-indigo-100 mt-1">Análisis detallado de ventas y desempeño</p>
+                                </div>
+                                <button onclick="exportarReporte()" class="bg-white hover:bg-indigo-50 text-indigo-600 px-6 py-3 rounded-lg font-bold transition-all transform hover:scale-105">
+                                    📥 Exportar CSV
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-indigo-500 bg-opacity-50 rounded-xl p-4 backdrop-blur">
+                                    <label class="block text-sm font-medium mb-2 opacity-90">Período</label>
+                                    <div class="flex gap-2">
+                                        <input type="date" id="reportFechaInicio" class="flex-1 px-3 py-2 bg-white bg-opacity-20 text-white placeholder-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-white" onchange="refreshReportes()">
+                                        <input type="date" id="reportFechaFin" class="flex-1 px-3 py-2 bg-white bg-opacity-20 text-white placeholder-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-white" onchange="refreshReportes()">
+                                    </div>
+                                </div>
+                                <div class="bg-indigo-500 bg-opacity-50 rounded-xl p-4 backdrop-blur">
+                                    <label class="block text-sm font-medium mb-2 opacity-90">Tipo de Reporte</label>
+                                    <select id="reportType" class="w-full px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-white" onchange="refreshReportes()">
+                                        <option class="text-gray-900" value="general">General</option>
+                                        <option class="text-gray-900" value="vendedor">Por Vendedor</option>
+                                        <option class="text-gray-900" value="equipo">Por Equipo</option>
+                                    </select>
+                                </div>
+                                <div class="bg-indigo-500 bg-opacity-50 rounded-xl p-4 backdrop-blur flex items-end">
+                                    <button onclick="refreshReportes()" class="w-full bg-white text-indigo-600 font-bold px-4 py-2 rounded-lg hover:bg-indigo-50 transition-all">
+                                        🔄 Actualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cards de Resumen -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <div class="text-gray-500 text-sm font-medium mb-1">Ventas Totales</div>
+                                <div class="text-3xl font-bold text-gray-900" id="reportTotalVentas">0</div>
+                                <div class="text-xs text-emerald-600 mt-2">Período Seleccionado</div>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <div class="text-gray-500 text-sm font-medium mb-1">Puntaje Total</div>
+                                <div class="text-3xl font-bold text-gray-900" id="reportTotalPuntos">0</div>
+                                <div class="text-xs text-emerald-600 mt-2">Acumulado</div>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <div class="text-gray-500 text-sm font-medium mb-1">Comisión Total</div>
+                                <div class="text-3xl font-bold text-emerald-600" id="reportTotalComision">$0</div>
+                                <div class="text-xs text-gray-500 mt-2">A Distribuir</div>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <div class="text-gray-500 text-sm font-medium mb-1">Agentes Activos</div>
+                                <div class="text-3xl font-bold text-indigo-600" id="reportAgentesActivos">0</div>
+                                <div class="text-xs text-gray-500 mt-2">Con Ventas</div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla Mejorada -->
+                        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                                <h3 class="text-lg font-bold text-gray-900">Detalle de Ventas por Agente</h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-50 border-b border-gray-200">
+                                            <th class="px-6 py-4 text-left font-bold text-gray-700">#</th>
+                                            <th class="px-6 py-4 text-left font-bold text-gray-700">Agente</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Ventas</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Puntaje</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Comisión</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">% del Total</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Posición</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB ANALYTICS -->
+                <div id="tab-analytics" class="tab-content hidden">
+                    <div class="space-y-6">
+                        <!-- KPIs Mega Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-700 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-400 rounded-full opacity-20 -mr-16 -mt-16"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <span class="text-sm opacity-90">Promedio Ventas</span>
+                                        <span class="text-2xl">📊</span>
+                                    </div>
+                                    <div class="text-4xl font-black" id="kpiAvgVentas">0</div>
+                                    <div class="text-xs opacity-75 mt-2">Por Agente</div>
+                                </div>
+                            </div>
+                            <div class="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-400 rounded-full opacity-20 -mr-16 -mt-16"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <span class="text-sm opacity-90">Puntaje Promedio</span>
+                                        <span class="text-2xl">⭐</span>
+                                    </div>
+                                    <div class="text-4xl font-black" id="kpiAvgPuntos">0</div>
+                                    <div class="text-xs opacity-75 mt-2">Puntos Acumulados</div>
+                                </div>
+                            </div>
+                            <div class="bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-purple-400 rounded-full opacity-20 -mr-16 -mt-16"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <span class="text-sm opacity-90">Comisión Promedio</span>
+                                        <span class="text-2xl">💰</span>
+                                    </div>
+                                    <div class="text-3xl font-black" id="kpiAvgComision">$0</div>
+                                    <div class="text-xs opacity-75 mt-2">Por Agente</div>
+                                </div>
+                            </div>
+                            <div class="bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-orange-400 rounded-full opacity-20 -mr-16 -mt-16"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <span class="text-sm opacity-90">Tasa Eficiencia</span>
+                                        <span class="text-2xl">🎯</span>
+                                    </div>
+                                    <div class="text-4xl font-black" id="kpiEficiencia">0%</div>
+                                    <div class="text-xs opacity-75 mt-2">Agentes en Meta</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráficos Interactivos -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span class="text-2xl">📈</span> Ranking de Agentes
+                                </h3>
+                                <div id="topAgentesRanking" class="space-y-4">
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-shadow">
+                                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span class="text-2xl">🏆</span> Distribución de Metas
+                                </h3>
+                                <div id="metasDistribution" class="space-y-3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla Avanzada de Analytics -->
+                        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <span>📊</span> Análisis Detallado por Agente
+                                </h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-50 border-b border-gray-200">
+                                            <th class="px-6 py-4 text-left font-bold text-gray-700">Agente</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Ventas</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Puntaje</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Meta Actual</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Próxima Meta</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Progreso</th>
+                                            <th class="px-6 py-4 text-center font-bold text-gray-700">Comisión Est.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="analyticsTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+            <!-- Modal -->
+            <div id="modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 animate-slide-down">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900">Nuevo Agente</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+                            <input type="text" id="agentName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="María González">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Ventas</label>
+                                <input type="number" id="agentSales" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="45">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Score (0-100)</label>
+                                <input type="number" id="agentScore" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="Auto" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Puntaje</label>
+                            <input type="number" id="agentPoints" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="120">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Comisión ($) <span class="text-gray-400">- Opcional</span></label>
+                            <input type="number" id="agentCommission" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" placeholder="Auto 5%">
+                        </div>
+
+                        <button onclick="addAgent()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-lg font-semibold shadow-sm transition-all mt-2">
+                            Agregar Agente
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // Sistema de Metas y Comisiones Progresivas
+                const METAS = [
+                    { nivel: 1, puntos: 17, comision: 0.03, label: 'META 1' },
+                    { nivel: 2, puntos: 21, comision: 0.04, label: 'META 2' },
+                    { nivel: 3, puntos: 26, comision: 0.05, label: 'META 3' },
+                    { nivel: 4, puntos: 31, comision: 0.06, label: 'META 4' }
+                ];
+
+                const demoAgents = [
+                    { id: 1, name: 'María González', sales: 45, points: 120, commission: 6250, score: 92, trend: 'up', change: 8 },
+                    { id: 2, name: 'Carlos Romero', sales: 38, points: 98, commission: 4900, score: 85, trend: 'up', change: 3 },
+                    { id: 3, name: 'Ana Martínez', sales: 52, points: 142, commission: 7100, score: 98, trend: 'up', change: 12 },
+                    { id: 4, name: 'Juan Pérez', sales: 31, points: 76, commission: 3800, score: 78, trend: 'up', change: 5 },
+                    { id: 5, name: 'Luis Fernández', sales: 42, points: 115, commission: 5750, score: 72, trend: 'down', change: 3 }
+                ];
+                let agents = demoAgents.slice();
+
+                // Calcular comisión basada en metas
+                function calcularComision(sales, puntos) {
+                    const metaAlcanzada = METAS.filter(m => puntos >= m.puntos).pop();
+                    if (!metaAlcanzada) return 0;
+                    return sales * 100 * metaAlcanzada.comision; // Asumiendo $100 por venta
+                }
+
+                // Obtener próxima meta
+                function getProximaMeta(puntos) {
+                    return METAS.find(m => puntos < m.puntos);
+                }
+
+                // Obtener meta actual alcanzada
+                function getMetaAlcanzada(puntos) {
+                    return METAS.filter(m => puntos >= m.puntos).pop();
+                }
+
+                function resolveAgentName(u) {
+                    return (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? String(u.name || u.nombre || u.fullName || u.username || u.email).trim() : '—';
+                }
+
+                function normalizeAgentName(fullName) {
+                    const parts = String(fullName || '').trim().split(/\s+/).filter(p => p);
+                    if (parts.length === 0) return '—';
+                    if (parts.length === 1) return parts[0];
+                    // Tomar primer palabra como nombre, resto como apellido
+                    return `${parts[0]} ${parts.slice(1).join(' ')}`;
+                }
+
+                async function loadAgentsFromDB() {
+                    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                    
+                    try {
+                        console.log('[Comisiones] Intentando conectar a /api/comisiones/agentes-mes');
+                        
+                        const res = await fetch(`/api/comisiones/agentes-mes`, {
+                            method: 'GET',
+                            credentials: 'include',
+                            headers
+                        });
+
+                        console.log('[Comisiones] Response status:', res.status);
+
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            console.error('[Comisiones] Error response:', errorText);
+                            return false;
+                        }
+
+                        const payload = await res.json();
+                        console.log('[Comisiones] Payload recibido:', payload);
+
+                        // Manejar tanto { success: true, data: [...] } como array directo
+                        let list = [];
+                        if (payload?.success && Array.isArray(payload?.data)) {
+                            list = payload.data;
+                        } else if (Array.isArray(payload)) {
+                            list = payload;
+                        } else if (payload?.data) {
+                            list = Array.isArray(payload.data) ? payload.data : [];
+                        }
+
+                        console.log('[Comisiones] Agentes encontrados en BD:', list.length);
+                        console.log('[Comisiones] Primeros 5 agentes:', list.slice(0, 5));
+                        list.forEach((a, i) => {
+                            console.log(`[Comisiones] Agente ${i}: ${a.nombre || a.name} - Ventas: ${a.ventas}, Puntaje: ${a.puntos}`);
+                        });
+
+                        if (!list || !list.length) {
+                            console.warn('[Comisiones] No hay agentes en la BD');
+                            return false;
+                        }
+
+                        const maxPoints = Math.max(0, ...list.map(it => Number(it?.puntos || it?.points || 0) || 0));
+                        console.log('[Comisiones] Max points:', maxPoints);
+
+                        const mapped = list.map((it, idx) => {
+                            const name = String(it?.nombre || it?.name || '—').trim();
+                            const sales = Number(it?.ventas || it?.sales || 0) || 0;
+                            const points = Number(it?.puntos || it?.points || 0) || 0;
+                            const commission = Number(it?.comisión || it?.commission || (sales * 0.05)) || 0;
+                            
+                            // Calcular score basado en puntos
+                            let score = 50;
+                            if (maxPoints > 0) {
+                                score = Math.max(0, Math.min(100, Math.round((points / maxPoints) * 100)));
+                            }
+                            
+                            return {
+                                id: String(it?._id || it?.id || name || idx),
+                                name: normalizeAgentName(name),
+                                sales,
+                                points,
+                                commission,
+                                score,
+                                trend: points > 0 ? 'up' : 'down',
+                                change: Math.floor(Math.random() * 15) + 1
+                            };
+                        }).filter(agent => {
+                            // Filtrar agentes de TEAM LINEAS
+                            return !agent.name.toUpperCase().includes('LINEAS');
+                        });
+
+                        console.log('[Comisiones] Agentes mapeados:', mapped.length);                        
+                        // Filtrar solo agentes con movimiento (ventas > 0)
+                        const withMovement = mapped.filter(a => a.sales > 0);
+                        // Ordenar por ventas descendente (mayor a menor)
+                        withMovement.sort((a, b) => b.sales - a.sales);
+                        console.log('[Comisiones] Agentes con movimiento:', withMovement.length);
+                        agents = withMovement;
+                        return true;
+                    } catch (e) {
+                        console.error('[Comisiones] Error cargando agentes:', e.message, e);
+                        return false;
+                    }
+                }
+
+                function getInitials(name) {
+                    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+                }
+
+                function getScoreColor(score) {
+                    if (score >= 90) return 'bg-emerald-500';
+                    if (score >= 75) return 'bg-blue-500';
+                    if (score >= 60) return 'bg-amber-500';
+                    return 'bg-rose-500';
+                }
+
+                function getAvatarColor(score) {
+                    if (score >= 90) return 'bg-emerald-100 text-emerald-700';
+                    if (score >= 75) return 'bg-blue-100 text-blue-700';
+                    if (score >= 60) return 'bg-amber-100 text-amber-700';
+                    return 'bg-rose-100 text-rose-700';
+                }
+
+                function updateStats() {
+                    const totalRevenue = agents.reduce((sum, a) => sum + (Number(a.points || 0) || 0), 0);
+                    const totalCommissions = agents.reduce((sum, a) => sum + a.commission, 0);
+                    const totalSales = agents.reduce((sum, a) => sum + a.sales, 0);
+                    const avgScore = Math.round(agents.reduce((sum, a) => sum + a.score, 0) / agents.length);
+
+                    document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString();
+                    document.getElementById('totalCommissions').textContent = '$' + totalCommissions.toLocaleString();
+                    document.getElementById('totalSales').textContent = totalSales;
+                    document.getElementById('avgScore').textContent = avgScore;
+                }
+
+                function renderAgents() {
+                    document.getElementById('totalCount').textContent = agents.length;
+                    renderColumn('allAgents', agents);
+                }
+
+                function renderColumn(containerId, agentsList) {
+                    const container = document.getElementById(containerId);
+                    container.innerHTML = agentsList.map(agent => {
+                        const metaAlcanzada = getMetaAlcanzada(agent.points);
+                        const proximaMeta = getProximaMeta(agent.points);
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        const porcentajeProxima = proximaMeta ? Math.round(((agent.points / proximaMeta.puntos) * 100)) : 100;
+                        
+                        return `
+                        <div class="kanban-card bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-10 h-10 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0">
+                                        ${getInitials(agent.name)}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-semibold text-gray-900 text-sm truncate">${agent.name}</h4>
+                                        <p class="text-xs text-gray-500">${agent.sales} ventas</p>
+                                    </div>
+                                </div>
+                                <button onclick="deleteAgent(${agent.id})" class="text-gray-400 hover:text-rose-600 transition-colors flex-shrink-0 ml-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="space-y-2 mb-3">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Ventas</span>
+                                    <span class="font-semibold text-gray-900">${agent.sales}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Puntaje</span>
+                                    <span class="font-semibold text-gray-900">${Number(agent.points || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-500">Comisión</span>
+                                    <span class="font-semibold text-emerald-600">$${(comisionCalculada/1000).toFixed(2)}K</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3 p-2 bg-white rounded-lg border border-blue-200">
+                                <div class="text-xs font-semibold text-blue-900 mb-2">Metas Alcanzadas</div>
+                                <div class="space-y-1">
+                                    ${METAS.map(meta => {
+                                        const alcanzada = agent.points >= meta.puntos;
+                                        const esActual = metaAlcanzada && metaAlcanzada.nivel === meta.nivel;
+                                        return `
+                                        <div class="flex items-center justify-between text-xs ${esActual ? 'bg-yellow-50' : ''} px-2 py-1 rounded">
+                                            <span class="text-gray-700">
+                                                ${alcanzada ? '✓' : '○'} ${meta.label} (${meta.puntos} pts)
+                                            </span>
+                                            <span class="font-semibold ${alcanzada ? 'text-emerald-600' : 'text-gray-400'}">${(meta.comision * 100)}%</span>
+                                        </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <div class="flex items-center justify-between text-xs mb-1">
+                                    <span class="text-gray-500">${metaAlcanzada ? metaAlcanzada.label + ' Actual' : 'Sin Meta'}</span>
+                                    <span class="font-semibold text-gray-900">${proximaMeta ? porcentajeProxima + '%' : '✓ Máxima'}</span>
+                                </div>
+                                <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="${proximaMeta ? 'bg-blue-500' : 'bg-emerald-500'} h-full rounded-full transition-all" style="width: ${proximaMeta ? porcentajeProxima : 100}%"></div>
+                                </div>
+                                ${proximaMeta ? `<p class="text-xs text-gray-500 mt-1">Faltan ${(proximaMeta.puntos - agent.points).toFixed(2)} pts para ${proximaMeta.label}</p>` : ''}
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                                <span class="text-xs ${agent.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'} font-semibold">
+                                    ${agent.trend === 'up' ? '↑' : '↓'} ${agent.change}%
+                                </span>
+                                <span class="text-xs text-gray-400">vs anterior</span>
+                            </div>
+                        </div>
+                        `;
+                    }).join('');
+                }
+
+                function openModal() {
+                    document.getElementById('modal').classList.remove('hidden');
+                }
+
+                function closeModal() {
+                    document.getElementById('modal').classList.add('hidden');
+                    document.getElementById('agentName').value = '';
+                    document.getElementById('agentSales').value = '';
+                    document.getElementById('agentPoints').value = '';
+                    document.getElementById('agentCommission').value = '';
+                    document.getElementById('agentScore').value = '';
+                }
+
+                function addAgent() {
+                    const name = document.getElementById('agentName').value;
+                    const sales = parseInt(document.getElementById('agentSales').value);
+                    const points = parseFloat(document.getElementById('agentPoints').value);
+                    const commission = parseFloat(document.getElementById('agentCommission').value) || 0;
+                    const score = parseInt(document.getElementById('agentScore').value) || Math.min(100, Math.round(sales * 2));
+
+                    if (name && sales) {
+                        agents.push({
+                            id: Date.now(),
+                            name, sales, points: Number(points || 0) || 0, commission, score,
+                            trend: 'up',
+                            change: Math.floor(Math.random() * 15) + 1
+                        });
+
+                        updateStats();
+                        renderAgents();
+                        closeModal();
+                    }
+                }
+
+                function deleteAgent(id) {
+                    agents = agents.filter(a => a.id !== id);
+                    updateStats();
+                    renderAgents();
+                }
+
+                // Sistema de Pestañas
+                function switchTab(tabName) {
+                    // Ocultar todas las pestañas
+                    document.querySelectorAll('.tab-content').forEach(tab => {
+                        tab.classList.add('hidden');
+                    });
+                    document.querySelectorAll('.tab-btn').forEach(btn => {
+                        btn.classList.remove('text-indigo-600', 'bg-indigo-50');
+                        btn.classList.add('text-gray-600');
+                    });
+                    
+                    // Mostrar pestaña seleccionada
+                    const selectedTab = document.getElementById(`tab-${tabName}`);
+                    if (selectedTab) {
+                        selectedTab.classList.remove('hidden');
+                    }
+                    
+                    // Marcar botón activo
+                    event.target.classList.add('text-indigo-600', 'bg-indigo-50');
+                    event.target.classList.remove('text-gray-600');
+                    
+                    // Cargar datos según la pestaña
+                    if (tabName === 'agentes') renderAgentesTable();
+                    if (tabName === 'reportes') renderReportes();
+                    if (tabName === 'analytics') renderAnalytics();
+                }
+
+                // TAB AGENTES
+                function renderAgentesTable() {
+                    const tbody = document.getElementById('agentesTableBody');
+                    tbody.innerHTML = agents.map(agent => {
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        return `
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-xs">
+                                            ${getInitials(agent.name)}
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">${agent.name}</div>
+                                            <div class="text-xs text-gray-500">Score: ${agent.score}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="font-semibold text-gray-900">${agent.sales}</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="font-semibold text-gray-900">${agent.points.toFixed(2)}</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="font-semibold text-emerald-600">$${(comisionCalculada / 1000).toFixed(1)}K</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div class="h-full ${getScoreColor(agent.score)}" style="width: ${agent.score}%"></div>
+                                        </div>
+                                        <span class="text-xs font-semibold text-gray-900 w-10">${agent.score}%</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <button onclick="deleteAgent(${agent.id})" class="text-rose-600 hover:text-rose-700 font-medium text-xs px-3 py-1 hover:bg-rose-50 rounded transition-colors">
+                                        Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                function filterAgentesTable() {
+                    const search = document.getElementById('searchAgentes').value.toLowerCase();
+                    const filtered = agents.filter(a => a.name.toLowerCase().includes(search));
+                    const tbody = document.getElementById('agentesTableBody');
+                    tbody.innerHTML = filtered.map(agent => {
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        return `
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 ${getAvatarColor(agent.score)} rounded-lg flex items-center justify-center font-bold text-xs">
+                                            ${getInitials(agent.name)}
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">${agent.name}</div>
+                                            <div class="text-xs text-gray-500">Score: ${agent.score}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center font-semibold">${agent.sales}</td>
+                                <td class="px-6 py-4 text-center font-semibold">${agent.points.toFixed(2)}</td>
+                                <td class="px-6 py-4 text-center font-semibold text-emerald-600">$${(comisionCalculada / 1000).toFixed(1)}K</td>
+                                <td class="px-6 py-4 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div class="h-full ${getScoreColor(agent.score)}" style="width: ${agent.score}%"></div>
+                                        </div>
+                                        <span class="text-xs font-semibold">${agent.score}%</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <button onclick="deleteAgent(${agent.id})" class="text-rose-600 hover:text-rose-700 text-xs px-3 py-1 hover:bg-rose-50 rounded">Eliminar</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                // TAB REPORTES
+                function renderReportes() {
+                    const tbody = document.getElementById('reportTableBody');
+                    const totalVentas = agents.reduce((sum, a) => sum + a.sales, 0);
+                    const totalPuntos = agents.reduce((sum, a) => sum + a.points, 0);
+                    const totalComision = agents.reduce((sum, a) => sum + calcularComision(a.sales, a.points), 0);
+                    const agentesConVentas = agents.filter(a => a.sales > 0).length;
+                    
+                    // Actualizar cards de resumen
+                    document.getElementById('reportTotalVentas').textContent = totalVentas;
+                    document.getElementById('reportTotalPuntos').textContent = totalPuntos.toFixed(0);
+                    document.getElementById('reportTotalComision').textContent = '$' + (totalComision / 1000).toFixed(1) + 'K';
+                    document.getElementById('reportAgentesActivos').textContent = agentesConVentas;
+                    
+                    // Ordenar agentes por ventas
+                    const agentesOrdenados = [...agents].sort((a, b) => b.sales - a.sales);
+                    
+                    tbody.innerHTML = agentesOrdenados.map((agent, idx) => {
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        const porcentaje = ((agent.sales / totalVentas) * 100).toFixed(1);
+                        
+                        // Colores para posición
+                        let posicionColor = 'text-gray-500';
+                        let posicionBg = 'bg-gray-100';
+                        if (idx === 0) { posicionColor = 'text-amber-600'; posicionBg = 'bg-amber-100'; }
+                        else if (idx === 1) { posicionColor = 'text-gray-400'; posicionBg = 'bg-gray-200'; }
+                        else if (idx === 2) { posicionColor = 'text-orange-600'; posicionBg = 'bg-orange-100'; }
+                        
+                        // Determinar trending
+                        const trending = agent.sales >= 40 ? '📈 Alto' : agent.sales >= 25 ? '➡️ Medio' : '📉 Bajo';
+                        
+                        return `
+                            <tr class="border-b border-gray-100 hover:bg-indigo-50 transition-colors">
+                                <td class="px-6 py-4 text-center font-bold">${idx + 1}</td>
+                                <td class="px-6 py-4 font-semibold text-gray-900">${agent.name}</td>
+                                <td class="px-6 py-4 text-center font-bold text-indigo-600">${agent.sales}</td>
+                                <td class="px-6 py-4 text-center font-semibold text-blue-600">${agent.points.toFixed(0)}</td>
+                                <td class="px-6 py-4 text-center font-bold text-emerald-600">$${(comisionCalculada / 1000).toFixed(1)}K</td>
+                                <td class="px-6 py-4 text-center">
+                                    <div class="flex items-center justify-center">
+                                        <span class="inline-block bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${porcentaje}%</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block ${posicionBg} ${posicionColor} px-3 py-1 rounded-full text-xs font-bold">#${idx + 1}</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                function exportarReporte() {
+                    const tipo = document.getElementById('reportType').value;
+                    const csv = [
+                        ['Agente', 'Ventas', 'Puntaje', 'Comisión', 'Porcentaje'],
+                        ...agents.map(a => [
+                            a.name,
+                            a.sales,
+                            a.points.toFixed(2),
+                            calcularComision(a.sales, a.points).toFixed(2),
+                            ((a.sales / agents.reduce((sum, x) => sum + x.sales, 0)) * 100).toFixed(1)
+                        ])
+                    ].map(row => row.join(',')).join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `reporte-comisiones-${tipo}-${new Date().toISOString().split('T')[0]}.csv`;
+                    a.click();
+                }
+
+                function refreshReportes() {
+                    renderReportes();
+                }
+
+                // TAB ANALYTICS
+                function renderAnalytics() {
+                    // Cálculo de KPIs
+                    const avgVentas = (agents.reduce((s, a) => s + a.sales, 0) / agents.length).toFixed(1);
+                    const avgPuntos = (agents.reduce((s, a) => s + a.points, 0) / agents.length).toFixed(1);
+                    const avgComision = (agents.reduce((s, a) => s + calcularComision(a.sales, a.points), 0) / agents.length / 1000).toFixed(1);
+                    const eficiencia = ((agents.filter(a => a.points >= METAS[0].puntos).length / agents.length) * 100).toFixed(0);
+                    
+                    // Actualizar KPI Cards
+                    document.getElementById('kpiAvgVentas').textContent = avgVentas;
+                    document.getElementById('kpiAvgPuntos').textContent = avgPuntos;
+                    document.getElementById('kpiAvgComision').textContent = '$' + avgComision + 'K';
+                    document.getElementById('kpiEficiencia').textContent = eficiencia + '%';
+                    
+                    // Ranking Top Agentes
+                    const topAgentes = [...agents]
+                        .sort((a, b) => b.sales - a.sales)
+                        .slice(0, 5);
+                    
+                    const rankingHTML = topAgentes.map((agent, idx) => {
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        const maxVentas = Math.max(...agents.map(a => a.sales));
+                        const porcentaje = (agent.sales / maxVentas) * 100;
+                        const medalEmoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx === 3 ? '4️⃣' : '5️⃣';
+                        
+                        return `
+                            <div class="flex items-start gap-4 p-3 bg-gradient-to-r from-gray-50 to-transparent rounded-xl border border-gray-100 hover:border-indigo-200 transition-colors">
+                                <div class="flex-shrink-0 text-2xl">${medalEmoji}</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-bold text-gray-900 truncate">${agent.name}</div>
+                                    <div class="text-xs text-gray-500 mt-1">Ventas: <span class="font-bold text-indigo-600">${agent.sales}</span></div>
+                                </div>
+                                <div class="flex-shrink-0 text-right">
+                                    <div class="text-lg font-bold text-emerald-600">$${(comisionCalculada / 1000).toFixed(1)}K</div>
+                                    <div class="text-xs text-gray-500 mt-1">${agent.points.toFixed(0)} pts</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('topAgentesRanking').innerHTML = rankingHTML;
+                    
+                    // Distribución de Metas
+                    const metaDistribution = METAS.map(meta => {
+                        const agentsInMeta = agents.filter(a => {
+                            const metaAlcanzada = getMetaAlcanzada(a.points);
+                            return metaAlcanzada && metaAlcanzada.nivel === meta.nivel;
+                        }).length;
+                        const porcentaje = ((agentsInMeta / agents.length) * 100).toFixed(1);
+                        
+                        return `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-purple-300 transition-colors">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-3 h-3 rounded-full" style="background-color: ${['#6366f1', '#10b981', '#a855f7', '#f97316'][meta.nivel - 1]}"></div>
+                                    <div>
+                                        <div class="font-bold text-gray-900">${meta.label}</div>
+                                        <div class="text-xs text-gray-500">${meta.puntos} pts • ${(meta.comision * 100).toFixed(0)}% comisión</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-gray-900">${agentsInMeta}</div>
+                                    <div class="text-xs text-gray-500">${porcentaje}% agentes</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('metasDistribution').innerHTML = metaDistribution;
+                    
+                    // Tabla Analytics Detallada
+                    const tbody = document.getElementById('analyticsTableBody');
+                    const agentesOrdenados = [...agents].sort((a, b) => b.points - a.points);
+                    
+                    tbody.innerHTML = agentesOrdenados.map((agent, idx) => {
+                        const metaAlcanzada = getMetaAlcanzada(agent.points);
+                        const proximaMeta = getProximaMeta(agent.points);
+                        const progreso = proximaMeta ? Math.round((agent.points / proximaMeta.puntos) * 100) : 100;
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        
+                        // Color del progreso basado en porcentaje
+                        let progresoColor = 'bg-red-500';
+                        if (progreso >= 75) progresoColor = 'bg-emerald-500';
+                        else if (progreso >= 50) progresoColor = 'bg-amber-500';
+                        else if (progreso >= 25) progresoColor = 'bg-orange-500';
+                        
+                        return `
+                            <tr class="border-b border-gray-100 hover:bg-indigo-50 transition-colors">
+                                <td class="px-6 py-4 font-semibold text-gray-900">${agent.name}</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold">${agent.sales}</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">${agent.points.toFixed(0)}</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${metaAlcanzada ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}">
+                                        ${metaAlcanzada ? metaAlcanzada.label : 'Sin Meta'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                                        ${proximaMeta ? proximaMeta.label : 'Max'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div class="h-full transition-all ${progresoColor}" style="width: ${Math.min(progreso, 100)}%"></div>
+                                        </div>
+                                        <span class="text-xs font-bold text-gray-700 w-10 text-right">${Math.min(progreso, 100)}%</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-block bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">$${(comisionCalculada / 1000).toFixed(1)}K</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                (async function init() {
+                    try { if (typeof window.loadSidebar === 'function') window.loadSidebar(); } catch (_) {}
+                    try { await loadAgentsFromDB(); } catch (_) {}
+                    updateStats();
+                    renderAgents();
+                    // Inicializar fechas por defecto
+                    const hoy = new Date();
+                    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                    document.getElementById('reportFechaInicio').valueAsDate = inicio;
+                    document.getElementById('reportFechaFin').valueAsDate = hoy;
+                })();
+            </script>
+
+        </main>
+    </div>
+</body>
+</html>
