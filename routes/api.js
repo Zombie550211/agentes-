@@ -4804,26 +4804,16 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
 
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const monthIndex = now.getMonth();
+    const month = String(monthIndex + 1).padStart(2, '0');
     
-    // Usar el rango del 01 al 31 del mes (o último día del mes)
+    // Usar rango del mes exacto, igual que /api/ranking
+    const startOfMonth = new Date(year, monthIndex, 1);
+    const startOfNextMonth = new Date(year, monthIndex + 1, 1);
+    
     const startDate = `${year}-${month}-01`;
-    const lastDayOfMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+    const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
     const endDate = `${year}-${month}-${lastDayOfMonth}`;
-    
-    // Lógica de colchón: incluir registros 2 días antes y 2 días después del mes
-    const startDateMinusBuffer = new Date(year, now.getMonth(), -1); // 2 días antes del mes
-    const endDatePlusBuffer = new Date(year, now.getMonth() + 1, 2);  // 2 días después del mes
-    
-    const bufferStartDate = String(startDateMinusBuffer.getFullYear()) + '-' + 
-                           String(startDateMinusBuffer.getMonth() + 1).padStart(2, '0') + '-' +
-                           String(startDateMinusBuffer.getDate()).padStart(2, '0');
-    const bufferEndDate = String(endDatePlusBuffer.getFullYear()) + '-' + 
-                         String(endDatePlusBuffer.getMonth() + 1).padStart(2, '0') + '-' +
-                         String(endDatePlusBuffer.getDate()).padStart(2, '0');
-
-    console.log(`[API /comisiones/agentes-mes] Rango principal: ${startDate} a ${endDate}`);
-    console.log(`[API /comisiones/agentes-mes] Rango con colchón: ${bufferStartDate} a ${bufferEndDate}`);
 
     // Obtener todos los agentes
     const usersAll = await db.collection('users')
@@ -4863,9 +4853,25 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
       return String(v || '').trim() || '—';
     };
 
+    // Calcular rango del mes anterior para el "colchón"
+    const prevMonthIndex = monthIndex === 0 ? 11 : monthIndex - 1;
+    const prevYear = monthIndex === 0 ? year - 1 : year;
+    const prevMonth = String(prevMonthIndex + 1).padStart(2, '0');
+    const prevStartDate = `${prevYear}-${prevMonth}-01`;
+    const prevLastDayOfMonth = new Date(prevYear, prevMonthIndex + 1, 0).getDate();
+    const prevEndDate = `${prevYear}-${prevMonth}-${prevLastDayOfMonth}`;
+    const prevMonthStart = new Date(prevYear, prevMonthIndex, 1);
+    const prevMonthEnd = new Date(prevYear, prevMonthIndex + 1, 1);
+
+    console.log(`[API /comisiones/agentes-mes] Rango MES ACTUAL: ${startDate} a ${endDate}`);
+    console.log(`[API /comisiones/agentes-mes] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
+    console.log(`[API /comisiones/agentes-mes] LÓGICA: Incluir ventas del mes anterior con instalación en mes actual`);
+
     // Para cada agente, buscar sus ventas en costumers_unified SOLO DEL MES ACTUAL
     // Restando las ventas con status "Cancelled"
+    // TAMBIÉN INCLUIR el "colchón": ventas del mes anterior con fecha de instalación en el mes actual
     const results = [];
+    
     for (const agent of usersAgents) {
       const displayName = pickDisplayName(agent);
       
@@ -4884,9 +4890,30 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         $or: [
           { dia_venta: { $gte: startDate, $lte: endDate } },
           { fecha_contratacion: { $gte: startDate, $lte: endDate } },
-          { creadoEn: { $gte: new Date(`${startDate}T00:00:00Z`), $lte: new Date(`${endDate}T23:59:59Z`) } },
-          { createdAt: { $gte: new Date(`${startDate}T00:00:00Z`), $lte: new Date(`${endDate}T23:59:59Z`) } },
+          { creadoEn: { $gte: startOfMonth, $lte: startOfNextMonth } },
+          { createdAt: { $gte: startOfMonth, $lte: startOfNextMonth } },
           { fecha: { $gte: startDate, $lte: endDate } }
+        ]
+      };
+
+      // Query para el "colchón": ventas del mes anterior con instalación en mes actual
+      const colchonQuery = {
+        $and: [
+          baseQuery,
+          {
+            $or: [
+              { dia_venta: { $gte: prevStartDate, $lte: prevEndDate } },
+              { fecha_contratacion: { $gte: prevStartDate, $lte: prevEndDate } },
+              { creadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } },
+              { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } }
+            ]
+          },
+          {
+            $or: [
+              { dia_instalacion: { $gte: startDate, $lte: endDate } },
+              { fecha_instalacion: { $gte: startDate, $lte: endDate } }
+            ]
+          }
         ]
       };
 
@@ -4908,7 +4935,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     cancelledCount: {
                       $sum: {
                         $cond: [
-                          { $eq: ['$status', 'Cancelled'] },
+                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
                           1,
                           0
                         ]
@@ -4917,7 +4944,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasValidas: {
                       $sum: {
                         $cond: [
-                          { $ne: ['$status', 'Cancelled'] },
+                          { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
                           1,
                           0
                         ]
@@ -4926,7 +4953,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasCanceladas: {
                       $sum: {
                         $cond: [
-                          { $eq: ['$status', 'Cancelled'] },
+                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
                           1,
                           0
                         ]
@@ -4935,7 +4962,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     puntosValidos: {
                       $sum: {
                         $cond: [
-                          { $ne: ['$status', 'Cancelled'] },
+                          { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
                           { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
                           0
                         ]
@@ -4944,7 +4971,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     puntosCancelados: {
                       $sum: {
                         $cond: [
-                          { $eq: ['$status', 'Cancelled'] },
+                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
                           { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
                           0
                         ]
@@ -4957,15 +4984,54 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     _id: 0,
                     totalRecords: 1,
                     cancelledCount: 1,
-                    ventas: { $subtract: ['$ventasValidas', '$ventasCanceladas'] },
-                    puntos: { $subtract: ['$puntosValidos', '$puntosCancelados'] }
+                    ventas: '$ventasValidas',
+                    puntos: '$puntosValidos'
                   }
                 }
               ],
               cancelled: [
-                { $match: { status: 'Cancelled' } },
+                { $match: { status: { $regex: 'completed', $options: 'i' } } },
                 { $limit: 5 }
               ]
+            }
+          }
+        ])
+        .toArray();
+
+      // Buscar también el "colchón" (ventas del mes anterior con instalación en mes actual)
+      const colchonData = await db.collection('costumers_unified')
+        .aggregate([
+          {
+            $match: colchonQuery
+          },
+          {
+            $group: {
+              _id: null,
+              colchonVentas: {
+                $sum: {
+                  $cond: [
+                    { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
+                    1,
+                    0
+                  ]
+                }
+              },
+              colchonPuntos: {
+                $sum: {
+                  $cond: [
+                    { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
+                    { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
+                    0
+                  ]
+                }
+              }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              colchonVentas: 1,
+              colchonPuntos: 1
             }
           }
         ])
@@ -4978,18 +5044,29 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
       }
 
       const stats = agentData && agentData.length > 0 && agentData[0].todos && agentData[0].todos.length > 0 ? agentData[0].todos[0] : { ventas: 0, puntos: 0 };
+      const colchonStats = colchonData && colchonData.length > 0 ? colchonData[0] : { colchonVentas: 0, colchonPuntos: 0 };
+      
+      // Sumar ventas del mes actual + colchón
+      const ventasActuales = Number(stats.ventas || 0);
+      const puntosActuales = Number((stats.puntos || 0).toFixed(2));
+      const ventasColchon = Number(colchonStats.colchonVentas || 0);
+      const puntosColchon = Number((colchonStats.colchonPuntos || 0).toFixed(2));
+      
       const result = {
         nombre: displayName,
-        ventas: Number(stats.ventas || 0),
-        puntos: Number((stats.puntos || 0).toFixed(2))
+        ventas: ventasActuales + ventasColchon,
+        puntos: Number((puntosActuales + puntosColchon).toFixed(2))
       };
       
       // Debug para agentes específicos
       if (displayName.toLowerCase().includes('julio')) {
-        console.log(`[DEBUG JULIO] ${displayName}: Ventas=${result.ventas}, Puntos=${result.puntos}, Full stats=${JSON.stringify(stats)}`);
+        console.log(`[JULIO - COLCHÓN] ${displayName}: Ventas=(${ventasActuales} + ${ventasColchon} colchón = ${result.ventas}), Puntos=(${puntosActuales} + ${puntosColchon} colchón = ${result.puntos})`);
       }
       if (displayName.toLowerCase().includes('luis')) {
-        console.log(`[DEBUG] ${displayName}: Ventas=${result.ventas}, Puntos=${result.puntos} (rango: ${startDate} a ${endDate})`);
+        console.log(`[LUIS - COLCHÓN] ${displayName}: Ventas=(${ventasActuales} + ${ventasColchon} = ${result.ventas}), Puntos=(${puntosActuales} + ${puntosColchon} = ${result.puntos})`);
+      }
+      if (ventasColchon > 0) {
+        console.log(`[COLCHÓN] ${displayName}: +${ventasColchon} ventas, +${puntosColchon} puntos (venta mes anterior, instalación mes actual)`);
       }
       
       results.push(result);

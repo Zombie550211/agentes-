@@ -237,6 +237,14 @@
             </div>
 
             <script>
+                // Sistema de Metas y Comisiones Progresivas
+                const METAS = [
+                    { nivel: 1, puntos: 17, comision: 0.03, label: 'META 1' },
+                    { nivel: 2, puntos: 21, comision: 0.04, label: 'META 2' },
+                    { nivel: 3, puntos: 26, comision: 0.05, label: 'META 3' },
+                    { nivel: 4, puntos: 31, comision: 0.06, label: 'META 4' }
+                ];
+
                 const demoAgents = [
                     { id: 1, name: 'María González', sales: 45, points: 120, commission: 6250, score: 92, trend: 'up', change: 8 },
                     { id: 2, name: 'Carlos Romero', sales: 38, points: 98, commission: 4900, score: 85, trend: 'up', change: 3 },
@@ -245,6 +253,23 @@
                     { id: 5, name: 'Luis Fernández', sales: 42, points: 115, commission: 5750, score: 72, trend: 'down', change: 3 }
                 ];
                 let agents = demoAgents.slice();
+
+                // Calcular comisión basada en metas
+                function calcularComision(sales, puntos) {
+                    const metaAlcanzada = METAS.filter(m => puntos >= m.puntos).pop();
+                    if (!metaAlcanzada) return 0;
+                    return sales * 100 * metaAlcanzada.comision; // Asumiendo $100 por venta
+                }
+
+                // Obtener próxima meta
+                function getProximaMeta(puntos) {
+                    return METAS.find(m => puntos < m.puntos);
+                }
+
+                // Obtener meta actual alcanzada
+                function getMetaAlcanzada(puntos) {
+                    return METAS.filter(m => puntos >= m.puntos).pop();
+                }
 
                 function resolveAgentName(u) {
                     return (u && (u.name || u.nombre || u.fullName || u.username || u.email)) ? String(u.name || u.nombre || u.fullName || u.username || u.email).trim() : '—';
@@ -385,7 +410,13 @@
 
                 function renderColumn(containerId, agentsList) {
                     const container = document.getElementById(containerId);
-                    container.innerHTML = agentsList.map(agent => `
+                    container.innerHTML = agentsList.map(agent => {
+                        const metaAlcanzada = getMetaAlcanzada(agent.points);
+                        const proximaMeta = getProximaMeta(agent.points);
+                        const comisionCalculada = calcularComision(agent.sales, agent.points);
+                        const porcentajeProxima = proximaMeta ? Math.round(((agent.points / proximaMeta.puntos) * 100)) : 100;
+                        
+                        return `
                         <div class="kanban-card bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow">
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3 flex-1">
@@ -412,22 +443,41 @@
                                 </div>
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-gray-500">Puntaje</span>
-                                    <span class="font-semibold text-gray-900">${Number(agent.points || 0)}</span>
+                                    <span class="font-semibold text-gray-900">${Number(agent.points || 0).toFixed(2)}</span>
                                 </div>
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-gray-500">Comisión</span>
-                                    <span class="font-semibold text-emerald-600">$${(agent.commission/1000).toFixed(2)}K</span>
+                                    <span class="font-semibold text-emerald-600">$${(comisionCalculada/1000).toFixed(2)}K</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3 p-2 bg-white rounded-lg border border-blue-200">
+                                <div class="text-xs font-semibold text-blue-900 mb-2">Metas Alcanzadas</div>
+                                <div class="space-y-1">
+                                    ${METAS.map(meta => {
+                                        const alcanzada = agent.points >= meta.puntos;
+                                        const esActual = metaAlcanzada && metaAlcanzada.nivel === meta.nivel;
+                                        return `
+                                        <div class="flex items-center justify-between text-xs ${esActual ? 'bg-yellow-50' : ''} px-2 py-1 rounded">
+                                            <span class="text-gray-700">
+                                                ${alcanzada ? '✓' : '○'} ${meta.label} (${meta.puntos} pts)
+                                            </span>
+                                            <span class="font-semibold ${alcanzada ? 'text-emerald-600' : 'text-gray-400'}">${(meta.comision * 100)}%</span>
+                                        </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
 
                             <div class="mb-2">
                                 <div class="flex items-center justify-between text-xs mb-1">
-                                    <span class="text-gray-500">Meta</span>
-                                    <span class="font-semibold text-gray-900">${agent.score}/100</span>
+                                    <span class="text-gray-500">${metaAlcanzada ? metaAlcanzada.label + ' Actual' : 'Sin Meta'}</span>
+                                    <span class="font-semibold text-gray-900">${proximaMeta ? porcentajeProxima + '%' : '✓ Máxima'}</span>
                                 </div>
                                 <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                    <div class="${getScoreColor(agent.score)} h-full rounded-full transition-all" style="width: ${agent.score}%"></div>
+                                    <div class="${proximaMeta ? 'bg-blue-500' : 'bg-emerald-500'} h-full rounded-full transition-all" style="width: ${proximaMeta ? porcentajeProxima : 100}%"></div>
                                 </div>
+                                ${proximaMeta ? `<p class="text-xs text-gray-500 mt-1">Faltan ${(proximaMeta.puntos - agent.points).toFixed(2)} pts para ${proximaMeta.label}</p>` : ''}
                             </div>
 
                             <div class="flex items-center justify-between pt-2 border-t border-gray-200">
@@ -437,7 +487,8 @@
                                 <span class="text-xs text-gray-400">vs anterior</span>
                             </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
 
                 function openModal() {
