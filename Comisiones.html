@@ -20,8 +20,8 @@
 </head>
 <body class="bg-gray-50 auto-hide-sidebar">
     <script>
-        // Verificar acceso solo para administradores
-        (async function checkAdminAccess() {
+        // Verificar acceso para administradores, agentes y vendedores
+        (async function checkAccess() {
             try {
                 const response = await fetch('/api/auth/me');
                 const userData = await response.json();
@@ -32,15 +32,18 @@
                 }
                 
                 const role = String(userData.user.role || '').toLowerCase();
-                const isAdmin = role.includes('admin') || role.includes('administrador') || role.includes('backoffice');
+                const isAllowed = role.includes('admin') || role.includes('administrador') || 
+                                role.includes('backoffice') || role.includes('agente') || 
+                                role.includes('vendedor') || role.includes('agent') || 
+                                role.includes('seller');
                 
-                if (!isAdmin) {
+                if (!isAllowed) {
                     document.body.innerHTML = `
                         <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                             <div style="text-align: center; color: white; padding: 40px;">
                                 <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
                                 <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 10px;">Acceso Denegado</h1>
-                                <p style="font-size: 18px; opacity: 0.9; margin-bottom: 30px;">Esta página está reservada solo para administradores</p>
+                                <p style="font-size: 18px; opacity: 0.9; margin-bottom: 30px;">No tienes permisos para acceder a esta página</p>
                                 <a href="/" style="display: inline-block; background: white; color: #667eea; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s;">
                                     Volver al Inicio
                                 </a>
@@ -70,8 +73,10 @@
             const [activeView, setActiveView] = useState('admin');
             const [activeTab, setActiveTab] = useState('dashboard');
             const [agents, setAgents] = useState([]);
+            const [agentsLineas, setAgentsLineas] = useState([]);
             const [currentUser, setCurrentUser] = useState(null);
             const [currentAgent, setCurrentAgent] = useState(null);
+            const [isAgentUser, setIsAgentUser] = useState(false);
 
             const loadAgentsFromDB = async () => {
                 try {
@@ -94,22 +99,67 @@
                         console.log('Primer agente estructura:', agentes[0]);
                         
                         // Mapear los datos de la API a la estructura esperada
-                        const agentesProcesados = agentes.map((agent, idx) => ({
-                            id: agent.id || agent._id || idx,
-                            name: agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`,
-                            sales: agent.ventas || agent.sales || 0,
-                            points: parseFloat((agent.puntos || agent.points || 0).toFixed(2)),
-                            commission: parseFloat(((agent.ventas || agent.sales || 0) * 0.1).toFixed(1)),
-                            score: Math.round((agent.puntos || agent.points || 0) * 100),
-                            meta: (agent.ventas || agent.sales || 0) >= 10 ? 'META CUMPLIDA' : 'META PENDIENTE',
-                            progress: Math.min(100, (agent.ventas || agent.sales || 0) * 5),
-                            email: agent.email || '',
-                            phone: agent.phone || agent.telefono || '',
-                            team: agent.team || agent.equipo || 'General'
-                        }));
+                        const agentesProcesados = agentes.map((agent, idx) => {
+                            const agentName = String(agent.nombre || agent.name || '').toLowerCase();
+                            let supervisor = '';
+                            
+                            // Asignar supervisor basado en el nombre del agente
+                            if (agentName.includes('victor') || agentName.includes('edward') || agentName.includes('cristian') || 
+                                agentName.includes('oscar') || agentName.includes('jocelyn') || agentName.includes('nancy') ||
+                                agentName.includes('melanie') || agentName.includes('alexis') || agentName.includes('dennis')) {
+                                supervisor = 'JONATHAN F';
+                            } else if (agentName.includes('daniel') || agentName.includes('fernando') || agentName.includes('karla') || 
+                                      agentName.includes('jonathan') || agentName.includes('luis') || agentName.includes('manuel') || agentName.includes('tatiana')) {
+                                supervisor = 'LUIS G';
+                            }
+                            
+                            return {
+                                id: agent.id || agent._id || idx,
+                                name: agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`,
+                                sales: agent.ventas || agent.sales || 0,
+                                points: parseFloat((agent.puntos || agent.points || 0).toFixed(2)),
+                                commission: parseFloat(((agent.ventas || agent.sales || 0) * 0.1).toFixed(1)),
+                                score: Math.round((agent.puntos || agent.points || 0) * 100),
+                                meta: (agent.ventas || agent.sales || 0) >= 10 ? 'META CUMPLIDA' : 'META PENDIENTE',
+                                progress: Math.min(100, (agent.ventas || agent.sales || 0) * 5),
+                                email: agent.email || '',
+                                phone: agent.phone || agent.telefono || '',
+                                team: agent.team || agent.equipo || 'General',
+                                supervisor: supervisor
+                            };
+                        });
                         
                         console.log('Agentes procesados:', agentesProcesados);
-                        setAgents(agentesProcesados);
+                        
+                        // Lista blanca de agentes de Lineas permitidos
+                        const agentesLineasPermitidos = [
+                            // Team Jonathan F
+                            'victor hurtado', 'edward ramirez', 'cristian rivera', 'oscar rivera', 'jocelyn reyes',
+                            'nancy lopez', 'melanie hurtado', 'alexis rodriguez', 'dennis vasquez',
+                            // Team Luis G
+                            'daniel del cid', 'fernando beltran', 'karla rodriguez', 'jonathan garcia', 'luis g', 'jonathan f', 'manuel flores', 'tatiana giron'
+                        ];
+                        
+                        // Separar agentes de Lineas (solo los permitidos)
+                        const lineas = agentesProcesados
+                            .filter(agent => {
+                                const agentName = String(agent.name || '').toLowerCase().trim();
+                                return agentesLineasPermitidos.some(permitted => agentName.includes(permitted));
+                            })
+                            .sort((a, b) => b.sales - a.sales);
+                        
+                        const otros = agentesProcesados
+                            .filter(agent => {
+                                const agentName = String(agent.name || '').toLowerCase().trim();
+                                return !agentesLineasPermitidos.some(permitted => agentName.includes(permitted));
+                            })
+                            .sort((a, b) => b.sales - a.sales);
+                        
+                        console.log('Agentes Lineas encontrados:', lineas.length, lineas);
+                        console.log('Otros agentes (sin Lineas, ordenados):', otros.length, otros);
+                        
+                        setAgents(otros);
+                        setAgentsLineas(lineas);
                     } else {
                         console.warn('No hay agentes en la respuesta');
                     }
@@ -130,6 +180,12 @@
                     const userData = await response.json();
                     console.log('Usuario actual:', userData);
                     setCurrentUser(userData.user);
+                    
+                    // Detectar si es agente o vendedor
+                    const role = String(userData.user?.role || '').toLowerCase();
+                    const isAgent = role.includes('agente') || role.includes('agent') || 
+                                   role.includes('vendedor') || role.includes('seller');
+                    setIsAgentUser(isAgent);
                 } catch (error) {
                     console.error('Error obteniendo usuario:', error);
                 }
@@ -213,51 +269,19 @@
                     <div className="max-w-7xl mx-auto px-6 py-8">
                         {activeTab === 'dashboard' && (
                             <>
-                                {/* KPIs */}
-                                <div className="grid grid-cols-4 gap-6 mb-8">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-xl">💵</div>
-                                            <span className="text-green-600 text-sm font-medium">↑ 12%</span>
-                                        </div>
-                                        <h3 className="text-gray-500 text-sm mb-1">Puntaje Total</h3>
-                                        <p className="text-3xl font-bold text-gray-900">{agents.reduce((s, a) => s + (parseFloat(a.points) || 0), 0).toFixed(1)}</p>
-                                    </div>
-
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-xl">📈</div>
-                                            <span className="text-green-600 text-sm font-medium">↑ 8%</span>
-                                        </div>
-                                        <h3 className="text-gray-500 text-sm mb-1">Comisiones</h3>
-                                        <p className="text-3xl font-bold text-gray-900">${(agents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0)).toFixed(1)}K</p>
-                                    </div>
-
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-xl">🏆</div>
-                                            <span className="text-green-600 text-sm font-medium">↑ 5%</span>
-                                        </div>
-                                        <h3 className="text-gray-500 text-sm mb-1">Score Promedio</h3>
-                                        <p className="text-3xl font-bold text-gray-900">{(agents.reduce((s, a) => s + a.score, 0) / agents.length).toFixed(0)}%</p>
-                                    </div>
-
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-xl">🎯</div>
-                                            <span className="text-green-600 text-sm font-medium">↑ 15%</span>
-                                        </div>
-                                        <h3 className="text-gray-500 text-sm mb-1">Ventas Totales</h3>
-                                        <p className="text-3xl font-bold text-gray-900">{agents.reduce((s, a) => s + a.sales, 0)}</p>
-                                    </div>
-                                </div>
-
                                 {/* Agent Cards */}
                                 <div className="mb-8">
                                     <h2 className="text-lg font-bold text-gray-900 mb-4">Todos los Agentes ({agents.length})</h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {agents.map(agent => (
-                                            <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                            <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow relative">
+                                                <button 
+                                                    onClick={() => setAgents(agents.filter(a => a.id !== agent.id))}
+                                                    className="absolute top-3 right-3 bg-red-100 text-red-600 p-1.5 rounded-lg hover:bg-red-200 transition-colors"
+                                                    title="Eliminar agente"
+                                                >
+                                                    🗑️
+                                                </button>
                                                 <div className="flex items-start justify-between mb-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -319,8 +343,8 @@
                             <div>
                                 <div className="flex items-center justify-between mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">Gestión de Agentes</h2>
-                                        <p className="text-gray-600 mt-1">Administra tu equipo de ventas</p>
+                                        <h2 className="text-2xl font-bold text-gray-900">Agentes - Team Lineas</h2>
+                                        <p className="text-gray-600 mt-1">Administra los agentes de Lineas ({agentsLineas.length})</p>
                                     </div>
                                     <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2">
                                         <span>➕</span>
@@ -328,57 +352,139 @@
                                     </button>
                                 </div>
 
-                                <div className="bg-white rounded-xl border border-gray-200">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50 border-b">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipo</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ventas</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Puntaje</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comisión</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-200">
-                                                {agents.map(agent => (
-                                                    <tr key={agent.id} className="hover:bg-gray-50">
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                                    <span className="font-semibold text-indigo-600 text-sm">{agent.name.split(' ').map(n => n[0]).join('')}</span>
+                                {agentsLineas.length === 0 ? (
+                                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                                        <p className="text-gray-600 text-lg">No hay agentes en Team Lineas</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-8">
+                                        {/* Team Jonathan F */}
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900 mb-4">📞 TEAM JONATHAN F</h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                                {agentsLineas
+                                                    .filter(agent => agent.supervisor === 'JONATHAN F')
+                                                    .map(agent => (
+                                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                                            <div className="flex items-start justify-between mb-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                                                                        <span className="font-bold text-indigo-600">{agent.name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
+                                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
+                                                                    </div>
                                                                 </div>
-                                                                <p className="font-medium text-gray-900">{agent.name}</p>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                                                                {agent.team}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-gray-900 font-semibold">{agent.sales}</td>
-                                                        <td className="px-6 py-4 text-gray-900 font-semibold">{agent.points.toFixed(2)}</td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex-1 bg-gray-200 rounded-full h-2 w-16">
+
+                                                            <div className="space-y-3 mb-4">
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Ventas</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Puntaje</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.points.toFixed(2)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Comisión</span>
+                                                                    <span className="font-semibold text-green-600">${agent.commission}K</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mb-4">
+                                                                <div className="flex justify-between items-center mb-2">
+                                                                    <span className="text-sm text-gray-600">Progreso</span>
+                                                                    <span className="text-sm font-medium text-gray-900">{Math.min(100, agent.progress)}%</span>
+                                                                </div>
+                                                                <div className="bg-gray-200 rounded-full h-2">
                                                                     <div 
-                                                                        className={`h-2 rounded-full ${agent.score >= 90 ? 'bg-green-500' : agent.score >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${agent.score}%` }}
+                                                                        className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                                        style={{ width: `${Math.min(100, agent.progress)}%` }}
                                                                     />
                                                                 </div>
-                                                                <span className="text-sm font-medium text-gray-900">{agent.score}%</span>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-green-600 font-semibold">${agent.commission}K</span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+
+                                                            <div className="flex items-center justify-between pt-4 border-t">
+                                                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                                                    agent.progress >= 90 ? 'bg-green-100 text-green-700' :
+                                                                    agent.progress >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                                                    'bg-red-100 text-red-700'
+                                                                }`}>
+                                                                    {agent.progress >= 90 ? '↑ 10%' : agent.progress >= 70 ? '↓ 12%' : '↑ 1%'}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">vs mes anterior</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Team Luis G */}
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900 mb-4">📞 TEAM LUIS G</h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                                {agentsLineas
+                                                    .filter(agent => agent.supervisor === 'LUIS G')
+                                                    .map(agent => (
+                                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                                            <div className="flex items-start justify-between mb-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                                                        <span className="font-bold text-purple-600">{agent.name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
+                                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-3 mb-4">
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Ventas</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Puntaje</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.points.toFixed(2)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Comisión</span>
+                                                                    <span className="font-semibold text-green-600">${agent.commission}K</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mb-4">
+                                                                <div className="flex justify-between items-center mb-2">
+                                                                    <span className="text-sm text-gray-600">Progreso</span>
+                                                                    <span className="text-sm font-medium text-gray-900">{Math.min(100, agent.progress)}%</span>
+                                                                </div>
+                                                                <div className="bg-gray-200 rounded-full h-2">
+                                                                    <div 
+                                                                        className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                                        style={{ width: `${Math.min(100, agent.progress)}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center justify-between pt-4 border-t">
+                                                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                                                    agent.progress >= 90 ? 'bg-green-100 text-green-700' :
+                                                                    agent.progress >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                                                    'bg-red-100 text-red-700'
+                                                                }`}>
+                                                                    {agent.progress >= 90 ? '↑ 10%' : agent.progress >= 70 ? '↓ 12%' : '↑ 1%'}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">vs mes anterior</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
@@ -553,20 +659,73 @@
 
                         <div className="max-w-6xl mx-auto px-6 py-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">Mi Desempeño</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg">
                                     <h3 className="text-indigo-100 text-sm font-medium mb-4">Mis Ventas</h3>
                                     <p className="text-4xl font-bold mb-2">{currentAgent?.sales || 0}</p>
+                                    <p className="text-indigo-100 text-sm">Clientes adquiridos este mes</p>
                                 </div>
 
                                 <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg">
                                     <h3 className="text-green-100 text-sm font-medium mb-4">Mis Comisiones</h3>
                                     <p className="text-4xl font-bold mb-2">${currentAgent?.commission || 0}K</p>
+                                    <p className="text-green-100 text-sm">Comisión acumulada</p>
                                 </div>
 
                                 <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg">
                                     <h3 className="text-purple-100 text-sm font-medium mb-4">Mi Score</h3>
                                     <p className="text-4xl font-bold mb-2">{currentAgent?.score || 0}%</p>
+                                    <p className="text-purple-100 text-sm">Calidad de servicios</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Resumen General</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Equipo</span>
+                                            <span className="font-semibold text-gray-900">{currentAgent?.team}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Puntaje Total</span>
+                                            <span className="font-semibold text-gray-900">{currentAgent?.points.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Meta</span>
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                currentAgent?.meta === 'META CUMPLIDA' 
+                                                    ? 'bg-green-100 text-green-700' 
+                                                    : 'bg-yellow-100 text-yellow-700'
+                                            }`}>
+                                                {currentAgent?.meta}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Progreso</span>
+                                            <span className="font-semibold text-gray-900">{Math.min(100, currentAgent?.progress)}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Progreso Hacia Meta</h3>
+                                    <div className="mb-2">
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-sm text-gray-600">Progreso</span>
+                                            <span className="text-sm font-semibold text-gray-900">{Math.min(100, currentAgent?.progress)}%</span>
+                                        </div>
+                                        <div className="bg-gray-200 rounded-full h-3">
+                                            <div 
+                                                className={`h-3 rounded-full ${
+                                                    currentAgent?.progress >= 90 ? 'bg-green-500' : 
+                                                    currentAgent?.progress >= 70 ? 'bg-yellow-500' : 
+                                                    'bg-red-500'
+                                                }`}
+                                                style={{ width: `${Math.min(100, currentAgent?.progress)}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -576,17 +735,17 @@
 
             return (
                 <div>
-                    <div className="fixed bottom-6 right-6 z-50 bg-white shadow-lg rounded-lg p-2 border border-gray-200">
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setActiveView('admin')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    activeView === 'admin' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-                                }`}
-                            >
-                                Vista Admin
-                            </button>
-                            {currentUser && (
+                    {currentUser && !isAgentUser && (
+                        <div className="fixed bottom-6 right-6 z-50 bg-white shadow-lg rounded-lg p-2 border border-gray-200">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setActiveView('admin')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        activeView === 'admin' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Vista Admin
+                                </button>
                                 <button
                                     onClick={() => setActiveView('agent')}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -595,11 +754,11 @@
                                 >
                                     Mi Vista
                                 </button>
-                            )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {activeView === 'admin' ? <AdminDashboard /> : (currentUser ? <AgentDashboard /> : <AdminDashboard />)}
+                    {isAgentUser ? <AgentDashboard /> : (activeView === 'admin' ? <AdminDashboard /> : <AgentDashboard />)}
                 </div>
             );
         };
