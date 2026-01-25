@@ -369,10 +369,9 @@
     // Configurar auto-ocultamiento del sidebar SOLO si está habilitado explícitamente
     try {
       const BODY = document.body;
-      const useAutoHide = !!(BODY && (
-        BODY.getAttribute('data-sidebar-autohide') === '1' ||
-        (BODY.dataset && BODY.dataset.sidebarAutohide === '1') ||
-        (typeof window.__SIDEBAR_AUTOHIDE !== 'undefined' && window.__SIDEBAR_AUTOHIDE === true)
+      const useAutoHide = !(BODY && (
+        BODY.getAttribute('data-sidebar-autohide') === '0' ||
+        (BODY.dataset && BODY.dataset.sidebarAutohide === '0')
       ));
       if (useAutoHide) {
         setupGlobalAutoHideSidebar();
