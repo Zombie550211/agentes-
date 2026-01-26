@@ -412,6 +412,47 @@
             return `$${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
         };
 
+        // Normalizar nombre: solo primer nombre + primer apellido
+        const normalizeName = (fullName) => {
+            if (!fullName) return '';
+            const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return '';
+            if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+            // Primer nombre + primer apellido (asumiendo que el apellido es la última palabra)
+            const firstName = parts[0];
+            const lastName = parts[parts.length - 1];
+            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            return `${capitalize(firstName)} ${capitalize(lastName)}`;
+        };
+
+        // Obtener iniciales del nombre (máximo 4 letras)
+        const getInitials = (fullName) => {
+            if (!fullName) return '??';
+            const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return '??';
+            // Tomar solo las primeras 2 palabras para las iniciales
+            return parts.slice(0, 2).map(n => n[0]?.toUpperCase() || '').join('');
+        };
+
+        // Comisión para Team Lineas (diferente fórmula)
+        const getCommissionLineas = (points) => {
+            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
+            const base = Math.floor(p);
+            
+            // Tabla de comisiones Team Lineas
+            // META 1: 17 pts = $5/pto
+            // META 2: 21 pts = $8/pto
+            // META 3: 26 pts = $10/pto
+            // META 4: 31 pts = $12/pto
+            let rate = 0;
+            if (base >= 31) rate = 12;
+            else if (base >= 26) rate = 10;
+            else if (base >= 21) rate = 8;
+            else if (base >= 17) rate = 5;
+
+            return base * rate;
+        };
+
         const CommissionDashboard = () => {
             const [activeView, setActiveView] = useState('admin');
             const [activeTab, setActiveTab] = useState('dashboard');
@@ -424,16 +465,24 @@
             const loadAgentsFromDB = async () => {
                 try {
                     console.log('Cargando agentes desde API...');
+                    
+                    // Cargar agentes regulares
                     const response = await fetch('/api/comisiones/agentes-mes');
-                    console.log('Respuesta status:', response.status);
+                    console.log('Respuesta agentes-mes status:', response.status);
+                    
+                    // Cargar agentes de Team Lineas desde BD separada
+                    const responseLineas = await fetch('/api/comisiones/agentes-lineas');
+                    console.log('Respuesta agentes-lineas status:', responseLineas.status);
                     
                     if (!response.ok) {
-                        console.error('Error en respuesta:', response.statusText);
-                        return;
+                        console.error('Error en respuesta agentes-mes:', response.statusText);
                     }
                     
                     const data = await response.json();
-                    console.log('Datos recibidos:', data);
+                    const dataLineas = responseLineas.ok ? await responseLineas.json() : { data: [] };
+                    
+                    console.log('Datos agentes regulares:', data);
+                    console.log('Datos Team Lineas:', dataLineas);
                     
                     // La API retorna agentes consolidados
                     const agentes = data.data || data.agentes || [];
@@ -457,9 +506,13 @@
                                 supervisor = 'LUIS G';
                             }
                             
+                            const rawName = agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`;
+                            const normalizedName = normalizeName(rawName);
+                            
                             return {
                                 id: String(agent.id || agent._id || idx),
-                                name: agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`,
+                                name: normalizedName,
+                                fullName: rawName,
                                 sales: agent.ventas || agent.sales || 0,
                                 points: pointsValue,
                                 pendingSales: agent.pendientes || agent.pending || agent.pendingSales || 0,
@@ -476,37 +529,49 @@
                         
                         console.log('Agentes procesados:', agentesProcesados);
                         
-                        // Lista blanca de agentes de Lineas permitidos
-                        const agentesLineasPermitidos = [
-                            // Team Jonathan F
-                            'victor hurtado', 'edward ramirez', 'cristian rivera', 'oscar rivera', 'jocelyn reyes',
-                            'nancy lopez', 'melanie hurtado', 'alexis rodriguez', 'dennis vasquez',
-                            // Team Luis G
-                            'daniel del cid', 'fernando beltran', 'karla rodriguez', 'jonathan garcia', 'luis g', 'jonathan f', 'manuel flores', 'tatiana giron'
-                        ];
-                        
-                        // Separar agentes de Lineas (solo los permitidos)
-                        const lineas = agentesProcesados
-                            .filter(agent => {
-                                const agentName = String(agent.name || '').toLowerCase().trim();
-                                return agentesLineasPermitidos.some(permitted => agentName.includes(permitted));
-                            })
-                            .sort((a, b) => b.sales - a.sales);
-                        
-                        const otros = agentesProcesados
-                            .filter(agent => {
-                                const agentName = String(agent.name || '').toLowerCase().trim();
-                                return !agentesLineasPermitidos.some(permitted => agentName.includes(permitted));
-                            })
-                            .sort((a, b) => b.sales - a.sales);
-                        
-                        console.log('Agentes Lineas encontrados:', lineas.length, lineas);
-                        console.log('Otros agentes (sin Lineas, ordenados):', otros.length, otros);
-                        
-                        setAgents(otros);
-                        setAgentsLineas(lineas);
+                        // Todos los agentes regulares van a "otros" (sin Team Lineas)
+                        setAgents(agentesProcesados.sort((a, b) => b.sales - a.sales));
                     } else {
-                        console.warn('No hay agentes en la respuesta');
+                        console.warn('No hay agentes regulares en la respuesta');
+                    }
+                    
+                    // Procesar agentes de Team Lineas desde el endpoint dedicado
+                    const agentesLineas = dataLineas.data || [];
+                    if (Array.isArray(agentesLineas) && agentesLineas.length > 0) {
+                        console.log('Agentes Team Lineas desde BD:', agentesLineas);
+                        
+                        const lineasProcesados = agentesLineas.map((agent, idx) => {
+                            const rawName = agent.nombre || agent.name || `Agente Lineas ${idx + 1}`;
+                            const normalizedName = normalizeName(rawName);
+                            const lineasWireless = Number(agent.lineasWireless || agent.wirelessLines || 0);
+                            const lineasSinWireless = Number(agent.lineasSinWireless || agent.nonWirelessLines || 0);
+                            const lineasTotal = Number(agent.lineasTotal || agent.totalLines || 0);
+                            const comisionVal = (typeof agent.comision === 'number' ? agent.comision : parseFloat(agent.comision || agent.commission || 0)) || 0;
+                            
+                            return {
+                                id: String(agent.id || agent._id || `lineas-${idx}`),
+                                name: normalizedName,
+                                fullName: rawName,
+                                sales: agent.ventas || agent.sales || 0,
+                                pendingSales: agent.pendientes || 0,
+                                // Team Líneas no maneja comisión por puntos
+                                points: 0,
+                                commission: comisionVal,
+                                score: 0,
+                                meta: 'TEAM LINEAS',
+                                progress: 0,
+                                supervisor: agent.supervisor || '',
+                                lineasWireless,
+                                lineasSinWireless,
+                                lineasTotal,
+                                isLineas: true
+                            };
+                        }).sort((a, b) => b.sales - a.sales);
+                        
+                        console.log('Team Lineas procesados:', lineasProcesados.length, lineasProcesados);
+                        setAgentsLineas(lineasProcesados);
+                    } else {
+                        console.warn('No hay agentes de Team Lineas en la respuesta');
                     }
                 } catch (error) {
                     console.error('Error cargando agentes:', error);
@@ -760,7 +825,7 @@
                                                 <div className="flex items-start justify-between mb-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                            <span className="font-bold text-indigo-600">{agent.name.split(' ').map(n => n[0]).join('')}</span>
+                                                            <span className="font-bold text-indigo-600">{getInitials(agent.fullName || agent.name)}</span>
                                                         </div>
                                                         <div>
                                                             <h3 className="font-semibold text-gray-900">{agent.name}</h3>
@@ -844,7 +909,7 @@
                                                             <div className="flex items-start justify-between mb-4">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                                        <span className="font-bold text-indigo-600">{agent.name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                        <span className="font-bold text-indigo-600">{getInitials(agent.fullName || agent.name)}</span>
                                                                     </div>
                                                                     <div>
                                                                         <h3 className="font-semibold text-gray-900">{agent.name}</h3>
@@ -859,37 +924,17 @@
                                                                     <span className="font-semibold text-gray-900">{agent.sales}</span>
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Puntaje</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.points.toFixed(2)}</span>
+                                                                    <span className="text-gray-600">Líneas Wireless</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless || 0}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Líneas sin Wireless</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless || 0}</span>
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
                                                                     <span className="text-gray-600">Comisión</span>
                                                                     <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
                                                                 </div>
-                                                            </div>
-
-                                                            <div className="mb-4">
-                                                                <div className="flex justify-between items-center mb-2">
-                                                                    <span className="text-sm text-gray-600">Progreso</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
-                                                                </div>
-                                                                <div className="bg-gray-200 rounded-full h-2">
-                                                                    <div 
-                                                                        className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center justify-between pt-4 border-t">
-                                                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                                                    agent.progress >= 90 ? 'bg-green-100 text-green-700' :
-                                                                    agent.progress >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                                    'bg-red-100 text-red-700'
-                                                                }`}>
-                                                                    {agent.progress >= 90 ? '↑ 10%' : agent.progress >= 70 ? '↓ 12%' : '↑ 1%'}
-                                                                </span>
-                                                                <span className="text-xs text-gray-500">vs mes anterior</span>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -907,7 +952,7 @@
                                                             <div className="flex items-start justify-between mb-4">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                                                        <span className="font-bold text-purple-600">{agent.name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                        <span className="font-bold text-purple-600">{getInitials(agent.fullName || agent.name)}</span>
                                                                     </div>
                                                                     <div>
                                                                         <h3 className="font-semibold text-gray-900">{agent.name}</h3>
@@ -922,37 +967,17 @@
                                                                     <span className="font-semibold text-gray-900">{agent.sales}</span>
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Puntaje</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.points.toFixed(2)}</span>
+                                                                    <span className="text-gray-600">Líneas Wireless</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless || 0}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span className="text-gray-600">Líneas sin Wireless</span>
+                                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless || 0}</span>
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
                                                                     <span className="text-gray-600">Comisión</span>
                                                                     <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
                                                                 </div>
-                                                            </div>
-
-                                                            <div className="mb-4">
-                                                                <div className="flex justify-between items-center mb-2">
-                                                                    <span className="text-sm text-gray-600">Progreso</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
-                                                                </div>
-                                                                <div className="bg-gray-200 rounded-full h-2">
-                                                                    <div 
-                                                                        className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center justify-between pt-4 border-t">
-                                                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                                                    agent.progress >= 90 ? 'bg-green-100 text-green-700' :
-                                                                    agent.progress >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                                    'bg-red-100 text-red-700'
-                                                                }`}>
-                                                                    {agent.progress >= 90 ? '↑ 10%' : agent.progress >= 70 ? '↓ 12%' : '↑ 1%'}
-                                                                </span>
-                                                                <span className="text-xs text-gray-500">vs mes anterior</span>
                                                             </div>
                                                         </div>
                                                     ))}

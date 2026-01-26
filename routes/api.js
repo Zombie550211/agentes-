@@ -5200,4 +5200,229 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/comisiones/agentes-lineas
+ * @desc Obtener agentes de Team Lineas con ventas y puntaje del mes actual
+ * @desc Cada agente tiene su propia colección en TEAM_LINEAS (ej: ALEXIS_RODRIGUES, CRISTIAN_RIVERA, etc.)
+ * @access Private
+ */
+router.get('/comisiones/agentes-lineas', protect, async (req, res) => {
+  try {
+    const { getDbFor } = require('../config/db');
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    
+    if (!teamLineasDb) {
+      return res.status(500).json({ success: false, message: 'No se pudo conectar a la base de datos TEAM_LINEAS' });
+    }
+
+    // Obtener mes actual o del query
+    const now = new Date();
+    const year = parseInt(req.query.year) || now.getFullYear();
+    const month = String(req.query.month || (now.getMonth() + 1)).padStart(2, '0');
+    
+    // Rango de fechas del mes
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, parseInt(month), 0).getDate();
+    const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate + 'T23:59:59.999Z');
+    
+    console.log(`[API /comisiones/agentes-lineas] Consultando mes: ${year}-${month}`);
+
+    // Obtener todas las colecciones de TEAM_LINEAS (cada colección = un agente)
+    const collections = await teamLineasDb.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name).filter(Boolean);
+    
+    console.log(`[API /comisiones/agentes-lineas] Colecciones (agentes) encontradas:`, collectionNames);
+
+    // Mapeo de agentes a supervisores
+    const supervisorMap = {
+      // Team Jonathan F
+      'alexis_rodrigues': 'JONATHAN F', 'alexis_rodriguez': 'JONATHAN F',
+      'cristian_rivera': 'JONATHAN F',
+      'dennis_vasquez': 'JONATHAN F',
+      'edward_ramirez': 'JONATHAN F',
+      'jocelyn_reyes': 'JONATHAN F',
+      'melanie_hurtado': 'JONATHAN F',
+      'nancy_lopez': 'JONATHAN F',
+      'oscar_rivera': 'JONATHAN F',
+      'victor_hurtado': 'JONATHAN F',
+      'jonathan_f': 'JONATHAN F',
+      // Team Luis G
+      'cesar_claros': 'LUIS G',
+      'daniel_del_cid': 'LUIS G',
+      'fernando_beltran': 'LUIS G',
+      'jonathan_garcia': 'LUIS G',
+      'karla_rodriguez': 'LUIS G',
+      'luis_g': 'LUIS G',
+      'manuel_flores': 'LUIS G',
+      'tatiana_giron': 'LUIS G'
+    };
+
+    // Procesar cada colección (cada colección = un agente)
+    const agentes = [];
+
+    const normalize = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const isWirelessService = (svc) => {
+      const s = normalize(svc).replace(/\s+/g, ' ');
+      if (!s) return false;
+      return s.includes('wire');
+    };
+    const toServiceArray = (reg) => {
+      const svc = reg?.servicios ?? reg?._raw?.servicios;
+      if (Array.isArray(svc)) return svc;
+      if (typeof svc === 'string') {
+        const raw = svc.trim();
+        if (!raw) return [];
+        if (raw.includes(',')) return raw.split(',').map(x => x.trim()).filter(Boolean);
+        if (raw.includes('|')) return raw.split('|').map(x => x.trim()).filter(Boolean);
+        return [raw];
+      }
+      return [];
+    };
+    const getTotalLines = (reg, serviciosArr) => {
+      const c = Number(reg?.cantidad_lineas || 0);
+      const t = Array.isArray(reg?.telefonos) ? reg.telefonos.length : (Array.isArray(reg?._raw?.telefonos) ? reg._raw.telefonos.length : 0);
+      const s = Array.isArray(serviciosArr) ? serviciosArr.length : 0;
+      return Math.max(c, t, s, 0);
+    };
+    const getWirelessRate = (wirelessLines) => {
+      if (wirelessLines >= 29) return 25;
+      if (wirelessLines >= 24) return 20;
+      if (wirelessLines >= 19) return 15;
+      if (wirelessLines >= 15) return 10;
+      return 0;
+    };
+    const getNonWirelessRate = (nonWirelessLines) => {
+      if (nonWirelessLines >= 18) return 5.5;
+      if (nonWirelessLines >= 13) return 4.5;
+      if (nonWirelessLines >= 7) return 3;
+      return 0;
+    };
+    const calcCommissionLineas = (wirelessLines, nonWirelessLines) => {
+      const rateW = getWirelessRate(wirelessLines);
+      const rateN = getNonWirelessRate(nonWirelessLines);
+      const cW = rateW > 0 ? wirelessLines * rateW : 0;
+      const cN = rateN > 0 ? nonWirelessLines * rateN : 0;
+      return Number((cW + cN).toFixed(2));
+    };
+
+    for (const colName of collectionNames) {
+      try {
+        const collection = teamLineasDb.collection(colName);
+        
+        // El nombre del agente es el nombre de la colección (ej: ALEXIS_RODRIGUES -> Alexis Rodrigues)
+        const agentNameFromCol = colName.replace(/_/g, ' ').toLowerCase();
+        const agentNameDisplay = colName.replace(/_/g, ' ').split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
+        
+        // Determinar supervisor basado en el nombre de la colección
+        const colNameLower = colName.toLowerCase();
+        let supervisor = supervisorMap[colNameLower] || '';
+        if (!supervisor) {
+          // Fallback: buscar coincidencia parcial
+          for (const [key, sup] of Object.entries(supervisorMap)) {
+            if (colNameLower.includes(key.split('_')[0])) {
+              supervisor = sup;
+              break;
+            }
+          }
+        }
+        
+        // Buscar TODOS los registros del mes actual en esta colección
+        const registros = await collection.find({
+          $or: [
+            // Por dia_venta como Date
+            { dia_venta: { $gte: startDateObj, $lte: endDateObj } },
+            // Por dia_venta como string ISO
+            { dia_venta: { $regex: `^${year}-${month}` } },
+            // Por creadoEn como Date
+            { creadoEn: { $gte: startDateObj, $lte: endDateObj } }
+          ]
+        }).toArray();
+
+        // Contar ventas y líneas (Wireless vs Sin Wireless)
+        let ventas = 0;
+        let pendientes = 0;
+        let cancelados = 0;
+        let lineasWireless = 0;
+        let lineasSinWireless = 0;
+        let lineasTotal = 0;
+
+        for (const reg of registros) {
+          const status = String(reg.status || '').toLowerCase();
+          const isCancelled = status.includes('cancel') || status.includes('anulad');
+          const isCompleted = status.includes('completed') || status.includes('complet');
+          const isPending = status.includes('pending') || status.includes('pendiente');
+
+          if (isCancelled) {
+            cancelados++;
+          } else if (isPending) {
+            pendientes++;
+          } else if (isCompleted) {
+            ventas++;
+
+            const serviciosArr = toServiceArray(reg);
+            const totalLines = getTotalLines(reg, serviciosArr);
+            let wirelessCount = 0;
+
+            if (Array.isArray(serviciosArr) && serviciosArr.length > 0) {
+              wirelessCount = serviciosArr.reduce((acc, svc) => acc + (isWirelessService(svc) ? 1 : 0), 0);
+            }
+
+            const nonWirelessCount = Math.max(0, totalLines - wirelessCount);
+            lineasWireless += wirelessCount;
+            lineasSinWireless += nonWirelessCount;
+            lineasTotal += totalLines;
+          }
+        }
+
+        const comision = calcCommissionLineas(lineasWireless, lineasSinWireless);
+        console.log(`[API /comisiones/agentes-lineas] ${colName}: ${registros.length} registros, ${ventas} ventas, wireless=${lineasWireless}, sinWireless=${lineasSinWireless}, totalLineas=${lineasTotal}, comision=${comision}, supervisor: ${supervisor}`);
+
+        agentes.push({
+          nombre: agentNameDisplay,
+          coleccion: colName,
+          ventas,
+          pendientes,
+          cancelados,
+          supervisor,
+          lineasWireless,
+          lineasSinWireless,
+          lineasTotal,
+          comision
+        });
+
+      } catch (colErr) {
+        console.warn(`[API /comisiones/agentes-lineas] Error en colección ${colName}:`, colErr.message);
+      }
+    }
+
+    // Ordenar por comisión descendente
+    agentes.sort((a, b) => (b.comision || 0) - (a.comision || 0));
+
+    console.log(`[API /comisiones/agentes-lineas] Retornando ${agentes.length} agentes de Team Lineas`);
+    
+    return res.json({ 
+      success: true, 
+      data: agentes, 
+      meta: { 
+        startDate, 
+        endDate, 
+        month: `${year}-${month}`,
+        totalAgentes: agentes.length,
+        totalVentas: agentes.reduce((s, a) => s + a.ventas, 0),
+        totalLineasWireless: agentes.reduce((s, a) => s + (a.lineasWireless || 0), 0),
+        totalLineasSinWireless: agentes.reduce((s, a) => s + (a.lineasSinWireless || 0), 0),
+        totalLineas: agentes.reduce((s, a) => s + (a.lineasTotal || 0), 0),
+        totalComision: agentes.reduce((s, a) => s + (a.comision || 0), 0)
+      } 
+    });
+  } catch (error) {
+    console.error('[API /comisiones/agentes-lineas] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

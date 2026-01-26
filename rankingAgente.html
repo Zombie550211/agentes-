@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Rankings</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/theme.css?v=20260112-01">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260112-01">
+  <link rel="stylesheet" href="/css/rankings-tabs.css?v=20260112-01">
+
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="/js/crm-config.js"></script>
+  <script src="/js/inactivity-manager.js"></script>
+  <script src="/js/crm-init.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
+  <script src="/js/rankings-tabs.js?v=20260112-01" defer></script>
+</head>
+<body data-active="rankings">
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="rankings"></nav>
+
+    <main class="main-content">
+      <section class="rankings-shell">
+        <header class="rankings-header">
+          <div class="rankings-title">
+            <h1>Rankings</h1>
+            <p>Desempeño por mes y categoría.</p>
+          </div>
+
+          <div class="rankings-controls">
+            <div class="control">
+              <label for="rankMonth">Mes</label>
+              <input id="rankMonth" type="month" />
+            </div>
+            <button id="rankRefresh" class="btn-primary" type="button">
+              <i class="fas fa-rotate"></i>
+              Actualizar
+            </button>
+          </div>
+        </header>
+
+        <nav class="rankings-tabs" aria-label="Ranking tabs">
+          <button class="tab-btn is-active" type="button" data-tab="activation">
+            <i class="fas fa-bolt"></i>
+            Ranking de Activación
+          </button>
+          <button class="tab-btn" type="button" data-tab="sales">
+            <i class="fas fa-cart-shopping"></i>
+            Ranking de Ventas
+          </button>
+          <button class="tab-btn" type="button" data-tab="att">
+            <i class="fas fa-signal"></i>
+            Ranking AT&amp;T
+          </button>
+        </nav>
+
+        <section class="tab-panels">
+          <article class="tab-panel is-active" id="panel-activation" data-panel="activation">
+            <div class="panel-header">
+              <div>
+                <h2>Activación</h2>
+                <p>Ordenado por cantidad de ventas/activaciones del mes.</p>
+              </div>
+              <div class="panel-actions">
+                <div class="segmented" id="activationScope">
+                  <button class="seg-btn is-active" type="button" data-scope="agent">Agente</button>
+                  <button class="seg-btn" type="button" data-scope="team">Team</button>
+                </div>
+                <div class="panel-meta" id="meta-activation"></div>
+              </div>
+            </div>
+            <div class="kpi-grid" id="kpi-activation"></div>
+            <div class="table-card">
+              <table class="rank-table" id="table-activation">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Agente</th>
+                    <th class="num">Ventas</th>
+                    <th class="num">Puntos</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div class="table-empty" id="empty-activation" style="display:none;"></div>
+            </div>
+          </article>
+
+          <article class="tab-panel" id="panel-sales" data-panel="sales">
+            <div class="panel-header">
+              <div>
+                <h2>Ventas</h2>
+                <p>Ordenado por puntos (solo ventas, sin cancelaciones).</p>
+              </div>
+              <div class="panel-meta" id="meta-sales"></div>
+            </div>
+            <div class="kpi-grid" id="kpi-sales"></div>
+            <div class="table-card">
+              <table class="rank-table" id="table-sales">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Agente</th>
+                    <th class="num">Ventas</th>
+                    <th class="num">Puntos</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div class="table-empty" id="empty-sales" style="display:none;"></div>
+            </div>
+          </article>
+
+          <article class="tab-panel" id="panel-att" data-panel="att">
+            <div class="panel-header">
+              <div>
+                <h2>AT&amp;T</h2>
+                <p>Ranking basado en servicios AT&amp;T del mes.</p>
+              </div>
+              <div class="panel-meta" id="meta-att"></div>
+            </div>
+            <div class="kpi-grid" id="kpi-att"></div>
+            <div class="table-card">
+              <table class="rank-table" id="table-att">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Agente</th>
+                    <th class="num">Ventas AT&amp;T</th>
+                    <th class="num">Ventas Frontier</th>
+                    <th class="num">Total Ventas</th>
+                    <th class="num">Puntos</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div class="table-empty" id="empty-att">
+                Para AT&amp;T necesito que me confirmes qué campos identifican una venta de AT&amp;T (por ejemplo: <b>tipo_servicios</b>, <b>servicios_texto</b> o <b>sistema</b>) y si el ranking se mide por <b>cantidad</b>, <b>puntos</b> o ambos.
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
