@@ -16,6 +16,300 @@
         .layout { min-height: 100vh; display: flex; }
         .main-content { flex: 1; margin-left: 260px; width: calc(100% - 260px); }
         @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; } }
+
+        .agent-premium {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --bg-light: #f8fafc;
+            --bg-card: #ffffff;
+            --text-dark: #1e293b;
+            --text-gray: #64748b;
+            --border: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .agent-premium .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .agent-premium .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .agent-premium .header-content h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .agent-premium .header-content p {
+            color: var(--text-gray);
+            font-size: 1rem;
+        }
+
+        .agent-premium .badge-role {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .agent-premium .grid-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .agent-premium .grid-main { grid-template-columns: 1fr; }
+        }
+
+        .agent-premium .card-commission {
+            background: linear-gradient(135deg, #fff5e6 0%, #fffbf0 100%);
+            border-radius: 24px;
+            padding: 40px;
+            border: 2px solid var(--accent);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-premium .card-commission::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .agent-premium .commission-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .agent-premium .commission-label {
+            font-size: 0.95rem;
+            color: var(--text-gray);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .agent-premium .commission-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            animation: agentPremiumFloat 3s ease-in-out infinite;
+            position: relative;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes agentPremiumFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .agent-premium .wallet-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        .agent-premium .wallet-base {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .agent-premium .wallet-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 0 0 20px 20px;
+            overflow: hidden;
+            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.3;
+        }
+
+        .agent-premium .wallet-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+            animation: agentPremiumWave 2s ease-in-out infinite;
+        }
+
+        @keyframes agentPremiumWave {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+
+        .agent-premium .wallet-emoji {
+            position: relative;
+            z-index: 2;
+            font-size: 2.5rem;
+        }
+
+        .agent-premium .commission-amount {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--accent);
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+
+        .agent-premium .commission-sub {
+            color: var(--text-gray);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+
+        .agent-premium .progress-container {
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        .agent-premium .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+
+        .agent-premium .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .agent-premium .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent) 0%, #fbbf24 100%);
+            border-radius: 10px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .agent-premium .card-stats {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-premium .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .agent-premium .stat-item {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 30px;
+        }
+
+        .agent-premium .stat-item:nth-child(odd) {
+            border-right: 1px solid var(--border);
+            padding-right: 30px;
+        }
+
+        @media (max-width: 600px) {
+            .agent-premium .stats-grid { grid-template-columns: 1fr; }
+            .agent-premium .stat-item:nth-child(odd) { border-right: none; padding-right: 0; }
+        }
+
+        .agent-premium .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .agent-premium .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-gray);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .agent-premium .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+        }
+
+        .agent-premium .stat-sub {
+            font-size: 0.85rem;
+            color: var(--text-gray);
+        }
+
+        .agent-premium .card-activity {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            grid-column: 1 / -1;
+        }
+
+        .agent-premium .activity-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--text-dark);
+        }
     </style>
 </head>
 <body class="bg-gray-50 auto-hide-sidebar">
@@ -69,6 +363,55 @@
     <script type="text/babel">
         const { useState } = React;
 
+        const getMetaFromPoints = (points) => {
+            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
+
+            if (p >= 31) return 'META 4';
+            if (p >= 26) return 'META 3';
+            if (p >= 21) return 'META 2';
+            if (p >= 17) return 'META 1';
+            return 'SIN META';
+        };
+
+        const getProgressFromPoints = (points) => {
+            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
+
+            if (p >= 31) return 100;
+            if (p >= 26) return Number((Math.min(100, Math.max(0, ((p - 26) / (31 - 26)) * 100))).toFixed(2));
+            if (p >= 21) return Number((Math.min(100, Math.max(0, ((p - 21) / (26 - 21)) * 100))).toFixed(2));
+            if (p >= 17) return Number((Math.min(100, Math.max(0, ((p - 17) / (21 - 17)) * 100))).toFixed(2));
+            return Number((Math.min(100, Math.max(0, (p / 17) * 100))).toFixed(2));
+        };
+
+        const getCommissionFromPoints = (points) => {
+            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
+            const base = Math.floor(p);
+            const frac = Number((p - base).toFixed(2));
+
+            let rate = 0;
+            if (base >= 31) rate = 18;
+            else if (base >= 26) rate = 15;
+            else if (base >= 21) rate = 12;
+            else if (base >= 17) rate = 6;
+
+            let bonus = 0;
+            if (p >= 17.85) {
+                if (frac >= 0.85) bonus = 4;
+                else if (frac >= 0.80) bonus = 4;
+                else if (frac >= 0.75) bonus = 3;
+                else if (frac >= 0.50) bonus = 3;
+                else if (frac >= 0.35) bonus = 2;
+                else if (frac >= 0.25) bonus = 2;
+            }
+
+            return (base * rate) + bonus;
+        };
+
+        const formatUsd = (amount) => {
+            const n = (typeof amount === 'number' ? amount : parseFloat(amount || 0)) || 0;
+            return `$${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
+        };
+
         const CommissionDashboard = () => {
             const [activeView, setActiveView] = useState('admin');
             const [activeTab, setActiveTab] = useState('dashboard');
@@ -102,6 +445,7 @@
                         const agentesProcesados = agentes.map((agent, idx) => {
                             const agentName = String(agent.nombre || agent.name || '').toLowerCase();
                             let supervisor = '';
+                            const pointsValue = parseFloat((agent.puntos || agent.points || 0).toFixed(2));
                             
                             // Asignar supervisor basado en el nombre del agente
                             if (agentName.includes('victor') || agentName.includes('edward') || agentName.includes('cristian') || 
@@ -114,14 +458,15 @@
                             }
                             
                             return {
-                                id: agent.id || agent._id || idx,
+                                id: String(agent.id || agent._id || idx),
                                 name: agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`,
                                 sales: agent.ventas || agent.sales || 0,
-                                points: parseFloat((agent.puntos || agent.points || 0).toFixed(2)),
-                                commission: parseFloat(((agent.ventas || agent.sales || 0) * 0.1).toFixed(1)),
-                                score: Math.round((agent.puntos || agent.points || 0) * 100),
-                                meta: (agent.ventas || agent.sales || 0) >= 10 ? 'META CUMPLIDA' : 'META PENDIENTE',
-                                progress: Math.min(100, (agent.ventas || agent.sales || 0) * 5),
+                                points: pointsValue,
+                                pendingSales: agent.pendientes || agent.pending || agent.pendingSales || 0,
+                                commission: getCommissionFromPoints(pointsValue),
+                                score: Math.round(pointsValue * 100),
+                                meta: getMetaFromPoints(pointsValue),
+                                progress: getProgressFromPoints(pointsValue),
                                 email: agent.email || '',
                                 phone: agent.phone || agent.telefono || '',
                                 team: agent.team || agent.equipo || 'General',
@@ -176,15 +521,50 @@
 
             const getCurrentUser = async () => {
                 try {
+                    // 1) Intentar desde storage (mismo criterio que sidebar-loader.js)
+                    try {
+                        const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (parsed && (parsed.username || parsed.name || parsed.email)) {
+                                const userFromStorage = Object.assign({}, parsed);
+                                if (!userFromStorage.username) userFromStorage.username = userFromStorage.name || userFromStorage.email || 'Usuario';
+                                console.log('Usuario actual (storage):', userFromStorage);
+                                setCurrentUser(userFromStorage);
+
+                                const role = String(userFromStorage?.role || '').toLowerCase();
+                                const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
+                                setIsAgentUser(isAgent);
+                                return;
+                            }
+                        }
+                    } catch (e) {}
+
+                    // 2) Intentar desde servidor con cookies
+                    try {
+                        const res = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.authenticated && data.user) {
+                                console.log('Usuario actual (verify-server):', data);
+                                setCurrentUser(data.user);
+
+                                const role = String(data.user?.role || '').toLowerCase();
+                                const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
+                                setIsAgentUser(isAgent);
+                                return;
+                            }
+                        }
+                    } catch (e) {}
+
+                    // 3) Fallback legacy
                     const response = await fetch('/api/auth/me');
                     const userData = await response.json();
-                    console.log('Usuario actual:', userData);
+                    console.log('Usuario actual (auth/me):', userData);
                     setCurrentUser(userData.user);
-                    
-                    // Detectar si es agente o vendedor
+
                     const role = String(userData.user?.role || '').toLowerCase();
-                    const isAgent = role.includes('agente') || role.includes('agent') || 
-                                   role.includes('vendedor') || role.includes('seller');
+                    const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
                     setIsAgentUser(isAgent);
                 } catch (error) {
                     console.error('Error obteniendo usuario:', error);
@@ -193,15 +573,110 @@
 
             React.useEffect(() => {
                 // Una vez que tenemos agentes y usuario, buscar el agente actual
-                if (currentUser && agents.length > 0) {
-                    const username = currentUser.username || currentUser.name || '';
-                    const agentFound = agents.find(a => 
-                        a.name?.toLowerCase() === username.toLowerCase() ||
-                        a.id === currentUser.id
-                    );
-                    setCurrentAgent(agentFound || agents[0]);
+                const allAgents = [...agentsLineas, ...agents];
+                if (currentUser && allAgents.length > 0) {
+                    const normalizeText = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    const idToString = (v) => {
+                        if (v == null) return '';
+                        if (typeof v === 'string' || typeof v === 'number') return String(v);
+                        if (typeof v === 'object') {
+                            if (v.$oid) return String(v.$oid);
+                            if (v.oid) return String(v.oid);
+                            if (typeof v.toHexString === 'function') return String(v.toHexString());
+                            if (typeof v.toString === 'function') return String(v.toString());
+                        }
+                        return String(v);
+                    };
+                    const isNameMatch = (agentName, candidateName) => {
+                        const a = normalizeText(agentName);
+                        const c = normalizeText(candidateName);
+                        if (!a || !c) return false;
+                        if (a === c) return true;
+                        if (a.includes(c) || c.includes(a)) return true;
+                        const aTokens = new Set(a.split(/\s+/).filter(t => t.length > 2));
+                        const cTokens = c.split(/\s+/).filter(t => t.length > 2);
+                        if (cTokens.length === 0) return false;
+                        return cTokens.every(t => aTokens.has(t));
+                    };
+                    const roleNow = String(currentUser?.role || '').toLowerCase();
+                    const isAgentNow = roleNow.includes('agente') || roleNow.includes('agent') || roleNow.includes('vendedor') || roleNow.includes('seller');
+                    const userId = idToString(currentUser.id || currentUser._id);
+                    const userEmail = currentUser.email;
+                    const userNameCandidates = [
+                        currentUser.username,
+                        currentUser.name,
+                        currentUser.nombre,
+                        currentUser.fullName,
+                    ].filter(Boolean).map(normalizeText);
+
+                    const fallbackAgent = {
+                        id: userId || 'me',
+                        name: currentUser.name || currentUser.username || currentUser.email || 'Mi Usuario',
+                        sales: 0,
+                        points: 0,
+                        pendingSales: 0,
+                        commission: 0,
+                        score: 0,
+                        meta: getMetaFromPoints(0),
+                        progress: getProgressFromPoints(0),
+                        email: userEmail || '',
+                        phone: '',
+                        team: currentUser.team || 'General',
+                        supervisor: ''
+                    };
+
+                    const agentFound = allAgents.find(a => {
+                        if (!a) return false;
+                        const agentId = idToString(a.id || a._id);
+                        const agentEmail = a.email;
+                        const agentName = a.name;
+
+                        if (userId && agentId && agentId === userId) return true;
+                        if (userEmail && agentEmail && normalizeText(agentEmail) === normalizeText(userEmail)) return true;
+                        if (agentName && userNameCandidates.length > 0) return userNameCandidates.some(c => isNameMatch(agentName, c));
+                        return false;
+                    });
+
+                    const agentFoundStrong = (() => {
+                        const byId = allAgents.find(a => {
+                            if (!a) return false;
+                            const agentId = idToString(a.id || a._id);
+                            return userId && agentId && agentId === userId;
+                        });
+                        if (byId) return byId;
+
+                        const byEmail = allAgents.find(a => {
+                            if (!a) return false;
+                            return userEmail && a.email && normalizeText(a.email) === normalizeText(userEmail);
+                        });
+                        if (byEmail) return byEmail;
+
+                        const byNameExact = allAgents.find(a => {
+                            if (!a) return false;
+                            const agentName = a.name;
+                            if (!agentName || userNameCandidates.length === 0) return false;
+                            const n = normalizeText(agentName);
+                            return userNameCandidates.includes(n);
+                        });
+                        if (byNameExact) return byNameExact;
+
+                        return null;
+                    })();
+
+                    const agentPicked = isAgentNow ? agentFoundStrong : (agentFoundStrong || agentFound);
+                    if (isAgentNow) setCurrentAgent(agentPicked || fallbackAgent);
+                    else setCurrentAgent(agentPicked || allAgents[0] || null);
+
+                    try {
+                        console.log('[Comisiones] match agente:', {
+                            isAgentNow,
+                            user: { id: userId, email: userEmail, names: userNameCandidates },
+                            found: agentPicked ? { id: agentPicked.id, name: agentPicked.name, email: agentPicked.email, pendingSales: agentPicked.pendingSales } : null,
+                            fallback: { id: fallbackAgent.id, name: fallbackAgent.name }
+                        });
+                    } catch (e) {}
                 }
-            }, [currentUser, agents]);
+            }, [currentUser, agents, agentsLineas]);
 
             const AdminDashboard = () => (
                 <div className="min-h-screen bg-gray-50">
@@ -305,19 +780,19 @@
                                                     </div>
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-gray-600">Comisión</span>
-                                                        <span className="font-semibold text-green-600">${agent.commission}K</span>
+                                                        <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="mb-4">
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="text-sm text-gray-600">Progreso</span>
-                                                        <span className="text-sm font-medium text-gray-900">{agent.progress}%</span>
+                                                        <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
                                                     </div>
                                                     <div className="bg-gray-200 rounded-full h-2">
                                                         <div 
                                                             className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                            style={{ width: `${agent.progress}%` }}
+                                                            style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
                                                         />
                                                     </div>
                                                 </div>
@@ -389,19 +864,19 @@
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
                                                                     <span className="text-gray-600">Comisión</span>
-                                                                    <span className="font-semibold text-green-600">${agent.commission}K</span>
+                                                                    <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
                                                                 </div>
                                                             </div>
 
                                                             <div className="mb-4">
                                                                 <div className="flex justify-between items-center mb-2">
                                                                     <span className="text-sm text-gray-600">Progreso</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{Math.min(100, agent.progress)}%</span>
+                                                                    <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
                                                                 </div>
                                                                 <div className="bg-gray-200 rounded-full h-2">
                                                                     <div 
                                                                         className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${Math.min(100, agent.progress)}%` }}
+                                                                        style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -452,19 +927,19 @@
                                                                 </div>
                                                                 <div className="flex justify-between text-sm">
                                                                     <span className="text-gray-600">Comisión</span>
-                                                                    <span className="font-semibold text-green-600">${agent.commission}K</span>
+                                                                    <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
                                                                 </div>
                                                             </div>
 
                                                             <div className="mb-4">
                                                                 <div className="flex justify-between items-center mb-2">
                                                                     <span className="text-sm text-gray-600">Progreso</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{Math.min(100, agent.progress)}%</span>
+                                                                    <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
                                                                 </div>
                                                                 <div className="bg-gray-200 rounded-full h-2">
                                                                     <div 
                                                                         className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${Math.min(100, agent.progress)}%` }}
+                                                                        style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -492,24 +967,29 @@
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Reportes de Comisiones</h2>
 
-                                <div className="grid grid-cols-4 gap-6 mb-6">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="text-sm text-gray-600 mb-2">Ventas Totales</h3>
-                                        <p className="text-3xl font-bold text-gray-900">{agents.reduce((s, a) => s + a.sales, 0)}</p>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="text-sm text-gray-600 mb-2">Puntaje Total</h3>
-                                        <p className="text-3xl font-bold text-gray-900">{agents.reduce((s, a) => s + (parseFloat(a.points) || 0), 0).toFixed(0)}</p>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="text-sm text-gray-600 mb-2">Comisión Total</h3>
-                                        <p className="text-3xl font-bold text-green-600">${agents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0).toFixed(1)}K</p>
-                                    </div>
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="text-sm text-gray-600 mb-2">Agentes Activos</h3>
-                                        <p className="text-3xl font-bold text-indigo-600">{agents.length}</p>
-                                    </div>
-                                </div>
+                                {(() => {
+                                    const allAgents = [...agentsLineas, ...agents];
+                                    return (
+                                        <div className="grid grid-cols-4 gap-6 mb-6">
+                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                                <h3 className="text-sm text-gray-600 mb-2">Ventas Totales</h3>
+                                                <p className="text-3xl font-bold text-gray-900">{allAgents.reduce((s, a) => s + (a.sales || 0), 0)}</p>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                                <h3 className="text-sm text-gray-600 mb-2">Puntaje Total</h3>
+                                                <p className="text-3xl font-bold text-gray-900">{allAgents.reduce((s, a) => s + (parseFloat(a.points) || 0), 0).toFixed(0)}</p>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                                <h3 className="text-sm text-gray-600 mb-2">Comisión Total</h3>
+                                                <p className="text-3xl font-bold text-green-600">{formatUsd(allAgents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0))}</p>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                                <h3 className="text-sm text-gray-600 mb-2">Agentes Activos</h3>
+                                                <p className="text-3xl font-bold text-indigo-600">{allAgents.length}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="bg-white rounded-xl border border-gray-200">
                                     <div className="overflow-x-auto">
@@ -531,7 +1011,7 @@
                                                         <td className="px-6 py-4 font-medium text-gray-900">{agent.name}</td>
                                                         <td className="px-6 py-4 text-indigo-600 font-semibold">{agent.sales}</td>
                                                         <td className="px-6 py-4 text-blue-600 font-semibold">{agent.points.toFixed(2)}</td>
-                                                        <td className="px-6 py-4 text-green-600 font-semibold">${agent.commission}K</td>
+                                                        <td className="px-6 py-4 text-green-600 font-semibold">{formatUsd(agent.commission)}</td>
                                                         <td className="px-6 py-4">
                                                             <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                                                                 {((agent.sales / agents.reduce((s, a) => s + a.sales, 0)) * 100).toFixed(1)}%
@@ -565,7 +1045,7 @@
 
                                     <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
                                         <h3 className="text-purple-100 text-sm font-medium mb-4">Comisión Promedio</h3>
-                                        <p className="text-3xl font-bold mb-1">${agents.length > 0 ? (agents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0) / agents.length).toFixed(1) : '0'}K</p>
+                                        <p className="text-3xl font-bold mb-1">{formatUsd(agents.length > 0 ? (agents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0) / agents.length) : 0)}</p>
                                         <p className="text-purple-100 text-sm">Por Agente</p>
                                     </div>
 
@@ -594,7 +1074,7 @@
                                                         <p className="text-xs text-gray-500">{agent.sales} ventas • {agent.points.toFixed(2)} pts</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-semibold text-green-600">${agent.commission}K</p>
+                                                        <p className="font-semibold text-green-600">{formatUsd(agent.commission)}</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -604,12 +1084,14 @@
                                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                                         <h3 className="font-semibold text-gray-900 mb-6">Metas Alcanzadas</h3>
                                         <div className="space-y-4">
-                                            {[
-                                                { name: 'META 1', agents: agents.filter(a => a.meta === 'META 1').length, points: '17 pts', commission: '3%' },
-                                                { name: 'META 2', agents: 0, points: '21 pts', commission: '4%' },
-                                                { name: 'META 3', agents: 0, points: '26 pts', commission: '5%' },
-                                                { name: 'META 4', agents: 0, points: '31 pts', commission: '6%' },
-                                            ].map((meta, index) => (
+                                            {(() => {
+                                                const allAgents = [...agentsLineas, ...agents];
+                                                return [
+                                                    { name: 'META 1', agents: allAgents.filter(a => a.meta === 'META 1').length, points: '17 pts', commission: '$6/pto' },
+                                                    { name: 'META 2', agents: allAgents.filter(a => a.meta === 'META 2').length, points: '21 pts', commission: '$12/pto' },
+                                                    { name: 'META 3', agents: allAgents.filter(a => a.meta === 'META 3').length, points: '26 pts', commission: '$15/pto' },
+                                                    { name: 'META 4', agents: allAgents.filter(a => a.meta === 'META 4').length, points: '31 pts', commission: '$18/pto' },
+                                                ].map((meta, index) => (
                                                 <div key={index} className="border-b pb-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
@@ -623,7 +1105,8 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                ));
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
@@ -643,90 +1126,164 @@
                         </div>
                     );
                 }
+
+                const sales = currentAgent?.sales || 0;
+                const points = (typeof currentAgent?.points === 'number' ? currentAgent.points : parseFloat(currentAgent?.points || 0)) || 0;
+                const percent = getProgressFromPoints(points);
+                const totalMoney = getCommissionFromPoints(points);
+                const roleLabelRaw = String(currentUser?.role || 'agente').toUpperCase();
+                const roleLabel = `ROL: ${roleLabelRaw}`;
+                const progressFillStyle = percent >= 100
+                    ? { width: `${percent}%`, background: 'linear-gradient(90deg, var(--success) 0%, #34d399 100%)' }
+                    : { width: `${percent}%` };
+
+                const pending = currentAgent?.pendingSales || 0;
                 
                 return (
-                    <div className="min-h-screen bg-gray-50">
-                        <div className="bg-white border-b">
-                            <div className="max-w-6xl mx-auto px-6 py-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h1 className="text-2xl font-bold text-gray-900">¡Hola, {currentAgent?.name}! 👋</h1>
-                                        <p className="text-gray-600 mt-1">Aquí está tu rendimiento actual</p>
+                    <div className="agent-premium">
+                        <div className="container">
+                            <header className="header">
+                                <div className="header-content">
+                                    <h1>¡Hola, {currentAgent?.name}! 👋</h1>
+                                    <p>Aquí está tu rendimiento actual y tus ganancias</p>
+                                </div>
+                                <div className="badge-role">{roleLabel}</div>
+                            </header>
+
+                            <div className="grid-main">
+                                <div className="card-commission">
+                                    <div className="commission-content">
+                                        <div className="commission-label">Comisión Estimada</div>
+                                        <div className="commission-icon">
+                                            <div className="wallet-container">
+                                                <div className="wallet-fill" style={{ height: `${percent}%` }} />
+                                                <div className="wallet-base">
+                                                    <span className="wallet-emoji">💰</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="commission-amount">{formatUsd(totalMoney)}</div>
+                                        <div className="commission-sub">Basado en tu fórmula de rendimiento</div>
+
+                                        <div className="progress-container">
+                                            <div className="progress-label">
+                                                <span>Progreso de Meta</span>
+                                                <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{`${(percent || 0).toFixed(2)}%`}</span>
+                                            </div>
+                                            <div className="progress-bar">
+                                                <div className="progress-fill" style={progressFillStyle} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="card-stats">
+                                    <div className="stats-grid">
+                                        <div className="stat-item">
+                                            <div className="stat-icon">📊</div>
+                                            <div className="stat-label">Ventas Activas</div>
+                                            <div className="stat-value">{sales}</div>
+                                            <div className="stat-sub">Clientes este mes</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">⭐</div>
+                                            <div className="stat-label">Puntaje Global</div>
+                                            <div className="stat-value">{points.toFixed(2)}</div>
+                                            <div className="stat-sub">Nivel: Avanzado</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">✅</div>
+                                            <div className="stat-label">Pendientes</div>
+                                            <div className="stat-value">{pending}</div>
+                                            <div className="stat-sub">Ventas en pending</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">🚀</div>
+                                            <div className="stat-label">Tasa de Conversión</div>
+                                            <div className="stat-value">{`${(percent || 0).toFixed(2)}%`}</div>
+                                            <div className="stat-sub">Arriba del promedio</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="max-w-6xl mx-auto px-6 py-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Mi Desempeño</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg">
-                                    <h3 className="text-indigo-100 text-sm font-medium mb-4">Mis Ventas</h3>
-                                    <p className="text-4xl font-bold mb-2">{currentAgent?.sales || 0}</p>
-                                    <p className="text-indigo-100 text-sm">Clientes adquiridos este mes</p>
-                                </div>
+                            <div className="card-activity">
+                                <div className="activity-title">Ventas Mensuales</div>
+                                <svg width="100%" height="300" viewBox="0 0 900 300" style={{ maxWidth: '100%', marginTop: 20 }}>
+                                    <defs>
+                                        <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 0.3 }} />
+                                            <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0.8 }} />
+                                        </linearGradient>
+                                    </defs>
+                                    <line x1="60" y1="30" x2="60" y2="250" stroke="#e2e8f0" strokeWidth="2" />
+                                    <line x1="60" y1="250" x2="850" y2="250" stroke="#e2e8f0" strokeWidth="2" />
 
-                                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg">
-                                    <h3 className="text-green-100 text-sm font-medium mb-4">Mis Comisiones</h3>
-                                    <p className="text-4xl font-bold mb-2">${currentAgent?.commission || 0}K</p>
-                                    <p className="text-green-100 text-sm">Comisión acumulada</p>
-                                </div>
+                                    <text x="45" y="255" textAnchor="end" fontSize="12" fill="#64748b">0</text>
+                                    <text x="45" y="195" textAnchor="end" fontSize="12" fill="#64748b">25</text>
+                                    <text x="45" y="135" textAnchor="end" fontSize="12" fill="#64748b">50</text>
+                                    <text x="45" y="75" textAnchor="end" fontSize="12" fill="#64748b">75</text>
 
-                                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg">
-                                    <h3 className="text-purple-100 text-sm font-medium mb-4">Mi Score</h3>
-                                    <p className="text-4xl font-bold mb-2">{currentAgent?.score || 0}%</p>
-                                    <p className="text-purple-100 text-sm">Calidad de servicios</p>
-                                </div>
-                            </div>
+                                    <g>
+                                        <rect x="80" y="190" width="35" height="60" fill="#e0e7ff" rx="4" />
+                                        <text x="97.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Ene</text>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Resumen General</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Equipo</span>
-                                            <span className="font-semibold text-gray-900">{currentAgent?.team}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Puntaje Total</span>
-                                            <span className="font-semibold text-gray-900">{currentAgent?.points.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Meta</span>
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                currentAgent?.meta === 'META CUMPLIDA' 
-                                                    ? 'bg-green-100 text-green-700' 
-                                                    : 'bg-yellow-100 text-yellow-700'
-                                            }`}>
-                                                {currentAgent?.meta}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Progreso</span>
-                                            <span className="font-semibold text-gray-900">{Math.min(100, currentAgent?.progress)}%</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                        <rect x="125" y="170" width="35" height="80" fill="#e0e7ff" rx="4" />
+                                        <text x="142.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Feb</text>
+                                        <g transform="translate(160, 155)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+33%</text>
+                                        </g>
 
-                                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                                    <h3 className="text-lg font-bold text-gray-900 mb-4">Progreso Hacia Meta</h3>
-                                    <div className="mb-2">
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm text-gray-600">Progreso</span>
-                                            <span className="text-sm font-semibold text-gray-900">{Math.min(100, currentAgent?.progress)}%</span>
-                                        </div>
-                                        <div className="bg-gray-200 rounded-full h-3">
-                                            <div 
-                                                className={`h-3 rounded-full ${
-                                                    currentAgent?.progress >= 90 ? 'bg-green-500' : 
-                                                    currentAgent?.progress >= 70 ? 'bg-yellow-500' : 
-                                                    'bg-red-500'
-                                                }`}
-                                                style={{ width: `${Math.min(100, currentAgent?.progress)}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                        <rect x="170" y="140" width="35" height="110" fill="#e0e7ff" rx="4" />
+                                        <text x="187.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Mar</text>
+                                        <g transform="translate(205, 120)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+37%</text>
+                                        </g>
+
+                                        <rect x="215" y="155" width="35" height="95" fill="#e0e7ff" rx="4" />
+                                        <text x="232.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Abr</text>
+                                        <g transform="translate(250, 135)">
+                                            <line x1="0" y1="0" x2="0" y2="15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 10 L 0 15 L 4 10" stroke="#ef4444" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="-5" textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="700">-13%</text>
+                                        </g>
+
+                                        <rect x="260" y="100" width="35" height="150" fill="#e0e7ff" rx="4" />
+                                        <text x="277.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">May</text>
+                                        <g transform="translate(295, 75)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+58%</text>
+                                        </g>
+
+                                        <rect x="305" y="70" width="35" height="180" fill="url(#arrowGradient)" rx="4" />
+                                        <text x="322.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jun</text>
+                                        <g transform="translate(340, 40)">
+                                            <line x1="0" y1="20" x2="0" y2="0" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                                            <path d="M -5 8 L 0 0 L 5 8" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="32" textAnchor="middle" fontSize="11" fill="#f59e0b" fontWeight="700">+20%</text>
+                                        </g>
+
+                                        <rect x="350" y="60" width="35" height="190" fill="#e0e7ff" rx="4" />
+                                        <text x="367.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jul</text>
+                                    </g>
+
+                                    <g transform="translate(600, 30)">
+                                        <rect width="240" height="100" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" rx="8" />
+                                        <text x="12" y="25" fontSize="13" fontWeight="700" fill="#1e293b">Tendencia Mensual</text>
+                                        <circle cx="20" cy="50" r="4" fill="#10b981" />
+                                        <text x="32" y="54" fontSize="12" fill="#64748b">Crecimiento</text>
+                                        <circle cx="20" cy="75" r="4" fill="#ef4444" />
+                                        <text x="32" y="79" fontSize="12" fill="#64748b">Decrecimiento</text>
+                                    </g>
+                                </svg>
                             </div>
                         </div>
                     </div>

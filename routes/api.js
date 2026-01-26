@@ -4754,7 +4754,7 @@ router.get('/comisiones/agents', protect, async (req, res) => {
     };
     const isAgentUser = (u) => {
       const blob = getRoleBlob(u).toLowerCase();
-      if (!/agente/.test(blob)) return false;
+      if (!/(agente|agent|vendedor|seller)/.test(blob)) return false;
       if (/supervisor/.test(blob)) return false;
       if (/admin/.test(blob)) return false;
       if (/back\s*office/.test(blob)) return false;
@@ -4814,10 +4814,12 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
     const startDate = `${year}-${month}-01`;
     const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
     const endDate = `${year}-${month}-${lastDayOfMonth}`;
+    const startIso = `${startDate}T00:00:00.000Z`;
+    const endIso = `${endDate}T23:59:59.999Z`;
 
     // Obtener todos los agentes
     const usersAll = await db.collection('users')
-      .find({}, { projection: { username: 1, name: 1, nombre: 1, fullName: 1, email: 1, role: 1, rol: 1, roles: 1, cargo: 1 } })
+      .find({}, { projection: { _id: 1, username: 1, name: 1, nombre: 1, fullName: 1, email: 1, role: 1, rol: 1, roles: 1, cargo: 1 } })
       .sort({ name: 1, username: 1 })
       .toArray();
 
@@ -4837,7 +4839,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
     
     const isAgentUser = (u) => {
       const blob = getRoleBlob(u).toLowerCase();
-      if (!/agente/.test(blob)) return false;
+      if (!/(agente|agent|vendedor|seller)/.test(blob)) return false;
       if (/supervisor/.test(blob)) return false;
       if (/admin/.test(blob)) return false;
       if (/back\s*office/.test(blob)) return false;
@@ -4862,6 +4864,8 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
     const prevEndDate = `${prevYear}-${prevMonth}-${prevLastDayOfMonth}`;
     const prevMonthStart = new Date(prevYear, prevMonthIndex, 1);
     const prevMonthEnd = new Date(prevYear, prevMonthIndex + 1, 1);
+    const prevStartIso = `${prevStartDate}T00:00:00.000Z`;
+    const prevEndIso = `${prevEndDate}T23:59:59.999Z`;
 
     console.log(`[API /comisiones/agentes-mes] Rango MES ACTUAL: ${startDate} a ${endDate}`);
     console.log(`[API /comisiones/agentes-mes] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
@@ -4876,22 +4880,61 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
       const displayName = pickDisplayName(agent);
       
       // Query base para encontrar registros del agente en el rango de fechas
-      const baseQuery = {
+      const agentIdStr = agent?._id ? String(agent._id) : '';
+      let agentIdObj = null;
+      try { if (agentIdStr && /^[a-fA-F0-9]{24}$/.test(agentIdStr)) agentIdObj = new ObjectId(agentIdStr); } catch (_) { agentIdObj = null; }
+      const baseQueryById = agentIdStr ? {
         $or: [
-          { agenteNombre: { $regex: displayName, $options: 'i' } },
-          { agente: { $regex: displayName, $options: 'i' } },
-          { usuario: { $regex: displayName, $options: 'i' } },
-          { nombreAgente: { $regex: displayName, $options: 'i' } },
-          { vendedor: { $regex: displayName, $options: 'i' } }
+          { agenteId: agentIdStr },
+          { agente_id: agentIdStr },
+          { agentId: agentIdStr },
+          { agent_id: agentIdStr },
+          ...(agentIdObj ? [
+            { agenteId: agentIdObj },
+            { agente_id: agentIdObj },
+            { agentId: agentIdObj },
+            { agent_id: agentIdObj }
+          ] : [])
+        ]
+      } : null;
+      const escaped = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameTokens = String(displayName || '').trim().split(/\s+/).filter(Boolean).map(escaped);
+      const exactNameRegex = nameTokens.length
+        ? new RegExp(`^\\s*${nameTokens.join('\\s+')}\\s*$`, 'i')
+        : new RegExp('^$', 'i');
+      const baseQueryByName = {
+        $or: [
+          { agenteNombre: exactNameRegex },
+          { agente: exactNameRegex },
+          { nombreAgente: exactNameRegex },
+          { vendedor: exactNameRegex }
         ]
       };
-
+      // Solo usar match por nombre cuando el documento NO tiene un id de agente (evita contaminar por coincidencias de texto)
+      const noAgentIdInDoc = {
+        $and: [
+          { $or: [ { agenteId: { $exists: false } }, { agenteId: null }, { agenteId: '' } ] },
+          { $or: [ { agente_id: { $exists: false } }, { agente_id: null }, { agente_id: '' } ] },
+          { $or: [ { agentId: { $exists: false } }, { agentId: null }, { agentId: '' } ] },
+          { $or: [ { agent_id: { $exists: false } }, { agent_id: null }, { agent_id: '' } ] }
+        ]
+      };
+      const baseQuery = baseQueryById
+        ? { $or: [ baseQueryById, { $and: [ noAgentIdInDoc, baseQueryByName ] } ] }
+        : baseQueryByName;
+      
       const dateQuery = {
         $or: [
           { dia_venta: { $gte: startDate, $lte: endDate } },
           { fecha_contratacion: { $gte: startDate, $lte: endDate } },
+          // Soportar fechas como Date
           { creadoEn: { $gte: startOfMonth, $lte: startOfNextMonth } },
           { createdAt: { $gte: startOfMonth, $lte: startOfNextMonth } },
+          // Soportar fechas como string ISO
+          { creadoEn: { $gte: startIso, $lte: endIso } },
+          { createdAt: { $gte: startIso, $lte: endIso } },
+          { fecha_creacion: { $gte: startIso, $lte: endIso } },
+          { fechaCreacion: { $gte: startIso, $lte: endIso } },
           { fecha: { $gte: startDate, $lte: endDate } }
         ]
       };
@@ -4904,8 +4947,14 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
             $or: [
               { dia_venta: { $gte: prevStartDate, $lte: prevEndDate } },
               { fecha_contratacion: { $gte: prevStartDate, $lte: prevEndDate } },
+              // Soportar fechas como Date
               { creadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } },
-              { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } }
+              { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } },
+              // Soportar fechas como string ISO
+              { creadoEn: { $gte: prevStartIso, $lte: prevEndIso } },
+              { createdAt: { $gte: prevStartIso, $lte: prevEndIso } },
+              { fecha_creacion: { $gte: prevStartIso, $lte: prevEndIso } },
+              { fechaCreacion: { $gte: prevStartIso, $lte: prevEndIso } }
             ]
           },
           {
@@ -4929,13 +4978,30 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
             $facet: {
               todos: [
                 {
+                  $addFields: {
+                    __statusUpper: {
+                      $toUpper: {
+                        $ifNull: [
+                          '$status',
+                          {
+                            $ifNull: [
+                              '$estatus',
+                              { $ifNull: ['$estado', ''] }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
                   $group: {
                     _id: null,
                     totalRecords: { $sum: 1 },
                     cancelledCount: {
                       $sum: {
                         $cond: [
-                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'CANCELLED'] }, -1] },
                           1,
                           0
                         ]
@@ -4944,7 +5010,16 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasValidas: {
                       $sum: {
                         $cond: [
-                          { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    ventasPendientes: {
+                      $sum: {
+                        $cond: [
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'PENDING'] }, -1] },
                           1,
                           0
                         ]
@@ -4953,7 +5028,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasCanceladas: {
                       $sum: {
                         $cond: [
-                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'CANCELLED'] }, -1] },
                           1,
                           0
                         ]
@@ -4962,7 +5037,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     puntosValidos: {
                       $sum: {
                         $cond: [
-                          { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
                           { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
                           0
                         ]
@@ -4971,7 +5046,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     puntosCancelados: {
                       $sum: {
                         $cond: [
-                          { $eq: [{ $toUpper: '$status' }, 'CANCELLED'] },
+                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'CANCELLED'] }, -1] },
                           { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
                           0
                         ]
@@ -4985,7 +5060,8 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     totalRecords: 1,
                     cancelledCount: 1,
                     ventas: '$ventasValidas',
-                    puntos: '$puntosValidos'
+                    puntos: '$puntosValidos',
+                    pendientes: '$ventasPendientes'
                   }
                 }
               ],
@@ -4996,6 +5072,45 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
             }
           }
         ])
+        .toArray();
+
+      // Contar pendientes TOTAL (sin filtro de fecha), para alinear con la tabla que muestra pending acumulado
+      const pendingTotalAgg = await db.collection('costumers_unified')
+        .aggregate([
+          { $match: baseQuery },
+          {
+            $addFields: {
+              __statusUpper: {
+                $toUpper: {
+                  $ifNull: [
+                    '$status',
+                    {
+                      $ifNull: [
+                        '$estatus',
+                        { $ifNull: ['$estado', ''] }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              pendientes: {
+                $sum: {
+                  $cond: [
+                    { $ne: [{ $indexOfCP: ['$__statusUpper', 'PENDING'] }, -1] },
+                    1,
+                    0
+                  ]
+                }
+              }
+            }
+          },
+          { $project: { _id: 0, pendientes: 1 } }
+        ], { allowDiskUse: true })
         .toArray();
 
       // Buscar también el "colchón" (ventas del mes anterior con instalación en mes actual)
@@ -5045,17 +5160,22 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
 
       const stats = agentData && agentData.length > 0 && agentData[0].todos && agentData[0].todos.length > 0 ? agentData[0].todos[0] : { ventas: 0, puntos: 0 };
       const colchonStats = colchonData && colchonData.length > 0 ? colchonData[0] : { colchonVentas: 0, colchonPuntos: 0 };
+      const pendingTotal = pendingTotalAgg && pendingTotalAgg.length > 0 ? Number(pendingTotalAgg[0].pendientes || 0) : 0;
       
       // Sumar ventas del mes actual + colchón
       const ventasActuales = Number(stats.ventas || 0);
       const puntosActuales = Number((stats.puntos || 0).toFixed(2));
+      const ventasPendientes = pendingTotal;
       const ventasColchon = Number(colchonStats.colchonVentas || 0);
       const puntosColchon = Number((colchonStats.colchonPuntos || 0).toFixed(2));
       
       const result = {
+        id: agent._id,
+        email: agent.email || '',
         nombre: displayName,
         ventas: ventasActuales + ventasColchon,
-        puntos: Number((puntosActuales + puntosColchon).toFixed(2))
+        puntos: Number((puntosActuales + puntosColchon).toFixed(2)),
+        pendientes: ventasPendientes
       };
       
       // Debug para agentes específicos
