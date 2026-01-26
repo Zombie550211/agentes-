@@ -193,6 +193,7 @@
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
       if (/comision/.test(path)) return 'comisiones';
       if (/rankings\.html?$/.test(path)) return 'rankings';
+      if (/rankingagente\.html?$/.test(path)) return 'rankings';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
@@ -622,7 +623,7 @@
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
-      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'Rankings.html', roles: allRoles },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'rankingAgente.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
@@ -676,7 +677,7 @@
           'lead': { href: 'lead.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
           'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
           'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
-          'rankings': { href: 'Rankings.html', icon: 'fa-chart-line', text: 'Rankings' },
+          'rankings': { href: 'rankingAgente.html', icon: 'fa-chart-line', text: 'Rankings' },
           'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
           'comisiones': { href: 'Comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
       };

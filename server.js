@@ -4517,6 +4517,91 @@ app.delete('/api/leads/:id/comentarios/:comentarioId', protect, async (req, res)
   }
 });
 
+// Actualizar un lead completo (todos los campos)
+app.put('/api/leads/:id', protect, async (req, res) => {
+  try {
+    if (!db) await connectToMongoDB();
+
+    const { id } = req.params;
+    const updateData = req.body || {};
+
+    console.log('[PUT /api/leads/:id] ID recibido:', id);
+    console.log('[PUT /api/leads/:id] Datos a actualizar:', updateData);
+
+    // Validar ID
+    let leadObjectId = null;
+    try {
+      if (/^[a-fA-F0-9]{24}$/.test(id)) {
+        leadObjectId = new ObjectId(id);
+      }
+    } catch (e) {
+      console.warn('[PUT /api/leads/:id] ID no es ObjectId válido:', id);
+    }
+
+    if (!leadObjectId) {
+      return res.status(400).json({ success: false, message: 'ID de lead inválido' });
+    }
+
+    // Preparar datos para actualización (excluir _id del body si viene)
+    const { _id, ...fieldsToUpdate } = updateData;
+    
+    // Agregar timestamp de actualización
+    fieldsToUpdate.actualizadoEn = new Date();
+
+    // Colección principal
+    const collectionName = 'costumers_unified';
+    const collection = db.collection(collectionName);
+
+    // Intentar actualizar por _id
+    let result = await collection.findOneAndUpdate(
+      { _id: leadObjectId },
+      { $set: fieldsToUpdate },
+      { returnDocument: 'after' }
+    );
+
+    // Si no se encontró, intentar por campo 'id' como string
+    if (!result || !result.value) {
+      console.log('[PUT /api/leads/:id] No encontrado por _id, intentando por id:string');
+      result = await collection.findOneAndUpdate(
+        { id: id },
+        { $set: fieldsToUpdate },
+        { returnDocument: 'after' }
+      );
+    }
+
+    // Si aún no se encontró, intentar por sourceId
+    if (!result || !result.value) {
+      console.log('[PUT /api/leads/:id] No encontrado por id, intentando por sourceId');
+      result = await collection.findOneAndUpdate(
+        { sourceId: id },
+        { $set: fieldsToUpdate },
+        { returnDocument: 'after' }
+      );
+    }
+
+    if (!result || !result.value) {
+      console.warn('[PUT /api/leads/:id] Lead no encontrado para id:', id);
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+    console.log('[PUT /api/leads/:id] Lead actualizado exitosamente:', result.value._id);
+
+    return res.json({
+      success: true,
+      message: 'Lead actualizado correctamente',
+      data: result.value
+    });
+
+  } catch (err) {
+    console.error('[PUT /api/leads/:id] Error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el lead',
+      error: err.message
+    });
+  }
+});
+
 // Actualizar el "status" de un lead/cliente
 app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'), async (req, res) => {
   try {
