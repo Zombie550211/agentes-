@@ -6383,16 +6383,17 @@
           // Mantener idioma tal como viene del select
           const payload = { status: newStatus };
           const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-          // AÃ±adir Authorization si existe token en storage (compatibilidad con endpoints que usan Bearer token)
+          // Añadir Authorization si existe token en storage (compatibilidad con endpoints que usan Bearer token)
           try {
             const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
             if (token) headers['Authorization'] = 'Bearer ' + token;
           } catch(_) {}
           const opts = (method, body) => ({ method, credentials: 'include', headers, body: JSON.stringify(body) });
-          // Endpoint real en backend
-          const target = { url: `/api/leads/${encodeURIComponent(id)}/status`, method: 'PUT', body: payload };
+          // Endpoint real en backend - sin encodeURIComponent para ObjectIds de MongoDB
+          const cleanId = String(id).trim();
+          const target = { url: `/api/leads/${cleanId}/status`, method: 'PUT', body: payload };
           let ok = false, lastErr;
-          console.log('[STATUS] Guardando', { id, newStatus, endpoint: target.url });
+          console.log('[STATUS] Guardando', { id: cleanId, newStatus, endpoint: target.url });
           // feedback visual: desactivar todos los selects de esa fila
           try{
             const sel = selectEl;
