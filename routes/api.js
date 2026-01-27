@@ -3061,12 +3061,64 @@ router.get('/lineas-team', protect, async (req, res) => {
       // Agente ve solo su colección
       const collection = db.collection(collectionName);
       leads = await collection.find({}).toArray();
+      leads = leads.map(d => ({ ...d, _collectionName: collectionName }));
     }
+
+    const normalizeKey = (v) => {
+      try {
+        return String(v || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+      } catch {
+        return String(v || '').trim().toLowerCase();
+      }
+    };
+
+    const supervisorMap = {
+      'alexis_rodrigues': 'JONATHAN F',
+      'alexis_rodriguez': 'JONATHAN F',
+      'cristian_rivera': 'JONATHAN F',
+      'dennis_vasquez': 'JONATHAN F',
+      'edward_ramirez': 'JONATHAN F',
+      'jocelyn_reyes': 'JONATHAN F',
+      'melanie_hurtado': 'JONATHAN F',
+      'nancy_lopez': 'JONATHAN F',
+      'oscar_rivera': 'JONATHAN F',
+      'victor_hurtado': 'JONATHAN F',
+      'jonathan_f': 'JONATHAN F',
+      'cesar_claros': 'LUIS G',
+      'daniel_del_cid': 'LUIS G',
+      'fernando_beltran': 'LUIS G',
+      'jonathan_garcia': 'LUIS G',
+      'karla_rodriguez': 'LUIS G',
+      'karla_ponce': 'LUIS G',
+      'luis_g': 'LUIS G',
+      'manuel_flores': 'LUIS G',
+      'tatiana_giron': 'LUIS G'
+    };
+
+    const toAgentUpper = (col) => String(col || '').replace(/_/g, ' ').trim().toUpperCase();
+    const resolveSupervisor = (col) => {
+      const k = normalizeKey(col);
+      if (!k) return '';
+      if (supervisorMap[k]) return supervisorMap[k];
+      for (const [key, sup] of Object.entries(supervisorMap)) {
+        const firstToken = key.split('_')[0];
+        if (firstToken && k.includes(firstToken)) return sup;
+      }
+      return '';
+    };
     
     // Normalizar _id a string para que el frontend reciba IDs válidos
     // Enviar el campo ID del lead si existe, y no sobrescribirlo con el _id
     leads = leads.map(d => ({
       ...d,
+      supervisor: d.supervisor || resolveSupervisor(d._collectionName || collectionName),
+      agenteAsignado: d.agenteAsignado || d.agenteNombre || d.agente || toAgentUpper(d._collectionName || collectionName),
+      agenteNombre: d.agenteNombre || d.agenteAsignado || d.agente || toAgentUpper(d._collectionName || collectionName),
+      agente: d.agente || d.agenteAsignado || d.agenteNombre || toAgentUpper(d._collectionName || collectionName),
       _id: d._id ? String(d._id) : d._id,
       id: d.id ? String(d.id) : (d._id ? String(d._id) : ''),
       ID: d.ID ? String(d.ID) : (d.id ? String(d.id) : '')
@@ -3118,7 +3170,7 @@ router.put('/lineas-team/status', protect, async (req, res) => {
       collections = cols.map(c => c.name);
     } catch (e) {
       // Fallback a lista conocida si listCollections falla
-      collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
+      collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'KARLA_PONCE'];
     }
 
     console.log('[API PUT /lineas-team/status] Collections to search:', collections);
