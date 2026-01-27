@@ -4898,29 +4898,82 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         ]
       } : null;
       const escaped = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const nameTokens = String(displayName || '').trim().split(/\s+/).filter(Boolean).map(escaped);
-      const exactNameRegex = nameTokens.length
-        ? new RegExp(`^\\s*${nameTokens.join('\\s+')}\\s*$`, 'i')
-        : new RegExp('^$', 'i');
+      const accentInsensitive = (token) => {
+        const map = {
+          a: '[aáàäâã]',
+          e: '[eéèëê]',
+          i: '[iíìïî]',
+          o: '[oóòöôõ]',
+          u: '[uúùüû]',
+          n: '[nñ]'
+        };
+        return String(token || '')
+          .split('')
+          .map((ch) => {
+            const lower = ch.toLowerCase();
+            const repl = map[lower];
+            return repl ? repl : escaped(ch);
+          })
+          .join('');
+      };
+      const parts = String(displayName || '').trim().split(/\s+/).filter(Boolean);
+      const first = parts[0] || '';
+      const last = parts.length > 1 ? parts[parts.length - 1] : '';
+      // Match tolerante: primer nombre + apellido, permitiendo palabras extra y variaciones de acentos
+      const looseNameRegex = (first && last)
+        ? new RegExp(`\\b${accentInsensitive(first)}\\b[\\s\\S]*\\b${accentInsensitive(last)}\\b`, 'i')
+        : (first ? new RegExp(`\\b${accentInsensitive(first)}\\b`, 'i') : new RegExp('^$', 'i'));
       const baseQueryByName = {
         $or: [
-          { agenteNombre: exactNameRegex },
-          { agente: exactNameRegex },
-          { nombreAgente: exactNameRegex },
-          { vendedor: exactNameRegex }
+          { agenteNombre: looseNameRegex },
+          { agente: looseNameRegex },
+          { nombreAgente: looseNameRegex },
+          { vendedor: looseNameRegex }
         ]
       };
-      // Solo usar match por nombre cuando el documento NO tiene un id de agente (evita contaminar por coincidencias de texto)
-      const noAgentIdInDoc = {
+      // Usar match por nombre cuando NO hay agentId usable (o cuando está en formato inválido)
+      // Evita contaminar por coincidencias de texto cuando sí existe un ObjectId real en el documento.
+      const objectIdLike = /^[a-fA-F0-9]{24}$/;
+      const noUsableAgentIdInDoc = {
         $and: [
-          { $or: [ { agenteId: { $exists: false } }, { agenteId: null }, { agenteId: '' } ] },
-          { $or: [ { agente_id: { $exists: false } }, { agente_id: null }, { agente_id: '' } ] },
-          { $or: [ { agentId: { $exists: false } }, { agentId: null }, { agentId: '' } ] },
-          { $or: [ { agent_id: { $exists: false } }, { agent_id: null }, { agent_id: '' } ] }
+          {
+            $or: [
+              { agenteId: { $exists: false } },
+              { agenteId: null },
+              { agenteId: '' },
+              { $and: [ { agenteId: { $type: 'string' } }, { agenteId: { $not: objectIdLike } } ] }
+            ]
+          },
+          {
+            $or: [
+              { agente_id: { $exists: false } },
+              { agente_id: null },
+              { agente_id: '' },
+              { $and: [ { agente_id: { $type: 'string' } }, { agente_id: { $not: objectIdLike } } ] }
+            ]
+          },
+          {
+            $or: [
+              { agentId: { $exists: false } },
+              { agentId: null },
+              { agentId: '' },
+              { $and: [ { agentId: { $type: 'string' } }, { agentId: { $not: objectIdLike } } ] }
+            ]
+          },
+          {
+            $or: [
+              { agent_id: { $exists: false } },
+              { agent_id: null },
+              { agent_id: '' },
+              { $and: [ { agent_id: { $type: 'string' } }, { agent_id: { $not: objectIdLike } } ] }
+            ]
+          }
         ]
       };
+      // Siempre permitir match por nombre como fallback (hay registros con agentId válido pero mal asignado).
+      // Esto es clave para que KPIs como PENDING cuadren con la tabla filtrada por agente.
       const baseQuery = baseQueryById
-        ? { $or: [ baseQueryById, { $and: [ noAgentIdInDoc, baseQueryByName ] } ] }
+        ? { $or: [ baseQueryById, baseQueryByName ] }
         : baseQueryByName;
       
       const dateQuery = {
@@ -5019,7 +5072,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasPendientes: {
                       $sum: {
                         $cond: [
-                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'PENDING'] }, -1] },
+                          { $regexMatch: { input: '$__statusUpper', regex: 'PEND' } },
                           1,
                           0
                         ]
@@ -5074,10 +5127,14 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         ])
         .toArray();
 
-      // Contar pendientes TOTAL (sin filtro de fecha), para alinear con la tabla que muestra pending acumulado
+      // Contar pendientes del mes actual (con filtro de fecha), igual que las ventas
       const pendingTotalAgg = await db.collection('costumers_unified')
         .aggregate([
-          { $match: baseQuery },
+          {
+            $match: {
+              $and: [baseQuery, dateQuery]
+            }
+          },
           {
             $addFields: {
               __statusUpper: {
@@ -5101,7 +5158,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
               pendientes: {
                 $sum: {
                   $cond: [
-                    { $ne: [{ $indexOfCP: ['$__statusUpper', 'PENDING'] }, -1] },
+                    { $regexMatch: { input: '$__statusUpper', regex: 'PEND' } },
                     1,
                     0
                   ]
