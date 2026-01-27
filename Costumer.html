@@ -4500,8 +4500,18 @@
         // Candidatos de fecha (en orden de prioridad)
         const candidates = [
           lead.dia_venta,
+          lead.diaVenta,
+          lead.dia_de_venta,
+          lead.FECHA,
+          lead.fecha_venta,
+          lead.fechaVenta,
           lead.fecha_contratacion,
+          lead.fechaContratacion,
           lead.fecha,
+          lead.dia_instalacion,
+          lead.diaInstalacion,
+          lead.fecha_instalacion,
+          lead.fechaInstalacion,
           lead.createdAt,
           lead.created_at,
           lead.creadoEn,
@@ -4510,7 +4520,13 @@
           lead.fechaCreacion,
           lead.updatedAt,
           // Anidados en _raw
-          lead._raw && (lead._raw.dia_venta || lead._raw.createdAt || lead._raw.creadoEn || lead._raw.fecha_creacion)
+          lead._raw && (
+            lead._raw.dia_venta || lead._raw.diaVenta || lead._raw.dia_de_venta ||
+            lead._raw.FECHA || lead._raw.fecha_venta || lead._raw.fechaVenta ||
+            lead._raw.fecha_contratacion || lead._raw.fechaContratacion || lead._raw.fecha ||
+            lead._raw.dia_instalacion || lead._raw.diaInstalacion || lead._raw.fecha_instalacion || lead._raw.fechaInstalacion ||
+            lead._raw.createdAt || lead._raw.creadoEn || lead._raw.fecha_creacion
+          )
         ].filter(Boolean);
         const raw = candidates.length ? candidates[0] : null;
         if (!raw) return '';
@@ -4537,6 +4553,19 @@
           if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
             const year = parseInt(raw.slice(0,4), 10);
             return isValidYear(year) ? raw : '';
+          }
+          // 'YYYY-MM-DD HH:mm:ss' o similar (tomar solo prefijo YYYY-MM-DD)
+          if (/^\d{4}-\d{2}-\d{2}\s+/.test(raw)) {
+            const prefix = raw.slice(0, 10);
+            const year = parseInt(prefix.slice(0,4), 10);
+            return (/^\d{4}-\d{2}-\d{2}$/.test(prefix) && isValidYear(year)) ? prefix : '';
+          }
+          // 'YYYY/MM/DD'
+          if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(raw)) {
+            const [y, m, d] = raw.split('/').map(n => parseInt(n, 10));
+            if (!isValidYear(y)) return '';
+            const dt = new Date(y, m - 1, d);
+            return isNaN(dt) ? '' : toYMD(dt);
           }
           // ISO con hora
           if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
@@ -5490,7 +5519,8 @@
           if (role === 'agente' && userData && monthForKpi) {
             console.log('[fetchLeadsAgente] AGENTE: cargando datos COMPLETOS del mes para KPI...');
             // Usar el nombre completo del agente, no username
-            const agentName = (userData.nombre || userData.name || userData.username || userData?.usuario?.nombre || userData?.usuario?.name || userData?.usuario?.username || '').toString().trim();
+            const agentNameRaw = (userData.nombre || userData.name || userData.username || userData?.usuario?.nombre || userData?.usuario?.name || userData?.usuario?.username || '').toString().trim();
+            const agentName = agentNameRaw.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
             if (agentName) {
               const fullMonthUrl = `/api/leads?month=${encodeURIComponent(monthForKpi)}&limit=10000&agentName=${encodeURIComponent(agentName)}`;
               try {
@@ -5503,7 +5533,7 @@
                     window.__agentFullLeadsForKpi = normalizedFullLeads;
                     console.log('[fetchLeadsAgente] AGENTE: datos completos cargados -', normalizedFullLeads.length, 'leads del mes', monthForKpi, 'para', agentName);
                   } else {
-                    window.__agentFullLeadsForKpi = [];
+                    window.__agentFullLeadsForKpi = null;
                     console.log('[fetchLeadsAgente] AGENTE: sin datos para el mes -', agentName);
                   }
                 } else {
@@ -7975,11 +8005,12 @@
       const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
       const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
       
-      if (isAgente && window.__agentFullLeadsForKpi && Array.isArray(window.__agentFullLeadsForKpi)) {
+      if (isAgente && window.__agentFullLeadsForKpi && Array.isArray(window.__agentFullLeadsForKpi) && window.__agentFullLeadsForKpi.length > 0) {
         console.log('[updateSummaryCards] AGENTE: filtrando datos para ver SOLO los suyos propios del MES ACTUAL...');
         
         // Obtener el nombre del agente actual
-        const agentName = (userData.nombre || userData.name || userData.username || userData?.usuario?.nombre || userData?.usuario?.name || userData?.usuario?.username || '').toString().trim();
+        const agentNameRaw = (userData.nombre || userData.name || userData.username || userData.email || userData?.usuario?.nombre || userData?.usuario?.name || userData?.usuario?.username || userData?.usuario?.email || '').toString().trim();
+        const agentName = agentNameRaw.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
         console.log('[updateSummaryCards] AGENTE: buscando leads donde agente =', agentName);
         
         // Función auxiliar para normalizar nombres (igual que en la tabla)
@@ -7993,16 +8024,40 @@
         };
         
         const currentAgentCanon = agentCanonicalName(agentName);
+
+        const getLeadAgentNameCandidates = (lead) => {
+          try {
+            const l = lead || {};
+            const cand = [
+              l.agenteNombre, l.nombreAgente, l.agente, l.agent, l.salesAgent, l.agentName, l.vendedor, l.seller,
+              l.usuario, l.owner, l.createdBy, l.registeredBy,
+              l.asignadoA, l.asignado_a, l.assignedTo, l.assigned_to,
+              l._raw?.agenteNombre, l._raw?.nombreAgente, l._raw?.agente, l._raw?.agent,
+              l._raw?.agentName, l._raw?.salesAgent, l._raw?.vendedor, l._raw?.seller,
+              l._raw?.usuario, l._raw?.owner, l._raw?.createdBy, l._raw?.registeredBy,
+              l._raw?.asignadoA, l._raw?.asignado_a, l._raw?.assignedTo, l._raw?.assigned_to
+            ];
+            return cand.map(x => (x == null ? '' : String(x))).map(s => s.trim()).filter(Boolean);
+          } catch {
+            return [];
+          }
+        };
         
         // Filtrar SOLO los leads del agente actual
         const filteredLeads = window.__agentFullLeadsForKpi.filter(lead => {
-          const leadAgentName = (lead.agente || lead.nombreAgente || lead.agenteNombre || lead.agent || lead._raw?.agente || lead._raw?.nombreAgente || '').toString().trim();
-          const leadAgentCanon = agentCanonicalName(leadAgentName);
-          return leadAgentCanon === currentAgentCanon;
+          const candidates = getLeadAgentNameCandidates(lead);
+          if (!candidates.length) return false;
+          return candidates.some(nm => agentCanonicalName(nm) === currentAgentCanon);
         });
         
         console.log('[updateSummaryCards] AGENTE: de', window.__agentFullLeadsForKpi.length, 'leads totales, filtrando a', filteredLeads.length, 'propios del mes');
-        leads = filteredLeads;
+        // Guardrail: si el filtro por nombre falla (ej. backend retornó ya filtrado por agenteId o datos sin nombre),
+        // no reemplacemos `leads` con una lista muy pequeña que haría caer los KPIs a 0.
+        if (filteredLeads.length >= 5) {
+          leads = filteredLeads;
+        } else {
+          console.warn('[updateSummaryCards] AGENTE: filtro por agente devolvió muy pocos leads; se mantiene el arreglo actual para KPIs. filtered=', filteredLeads.length);
+        }
       }
 
       // Roles para los que Active Oficina NO suma puntaje (pero sí se muestra)

@@ -5069,6 +5069,23 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                         ]
                       }
                     },
+                    ventasActivas: {
+                      $sum: {
+                        $cond: [
+                          { 
+                            $or: [
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADA'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADA'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADO'] }, -1] }
+                            ]
+                          },
+                          1,
+                          0
+                        ]
+                      }
+                    },
                     ventasPendientes: {
                       $sum: {
                         $cond: [
@@ -5113,6 +5130,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     totalRecords: 1,
                     cancelledCount: 1,
                     ventas: '$ventasValidas',
+                    activas: '$ventasActivas',
                     puntos: '$puntosValidos',
                     pendientes: '$ventasPendientes'
                   }
@@ -5170,6 +5188,53 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         ], { allowDiskUse: true })
         .toArray();
 
+      // Contar activas TOTALES (sin filtro de fecha), como la tabla
+      const activasTotalAgg = await db.collection('costumers_unified')
+        .aggregate([
+          { $match: baseQuery },
+          {
+            $addFields: {
+              __statusUpper: {
+                $toUpper: {
+                  $ifNull: [
+                    '$status',
+                    {
+                      $ifNull: [
+                        '$estatus',
+                        { $ifNull: ['$estado', ''] }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              activas: {
+                $sum: {
+                  $cond: [
+                    { 
+                      $or: [
+                        { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                        { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADA'] }, -1] },
+                        { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADO'] }, -1] },
+                        { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADA'] }, -1] },
+                        { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADO'] }, -1] }
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
+              }
+            }
+          },
+          { $project: { _id: 0, activas: 1 } }
+        ], { allowDiskUse: true })
+        .toArray();
+
       // Buscar también el "colchón" (ventas del mes anterior con instalación en mes actual)
       const colchonData = await db.collection('costumers_unified')
         .aggregate([
@@ -5215,9 +5280,10 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         console.log(`[DEBUG JULIO] Facet results:`, JSON.stringify(facetResults, null, 2));
       }
 
-      const stats = agentData && agentData.length > 0 && agentData[0].todos && agentData[0].todos.length > 0 ? agentData[0].todos[0] : { ventas: 0, puntos: 0 };
+      const stats = agentData && agentData.length > 0 && agentData[0].todos && agentData[0].todos.length > 0 ? agentData[0].todos[0] : { ventas: 0, activas: 0, puntos: 0 };
       const colchonStats = colchonData && colchonData.length > 0 ? colchonData[0] : { colchonVentas: 0, colchonPuntos: 0 };
       const pendingTotal = pendingTotalAgg && pendingTotalAgg.length > 0 ? Number(pendingTotalAgg[0].pendientes || 0) : 0;
+      const activasTotal = activasTotalAgg && activasTotalAgg.length > 0 ? Number(activasTotalAgg[0].activas || 0) : 0;
       
       // Sumar ventas del mes actual + colchón
       const ventasActuales = Number(stats.ventas || 0);
@@ -5231,6 +5297,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         email: agent.email || '',
         nombre: displayName,
         ventas: ventasActuales + ventasColchon,
+        activas: activasTotal,
         puntos: Number((puntosActuales + puntosColchon).toFixed(2)),
         pendientes: ventasPendientes
       };
