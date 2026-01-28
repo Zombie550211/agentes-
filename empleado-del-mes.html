@@ -536,9 +536,9 @@
     /* Mantener reglas de view-only para bloquear clicks en placeholder */
     .view-only-mode .placeholder-photo { pointer-events: none; }
     /* Forzar ocultar cualquier botón externo suelto (fuera del marco) */
-    .employee-winner > button,
-    .employee-winner .card-top-actions,
-    .employee-frame > button { display: none !important; }
+    .view-only-mode .employee-winner > button,
+    .view-only-mode .employee-winner .card-top-actions,
+    .view-only-mode .employee-frame > button { display: none !important; }
   </style>
 </head>
 <body>
@@ -729,25 +729,37 @@
     async function checkUserPermissions() {
       // La cookie es httpOnly y no aparece en document.cookie; confiamos en /api/auth/verify
       try {
-        const response = await fetch('/api/auth/verify', { 
-          credentials: 'include' // El navegador enviará la cookie automáticamente
-        });
-        if (response.ok) {
-          const { user } = await response.json();
-          window.currentUser = user;
-          if (window.setCurrentUser) { try { window.setCurrentUser(user); } catch(_) {} }
-          const userRole = String(user.role || '').toLowerCase().trim();
-          const allowedRoles = ['admin', 'administrador', 'backoffice'];
+      let user = null;
+      let response = await fetch('/api/auth/verify-server', {
+        method: 'GET',
+        credentials: 'include'
+      });
 
-          if (allowedRoles.includes(userRole)) {
-            enableEditingFeatures();
-          } else {
-            disableEditingFeatures();
-          }
-          console.log('[EOM] Role detected:', userRole, 'view-only:', document.body.classList.contains('view-only-mode'));
+      if (response.ok) {
+        const data = await response.json();
+        user = data?.user || data;
+      } else {
+        const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+        if (storedUser) {
+          try { user = JSON.parse(storedUser); } catch (_) { user = null; }
+        }
+      }
+
+      if (user) {
+        window.currentUser = user;
+        if (window.setCurrentUser) { try { window.setCurrentUser(user); } catch(_) {} }
+        const userRole = String(user.role || user.rol || '').toLowerCase().trim();
+        const allowedRoles = ['admin', 'administrador', 'backoffice'];
+
+        if (allowedRoles.includes(userRole)) {
+          enableEditingFeatures();
         } else {
           disableEditingFeatures();
         }
+        console.log('[EOM] Role detected:', userRole, 'view-only:', document.body.classList.contains('view-only-mode'));
+      } else {
+        disableEditingFeatures();
+      }
       } catch (error) {
         console.error('Error verifying permissions:', error);
         disableEditingFeatures();
