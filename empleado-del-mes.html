@@ -917,20 +917,61 @@
       document.getElementById(`${employee}-name`).innerText = data.name;
       document.getElementById(`${employee}-description`).innerText = data.description;
 
-      const imgSrc = data.imageUrl || data.imageData || data.url || (data.file && data.file.url) || '';
+      const rawSrc = data.imageUrl || data.imageData || data.url || (data.file && data.file.url) || '';
+      const normalizeImgSrc = (s) => {
+        try {
+          const v0 = String(s || '').trim();
+          if (!v0) return '';
+          // data URI
+          if (/^data:/i.test(v0)) return v0;
+          // normalizar separadores de ruta
+          const v = v0.replace(/\\+/g, '/');
+          // http(s)
+          if (/^https?:\/\//i.test(v)) return v;
+          // si es solo un filename (ej. "foto.jpg"), asumir /uploads
+          if (!v.includes('/') && /\.[a-z0-9]{2,6}$/i.test(v)) return '/uploads/' + v;
+          // rutas relativas tipo "uploads/.." -> "/uploads/.."
+          if (!v.startsWith('/')) return '/' + v;
+          return v;
+        } catch {
+          return '';
+        }
+      };
+      const imgSrc = normalizeImgSrc(rawSrc);
 
       const hasEdit = !document.body.classList.contains('view-only-mode');
-      container.innerHTML = `
-        <div class="employee-photo-frame">
-          <img src="${imgSrc}" alt="${data.name}">
-          ${hasEdit ? `
-          <div class="photo-controls">
-            <button class="photo-control-btn change" onclick="openPhotoModal('${employee}')"><i class="fas fa-edit"></i></button>
-            <button class="photo-control-btn delete" onclick="deletePhoto('${employee}')"><i class="fas fa-trash"></i></button>
-          </div>
-          ` : ''}
-        </div>
-      `;
+
+      // Render por DOM (evita errores por JS inline en atributos)
+      const frame = document.createElement('div');
+      frame.className = 'employee-photo-frame';
+
+      const img = document.createElement('img');
+      img.src = imgSrc;
+      img.alt = String(data.name || '');
+      img.onerror = function() {
+        try {
+          console.warn('[EOM] Imagen no cargó:', this && this.src);
+          this.style.display = 'none';
+          const p = document.createElement('div');
+          p.className = 'placeholder-photo';
+          p.innerHTML = '<i class="fas fa-user"></i><p>Sin imagen</p>';
+          if (this.parentElement) this.parentElement.appendChild(p);
+        } catch (e) {}
+      };
+      frame.appendChild(img);
+
+      if (hasEdit) {
+        const controls = document.createElement('div');
+        controls.className = 'photo-controls';
+        controls.innerHTML = `
+          <button class="photo-control-btn change" onclick="openPhotoModal('${employee}')"><i class="fas fa-edit"></i></button>
+          <button class="photo-control-btn delete" onclick="deletePhoto('${employee}')"><i class="fas fa-trash"></i></button>
+        `;
+        frame.appendChild(controls);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(frame);
     }
 
     function resetEmployeeDisplay(employee) {

@@ -6210,158 +6210,148 @@ function getLocalIp() {
   return 'localhost';
 }
 
-// Endpoints para Empleados del Mes (solo administradores o supervisores de equipo líneas para edición, público para lectura)
-app.get('/api/employees-of-month', async (req, res) => {
-  try {
-    console.log('🌐 Cargando empleados del mes...');
+if (String(process.env.USE_LEGACY_EMPLOYEES_OF_MONTH || '').toLowerCase() === '1') {
+  app.get('/api/employees-of-month', async (req, res) => {
+    try {
+      console.log('🌐 Cargando empleados del mes...');
 
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      await connectToMongoDB();
-    }
+      if (!db) {
+        console.log('Base de datos no conectada, intentando conectar...');
+        await connectToMongoDB();
+      }
 
-    // Verificar si existe la colección
-    const collections = await db.listCollections().toArray();
-    const collectionName = 'employeesOfMonth';
-    const collectionExists = collections.some(c => c.name === collectionName);
+      const collections = await db.listCollections().toArray();
+      const collectionName = 'employeesOfMonth';
+      const collectionExists = collections.some(c => c.name === collectionName);
 
-    if (!collectionExists) {
-      console.log(`Colección ${collectionName} no existe, devolviendo array vacío`);
+      if (!collectionExists) {
+        console.log(`Colección ${collectionName} no existe, devolviendo array vacío`);
+        return res.json({
+          success: true,
+          message: 'No hay empleados del mes registrados',
+          employees: {}
+        });
+      }
+
+      const employeesCollection = db.collection(collectionName);
+      const employees = await employeesCollection.find({}).toArray();
+
+      const employeesObj = {};
+      employees.forEach(emp => {
+        const key = emp.position || emp.employee || 'first';
+        employeesObj[key] = {
+          employee: emp.employee || key,
+          name: emp.name || 'Sin nombre',
+          description: emp.description || 'Sin descripción',
+          imageData: emp.imageData || null,
+          imageClass: emp.imageClass || 'square',
+          date: emp.date || new Date().toLocaleDateString('es-ES')
+        };
+      });
+
+      console.log('✅ Empleados del mes cargados:', Object.keys(employeesObj).length);
       return res.json({
         success: true,
-        message: 'No hay empleados del mes registrados',
-        employees: {}
+        message: 'Empleados del mes cargados correctamente',
+        employees: employeesObj
       });
-    }
-
-    const employeesCollection = db.collection(collectionName);
-
-    // Obtener todos los empleados del mes
-    const employees = await employeesCollection.find({}).toArray();
-
-    // Convertir a objeto para facilitar el acceso desde frontend
-    const employeesObj = {};
-    employees.forEach(emp => {
-      const key = emp.position || emp.employee || 'first';
-      employeesObj[key] = {
-        employee: emp.employee || key,
-        name: emp.name || 'Sin nombre',
-        description: emp.description || 'Sin descripción',
-        imageData: emp.imageData || null,
-        imageClass: emp.imageClass || 'square',
-        date: emp.date || new Date().toLocaleDateString('es-ES')
-      };
-    });
-
-    console.log('✅ Empleados del mes cargados:', Object.keys(employeesObj).length);
-    return res.json({
-      success: true,
-      message: 'Empleados del mes cargados correctamente',
-      employees: employeesObj
-    });
-  } catch (error) {
-    console.error('❌ Error cargando empleados del mes:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cargar empleados del mes',
-      error: error.message
-    });
-  }
-});
-
-// Guardar empleado del mes
-app.post('/api/employees-of-month', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
-  try {
-    console.log('💾 Guardando empleado del mes...');
-
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      await connectToMongoDB();
-    }
-
-    const { employee, name, description, imageData } = req.body || {};
-
-    if (!employee || !name) {
-      return res.status(400).json({
+    } catch (error) {
+      console.error('❌ Error cargando empleados del mes:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Se requiere el empleado y nombre'
+        message: 'Error al cargar empleados del mes',
+        error: error.message
       });
     }
+  });
 
-    const employeesCollection = db.collection('employeesOfMonth');
+  app.post('/api/employees-of-month', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
+    try {
+      console.log('💾 Guardando empleado del mes...');
 
-    // Guardar o actualizar empleado
-    const result = await employeesCollection.findOneAndUpdate(
-      { employee: employee },
-      {
-        $set: {
-          employee: employee,
-          name: name,
-          description: description || 'Sin descripción',
-          imageData: imageData,
-          date: new Date().toLocaleDateString('es-ES'),
-          updatedAt: new Date()
-        }
-      },
-      {
-        upsert: true,
-        returnDocument: 'after'
+      if (!db) {
+        console.log('Base de datos no conectada, intentando conectar...');
+        await connectToMongoDB();
       }
-    );
 
-    console.log('✅ Empleado del mes guardado:', employee);
-    return res.json({
-      success: true,
-      message: 'Empleado del mes guardado correctamente',
-      data: result.value
-    });
-  } catch (error) {
-    console.error('❌ Error guardando empleado del mes:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al guardar empleado del mes',
-      error: error.message
-    });
-  }
-});
+      const { employee, name, description, imageData } = req.body || {};
 
-// Eliminar empleado del mes
-app.delete('/api/employees-of-month/:employee', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
-  try {
-    console.log('🗑️ Eliminando empleado del mes:', req.params.employee);
+      if (!employee || !name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Se requiere el empleado y nombre'
+        });
+      }
 
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      await connectToMongoDB();
-    }
+      const employeesCollection = db.collection('employeesOfMonth');
+      const result = await employeesCollection.findOneAndUpdate(
+        { employee: employee },
+        {
+          $set: {
+            employee: employee,
+            name: name,
+            description: description || 'Sin descripción',
+            imageData: imageData,
+            date: new Date().toLocaleDateString('es-ES'),
+            updatedAt: new Date()
+          }
+        },
+        {
+          upsert: true,
+          returnDocument: 'after'
+        }
+      );
 
-    const employeesCollection = db.collection('employeesOfMonth');
-    const result = await employeesCollection.deleteOne({ employee: req.params.employee });
-
-    if (result.deletedCount === 0) {
-      return res.status(404).json({
+      console.log('✅ Empleado del mes guardado:', employee);
+      return res.json({
+        success: true,
+        message: 'Empleado del mes guardado correctamente',
+        data: result.value
+      });
+    } catch (error) {
+      console.error('❌ Error guardando empleado del mes:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Empleado del mes no encontrado'
+        message: 'Error al guardar empleado del mes',
+        error: error.message
       });
     }
+  });
 
-    console.log('✅ Empleado del mes eliminado:', req.params.employee);
-    return res.json({
-      success: true,
-      message: 'Empleado del mes eliminado correctamente'
-    });
-  } catch (error) {
-    console.error('❌ Error eliminando empleado del mes:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al eliminar empleado del mes',
-      error: error.message
-    });
-  }
-});
+  app.delete('/api/employees-of-month/:employee', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
+    try {
+      console.log('🗑️ Eliminando empleado del mes:', req.params.employee);
+
+      if (!db) {
+        console.log('Base de datos no conectada, intentando conectar...');
+        await connectToMongoDB();
+      }
+
+      const employeesCollection = db.collection('employeesOfMonth');
+      const result = await employeesCollection.deleteOne({ employee: req.params.employee });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Empleado del mes no encontrado'
+        });
+      }
+
+      console.log('✅ Empleado del mes eliminado:', req.params.employee);
+      return res.json({
+        success: true,
+        message: 'Empleado del mes eliminado correctamente'
+      });
+    } catch (error) {
+      console.error('❌ Error eliminando empleado del mes:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al eliminar empleado del mes',
+        error: error.message
+      });
+    }
+  });
+}
 
 // Manejar rutas de la aplicación (SPA) - DEBE IR AL FINAL
 app.get('*', (req, res) => {
