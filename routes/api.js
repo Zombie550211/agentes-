@@ -1647,6 +1647,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
     let canceladas = 0;
     let activas = 0;
     let activasEfectivas = 0;
+    let activasIcon = 0;
+    let activasBamo = 0;
     let pendientes = 0;
     let puntajeMes = 0;
     let puntajeColchonExtra = 0;
@@ -1753,6 +1755,20 @@ router.get('/leads/kpis', protect, async (req, res) => {
                     }
                   }
                 }
+              },
+              _mercado: {
+                $toUpper: {
+                  $trim: {
+                    input: {
+                      $toString: {
+                        $ifNull: [
+                          '$mercado',
+                          { $ifNull: ['$_raw.mercado', ''] }
+                        ]
+                      }
+                    }
+                  }
+                }
               }
             }
           },
@@ -1781,6 +1797,36 @@ router.get('/leads/kpis', protect, async (req, res) => {
                     0
                   ]
                 }
+              },
+              activasIcon: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $regexMatch: { input: '$_status', regex: reActive } },
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
+                        { $eq: ['$_mercado', 'ICON'] }
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
+              },
+              activasBamo: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $regexMatch: { input: '$_status', regex: reActive } },
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
+                        { $eq: ['$_mercado', 'BAMO'] }
+                      ]
+                    },
+                    1,
+                    0
+                  ]
+                }
               }
             }
           }
@@ -1789,6 +1835,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
         const instRow = aggInstall && aggInstall[0] ? aggInstall[0] : null;
         activas += Number(instRow?.activas || 0);
         activasEfectivas += Number(instRow?.activasEfectivas || 0);
+        activasIcon += Number(instRow?.activasIcon || 0);
+        activasBamo += Number(instRow?.activasBamo || 0);
 
         if (__colchonApplicable && queryColchon) {
           const aggColchon = await col.aggregate([
@@ -1869,6 +1917,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
         pendientes,
         activas,
         activasEfectivas,
+        activasIcon,
+        activasBamo,
         puntajeMensual,
         puntajeColchonExtra,
         puntajeBaseMes: puntajeMes,
