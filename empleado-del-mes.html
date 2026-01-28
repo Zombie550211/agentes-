@@ -945,6 +945,16 @@
       const frame = document.createElement('div');
       frame.className = 'employee-photo-frame';
 
+      if (!imgSrc) {
+        const p = document.createElement('div');
+        p.className = 'placeholder-photo';
+        p.innerHTML = '<i class="fas fa-user"></i><p>Sin imagen</p>';
+        frame.appendChild(p);
+        container.innerHTML = '';
+        container.appendChild(frame);
+        return;
+      }
+
       const img = document.createElement('img');
       img.src = imgSrc;
       img.alt = String(data.name || '');
