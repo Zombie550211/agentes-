@@ -2389,7 +2389,7 @@
               <div class="card-icon">
                 <i class="fas fa-map-marker-alt"></i>
               </div>
-              <h3 class="card-title">ICON (Mercado)</h3>
+              <h3 class="card-title">VENTAS ICON</h3>
             </div>
             <div class="card-value" id="costumer-icon-ventas">0</div>
             <div class="card-footer">
@@ -2405,11 +2405,43 @@
               <div class="card-icon">
                 <i class="fas fa-bullseye"></i>
               </div>
-              <h3 class="card-title">BAMO (Mercado)</h3>
+              <h3 class="card-title">VENTAS BAMO</h3>
             </div>
             <div class="card-value" id="costumer-bamo-ventas">0</div>
             <div class="card-footer">
               <i class="fas fa-percentage"></i> <span id="costumer-bamo-percent">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIVAS ICON (NUEVO) -->
+        <div class="summary-card icon-market">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3 class="card-title">ACTIVAS ICON</h3>
+            </div>
+            <div class="card-value" id="costumer-activas-icon">0</div>
+            <div class="card-footer">
+              <i class="fas fa-chart-line"></i> Ventas activas
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIVAS BAMO (NUEVO) -->
+        <div class="summary-card bamo-market">
+          <div class="card-content">
+            <div class="card-header">
+              <div class="card-icon">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3 class="card-title">ACTIVAS BAMO</h3>
+            </div>
+            <div class="card-value" id="costumer-activas-bamo">0</div>
+            <div class="card-footer">
+              <i class="fas fa-chart-line"></i> Ventas activas
             </div>
           </div>
         </div>
@@ -8359,20 +8391,85 @@
         const iconPercent = totalMercados > 0 ? ((iconVentas / totalMercados) * 100).toFixed(1) : 0;
         const bamoPercent = totalMercados > 0 ? ((bamoVentas / totalMercados) * 100).toFixed(1) : 0;
 
+        // ACTIVAS por mercado: para ADMIN/SUPERVISOR usar KPIs del backend (mismo origen que "Ventas Activas")
+        let activasIcon = null;
+        let activasBamo = null;
+        try {
+          const u3 = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const r3 = (u3.role || u3?.usuario?.role || '').toString().trim().toLowerCase();
+          const isAgente3 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r3);
+          if (!isAgente3 && window.__kpisTotals && typeof window.__kpisTotals === 'object') {
+            const kt = window.__kpisTotals;
+            if (typeof kt.activasIcon === 'number') activasIcon = kt.activasIcon;
+            if (typeof kt.activasBamo === 'number') activasBamo = kt.activasBamo;
+          }
+        } catch (_) {}
+
+        // Fallback: si no hay KPIs del backend (o es agente), calcular localmente desde `leads`
+        if (activasIcon === null || activasBamo === null) {
+          activasIcon = 0;
+          activasBamo = 0;
+
+          // Reutilizar la misma lógica del bucle principal de KPIs
+          const userData3 = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+          const roleRaw3 = (userData3.role || userData3?.usuario?.role || '').toString().trim().toLowerCase();
+          const isAgente3 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw3);
+          
+          leads.forEach(l => {
+            try {
+              const mercado = String(l.mercado || '').trim().toUpperCase();
+              const status = normalizarTexto(l.status || '');
+              const isCancel = status.includes('cancel') || status.includes('anulad');
+              const isPending = /pendient/.test(status) || /pending/.test(status);
+              const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/.test(status);
+              
+              // Usar la misma extracción de fecha que el gráfico
+              const leadISO = getDateFromLead(l);
+              let inTargetMonth = false;
+              if (!leadISO) {
+                if (!__hasExplicitMonthFilter) return;
+                inTargetMonth = true;
+              } else {
+                const [yL, mL] = leadISO.split('-').map(Number);
+                inTargetMonth = (yL === ySel && mL === mSel);
+                if (!inTargetMonth) return;
+              }
+              
+              // Usar exactamente la misma lógica que ventasActivas
+              const shouldCount = (isAgente3 || !(window.__kpisTotals && typeof window.__kpisTotals === 'object'));
+              
+              if (isActive && !isCancel && shouldCount && inTargetMonth) {
+                if (mercado === 'ICON') activasIcon++;
+                if (mercado === 'BAMO') activasBamo++;
+              }
+            } catch (e) { /* noop */ }
+          });
+        }
+
         // Actualizar DOM
         const puntajeMensualEl = document.getElementById('costumer-puntaje-mensual');
         const iconVentasEl = document.getElementById('costumer-icon-ventas');
         const bamoVentasEl = document.getElementById('costumer-bamo-ventas');
         const iconPercentEl = document.getElementById('costumer-icon-percent');
         const bamoPercentEl = document.getElementById('costumer-bamo-percent');
+        const activasIconEl = document.getElementById('costumer-activas-icon');
+        const activasBamoEl = document.getElementById('costumer-activas-bamo');
 
         if (puntajeMensualEl) puntajeMensualEl.textContent = puntajeMensual.toString();
         if (iconVentasEl) iconVentasEl.textContent = iconVentas.toString();
         if (bamoVentasEl) bamoVentasEl.textContent = bamoVentas.toString();
         if (iconPercentEl) iconPercentEl.textContent = iconPercent + '%';
         if (bamoPercentEl) bamoPercentEl.textContent = bamoPercent + '%';
+        if (activasIconEl) activasIconEl.textContent = activasIcon.toString();
+        if (activasBamoEl) activasBamoEl.textContent = activasBamo.toString();
 
-        console.log('[KPI] Metricas calculadas:', { puntajeMensual, iconVentas, bamoVentas, iconPercent, bamoPercent });
+        console.log('[KPI] Metricas calculadas:', { puntajeMensual, iconVentas, bamoVentas, iconPercent, bamoPercent, activasIcon, activasBamo });
+        console.log('[KPI] Total leads procesados:', leads.length);
+        console.log('[KPI] Verificación:', {
+          totalActivasIconBamo: activasIcon + activasBamo,
+          ventasActivasEsperado: ventasActivas,
+          diferencia: (activasIcon + activasBamo) - ventasActivas
+        });
       } catch (err) {
         console.error('[KPI] Error calculando KPIs:', err);
       }
