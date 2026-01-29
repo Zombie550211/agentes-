@@ -3865,13 +3865,8 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
 
     // En producción (Render) el almacenamiento local es efímero; para marketing requerimos Cloudinary
     if (String(category || '').toLowerCase() === 'marketing' && isProduction && !hasCloudinary) {
-      if (req.file && fs.existsSync(req.file.path)) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-      }
-      return res.status(500).json({
-        success: false,
-        message: 'Para promociones (marketing) se requiere Cloudinary configurado. Configura CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET.'
-      });
+      console.warn('[UPLOAD] Cloudinary no configurado para marketing en producción; guardando localmente (temporal). La promoción podría perderse en reinicios.');
+      // No bloqueamos; se guardará localmente con source='local'
     }
 
     if (hasCloudinary) {
@@ -3890,7 +3885,7 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
         }
       } catch (e) {
         // Para marketing en producción, si Cloudinary falla no guardamos un archivo local que luego desaparecerá
-        if (String(category || '').toLowerCase() === 'marketing' && isProduction) {
+        if (String(category || '').toLowerCase() === 'marketing' && isProduction && hasCloudinary) {
           if (req.file && fs.existsSync(req.file.path)) {
             try { fs.unlinkSync(req.file.path); } catch (_) {}
           }
