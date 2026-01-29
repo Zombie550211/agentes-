@@ -3826,6 +3826,13 @@ app.post('/api/auth/reset-password', protect, authorize('Administrador', 'admin'
 
 // Endpoint para subir archivos multimedia
 app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
+  console.log('[UPLOAD] Inicio de upload', {
+    file: req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path } : null,
+    body: req.body,
+    user: req.user?.username,
+    NODE_ENV: process.env.NODE_ENV,
+    hasCloudinary: !!(cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
+  });
   try {
     if (!req.file) {
       return res.status(400).json({
