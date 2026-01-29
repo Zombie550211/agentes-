@@ -180,7 +180,9 @@ router.post('/migrate-cloudinary', protect, authorize('Administrador', 'admin', 
         continue;
       }
 
-      const filename = path.basename(normalized);
+      const normalizedBase = String(normalized || '').split('?')[0].split('#')[0];
+      let filename = path.basename(normalizedBase);
+      try { filename = decodeURIComponent(filename); } catch (_) {}
       const filePath = path.join(uploadsDir, filename);
       if (!fs.existsSync(filePath)) {
         missing++;

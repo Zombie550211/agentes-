@@ -3833,6 +3833,7 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
     NODE_ENV: process.env.NODE_ENV,
     hasCloudinary: !!(cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
   });
+  
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -3846,7 +3847,6 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
       return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
     }
     if (!db) db = getDb();
-    const collection = db.collection('mediafiles');
 
     // Determinar categoría del archivo (permite override desde el cliente)
     let categoryOverride = (req.body && req.body.category) || req.query.category || req.headers['x-media-category'];
@@ -3870,10 +3870,21 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
     const hasCloudinary = cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
     const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
 
+    const categoryLower = String(category || '').toLowerCase();
+    const requiresCloudinary = (categoryLower === 'marketing' || categoryLower === 'employees-of-month') && isProduction;
+
     // En producción (Render) el almacenamiento local es efímero; para marketing requerimos Cloudinary
-    if (String(category || '').toLowerCase() === 'marketing' && isProduction && !hasCloudinary) {
-      console.warn('[UPLOAD] Cloudinary no configurado para marketing en producción; guardando localmente (temporal). La promoción podría perderse en reinicios.');
-      // No bloqueamos; se guardará localmente con source='local'
+    if (requiresCloudinary && !hasCloudinary) {
+      // No permitir fallback a disco local en producción para categorías críticas.
+      // employees-of-month: evita que la imagen desaparezca tras reinicios.
+      if (req.file && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+      }
+      console.warn(`[UPLOAD] Cloudinary no configurado para categoría "${categoryLower}" en producción. Bloqueando subida local.`);
+      return res.status(400).json({
+        success: false,
+        message: `Cloudinary no está configurado para ${categoryLower} en producción. Configura CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET.`
+      });
     }
 
     if (hasCloudinary) {
@@ -3885,28 +3896,25 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
         });
         fileUrl = result.secure_url;
         cloudinaryPublicId = result.public_id;
-        source = 'cloudinary';
         // Borrar archivo local tras subir a Cloudinary
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
       } catch (e) {
-        // Para marketing en producción, si Cloudinary falla no guardamos un archivo local que luego desaparecerá
-        if (String(category || '').toLowerCase() === 'marketing' && isProduction && hasCloudinary) {
+        if ((requiresCloudinary || categoryLower === 'employees-of-month') && hasCloudinary) {
           if (req.file && fs.existsSync(req.file.path)) {
             try { fs.unlinkSync(req.file.path); } catch (_) {}
           }
-          console.warn('[UPLOAD] Cloudinary falló para marketing:', e.message);
+          console.warn(`[UPLOAD] Cloudinary falló para ${categoryLower}:`, e.message);
           return res.status(502).json({
             success: false,
-            message: 'No se pudo subir la promoción a Cloudinary. Intenta nuevamente o revisa credenciales.'
+            message: `No se pudo subir el archivo a Cloudinary (${categoryLower}). Intenta nuevamente o revisa credenciales.`
           });
         }
 
-        console.warn('[UPLOAD] Cloudinary fallo, se mantiene archivo local:', e.message);
+        console.warn('[UPLOAD] Cloudinary falló:', e.message);
       }
     }
-
     // Guardar información en la base de datos (Mongo nativo)
     const now = new Date();
     const doc = {

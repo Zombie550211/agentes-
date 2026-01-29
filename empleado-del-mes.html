@@ -853,8 +853,19 @@
     }
 
     function closeModal() {
-      const modal = bootstrap.Modal.getInstance(document.getElementById('addContentModal'));
+      const modalEl = document.getElementById('addContentModal');
+      try {
+        const active = document.activeElement;
+        if (active && modalEl && modalEl.contains(active) && typeof active.blur === 'function') {
+          active.blur();
+        }
+      } catch (_) {}
+
+      const modal = bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
+
+      // Mover foco a un elemento seguro fuera del modal
+      try { document.body && document.body.focus && document.body.focus(); } catch (_) {}
     }
 
     function resetModal() {
@@ -1002,22 +1013,48 @@
         try {
           const v0 = String(s || '').trim();
           if (!v0) return '';
+          const encodePath = (p0) => {
+            try {
+              const p = String(p0 || '');
+              if (!p) return '';
+              const qIndex = p.indexOf('?');
+              const base = qIndex >= 0 ? p.slice(0, qIndex) : p;
+              const query = qIndex >= 0 ? p.slice(qIndex) : '';
+              const parts = base.split('/');
+              const encoded = parts.map((seg, idx) => {
+                if (idx === 0) return seg; // '' cuando empieza con '/'
+                return encodeURIComponent(seg);
+              }).join('/');
+              return encoded + query;
+            } catch {
+              return String(p0 || '');
+            }
+          };
           // data URI
           if (/^data:/i.test(v0)) return v0;
           // normalizar separadores de ruta
           const v = v0.replace(/\\+/g, '/');
           // http(s)
-          if (/^https?:\/\//i.test(v)) return v;
+          if (/^https?:\/\//i.test(v)) {
+            if (/^https?:\/\/res\.cloudinary\.com\//i.test(v) || /^https?:\/\/[^/]+\.cloudinary\.com\//i.test(v)) {
+              return `/media/proxy?url=${encodeURIComponent(v)}`;
+            }
+            return v;
+          }
           // si es solo un filename (ej. "foto.jpg"), asumir /uploads
-          if (!v.includes('/') && /\.[a-z0-9]{2,6}$/i.test(v)) return '/uploads/' + v;
+          if (!v.includes('/') && /\.[a-z0-9]{2,6}$/i.test(v)) return encodePath('/uploads/' + v);
           // rutas relativas tipo "uploads/.." -> "/uploads/.."
-          if (!v.startsWith('/')) return '/' + v;
-          return v;
+          if (!v.startsWith('/')) return encodePath('/' + v);
+          return encodePath(v);
         } catch {
           return '';
         }
       };
-      const imgSrc = normalizeImgSrc(rawSrc);
+      let imgSrc = normalizeImgSrc(rawSrc);
+      if (imgSrc && /^\/uploads\//i.test(imgSrc)) {
+        const bust = encodeURIComponent(String(data.updatedAt || data.date || Date.now()));
+        imgSrc = imgSrc + (imgSrc.includes('?') ? '&' : '?') + 'v=' + bust;
+      }
 
       const hasEdit = !document.body.classList.contains('view-only-mode');
 
@@ -1051,6 +1088,9 @@
       const img = document.createElement('img');
       img.src = imgSrc;
       img.alt = String(data.name || '');
+      img.loading = 'eager';
+      img.decoding = 'async';
+      try { if ('fetchPriority' in img) img.fetchPriority = 'high'; } catch (_) {}
       img.onerror = function() {
         try {
           console.warn('[EOM] Imagen no cargó:', this && this.src);
