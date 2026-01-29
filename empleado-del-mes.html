@@ -238,6 +238,16 @@
       opacity: 1;
     }
 
+    .employee-photo-frame:focus-within .photo-controls {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      .photo-controls {
+        opacity: 1;
+      }
+    }
+
     .photo-control-btn {
       background: rgba(0, 0, 0, 0.7);
       color: white;
@@ -530,6 +540,80 @@
         gap: 30px;
       }
     }
+
+    .card-top-actions {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      z-index: 4;
+    }
+
+    .card-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(17, 24, 39, 0.78);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      user-select: none;
+    }
+
+    .card-action-btn i {
+      font-size: 0.9rem;
+    }
+
+    .card-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+      background: rgba(17, 24, 39, 0.9);
+    }
+
+    .card-action-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    }
+
+    .card-action-btn.edit {
+      background: rgba(37, 99, 235, 0.88);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .card-action-btn.edit:hover {
+      background: rgba(37, 99, 235, 1);
+    }
+
+    .card-action-btn.delete {
+      background: rgba(220, 38, 38, 0.88);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .card-action-btn.delete:hover {
+      background: rgba(220, 38, 38, 1);
+    }
+
+    @media (max-width: 768px) {
+      .card-top-actions {
+        top: 10px;
+        left: 10px;
+      }
+
+      .card-action-btn {
+        padding: 7px 10px;
+        font-size: 0.8rem;
+      }
+    }
   
     /* Posicionamiento relativo para permitir overlays internos */
     .employee-frame { position: relative; }
@@ -569,14 +653,6 @@
             <span>EMPLEADO DEL MES</span>
           </div>
           <div class="employee-frame">
-            <div class="card-top-actions">
-              <button class="card-action-btn edit" onclick="openPhotoModal('first')">
-                <i class="fas fa-edit"></i> Editar
-              </button>
-              <button class="card-action-btn delete" onclick="deletePhoto('first')">
-                <i class="fas fa-trash"></i> Eliminar
-              </button>
-            </div>
             <div class="frame-decoration">
               <div class="photo-container" id="first-photo-container">
                 <div class="placeholder-photo" onclick="openPhotoModal('first')">
@@ -606,14 +682,6 @@
             <span>EMPLEADO DEL MES</span>
           </div>
           <div class="employee-frame">
-            <div class="card-top-actions">
-              <button class="card-action-btn edit" onclick="openPhotoModal('second')">
-                <i class="fas fa-edit"></i> Editar
-              </button>
-              <button class="card-action-btn delete" onclick="deletePhoto('second')">
-                <i class="fas fa-trash"></i> Eliminar
-              </button>
-            </div>
             <div class="frame-decoration">
               <div class="photo-container" id="second-photo-container">
                 <div class="placeholder-photo" onclick="openPhotoModal('second')">
@@ -961,7 +1029,20 @@
         const p = document.createElement('div');
         p.className = 'placeholder-photo';
         p.innerHTML = '<i class="fas fa-user"></i><p>Sin imagen</p>';
+        if (hasEdit) {
+          p.onclick = () => openPhotoModal(employee);
+        }
         frame.appendChild(p);
+
+        if (hasEdit) {
+          const controls = document.createElement('div');
+          controls.className = 'photo-controls';
+          controls.innerHTML = `
+            <button class="photo-control-btn change" onclick="openPhotoModal('${employee}')"><i class="fas fa-edit"></i></button>
+            <button class="photo-control-btn delete" onclick="deletePhoto('${employee}')"><i class="fas fa-trash"></i></button>
+          `;
+          frame.appendChild(controls);
+        }
         container.innerHTML = '';
         container.appendChild(frame);
         return;
@@ -1001,12 +1082,31 @@
       const nameEl = document.getElementById(`${employee}-name`);
       const descriptionEl = document.getElementById(`${employee}-description`);
 
-      container.innerHTML = `
-        <div class="placeholder-photo" onclick="openPhotoModal('${employee}')">
-          <i class="fas fa-user-plus"></i>
-          <p>Agregar Foto</p>
-        </div>
-      `;
+      const hasEdit = !document.body.classList.contains('view-only-mode');
+
+      const frame = document.createElement('div');
+      frame.className = 'employee-photo-frame';
+
+      const placeholder = document.createElement('div');
+      placeholder.className = 'placeholder-photo';
+      placeholder.innerHTML = '<i class="fas fa-user-plus"></i><p>Agregar Foto</p>';
+      if (hasEdit) {
+        placeholder.onclick = () => openPhotoModal(employee);
+      }
+      frame.appendChild(placeholder);
+
+      if (hasEdit) {
+        const controls = document.createElement('div');
+        controls.className = 'photo-controls';
+        controls.innerHTML = `
+          <button class="photo-control-btn change" onclick="openPhotoModal('${employee}')"><i class="fas fa-edit"></i></button>
+          <button class="photo-control-btn delete" onclick="deletePhoto('${employee}')"><i class="fas fa-trash"></i></button>
+        `;
+        frame.appendChild(controls);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(frame);
       nameEl.innerText = `Empleado del Mes`;
       descriptionEl.innerText = 'Haz clic en "Agregar Foto" para subir imagen';
     }

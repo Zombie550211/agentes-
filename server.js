@@ -3824,8 +3824,6 @@ app.post('/api/auth/reset-password', protect, authorize('Administrador', 'admin'
   }
 });
 
-// ===== ENDPOINTS MULTIMEDIA =====
-
 // Endpoint para subir archivos multimedia
 app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
   try {
@@ -3835,13 +3833,14 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
         message: 'No se recibió ningún archivo'
       });
     }
+
     // Asegurar conexión BD
     if (!isConnected()) {
       return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
     }
     if (!db) db = getDb();
     const collection = db.collection('mediafiles');
-    
+
     // Determinar categoría del archivo (permite override desde el cliente)
     let categoryOverride = (req.body && req.body.category) || req.query.category || req.headers['x-media-category'];
     let category = null;
@@ -3855,13 +3854,26 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
         category = 'video';
       }
     }
-    
+
     // URL del archivo (local por defecto); si hay Cloudinary, subir allí
     let fileUrl = `/uploads/${req.file.filename}`;
     let cloudinaryPublicId = null;
     let source = 'local';
-    
+
     const hasCloudinary = cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
+    const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+
+    // En producción (Render) el almacenamiento local es efímero; para marketing requerimos Cloudinary
+    if (String(category || '').toLowerCase() === 'marketing' && isProduction && !hasCloudinary) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+      }
+      return res.status(500).json({
+        success: false,
+        message: 'Para promociones (marketing) se requiere Cloudinary configurado. Configura CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET.'
+      });
+    }
+
     if (hasCloudinary) {
       try {
         const folder = `crm/${category || 'general'}`;
@@ -3877,6 +3889,18 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
           fs.unlinkSync(req.file.path);
         }
       } catch (e) {
+        // Para marketing en producción, si Cloudinary falla no guardamos un archivo local que luego desaparecerá
+        if (String(category || '').toLowerCase() === 'marketing' && isProduction) {
+          if (req.file && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (_) {}
+          }
+          console.warn('[UPLOAD] Cloudinary falló para marketing:', e.message);
+          return res.status(502).json({
+            success: false,
+            message: 'No se pudo subir la promoción a Cloudinary. Intenta nuevamente o revisa credenciales.'
+          });
+        }
+
         console.warn('[UPLOAD] Cloudinary fallo, se mantiene archivo local:', e.message);
       }
     }
@@ -3993,8 +4017,7 @@ app.get('/api/media', protect, async (req, res) => {
           validFiles.push(file);
           console.log(`[MEDIA] ✓ Archivo local válido: ${file.originalName}`);
         } else {
-          console.log(`[MEDIA] 🗑️ Eliminando referencia a archivo local inexistente: ${file.url}`);
-          await collection.deleteOne({ _id: file._id });
+          console.log(`[MEDIA] ⚠️ Archivo local inexistente (se omite, no se borra DB): ${file.url}`);
         }
       } catch (error) {
         console.error(`[MEDIA] Error verificando archivo ${file.url}:`, error);
