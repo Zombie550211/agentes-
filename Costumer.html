@@ -10465,9 +10465,38 @@
       window.__debugMonthFilter = true;
       
       // FunciÃ³n para poblar filtros de Team y Agente
-      window.populateTeamAndAgentFilters = function(leads) {
+      window.populateTeamAndAgentFilters = async function(leads) {
         try {
           if (!Array.isArray(leads)) return;
+
+          const authHeaders = () => {
+            const h = { 'Accept': 'application/json' };
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (token) h['Authorization'] = `Bearer ${token}`;
+            return h;
+          };
+
+          const normKey = (v) => {
+            try {
+              return String(v || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .replace(/[._-]+/g, ' ')
+                .replace(/\s+/g, ' ');
+            } catch (_) {
+              return String(v || '').trim().toLowerCase().replace(/[._-]+/g, ' ').replace(/\s+/g, ' ');
+            }
+          };
+
+          const toDisplayName = (raw) => {
+            const s = String(raw || '').trim();
+            if (!s) return '';
+            const cleaned = s.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
+            if (/\s/.test(cleaned)) return cleaned;
+            return cleaned;
+          };
           
           // IMPORTANTE: Filtrar leads por mes seleccionado ANTES de poblar los filtros
           let filteredLeads = leads;
@@ -10585,12 +10614,50 @@
             while (agentFilter.children.length > 1) {
               agentFilter.removeChild(agentFilter.lastChild);
             }
-            
-            // Agregar todos los agentes ordenados
-            Array.from(allAgentsSet).sort().forEach(agent => {
+
+            // Intentar mapear nombres desde /api/users/agents (si está disponible)
+            let nameMap = null;
+            try {
+              if (!window.__usersAgentsNameMapPromise) {
+                window.__usersAgentsNameMapPromise = (async () => {
+                  try {
+                    const resp = await fetch('/api/users/agents', { method: 'GET', credentials: 'include', headers: authHeaders() });
+                    if (!resp || !resp.ok) return null;
+                    const json = await resp.json();
+                    const arr = Array.isArray(json?.agents) ? json.agents : (Array.isArray(json) ? json : []);
+                    if (!Array.isArray(arr) || !arr.length) return null;
+                    const map = new Map();
+                    arr.forEach(u => {
+                      const disp = String(u?.name || u?.nombre || u?.fullName || u?.username || '').trim();
+                      const uname = String(u?.username || '').trim();
+                      if (disp) map.set(normKey(disp), disp);
+                      if (uname && disp) map.set(normKey(uname), disp);
+                      if (uname) map.set(normKey(uname), disp || uname);
+                    });
+                    return map;
+                  } catch (_) { return null; }
+                })();
+              }
+            } catch (_) {}
+
+            try {
+              nameMap = await window.__usersAgentsNameMapPromise;
+            } catch (_) {
+              nameMap = null;
+            }
+
+            const sortedAgents = Array.from(allAgentsSet).sort((a, b) => String(a).localeCompare(String(b)));
+            sortedAgents.forEach(agent => {
               const option = document.createElement('option');
               option.value = agent;
-              option.textContent = agent;
+              let label = toDisplayName(agent);
+              try {
+                if (nameMap && nameMap instanceof Map) {
+                  const mapped = nameMap.get(normKey(agent));
+                  if (mapped) label = mapped;
+                }
+              } catch (_) {}
+              option.textContent = label || agent;
               agentFilter.appendChild(option);
             });
           }

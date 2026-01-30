@@ -557,7 +557,7 @@
   }
 
   function getDisplayName(user) {
-    const candidates = [user?.fullName, user?.name, user?.displayName, user?.username, user?.email];
+    const candidates = [user?.fullName, user?.name, user?.nombre, user?.displayName, user?.username, user?.email];
     for (const candidate of candidates) {
       const value = (candidate == null ? '' : String(candidate)).trim();
       if (value) return value;
