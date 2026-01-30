@@ -1385,6 +1385,166 @@ router.get('/leads', protect, async (req, res) => {
 });
 
 /**
+ * @route GET /api/leads/agents-summary
+ * @desc Resumen por agente (ventas y puntos) para un mes (YYYY-MM)
+ * @access Private
+ */
+router.get('/leads/agents-summary', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+
+    const monthRaw = String(req.query?.month || '').trim();
+    const yearRaw = String(req.query?.year || '').trim();
+    const agentNameRaw = String(req.query?.agentName || '').trim();
+    const agentsRaw = String(req.query?.agents || '').trim();
+
+    const parseMonth = (m, y) => {
+      if (/^\d{4}-\d{2}$/.test(m)) {
+        const [yy, mm] = m.split('-').map(Number);
+        if (yy > 2000 && mm >= 1 && mm <= 12) return { year: yy, month: mm };
+      }
+      if (/^\d{1,2}$/.test(m) && /^\d{4}$/.test(y)) {
+        const yy = Number(y);
+        const mm = Number(m);
+        if (yy > 2000 && mm >= 1 && mm <= 12) return { year: yy, month: mm };
+      }
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    };
+    const { year, month } = parseMonth(monthRaw, yearRaw);
+    const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    const ymPrefix = `${year}-${String(month).padStart(2, '0')}`;
+    const reYM = new RegExp(`^${ymPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+
+    const normalizeList = (v) => {
+      if (!v) return [];
+      return String(v).split(',').map(s => s.trim()).filter(Boolean);
+    };
+
+    const roleLower = String(req.user?.role || '').toLowerCase();
+    const isSupervisor = roleLower === 'supervisor' || roleLower.includes('supervisor');
+
+    let agents = [];
+    if (agentNameRaw) {
+      agents = [agentNameRaw];
+    } else {
+      agents = normalizeList(agentsRaw);
+    }
+
+    if ((!agents || agents.length === 0) && isSupervisor) {
+      try {
+        const usersCol = db.collection('users');
+        const supervisorUsername = String(req.user?.username || '').trim();
+        const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
+        const supervisorTeam = String(req.user?.team || '').trim();
+        const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || '')).trim();
+
+        const or = [];
+        if (currentUserId) or.push({ supervisorId: currentUserId });
+        if (supervisorUsername) or.push({ supervisor: { $regex: supervisorUsername, $options: 'i' } });
+        if (supervisorName) {
+          or.push({ supervisor: { $regex: supervisorName, $options: 'i' } });
+          or.push({ supervisorName: { $regex: supervisorName, $options: 'i' } });
+          or.push({ manager: { $regex: supervisorName, $options: 'i' } });
+        }
+        if (supervisorTeam) or.push({ team: supervisorTeam });
+
+        const and = [];
+        if (or.length) and.push({ $or: or });
+        and.push({ role: { $not: /supervisor/i } });
+
+        const found = await usersCol.find(and.length ? { $and: and } : { role: { $not: /supervisor/i } }).project({ username: 1, name: 1, nombre: 1, fullName: 1 }).toArray();
+        agents = (found || [])
+          .flatMap(u => [u?.name, u?.nombre, u?.fullName, u?.username])
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+      } catch (_) {
+        agents = [];
+      }
+    }
+
+    if (!Array.isArray(agents) || agents.length === 0) {
+      return res.status(400).json({ success: false, message: 'Parámetro requerido: agents (csv) o agentName (o ser supervisor con agentes asignados)' });
+    }
+
+    const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const uniq = Array.from(new Set(agents.map(a => String(a || '').trim()).filter(Boolean)));
+    const agentRegex = uniq.length ? new RegExp(`^(${uniq.map(esc).join('|')})$`, 'i') : null;
+
+    const unifiedCollectionName = 'costumers_unified';
+    let collectionName = 'costumers';
+    try {
+      const exists = await db.listCollections({ name: unifiedCollectionName }).toArray();
+      if (Array.isArray(exists) && exists.length) collectionName = unifiedCollectionName;
+    } catch (_) {}
+
+    const col = db.collection(collectionName);
+    const pipeline = [
+      {
+        $addFields: {
+          _agentName: {
+            $ifNull: [
+              { $ifNull: ['$agenteNombre', '$agente'] },
+              { $ifNull: ['$usuario', { $ifNull: ['$nombreAgente', '$vendedor'] }] }
+            ]
+          },
+          _points: {
+            $convert: {
+              input: {
+                $ifNull: [
+                  '$puntaje',
+                  { $ifNull: ['$puntos', { $ifNull: ['$_raw.puntaje', { $ifNull: ['$_raw.puntos', 0] }] }] }
+                ]
+              },
+              to: 'double',
+              onError: 0,
+              onNull: 0
+            }
+          }
+        }
+      },
+      { $match: { _agentName: { $regex: agentRegex } } },
+      {
+        $match: {
+          $or: [
+            { dia_venta: { $regex: reYM } },
+            { fecha_contratacion: { $regex: reYM } },
+            { '_raw.dia_venta': { $regex: reYM } },
+            { '_raw.fecha_contratacion': { $regex: reYM } },
+            { createdAt: { $gte: monthStart, $lte: monthEnd } },
+            { creadoEn: { $gte: monthStart, $lte: monthEnd } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: '$_agentName',
+          ventas: { $sum: 1 },
+          puntos: { $sum: '$_points' }
+        }
+      },
+      { $sort: { ventas: -1, puntos: -1 } },
+      {
+        $project: {
+          _id: 0,
+          agente: '$_id',
+          ventas: 1,
+          puntos: { $round: ['$puntos', 2] }
+        }
+      }
+    ];
+
+    const data = await col.aggregate(pipeline, { maxTimeMS: 15_000 }).toArray();
+    return res.json({ success: true, data, meta: { month: ymPrefix, collection: collectionName, agents: uniq.length } });
+  } catch (e) {
+    console.error('[API /leads/agents-summary] Error:', e);
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+/**
  * @route GET /api/leads/kpis
  * @desc KPIs de leads (totales del mes sin paginación)
  * @access Private

@@ -16,7 +16,7 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
-    const { name, username: usernameRaw, email, password, role, team } = req.body;
+    const { name, username: usernameRaw, email, password, role, team, supervisor, supervisorName, supervisorId } = req.body;
     const username = String(usernameRaw || '').trim();
     if (!username || !password || !role) {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios (usuario, contraseña, rol)' });
@@ -31,13 +31,78 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
     const now = new Date();
+
+    const norm = (v) => {
+      try {
+        return String(v || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ');
+      } catch (_) {
+        return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+    };
+
+    const teamRaw = String(team || '').trim();
+    const teamKey = norm(teamRaw);
+    const TEAM_CODE_MAP = {
+      'team_irania': 'TEAM IRANIA',
+      'team_bryan': 'TEAM BRYAN PLEITEZ',
+      'team_marisol': 'TEAM MARISOL BELTRAN',
+      'team_roberto': 'TEAM ROBERTO VELASQUEZ',
+      'team_johana': 'TEAM JOHANA',
+      'team_lineas': 'TEAM LINEAS',
+      'backoffice': 'Backoffice',
+      'administracion': 'Administración'
+    };
+    const normalizedTeam = TEAM_CODE_MAP[teamKey] || teamRaw || '';
+
+    const TEAM_SUPERVISOR_MAP = {
+      'TEAM IRANIA': { supervisor: 'irania.serrano', supervisorName: 'Irania Serrano' },
+      'TEAM BRYAN PLEITEZ': { supervisor: 'bryan.pleitez', supervisorName: 'Bryan Pleitez' },
+      'TEAM MARISOL BELTRAN': { supervisor: 'marisol.beltran', supervisorName: 'Marisol Beltrán' },
+      'TEAM ROBERTO VELASQUEZ': { supervisor: 'roberto.velasquez', supervisorName: 'Roberto Velásquez' },
+      'TEAM JOHANA': { supervisor: 'johana.supervisor', supervisorName: 'Guadalupe Santana' },
+      'TEAM LINEAS': { supervisor: 'jonathan.figueroa', supervisorName: 'Jonathan Figueroa' },
+      'Backoffice': { supervisor: null, supervisorName: null },
+      'Administración': { supervisor: null, supervisorName: null }
+    };
+
+    const derivedSup = TEAM_SUPERVISOR_MAP[normalizedTeam] || null;
+    const supNameFinal = String(supervisorName || derivedSup?.supervisorName || supervisor || '').trim();
+    const supUserFinal = String(supervisor || derivedSup?.supervisor || '').trim();
+
+    let supIdFinal = supervisorId || null;
+    if (!supIdFinal && (supNameFinal || supUserFinal)) {
+      try {
+        const usersCol = db.collection('users');
+        const ors = [];
+        if (supUserFinal) ors.push({ username: new RegExp(`^\\s*${supUserFinal.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*$`, 'i') });
+        if (supNameFinal) {
+          const rx = new RegExp(`^\\s*${supNameFinal.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*$`, 'i');
+          ors.push({ name: rx });
+          ors.push({ nombre: rx });
+          ors.push({ fullName: rx });
+        }
+        const supDoc = ors.length ? await usersCol.findOne({ $or: ors }, { projection: { _id: 1 } }) : null;
+        if (supDoc && supDoc._id) supIdFinal = supDoc._id;
+      } catch (_) {
+        supIdFinal = null;
+      }
+    }
+
     const userDoc = {
       username,
       password: hashed,
       role,
-      team: team || '',
+      team: normalizedTeam || '',
       name: name || '',
       email: email || '',
+      supervisor: supUserFinal || (supNameFinal || ''),
+      supervisorName: supNameFinal || '',
+      supervisorId: supIdFinal || null,
       createdAt: now,
       updatedAt: now
     };
@@ -493,7 +558,7 @@ router.get('/verify-server', async (req, res) => {
       permissions: decoded.permissions || []
     };
 
-    // Intentar obtener información adicional del usuario desde BD (avatar, etc.)
+    // Intentar obtener información adicional del usuario desde BD (avatar, name, etc.)
     try {
       const db = getDb();
       if (!db) {
@@ -502,13 +567,20 @@ router.get('/verify-server', async (req, res) => {
         const usersCollection = db.collection('users');
         const userDoc = await usersCollection.findOne(
           { username: decoded.username },
-          { projection: { avatarUrl: 1, avatarFileId: 1 } }
+          { projection: { avatarUrl: 1, avatarFileId: 1, name: 1, nombre: 1, fullName: 1, team: 1, role: 1, supervisor: 1, supervisorName: 1, supervisorId: 1 } }
         );
 
         if (userDoc) {
           if (userDoc.avatarUrl) userData.avatarUrl = userDoc.avatarUrl;
           if (userDoc.avatarFileId) userData.avatarFileId = userDoc.avatarFileId;
-          console.log('[VERIFY-SERVER] Avatar cargado del servidor para usuario:', decoded.username);
+          const dbName = userDoc.name || userDoc.nombre || userDoc.fullName;
+          if (dbName) userData.name = dbName;
+          if (userDoc.team) userData.team = userDoc.team;
+          if (userDoc.role) userData.role = userDoc.role;
+          if (userDoc.supervisor) userData.supervisor = userDoc.supervisor;
+          if (userDoc.supervisorName) userData.supervisorName = userDoc.supervisorName;
+          if (userDoc.supervisorId) userData.supervisorId = userDoc.supervisorId;
+          console.log('[VERIFY-SERVER] Usuario enriquecido para sidebar:', { username: decoded.username, name: userData.name, role: userData.role, team: userData.team });
         }
       }
     } catch (dbErr) {
@@ -566,20 +638,46 @@ router.get('/verify', (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('[VERIFY] Token válido para usuario:', decoded.username);
 
-    res.json({
-      success: true,
-      message: 'Token válido',
-      authenticated: true,
-      user: {
-        id: decoded.id,
-        username: decoded.username,
-        role: decoded.role,
-        team: decoded.team,
-        supervisor: decoded.supervisor,
-        name: decoded.name,
-        permissions: decoded.permissions || []
-      }
-    });
+    const baseUser = {
+      id: decoded.id,
+      username: decoded.username,
+      role: decoded.role,
+      team: decoded.team,
+      supervisor: decoded.supervisor,
+      name: decoded.name,
+      permissions: decoded.permissions || []
+    };
+
+    (async () => {
+      try {
+        const db = getDb();
+        if (db) {
+          const usersCollection = db.collection('users');
+          const userDoc = await usersCollection.findOne(
+            { username: decoded.username },
+            { projection: { name: 1, nombre: 1, fullName: 1, team: 1, role: 1, supervisor: 1, supervisorName: 1, supervisorId: 1, avatarUrl: 1, avatarFileId: 1 } }
+          );
+          if (userDoc) {
+            const dbName = userDoc.name || userDoc.nombre || userDoc.fullName;
+            if (dbName) baseUser.name = dbName;
+            if (userDoc.team) baseUser.team = userDoc.team;
+            if (userDoc.role) baseUser.role = userDoc.role;
+            if (userDoc.supervisor) baseUser.supervisor = userDoc.supervisor;
+            if (userDoc.supervisorName) baseUser.supervisorName = userDoc.supervisorName;
+            if (userDoc.supervisorId) baseUser.supervisorId = userDoc.supervisorId;
+            if (userDoc.avatarUrl) baseUser.avatarUrl = userDoc.avatarUrl;
+            if (userDoc.avatarFileId) baseUser.avatarFileId = userDoc.avatarFileId;
+            console.log('[VERIFY] Usuario enriquecido para sidebar:', { username: decoded.username, name: baseUser.name, role: baseUser.role, team: baseUser.team });
+          }
+        }
+      } catch (_) {}
+      res.json({
+        success: true,
+        message: 'Token válido',
+        authenticated: true,
+        user: baseUser
+      });
+    })();
   } catch (error) {
     console.error('[VERIFY] Error verificando token:', error.message);
     res.status(401).json({
