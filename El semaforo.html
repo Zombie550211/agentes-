@@ -1656,9 +1656,45 @@
             return fetch(url, cfg);
         }
 
+        const monthNavLabelEl = document.getElementById('month-nav-label');
+        const monthPrevBtn = document.getElementById('btn-month-prev');
+        const monthNextBtn = document.getElementById('btn-month-next');
+        let selectedMonthDate = (() => {
+            const d = new Date();
+            d.setDate(1);
+            d.setHours(12, 0, 0, 0);
+            return d;
+        })();
+
+        function monthKeyFromDate(d) {
+            try {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                return `${y}-${m}`;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function formatMonthLabel(d) {
+            try {
+                const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                const mm = names[d.getMonth()] || '—';
+                return `${mm} ${d.getFullYear()}`;
+            } catch (_) {
+                return '—';
+            }
+        }
+
+        function setMonthNavLabel() {
+            if (!monthNavLabelEl) return;
+            monthNavLabelEl.textContent = formatMonthLabel(selectedMonthDate);
+        }
+
         function normalizeVentasValue(row) {
             try {
-                const raw = (row && (row.Total ?? row.TOTAL ?? row.total ?? row.cantidad ?? 0)) ?? 0;
+                if (!row) return 0;
+                const raw = row?.VENTAS ?? row?.ventas ?? row?.Total ?? row?.total ?? row?.TOTAL ?? row?.cantidad ?? row?.count;
                 const n = Number(raw);
                 return Number.isFinite(n) ? n : 0;
             } catch (_) {
@@ -1871,17 +1907,14 @@
             }
         }
 
-        function monthBoundsNow() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            return { fechaInicio: `${y}-${m}-01`, fechaFin: `${y}-${m}-${d}` };
+        function monthBoundsSelected() {
+            const { firstDay, lastDay } = getMonthRange(selectedMonthDate);
+            return { fechaInicio: firstDay, fechaFin: lastDay };
         }
 
         async function fetchRankingStats() {
             try {
-                const { fechaInicio, fechaFin } = monthBoundsNow();
+                const { fechaInicio, fechaFin } = monthBoundsSelected();
                 const url = `/api/ranking?all=1&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=500`;
                 const resp = await fetchWithAuth(url);
                 if (!resp || !resp.ok) {
@@ -1956,7 +1989,8 @@
 
         async function fetchSemaforoLogic() {
             try {
-                const resp = await fetchWithAuth('/api/semaforo');
+                const { fechaInicio, fechaFin } = monthBoundsSelected();
+                const resp = await fetchWithAuth(`/api/semaforo?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
                 if (!resp || !resp.ok) {
                     const raw = resp ? await resp.text() : '';
                     console.warn('[SEMAFORO] /api/semaforo no OK', { status: resp?.status, raw });
@@ -2205,7 +2239,7 @@
             if (!btn || !btnText || !semView || !agView) return;
 
             let showingAgents = false;
-            const agentsCache = { ts: 0, data: [] };
+            const agentsCache = { ts: 0, data: [], monthKey: '' };
 
             const setBtnIcon = (mode) => {
                 const icon = btn.querySelector('i');
@@ -2228,7 +2262,8 @@
                     btnText.textContent = 'Ver semáforo';
                     setBtnIcon('agents');
                     const now = Date.now();
-                    const shouldRefresh = !agentsCache.ts || (now - agentsCache.ts) > 15000; // 15s
+                    const mk = monthKeyFromDate(selectedMonthDate);
+                    const shouldRefresh = !agentsCache.ts || (now - agentsCache.ts) > 15000 || agentsCache.monthKey !== mk; // 15s o cambio de mes
                     if (shouldRefresh) {
                         const [directory, semaforoPayload] = await Promise.all([
                             fetchAgentsDirectory(),
@@ -2237,6 +2272,7 @@
                         const merged = mergeAgentsWithSemaforo(directory, semaforoPayload);
                         agentsCache.ts = now;
                         agentsCache.data = merged;
+                        agentsCache.monthKey = mk;
                     }
                     renderAgentsList(agentsCache.data);
                 } else {
@@ -2309,12 +2345,35 @@
 
         async function loadSemaforoMensual() {
             try {
-                const now = new Date();
-                const teams = await fetchMonthSalesByTeam(now);
+                let teams = await fetchMonthSalesByTeam(selectedMonthDate);
                 if (!Array.isArray(teams) || teams.length === 0) {
                     console.warn('[SEMAFORO] Dataset mensual vacío; manteniendo lista local.');
                     return;
                 }
+
+                // Override manual (solo Enero 2026)
+                try {
+                    const mk = monthKeyFromDate(selectedMonthDate);
+                    if (mk === '2026-01') {
+                        const overrides = new Map([
+                            ['IRANIA', 199],
+                            ['ROBERTO', 197],
+                            ['MARISOL', 178],
+                            ['JOHANA', 149],
+                            ['PLEITEZ', 125]
+                        ]);
+                        const wantedOrder = ['IRANIA','ROBERTO','MARISOL','JOHANA','PLEITEZ'];
+                        const byKey = new Map();
+                        (teams || []).forEach((t) => {
+                            const key = normalizeTeamName(t?.nombre).toString().trim().toUpperCase();
+                            byKey.set(key, t);
+                        });
+                        teams = wantedOrder.map((k) => {
+                            const base = byKey.get(k) || { nombre: formatTeamDisplayName(k), ventas: 0 };
+                            return { ...base, nombre: formatTeamDisplayName(k), ventas: overrides.get(k) };
+                        });
+                    }
+                } catch (_) {}
 
                 equipos = teams.slice(0, 5).map((t, idx) => ({
                     id: idx + 1,
@@ -2328,10 +2387,45 @@
             }
         }
 
+        function setupMonthNav() {
+            setMonthNavLabel();
+            const clampNext = () => {
+                const now = new Date();
+                now.setDate(1);
+                now.setHours(12, 0, 0, 0);
+                if (selectedMonthDate.getTime() > now.getTime()) {
+                    selectedMonthDate = now;
+                }
+            };
+
+            const go = async (delta) => {
+                const d = new Date(selectedMonthDate);
+                d.setMonth(d.getMonth() + delta);
+                d.setDate(1);
+                d.setHours(12, 0, 0, 0);
+                selectedMonthDate = d;
+                clampNext();
+                setMonthNavLabel();
+                await loadSemaforoMensual();
+            };
+
+            if (monthPrevBtn) {
+                monthPrevBtn.addEventListener('click', async () => {
+                    await go(-1);
+                });
+            }
+            if (monthNextBtn) {
+                monthNextBtn.addEventListener('click', async () => {
+                    await go(1);
+                });
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             if (window.loadSidebar) {
                 window.loadSidebar();
             }
+            setupMonthNav();
             renderEquipos();
             loadSemaforoMensual();
             setupViewToggle();
