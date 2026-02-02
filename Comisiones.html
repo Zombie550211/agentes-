@@ -454,13 +454,21 @@
         };
 
         const CommissionDashboard = () => {
-            const [activeView, setActiveView] = useState('admin');
+            const [activeView, setActiveView] = useState('agent');
             const [activeTab, setActiveTab] = useState('dashboard');
             const [agents, setAgents] = useState([]);
             const [agentsLineas, setAgentsLineas] = useState([]);
             const [currentUser, setCurrentUser] = useState(null);
             const [currentAgent, setCurrentAgent] = useState(null);
             const [isAgentUser, setIsAgentUser] = useState(false);
+            const [selectedAgent, setSelectedAgent] = useState(null);
+            const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+            const longPressRef = React.useRef(null);
+            const longPressTargetRef = React.useRef(null);
+            const isAdminUser = (() => {
+                const roleRaw = String(currentUser?.role || '').toLowerCase();
+                return roleRaw.includes('admin') || roleRaw.includes('administrador');
+            })();
 
             const loadAgentsFromDB = async () => {
                 try {
@@ -583,6 +591,266 @@
                 loadAgentsFromDB();
                 getCurrentUser();
             }, []);
+
+            const closeAgentModal = () => {
+                setIsAgentModalOpen(false);
+                setSelectedAgent(null);
+            };
+
+            const startLongPress = (agent, source) => {
+                if (!isAdminUser) return;
+                try {
+                    if (longPressRef.current) clearTimeout(longPressRef.current);
+                } catch (_) {}
+                longPressTargetRef.current = source || null;
+                longPressRef.current = setTimeout(() => {
+                    setSelectedAgent(agent);
+                    setIsAgentModalOpen(true);
+                }, 3000);
+            };
+
+            const cancelLongPress = (source) => {
+                try {
+                    if (source && longPressTargetRef.current && source !== longPressTargetRef.current) return;
+                    if (longPressRef.current) clearTimeout(longPressRef.current);
+                } catch (_) {}
+                longPressRef.current = null;
+                longPressTargetRef.current = null;
+            };
+
+            React.useEffect(() => {
+                const onKeyDown = (e) => {
+                    if (e && e.key === 'Escape') closeAgentModal();
+                };
+                window.addEventListener('keydown', onKeyDown);
+                return () => window.removeEventListener('keydown', onKeyDown);
+            }, []);
+
+            const AgentDashboardView = ({ agentOverride, userOverride }) => {
+                const agentData = agentOverride || currentAgent;
+                const userData = userOverride || currentUser;
+
+                if (!agentData) {
+                    return (
+                        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                            <div className="text-center">
+                                <p className="text-gray-600 text-lg">Cargando datos...</p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                const sales = agentData?.sales || 0;
+                const points = (typeof agentData?.points === 'number' ? agentData.points : parseFloat(agentData?.points || 0)) || 0;
+                const percent = getProgressFromPoints(points);
+                const totalMoney = getCommissionFromPoints(points);
+                const clamp01 = (n) => Math.min(1, Math.max(0, n));
+                const getScaleBase = (p) => {
+                    if (p >= 31) return 31;
+                    if (p >= 26) return 26;
+                    if (p >= 21) return 21;
+                    if (p >= 17) return 17;
+                    return 0;
+                };
+                const scaleBase = getScaleBase(points);
+                const scaleLabel = scaleBase ? `Escala ${scaleBase}` : 'Sin escala';
+                const scaleBars = [
+                    { key: 's17', label: 'Escala 17-20', min: 17, max: 21 },
+                    { key: 's21', label: 'Escala 21-25', min: 21, max: 26 },
+                    { key: 's26', label: 'Escala 26-30', min: 26, max: 31 },
+                    { key: 's31', label: 'Escala 31+', min: 31, max: Infinity },
+                ].map(s => {
+                    let pct = 0;
+                    if (s.max === Infinity) pct = points >= s.min ? 100 : 0;
+                    else pct = clamp01((points - s.min) / (s.max - s.min)) * 100;
+                    return Object.assign({}, s, { pct: Number(pct.toFixed(2)) });
+                });
+                const roleLabelRaw = String(userData?.role || 'agente').toUpperCase();
+                const roleLabel = `ROL: ${roleLabelRaw}`;
+                const progressFillStyle = percent >= 100
+                    ? { width: `${percent}%`, background: 'linear-gradient(90deg, var(--success) 0%, #34d399 100%)' }
+                    : { width: `${percent}%` };
+
+                const pending = agentData?.pendingSales || 0;
+
+                return (
+                    <div className="agent-premium">
+                        <div className="container">
+                            <header className="header">
+                                <div className="header-content">
+                                    <h1>¡Hola, {agentData?.name}! 👋</h1>
+                                    <p>Aquí está tu rendimiento actual y tus ganancias</p>
+                                </div>
+                                <div className="badge-role">{roleLabel}</div>
+                            </header>
+
+                            <div className="grid-main">
+                                <div className="card-commission">
+                                    <div className="commission-content">
+                                        <div className="commission-label">Comisión Estimada</div>
+                                        <div className="commission-icon">
+                                            <div className="wallet-container">
+                                                <div className="wallet-fill" style={{ height: `${percent}%` }} />
+                                                <div className="wallet-base">
+                                                    <span className="wallet-emoji">💰</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="commission-amount">{formatUsd(totalMoney)}</div>
+                                        <div className="commission-sub">Basado en tu fórmula de rendimiento</div>
+
+                                        <div className="progress-container">
+                                            <div className="progress-label">
+                                                <span>Progreso de Meta</span>
+                                                <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{scaleLabel}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                                                {scaleBars.map(sb => (
+                                                    <div key={sb.key}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+                                                            <span>{sb.label}</span>
+                                                            <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{`${sb.pct.toFixed(2)}%`}</span>
+                                                        </div>
+                                                        <div className="progress-bar">
+                                                            <div className="progress-fill" style={{ width: `${Math.min(100, sb.pct)}%` }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="card-stats">
+                                    <div className="stats-grid">
+                                        <div className="stat-item">
+                                            <div className="stat-icon">📊</div>
+                                            <div className="stat-label">Ventas Activas</div>
+                                            <div className="stat-value">{sales}</div>
+                                            <div className="stat-sub">Clientes este mes</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">⭐</div>
+                                            <div className="stat-label">Puntaje Activo</div>
+                                            <div className="stat-value">{points.toFixed(2)}</div>
+                                            <div className="stat-sub">Nivel: Avanzado</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">✅</div>
+                                            <div className="stat-label">Pendientes</div>
+                                            <div className="stat-value">{pending}</div>
+                                            <div className="stat-sub">Ventas en pending</div>
+                                        </div>
+
+                                        <div className="stat-item">
+                                            <div className="stat-icon">🚀</div>
+                                            <div className="stat-label">Escala</div>
+                                            <div className="stat-value">{scaleLabel}</div>
+                                            <div className="stat-sub">Escala actual</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="card-activity">
+                                <div className="activity-title">Ventas Mensuales</div>
+                                <svg width="100%" height="300" viewBox="0 0 900 300" style={{ maxWidth: '100%', marginTop: 20 }}>
+                                    <defs>
+                                        <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 0.3 }} />
+                                            <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0.8 }} />
+                                        </linearGradient>
+                                    </defs>
+                                    <line x1="60" y1="30" x2="60" y2="250" stroke="#e2e8f0" strokeWidth="2" />
+                                    <line x1="60" y1="250" x2="850" y2="250" stroke="#e2e8f0" strokeWidth="2" />
+
+                                    <text x="45" y="255" textAnchor="end" fontSize="12" fill="#64748b">0</text>
+                                    <text x="45" y="195" textAnchor="end" fontSize="12" fill="#64748b">25</text>
+                                    <text x="45" y="135" textAnchor="end" fontSize="12" fill="#64748b">50</text>
+                                    <text x="45" y="75" textAnchor="end" fontSize="12" fill="#64748b">75</text>
+
+                                    <g>
+                                        <rect x="80" y="190" width="35" height="60" fill="#e0e7ff" rx="4" />
+                                        <text x="97.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Ene</text>
+
+                                        <rect x="125" y="170" width="35" height="80" fill="#e0e7ff" rx="4" />
+                                        <text x="142.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Feb</text>
+                                        <g transform="translate(160, 155)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+33%</text>
+                                        </g>
+
+                                        <rect x="170" y="140" width="35" height="110" fill="#e0e7ff" rx="4" />
+                                        <text x="187.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Mar</text>
+                                        <g transform="translate(205, 120)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+37%</text>
+                                        </g>
+
+                                        <rect x="215" y="155" width="35" height="95" fill="#e0e7ff" rx="4" />
+                                        <text x="232.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Abr</text>
+                                        <g transform="translate(250, 135)">
+                                            <line x1="0" y1="0" x2="0" y2="15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 10 L 0 15 L 4 10" stroke="#ef4444" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="-5" textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="700">-13%</text>
+                                        </g>
+
+                                        <rect x="260" y="100" width="35" height="150" fill="#e0e7ff" rx="4" />
+                                        <text x="277.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">May</text>
+                                        <g transform="translate(295, 75)">
+                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+58%</text>
+                                        </g>
+
+                                        <rect x="305" y="70" width="35" height="180" fill="url(#arrowGradient)" rx="4" />
+                                        <text x="322.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jun</text>
+                                        <g transform="translate(340, 40)">
+                                            <line x1="0" y1="20" x2="0" y2="0" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+                                            <path d="M -5 8 L 0 0 L 5 8" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinejoin="round" />
+                                            <text x="0" y="32" textAnchor="middle" fontSize="11" fill="#f59e0b" fontWeight="700">+20%</text>
+                                        </g>
+
+                                        <rect x="350" y="60" width="35" height="190" fill="#e0e7ff" rx="4" />
+                                        <text x="367.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jul</text>
+                                    </g>
+
+                                    <g transform="translate(600, 30)">
+                                        <rect width="240" height="100" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" rx="8" />
+                                        <text x="12" y="25" fontSize="13" fontWeight="700" fill="#1e293b">Tendencia Mensual</text>
+                                        <circle cx="20" cy="50" r="4" fill="#10b981" />
+                                        <text x="32" y="54" fontSize="12" fill="#64748b">Crecimiento</text>
+                                        <circle cx="20" cy="75" r="4" fill="#ef4444" />
+                                        <text x="32" y="79" fontSize="12" fill="#64748b">Decrecimiento</text>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const AgentViewModal = ({ agent, open, onClose }) => {
+                if (!open || !agent) return null;
+                const forcedUser = Object.assign({}, currentUser || {}, { role: 'agente' });
+                return (
+                    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true">
+                        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+                        <div className="absolute inset-0 p-4 sm:p-6 overflow-auto">
+                            <div className="relative mx-auto w-full max-w-6xl">
+                                <button onClick={onClose} className="absolute -top-3 -right-3 w-10 h-10 rounded-xl bg-white shadow hover:bg-gray-100 text-gray-800 z-50">✕</button>
+                                <div className="rounded-2xl overflow-hidden">
+                                    <AgentDashboardView agentOverride={agent} userOverride={forcedUser} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
 
             const getCurrentUser = async () => {
                 try {
@@ -821,9 +1089,20 @@
                                     <h2 className="text-lg font-bold text-gray-900 mb-4">Todos los Agentes ({agents.length})</h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {agents.map(agent => (
-                                            <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow relative">
+                                            <div
+                                                key={agent.id}
+                                                className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
+                                                onMouseDown={() => startLongPress(agent, agent.id)}
+                                                onMouseUp={() => cancelLongPress(agent.id)}
+                                                onMouseLeave={() => cancelLongPress(agent.id)}
+                                                onTouchStart={() => startLongPress(agent, agent.id)}
+                                                onTouchEnd={() => cancelLongPress(agent.id)}
+                                                onTouchCancel={() => cancelLongPress(agent.id)}
+                                            >
                                                 <button 
                                                     onClick={() => setAgents(agents.filter(a => a.id !== agent.id))}
+                                                    onMouseDown={(e) => { try { e.stopPropagation(); } catch(_) {} cancelLongPress(agent.id); }}
+                                                    onTouchStart={(e) => { try { e.stopPropagation(); } catch(_) {} cancelLongPress(agent.id); }}
                                                     className="absolute top-3 right-3 bg-red-100 text-red-600 p-1.5 rounded-lg hover:bg-red-200 transition-colors"
                                                     title="Eliminar agente"
                                                 >
@@ -885,6 +1164,8 @@
                                 </div>
                             </>
                         )}
+
+                        <AgentViewModal agent={selectedAgent} open={isAgentModalOpen} onClose={closeAgentModal} />
 
                         {activeTab === 'agents' && (
                             <div>
@@ -1148,179 +1429,7 @@
                 </div>
             );
 
-            const AgentDashboard = () => {
-                if (!currentAgent) {
-                    return (
-                        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                            <div className="text-center">
-                                <p className="text-gray-600 text-lg">Cargando datos...</p>
-                            </div>
-                        </div>
-                    );
-                }
-
-                const sales = currentAgent?.sales || 0;
-                const points = (typeof currentAgent?.points === 'number' ? currentAgent.points : parseFloat(currentAgent?.points || 0)) || 0;
-                const percent = getProgressFromPoints(points);
-                const totalMoney = getCommissionFromPoints(points);
-                const roleLabelRaw = String(currentUser?.role || 'agente').toUpperCase();
-                const roleLabel = `ROL: ${roleLabelRaw}`;
-                const progressFillStyle = percent >= 100
-                    ? { width: `${percent}%`, background: 'linear-gradient(90deg, var(--success) 0%, #34d399 100%)' }
-                    : { width: `${percent}%` };
-
-                const pending = currentAgent?.pendingSales || 0;
-                
-                return (
-                    <div className="agent-premium">
-                        <div className="container">
-                            <header className="header">
-                                <div className="header-content">
-                                    <h1>¡Hola, {currentAgent?.name}! 👋</h1>
-                                    <p>Aquí está tu rendimiento actual y tus ganancias</p>
-                                </div>
-                                <div className="badge-role">{roleLabel}</div>
-                            </header>
-
-                            <div className="grid-main">
-                                <div className="card-commission">
-                                    <div className="commission-content">
-                                        <div className="commission-label">Comisión Estimada</div>
-                                        <div className="commission-icon">
-                                            <div className="wallet-container">
-                                                <div className="wallet-fill" style={{ height: `${percent}%` }} />
-                                                <div className="wallet-base">
-                                                    <span className="wallet-emoji">💰</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="commission-amount">{formatUsd(totalMoney)}</div>
-                                        <div className="commission-sub">Basado en tu fórmula de rendimiento</div>
-
-                                        <div className="progress-container">
-                                            <div className="progress-label">
-                                                <span>Progreso de Meta</span>
-                                                <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{`${(percent || 0).toFixed(2)}%`}</span>
-                                            </div>
-                                            <div className="progress-bar">
-                                                <div className="progress-fill" style={progressFillStyle} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="card-stats">
-                                    <div className="stats-grid">
-                                        <div className="stat-item">
-                                            <div className="stat-icon">📊</div>
-                                            <div className="stat-label">Ventas Activas</div>
-                                            <div className="stat-value">{sales}</div>
-                                            <div className="stat-sub">Clientes este mes</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">⭐</div>
-                                            <div className="stat-label">Puntaje Activo</div>
-                                            <div className="stat-value">{points.toFixed(2)}</div>
-                                            <div className="stat-sub">Nivel: Avanzado</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">✅</div>
-                                            <div className="stat-label">Pendientes</div>
-                                            <div className="stat-value">{pending}</div>
-                                            <div className="stat-sub">Ventas en pending</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">🚀</div>
-                                            <div className="stat-label">Tasa de Conversión</div>
-                                            <div className="stat-value">{`${(percent || 0).toFixed(2)}%`}</div>
-                                            <div className="stat-sub">Arriba del promedio</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="card-activity">
-                                <div className="activity-title">Ventas Mensuales</div>
-                                <svg width="100%" height="300" viewBox="0 0 900 300" style={{ maxWidth: '100%', marginTop: 20 }}>
-                                    <defs>
-                                        <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 0.3 }} />
-                                            <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0.8 }} />
-                                        </linearGradient>
-                                    </defs>
-                                    <line x1="60" y1="30" x2="60" y2="250" stroke="#e2e8f0" strokeWidth="2" />
-                                    <line x1="60" y1="250" x2="850" y2="250" stroke="#e2e8f0" strokeWidth="2" />
-
-                                    <text x="45" y="255" textAnchor="end" fontSize="12" fill="#64748b">0</text>
-                                    <text x="45" y="195" textAnchor="end" fontSize="12" fill="#64748b">25</text>
-                                    <text x="45" y="135" textAnchor="end" fontSize="12" fill="#64748b">50</text>
-                                    <text x="45" y="75" textAnchor="end" fontSize="12" fill="#64748b">75</text>
-
-                                    <g>
-                                        <rect x="80" y="190" width="35" height="60" fill="#e0e7ff" rx="4" />
-                                        <text x="97.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Ene</text>
-
-                                        <rect x="125" y="170" width="35" height="80" fill="#e0e7ff" rx="4" />
-                                        <text x="142.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Feb</text>
-                                        <g transform="translate(160, 155)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+33%</text>
-                                        </g>
-
-                                        <rect x="170" y="140" width="35" height="110" fill="#e0e7ff" rx="4" />
-                                        <text x="187.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Mar</text>
-                                        <g transform="translate(205, 120)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+37%</text>
-                                        </g>
-
-                                        <rect x="215" y="155" width="35" height="95" fill="#e0e7ff" rx="4" />
-                                        <text x="232.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Abr</text>
-                                        <g transform="translate(250, 135)">
-                                            <line x1="0" y1="0" x2="0" y2="15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 10 L 0 15 L 4 10" stroke="#ef4444" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="-5" textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="700">-13%</text>
-                                        </g>
-
-                                        <rect x="260" y="100" width="35" height="150" fill="#e0e7ff" rx="4" />
-                                        <text x="277.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">May</text>
-                                        <g transform="translate(295, 75)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+58%</text>
-                                        </g>
-
-                                        <rect x="305" y="70" width="35" height="180" fill="url(#arrowGradient)" rx="4" />
-                                        <text x="322.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jun</text>
-                                        <g transform="translate(340, 40)">
-                                            <line x1="0" y1="20" x2="0" y2="0" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-                                            <path d="M -5 8 L 0 0 L 5 8" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="32" textAnchor="middle" fontSize="11" fill="#f59e0b" fontWeight="700">+20%</text>
-                                        </g>
-
-                                        <rect x="350" y="60" width="35" height="190" fill="#e0e7ff" rx="4" />
-                                        <text x="367.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jul</text>
-                                    </g>
-
-                                    <g transform="translate(600, 30)">
-                                        <rect width="240" height="100" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" rx="8" />
-                                        <text x="12" y="25" fontSize="13" fontWeight="700" fill="#1e293b">Tendencia Mensual</text>
-                                        <circle cx="20" cy="50" r="4" fill="#10b981" />
-                                        <text x="32" y="54" fontSize="12" fill="#64748b">Crecimiento</text>
-                                        <circle cx="20" cy="75" r="4" fill="#ef4444" />
-                                        <text x="32" y="79" fontSize="12" fill="#64748b">Decrecimiento</text>
-                                    </g>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
+            const AgentDashboard = () => <AgentDashboardView />;
 
             return (
                 <div>
