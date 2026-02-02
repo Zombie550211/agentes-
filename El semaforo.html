@@ -1212,7 +1212,7 @@
                     <div id="semaforo-view" class="view-panel is-visible">
                         <div class="metrics-grid">
                             <div class="metric-card success">
-                                <div class="metric-label">Equipos en TOP 3</div>
+                                <div class="metric-label">Equipos en TOP</div>
                                 <div class="metric-value" id="metric-top3">0</div>
                             </div>
                             <div class="metric-card warning">
@@ -1247,7 +1247,7 @@
                                         </div>
                                         <div class="astronaut-info">
                                             <div class="astronaut-name">—</div>
-                                            <div class="astronaut-score winner">0</div>
+                                            <div class="astronaut-score winner">$500</div>
                                         </div>
                                     </div>
                                     <div class="astronaut-position second-pos">
@@ -1257,7 +1257,7 @@
                                         </div>
                                         <div class="astronaut-info">
                                             <div class="astronaut-name">—</div>
-                                            <div class="astronaut-score">0</div>
+                                            <div class="astronaut-score">$200</div>
                                         </div>
                                     </div>
                                     <div class="astronaut-position third-pos">
@@ -1278,7 +1278,7 @@
                             <div class="legend">
                                 <div class="legend-item">
                                     <div class="legend-dot top"></div>
-                                    <span class="legend-text">TOP 3 - Excelente desempeño</span>
+                                    <span class="legend-text">TOP - Excelente desempeño</span>
                                 </div>
                                 <div class="legend-item">
                                     <div class="legend-dot warning"></div>
@@ -1349,8 +1349,13 @@
                 return 'Equipo de ventas • Requiere atención';
             };
 
-            const getRowBadge = (status) => {
-                if (status === 'top') return '🏆 TOP 3';
+            const getRowBadge = (status, pos) => {
+                if (status === 'top') {
+                    const p = Number(pos || 0);
+                    if (p === 1) return '$500';
+                    if (p === 2) return '$200';
+                    return 'TOP';
+                }
                 if (status === 'warning') return '⚠️ ALERTA';
                 return '🚨 PELIGRO';
             };
@@ -1451,7 +1456,7 @@
                         <div class="sales-label">Ventas</div>
                     </div>
                     <div class="ranking-status">
-                        <span class="status-badge ${status}">${getRowBadge(status)}</span>
+                        <span class="status-badge ${status}">${getRowBadge(status, pos)}</span>
                     </div>
                 `;
                 table.appendChild(row);

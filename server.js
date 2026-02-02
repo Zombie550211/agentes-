@@ -1,14 +1,11 @@
+// 1. PRIMERO: Todas las importaciones (Libraries)
 const dns = require('dns');
-if (process.env.NODE_ENV !== 'production') {
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-  console.log('[INIT] DNS forzado a los servidores de Google para evitar problemas de red.');
-}
-
-const express = require('express');
+const express = require('express'); // <--- Express va aquí arriba
+const helmet = require('helmet');
+const cors = require('cors');
 const http = require('http');
 const https = require('https');
 const path = require('path');
-const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
@@ -19,23 +16,33 @@ const { Server } = require('socket.io');
 const { Readable } = require('stream');
 require('dotenv').config();
 
+// (Opcional: Tu código de DNS si lo necesitas)
+if (process.env.NODE_ENV !== 'production') {
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
+
+// 2. SEGUNDO: Crear la App (¡Aquí nace la variable 'app'!)
+const app = express();
+
+// 3. TERCERO: Configurar seguridad y red (Ahora sí puedes usar 'app')
+// Configuración de seguridad "relajada" para pruebas
+app.use(helmet({
+  contentSecurityPolicy: false,
+  hsts: false, // <--- ESTO ES LA CLAVE. Desactiva la obligación de HTTPS.
+}));
+app.use(cors({ origin: '*' })); // O tu config de cors
+app.use(express.json());
+
+// ... A partir de aquí deja tu código como estaba ...
+
 // GridFS bucket para archivos
 let gridFSBucket = null;
 let userAvatarsBucket = null;
 
 // Carga condicional de Helmet y Rate Limit (si están instalados)
-let helmet = null;
+
 let rateLimit = null;
-try { 
-  helmet = require('helmet'); 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[INIT] Helmet cargado correctamente');
-  }
-} catch (e) { 
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[INIT] helmet no instalado, se recomienda instalarlo:', e.message); 
-  }
-}
+
 try { 
   rateLimit = require('express-rate-limit'); 
   if (process.env.NODE_ENV !== 'production') {
@@ -138,9 +145,6 @@ if (process.env.NODE_ENV === 'production') {
     originalError(...filteredArgs);
   };
 }
-
-// Inicializar Express app
-const app = express();
 // En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
 const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
 const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
@@ -417,47 +421,6 @@ if (isProduction) {
   console.log('[CORS] Orígenes permitidos en producción:', allowedOrigins);
 }
 
-const whitelist = [...new Set([...allowedOrigins, ...defaultAllowed])]; // Eliminar duplicados
-console.log('[CORS] Lista blanca final:', whitelist);
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Permitir solicitudes sin origen (navegación directa)
-    if (!origin) return callback(null, true);
-
-    // Permitir localhost y 127.0.0.1 en cualquier puerto (incluye 3001, 54056, etc.)
-    const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?$/i;
-    if (localhostRegex.test(origin)) return callback(null, true);
-    
-    // En desarrollo, permitir cualquier origen localhost
-    if (!isProduction && origin && origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    // En desarrollo, permitir cualquier origen 127.0.0.1
-    if (!isProduction && origin && origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-
-    // Permitir el mismo host del servidor (mismo origen)
-    try {
-      const serverHost = `http://localhost:${PORT}`;
-      const serverHostHttps = `https://localhost:${PORT}`;
-      if (origin === serverHost || origin === serverHostHttps) return callback(null, true);
-    } catch {}
-
-    // Permitir orígenes en whitelist explícita
-    if (whitelist.includes(origin)) return callback(null, true);
-
-    console.log(`[CORS] Origen no permitido: ${origin}`);
-    callback(new Error('No permitido por CORS'), false);
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
 // Inicializar la conexión a la base de datos
 let db;
 // TTL para la cache del init-dashboard (ms). Por defecto 5 minutos
@@ -611,7 +574,6 @@ async function refreshInitDashboardCache(_db) {
 })();
 
 // Configuración de middlewares
-app.use(cors(corsOptions));
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 if (cookieParser) {
@@ -1079,7 +1041,6 @@ app.use(express.static(__dirname, {
 }));
 
 // Handle CORS preflight for all routes
-app.options('*', cors(corsOptions));
 
 // ========== ENDPOINTS GRIDFS PARA ARCHIVOS DE NOTAS ==========
 
@@ -6589,5 +6550,19 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+// --- INICIO DEL ESCUDO DE ERRORES ---
+app.use((err, req, res, next) => {
+    // 1. Esto imprime el error real en TU terminal (para que tú, el desarrollador, sepas qué pasó)
+    console.error('ERROR DETECTADO:', err.stack);
+
+    // 2. Esto es lo que ve el usuario (o el hacker): Un mensaje genérico y limpio.
+    res.status(500).json({
+        status: 'error',
+        message: 'Ups! Ocurrió un error interno en el servidor. Intente más tarde.'
+    });
+});
+// --- FIN DEL ESCUDO ---
+
 // Exportar
 module.exports = { app, getIo: () => io };
+
