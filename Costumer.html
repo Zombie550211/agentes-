@@ -2486,6 +2486,7 @@
               <option value="2025-08">Agosto 2025</option>
               <option value="2025-07">Julio 2025</option>
               <option value="2025-06">Junio 2025</option>
+              <option value="2025-05">Mayo 2025</option>
             </select>
             <label for="teamFilter">Team</label>
             <select id="teamFilter" style="min-width: 120px;">
@@ -2507,12 +2508,15 @@
             <select id="statusFilter">
               <option value="all">Todos</option>
               <option value="completed">Completed / Active</option>
+              <option value="active">Active</option>
               <option value="active_oficina">Active Oficina</option>
               <option value="pending">Pending</option>
               <option value="cancelled">Cancelled</option>
               <option value="hold">Hold</option>
               <option value="rescheduled">Rescheduled</option>
             </select>
+            <label for="recuentoCount">Recuento</label>
+            <input id="recuentoCount" class="costumer-filter-input" type="text" value="0" readonly style="width: 90px; text-align: center; font-weight: 700;" />
             <button id="scroll-left" class="action-btn" title="Desplazar a la izquierda">
               <i class="fas fa-angle-double-left"></i>
             </button>
@@ -6848,6 +6852,7 @@
               if (selectedStatus === 'pending') return (s.includes('pendient') || s.includes('pending'));
               if (selectedStatus === 'cancelled') return (s.includes('cancel') || s.includes('anulad') || s.includes('no instalado'));
               if (selectedStatus === 'completed') return (s.includes('complet') || s.includes('complete') || s.includes('active') || s.includes('activo'));
+              if (selectedStatus === 'active') return (s.includes('active') || s.includes('activo'));
               if (selectedStatus === 'active_oficina') return ((s.includes('active') || s.includes('activo')) && s.includes('oficina'));
               if (selectedStatus === 'hold') return (s.includes('hold') || s.includes('espera'));
               if (selectedStatus === 'rescheduled') return (s.includes('resched') || s.includes('reprogram'));
@@ -6963,19 +6968,6 @@
         } catch(e) {
           console.warn('[SEARCH FILTER] Error:', e);
         }
-        // ACTUALIZAR TARJETAS DE RESUMEN (KPIs)
-        // Usar la lista filtrada por Team y Agente, pero ANTES de filtrar por mes.
-        // Esto asegura que "Ventas del Mes" muestre el mes actual real para el agente seleccionado,
-        // independientemente de si estamos visualizando un mes antiguo en la tabla.
-        try {
-          try { window.__kpiLeadsLast = Array.isArray(list) ? list.slice() : []; } catch(_) {}
-          if (typeof updateSummaryCards === 'function') {
-            updateSummaryCards(list);
-          }
-        } catch (e) {
-          console.warn('[renderWithMonthlySeparators] Error actualizando cards:', e);
-        }
-
         // PASO 2: Aplicar filtro de mes seleccionado
         try {
           const monthFilter = document.getElementById('monthFilter');
@@ -7065,6 +7057,26 @@
           }
         } catch(e) { 
           console.warn('[MonthFilter] Error aplicando filtro:', e);
+        }
+
+        try {
+          const recuentoEl = document.getElementById('recuentoCount');
+          if (recuentoEl) {
+            const n = Array.isArray(list) ? list.length : 0;
+            recuentoEl.value = String(n);
+            try { window.__recuentoLast = n; } catch(_) {}
+          }
+        } catch (e) {
+          console.warn('[RECUENTO] Error actualizando recuento:', e);
+        }
+
+        try {
+          try { window.__kpiLeadsLast = Array.isArray(list) ? list.slice() : []; } catch(_) {}
+          if (typeof updateSummaryCards === 'function') {
+            updateSummaryCards(list);
+          }
+        } catch (e) {
+          console.warn('[renderWithMonthlySeparators] Error actualizando cards:', e);
         }
         
         // MOVIDO: Los filtros de Team y Agente ahora se aplican ANTES del filtro de mes
@@ -8061,6 +8073,35 @@
       const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
       const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
       const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
+
+      const hasActiveFilters = (() => {
+        try {
+          const v = (id) => {
+            const el = document.getElementById(id);
+            return el ? String(el.value || '').trim() : '';
+          };
+          const search = v('costumer-search');
+          const team = v('teamFilter');
+          const agent = v('agentFilter');
+          const status = v('statusFilter');
+          const month = v('monthFilter');
+          const mercado = v('mercadoFilter');
+          const service = v('serviceFilter');
+          if (search) return true;
+          if (team) return true;
+          if (agent) return true;
+          if (mercado) return true;
+          if (service) return true;
+          if (month && /^\d{4}-\d{2}$/.test(month)) return true;
+          if (status && status.toLowerCase() !== 'all') return true;
+          if (window.SIDEBAR_FILTER_OVERRIDE) return true;
+          return false;
+        } catch (_) {
+          return false;
+        }
+      })();
+
+      const canUseBackendKpis = (!hasActiveFilters && window.__kpisTotals && typeof window.__kpisTotals === 'object');
       
       if (isAgente && window.__agentFullLeadsForKpi && Array.isArray(window.__agentFullLeadsForKpi) && window.__agentFullLeadsForKpi.length > 0) {
         console.log('[updateSummaryCards] AGENTE: filtrando datos para ver SOLO los suyos propios del MES ACTUAL...');
@@ -8158,9 +8199,7 @@
         const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
         const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
         
-        // Para AGENTES: NUNCA usar window.__kpisTotals del backend (son datos globales)
-        // SIEMPRE calcular desde leads locales (ya filtrados por agente)
-        if (!isAgente && window.__kpisTotals && typeof window.__kpisTotals === 'object') {
+        if (!isAgente && canUseBackendKpis) {
           const kt = window.__kpisTotals;
           console.log('[updateSummaryCards] ADMIN/SUPER: Usando KPIs del backend (no es agente):', kt);
           if (typeof kt.ventasEfectivasMes === 'number') ventasMes = kt.ventasEfectivasMes;
@@ -8204,7 +8243,7 @@
               status.includes('no instalado')
             );
             const isPending = /pendient/.test(status) || /pending/.test(status);
-            const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/.test(status);
+            const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b|\bactive\b|\bactivo\b/.test(status);
 
 
             // Usar la misma extracciÃ³n de fecha que el grÃ¡fico
@@ -8231,7 +8270,7 @@
             const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
             const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
             
-            if (isAgente || !(window.__kpisTotals && typeof window.__kpisTotals === 'object')) {
+            if (isAgente || !canUseBackendKpis) {
               // Contar pendientes
               if (isPending) {
                 pendientes++;
@@ -8251,7 +8290,7 @@
             const roleRaw2 = (userData2.role || userData2?.usuario?.role || '').toString().trim().toLowerCase();
             const isAgente2 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw2);
             
-            if (isAgente2 || !(window.__kpisTotals && typeof window.__kpisTotals === 'object')) {
+            if (isAgente2 || !canUseBackendKpis) {
               if (!isCancel) ventasMes++;
               if (isActive && !isCancel) ventasActivas++;
             }
@@ -8354,7 +8393,7 @@
         let puntajeMensual = null;
         try {
           const kt = window.__kpisTotals;
-          if (kt && typeof kt === 'object' && typeof kt.puntajeMensual === 'number') {
+          if (canUseBackendKpis && kt && typeof kt === 'object' && typeof kt.puntajeMensual === 'number') {
             puntajeMensual = kt.puntajeMensual;
           }
         } catch (_) { puntajeMensual = null; }
@@ -8423,7 +8462,7 @@
           const u3 = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
           const r3 = (u3.role || u3?.usuario?.role || '').toString().trim().toLowerCase();
           const isAgente3 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r3);
-          if (!isAgente3 && window.__kpisTotals && typeof window.__kpisTotals === 'object') {
+          if (!isAgente3 && canUseBackendKpis) {
             const kt = window.__kpisTotals;
             if (typeof kt.activasIcon === 'number') activasIcon = kt.activasIcon;
             if (typeof kt.activasBamo === 'number') activasBamo = kt.activasBamo;
@@ -8444,11 +8483,9 @@
             try {
               const mercado = String(l.mercado || '').trim().toUpperCase();
               const status = normalizarTexto(l.status || '');
-              const isCancel = status.includes('cancel') || status.includes('anulad');
-              const isPending = /pendient/.test(status) || /pending/.test(status);
-              const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/.test(status);
-              
-              // Usar la misma extracción de fecha que el gráfico
+              const isCancel = status.includes('cancel') || status.includes('anulad') || status.includes('no instalado');
+              const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b|\bactive\b|\bactivo\b/.test(status);
+
               const leadISO = getDateFromLead(l);
               let inTargetMonth = false;
               if (!leadISO) {
@@ -8459,10 +8496,8 @@
                 inTargetMonth = (yL === ySel && mL === mSel);
                 if (!inTargetMonth) return;
               }
-              
-              // Usar exactamente la misma lógica que ventasActivas
-              const shouldCount = (isAgente3 || !(window.__kpisTotals && typeof window.__kpisTotals === 'object'));
-              
+
+              const shouldCount = (isAgente3 || !canUseBackendKpis);
               if (isActive && !isCancel && shouldCount && inTargetMonth) {
                 if (mercado === 'ICON') activasIcon++;
                 if (mercado === 'BAMO') activasBamo++;
