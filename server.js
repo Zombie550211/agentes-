@@ -408,6 +408,11 @@ const defaultAllowed = [
   'https://agentes-frontend.onrender.com'
 ];
 
+const corsWhitelist = () => Array.from(new Set([
+  ...defaultAllowed,
+  ...(Array.isArray(allowedOrigins) ? allowedOrigins : [])
+]));
+
 // Si estamos en producción, añadir el dominio de Render a la lista blanca
 const isProduction = process.env.NODE_ENV === 'production';
 if (isProduction) {
@@ -6372,6 +6377,7 @@ function startServer(port) {
         if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
           return callback(null, true);
         }
+        const whitelist = corsWhitelist();
         if (whitelist.includes(origin)) return callback(null, true);
         callback(null, true);
       },
