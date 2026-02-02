@@ -56,6 +56,9 @@
               <th>ALEXIS</th>
               <th>VENTAS<br>POR DIA</th>
               <th>VALOR<br>DE VENTA</th>
+              <th>ALEJANDRO</th>
+              <th>VENTAS<br>POR DIA</th>
+              <th>VALOR<br>DE VENTA</th>
               <th>GARAY</th>
               <th>VENTAS<br>POR DIA</th>
               <th>VALOR<br>DE VENTA</th>
@@ -87,6 +90,9 @@
           <div id="total-col-12"></div>
           <div id="total-col-13"></div>
           <div id="total-col-14"></div>
+          <div id="total-col-15"></div>
+          <div id="total-col-16"></div>
+          <div id="total-col-17"></div>
         </div>
       </div>
       <div class="tabla-paginacion" style="display: none;">
@@ -112,6 +118,9 @@
                 <tr>
                   <th>FECHA</th>
                   <th>ALEXIS</th>
+                  <th>VENTAS<br>POR DIA</th>
+                  <th>VALOR<br>DE VENTA</th>
+                  <th>ALEJANDRO</th>
                   <th>VENTAS<br>POR DIA</th>
                   <th>VALOR<br>DE VENTA</th>
                   <th>GARAY</th>
@@ -250,6 +259,41 @@ let currentMonth = parseInt(filtroMes.value, 10);
 let currentYear = parseInt(filtroAno.value, 10);
 let datosFacturacionMes = [];
 let datosFacturacionIndex = {};
+
+function setColumnVisibility(tableEl, colIndex, show) {
+  try {
+    if (!tableEl) return;
+    const cells = tableEl.querySelectorAll(`tr > *:nth-child(${colIndex})`);
+    cells.forEach((el) => {
+      el.style.display = show ? '' : 'none';
+    });
+  } catch (_) {}
+}
+
+function applyAlejandroVisibility() {
+  try {
+    const month = parseInt(filtroMes.value, 10);
+    const show = (Number(month) >= 2);
+
+    const mainTable = document.getElementById('tablaExcel');
+    setColumnVisibility(mainTable, 5, show);
+    setColumnVisibility(mainTable, 6, show);
+    setColumnVisibility(mainTable, 7, show);
+
+    const modalTable = document.querySelector('#modalTablaCompleta table');
+    setColumnVisibility(modalTable, 5, show);
+    setColumnVisibility(modalTable, 6, show);
+    setColumnVisibility(modalTable, 7, show);
+
+    const tot4 = document.getElementById('total-col-4');
+    const tot5 = document.getElementById('total-col-5');
+    const tot6 = document.getElementById('total-col-6');
+    if (tot4) tot4.style.display = show ? '' : 'none';
+    if (tot5) tot5.style.display = show ? '' : 'none';
+    if (tot6) tot6.style.display = show ? '' : 'none';
+  } catch (_) {}
+}
+
 // Normalizador de fecha a clave dd/mm/yyyy
 function toFechaKey(fecha) {
   try {
@@ -278,7 +322,7 @@ function toFechaKey(fecha) {
   } catch { return String(fecha || ''); }
 }
 
-const columnasConSigno = [1,3,4,6,7,9,10,12];
+const columnasConSigno = [1,3,4,6,7,9,10,12,13,15,17];
 
 function addMoneySign(val) {
   if (val === "" || isNaN(val)) return "";
@@ -338,7 +382,7 @@ async function fetchFacturacionMes(mes, ano) {
 function buscarCamposPorFecha(fecha) {
   const key = toFechaKey(fecha);
   const campos = datosFacturacionIndex[key];
-  return Array.isArray(campos) ? campos : Array(14).fill('');
+  return Array.isArray(campos) ? campos : Array(17).fill('');
 }
 
 async function renderTablaDias(mes, ano) {
@@ -347,7 +391,7 @@ async function renderTablaDias(mes, ano) {
   const numDias = daysInMonth(ano, mes);
   for (let i = 0; i < numDias; i++) {
     const tr = document.createElement("tr");
-    for (let c = 0; c < 15; c++) {
+    for (let c = 0; c < 18; c++) {
       const td = document.createElement("td");
       if (c === 0) {
         td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
@@ -356,10 +400,11 @@ async function renderTablaDias(mes, ano) {
         const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
         const campos = buscarCamposPorFecha(fecha);
         let val = campos[c-1] ?? '';
+
         if (columnasConSigno.includes(c) && val !== "") {
           val = addMoneySign(removeMoneySign(val));
         }
-        if (c === 11 && val !== "") {
+        if (c === 14 && val !== "") {
           val = parseInt(removeMoneySign(val), 10) || 0;
           val = val.toLocaleString('en-US');
         }
@@ -370,6 +415,7 @@ async function renderTablaDias(mes, ano) {
     }
     excelBody.appendChild(tr);
   }
+  applyAlejandroVisibility();
   // Ocultar botones de paginación ya que mostramos todo el mes
   btnUp.style.display = 'none';
   btnDown.style.display = 'none';
@@ -381,6 +427,7 @@ function updateTableByFilters() {
   currentMonth = parseInt(filtroMes.value, 10);
   currentYear = parseInt(filtroAno.value, 10);
   renderTablaDias(currentMonth, currentYear);
+  applyAlejandroVisibility();
   actualizarGrafica();
 }
 
@@ -410,31 +457,35 @@ function recalcularFila(tr) {
   const ventasAlexis = parseFloat(tds[2].textContent.replace(/[^0-9.-]/g, "")) || 0;
   tds[3].textContent = ventasAlexis > 0 ? (alexis / ventasAlexis).toFixed(2) : "";
 
-  const cuentaAlterna = parseFloat(tds[4].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasCA = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[6].textContent = ventasCA > 0 ? (cuentaAlterna / ventasCA).toFixed(2) : "";
+  const alejandro = parseFloat(tds[4].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasAlejandro = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[6].textContent = ventasAlejandro > 0 ? (alejandro / ventasAlejandro).toFixed(2) : "";
 
-  const lineas = parseFloat(tds[7].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasLineas = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[9].textContent = ventasLineas > 0 ? (lineas / ventasLineas).toFixed(2) : "";
+  const garay = parseFloat(tds[7].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasGaray = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[9].textContent = ventasGaray > 0 ? (garay / ventasGaray).toFixed(2) : "";
 
-  const totalDia = alexis + cuentaAlterna + lineas;
-  tds[10].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
+  const tito = parseFloat(tds[10].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasTito = parseFloat(tds[11].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[12].textContent = ventasTito > 0 ? (tito / ventasTito).toFixed(2) : "";
 
-  const totalVentas = ventasAlexis + ventasCA + ventasLineas;
-  tds[11].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
+  const totalDia = alexis + alejandro + garay + tito;
+  tds[13].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
 
-  tds[12].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
+  const totalVentas = ventasAlexis + ventasAlejandro + ventasGaray + ventasTito;
+  tds[14].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
 
-  const puntos = parseFloat(tds[13].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[15].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
 
-  tds[14].textContent = (puntos > 0) ? (totalDia / puntos).toFixed(2) : "";
+  const puntos = parseFloat(tds[16].textContent.replace(/[^0-9.-]/g, "")) || 0;
+
+  tds[17].textContent = (puntos > 0) ? (totalDia / puntos).toFixed(2) : "";
 }
 
 excelBody.addEventListener('input', function(e) {
   const td = e.target;
   const tr = td.parentElement;
-  if (td.cellIndex !== 0 && ![3,6,9,10,11,12,14].includes(td.cellIndex)) {
+  if (td.cellIndex !== 0 && ![3,6,9,12,13,14,15,17].includes(td.cellIndex)) {
     recalcularFila(tr);
     renderFilaTotalesFacturacion();
     actualizarTotalesPorMesLocales();
@@ -455,12 +506,13 @@ async function guardarTodoFacturacion() {
       let txt = td.textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      if ((txt === "" || isNaN(Number(txt))) && idx !== 12 && idx !== 13) txt = "";
+      if ((txt === "" || isNaN(Number(txt))) && idx !== 14 && idx !== 15) txt = "";
       return txt;
     });
-    // Asegurar exactamente 14 campos (excluyendo la columna FECHA)
-    while (campos.length < 14) campos.push("");
-    if (campos.length > 14) campos.length = 14;
+    // Asegurar exactamente 17 campos (excluyendo la columna FECHA)
+    while (campos.length < 17) campos.push("");
+    if (campos.length > 17) campos.length = 17;
+
     if (campos.some(val => val !== "")) {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json' };
@@ -491,8 +543,9 @@ async function guardarTodoFacturacion() {
 }
 
 function renderFilaTotalesFacturacion() {
-  const numCols = 15;
+  const numCols = 18;
   const totales = Array(numCols).fill(0);
+
   const filas = Array.from(excelBody.querySelectorAll('tr'));
   filas.forEach(tr => {
     Array.from(tr.children).forEach((td, i) => {
@@ -508,38 +561,45 @@ function renderFilaTotalesFacturacion() {
   } else {
     totales[3] = 0;
   }
-  // CUENTA ALTERNA: cols 4 (monto), 5 (ventas) -> 6 (valor de venta)
+  // ALEJANDRO: cols 4 (monto), 5 (ventas) -> 6 (valor de venta)
   if (totales[5] > 0) {
     totales[6] = totales[4] / totales[5];
   } else {
     totales[6] = 0;
   }
-  // LINEAS: cols 7 (monto), 8 (ventas) -> 9 (valor de venta)
+  // GARAY: cols 7 (monto), 8 (ventas) -> 9 (valor de venta)
   if (totales[8] > 0) {
     totales[9] = totales[7] / totales[8];
   } else {
     totales[9] = 0;
   }
-  // TOTAL GENERAL: cols 10 (total del día), 11 (total ventas) -> 12 (valor venta total)
+  // TITO: cols 10 (monto), 11 (ventas) -> 12 (valor de venta)
   if (totales[11] > 0) {
     totales[12] = totales[10] / totales[11];
   } else {
     totales[12] = 0;
   }
-  // CPA PUNTOS: cols 10 (total del día), 13 (puntos) -> 14 (CPA puntos)
-  if (totales[13] > 0) {
-    totales[14] = totales[10] / totales[13];
+  // TOTAL GENERAL: cols 13 (total del día), 14 (total ventas) -> 15 (valor venta total)
+  if (totales[14] > 0) {
+    totales[15] = totales[13] / totales[14];
   } else {
-    totales[14] = 0;
+    totales[15] = 0;
+  }
+  // CPA PUNTOS: cols 13 (total del día), 16 (puntos) -> 17 (CPA puntos)
+  if (totales[16] > 0) {
+    totales[17] = totales[13] / totales[16];
+  } else {
+    totales[17] = 0;
   }
   for (let i = 1; i < numCols; i++) {
     const el = document.getElementById('total-col-' + i);
     if (!el) continue;
-    // Para las columnas VALOR DE VENTA y CPA PUNTOS (3,6,9,12,14) usar truncado exacto
-    if (i === 3 || i === 6 || i === 9 || i === 12 || i === 14) {
+    // Para las columnas VALOR DE VENTA y CPA PUNTOS usar truncado exacto
+    if (i === 3 || i === 6 || i === 9 || i === 12 || i === 15 || i === 17) {
       el.textContent = formatMoneyTrunc(totales[i]);
       continue;
     }
+
     if (columnasConSigno.includes(i)) {
       el.textContent = addMoneySign(totales[i]);
     } else {
@@ -550,7 +610,7 @@ function renderFilaTotalesFacturacion() {
 
 function actualizarTotalesPorMesLocales() {
   const mesActual = parseInt(filtroMes.value, 10) - 1;
-  const total = parseFloat(document.getElementById('total-col-10').textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const total = parseFloat(document.getElementById('total-col-13').textContent.replace(/[^0-9.-]/g, "")) || 0;
   totalesPorMesLocales[mesActual] = total;
 }
 
@@ -651,7 +711,7 @@ async function renderTablaCompleta(mes, ano) {
   const numDias = daysInMonth(ano, mes);
   for (let i = 0; i < numDias; i++) {
     const tr = document.createElement("tr");
-    for (let c = 0; c < 15; c++) {
+    for (let c = 0; c < 18; c++) {
       const td = document.createElement("td");
       if (c === 0) {
         td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
@@ -664,6 +724,7 @@ async function renderTablaCompleta(mes, ano) {
     }
     modalBody.appendChild(tr);
   }
+  applyAlejandroVisibility();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -671,7 +732,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   actualizarTotalesPorMesLocales();
   actualizarGrafica();
   renderFilaTotalesFacturacion();
+  applyAlejandroVisibility();
 });
+
 </script>
 </body>
 </html>

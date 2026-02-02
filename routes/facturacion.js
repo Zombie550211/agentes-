@@ -44,10 +44,35 @@ function parseFecha(fecha) {
   return { key, dia: dd, mes: mm, anio: yy };
 }
 
-function ensureLen14(arr) {
-  const a = Array.isArray(arr) ? arr.map(v => (v == null ? '' : String(v))) : [];
-  while (a.length < 14) a.push('');
-  if (a.length > 14) a.length = 14;
+function ensureLen17(arr) {
+  let a = Array.isArray(arr) ? arr.map(v => (v == null ? '' : String(v))) : [];
+
+  // Compatibilidad: layout legacy (14 campos) -> nuevo layout (17 campos)
+  // LEGACY (14):
+  // 0..2 Alexis (monto, ventas, valor)
+  // 3..5 Garay  (monto, ventas, valor)
+  // 6..8 Tito   (monto, ventas, valor)
+  // 9 totalDia, 10 totalVentas, 11 valorVenta, 12 puntos, 13 cpa
+  // NEW (17):
+  // 0..2 Alexis
+  // 3..5 Alejandro
+  // 6..8 Garay
+  // 9..11 Tito
+  // 12 totalDia, 13 totalVentas, 14 valorVenta, 15 puntos, 16 cpa
+  try {
+    if (a.length === 14) {
+      a = [
+        a[0], a[1], a[2],
+        '', '', '',
+        a[3], a[4], a[5],
+        a[6], a[7], a[8],
+        a[9], a[10], a[11], a[12], a[13]
+      ];
+    }
+  } catch (_) {}
+
+  while (a.length < 17) a.push('');
+  if (a.length > 17) a.length = 17;
   return a;
 }
 
@@ -80,7 +105,7 @@ async function getCollection() {
 }
 
 // GET /api/facturacion/anual/:anio -> { ok, totalesPorMes: [12] }
-// Suma la columna "TOTAL DEL DIA" (columna 10 -> índice 9 en campos)
+// Suma la columna "TOTAL DEL DIA" (columna 14 en la tabla; índice 12 en campos)
 router.get('/anual/:anio', protect, authorize('admin','Administrador','administrador'), async (req, res) => {
   try {
     const anio = Number(req.params.anio);
@@ -98,11 +123,11 @@ router.get('/anual/:anio', protect, authorize('admin','Administrador','administr
     for (const d of docs) {
       const mesIdx = (Number(d.mes) || 0) - 1;
       if (mesIdx < 0 || mesIdx > 11) continue;
-      const arr = ensureLen14(d.campos);
-      const totalDia = toNumber(arr[9]); // índice 9 = columna 10 (TOTAL DEL DIA)
+      const arr = ensureLen17(d.campos);
+      const totalDia = toNumber(arr[12]); // índice 12 = TOTAL DEL DIA
       // Debug: mostrar primeros docs
       if (totales[mesIdx] === 0 && totalDia > 0) {
-        console.log(`[FACT DEBUG] Mes ${mesIdx+1}, campos[9]="${arr[9]}", totalDia=${totalDia}`);
+        console.log(`[FACT DEBUG] Mes ${mesIdx+1}, campos[12]="${arr[12]}", totalDia=${totalDia}`);
       }
       totales[mesIdx] += totalDia;
     }
@@ -130,7 +155,7 @@ router.get('/:anio/:mes', protect, authorize('admin','Administrador','administra
       .sort({ dia: 1 })
       .toArray();
 
-    return res.json({ ok: true, data: docs.map(d => ({ fecha: d.fecha, campos: ensureLen14(d.campos) })) });
+    return res.json({ ok: true, data: docs.map(d => ({ fecha: d.fecha, campos: ensureLen17(d.campos) })) });
   } catch (e) {
     console.error('[FACT] GET mensual error:', e);
     res.status(500).json({ ok: false, message: 'Error interno' });
@@ -145,7 +170,7 @@ router.post('/', protect, authorize('admin','Administrador','administrador'), as
     if (!parsed) {
       return res.status(400).json({ ok: false, message: 'Fecha inválida' });
     }
-    const campos14 = ensureLen14(campos);
+    const campos14 = ensureLen17(campos);
     const coll = await getCollection();
 
     const now = new Date();
