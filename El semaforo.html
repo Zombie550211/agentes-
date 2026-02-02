@@ -68,7 +68,7 @@
             }
 
             .ranking-row { 
-                grid-template-columns: 60px 1fr 150px 120px; 
+                grid-template-columns: 60px 1fr 150px 200px; 
             }
         }
 
@@ -317,13 +317,13 @@
 
         .ranking-row {
             display: grid;
-            grid-template-columns: 80px 1fr 200px 150px;
+            grid-template-columns: 80px 1fr 200px 280px;
             align-items: center;
-            padding: 20px;
-            margin-bottom: 12px;
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            padding: 25px;
+            margin-bottom: 15px;
+            border-radius: 15px;
             border: 2px solid transparent;
+            transition: all 0.3s ease;
             position: relative;
         }
 
@@ -421,12 +421,33 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 12px 24px;
+            padding: 0;
             border-radius: 20px;
             font-size: 20px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            width: 170px;
+            height: 86px;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .status-badge img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .status-badge.status-image {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            border-radius: 12px;
+            width: 260px;
+            height: 120px;
         }
 
         .status-badge.top { 
@@ -1355,12 +1376,13 @@
             };
 
             const getRowBadge = (status, pos) => {
-                if (status === 'top') {
-                    const p = Number(pos || 0);
-                    if (p === 1) return '$500';
-                    if (p === 2) return '$200';
-                    return 'TOP';
-                }
+                const p = Number(pos || 0);
+                if (p === 1) return '<img src="images/semaforo/billete%20500.png" alt="$500">';
+                if (p === 2) return '<img src="images/semaforo/billete%20200.png" alt="$200">';
+                if (p === 3) return '<img src="images/semaforo/billete-alas.png" alt="TOP">';
+                if (p === 4) return '<img src="images/semaforo/siga-participando.png" alt="Siga participando">';
+                if (p === 5) return '<img src="images/semaforo/grupo-fracasados.png" alt="Grupo de fracasados">';
+                if (status === 'top') return 'TOP';
                 if (status === 'warning') return '⚠️ ALERTA';
                 return '🚨 PELIGRO';
             };
@@ -1464,6 +1486,12 @@
                         <span class="status-badge ${status}">${getRowBadge(status, pos)}</span>
                     </div>
                 `;
+                try {
+                    const badgeEl = row.querySelector('.status-badge');
+                    if (badgeEl && pos >= 1 && pos <= 5) {
+                        badgeEl.classList.add('status-image');
+                    }
+                } catch (_) {}
                 table.appendChild(row);
             });
 
