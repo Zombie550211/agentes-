@@ -5064,10 +5064,14 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
 
+    // Permitir parámetros year/month o usar el mes actual por defecto
     const now = new Date();
-    const year = now.getFullYear();
-    const monthIndex = now.getMonth();
-    const month = String(monthIndex + 1).padStart(2, '0');
+    const requestedYear = req.query.year ? parseInt(req.query.year) : now.getFullYear();
+    const requestedMonth = req.query.month ? parseInt(req.query.month) : now.getMonth() + 1;
+    
+    const year = requestedYear;
+    const monthIndex = requestedMonth - 1; // JavaScript months are 0-indexed
+    const month = String(requestedMonth).padStart(2, '0');
     
     // Usar rango del mes exacto, igual que /api/ranking
     const startOfMonth = new Date(year, monthIndex, 1);

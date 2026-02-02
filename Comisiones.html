@@ -465,6 +465,10 @@
             const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
             const longPressRef = React.useRef(null);
             const longPressTargetRef = React.useRef(null);
+            const [selectedMonth, setSelectedMonth] = React.useState(() => {
+                const now = new Date();
+                return { year: now.getFullYear(), month: now.getMonth() + 1 };
+            });
             const isAdminUser = (() => {
                 const roleRaw = String(currentUser?.role || '').toLowerCase();
                 return roleRaw.includes('admin') || roleRaw.includes('administrador');
@@ -473,12 +477,14 @@
             const loadAgentsFromDB = async () => {
                 try {
                     console.log('Cargando agentes desde API...');
+                    const { year, month } = selectedMonth;
+                    console.log(`Cargando agentes para ${year}-${String(month).padStart(2, '0')}`);
                     
-                    // Cargar agentes regulares
-                    const response = await fetch('/api/comisiones/agentes-mes');
+                    // Cargar agentes regulares para el mes seleccionado
+                    const response = await fetch(`/api/comisiones/agentes-mes?year=${year}&month=${month}`);
                     console.log('Respuesta agentes-mes status:', response.status);
                     
-                    // Cargar agentes de Team Lineas desde BD separada
+                    // Cargar agentes de Team Lineas desde BD separada (sin filtro de mes por ahora)
                     const responseLineas = await fetch('/api/comisiones/agentes-lineas');
                     console.log('Respuesta agentes-lineas status:', responseLineas.status);
                     
@@ -591,6 +597,33 @@
                 loadAgentsFromDB();
                 getCurrentUser();
             }, []);
+            React.useEffect(() => {
+                if (isAdminUser && activeView === 'admin') {
+                    loadAgentsFromDB();
+                }
+            }, [selectedMonth, isAdminUser, activeView]);
+
+            const changeMonth = (delta) => {
+                setSelectedMonth(prev => {
+                    let { year, month } = prev;
+                    month += delta;
+                    if (month > 12) { month = 1; year += 1; }
+                    if (month < 1) { month = 12; year -= 1; }
+                    return { year, month };
+                });
+            };
+
+            const formatMonthYear = ({ year, month }) => {
+                const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                return `${monthNames[month - 1]} ${year}`;
+            };
+
+            const handleMonthChange = (e) => {
+                const [year, month] = e.target.value.split('-').map(Number);
+                if (year && month && month >= 1 && month <= 12) {
+                    setSelectedMonth({ year, month });
+                }
+            };
 
             const closeAgentModal = () => {
                 setIsAgentModalOpen(false);
@@ -1030,7 +1063,7 @@
                                     </div>
                                     <div>
                                         <h1 className="text-xl font-bold text-gray-900">Comisiones</h1>
-                                        <p className="text-sm text-gray-500">Panel de Administración</p>
+                                        <p className="text-sm text-gray-500">Panel de Administración - {formatMonthYear(selectedMonth)}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -1042,11 +1075,30 @@
                                             className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         />
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => changeMonth(-1)}
+                                            className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                                            title="Mes anterior"
+                                        >
+                                            ←
+                                        </button>
+                                        <input
+                                            type="month"
+                                            value={`${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`}
+                                            onChange={handleMonthChange}
+                                            className="px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                        <button
+                                            onClick={() => changeMonth(1)}
+                                            className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                                            title="Mes siguiente"
+                                        >
+                                            →
+                                        </button>
+                                    </div>
                                     <button className="p-2 hover:bg-gray-100 rounded-lg">
                                         <span className="text-xl">🔔</span>
-                                    </button>
-                                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-                                        + Agregar Agente
                                     </button>
                                 </div>
                             </div>
@@ -1086,7 +1138,12 @@
                             <>
                                 {/* Agent Cards */}
                                 <div className="mb-8">
-                                    <h2 className="text-lg font-bold text-gray-900 mb-4">Todos los Agentes ({agents.length})</h2>
+                                    <h2 className="text-lg font-bold text-gray-900 mb-4">
+                                        Todos los Agentes ({agents.length}) - {formatMonthYear(selectedMonth)}
+                                    </h2>
+                                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 mb-4">
+                                        + Agregar Agente
+                                    </button>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {agents.map(agent => (
                                             <div
@@ -1278,7 +1335,9 @@
 
                         {activeTab === 'reports' && (
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Reportes de Comisiones</h2>
+                                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                                    Reportes de Comisiones - {formatMonthYear(selectedMonth)}
+                                </h2>
 
                                 {(() => {
                                     const allAgents = [...agentsLineas, ...agents];
