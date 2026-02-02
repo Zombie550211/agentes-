@@ -2619,19 +2619,66 @@
           <div class="bulk-actions">
             <button id="bulkParseBtn" class="btn-secondary">Cargar y previsualizar</button>
             <button id="bulkApplyBtn" class="btn-primary" disabled>Aplicar cambios</button>
+            <button id="bulkReconcilePhonesBtn" class="btn-secondary" disabled>Cuadrar teléfonos</button>
             <button id="bulkDownloadPreview" class="action-btn" disabled title="Descargar preview CSV">Descargar preview</button>
           </div>
         </div>
         <div class="bulk-right">
-          <div id="bulkPreviewInfo" class="small-muted">NingÃºn archivo cargado.</div>
+          <div id="bulkPreviewInfo" class="small-muted">Ningún archivo cargado.</div>
           <table id="bulkPreviewTable" style="display:none;">
-            <thead><tr><th>#</th><th>Nombre</th><th>TelÃ©fono</th><th>Status (archivo)</th><th>Match</th></tr></thead>
+            <thead><tr><th>#</th><th>Nombre</th><th>Teléfono</th><th>Status (archivo)</th><th>Match</th></tr></thead>
             <tbody id="bulkPreviewTbody"></tbody>
           </table>
         </div>
       </div>
       <div class="bulk-footer">
         <button id="bulkModalCancel" class="action-btn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  <div id="bulkReconcileModal" class="modal" aria-hidden="true" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.45); z-index: 2250; align-items:center; justify-content:center;">
+    <div class="bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="bulkReconcileTitle" style="width: 980px; max-width: calc(100% - 48px);">
+      <div class="bulk-header">
+        <h3 id="bulkReconcileTitle">Cuadrar teléfonos (Excel vs CRM)</h3>
+        <button id="bulkReconcileClose" class="action-btn" title="Cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="bulk-body" style="gap:12px;">
+        <div class="bulk-left" style="flex:1 1 420px; min-width:300px;">
+          <div id="bulkReconcileSummary" class="small-muted">Sin resultados.</div>
+          <div style="margin-top:10px;">
+            <strong>En CRM pero NO en Excel</strong>
+            <div style="max-height:320px; overflow:auto; border:1px solid #eef2f7; border-radius:8px; background:#fbfdff;">
+              <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                  <tr>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Nombre</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Teléfono</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Cuenta</th>
+                    <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Producto</th>
+                  </tr>
+                </thead>
+                <tbody id="bulkReconcileCrmMissingTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="bulk-right" style="flex:1 1 420px; min-width:300px; max-height:none;">
+          <strong>En Excel pero NO en CRM</strong>
+          <div style="max-height:380px; overflow:auto; border:1px solid #eef2f7; border-radius:8px; background:#fbfdff;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Teléfono</th>
+                  <th style="padding:8px; text-align:left; border-bottom:1px solid #e6eef5; color:#475569; font-weight:700;">Nombre (Excel)</th>
+                </tr>
+              </thead>
+              <tbody id="bulkReconcileExcelMissingTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="bulk-footer">
+        <button id="bulkReconcileClose2" class="action-btn">Cerrar</button>
       </div>
     </div>
   </div>
@@ -3233,6 +3280,7 @@
       const fileInput = document.getElementById('bulkExcelFile');
       const parseBtn = document.getElementById('bulkParseBtn');
       const applyBtn = document.getElementById('bulkApplyBtn');
+      const reconcileBtn = document.getElementById('bulkReconcilePhonesBtn');
       const closeBtn = document.getElementById('bulkExcelClose');
       const cancelBtn = document.getElementById('bulkModalCancel');
       const previewInfo = document.getElementById('bulkPreviewInfo');
@@ -3241,6 +3289,14 @@
       const dryRunEl = document.getElementById('bulkDryRun');
       const saveSnapshotEl = document.getElementById('bulkSaveSnapshot');
       const downloadPreviewBtn = document.getElementById('bulkDownloadPreview');
+
+
+      const reconcileModal = document.getElementById('bulkReconcileModal');
+      const reconcileClose = document.getElementById('bulkReconcileClose');
+      const reconcileClose2 = document.getElementById('bulkReconcileClose2');
+      const reconcileSummary = document.getElementById('bulkReconcileSummary');
+      const crmMissingTbody = document.getElementById('bulkReconcileCrmMissingTbody');
+      const excelMissingTbody = document.getElementById('bulkReconcileExcelMissingTbody');
 
       // show button only for admin/backoffice
       try{ if (btn) { if (isAdminOrBackofficeLocal()) btn.style.display='inline-block'; else btn.style.display='none'; } }catch(e){console.warn(e);} 
@@ -3291,6 +3347,119 @@
 
       function normalizePhone(v){ if(!v) return ''; return String(v).replace(/[^0-9]+/g,'').replace(/^0+/,''); }
       function normalizeName(v){ if(!v) return ''; return String(v).normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase(); }
+
+      function escapeHtml(s){
+        return String(s == null ? '' : s)
+          .replace(/&/g,'&amp;')
+          .replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;')
+          .replace(/'/g,'&#39;');
+      }
+
+      function getLeadProduct(lead){
+        try{
+          const l = lead || {};
+          return (
+            l.producto || l._raw?.producto ||
+            l.servicios_texto || l._raw?.servicios_texto ||
+            l.tipo_servicios || l._raw?.tipo_servicios ||
+            l.servicios || l._raw?.servicios ||
+            l.sistema || l._raw?.sistema ||
+            ''
+          );
+        }catch{ return ''; }
+      }
+
+      function openReconcileModal(){
+        if (!reconcileModal) return;
+        reconcileModal.style.display = 'flex';
+        reconcileModal.classList.add('show');
+        reconcileModal.setAttribute('aria-hidden','false');
+      }
+      function closeReconcileModal(){
+        if (!reconcileModal) return;
+        reconcileModal.style.display = 'none';
+        reconcileModal.classList.remove('show');
+        reconcileModal.setAttribute('aria-hidden','true');
+      }
+
+      async function handleReconcilePhones(){
+        const parsed = window.__bulkExcelParsed;
+        if (!parsed) { alert('Primero carga y previsualiza el archivo.'); return; }
+        const { rows, idxName, idxPhone, startRow } = parsed;
+        const leads = Array.isArray(window.ultimaListaLeads) ? window.ultimaListaLeads : [];
+        if (!rows || rows.length < 2) { alert('El archivo no contiene filas.'); return; }
+
+        const excelPhones = new Map();
+        const start = (typeof startRow === 'number' && startRow >= 0) ? startRow : 1;
+        for (let i=start; i<rows.length; i++){
+          const r = rows[i];
+          if (!r) continue;
+          const phoneRaw = (typeof idxPhone === 'number' && idxPhone >= 0) ? (r[idxPhone] || '') : '';
+          const phoneNorm = normalizePhone(phoneRaw);
+          if (!phoneNorm) continue;
+          if (!excelPhones.has(phoneNorm)) {
+            const nm = (typeof idxName === 'number' && idxName >= 0) ? (r[idxName] || '') : '';
+            excelPhones.set(phoneNorm, String(nm || ''));
+          }
+        }
+
+        const crmPhones = new Map();
+        leads.forEach(l => {
+          try{
+            const phoneRaw = l?.telefono_principal || l?._raw?.telefono_principal || l?.telefono || l?.phone || '';
+            const phoneNorm = normalizePhone(phoneRaw);
+            if (!phoneNorm) return;
+            if (!crmPhones.has(phoneNorm)) crmPhones.set(phoneNorm, l);
+          }catch(_){ }
+        });
+
+        const crmNotInExcel = [];
+        for (const [phoneNorm, lead] of crmPhones.entries()){
+          if (!excelPhones.has(phoneNorm)) crmNotInExcel.push({ phone: phoneNorm, lead });
+        }
+
+        const excelNotInCrm = [];
+        for (const [phoneNorm, name] of excelPhones.entries()){
+          if (!crmPhones.has(phoneNorm)) excelNotInCrm.push({ phone: phoneNorm, name });
+        }
+
+        try{ if (crmMissingTbody) crmMissingTbody.innerHTML = ''; }catch(_){ }
+        try{ if (excelMissingTbody) excelMissingTbody.innerHTML = ''; }catch(_){ }
+
+        const maxShow = 3000;
+        const crmShow = crmNotInExcel.slice(0, maxShow);
+        const excelShow = excelNotInCrm.slice(0, maxShow);
+
+        if (crmMissingTbody) {
+          crmShow.forEach(({phone, lead}) => {
+            const name = lead?.nombre_cliente || lead?._raw?.nombre_cliente || '';
+            const cuenta = lead?.numero_cuenta || lead?._raw?.numero_cuenta || '';
+            const producto = getLeadProduct(lead);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(name)}</td>`+
+                           `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(phone)}</td>`+
+                           `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(cuenta)}</td>`+
+                           `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(producto)}</td>`;
+            crmMissingTbody.appendChild(tr);
+          });
+        }
+
+        if (excelMissingTbody) {
+          excelShow.forEach(({phone, name}) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(phone)}</td>`+
+                           `<td style="padding:8px;border-bottom:1px solid #f1f5f9;">${escapeHtml(name)}</td>`;
+            excelMissingTbody.appendChild(tr);
+          });
+        }
+
+        if (reconcileSummary) {
+          reconcileSummary.textContent = `Excel teléfonos únicos: ${excelPhones.size} | CRM teléfonos únicos: ${crmPhones.size} | CRM no en Excel: ${crmNotInExcel.length} | Excel no en CRM: ${excelNotInCrm.length}`;
+        }
+        openReconcileModal();
+      }
 
       async function parseFile(file){
         await loadSheetJS();
@@ -3349,14 +3518,16 @@
         return String(v).trim().toUpperCase();
       }
 
-      function buildPreview(rows, idxName, idxPhone, idxStatus, idxAgent){
+      function buildPreview(rows, idxName, idxPhone, idxStatus, idxAgent, startRow){
         previewTbody.innerHTML='';
-  const max = Math.min(rows.length-1, 2000);
-        for(let i=1;i<=max;i++){
+        const start = (typeof startRow === 'number' && startRow >= 0) ? startRow : 1;
+        const max = Math.min(rows.length - start, 2000);
+        for(let j=0;j<max;j++){
+          const i = start + j;
           const r = rows[i];
           const name = r[idxName]||'';
           const phone = r[idxPhone]||'';
-          const status = r[idxStatus]||'';
+          const status = (typeof idxStatus === 'number' && idxStatus >= 0) ? (r[idxStatus]||'') : '';
           const agent = (typeof idxAgent === 'number' && idxAgent>=0) ? (r[idxAgent]||'') : '';
           const norm = normalizeStatus(status);
           const statusDisplay = norm && String(status||'').trim().toUpperCase() !== norm ? `${String(status||'')} â†’ ${norm}` : String(status||'');
@@ -3365,7 +3536,7 @@
           previewTbody.appendChild(tr);
         }
         previewTable.style.display='table';
-  previewInfo.textContent = `Filas detectadas: ${rows.length-1}. Mostrando primeras ${Math.min(2000, rows.length-1)} filas para preview.`;
+        previewInfo.textContent = `Filas detectadas: ${Math.max(0, rows.length - start)}. Mostrando primeras ${Math.min(2000, Math.max(0, rows.length - start))} filas para preview.`;
       }
 
       async function handleParse(){
@@ -3375,18 +3546,51 @@
         try{
           const rows = await parseFile(f);
           if(!rows || rows.length<2){ previewInfo.textContent='El archivo no contiene filas.'; return; }
-          const headers = rows[0].map(h=>String(h||''));
-          // find indices (accept many header name variants, including AGENTE)
-          const idxStatus = findHeaderIndex(headers, ['status','estado','estatus','stato']);
-          const idxName = findHeaderIndex(headers, ['nombre_cliente','nombre','clientename','name','cliente','customername']);
-          const idxPhone = findHeaderIndex(headers, ['telefono_principal','telefono','telefono1','phone','phone_main','telefono_pri']);
-          const idxAgent = findHeaderIndex(headers, ['agente','agent','agente_nombre','agente nombre','agenteNombre','vendedor','salesagent']);
-          if(idxStatus<0){ previewInfo.textContent='No se encontrÃ³ columna STATUS en el archivo. Encabezados: ' + headers.join(', '); return; }
-          buildPreview(rows, idxName>=0?idxName:0, idxPhone>=0?idxPhone:1, idxStatus, idxAgent>=0?idxAgent:-1);
-          // save parsed data to window for apply (include agent index)
-          window.__bulkExcelParsed = { rows, headers, idxStatus, idxName, idxPhone, idxAgent: idxAgent>=0?idxAgent:-1, fileName: f.name };
-          applyBtn.disabled = false;
+          const rawHeaderRow = rows[0].map(h=>String(h||''));
+          const headerLooksLikeData = (() => {
+            try {
+              const joined = rawHeaderRow.join(' ').trim();
+              if (!joined) return false;
+              const hasLetters = /[a-zA-Z]/.test(joined);
+              const numeric = joined.replace(/[^0-9]+/g,'');
+              return (!hasLetters && numeric.length >= 8);
+            } catch { return false; }
+          })();
+
+          let headers = rawHeaderRow;
+          let startRow = 1;
+          let idxStatus = -1;
+          let idxName = -1;
+          let idxPhone = -1;
+          let idxAgent = -1;
+
+          if (headerLooksLikeData) {
+            headers = ['telefono_principal'];
+            startRow = 0;
+            idxPhone = 0;
+          } else {
+            idxStatus = findHeaderIndex(headers, ['status','estado','estatus','stato']);
+            idxName = findHeaderIndex(headers, ['nombre_cliente','nombre','clientename','name','cliente','customername']);
+            idxPhone = findHeaderIndex(headers, ['telefono_principal','telefono','telefono1','phone','phone_main','telefono_pri']);
+            idxAgent = findHeaderIndex(headers, ['agente','agent','agente_nombre','agente nombre','agenteNombre','vendedor','salesagent']);
+          }
+
+          buildPreview(rows, idxName>=0?idxName:0, idxPhone>=0?idxPhone:0, idxStatus, idxAgent>=0?idxAgent:-1, startRow);
+          window.__bulkExcelParsed = { rows, headers, idxStatus, idxName, idxPhone, idxAgent: idxAgent>=0?idxAgent:-1, fileName: f.name, startRow };
+
+          if (idxStatus >= 0) {
+            applyBtn.disabled = false;
+          } else {
+            applyBtn.disabled = true;
+          }
+          if (reconcileBtn) reconcileBtn.disabled = false;
           downloadPreviewBtn.disabled = false;
+
+          if (idxStatus < 0 && !headerLooksLikeData) {
+            try {
+              previewInfo.textContent = 'No se encontró columna STATUS en el archivo. Puedes usar "Cuadrar teléfonos" o cargar un archivo con STATUS para aplicar cambios.';
+            } catch(_) {}
+          }
         }catch(e){ console.error(e); previewInfo.textContent='Error parseando archivo: '+(e.message||e); }
       }
 
@@ -3483,6 +3687,10 @@
       if(parseBtn) parseBtn.addEventListener('click', handleParse);
       if(downloadPreviewBtn) downloadPreviewBtn.addEventListener('click', downloadCSVPreview);
       if(applyBtn) applyBtn.addEventListener('click', handleApply);
+      if(reconcileBtn) reconcileBtn.addEventListener('click', handleReconcilePhones);
+      if(reconcileModal) reconcileModal.addEventListener('click', (e)=>{ if (e && e.target === reconcileModal) closeReconcileModal(); });
+      if(reconcileClose) reconcileClose.addEventListener('click', closeReconcileModal);
+      if(reconcileClose2) reconcileClose2.addEventListener('click', closeReconcileModal);
 
       // close modal on outside click
   modal.addEventListener('click', (e)=>{ if(e.target===modal) { modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); } });
