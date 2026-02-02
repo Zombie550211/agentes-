@@ -3790,6 +3790,25 @@
       // (el usuario puede seleccionar "Todos los meses" manualmente)
       try {
         const monthFilterEl = document.getElementById('monthFilter');
+        if (monthFilterEl) {
+          const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+          const makeYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const makeLabel = (d) => `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+          const baseOpt = monthFilterEl.options && monthFilterEl.options.length ? monthFilterEl.options[0] : null;
+          monthFilterEl.innerHTML = '';
+          if (baseOpt) monthFilterEl.appendChild(baseOpt);
+
+          const now = new Date();
+          const start = new Date(now.getFullYear(), now.getMonth(), 1);
+          for (let i = 0; i < 18; i++) {
+            const d = new Date(start.getTime());
+            d.setMonth(start.getMonth() - i);
+            const opt = document.createElement('option');
+            opt.value = makeYm(d);
+            opt.textContent = makeLabel(d);
+            monthFilterEl.appendChild(opt);
+          }
+        }
         if (monthFilterEl && (!monthFilterEl.value || String(monthFilterEl.value).trim() === '')) {
           const now = new Date();
           const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -3799,8 +3818,14 @@
           if (!hasOption) {
             const opt = document.createElement('option');
             opt.value = currentMonth;
-            // Mantener label simple: YYYY-MM (evita traducciones/locale)
-            opt.textContent = currentMonth;
+            try {
+              const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+              const mm = Number(String(currentMonth).slice(5, 7));
+              const yy = Number(String(currentMonth).slice(0, 4));
+              opt.textContent = `${monthNames[Math.max(0, mm - 1)]} ${yy}`;
+            } catch (_) {
+              opt.textContent = currentMonth;
+            }
 
             // Insertar despuÃ©s de "Todos los meses" si existe.
             if (monthFilterEl.options && monthFilterEl.options.length > 0) {
