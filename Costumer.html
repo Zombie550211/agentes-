@@ -4870,6 +4870,24 @@
       } catch { return ''; }
     }
 
+    function getInstallDateFromLead(lead) {
+      try {
+        if (!lead) return '';
+        const candidates = [
+          lead.dia_instalacion,
+          lead.diaInstalacion,
+          lead.fecha_instalacion,
+          lead.fechaInstalacion,
+          lead._raw && (
+            lead._raw.dia_instalacion || lead._raw.diaInstalacion || lead._raw.fecha_instalacion || lead._raw.fechaInstalacion
+          )
+        ].filter(Boolean);
+        const raw = candidates.length ? candidates[0] : null;
+        if (!raw) return '';
+        return toLocalISO(raw);
+      } catch { return ''; }
+    }
+
     // Helpers globales para normalizar nombres de agente (disponibles fuera de IIFE)
     if (typeof window.__normStrAgent !== 'function') {
       window.__normStrAgent = function __normStrAgent(s){
@@ -4981,6 +4999,8 @@
 
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
+      console.log('[fetchLeadsAgente] User role:', JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}').role);
+      console.log('[fetchLeadsAgente] Month filter:', document.getElementById('monthFilter')?.value);
       
       // âš ï¸ VALIDACIÃ“N CRÃTICA: Limpiar cache si el usuario cambiÃ³
       try {
@@ -8266,6 +8286,16 @@
         renderWithMonthlySeparators(leadsArray);
         try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){ }
       }
+
+      // Asegurar que los KPIs siempre se actualicen con los datos renderizados
+      try {
+        window.__kpiLeadsLast = Array.isArray(leadsArray) ? leadsArray.slice() : [];
+        if (typeof updateSummaryCards === 'function') {
+          updateSummaryCards(leadsArray);
+        }
+      } catch (e) {
+        console.warn('[renderCostumerTable] Error actualizando KPIs al final:', e);
+      }
     };
 
     // FunciÃ³n para actualizar las tarjetas de resumen
@@ -8389,6 +8419,9 @@
       let ventasActivas = 0;
       let pendientes = 0;
       let cancelados = 0;
+      // Contadores para debugging
+      let totalActivasSinCancel = 0;
+      let totalActivasConInstalacionEnMes = 0;
       // Fecha de referencia para KPIs (siempre disponible aunque no haya leads)
       const todayISO = toISOInTZ(new Date(), BUSINESS_TZ_OFFSET_MIN); // YYYY-MM-DD
       const [yNow, mNow] = todayISO.split('-').map(Number);
@@ -8454,22 +8487,22 @@
             const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b|\bactive\b|\bactivo\b/.test(status);
 
 
-            // Usar la misma extracciÃ³n de fecha que el grÃ¡fico
-            const leadISO = getDateFromLead(lead); // YYYY-MM-DD en TZ de negocio
-            let inTargetMonth = false;
-            if (!leadISO) {
+            // Para KPIs de status: usar fecha de INSTALACIÃ“N del mes objetivo
+            // (pero NO cortar el procesamiento del lead; otros KPIs siguen usando la fecha principal)
+            const installISO = getInstallDateFromLead(lead);
+            const hasValidInstallISO = !!(installISO && /^\d{4}-\d{2}-\d{2}$/.test(installISO));
+            let inTargetMonthInstall = false;
+            if (!hasValidInstallISO) {
               __kpiMissingDate++;
-              // Si el backend ya filtrÃ³ por mes (month=YYYY-MM), asumir que pertenece al mes seleccionado
-              // para que los totales cuadren aunque la fecha sea invÃ¡lida/no parseable.
-              if (!__hasExplicitMonthFilter) return;
-              inTargetMonth = true;
             } else {
-              const [yL, mL] = leadISO.split('-').map(Number);
-              inTargetMonth = (yL === yTarget && mL === mTarget);
-              if (!inTargetMonth) return;
+              const [yI, mI] = installISO.split('-').map(Number);
+              inTargetMonthInstall = (yI === yTarget && mI === mTarget);
             }
 
-            __kpiStatusCounts[status || '(vacio)'] = (__kpiStatusCounts[status || '(vacio)'] || 0) + 1;
+            // Conteo de status para diagnÃ³stico (solo cuando pertenece al mes objetivo por instalaciÃ³n)
+            if (inTargetMonthInstall) {
+              __kpiStatusCounts[status || '(vacio)'] = (__kpiStatusCounts[status || '(vacio)'] || 0) + 1;
+            }
 
             // Contar pendientes/cancelados: si hay KPIs globales del backend Y no es agente,
             // NO recalcular aquí para no depender de paginación.
@@ -8479,18 +8512,55 @@
             const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
             
             if (isAgente || !canUseBackendKpis) {
-              // Contar pendientes
-              if (isPending) {
-                pendientes++;
+              // KPIs solicitados por mes de instalaciÃ³n
+              if (inTargetMonthInstall) {
+                if (isPending) pendientes++;
+                if (isCancel) cancelados++;
               }
+            }
+            // DEBUG: mostrar en consola cÃ³mo se estÃ¡n filtrando estos KPIs
+            if (isPending || isCancel || isActive) {
+              console.log('[KPI-DEBUG]', {
+                status,
+                isPending,
+                isCancel,
+                isActive,
+                installISO,
+                inTargetMonthInstall,
+                leadISO: getDateFromLead(lead),
+                inTargetMonthLead: (() => { const iso = getDateFromLead(lead); if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) { const [yLead, mLead] = iso.split('-').map(Number); return (yLead === yTarget && mLead === mTarget); } return false; })(),
+                yTarget,
+                mTarget,
+                nombre: lead?.nombre_cliente || lead?.name || 'sin nombre'
+              });
+            }
 
-              // Contar cancelados
-              if (isCancel) {
-                cancelados++;
+            // DEBUG ESPECÍFICO para ventas activas
+            if (isActive && !isCancel) {
+              totalActivasSinCancel++;
+              console.log('[VENTA ACTIVA DEBUG]', {
+                nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
+                status,
+                isActive,
+                isCancel,
+                installISO,
+                inTargetMonthInstall,
+                seCuenta: inTargetMonthInstall && isActive && !isCancel
+              });
+              
+              if (inTargetMonthInstall) {
+                totalActivasConInstalacionEnMes++;
               }
             }
 
-            // Ventas hoy (solo efectivas: excluir canceladas)
+            // Ventas hoy / Ventas del mes se mantienen por fecha principal (venta/contrataciÃ³n)
+            const leadISO = getDateFromLead(lead);
+            let inTargetMonthLead = false;
+            if (leadISO && /^\d{4}-\d{2}-\d{2}$/.test(leadISO)) {
+              const [yLead, mLead] = leadISO.split('-').map(Number);
+              inTargetMonthLead = (yLead === yTarget && mLead === mTarget);
+            }
+
             if (leadISO && leadISO === todayISO && !isCancel) ventasHoy++;
 
             // Ventas del mes / Ventas activas (fallback local para agentes o sin KPIs)
@@ -8499,19 +8569,41 @@
             const isAgente2 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw2);
             
             if (isAgente2 || !canUseBackendKpis) {
-              if (!isCancel) ventasMes++;
-              if (isActive && !isCancel) ventasActivas++;
+              if (inTargetMonthLead && !isCancel) ventasMes++;
+              // Ventas activas solicitadas por mes de INSTALACIÃ“N
+              if (inTargetMonthInstall && isActive && !isCancel) {
+                ventasActivas++;
+                console.log('[VENTA ACTIVA CONTADA]', {
+                  nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
+                  status,
+                  installISO,
+                  inTargetMonthInstall,
+                  totalAcumulado: ventasActivas
+                });
+              }
+              console.log('[KPI-DEBUG] ventasActivas++', { inTargetMonthInstall, isActive, isCancel });
             }
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
           }
         });
         
-        console.log('EstadÂ¨Âªsticas calculadas:', {
+        console.log('[updateSummaryCards] FINAL KPIs:', {
           ventasHoy,
           ventasMes,
+          ventasActivas,
           pendientes,
-          cancelados
+          cancelados,
+          targetMonthStr,
+          yTarget,
+          mTarget,
+          // Debug de ventas activas
+          debugActivas: {
+            totalActivasSinCancel,
+            totalActivasConInstalacionEnMes,
+            ventasActivasContadas: ventasActivas,
+            diferencia: totalActivasSinCancel - ventasActivas
+          }
         });
 
         try {
