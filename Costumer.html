@@ -8422,6 +8422,8 @@
       // Contadores para debugging
       let totalActivasSinCancel = 0;
       let totalActivasConInstalacionEnMes = 0;
+      let totalPendientes = 0;
+      let totalPendientesConInstalacionEnMes = 0;
       // Fecha de referencia para KPIs (siempre disponible aunque no haya leads)
       const todayISO = toISOInTZ(new Date(), BUSINESS_TZ_OFFSET_MIN); // YYYY-MM-DD
       const [yNow, mNow] = todayISO.split('-').map(Number);
@@ -8535,22 +8537,27 @@
               });
             }
 
-            // DEBUG ESPECÍFICO para ventas activas
-            if (isActive && !isCancel) {
-              totalActivasSinCancel++;
-              console.log('[VENTA ACTIVA DEBUG]', {
+            // DEBUG ESPECÍFICO para ventas activas y pendientes
+            if (isActive || isPending) {
+              if (isActive && !isCancel) totalActivasSinCancel++;
+              if (isPending) totalPendientes++;
+              
+              if (inTargetMonthInstall) {
+                if (isActive && !isCancel) totalActivasConInstalacionEnMes++;
+                if (isPending) totalPendientesConInstalacionEnMes++;
+              }
+              
+              const debugInfo = {
                 nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
                 status,
                 isActive,
+                isPending,
                 isCancel,
                 installISO,
                 inTargetMonthInstall,
-                seCuenta: inTargetMonthInstall && isActive && !isCancel
-              });
-              
-              if (inTargetMonthInstall) {
-                totalActivasConInstalacionEnMes++;
-              }
+                seCuenta: inTargetMonthInstall && !isCancel && (isActive || isPending)
+              };
+              console.log('[STATUS DEBUG]', JSON.stringify(debugInfo, null, 2));
             }
 
             // Ventas hoy / Ventas del mes se mantienen por fecha principal (venta/contrataciÃ³n)
@@ -8570,6 +8577,7 @@
             
             if (isAgente2 || !canUseBackendKpis) {
               if (inTargetMonthLead && !isCancel) ventasMes++;
+              
               // Ventas activas solicitadas por mes de INSTALACIÃ“N
               if (inTargetMonthInstall && isActive && !isCancel) {
                 ventasActivas++;
@@ -8581,7 +8589,18 @@
                   totalAcumulado: ventasActivas
                 });
               }
-              console.log('[KPI-DEBUG] ventasActivas++', { inTargetMonthInstall, isActive, isCancel });
+              
+              // Pendientes solicitadas por mes de INSTALACIÃ“N
+              if (inTargetMonthInstall && isPending && !isCancel) {
+                pendientes++;
+                console.log('[PENDIENTE CONTADO]', {
+                  nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
+                  status,
+                  installISO,
+                  inTargetMonthInstall,
+                  totalAcumulado: pendientes
+                });
+              }
             }
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
@@ -8597,12 +8616,18 @@
           targetMonthStr,
           yTarget,
           mTarget,
-          // Debug de ventas activas
+          // Debug de ventas activas y pendientes
           debugActivas: {
             totalActivasSinCancel,
             totalActivasConInstalacionEnMes,
             ventasActivasContadas: ventasActivas,
-            diferencia: totalActivasSinCancel - ventasActivas
+            diferenciaActivas: totalActivasSinCancel - ventasActivas
+          },
+          debugPendientes: {
+            totalPendientes,
+            totalPendientesConInstalacionEnMes,
+            pendientesContados: pendientes,
+            diferenciaPendientes: totalPendientes - pendientes
           }
         });
 
