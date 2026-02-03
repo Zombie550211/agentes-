@@ -48,7 +48,7 @@
       supervisor: 'jonathan.figueroa',
       supervisorName: 'Jonathan Figueroa',
       color: '#43e97b',
-      agents: []
+      agents: ['VICTOR HURTADO', 'EDWARD RAMIREZ', 'CRISTIAN RIVERA', 'ANDREA ARDON']
     },
     'Backoffice': {
       name: 'Backoffice',

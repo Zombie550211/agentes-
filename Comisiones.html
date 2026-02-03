@@ -602,6 +602,13 @@
                     loadAgentsFromDB();
                 }
             }, [selectedMonth, isAdminUser, activeView]);
+            
+            // Para agentes, también recargar cuando cambia el mes seleccionado
+            React.useEffect(() => {
+                if (isAgentUser) {
+                    loadAgentsFromDB();
+                }
+            }, [selectedMonth, isAgentUser]);
 
             const changeMonth = (delta) => {
                 setSelectedMonth(prev => {
@@ -659,9 +666,35 @@
                 return () => window.removeEventListener('keydown', onKeyDown);
             }, []);
 
-            const AgentDashboardView = ({ agentOverride, userOverride }) => {
+            const AgentDashboardView = ({ agentOverride, userOverride, selectedMonth: propSelectedMonth, changeMonth: propChangeMonth, handleMonthChange: propHandleMonthChange, formatMonthYear: propFormatMonthYear }) => {
                 const agentData = agentOverride || currentAgent;
                 const userData = userOverride || currentUser;
+                
+                // Usar los props pasados o crear valores por defecto
+                const selectedMonth = propSelectedMonth || (() => {
+                    const now = new Date();
+                    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+                })();
+                
+                const changeMonth = propChangeMonth || ((delta) => {
+                    console.log('[AgentDashboard] changeMonth no disponible');
+                });
+                
+                const handleMonthChange = propHandleMonthChange || ((e) => {
+                    console.log('[AgentDashboard] handleMonthChange no disponible');
+                });
+                
+                const formatMonthYear = propFormatMonthYear || (({ year, month }) => {
+                    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                    return `${monthNames[month - 1]} ${year}`;
+                });
+
+                // Recargar datos del agente cuando cambia el mes
+                React.useEffect(() => {
+                    // Aquí podrías agregar lógica para recargar datos específicos del agente
+                    // Por ahora, los datos del agente ya vienen de la carga principal
+                    console.log(`[AgentDashboard] Mes cambiado a: ${formatMonthYear(selectedMonth)}`);
+                }, [selectedMonth]);
 
                 if (!agentData) {
                     return (
@@ -711,8 +744,33 @@
                         <div className="container">
                             <header className="header">
                                 <div className="header-content">
-                                    <h1>¡Hola, {agentData?.name}! 👋</h1>
-                                    <p>Aquí está tu rendimiento actual y tus ganancias</p>
+                                    <div>
+                                        <h1>¡Hola, {agentData?.name}! 👋</h1>
+                                        <p>Aquí está tu rendimiento actual y tus ganancias</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <button
+                                                onClick={() => changeMonth(-1)}
+                                                className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                                                title="Mes anterior"
+                                            >
+                                                ←
+                                            </button>
+                                            <input
+                                                type="month"
+                                                value={`${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`}
+                                                onChange={handleMonthChange}
+                                                className="px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                            <button
+                                                onClick={() => changeMonth(1)}
+                                                className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                                                title="Mes siguiente"
+                                            >
+                                                →
+                                            </button>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-1">{formatMonthYear(selectedMonth)}</p>
+                                    </div>
                                 </div>
                                 <div className="badge-role">{roleLabel}</div>
                             </header>
@@ -877,7 +935,14 @@
                             <div className="relative mx-auto w-full max-w-6xl">
                                 <button onClick={onClose} className="absolute -top-3 -right-3 w-10 h-10 rounded-xl bg-white shadow hover:bg-gray-100 text-gray-800 z-50">✕</button>
                                 <div className="rounded-2xl overflow-hidden">
-                                    <AgentDashboardView agentOverride={agent} userOverride={forcedUser} />
+                                    <AgentDashboardView 
+                                        agentOverride={agent} 
+                                        userOverride={forcedUser} 
+                                        selectedMonth={selectedMonth}
+                                        changeMonth={changeMonth}
+                                        handleMonthChange={handleMonthChange}
+                                        formatMonthYear={formatMonthYear}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -1488,7 +1553,14 @@
                 </div>
             );
 
-            const AgentDashboard = () => <AgentDashboardView />;
+            const AgentDashboard = () => (
+                <AgentDashboardView 
+                    selectedMonth={selectedMonth}
+                    changeMonth={changeMonth}
+                    handleMonthChange={handleMonthChange}
+                    formatMonthYear={formatMonthYear}
+                />
+            );
 
             return (
                 <div>
