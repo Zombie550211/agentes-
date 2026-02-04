@@ -4870,6 +4870,37 @@
       } catch { return ''; }
     }
 
+    function getSaleDateFromLead(lead) {
+      try {
+        if (!lead) return '';
+        const candidates = [
+          lead.dia_venta,
+          lead.diaVenta,
+          lead.dia_de_venta,
+          lead.fecha_contratacion,
+          lead.fechaContratacion,
+          lead.fechaVenta,
+          lead.fecha_venta,
+          lead.saleDate,
+          lead.sale_date,
+          lead.fecha,
+          lead.FECHA,
+          lead.createdAt,
+          lead.creadoEn,
+          lead.updatedAt,
+          lead._raw && (
+            lead._raw.dia_venta || lead._raw.diaVenta || lead._raw.dia_de_venta ||
+            lead._raw.FECHA || lead._raw.fecha_venta || lead._raw.fechaVenta ||
+            lead._raw.fecha_contratacion || lead._raw.fechaContratacion || lead._raw.fecha ||
+            lead._raw.createdAt || lead._raw.creadoEn || lead._raw.fecha_creacion
+          )
+        ].filter(Boolean);
+        const raw = candidates.length ? candidates[0] : null;
+        if (!raw) return '';
+        return toLocalISO(raw);
+      } catch { return ''; }
+    }
+
     function getInstallDateFromLead(lead) {
       try {
         if (!lead) return '';
@@ -5023,10 +5054,18 @@
       try {
         // Si hay un mes seleccionado, NO usar cache precalentado (normalmente solo contiene el mes actual)
         const __monthFilterEl = document.getElementById('monthFilter');
-        const __selectedMonthRaw = (__monthFilterEl && __monthFilterEl.value) ? String(__monthFilterEl.value).trim() : '';
-        const __selectedMonthLc = __selectedMonthRaw.toLowerCase();
-        const __selectedMonth = (__selectedMonthLc === '' || __selectedMonthLc.includes('todos')) ? '' : __selectedMonthRaw;
-        const __bypassPrecache = !!__selectedMonth;
+        const uiMonthRaw = (__monthFilterEl && __monthFilterEl.value) ? String(__monthFilterEl.value).trim() : '';
+        const uiMonthLc = uiMonthRaw.toLowerCase();
+        const uiMonth = (uiMonthLc === '' || uiMonthLc.includes('todos')) ? '' : uiMonthRaw;
+        const stateMonth = (() => {
+          try {
+            const m = (window && window.__selectedMonth) ? String(window.__selectedMonth || '').trim() : '';
+            return /^\d{4}-\d{2}$/.test(m) ? m : '';
+          } catch { return ''; }
+        })();
+        const effectiveSelectedMonth = uiMonth || stateMonth;
+        try { window.__selectedMonth = effectiveSelectedMonth || ''; } catch (_) {}
+        const __bypassPrecache = !!effectiveSelectedMonth;
 
         // FAST PATH: Intentar cargar desde cache precalentado en login
         const cachedCustomers = null;
@@ -5092,7 +5131,7 @@
         
         // Para AGENTES sin filtro de mes: forzar carga de TODOS (limit=10000)
         let actualPageSize = pageSize;
-        if (role === 'agente' && !__selectedMonth) {
+        if (role === 'agente' && !effectiveSelectedMonth) {
           actualPageSize = 10000;
           console.log('[fetchLeadsAgente] AGENTE sin mes: forzando limit=10000 para cargar todos los clientes');
         }
@@ -5104,11 +5143,11 @@
         let url = isTeamLineasUser ? '/api/lineas' : `/api/leads?page=${encodeURIComponent(__page)}&limit=${encodeURIComponent(actualPageSize)}`;
 
         try {
-          if (!isTeamLineasUser && __selectedMonth) {
-            url += `&month=${encodeURIComponent(__selectedMonth)}`;
-          } else if (!isTeamLineasUser && !__selectedMonth && !role === 'agente') {
+          if (!isTeamLineasUser && effectiveSelectedMonth) {
+            url += `&month=${encodeURIComponent(effectiveSelectedMonth)}`;
+          } else if (!isTeamLineasUser && !effectiveSelectedMonth && !role === 'agente') {
             url += `&noAutoMonth=1`;
-          } else if (!isTeamLineasUser && !__selectedMonth && role === 'agente') {
+          } else if (!isTeamLineasUser && !effectiveSelectedMonth && role === 'agente') {
             // Para AGENTES sin filtro de mes: cargar TODOS sus clientes
             const agentName = (userData.nombre || userData.name || userData.username || userData?.usuario?.nombre || userData?.usuario?.name || userData?.usuario?.username || '').toString().trim();
             if (agentName) {
@@ -5306,6 +5345,81 @@
         } else {
           // /api/customers o /api/leads pueden responder en data, leads o array directo
           leadsRaw = apiArray.slice();
+        }
+
+        try {
+          const monthFilterEl = document.getElementById('monthFilter');
+          const selectedMonthUi = monthFilterEl ? String(monthFilterEl.value || '').trim() : '';
+          const selectedMonthFromState = (() => {
+            try {
+              const m1 = (typeof __selectedMonth !== 'undefined') ? String(__selectedMonth || '').trim() : '';
+              if (m1 && /^\d{4}-\d{2}$/.test(m1)) return m1;
+            } catch (_) {}
+            try {
+              const m2 = (window && window.__selectedMonth) ? String(window.__selectedMonth || '').trim() : '';
+              if (m2 && /^\d{4}-\d{2}$/.test(m2)) return m2;
+            } catch (_) {}
+            return '';
+          })();
+          const effectiveSelectedMonth = (selectedMonthUi && /^\d{4}-\d{2}$/.test(selectedMonthUi)) ? selectedMonthUi : selectedMonthFromState;
+          const shouldFetchCushion = (!isTeamLineasUser && effectiveSelectedMonth && /^\d{4}-\d{2}$/.test(effectiveSelectedMonth));
+          if (shouldFetchCushion) {
+            const [yy, mm] = effectiveSelectedMonth.split('-').map(Number);
+            let prevY = yy;
+            let prevM = mm - 1;
+            if (prevM < 1) { prevM = 12; prevY = yy - 1; }
+            const prevMonthUi = `${String(prevY).padStart(4,'0')}-${String(prevM).padStart(2,'0')}`;
+
+            const replaceMonthParam = (u, newMonth) => {
+              try {
+                const encoded = encodeURIComponent(newMonth);
+                if (/[?&]month=/.test(u)) {
+                  return u.replace(/([?&]month=)[^&]*/i, `$1${encoded}`);
+                }
+                return u + `&month=${encoded}`;
+              } catch {
+                return u;
+              }
+            };
+
+            const prevUrl = replaceMonthParam(url, prevMonthUi);
+            console.log('[fetchLeadsAgente] Colchón: mesActual=', effectiveSelectedMonth, 'mesAnterior=', prevMonthUi, 'url=', prevUrl);
+            const prevRes = await fetch(prevUrl, fetchOptions);
+            let prevData = null;
+            try { prevData = await prevRes.json(); } catch { prevData = null; }
+            const prevArr = Array.isArray(prevData) ? prevData : (Array.isArray(prevData?.data) ? prevData.data : (Array.isArray(prevData?.leads) ? prevData.leads : []));
+
+            if (Array.isArray(prevArr) && prevArr.length) {
+              const keyOf = (it) => {
+                try {
+                  const id = (it && (it._id || it.id || it.leadId || it.customerId)) ? String(it._id || it.id || it.leadId || it.customerId) : '';
+                  if (id) return `id:${id}`;
+                  const cuenta = (it?.numero_cuenta ?? it?._raw?.numero_cuenta ?? '') ? String(it?.numero_cuenta ?? it?._raw?.numero_cuenta ?? '').trim() : '';
+                  const tel = (it?.telefono_principal ?? it?._raw?.telefono_principal ?? '') ? String(it?.telefono_principal ?? it?._raw?.telefono_principal ?? '').trim() : '';
+                  const nom = (it?.nombre_cliente ?? it?._raw?.nombre_cliente ?? '') ? String(it?.nombre_cliente ?? it?._raw?.nombre_cliente ?? '').trim() : '';
+                  const dv = (it?.dia_venta ?? it?._raw?.dia_venta ?? it?.fecha ?? it?._raw?.fecha ?? '') ? String(it?.dia_venta ?? it?._raw?.dia_venta ?? it?.fecha ?? it?._raw?.fecha ?? '').trim() : '';
+                  return `f:${cuenta}|${tel}|${nom}|${dv}`;
+                } catch {
+                  return '';
+                }
+              };
+              const seen = new Set();
+              const merged = [];
+              const pushUnique = (it) => {
+                const k = keyOf(it);
+                if (!k) return;
+                if (seen.has(k)) return;
+                seen.add(k);
+                merged.push(it);
+              };
+              (leadsRaw || []).forEach(pushUnique);
+              prevArr.forEach(pushUnique);
+              leadsRaw = merged;
+              console.log('[fetchLeadsAgente] Colchón: merge completado. mesActual=', (apiArray||[]).length, 'mesAnterior=', prevArr.length, 'merge=', leadsRaw.length);
+            }
+          }
+        } catch (e) {
+          console.warn('[fetchLeadsAgente] Colchón: error al cargar/merge mes anterior:', e?.message || e);
         }
 
         // PaginaciÃ³n server-side: no auto-cargar pÃ¡ginas adicionales (evita sobrecarga)
@@ -5803,7 +5917,7 @@
           // Para AGENTES: SIEMPRE cargar mes actual para KPI (aunque la tabla muestre todos los clientes)
           const currentDate = new Date();
           const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-          const monthForKpi = (role === 'agente' && !__selectedMonth) ? currentMonth : __selectedMonth;
+          const monthForKpi = (role === 'agente' && !effectiveSelectedMonth) ? currentMonth : effectiveSelectedMonth;
           
           if (role === 'agente' && userData && monthForKpi) {
             console.log('[fetchLeadsAgente] AGENTE: cargando datos COMPLETOS del mes para KPI...');
@@ -5850,8 +5964,8 @@
           if (!isTeamLineasUser) {
             let kpiUrl = '/api/leads/kpis';
             const kpiParams = [];
-            if (__selectedMonth) {
-              kpiParams.push(`month=${encodeURIComponent(__selectedMonth)}`);
+            if (effectiveSelectedMonth) {
+              kpiParams.push(`month=${encodeURIComponent(effectiveSelectedMonth)}`);
             }
 
             // Para AGENTES: NO llamar a /api/leads/kpis (backend no filtra por agente correctamente)
@@ -7073,6 +7187,31 @@
         try {
           const statusDropdown = document.getElementById('statusFilter');
           const selectedStatus = statusDropdown ? String(statusDropdown.value || '').trim().toLowerCase() : 'all';
+          
+          // Obtener mes objetivo para filtrar por instalación (misma lógica que KPIs)
+          const monthSelectKpi = document.getElementById('monthFilter');
+          const monthUi = monthSelectKpi ? String(monthSelectKpi.value || '').trim() : '';
+          const monthFromState = (() => {
+            try {
+              const m1 = (typeof __selectedMonth !== 'undefined') ? String(__selectedMonth || '').trim() : '';
+              if (m1 && /^\d{4}-\d{2}$/.test(m1)) return m1;
+            } catch (_) {}
+            try {
+              const m2 = (window && window.__selectedMonth) ? String(window.__selectedMonth || '').trim() : '';
+              if (m2 && /^\d{4}-\d{2}$/.test(m2)) return m2;
+            } catch (_) {}
+            return '';
+          })();
+          const effectiveMonth = (monthUi && /^\d{4}-\d{2}$/.test(monthUi)) ? monthUi : monthFromState;
+          const __hasExplicitMonthFilter = !!(effectiveMonth && /^\d{4}-\d{2}$/.test(effectiveMonth));
+          const targetMonthStr = __hasExplicitMonthFilter
+            ? String(effectiveMonth).trim()
+            : (() => {
+              const now = new Date();
+              return `${String(now.getFullYear()).padStart(4,'0')}-${String(now.getMonth() + 1).padStart(2,'0')}`;
+            })();
+          const [yTarget, mTarget] = targetMonthStr.split('-').map(Number);
+          
           if (selectedStatus && selectedStatus !== 'all' && Array.isArray(list) && list.length > 0) {
             const beforeFilter = list.length;
             const matchSelectedStatus = (statusNorm) => {
@@ -7086,11 +7225,14 @@
               if (selectedStatus === 'rescheduled') return (s.includes('resched') || s.includes('reprogram'));
               return true;
             };
+            
             list = list.filter(item => {
               const s = normalizarTexto(item?.status || item?._raw?.status || '');
-              return matchSelectedStatus(s);
+              const statusMatch = matchSelectedStatus(s);
+
+              return statusMatch;
             });
-            console.log('[STATUS FILTER] Aplicado:', selectedStatus, '| Antes:', beforeFilter, '| DespuÃ©s:', list.length);
+            console.log('[STATUS FILTER] Aplicado:', selectedStatus, '| Mes:', targetMonthStr, '| Antes:', beforeFilter, '| Después:', list.length);
           }
         } catch(e) {
           console.warn('[STATUS FILTER] Error:', e);
@@ -7199,16 +7341,36 @@
         // PASO 2: Aplicar filtro de mes seleccionado
         try {
           const monthFilter = document.getElementById('monthFilter');
-          const selectedMonth = monthFilter ? monthFilter.value : '';
+          const monthUi = monthFilter ? String(monthFilter.value || '').trim() : '';
+          const selectedMonth = (monthUi && /^\d{4}-\d{2}$/.test(monthUi))
+            ? monthUi
+            : (() => {
+              try {
+                const m1 = (typeof __selectedMonth !== 'undefined') ? String(__selectedMonth || '').trim() : '';
+                if (m1 && /^\d{4}-\d{2}$/.test(m1)) return m1;
+              } catch (_) {}
+              try {
+                const m2 = (window && window.__selectedMonth) ? String(window.__selectedMonth || '').trim() : '';
+                if (m2 && /^\d{4}-\d{2}$/.test(m2)) return m2;
+              } catch (_) {}
+              return '';
+            })();
           
           if (selectedMonth && Array.isArray(list)) {
             console.log('[FilterOrder] PASO 2 - Filtrando por mes:', selectedMonth, 'Items despuÃ©s de Team/Agent:', list.length);
+
+            // Regla de mes para tabla: "mes" (por fecha de venta) + "colchón" (venta mes anterior instalada en el mes seleccionado)
+            const [yT, mT] = selectedMonth.split('-').map(Number);
+            let yP = yT;
+            let mP = mT - 1;
+            if (mP < 1) { mP = 12; yP = yT - 1; }
+            const prevMonth = `${String(yP).padStart(4,'0')}-${String(mP).padStart(2,'0')}`;
             
             // Debug: SIEMPRE mostrar conteo por mes para diagnosticar
             const datesByMonth = {};
             const sample = [];
             list.forEach((item, idx) => {
-              const iso = getDateFromLead(item);
+              const iso = getSaleDateFromLead(item);
               const ym = iso ? iso.slice(0,7) : 'sin-fecha';
               datesByMonth[ym] = (datesByMonth[ym] || 0) + 1;
               if (idx < 3 || !iso) {
@@ -7229,18 +7391,29 @@
             console.log('[DEBUG MESES] Sample de items (primeros 3 + items sin fecha):', sample);
             
             list = list.filter(item => {
-              const iso = item && item.__isoDate ? item.__isoDate : getDateFromLead(item); // 'YYYY-MM-DD'
-              if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-              const ym = iso.slice(0,7); // 'YYYY-MM'
-              const matches = ym === selectedMonth;
-              if (!matches && window.__debugMonthFilter) {
-                console.log('[FILTER DEBUG]', { ym, selectedMonth, iso, cliente: item?.nombre_cliente?.slice?.(0,20) });
+              const leadISO = getSaleDateFromLead(item);
+              if (!leadISO || !/^\d{4}-\d{2}-\d{2}$/.test(leadISO)) return false;
+              const leadYM = leadISO.slice(0,7);
+              if (leadYM === selectedMonth) return true;
+
+              // Colchón: venta mes anterior + instalación en mes seleccionado
+              if (leadYM === prevMonth) {
+                const installISO = getInstallDateFromLead(item);
+                if (installISO && /^\d{4}-\d{2}-\d{2}$/.test(installISO)) {
+                  const installYM = installISO.slice(0,7);
+                  return installYM === selectedMonth;
+                }
               }
-              return matches;
+
+              const matches = false;
+              if (!matches && window.__debugMonthFilter) {
+                console.log('[FILTER DEBUG]', { leadYM, selectedMonth, leadISO, cliente: item?.nombre_cliente?.slice?.(0,20) });
+              }
+              return false;
             });
             console.log('[FilterOrder] PASO 2 - Filtrado por mes:', selectedMonth, 'Resultados finales:', list.length);
             
-            // IMPORTANTE: Aplicar filtro por agente DESPUÉS del filtro de mes si es necesario (seguridad por rol)
+            // IMPORTANTE: Aplicar filtro por agente DESPUÃ‰S del filtro de mes si es necesario (seguridad por rol)
             try {
               const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
               const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
@@ -8312,7 +8485,7 @@
       const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
       const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
 
-      const hasActiveFilters = (() => {
+      const __hasHardFilters = (() => {
         try {
           const v = (id) => {
             const el = document.getElementById(id);
@@ -8321,25 +8494,44 @@
           const search = v('costumer-search');
           const team = v('teamFilter');
           const agent = v('agentFilter');
-          const status = v('statusFilter');
-          const month = v('monthFilter');
           const mercado = v('mercadoFilter');
           const service = v('serviceFilter');
+
+          const expectedMercadoByRole = (() => {
+            try {
+              const r = String(roleRaw || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+              if (r === 'rol_icon' || r === 'icon' || r.includes('rol icon')) return 'ICON';
+              if (r === 'rol_bamo' || r === 'bamo' || r.includes('rol bamo')) return 'BAMO';
+              return '';
+            } catch { return ''; }
+          })();
+
+          const isMercadoHardFilter = (() => {
+            const m = String(mercado || '').trim().toUpperCase();
+            if (!m) return false;
+            if (m.toLowerCase() === 'todos' || m.toLowerCase().includes('todo')) return false;
+            if (expectedMercadoByRole && m === expectedMercadoByRole) return false;
+            return true;
+          })();
+
           if (search) return true;
           if (team) return true;
           if (agent) return true;
-          if (mercado) return true;
+          if (isMercadoHardFilter) return true;
           if (service) return true;
-          if (month && /^\d{4}-\d{2}$/.test(month)) return true;
-          if (status && status.toLowerCase() !== 'all') return true;
-          if (window.SIDEBAR_FILTER_OVERRIDE) return true;
           return false;
         } catch (_) {
           return false;
         }
       })();
 
-      const canUseBackendKpis = (!hasActiveFilters && window.__kpisTotals && typeof window.__kpisTotals === 'object');
+      // Permitir usar KPIs del backend aunque exista filtro de MES/STATUS, porque el endpoint /api/leads/kpis
+      // ya calcula totales del mes sin paginación. Solo bloquear si hay filtros "duros" (search/team/agent/etc.)
+      const canUseBackendKpis = (!__hasHardFilters && window.__kpisTotals && typeof window.__kpisTotals === 'object');
       
       if (isAgente && window.__agentFullLeadsForKpi && Array.isArray(window.__agentFullLeadsForKpi) && window.__agentFullLeadsForKpi.length > 0) {
         console.log('[updateSummaryCards] AGENTE: filtrando datos para ver SOLO los suyos propios del MES ACTUAL...');
@@ -8419,6 +8611,7 @@
       let ventasActivas = 0;
       let pendientes = 0;
       let cancelados = 0;
+      let __useBackendStatusKpis = false;
       // Contadores para debugging
       let totalActivasSinCancel = 0;
       let totalActivasConInstalacionEnMes = 0;
@@ -8436,6 +8629,11 @@
         : `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`;
       const [yTarget, mTarget] = targetMonthStr.split('-').map(Number);
 
+      // Mes anterior (para lógica de "colchón")
+      let yPrev = yTarget;
+      let mPrev = mTarget - 1;
+      if (mPrev < 1) { mPrev = 12; yPrev = yTarget - 1; }
+
       // Preferir KPIs del agente (backend) cuando esten disponibles
       try {
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
@@ -8444,11 +8642,22 @@
         
         if (!isAgente && canUseBackendKpis) {
           const kt = window.__kpisTotals;
-          console.log('[updateSummaryCards] ADMIN/SUPER: Usando KPIs del backend (no es agente):', kt);
-          if (typeof kt.ventasEfectivasMes === 'number') ventasMes = kt.ventasEfectivasMes;
+          console.log('[updateSummaryCards] ADMIN/SUPER: KPIs del backend disponibles:', kt);
+
+          // Ventas del mes (efectivas) del backend
+          if (typeof kt.ventasEfectivasMes === 'number') {
+            ventasMes = kt.ventasEfectivasMes;
+          } else if (typeof kt.totalMes === 'number' && typeof kt.canceladas === 'number') {
+            ventasMes = Math.max(0, kt.totalMes - kt.canceladas);
+          }
+
+          // KPIs de status desde backend (sin paginación)
           if (typeof kt.activasEfectivas === 'number') ventasActivas = kt.activasEfectivas;
-          if (typeof kt.canceladas === 'number') cancelados = kt.canceladas;
+          else if (typeof kt.activas === 'number') ventasActivas = kt.activas;
           if (typeof kt.pendientes === 'number') pendientes = kt.pendientes;
+          if (typeof kt.canceladas === 'number') cancelados = kt.canceladas;
+          __useBackendStatusKpis = true;
+        
         } else if (isAgente) {
           console.log('[updateSummaryCards] AGENTE: Ignorando KPIs del backend - calculando desde leads locales');
           // No usar window.__kpisTotals para agentes - calcular desde leads locales
@@ -8501,23 +8710,38 @@
               inTargetMonthInstall = (yI === yTarget && mI === mTarget);
             }
 
+            // Fecha principal (venta/contratación)
+            const leadISO = getSaleDateFromLead(lead);
+            const hasValidLeadISO = !!(leadISO && /^\d{4}-\d{2}-\d{2}$/.test(leadISO));
+            let inTargetMonthLead = false;
+            let inPrevMonthLead = false;
+            if (hasValidLeadISO) {
+              const [yL, mL] = leadISO.split('-').map(Number);
+              inTargetMonthLead = (yL === yTarget && mL === mTarget);
+              inPrevMonthLead = (yL === yPrev && mL === mPrev);
+            }
+
             // Conteo de status para diagnÃ³stico (solo cuando pertenece al mes objetivo por instalaciÃ³n)
             if (inTargetMonthInstall) {
               __kpiStatusCounts[status || '(vacio)'] = (__kpiStatusCounts[status || '(vacio)'] || 0) + 1;
             }
 
-            // Contar pendientes/cancelados: si hay KPIs globales del backend Y no es agente,
-            // NO recalcular aquí para no depender de paginación.
-            // Para AGENTES: SIEMPRE calcular desde los leads locales filtrados
-            const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-            const roleRaw = (userData.role || userData?.usuario?.role || '').toString().trim().toLowerCase();
-            const isAgente = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw);
-            
-            if (isAgente || !canUseBackendKpis) {
-              // KPIs solicitados por mes de instalaciÃ³n
-              if (inTargetMonthInstall) {
-                if (isPending) pendientes++;
-                if (isCancel) cancelados++;
+            // KPIs por status (Activas / Pendientes / Cancelados):
+            // Regla solicitada (para cuadrar con "mes por instalación"):
+            // - Solo cuenta si la INSTALACIÓN cae en el mes seleccionado.
+            // - Dentro de esas instalaciones del mes: cuenta si la venta fue del mes seleccionado (mes)
+            //   o si la venta fue del mes anterior (colchón).
+            // Nota: pendientes excluye cancelados.
+            const isCushion = inPrevMonthLead && inTargetMonthInstall;
+            const shouldCountStatusKpi = inTargetMonthLead || isCushion;
+            if (!__useBackendStatusKpis) {
+              if (shouldCountStatusKpi) {
+                if (isCancel) {
+                  cancelados++;
+                } else {
+                  if (isPending) pendientes++;
+                  if (isActive) ventasActivas++;
+                }
               }
             }
             // DEBUG: mostrar en consola cÃ³mo se estÃ¡n filtrando estos KPIs
@@ -8529,8 +8753,8 @@
                 isActive,
                 installISO,
                 inTargetMonthInstall,
-                leadISO: getDateFromLead(lead),
-                inTargetMonthLead: (() => { const iso = getDateFromLead(lead); if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) { const [yLead, mLead] = iso.split('-').map(Number); return (yLead === yTarget && mLead === mTarget); } return false; })(),
+                leadISO,
+                inTargetMonthLead,
                 yTarget,
                 mTarget,
                 nombre: lead?.nombre_cliente || lead?.name || 'sin nombre'
@@ -8561,46 +8785,39 @@
             }
 
             // Ventas hoy / Ventas del mes se mantienen por fecha principal (venta/contrataciÃ³n)
-            const leadISO = getDateFromLead(lead);
-            let inTargetMonthLead = false;
-            if (leadISO && /^\d{4}-\d{2}-\d{2}$/.test(leadISO)) {
-              const [yLead, mLead] = leadISO.split('-').map(Number);
-              inTargetMonthLead = (yLead === yTarget && mLead === mTarget);
-            }
-
             if (leadISO && leadISO === todayISO && !isCancel) ventasHoy++;
 
-            // Ventas del mes / Ventas activas (fallback local para agentes o sin KPIs)
-            const userData2 = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-            const roleRaw2 = (userData2.role || userData2?.usuario?.role || '').toString().trim().toLowerCase();
-            const isAgente2 = ['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(roleRaw2);
-            
-            if (isAgente2 || !canUseBackendKpis) {
+            // Ventas del mes: se mantiene por fecha principal (venta/contratación)
+            // (no depende de instalación).
+            // Si se usan KPIs del backend para ventasMes, este bloque no se ejecuta porque canUseBackendKpis será true y no queremos sobreescribir.
+            if (!canUseBackendKpis) {
               if (inTargetMonthLead && !isCancel) ventasMes++;
-              
-              // Ventas activas solicitadas por mes de INSTALACIÃ“N
-              if (inTargetMonthInstall && isActive && !isCancel) {
-                ventasActivas++;
-                console.log('[VENTA ACTIVA CONTADA]', {
-                  nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
-                  status,
-                  installISO,
-                  inTargetMonthInstall,
-                  totalAcumulado: ventasActivas
-                });
-              }
-              
-              // Pendientes solicitadas por mes de INSTALACIÃ“N
-              if (inTargetMonthInstall && isPending && !isCancel) {
-                pendientes++;
-                console.log('[PENDIENTE CONTADO]', {
-                  nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
-                  status,
-                  installISO,
-                  inTargetMonthInstall,
-                  totalAcumulado: pendientes
-                });
-              }
+            }
+
+            // Logs de conteo (solo cuando realmente se cuenta)
+            if (shouldCountStatusKpi && !isCancel && isActive) {
+              console.log('[VENTA ACTIVA CONTADA]', {
+                nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
+                status,
+                installISO,
+                inTargetMonthInstall,
+                leadISO,
+                inTargetMonthLead,
+                isCushion,
+                totalAcumulado: ventasActivas
+              });
+            }
+            if (shouldCountStatusKpi && !isCancel && isPending) {
+              console.log('[PENDIENTE CONTADO]', {
+                nombre: lead?.nombre_cliente || lead?.name || 'sin nombre',
+                status,
+                installISO,
+                inTargetMonthInstall,
+                leadISO,
+                inTargetMonthLead,
+                isCushion,
+                totalAcumulado: pendientes
+              });
             }
           } catch (e) {
             console.error('Error procesando lead:', lead, e);
@@ -11167,6 +11384,12 @@
         let filterTimeout;
         monthFilter.addEventListener('change', function() {
           console.log('[MONTH FILTER] Cambiando a mes:', this.value || 'Todos los meses');
+
+          // Mantener el mes sincronizado en estado global
+          try {
+            const v = String(this.value || '').trim();
+            window.__selectedMonth = (/^\d{4}-\d{2}$/.test(v)) ? v : '';
+          } catch (_) {}
           
           // Cancelar timeout anterior si existe
           if (filterTimeout) {
