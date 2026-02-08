@@ -5943,19 +5943,23 @@ app.post('/api/leads', protect, async (req, res) => {
       }]
     };
     
-    // Asignar supervisor automáticamente si el usuario pertenece a Team Líneas
-    if (req.user?.supervisor) {
-      newLead.supervisor = req.user.supervisor;
-      console.log('[POST /api/leads] Supervisor asignado automáticamente:', req.user.supervisor);
-    } else if (req.user?.team && String(req.user.team).toLowerCase().includes('lineas')) {
-      // Si el usuario pertenece a Team Líneas pero no tiene supervisor explícito, asignarlo según el team
-      const userTeamLower = String(req.user.team).toLowerCase();
-      if (userTeamLower.includes('jonathan')) {
-        newLead.supervisor = 'JONATHAN F';
-      } else if (userTeamLower.includes('luis')) {
-        newLead.supervisor = 'LUIS G';
+    // Asignar supervisor automáticamente SOLO si el formulario no envió supervisor
+    const leadSup = (leadData?.supervisor ?? '').toString().trim();
+    if (!leadSup) {
+      // Si el usuario tiene supervisor explícito en su perfil
+      if (req.user?.supervisor) {
+        newLead.supervisor = req.user.supervisor;
+        console.log('[POST /api/leads] Supervisor asignado automáticamente:', req.user.supervisor);
+      } else if (req.user?.team && String(req.user.team).toLowerCase().includes('lineas')) {
+        // Si el usuario pertenece a Team Líneas pero no tiene supervisor explícito, asignarlo según el team
+        const userTeamLower = String(req.user.team).toLowerCase();
+        if (userTeamLower.includes('jonathan')) {
+          newLead.supervisor = 'JONATHAN F';
+        } else if (userTeamLower.includes('luis')) {
+          newLead.supervisor = 'LUIS G';
+        }
+        console.log('[POST /api/leads] Supervisor asignado automáticamente por team:', newLead.supervisor);
       }
-      console.log('[POST /api/leads] Supervisor asignado automáticamente por team:', newLead.supervisor);
     }
     
     // Canonical collection selection improved:
