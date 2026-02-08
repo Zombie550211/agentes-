@@ -3791,7 +3791,25 @@ app.post('/api/auth/reset-password', protect, authorize('Administrador', 'admin'
 });
 
 // Endpoint para subir archivos multimedia
-app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
+app.post('/api/upload', protect, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    const code = err && (err.code || err.name) ? String(err.code || err.name) : 'UPLOAD_ERROR';
+    const msg = err && err.message ? String(err.message) : 'Error subiendo archivo';
+    // Errores comunes de Multer
+    if (code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        message: 'El archivo excede el tamaño máximo permitido (10MB).',
+        code
+      });
+    }
+    if (code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ success: false, message: 'Campo de archivo inválido.', code });
+    }
+    return res.status(400).json({ success: false, message: msg, code });
+  });
+}, async (req, res) => {
   console.log('[UPLOAD] Inicio de upload', {
     file: req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path } : null,
     body: req.body,
@@ -3871,17 +3889,48 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
           if (req.file && fs.existsSync(req.file.path)) {
             try { fs.unlinkSync(req.file.path); } catch (_) {}
           }
-          console.warn(`[UPLOAD] Cloudinary falló para ${categoryLower}:`, e.message);
+          // En producción se silencian logs informativos; usar error para que se vea en Render.
+          console.error(`[UPLOAD] Cloudinary falló para ${categoryLower}:`, {
+            message: e?.message,
+            name: e?.name,
+            http_code: e?.http_code,
+            code: e?.code,
+            error: e?.error
+          });
           return res.status(502).json({
             success: false,
-            message: `No se pudo subir el archivo a Cloudinary (${categoryLower}). Intenta nuevamente o revisa credenciales.`
+            message: `No se pudo subir el archivo a Cloudinary (${categoryLower}). Intenta nuevamente o revisa credenciales.`,
+            details: {
+              category: categoryLower,
+              cloudinary: {
+                name: e?.name || null,
+                code: e?.code || null,
+                http_code: e?.http_code || null,
+                message: e?.message || null
+              }
+            }
           });
         }
 
-        console.warn('[UPLOAD] Cloudinary falló:', e.message);
+        console.error('[UPLOAD] Cloudinary falló (fallback a local):', {
+          message: e?.message,
+          name: e?.name,
+          http_code: e?.http_code,
+          code: e?.code
+        });
       }
     }
     // Guardar información en la base de datos (Mongo nativo)
+    // Asegurar conexión y obtener collection
+    if (!db) db = getDb();
+    if (!db) {
+      // Eliminar archivo local si no hay BD
+      if (req.file && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+      }
+      return res.status(503).json({ success: false, message: 'No hay conexión a la base de datos.' });
+    }
+    const collection = db.collection('mediafiles');
     const now = new Date();
     const doc = {
       filename: req.file.filename,
@@ -3926,9 +3975,19 @@ app.post('/api/upload', protect, upload.single('file'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
 
+    const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
     res.status(500).json({
       success: false,
-      message: 'Error subiendo archivo'
+      message: 'Error subiendo archivo',
+      ...(isProduction
+        ? {}
+        : {
+            error: {
+              name: error?.name || null,
+              message: error?.message || String(error),
+              stack: typeof error?.stack === 'string' ? error.stack.split('\n').slice(0, 8).join('\n') : null
+            }
+          })
     });
   }
 });
