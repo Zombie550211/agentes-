@@ -1315,7 +1315,8 @@ router.get('/leads', protect, async (req, res) => {
           {
             $addFields: {
               agenteNombre: { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agenteNombre', '$agente' ] },
-              supervisor: { $ifNull: [ { $arrayElemAt: ['$supervisorDetails.username', 0] }, '$supervisor' ] }
+              // Respetar el valor almacenado en el lead (p.ej. 'ROBERTO') y usar lookup solo como fallback
+              supervisor: { $ifNull: [ '$supervisor', { $arrayElemAt: ['$supervisorDetails.username', 0] } ] }
             }
           }
         ];
@@ -2794,7 +2795,8 @@ router.get('/leads/:id', protect, async (req, res, next) => {
         {
           $addFields: {
             agenteNombre: { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agenteNombre', '$agente' ] },
-            supervisor: { $ifNull: [ { $arrayElemAt: ['$supervisorDetails.username', 0] }, '$supervisor' ] }
+            // Respetar el valor almacenado en el lead (p.ej. 'ROBERTO') y usar lookup solo como fallback
+            supervisor: { $ifNull: [ '$supervisor', { $arrayElemAt: ['$supervisorDetails.username', 0] } ] }
           }
         },
         {
@@ -2836,6 +2838,17 @@ router.get('/leads/:id', protect, async (req, res, next) => {
 router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Supervisor','Agente'), async (req, res, next) => {
   try {
     const { id: recordId } = req.params;
+
+    try {
+      console.log('[PUT /api/leads/:id][ROUTES_API] hit', {
+        recordId,
+        bodyKeys: Object.keys(req.body || {}),
+        supervisor: req.body?.supervisor,
+        supervisorId: req.body?.supervisorId,
+        team: req.body?.team,
+        user: req.user?.username
+      });
+    } catch (_) {}
     
     console.log('[PUT /leads/:id] ID recibido:', recordId);
     console.log('[PUT /leads/:id] Body:', JSON.stringify(req.body).substring(0, 500));
