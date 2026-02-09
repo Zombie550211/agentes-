@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Estadísticas</title>
+  
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css">
+  <link rel="stylesheet" href="css/sidebar-effects.css">
+  <link rel="stylesheet" href="css/sidebar-visibility-fix.css">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Scripts del sistema -->
+  <script src="js/logout-handler.js"></script>
+  <script src="js/user-info.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+  
+  <style>
+    /* Estilos básicos de la página */
+    .content-area {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: var(--shadow-light);
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .coming-soon {
+      color: var(--text-color);
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+
+    .features-list {
+      text-align: left;
+      max-width: 400px;
+      margin: 0 auto;
+      color: var(--text-light);
+    }
+
+    .features-list li {
+      margin-bottom: 10px;
+      padding-left: 10px;
+    }
+
+    .features-list i {
+      color: var(--primary-color);
+      margin-right: 10px;
+    }
+
+    /* Estilos para el layout con sidebar */
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color, #f5f5f5);
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .main-content {
+      margin-left: 280px;
+      padding: 20px;
+      transition: margin-left 0.3s ease;
+      width: calc(100% - 280px);
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        margin-left: 0;
+        padding: 15px;
+      }
+    }
+
+    .container {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Ajustes para el header con sidebar */
+    .page-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      margin: -20px -20px 20px -20px;
+      border-radius: 0 0 12px 12px;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .page-header p {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .page-header i {
+      margin-right: 10px;
+      font-size: 1.6rem;
+    }
+
+    /* Estilos para estadísticas - Contenedor único */
+    .charts-main-container {
+      background: var(--card-bg, #ffffff);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 6px 30px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      margin: 0;
+      width: 100%;
+      min-height: 400px;
+    }
+
+    .charts-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .charts-header i {
+      color: #667eea;
+      margin-right: 12px;
+      font-size: 1.5rem;
+    }
+
+    .charts-header h2 {
+      margin: 0;
+      color: var(--text-color, #333);
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      width: 100%;
+      min-height: 350px;
+    }
+
+    .chart-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-title {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .chart-title i {
+      color: #667eea;
+      margin-right: 8px;
+      font-size: 1.1rem;
+    }
+
+    .chart-title h3 {
+      margin: 0;
+      color: var(--text-color, #333);
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .chart-content {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex: 1;
+      width: 100%;
+    }
+
+    /* Estilos para gráfico de dona */
+    .donut-chart-container {
+      flex: 0 0 280px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .agents-list {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 10px;
+      justify-content: center;
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      padding: 4px 0;
+    }
+
+    .agent-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .agent-name {
+      font-weight: 500;
+      color: var(--text-color, #333);
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+
+    .agent-stats {
+      color: var(--text-light, #666);
+      font-size: 0.8rem;
+    }
+
+    /* Estilos para gráfico de barras */
+    .stats-summary {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 10;
+    }
+
+    .total-badge {
+      background: #667eea;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 15px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .bar-chart-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      min-height: 280px;
+      width: 100%;
+    }
+
+    .chart-note {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: var(--text-light, #666);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    /* Responsivo */
+    @media (max-width: 1200px) {
+      .charts-grid {
+        gap: 30px;
+      }
+      
+      .charts-main-container {
+        padding: 25px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+      
+      .chart-content {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .charts-main-container {
+        padding: 20px;
+      }
+      
+      .chart-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      
+      .donut-chart-container {
+        flex: none;
+        margin-bottom: 15px;
+      }
+      
+      .agents-list {
+        padding-left: 0;
+        align-items: center;
+      }
+      
+      .charts-header h2 {
+        font-size: 1.2rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .charts-grid {
+        gap: 20px;
+      }
+      
+      .agent-item {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" data-active="estadisticas" id="sidebar"></div>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Contenedor único de gráficas -->
+      <div class="charts-main-container">
+        <div class="charts-header">
+          <i class="fas fa-chart-line"></i>
+          <h2>Estadísticas del Mes</h2>
+        </div>
+        
+        <div class="charts-grid">
+          <!-- Gráfico de Dona - Porcentaje de Activación -->
+          <div class="chart-section">
+            <div class="chart-title">
+              <i class="fas fa-chart-pie"></i>
+              <h3>Porcentaje de Activación</h3>
+            </div>
+            <div class="chart-content">
+              <div class="donut-chart-container">
+                <canvas id="donutChart" width="280" height="280"></canvas>
+              </div>
+              <div class="agents-list">
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #4CAF50;"></span>
+                  <span class="agent-name">PLETEZ</span>
+                  <span class="agent-stats">Total: 36 | 2.78%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #FF7043;"></span>
+                  <span class="agent-name">ROBERTO</span>
+                  <span class="agent-stats">Total: 52 | 0.00%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #42A5F5;"></span>
+                  <span class="agent-name">MARISOL</span>
+                  <span class="agent-stats">Total: 50 | 0.00%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #FFA726;"></span>
+                  <span class="agent-name">JOHANA</span>
+                  <span class="agent-stats">Total: 50 | 0.00%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #EF5350;"></span>
+                  <span class="agent-name">IRANIA</span>
+                  <span class="agent-stats">Total: 50 | 0.00%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #66BB6A;"></span>
+                  <span class="agent-name">JONATHAN F</span>
+                  <span class="agent-stats">Total: 30 | 70.0%</span>
+                </div>
+                <div class="agent-item">
+                  <span class="agent-color" style="background: #AB47BC;"></span>
+                  <span class="agent-name">LUIS G</span>
+                  <span class="agent-stats">Total: 2 | 50.0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gráfico de Barras - Ventas Activas -->
+          <div class="chart-section">
+            <div class="chart-title">
+              <i class="fas fa-chart-bar"></i>
+              <h3>Ventas Activas</h3>
+            </div>
+            <div class="chart-content">
+              <div class="stats-summary">
+                <div class="total-badge">Total: 30</div>
+              </div>
+              <div class="bar-chart-container">
+                <canvas id="barChart" width="500" height="280"></canvas>
+              </div>
+              <div class="chart-note">
+                Solo ventas con status Completed
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Chart.js para las gráficas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🔄 Inicializando página de estadísticas...');
+      
+      // Cargar sidebar después de un breve delay para asegurar que todos los scripts estén listos
+      setTimeout(() => {
+        initializePage();
+        initializeCharts();
+      }, 100);
+      
+      console.log('✅ Página de estadísticas inicializada');
+    });
+
+    function initializePage() {
+      // Marcar estadísticas como página activa en el sidebar
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.setAttribute('data-active', 'estadisticas');
+      }
+
+      // Asegurar que los scripts del sidebar funcionen
+      if (window.loadSidebar) {
+        window.loadSidebar();
+      }
+
+      // Activar el item de estadísticas
+      setTimeout(() => {
+        const statsItem = document.querySelector('[data-page="estadisticas"]');
+        if (statsItem) {
+          statsItem.classList.add('active');
+        }
+      }, 200);
+    }
+
+    function initializeCharts() {
+      // Gráfico de Dona - Porcentaje de Activación
+      const donutCtx = document.getElementById('donutChart').getContext('2d');
+      const donutChart = new Chart(donutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['PLETEZ', 'ROBERTO', 'MARISOL', 'JOHANA', 'IRANIA', 'JONATHAN F', 'LUIS G'],
+          datasets: [{
+            data: [2.78, 0, 0, 0, 0, 70.0, 50.0],
+            backgroundColor: [
+              '#4CAF50',
+              '#FF7043',
+              '#42A5F5',
+              '#FFA726',
+              '#EF5350',
+              '#66BB6A',
+              '#AB47BC'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff',
+            hoverBorderWidth: 3
+          }]
+        },
+        options: {
+          responsive: false,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed;
+                  return `${label}: ${value}%`;
+                }
+              }
+            }
+          },
+          cutout: '55%'
+        }
+      });
+
+      // Gráfico de Barras - Ventas Activas
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      const barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: ['PLETEZ', 'ROBERTO', 'MARISOL', 'JOHANA', 'IRANIA', 'JONATHAN F', 'LUIS G'],
+          datasets: [{
+            label: 'Ventas Activas',
+            data: [1, 0, 0, 0, 0, 23, 6],
+            backgroundColor: [
+              '#42A5F5',
+              '#42A5F5',
+              '#42A5F5',
+              '#42A5F5',
+              '#42A5F5',
+              '#42A5F5',
+              '#42A5F5'
+            ],
+            borderColor: '#1976D2',
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: false,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 5,
+                color: '#666',
+                font: {
+                  size: 11
+                }
+              },
+              grid: {
+                color: 'rgba(0,0,0,0.08)'
+              }
+            },
+            x: {
+              ticks: {
+                color: '#666',
+                maxRotation: 45,
+                font: {
+                  size: 10
+                }
+              },
+              grid: {
+                display: false
+              }
+            }
+          },
+          layout: {
+            padding: {
+              top: 20,
+              bottom: 30
+            }
+          }
+        }
+      });
+    }
+  </script>
+  </script>
+</body>
+</html>
