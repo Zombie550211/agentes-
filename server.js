@@ -70,43 +70,43 @@ try {
 }
 
 // Importar configuración de base de datos
-const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./config/db');
+const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./backend/config/db');
 
 // Importar utilidades
-const { normalizeDateToString, isValidDate } = require('./utils/dateNormalizer');
-const dateFormatterMiddleware = require('./middleware/dateFormatter');
+const { normalizeDateToString, isValidDate } = require('./backend/utils/dateNormalizer');
+const dateFormatterMiddleware = require('./backend/middleware/dateFormatter');
 
 // Middleware de autenticación unificado
-const { protect, authorize } = require('./middleware/auth');
+const { protect, authorize } = require('./backend/middleware/auth');
 
 // Importar rutas
-const authRoutes = require('./routes/auth');
-const apiRoutes = require('./routes/api');
-const rankingRoutes = require('./routes/ranking');
-const equipoRoutes = require('./routes/equipoRoutes');
+const authRoutes = require('./backend/routes/auth');
+const apiRoutes = require('./backend/routes/api');
+const rankingRoutes = require('./backend/routes/ranking');
+const equipoRoutes = require('./backend/routes/equipoRoutes');
 let teamsRoutes = null;
-const employeesOfMonthRoutes = require('./routes/employeesOfMonth');
-const facturacionRoutes = require('./routes/facturacion');
+const employeesOfMonthRoutes = require('./backend/routes/employeesOfMonth');
+const facturacionRoutes = require('./backend/routes/facturacion');
 let mediaProxy = null;
 try {
-  mediaProxy = require('./routes/mediaProxy');
+  mediaProxy = require('./backend/routes/mediaProxy');
 } catch (e) {
   console.warn('[INIT] mediaProxy route not available:', e.message);
 }
 let debugRoutes = null;
 try {
-  debugRoutes = require('./routes/debug');
+  debugRoutes = require('./backend/routes/debug');
 } catch (e) {
   console.warn('[INIT] debug route not available:', e.message);
 }
 let debugNoAuthRoutes = null;
 try {
-  debugNoAuthRoutes = require('./routes/debug_noauth');
+  debugNoAuthRoutes = require('./backend/routes/debug_noauth');
 } catch (e) {
   console.warn('[INIT] debug_noauth route not available:', e.message);
 }
 try {
-  teamsRoutes = require('./routes/teams');
+  teamsRoutes = require('./backend/routes/teams');
 } catch (e) {
   console.warn('[INIT] teams route not available:', e.message);
 }
@@ -1861,7 +1861,7 @@ if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
 }
 // Migrate routes (solo admins) para migración de datos
 try {
-  const migrateRoutes = require('./routes/migrate');
+  const migrateRoutes = require('./backend/routes/migrate');
   app.use('/api/migrate', migrateRoutes);
   console.log('[SERVER] Rutas de migración cargadas');
 } catch (e) {
