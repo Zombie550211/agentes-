@@ -1,0 +1,399 @@
+/* Responsive Tables for CRM */
+
+/* Base table container */
+.table-responsive-wrapper {
+  background: var(--card-background);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+/* Table header responsive */
+.table-header-responsive {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  background: var(--card-background);
+}
+
+.table-title-responsive {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 200px;
+}
+
+.table-actions-responsive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Table container with horizontal scroll */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Base table styles */
+.crm-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  min-width: 800px; /* Minimum width for mobile horizontal scroll */
+}
+
+.crm-table thead {
+  background: var(--background-light);
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.crm-table thead th {
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.2;
+  border-right: 1px solid var(--border-color);
+}
+
+.crm-table thead th:last-child {
+  border-right: none;
+}
+
+.crm-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.crm-table tbody tr:hover {
+  background: var(--background-light);
+}
+
+.crm-table td {
+  padding: 12px 8px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+  border-right: 1px solid var(--border-color);
+}
+
+.crm-table td:last-child {
+  border-right: none;
+}
+
+/* Mobile card view for tables */
+@media (max-width: 768px) {
+  .table-card-view {
+    display: none;
+  }
+  
+  .table-responsive {
+    display: block;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Hide table on very small screens and show card view */
+  .table-responsive {
+    display: none;
+  }
+  
+  .table-card-view {
+    display: block;
+    padding: 15px;
+  }
+  
+  .table-card-item {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .table-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .table-card-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+  
+  .table-card-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  
+  .table-card-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .table-card-field:last-child {
+    border-bottom: none;
+  }
+  
+  .table-card-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    min-width: 80px;
+  }
+  
+  .table-card-value {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: right;
+    flex: 1;
+  }
+  
+  .table-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+  }
+  
+  .table-card-actions .btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+}
+
+/* Responsive table header */
+@media (max-width: 768px) {
+  .table-header-responsive {
+    padding: 15px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .table-title-responsive {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+  
+  .table-actions-responsive {
+    justify-content: center;
+  }
+  
+  .crm-table thead th {
+    padding: 8px 6px;
+    font-size: 0.7rem;
+  }
+  
+  .crm-table td {
+    padding: 10px 6px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-header-responsive {
+    padding: 10px;
+  }
+  
+  .table-title-responsive {
+    font-size: 1rem;
+  }
+  
+  .table-actions-responsive {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .table-actions-responsive .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Status badges responsive */
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+}
+
+/* Pagination responsive */
+.pagination-responsive {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: var(--card-background);
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .pagination-responsive {
+    padding: 12px 15px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .pagination-info {
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  
+  .pagination-controls {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+  }
+  
+  .pagination-controls .btn {
+    min-width: 40px;
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Action buttons responsive */
+.table-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .table-action-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .table-action-buttons .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 6px 8px;
+  }
+}
+
+/* Filter controls responsive */
+.table-filter-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .table-filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .table-filter-controls .form-group {
+    margin-bottom: 0;
+  }
+  
+  .table-filter-controls .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Search box responsive */
+.table-search-box {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.table-search-box input {
+  width: 100%;
+  padding: 8px 12px 8px 35px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.table-search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .table-search-box {
+    max-width: none;
+    min-width: auto;
+  }
+}
