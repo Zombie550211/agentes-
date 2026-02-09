@@ -24,6 +24,11 @@ if (process.env.NODE_ENV !== 'production') {
 // 2. SEGUNDO: Crear la App (¡Aquí nace la variable 'app'!)
 const app = express();
 
+// Directorio base del frontend (HTML/CSS/JS/assets)
+const FRONTEND_DIR = path.join(__dirname, 'frontend');
+const FRONTEND_PUBLIC_DIR = path.join(FRONTEND_DIR, 'public');
+const FRONTEND_AGENTES_DIR = path.join(FRONTEND_DIR, 'agentes');
+
 // 3. TERCERO: Configurar seguridad y red (Ahora sí puedes usar 'app')
 // Configuración de seguridad "relajada" para pruebas
 app.use(helmet({
@@ -170,11 +175,22 @@ app.get('/health', (req, res) => {
 // Servir crear-cuenta.html sin middleware auth a nivel de HTML.
 // El control de acceso se hace en el frontend y los endpoints API ya están protegidos.
 app.get(['/crear-cuenta.html', '/crear-cuenta'], (req, res) => {
-  return res.sendFile(path.join(__dirname, 'crear-cuenta.html'));
+  return res.sendFile(path.join(FRONTEND_DIR, 'crear-cuenta.html'));
 });
 
 // Configuración de rutas de archivos estáticos
-app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
+// 1) Assets del frontend (png/jpg/svg/etc.) viven en frontend/images
+app.use('/images', express.static(path.join(FRONTEND_DIR, 'images'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.mp4')) {
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
+  }
+}));
+// 2) Mantener compatibilidad con recursos en frontend/public/images (p.ej. mp4)
+app.use('/images', express.static(path.join(FRONTEND_PUBLIC_DIR, 'images'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.mp4')) {
       res.setHeader('Content-Type', 'video/mp4');
@@ -185,8 +201,12 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
 }));
 
 // Servir otros archivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, 'agentes')));
+app.use(express.static(FRONTEND_PUBLIC_DIR));
+app.use(express.static(FRONTEND_AGENTES_DIR));
+
+// Recursos compartidos legacy usados por el frontend (sin mover aún a frontend/)
+app.use('/utils', express.static(path.join(__dirname, 'utils')));
+app.use('/components', express.static(path.join(__dirname, 'components')));
 
 // Evitar cache agresivo del navegador para HTML en desarrollo
 if (process.env.NODE_ENV !== 'production') {
@@ -223,7 +243,7 @@ app.use((req, res, next) => {
       }
       // normalizar y construir ruta de archivo
       const candidateRelative = decoded.replace(/^\/+/, '');
-      const candidate = path.join(__dirname, candidateRelative);
+      const candidate = path.join(FRONTEND_DIR, candidateRelative);
       if (candidate && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
         return res.sendFile(candidate);
       }
@@ -234,7 +254,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(__dirname, {
+app.use(express.static(FRONTEND_DIR, {
   extensions: ['html', 'htm'],
   index: false,
   setHeaders: (res, path) => {
@@ -995,7 +1015,7 @@ app.delete('/api/lineas-team/delete', protect, async (req, res) => {
 app.get('/videos/:filename', (req, res) => {
   const filename = req.params.filename;
   // Asegurarse de que la ruta sea correcta
-  const videoPath = path.join(__dirname, 'public', 'videos', filename);
+  const videoPath = path.join(FRONTEND_PUBLIC_DIR, 'videos', filename);
   console.log('Buscando video en:', videoPath);
   console.log('El archivo existe?', fs.existsSync(videoPath) ? 'Sí' : 'No');
   
@@ -1033,7 +1053,7 @@ app.get('/videos/:filename', (req, res) => {
 });
 
 // Servir archivos estáticos (EXCEPTO Costumer.html que ya está protegido)
-app.use(express.static(__dirname, {
+app.use(express.static(FRONTEND_DIR, {
   extensions: ['html', 'htm'],
   index: false,  // Evitar que se sirva index.html automáticamente
   setHeaders: (res, filePath) => {
@@ -5680,7 +5700,7 @@ app.get('/', (req, res) => {
 
 // Ruta de la aplicación principal (protección vía frontend con auth-check.js)
 app.get('/inicio', (req, res) => {
-  res.sendFile(path.join(__dirname, 'lead.html'));
+  res.sendFile(path.join(FRONTEND_DIR, 'lead.html'));
 });
 
 // Ruta protegida para Costumer.html (solo administradores)
@@ -5689,7 +5709,7 @@ app.get('/Costumer.html', protect, (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     // Si es administrador, servir el archivo con encoding UTF-8
     res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    return res.sendFile(path.join(__dirname, 'Costumer.html'));
+    return res.sendFile(path.join(FRONTEND_DIR, 'Costumer.html'));
   } else {
     // Si no es administrador, redirigir a página de inicio con mensaje de error
     return res.redirect('/inicio?error=Acceso denegado. Se requiere rol de administrador.');
@@ -6337,7 +6357,7 @@ app.get('*', (req, res) => {
     return res.status(404).send('Archivo no encontrado');
   }
   // Para cualquier otra ruta, servir lead.html (útil para SPA)
-  res.sendFile(path.join(__dirname, 'lead.html'));
+  res.sendFile(path.join(FRONTEND_DIR, 'lead.html'));
 });
 
 // Función para iniciar el servidor con Socket.io
