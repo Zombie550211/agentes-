@@ -5028,6 +5028,35 @@
       }
     }
 
+    // Función para recargar datos FORZANDO actualización desde servidor (sin cache)
+    window.reloadLeadsAfterSave = async function() {
+      console.log('[reloadLeadsAfterSave] Forzando recarga de datos desde servidor...');
+      try {
+        // Limpiar banderas de cache
+        sessionStorage.removeItem('allPagesData');
+        localStorage.removeItem('allPagesData');
+        window.__bypassCache = true;
+        
+        // Llamar fetchLeadsAgente
+        if (typeof fetchLeadsAgente === 'function') {
+          await fetchLeadsAgente();
+        } else if (typeof window.fetchLeadsAgente === 'function') {
+          await window.fetchLeadsAgente();
+        } else {
+          console.warn('[reloadLeadsAfterSave] fetchLeadsAgente no disponible');
+          return false;
+        }
+        
+        console.log('[reloadLeadsAfterSave] Datos recargados exitosamente');
+        return true;
+      } catch (e) {
+        console.error('[reloadLeadsAfterSave] Error:', e);
+        return false;
+      } finally {
+        window.__bypassCache = false;
+      }
+    };
+
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       console.log('[fetchLeadsAgente] User role:', JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}').role);
@@ -5065,7 +5094,7 @@
         })();
         const effectiveSelectedMonth = uiMonth || stateMonth;
         try { window.__selectedMonth = effectiveSelectedMonth || ''; } catch (_) {}
-        const __bypassPrecache = !!effectiveSelectedMonth;
+        const __bypassPrecache = !!effectiveSelectedMonth || !!window.__bypassCache;
 
         // FAST PATH: Intentar cargar desde cache precalentado en login
         const cachedCustomers = null;
@@ -10570,17 +10599,19 @@
         };
       } else {
         datosActualizados = {
-          dia_venta: document.getElementById('edit-dia-venta').value,
-          dia_instalacion: document.getElementById('edit-dia-instalacion').value,
-          nombre_cliente: getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
-          telefono_principal: getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
-          direccion: getFromLead('direccion', 'address', 'domicilio'),
-          supervisor: getInput('edit-supervisor') || getFromLead('supervisor', 'SUPERVISOR', 'team', 'Team'),
+          dia_venta: getInput('edit-dia-venta') || getFromLead('dia_venta', 'fecha_contratacion', 'fecha'),
+          dia_instalacion: getInput('edit-dia-instalacion') || getFromLead('dia_instalacion', 'fecha_instalacion'),
+          nombre_cliente: getInput('edit-nombres') || getInput('edit-apellidos') ? 
+            [getInput('edit-nombres'), getInput('edit-apellidos')].filter(Boolean).join(' ').trim() :
+            getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
+          telefono_principal: getInput('edit-telefono') || getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
+          direccion: getInput('edit-direccion') || getFromLead('direccion', 'address', 'domicilio'),
+          supervisor: getInput('edit-supervisor') || getInput('edit-sup') || getFromLead('supervisor', 'SUPERVISOR', 'team', 'Team'),
           motivo_llamada: getInput('edit-motivo-llamada') || getFromLead('motivo_llamada', 'motivo', 'call_reason', 'reason'),
           comentario: getInput('edit-comentario') || getFromLead('comentario', 'comment', 'comentarios'),
-          servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
-          tipo_servicio: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
-          tipo_servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto')
+          servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicio: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto')
         };
       }
 
@@ -10769,18 +10800,23 @@
                   throw new Error('Error al actualizar lead encontrado: ' + (t || putResp.status));
                 }
                 alert('âœ… Registro actualizado exitosamente (coincidencia encontrada)');
-                cerrarModalEdicion();
-                // Recargar datos sin perder la vista
+                
+                // Recargar datos FORZANDO actualización desde servidor
                 try {
-                  if (typeof fetchLeadsAgente === 'function') {
-                    await fetchLeadsAgente();
-                  } else {
+                  const reloaded = await window.reloadLeadsAfterSave();
+                  if (!reloaded) {
+                    console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
                     location.reload();
+                    return;
                   }
                 } catch (e) {
-                  console.warn('Error recargando leads:', e);
+                  console.error('[guardarCambiosLead] Error recargando leads:', e);
                   location.reload();
+                  return;
                 }
+                
+                // Cerrar el modal DESPUÉS de recargar los datos
+                cerrarModalEdicion();
                 return;
               }
 
@@ -10828,18 +10864,23 @@
                             throw new Error('Error al actualizar la coincidencia: ' + (put2txt || putResp2.status));
                           }
                           alert('âœ… Registro actualizado exitosamente (coincidencia)');
-                          cerrarModalEdicion();
-                          // Recargar datos sin perder la vista
+                          
+                          // Recargar datos FORZANDO actualización desde servidor
                           try {
-                            if (typeof fetchLeadsAgente === 'function') {
-                              await fetchLeadsAgente();
-                            } else {
+                            const reloaded = await window.reloadLeadsAfterSave();
+                            if (!reloaded) {
+                              console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
                               location.reload();
+                              return;
                             }
                           } catch (e) {
-                            console.warn('Error recargando leads:', e);
+                            console.error('[guardarCambiosLead] Error recargando leads:', e);
                             location.reload();
+                            return;
                           }
+                          
+                          // Cerrar el modal DESPUÉS de recargar los datos
+                          cerrarModalEdicion();
                           return;
                         }
                       }
@@ -10869,23 +10910,23 @@
                 throw new Error('Error al crear el registro: ' + (postTxt || postResp.status));
               }
               alert('âœ… Registro creado exitosamente');
-              cerrarModalEdicion();
-              // Recargar datos sin perder la vista
+              
+              // Recargar datos FORZANDO actualización desde servidor
               try {
-                if (typeof fetchLeadsAgente === 'function') {
-                  console.log('[guardarCambiosLead] Recargando leads desde servidor...');
-                  await fetchLeadsAgente();
-                } else if (typeof window.fetchLeadsAgente === 'function') {
-                  console.log('[guardarCambiosLead] Recargando leads (global) desde servidor...');
-                  await window.fetchLeadsAgente();
-                } else {
-                  console.log('[guardarCambiosLead] fetchLeadsAgente no disponible, recargando pÃ¡gina');
+                const reloaded = await window.reloadLeadsAfterSave();
+                if (!reloaded) {
+                  console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
                   location.reload();
+                  return;
                 }
               } catch (e) {
-                console.warn('[guardarCambiosLead] Error recargando leads, recargando pÃ¡gina:', e);
+                console.error('[guardarCambiosLead] Error recargando leads:', e);
                 location.reload();
+                return;
               }
+              
+              // Cerrar el modal DESPUÉS de recargar los datos
+              cerrarModalEdicion();
               return;
             } catch (e) {
               let msg = 'Error tratando 404: ';
@@ -10900,24 +10941,23 @@
         }
 
         alert('âœ… Registro actualizado exitosamente');
-        cerrarModalEdicion();
 
-        // Recargar datos sin perder la vista
+        // Recargar datos FORZANDO actualización desde servidor
         try {
-          if (typeof fetchLeadsAgente === 'function') {
-            console.log('[guardarCambiosLead] Recargando leads desde servidor...');
-            await fetchLeadsAgente();
-          } else if (typeof window.fetchLeadsAgente === 'function') {
-            console.log('[guardarCambiosLead] Recargando leads (global) desde servidor...');
-            await window.fetchLeadsAgente();
-          } else {
-            console.log('[guardarCambiosLead] fetchLeadsAgente no disponible, recargando pÃ¡gina');
+          const reloaded = await window.reloadLeadsAfterSave();
+          if (!reloaded) {
+            console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
             location.reload();
+            return;
           }
         } catch (e) {
-          console.warn('[guardarCambiosLead] Error recargando leads, recargando pÃ¡gina:', e);
+          console.error('[guardarCambiosLead] Error recargando leads:', e);
           location.reload();
+          return;
         }
+
+        // Cerrar el modal DESPUÉS de recargar los datos
+        cerrarModalEdicion();
         return;
       } catch (error) {
         console.error('Error al guardar cambios:', error);
