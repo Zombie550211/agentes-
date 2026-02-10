@@ -3,1970 +3,1833 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Llamadas y Ventas por Team</title>
+    <title>Dashboard Llamadas y Ventas</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+    <link rel="stylesheet" href="css/responsive-grid.css">
+    <link rel="stylesheet" href="css/responsive-sidebar.css">
+    <link rel="stylesheet" href="css/responsive-components.css">
     <script src="js/fetch-interceptor.js" defer></script>
     <script src="js/sidebar-loader.js" defer></script>
     <style>
-        .editable-cell {
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-weight: 700;
-            color: #000;
-        }
-        th {
-            font-weight: 800 !important;
-            color: #000 !important;
-        }
-        td {
-            font-weight: 600 !important;
-            color: #000 !important;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        #monthlyView th,
-        #monthlyView td {
-            font-size: 20px !important; /* Reducido para mayor legibilidad */
+        :root {
+            --primary: #8b5cf6;
+            --primary-dark: #7c3aed;
+            --light-bg: #faf5ff;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: rgba(203, 213, 225, 0.6);
+            --yellow: rgba(196, 181, 253, 0.15);
+            --yellow-dark: rgba(196, 181, 253, 0.25);
+            --llamadas: #ec4899;
+            --calis: #06b6d4;
+            --ventas: #8b5cf6;
         }
 
-        .topbar-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .toggle-wrap {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .toggle-label {
-            font-weight: 800;
-            color: var(--text-color);
-            white-space: nowrap;
-        }
-
-        .toggle-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 52px;
-            height: 30px;
-            border-radius: 999px;
-            background: #cbd5e1;
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-primary);
             position: relative;
-            cursor: pointer;
-            border: 1px solid rgba(0,0,0,0.12);
-            transition: background 160ms ease;
+            min-height: 100vh;
         }
 
-        .toggle-btn::after {
-            content: '';
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 24px;
-            height: 24px;
-            border-radius: 999px;
-            background: #fff;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-            transition: transform 160ms ease;
-        }
-
-        .toggle-btn:checked {
-            background: #22c55e;
-        }
-
-        .toggle-btn:checked::after {
-            transform: translateX(22px);
-        }
-
-        #excelView { display: none; }
-
-        .excel-tabs {
+        .layout {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border: 1px solid rgba(0,0,0,0.15);
-            border-radius: 10px;
-            background: #fff;
-            overflow-x: auto;
+            min-height: 100vh;
+        }
+
+        .main-content {
             flex: 1;
-            min-width: 0;
-            scroll-behavior: smooth;
-        }
-
-        .excel-tabs-scroll-btn {
-            background: #f0f0f0;
-            border: 1px solid rgba(0,0,0,0.15);
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #333;
-            transition: all 0.2s;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .excel-tabs-scroll-btn:hover {
-            background: #e0e0e0;
-            border-color: rgba(0,0,0,0.3);
-        }
-
-        .excel-tabs-scroll-btn:active {
-            background: #d0d0d0;
-        }
-
-        .excel-tab {
-            border: 1px solid rgba(0,0,0,0.2);
-            background: #f3f4f6;
-            border-radius: 10px;
-            padding: 8px 12px;
-            font-weight: 900;
-            cursor: pointer;
-            white-space: nowrap;
+            padding: 0;
+            z-index: 1;
             position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
 
-        .excel-tab .close-btn {
-            background: #ef4444;
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(196, 181, 253, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(147, 197, 253, 0.2) 0%, transparent 50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        header {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 2px solid var(--primary);
+            padding: 0.4rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.3rem;
+            background: rgba(241, 245, 249, 0.8);
+            padding: 0.2rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .btn-toggle {
+            padding: 0.3rem 0.8rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0.4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            font-size: 10px;
-            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            padding: 0;
-            margin-left: 4px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
         }
 
-        .excel-tab .close-btn:hover {
-            background: #dc2626;
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
         }
 
-        .excel-tab .edit-input {
-            background: transparent;
-            border: 1px solid #000;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: inherit;
-            font-weight: inherit;
-            font-family: inherit;
-            color: inherit;
-            outline: none;
-            width: 120px;
-        }
-
-        .excel-tab .edit-input:focus {
-            background: #fff;
-            box-shadow: 0 0 0 2px #3b82f6;
-        }
-
-        .excel-tab.active {
-            background: #dbeafe;
-            border-color: rgba(0,0,0,0.35);
-        }
-
-        .excel-tab.plus {
-            background: #fff;
-            width: 36px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            line-height: 1;
-        }
-
-        .excel-grid {
+        /* VISTA GENERAL */
+        .view-general {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 260px;
-            gap: 14px;
+            grid-template-columns: 1fr 320px;
+            gap: 2rem;
+        }
+
+        .main-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+        }
+
+        .table-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .col-headers {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 0.8fr 0.8fr;
+            background: var(--yellow);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .col-headers.no-llamadas {
+            grid-template-columns: 1.2fr 0.8fr 0.8fr;
+        }
+
+        .col-header {
+            padding: 0.3rem 0.1rem;
+            text-align: center;
+            font-weight: 800;
+            font-size: 0.5rem;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            border-right: 1px solid var(--border);
+            line-height: 1;
+        }
+
+        .col-header:last-child {
+            border-right: none;
+        }
+
+        .col-header.agent {
+            text-align: left;
+            background: white;
+            padding-left: 6px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-bottom: 3px solid var(--primary-dark);
+        }
+
+        th {
+            padding: 1rem 0.8rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.8rem 0.6rem;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+
+        td:first-child {
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            z-index: 10;
+        }
+
+        tbody tr:nth-child(even) {
+            background: var(--yellow);
+        }
+
+        tbody tr:hover {
+            background: rgba(139, 92, 246, 0.08);
+        }
+
+        tbody tr:last-child {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            font-weight: 700;
+        }
+
+        tbody tr:last-child td {
+            color: white;
+            border-color: var(--primary-dark);
+        }
+
+        input[type="number"] {
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.3rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            width: 60px;
+            text-align: center;
+            font-weight: 600;
+            background: white;
+            color: var(--text-primary);
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+            background: rgba(196, 181, 253, 0.1);
+        }
+
+        /* Marketing Panel */
+        .marketing-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        .marketing-header {
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+        }
+
+        .metric {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.08);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-input {
+            width: 100%;
+            border: 1px solid var(--border);
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-family: inherit;
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .metric-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        /* DASHBOARD KPIS SUPERIORES */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.4rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.3rem;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.05);
+        }
+
+        .kpi-label {
+            font-size: 0.5rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 800;
+            margin-bottom: 0.1rem;
+        }
+
+        .kpi-value {
+            font-size: 1rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .kpi-input {
+            width: 100%;
+            border: 1px solid var(--border);
+            padding: 0.1rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-align: center;
+            font-weight: 700;
+            background: white;
+        }
+
+        /* VISTA EXCEL REDISEÑADA */
+        .view-excel {
+            display: none;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.4rem;
             align-items: start;
         }
 
-        .excel-slot {
-            min-width: 0;
+        .team-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.05);
+            height: fit-content;
         }
 
-        .excel-card {
-            border: 1px solid #000;
-            background: #fff;
+        @media (max-width: 1600px) {
+            .teams-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
-        .excel-card table {
+        @media (max-width: 1200px) {
+            .teams-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 800px) {
+            .teams-grid {
+                grid-template-columns: 1fr;
+            }
+            .kpi-row {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .team-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            font-weight: 800;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+        }
+
+        .col-headers {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 0.8fr 0.8fr;
+            background: var(--yellow);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .col-headers.no-llamadas {
+            grid-template-columns: 1.2fr 0.8fr 0.8fr;
+        }
+
+        .col-header {
+            padding: 0.2rem 0.1rem;
+            text-align: center;
+            font-weight: 800;
+            font-size: 0.45rem;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            border-right: 1px solid var(--border);
+            line-height: 1;
+        }
+
+        .team-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.55rem;
             table-layout: fixed;
         }
 
-        .excel-card th, .excel-card td {
-            border: 1px solid #000;
-            padding: 6px 8px;
-            font-size: 18px;
+        .team-table td {
+            padding: 0.1rem 0.1rem;
+            border-right: 1px solid var(--border);
             text-align: center;
+            height: 24px;
+            overflow: hidden;
         }
 
-        .excel-card th {
-            background: #000;
-            color: #fff !important;
-            font-weight: 900 !important;
+        .team-table td:first-child {
+            text-align: left;
+            font-weight: 700;
+            color: var(--text-primary);
+            width: 33.33%;
+            padding-left: 4px;
         }
 
-        .excel-name {
-            background: #ffeb3b;
-            text-align: left !important;
-            font-weight: 900 !important;
+        .team-table td:not(:first-child) {
+            width: 22.22%;
         }
 
-        .excel-name-cell {
-            background: #fff;
-            text-align: left !important;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 !important;
+        .team-table td:last-child {
+            border-right: none;
         }
 
-        .excel-name-cell .excel-name {
-            flex: 1;
-            padding: 6px 8px;
-            margin: 0;
+        .editable-cell {
+            border: none;
             background: transparent;
-            color: #000;
+            text-align: center;
+            font-weight: 600;
+            width: 100%;
+            font-size: 0.6rem;
+            font-family: inherit;
+            cursor: text;
+            padding: 0.05rem;
+            color: var(--text-primary);
         }
 
-        .excel-delete-btn {
-            background: #999;
+        .agent-name {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.1rem;
+            width: 100%;
+        }
+
+        .agent-name span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            flex: 1;
+            font-size: 0.55rem;
+            color: var(--text-primary);
+        }
+
+        .btn-delete {
+            background: #ef4444;
             color: white;
             border: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            font-size: 12px;
-            font-weight: bold;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
             cursor: pointer;
-            display: flex;
+            font-size: 0.6rem;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            line-height: 1;
-            padding: 0;
-            margin: 2px;
-            transition: background 0.2s ease;
+            font-weight: 700;
             flex-shrink: 0;
+            transition: all 0.2s ease;
         }
 
-        .excel-delete-btn:hover {
-            background: #666;
+        .btn-delete:hover {
+            background: #dc2626;
+            transform: scale(1.1);
         }
 
-        .excel-total-row td {
-            background: #000;
-            color: #fff !important;
-            font-weight: 900 !important;
+        .total-row {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+            color: white;
+            font-weight: 700;
         }
 
-        .excel-side {
-            display: grid;
-            gap: 12px;
+        .total-row td {
+            color: white;
+            border-color: var(--primary-dark);
+            height: 24px;
         }
 
-        .excel-mini {
-            border: 1px solid #000;
-            background: #fff;
-            padding: 10px;
+        .efficiency-row {
+            background: var(--yellow-dark) !important;
+            color: var(--text-primary);
+            font-weight: 700;
         }
 
-        .excel-mini input {
-            width: 100%;
-            border: 1px solid #000;
-            padding: 6px 8px;
-            font-weight: 900;
-            text-transform: uppercase;
-            background: #ffeb3b;
-            text-align: center;
-            font-size: 16px;
+        .efficiency-row td {
+            border-color: var(--border);
+            height: 22px;
+            font-size: 0.55rem;
         }
 
-        .excel-mini table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
+        /* PESTAÑAS TIPO EXCEL - MESES */
+        .excel-month-tabs-container {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-top: 2px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 0.4rem 0.5rem;
+            margin-top: 0.5rem;
+            border-radius: 8px 8px 0 0;
+            gap: 0.3rem;
         }
 
-        .excel-mini td {
-            border: 1px solid #000;
-            padding: 6px 8px;
-            font-size: 20px;
-            font-weight: 900;
-            text-align: right;
+        .excel-month-tabs {
+            display: flex;
+            gap: 0.3rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
         }
 
-        .excel-mini td:first-child { text-align: left; background: #e5e7eb; }
+        .excel-month-tabs::-webkit-scrollbar {
+            display: none;
+        }
 
-        .excel-editable {
-            background: #fff;
-            font-weight: 900;
+        .month-tab {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
             cursor: pointer;
+            border-radius: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .month-tab:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .month-tab.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        }
+
+        /* PESTAÑAS TIPO EXCEL - DÍAS */
+        .excel-tabs-container {
+            display: flex;
+            align-items: center;
+            background: #f8fafc;
+            border-top: 2px solid var(--border);
+            padding: 0.3rem 0.5rem;
+            margin-top: 0.5rem;
+            border-radius: 0 0 8px 8px;
+            gap: 0.3rem;
+        }
+
+        .excel-tabs {
+            display: flex;
+            gap: 0.15rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            flex: 1;
+        }
+
+        .excel-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .excel-tab {
+            background: #e2e8f0;
+            border: 1px solid #cbd5e1;
+            border-bottom: none;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .excel-tab:hover {
+            background: #f1f5f9;
+            color: var(--text-primary);
+        }
+
+        .excel-tab.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            border-color: var(--primary);
+            border-top: 2px solid var(--primary);
+            box-shadow: 0 -2px 8px rgba(139, 92, 246, 0.15);
             position: relative;
         }
-        
-        .excel-editable[contenteditable="true"] {
-            background: #fffacd;
-            border: 2px solid #ffb300;
-            outline: none;
-            box-shadow: inset 0 0 3px rgba(255, 179, 0, 0.3);
-        }
-        
-        .excel-name[contenteditable="false"]:hover {
-            background: #fff9e6;
-            cursor: pointer;
-        }
-        
-        .excel-name[contenteditable="true"] {
-            background: #fffacd;
-            border: 2px solid #ffb300;
-            outline: none;
+
+        .excel-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--card-bg);
         }
 
-        .excel-add-btn {
-            background: #111827;
-            color: #fff;
-            border: 1px solid rgba(0,0,0,0.25);
-            border-radius: 10px;
-            padding: 8px 12px;
-            font-weight: 900;
-            cursor: pointer;
-        }
-
-        .excel-add-btn:hover {
-            filter: brightness(1.05);
-        }
-
-        .excel-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 18px;
-            z-index: 9999;
-        }
-
-        .excel-modal.open {
+        .excel-tab-nav {
             display: flex;
+            gap: 0.2rem;
         }
 
-        .excel-modal-card {
-            width: min(520px, 100%);
-            background: #fff;
-            border: 1px solid #000;
-            border-radius: 12px;
-            padding: 14px;
+        .tab-nav-btn {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.5rem;
+            font-size: 0.65rem;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
         }
 
-        .excel-modal-title {
-            font-weight: 900;
-            font-size: 16px;
-            margin: 0 0 10px 0;
+        .tab-nav-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
         }
 
-        .excel-form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+        .stat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
         }
 
-        .excel-form-grid label {
-            display: block;
-            font-weight: 900;
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
-
-        .excel-form-grid input,
-        .excel-form-grid select {
+        .form-group input,
+        .form-group select {
             width: 100%;
-            border: 1px solid #000;
-            border-radius: 10px;
-            padding: 10px;
-            font-weight: 900;
-            font-size: 12px;
+            border: 1px solid var(--border);
+            padding: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+            color: var(--text-primary);
         }
 
-        .excel-form-actions {
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .form-group select option {
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
             display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 12px;
         }
 
-        .excel-btn {
-            border: 1px solid #000;
-            border-radius: 10px;
-            padding: 10px 12px;
-            font-weight: 900;
+        .modal-content {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            border: 1px solid var(--border);
+            padding: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .form-group select option {
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background: #f1f5f9;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.9rem;
+            border-radius: 8px;
             cursor: pointer;
-            background: #fff;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
         }
 
-        .excel-btn.primary {
-            background: #22c55e;
-            color: #000;
+        .btn-cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-submit {
+            flex: 1;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            padding: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        @media (max-width: 1200px) {
+            .view-general, .view-excel {
+                grid-template-columns: 1fr;
+            }
+
+            .marketing-panel, .marketing-excel {
+                position: static;
+            }
+
+            .excel-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .excel-header .btn-primary {
+                width: 100%;
+            }
         }
     </style>
-<script src="js/logout-handler.js" defer></script>
 </head>
 <body>
     <div class="layout">
+        <!-- Sidebar Container -->
         <nav class="sidebar sidebar-inicio" data-active="llamadas-team"></nav>
-        <main class="main-content">
-            <div style="padding: 20px;">
-                <div class="topbar-row">
-                    <h1 style="margin: 0;">Llamadas y Ventas por Team</h1>
-                    <div class="toggle-wrap">
-                        <button id="excelAddUserBtn" class="excel-add-btn" type="button" style="display:none;">Agregar usuario</button>
-                        <span class="toggle-label">Vista Excel</span>
-                        <input id="excelToggle" class="toggle-btn" type="checkbox" />
-                    </div>
-                </div>
 
-                <div id="monthlyView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: 1200px;">
+        <div class="main-content">
+            <header>
+        <div class="logo">📊 LLAMADAS Y VENTAS</div>
+        <div class="view-toggle">
+            <button class="btn-toggle active" onclick="switchView('general', this)">📈 General</button>
+            <button class="btn-toggle" onclick="switchView('excel', this)">📑 Teams</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- VISTA GENERAL -->
+        <div id="view-general" class="view-general">
+            <div class="main-section">
+                <div class="table-title">Resumen de Llamadas y Ventas por Fechas</div>
+                <div class="table-wrapper">
+                    <table id="generalTable">
                         <thead>
                             <tr>
-                                <!-- TEAM IRANIA -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #f8fbff;" colspan="4">TEAM IRANIA</th>
-                                <!-- TEAM BRYAN -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #faf5ff;" colspan="3">TEAM BRYAN</th>
-                                <!-- TEAM ROBERTO -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #f1f8f1;" colspan="3">TEAM ROBERTO</th>
-                                <!-- TEAM MARISOL -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #fff8f1;" colspan="3">TEAM MARISOL</th>
-                                <!-- TEAM SANTANA -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #fff0f5;" colspan="3">TEAM SANTANA</th>
-                                <!-- TOTALES -->
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); font-weight: 600; background: #e8eaf6;" colspan="2">TOTALES</th>
+                                <th>Fecha</th>
+                                <th colspan="3">TEAM IRANIA</th>
+                                <th colspan="3">TEAM BRYAN</th>
+                                <th colspan="3">TEAM ROBERTO</th>
+                                <th colspan="3">TEAM MARISOL</th>
+                                <th colspan="3">TEAM SANTANA</th>
+                                <th colspan="2">TOTALES</th>
                             </tr>
-                            <tr style="background: var(--background-light);">
-                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 12px;">Fecha</th>
-                                <!-- TEAM IRANIA - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">VENTAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f8fbff;">TOTALES</th>
-                                <!-- TEAM BRYAN - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">VENTAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #faf5ff;">TOTALES</th>
-                                <!-- TEAM ROBERTO - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">VENTAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #f1f8f1;">TOTALES</th>
-                                <!-- TEAM MARISOL - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">VENTAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff8f1;">TOTALES</th>
-                                <!-- TEAM SANTANA - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">VENTAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #fff0f5;">TOTALES</th>
-                                <!-- TOTALES - Columnas -->
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #e8eaf6;">TOTAL DE LLAMADAS</th>
-                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid var(--border-color); font-size: 12px; background: #e8eaf6;">TOTAL DE VENTAS</th>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>LLAMADAS</th><th>VENTAS</th><th>TOTALES</th>
+                                <th>LLAMADAS</th><th>VENTAS</th><th>TOTALES</th>
+                                <th>LLAMADAS</th><th>VENTAS</th><th>TOTALES</th>
+                                <th>LLAMADAS</th><th>VENTAS</th><th>TOTALES</th>
+                                <th>LLAMADAS</th><th>VENTAS</th><th>TOTALES</th>
+                                <th>TOTAL LLAMADAS</th><th>TOTAL VENTAS</th>
                             </tr>
                         </thead>
-                        <tbody id="tableBody">
-                            <tr>
-                                <td style="padding: 12px; text-align: left;">-</td>
-                                <!-- TEAM IRANIA - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #f8fbff;">-</td>
-                                <!-- TEAM BRYAN - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #faf5ff;">-</td>
-                                <!-- TEAM ROBERTO - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #f1f8f1;">-</td>
-                                <!-- TEAM MARISOL - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #fff8f1;">-</td>
-                                <!-- TEAM SANTANA - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #fff0f5;">-</td>
-                                <!-- TOTALES - Datos -->
-                                <td style="padding: 12px; text-align: center; background: #e8eaf6;">-</td>
-                                <td style="padding: 12px; text-align: center; background: #e8eaf6;">-</td>
-                            </tr>
+                        <tbody id="generalTableBody">
                         </tbody>
                     </table>
                 </div>
+            </div>
 
-                <div id="excelView" style="background: var(--card-background); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <button id="excelTabsScrollLeft" class="excel-tabs-scroll-btn" title="Scroll izquierda">‹</button>
-                        <div id="excelTabs" class="excel-tabs" style="display:none;"></div>
-                        <button id="excelTabsScrollRight" class="excel-tabs-scroll-btn" title="Scroll derecha">›</button>
-                    </div>
-                    <div id="excelRoot" class="excel-grid"></div>
+            <div class="marketing-panel">
+                <div class="marketing-header">📊 Métricas</div>
+                <div class="metric">
+                    <div class="metric-label">Llamadas</div>
+                    <div class="metric-value" id="gen-llamadas">0</div>
                 </div>
+                <div class="metric">
+                    <div class="metric-label">Calis</div>
+                    <div class="metric-value" id="gen-calis">0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Ventas</div>
+                    <div class="metric-value" id="gen-ventas">0</div>
+                </div>
+                <div class="divider"></div>
+                <div class="metric">
+                    <div class="metric-label">Pérdidas</div>
+                    <input type="number" class="metric-input" id="gen-perdidas" value="0" min="0" onchange="actualizarMarketing()">
+                    <div class="metric-value" id="gen-perdidas-d">0</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Recicladas</div>
+                    <input type="number" class="metric-input" id="gen-recicladas" value="0" min="0" onchange="actualizarMarketing()">
+                    <div class="metric-value" id="gen-recicladas-d">0</div>
+                </div>
+                <div class="divider"></div>
+                <div class="metric">
+                    <div class="metric-label">Total Global</div>
+                    <div class="metric-value" id="gen-total-global">0</div>
+                </div>
+            </div>
+        </div>
 
-                <div id="excelUserModal" class="excel-modal" aria-hidden="true">
-                    <div class="excel-modal-card" role="dialog" aria-modal="true">
-                        <h2 class="excel-modal-title">Agregar usuario</h2>
-                        <form id="excelUserForm">
-                            <div class="excel-form-grid">
-                                <div style="grid-column: 1 / -1;">
-                                    <label for="excelUserName">Nombre</label>
-                                    <input id="excelUserName" name="name" autocomplete="off" required />
-                                </div>
-                                <div>
-                                    <label for="excelUserRole">Rol</label>
-                                    <select id="excelUserRole" name="role" required>
-                                        <option value="agente">Agente</option>
-                                        <option value="supervisor">Supervisor</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="backoffice">Backoffice</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="excelUserTeam">Team</label>
-                                    <select id="excelUserTeam" name="team" required>
-                                        <option value="TEAM IRANIA">TEAM IRANIA</option>
-                                        <option value="TEAM ROBERTO">TEAM ROBERTO</option>
-                                        <option value="TEAM SANTANA">TEAM SANTANA</option>
-                                        <option value="TEAM BRYAN">TEAM BRYAN</option>
-                                        <option value="TEAM MARISOL">TEAM MARISOL</option>
-                                        <option value="TEAM LINEAS">TEAM LINEAS</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="excel-form-actions">
-                                <button id="excelUserCancel" class="excel-btn" type="button">Cancelar</button>
-                                <button class="excel-btn primary" type="submit">Guardar</button>
-                            </div>
-                        </form>
+        <!-- VISTA EXCEL REDISEÑADA -->
+        <div id="view-excel" class="view-excel">
+            <!-- KPIs Superiores -->
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-label">Llamadas</div>
+                    <div class="kpi-value" id="excel-llamadas">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Calis</div>
+                    <div class="kpi-value" id="excel-calis">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Ventas</div>
+                    <div class="kpi-value" id="excel-ventas">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Pérdidas</div>
+                    <input type="number" class="kpi-input" id="excel-perdidas" value="0" min="0" onchange="actualizarMarketing()">
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Recicladas</div>
+                    <input type="number" class="kpi-input" id="excel-recicladas" value="0" min="0" onchange="actualizarMarketing()">
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Global</div>
+                    <div class="kpi-value" id="excel-total">0</div>
+                </div>
+            </div>
+
+            <div>
+                <div class="excel-header">
+                    <h2>Equipos de Trabajo</h2>
+                    <button class="btn-primary" onclick="abrirModal()">➕ Agregar Agente</button>
+                </div>
+                <div class="teams-grid" id="teamsContainer"></div>
+                
+                <!-- Pestañas de días tipo Excel -->
+                <div class="excel-tabs-container">
+                    <div class="excel-tabs" id="dateTabs"></div>
+                    <div class="excel-tab-nav">
+                        <button class="tab-nav-btn" onclick="scrollTabs('left')">◀</button>
+                        <button class="tab-nav-btn" onclick="scrollTabs('right')">▶</button>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
+
+    <!-- Modal Agregar Agente -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Agregar Agente</h2>
+            <div class="form-group">
+                <label>Nombre del Agente</label>
+                <input type="text" id="newAgentName" placeholder="Ingrese el nombre completo">
+            </div>
+            <div class="form-group">
+                <label>Asignar a Team</label>
+                <select id="newAgentTeam">
+                    <option value="">-- Seleccionar Team --</option>
+                    <option value="irania">Team Irania</option>
+                    <option value="bryan">Team Bryan</option>
+                    <option value="roberto">Team Roberto</option>
+                    <option value="marisol">Team Marisol</option>
+                    <option value="santana">Team Santana</option>
+                    <option value="lineas1">Team Líneas 1</option>
+                    <option value="lineas2">Team Líneas 2</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-submit" onclick="agregarAgente()">Agregar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            try {
-                const rawUser = localStorage.getItem('user') || sessionStorage.getItem('user');
-                const parsedUser = rawUser ? JSON.parse(rawUser) : null;
-                const role = String(parsedUser?.role || '').toLowerCase();
-                const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
-                if (!isAllowed) {
-                    window.location.href = '/inicio.html';
-                    return;
+        let teams = [
+            { name: 'irania', title: 'TEAM IRANIA', agents: ['IRANIA S', 'MIGUEL NUÑEZ', 'JOSUE RENDEROS', 'ROXANA MARTINEZ', 'GISELLE DIAZ', 'EMELY AYALA', 'NICOLE CRUZ', 'JORGE SEGOVIA', 'WLADIMIR VENTURA'], hasLlamadas: true },
+            { name: 'bryan', title: 'TEAM BRYAN', agents: ['BRYAN PLUTEZ', 'DIEGO MEJIA', 'ALEXANDER RIVERA', 'LUIS CHAVARRIA', 'STEVEN VALERA', 'EVELIN GARCIA', 'JAIRO FLORES', 'ENMANUEL VELASQUEZ', 'sin nombre'], hasLlamadas: true },
+            { name: 'roberto', title: 'TEAM ROBERTO', agents: ['FRANCISCO AGUILAR', 'LUCIA FERNAN', 'LISBETH CORTEZ', 'NELSON CEREN', 'CINDY FLORES', 'MICHELLE LEIVA', 'LEVI MARTINEZ', 'BRYAN PEREZ', 'JONATHAN LOZANO'], hasLlamadas: true },
+            { name: 'marisol', title: 'TEAM MARISOL', agents: ['MARISOL BELTRAN', 'KATHERINE GOMEZ', 'FERNANDA CASTILLO', 'KIMBERLY IGLESIAS', 'EDUARDO RIVAS', 'STEFANI MARTINEZ', 'JONATHAN MORALES', 'INGRID GARCIA'], hasLlamadas: true },
+            { name: 'santana', title: 'TEAM SANTANA', agents: ['GUADALUPE SANTANA', 'ANDERSON GUZMAN', 'JULIO MEJIA', 'PRISCILA HERNANDEZ', 'RIQUELMI TORRES', 'ABIGAIL BERNAL'], hasLlamadas: true },
+            { name: 'lineas1', title: 'TEAM LINEAS 1', agents: ['LUIS GUTIERREZ', 'KARLA RODRIGUEZ', 'FERNANDO BELTRAN', 'TATIANA GIRON', 'DANIEL DEL CID'], hasLlamadas: false },
+            { name: 'lineas2', title: 'TEAM LINEAS 2', agents: ['JONATHAN FIGUEROA', 'OSCAR RIVERA', 'MIGUEL HERRERA', 'CRISTIAN RIVERA', 'EDWARD RAMIREZ', 'JOCELYN REYES', 'NANCY LOPEZ', 'VICTOR HURTADO', 'MANUEL FLORES', 'MELANY HURTADO'], hasLlamadas: false }
+        ];
+
+        const dates = ['1/2', '2/2', '3/2', '4/2', '5/2', '6/2', '7/2', '8/2', '9/2', '10/2', '11/2', '12/2', '13/2', '14/2', '15/2', '16/2', '17/2', '18/2', '19/2', '20/2', '21/2', '22/2', '23/2', '24/2', '25/2', '26/2', '27/2', '28/2'];
+        const data = {};
+
+        function initData() {
+            dates.forEach(date => {
+                data[date] = {};
+                teams.forEach(team => {
+                    data[date][team.name] = { llamadas: 0, ventas: 0 };
+                });
+            });
+        }
+
+        function renderGeneralTable() {
+            const tbody = document.getElementById('generalTableBody');
+            let html = '';
+
+            dates.forEach(date => {
+                let row = `<tr><td>${date}</td>`;
+
+                teams.slice(0, 5).forEach(team => {
+                    row += `<td><input type="number" class="date-${date}-${team.name}-ll" value="0" min="0" onchange="actualizarGlobal()"></td>`;
+                    row += `<td><input type="number" class="date-${date}-${team.name}-v" value="0" min="0" onchange="actualizarGlobal()"></td>`;
+                    row += `<td id="total-${date}-${team.name}">0/0</td>`;
+                });
+
+                row += `<td id="grand-total-ll-${date}">0</td><td id="grand-total-v-${date}">0</td></tr>`;
+                html += row;
+            });
+
+            let totalRow = '<tr><td>TOTALES GENERALES</td>';
+            teams.slice(0, 5).forEach(team => {
+                totalRow += `<td id="gen-total-${team.name}-ll">0</td>`;
+                totalRow += `<td id="gen-total-${team.name}-v">0</td>`;
+                totalRow += `<td>-</td>`;
+            });
+            totalRow += '<td id="grand-total-llamadas">0</td><td id="grand-total-ventas">0</td></tr>';
+
+            html += totalRow;
+            tbody.innerHTML = html;
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            let html = '';
+
+            teams.forEach(team => {
+                const colsClass = team.hasLlamadas ? '' : ' no-llamadas';
+                const colsHeader = team.hasLlamadas ? '<div class="col-header llamadas">LLAMADAS</div>' : '';
+
+                let agentsHtml = team.agents.map((agent, idx) => {
+                    return `
+                        <tr class="${team.name}-agent-row">
+                            <td>
+                                <div class="agent-name">
+                                    <span>${agent}</span>
+                                    <button class="btn-delete" onclick="eliminarAgente('${team.name}', ${idx})">×</button>
+                                </div>
+                            </td>
+                            ${team.hasLlamadas ? `<td><input type="number" class="editable-cell ${team.name}-ll-${idx}" value="0" onchange="calcularTeam('${team.name}')"></td>` : ''}
+                            <td><input type="number" class="editable-cell ${team.name}-ca-${idx}" value="0" onchange="calcularTeam('${team.name}')"></td>
+                            <td><input type="number" class="editable-cell ${team.name}-v-${idx}" value="0" onchange="calcularTeam('${team.name}')"></td>
+                        </tr>
+                    `;
+                }).join('');
+
+                html += `
+                    <div class="team-card">
+                        <div class="team-header">${team.title}</div>
+                        <div class="col-headers${colsClass}">
+                            <div class="col-header agent">AGENTE</div>
+                            ${colsHeader}
+                            <div class="col-header calis">CALIS</div>
+                            <div class="col-header ventas">VENTAS</div>
+                        </div>
+                        <table class="team-table">
+                            <tbody>
+                                ${agentsHtml}
+                                <tr class="total-row">
+                                    <td>TOTAL</td>
+                                    ${team.hasLlamadas ? `<td id="total-${team.name}-ll">0</td>` : ''}
+                                    <td id="total-${team.name}-ca">0</td>
+                                    <td id="total-${team.name}-v">0</td>
+                                </tr>
+                                <tr class="efficiency-row">
+                                    <td colspan="${team.hasLlamadas ? 4 : 3}" id="eff-${team.name}">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function calcularTeam(teamName) {
+            const team = teams.find(t => t.name === teamName);
+            let llamadas = 0, calis = 0, ventas = 0;
+
+            team.agents.forEach((agent, idx) => {
+                if (team.hasLlamadas) {
+                    const llInput = document.querySelector(`.${teamName}-ll-${idx}`);
+                    if (llInput) llamadas += parseInt(llInput.value) || 0;
                 }
-            } catch (_) {
-                window.location.href = '/inicio.html';
+                const caInput = document.querySelector(`.${teamName}-ca-${idx}`);
+                if (caInput) calis += parseInt(caInput.value) || 0;
+
+                const vInput = document.querySelector(`.${teamName}-v-${idx}`);
+                if (vInput) ventas += parseInt(vInput.value) || 0;
+            });
+
+            const el_ll = document.getElementById(`total-${teamName}-ll`);
+            if (el_ll) el_ll.textContent = llamadas;
+
+            const el_ca = document.getElementById(`total-${teamName}-ca`);
+            if (el_ca) el_ca.textContent = calis;
+
+            const el_v = document.getElementById(`total-${teamName}-v`);
+            if (el_v) el_v.textContent = ventas;
+
+            const eficiencia = llamadas > 0 ? (ventas / llamadas).toFixed(2) : 0;
+            document.getElementById(`eff-${teamName}`).textContent = eficiencia;
+
+            actualizarGlobal();
+        }
+
+        function actualizarGlobal() {
+            let totalLlamadas = 0, totalCalis = 0, totalVentas = 0;
+
+            teams.forEach(team => {
+                if (team.hasLlamadas) {
+                    totalLlamadas += parseInt(document.getElementById(`total-${team.name}-ll`)?.textContent) || 0;
+                }
+                totalCalis += parseInt(document.getElementById(`total-${team.name}-ca`)?.textContent) || 0;
+                totalVentas += parseInt(document.getElementById(`total-${team.name}-v`)?.textContent) || 0;
+            });
+
+            document.getElementById('gen-llamadas').textContent = totalLlamadas;
+            document.getElementById('gen-calis').textContent = totalCalis;
+            document.getElementById('gen-ventas').textContent = totalVentas;
+
+            document.getElementById('excel-llamadas').textContent = totalLlamadas;
+            document.getElementById('excel-calis').textContent = totalCalis;
+            document.getElementById('excel-ventas').textContent = totalVentas;
+
+            actualizarMarketing();
+        }
+
+        function actualizarMarketing() {
+            // General metrics
+            const genLlamadas = parseInt(document.getElementById('gen-llamadas')?.textContent) || 0;
+            const genPerdidas = parseInt(document.getElementById('gen-perdidas')?.value) || 0;
+            const genRecicladas = parseInt(document.getElementById('gen-recicladas')?.value) || 0;
+
+            const genPerdidasD = document.getElementById('gen-perdidas-d');
+            const genRecicladasD = document.getElementById('gen-recicladas-d');
+            if (genPerdidasD) genPerdidasD.textContent = genPerdidas;
+            if (genRecicladasD) genRecicladasD.textContent = genRecicladas;
+
+            const genTotal = genLlamadas + genPerdidas + genRecicladas;
+            const genTotalGlobal = document.getElementById('gen-total-global');
+            if (genTotalGlobal) genTotalGlobal.textContent = genTotal;
+
+            // Excel (KPI Row)
+            const excelLlamadas = parseInt(document.getElementById('excel-llamadas')?.textContent) || 0;
+            const excelPerdidas = parseInt(document.getElementById('excel-perdidas')?.value) || 0;
+            const excelRecicladas = parseInt(document.getElementById('excel-recicladas')?.value) || 0;
+
+            const excelTotal = excelLlamadas + excelPerdidas + excelRecicladas;
+            const excelTotalEl = document.getElementById('excel-total');
+            if (excelTotalEl) excelTotalEl.textContent = excelTotal;
+
+            // Sincronizar inputs entre vistas si es necesario
+            const excelPerdidasInput = document.getElementById('excel-perdidas');
+            const excelRecicladasInput = document.getElementById('excel-recicladas');
+            
+            // Si el cambio vino de general, actualizar excel
+            if (document.activeElement?.id === 'gen-perdidas' && excelPerdidasInput) excelPerdidasInput.value = genPerdidas;
+            if (document.activeElement?.id === 'gen-recicladas' && excelRecicladasInput) excelRecicladasInput.value = genRecicladas;
+            
+            // Si el cambio vino de excel, actualizar general
+            if (document.activeElement?.id === 'excel-perdidas') {
+                const genPerdidasInput = document.getElementById('gen-perdidas');
+                if (genPerdidasInput) genPerdidasInput.value = excelPerdidas;
+            }
+            if (document.activeElement?.id === 'excel-recicladas') {
+                const genRecicladasInput = document.getElementById('gen-recicladas');
+                if (genRecicladasInput) genRecicladasInput.value = excelRecicladas;
+            }
+        }
+
+        function abrirModal() {
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').classList.remove('active');
+            document.getElementById('newAgentName').value = '';
+            document.getElementById('newAgentTeam').value = '';
+        }
+
+        function agregarAgente() {
+            const nombre = document.getElementById('newAgentName').value.trim();
+            const teamName = document.getElementById('newAgentTeam').value;
+
+            if (!nombre || !teamName) {
+                alert('Por favor completa los campos');
                 return;
             }
-            if (window.loadSidebar) {
-                window.loadSidebar();
+
+            const team = teams.find(t => t.name === teamName);
+            if (team) {
+                team.agents.push(nombre.toUpperCase());
+                cerrarModal();
+                renderTeams();
+                teams.forEach(t => calcularTeam(t.name));
             }
-            initExcelToggle();
-            generateDailyRows();
+        }
+
+        function eliminarAgente(teamName, idx) {
+            const team = teams.find(t => t.name === teamName);
+            if (team && confirm(`¿Eliminar ${team.agents[idx]}?`)) {
+                team.agents.splice(idx, 1);
+                renderTeams();
+                calcularTeam(teamName);
+            }
+        }
+
+        function switchView(view, element) {
+            const general = document.getElementById('view-general');
+            const excel = document.getElementById('view-excel');
+            document.querySelectorAll('.btn-toggle').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+
+            if (view === 'general') {
+                general.style.display = 'grid';
+                excel.style.display = 'none';
+            } else {
+                general.style.display = 'none';
+                excel.style.display = 'grid';
+            }
+        }
+
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
         });
 
-        function initExcelToggle() {
-            const toggle = document.getElementById('excelToggle');
-            const monthlyView = document.getElementById('monthlyView');
-            const excelView = document.getElementById('excelView');
-            const excelRoot = document.getElementById('excelRoot');
-            const excelTabs = document.getElementById('excelTabs');
-            const excelTabsScrollLeft = document.getElementById('excelTabsScrollLeft');
-            const excelTabsScrollRight = document.getElementById('excelTabsScrollRight');
-            const addBtn = document.getElementById('excelAddUserBtn');
-            const modal = document.getElementById('excelUserModal');
-            const form = document.getElementById('excelUserForm');
-            const cancelBtn = document.getElementById('excelUserCancel');
-            if (!toggle || !monthlyView || !excelView || !excelRoot) return;
+        let currentDate = null;
+        let currentMonthYear = null;
+        let excelData = {};
+        let sheetMap = {}; // Mapa de fecha -> sheetId
+        let allSheets = []; // Todos los sheets de la BD
+        let availableMonths = []; // Meses disponibles
+        let currentSheetId = null;
+        let pendingSaves = new Map();
 
-            const API_SHEETS = '/api/llamadas-ventas-excel/sheets';
-            const API_SHEET = (id) => `/api/llamadas-ventas-excel/sheets/${id}`;
-            const API_CELL = '/api/llamadas-ventas-excel/cell';
-            const API_USER = '/api/llamadas-ventas-excel/user';
+        // Parsear nombre de sheet "2/5/2026" -> { month: 2, day: 5, year: 2026 }
+        function parseSheetName(name) {
+            const parts = String(name).split('/');
+            if (parts.length === 3) {
+                return {
+                    month: parseInt(parts[0]),
+                    day: parseInt(parts[1]),
+                    year: parseInt(parts[2]),
+                    original: name
+                };
+            }
+            return null;
+        }
 
-            const EXCEL_LAST_SHEET_KEY = 'llamadasVentasExcel.lastSheetId';
-            const getLastSheetId = () => {
-                try { return localStorage.getItem(EXCEL_LAST_SHEET_KEY); } catch (_) { return null; }
-            };
-            const setLastSheetId = (id) => {
-                try { localStorage.setItem(EXCEL_LAST_SHEET_KEY, String(id || '')); } catch (_) {}
-            };
+        // Formatear fecha para display "2/5/2026" -> "5/2" (día/mes)
+        function formatDateDisplay(parsed) {
+            return `${parsed.day}/${parsed.month}`;
+        }
 
-            let currentSheetId = null;
-            let currentSheetName = '';
-            let currentSheetUsers = [];
-            let deletedUsers = new Set(); // Usuarios eliminados (persistir en localStorage)
-            let currentSheetData = [];
-            const saveDebounce = new Map();
+        // Formatear mes/año para tabs "2/2026" -> "Feb 2026"
+        function formatMonthYear(month, year) {
+            const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            return `${months[month - 1]} ${year}`;
+        }
 
-            const toKeyName = (s) => String(s || '').trim().toUpperCase();
-            const safeJsonParse = (s, fallback) => {
-                try { return JSON.parse(s); } catch (_) { return fallback; }
-            };
-
-            const fetchJson = async (url, options) => {
-                const rawToken = (() => {
-                    try { return localStorage.getItem('token') || sessionStorage.getItem('token') || null; } catch (_) { return null; }
-                })();
-                const inHeaders = (options && options.headers) ? options.headers : {};
-                const headers = Object.assign({}, inHeaders);
-                if (rawToken && !headers['Authorization'] && !headers['authorization']) {
-                    headers['Authorization'] = `Bearer ${rawToken}`;
-                }
-                const opts = Object.assign({ credentials: 'include' }, (options || {}), { headers });
-                const res = await fetch(url, opts);
-                const raw = await res.text();
-                let data;
-                try { data = JSON.parse(raw); } catch (_) { data = { success: false, message: raw }; }
-                if (!res.ok || data?.success === false) {
-                    const msg = data?.message || `HTTP ${res.status}`;
-                    throw new Error(msg);
-                }
-
-                return data;
-            };
-
-            const normalizeSheetId = (v) => {
-                if (!v) return '';
-                if (typeof v === 'string' || typeof v === 'number') return String(v);
-                if (typeof v === 'object') {
-                    if (v._id) return normalizeSheetId(v._id);
-                    if (v.$oid) return String(v.$oid);
-                    try { return String(v); } catch (_) { return ''; }
-                }
-                return String(v);
-            };
+        // Inicializar datos Excel y cargar TODOS los sheets desde la base de datos
+        async function initExcelData() {
+            // Cargar todos los sheets existentes
+            await loadAllSheetsFromDB();
             
-            // Convertir fecha entre formatos DD/MM/YYYY y MM/DD/YYYY
-            const convertDateFormat = (dateStr, fromFormat, toFormat) => {
-                if (!dateStr || typeof dateStr !== 'string') return dateStr;
-                const parts = dateStr.split('/');
-                if (parts.length !== 3) return dateStr;
-                
-                // Ambos formatos son iguales (solo intercambiar posiciones 0 y 1)
-                if ((fromFormat === 'DD/MM/YYYY' && toFormat === 'MM/DD/YYYY') || 
-                    (fromFormat === 'MM/DD/YYYY' && toFormat === 'DD/MM/YYYY')) {
-                    return `${parts[1]}/${parts[0]}/${parts[2]}`;
-                }
-                return dateStr;
-            };
-
-            const fmtTodayName = () => {
-                const d = new Date();
-                const dd = String(d.getDate()).padStart(2, '0');
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const yyyy = String(d.getFullYear());
-                return `${dd}/${mm}/${yyyy}`;
-            };
-
-            const loadSheets = async () => {
-                const r = await fetchJson(API_SHEETS);
-                const sheets = Array.isArray(r.data) ? r.data : [];
-                return sheets;
-            };
-
-            const createSheet = async () => {
-                const r = await fetchJson(API_SHEETS, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: fmtTodayName() })
-                });
-                return r.data;
-            };
-
-            const loadSheet = async (sheetId) => {
-                const sid = normalizeSheetId(sheetId);
-                const r = await fetchJson(API_SHEET(sid));
-                currentSheetId = normalizeSheetId((r.sheet && r.sheet._id) || sid);
-                currentSheetName = String(r.sheet && r.sheet.name || '');
-                currentSheetUsers = Array.isArray(r.users) ? r.users : [];
-                
-                // Restaurar usuarios eliminados desde localStorage
-                const saved = localStorage.getItem(`deletedUsers_${sid}`);
-                deletedUsers = saved ? new Set(JSON.parse(saved)) : new Set();
-                currentSheetData = Array.isArray(r.data) ? r.data : [];
-                
-                // Aplicar cambios de nombres desde currentSheetData a currentSheetUsers
-                const nameChanges = {};
-                (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
-                    if (d && d.col === 'NOMBRE' && d.team && d.person && d.value) {
-                        // d.person = nombre original, d.value = nombre nuevo
-                        const key = `${String(d.team).toUpperCase()}||${String(d.person).trim()}`;
-                        nameChanges[key] = String(d.value).trim();
-                    }
-                });
-                
-                // Actualizar nombres en currentSheetUsers
-                if (Object.keys(nameChanges).length > 0 && Array.isArray(currentSheetUsers)) {
-                    currentSheetUsers = currentSheetUsers.map(user => {
-                        if (!user || !user.team) return user;
-                        const key = `${String(user.team).toUpperCase()}||${String(user.name).trim()}`;
-                        return {
-                            ...user,
-                            name: nameChanges[key] || user.name
+            // Inicializar estructura local vacía para todas las fechas disponibles
+            const allDates = getAllAvailableDates();
+            allDates.forEach(date => {
+                excelData[date] = {};
+                teams.forEach(team => {
+                    excelData[date][team.name] = {};
+                    team.agents.forEach((agent, idx) => {
+                        excelData[date][team.name][idx] = {
+                            llamadas: 0,
+                            calis: 0,
+                            ventas: 0
                         };
                     });
-                }
-                
-                setLastSheetId(currentSheetId);
-                renderExcel();
-            };
-
-            const renderTabs = async () => {
-                if (!excelTabs) return;
-                const sheets = await loadSheets();
-                if (!sheets.length) {
-                    const created = await createSheet();
-                    sheets.push(created);
-                }
-
-                // Set default sheet
-                if (!currentSheetId) {
-                    const last = getLastSheetId();
-                    const found = last ? sheets.find(s => normalizeSheetId(s && s._id) === String(last)) : null;
-                    currentSheetId = found ? normalizeSheetId(found && found._id) : normalizeSheetId(sheets[sheets.length - 1] && sheets[sheets.length - 1]._id);
-                }
-
-                const plus = `<button class="excel-tab plus" type="button" data-plus="1">+</button>`;
-                const tabsHtml = sheets.map(s => {
-                    const id = normalizeSheetId(s && s._id);
-                    let name = String(s.name || '').trim() || id;
-                    const active = (id === String(currentSheetId)) ? 'active' : '';
-                    return `<button class="excel-tab ${active}" type="button" data-sheet-id="${id}" data-original-name="${name}"><span class="tab-name">${name}</span><button class="close-btn" type="button" data-delete-sheet-id="${id}" title="Eliminar página">×</button></button>`;
-                }).join('') + plus;
-                excelTabs.innerHTML = tabsHtml;
-                excelTabs.style.display = '';
-                
-                // Event listeners para scroll
-                excelTabsScrollLeft.addEventListener('click', () => {
-                    excelTabs.scrollLeft -= 150;
                 });
+            });
+        }
+
+        // Cargar TODOS los sheets desde la base de datos
+        async function loadAllSheetsFromDB() {
+            try {
+                const response = await fetch('/api/llamadas-ventas-excel/sheets');
+                const result = await response.json();
                 
-                excelTabsScrollRight.addEventListener('click', () => {
-                    excelTabs.scrollLeft += 150;
-                });
-
-                excelTabs.onclick = async (ev) => {
-                    const t = ev && ev.target;
-                    if (!t) return;
+                if (result.success && result.data) {
+                    allSheets = result.data;
                     
-                    // Handle delete button
-                    const deleteBtn = t.closest && t.closest('[data-delete-sheet-id]');
-                    if (deleteBtn) {
-                        ev.stopPropagation();
-                        const sheetId = deleteBtn.getAttribute('data-delete-sheet-id');
-                        if (sheetId) {
-                            if (confirm('¿Estás seguro de que quieres eliminar esta página? Esta acción no se puede deshacer.')) {
-                                try {
-                                    await fetchJson(API_SHEET(sheetId), {
-                                        method: 'DELETE'
-                                    });
-                                    
-                                    // If we deleted the current sheet, switch to another one
-                                    if (sheetId === String(currentSheetId)) {
-                                        currentSheetId = null;
-                                        setLastSheetId(null);
-                                    }
-                                    
-                                    await renderTabs();
-                                    if (currentSheetId) {
-                                        await loadSheet(currentSheetId);
-                                    }
-                                } catch (e) {
-                                    console.error('[Vista Excel] Error eliminando hoja:', e);
-                                    alert('Error al eliminar la página: ' + (e.message || e));
-                                }
-                            }
-                        }
-                        return;
-                    }
+                    // Procesar y mapear todos los sheets
+                    sheetMap = {};
+                    const monthSet = new Set();
                     
-                    const plusBtn = t.closest && t.closest('[data-plus="1"]');
-                    if (plusBtn) {
-                        const created = await createSheet();
-                        currentSheetId = normalizeSheetId(created && created._id);
-                        setLastSheetId(currentSheetId);
-                        await renderTabs();
-                        await loadSheet(currentSheetId);
-                        return;
-                    }
-                    const btn = t.closest && t.closest('[data-sheet-id]');
-                    if (btn) {
-                        const sid = btn.getAttribute('data-sheet-id');
-                        if (sid && sid !== String(currentSheetId)) {
-                            currentSheetId = sid;
-                            setLastSheetId(currentSheetId);
-                            await renderTabs();
-                            await loadSheet(currentSheetId);
-                        }
-                    }
-                };
-
-                // Add double-click handler for editing tab names
-                excelTabs.ondblclick = async (ev) => {
-                    const t = ev && ev.target;
-                    if (!t) return;
-                    
-                    const tabName = t.closest && t.closest('.tab-name');
-                    if (!tabName) return;
-                    
-                    const tab = t.closest && t.closest('[data-sheet-id]');
-                    if (!tab) return;
-                    
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    
-                    const sheetId = tab.getAttribute('data-sheet-id');
-                    const originalName = tab.getAttribute('data-original-name');
-                    
-                    // Create input field
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'edit-input';
-                    input.value = originalName;
-                    input.placeholder = 'DD/MM/YYYY';
-                    
-                    // Replace span with input
-                    tabName.parentNode.replaceChild(input, tabName);
-                    input.focus();
-                    input.select();
-                    
-                    // Guardar estado anterior
-                    const parentNode = input.parentNode;
-                    let saveInProgress = false;
-                    
-                    // Handle save on blur or enter
-                    const saveEdit = async () => {
-                        if (saveInProgress) return;
-                        saveInProgress = true;
-                        
-                        const newName = input.value.trim();
-                        
-                        if (!newName) {
-                            alert('Por favor ingrese una fecha');
-                            saveInProgress = false;
-                            input.blur();
-                            return;
-                        }
-                        
-                        try {
-                            await fetchJson(API_SHEET(sheetId), {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: newName })
-                            });
+                    allSheets.forEach(sheet => {
+                        const parsed = parseSheetName(sheet.name);
+                        if (parsed) {
+                            const dateKey = `${parsed.day}/${parsed.month}`;
+                            sheetMap[dateKey] = sheet._id;
                             
-                            // Update tab display
-                            tab.setAttribute('data-original-name', newName);
-                            const newSpan = document.createElement('span');
-                            newSpan.className = 'tab-name';
-                            newSpan.textContent = newName;
-                            if (parentNode && input.parentNode) {
-                                parentNode.replaceChild(newSpan, input);
-                            }
-                            
-                            // Update current sheet name if this is the active sheet
-                            if (sheetId === String(currentSheetId)) {
-                                currentSheetName = newName;
-                            }
-                            
-                        } catch (e) {
-                            console.error('[Vista Excel] Error actualizando nombre:', e);
-                            alert('Error al actualizar la fecha: ' + (e.message || e));
-                            // Revert to original name
-                            const revertSpan = document.createElement('span');
-                            revertSpan.className = 'tab-name';
-                            revertSpan.textContent = originalName;
-                            if (parentNode && input.parentNode) {
-                                parentNode.replaceChild(revertSpan, input);
-                            }
+                            // Registrar mes disponible
+                            const monthKey = `${parsed.month}/${parsed.year}`;
+                            monthSet.add(monthKey);
                         }
-                        saveInProgress = false;
-                    };
+                    });
                     
-                    input.onblur = saveEdit;
-                    input.onkeydown = (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            saveEdit();
-                        } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            // Revert to original name
-                            const revertSpan = document.createElement('span');
-                            revertSpan.className = 'tab-name';
-                            revertSpan.textContent = originalName;
-                            input.parentNode.replaceChild(revertSpan, input);
-                        }
-                    };
-                };
-            };
-
-            const openModal = () => {
-                if (!modal) return;
-                modal.classList.add('open');
-                modal.setAttribute('aria-hidden', 'false');
-                const nameInput = document.getElementById('excelUserName');
-                if (nameInput) nameInput.focus();
-            };
-
-            const closeModal = () => {
-                if (!modal) return;
-                modal.classList.remove('open');
-                modal.setAttribute('aria-hidden', 'true');
-                if (form) form.reset();
-            };
-
-            if (addBtn) {
-                addBtn.addEventListener('click', openModal);
+                    // Ordenar meses de más reciente a más antiguo
+                    availableMonths = Array.from(monthSet).sort((a, b) => {
+                        const [ma, ya] = a.split('/').map(Number);
+                        const [mb, yb] = b.split('/').map(Number);
+                        if (ya !== yb) return yb - ya;
+                        return mb - ma;
+                    });
+                    
+                    console.log('[Excel] Sheets cargados:', allSheets.length);
+                    console.log('[Excel] Meses disponibles:', availableMonths);
+                }
+            } catch (error) {
+                console.error('[Excel] Error cargando sheets:', error);
             }
-            if (cancelBtn) {
-                cancelBtn.addEventListener('click', closeModal);
-            }
-            if (modal) {
-                modal.addEventListener('click', (ev) => {
-                    if (ev && ev.target === modal) closeModal();
-                });
-            }
-            document.addEventListener('keydown', (ev) => {
-                if (ev && ev.key === 'Escape' && modal && modal.classList.contains('open')) {
-                    closeModal();
+        }
+
+        // Obtener todas las fechas disponibles (de todos los meses)
+        function getAllAvailableDates() {
+            const dates = [];
+            availableMonths.forEach(monthYear => {
+                const [month, year] = monthYear.split('/').map(Number);
+                // Generar fechas para este mes (asumiendo 28 días para simplificar)
+                for (let day = 1; day <= 28; day++) {
+                    dates.push(`${day}/${month}`);
                 }
             });
-            if (form) {
-                form.addEventListener('submit', (ev) => {
-                    ev.preventDefault();
-                    const nameInput = String(form.elements.name && form.elements.name.value || '').trim();
-                    const role = String(form.elements.role && form.elements.role.value || '').trim();
-                    const team = String(form.elements.team && form.elements.team.value || '').trim();
-                    
-                    if (!nameInput || !team) {
-                        alert('Por favor completa todos los campos');
-                        return;
-                    }
+            
+            // Si no hay meses disponibles, usar mes actual por defecto
+            if (dates.length === 0) {
+                const now = new Date();
+                for (let day = 1; day <= 28; day++) {
+                    dates.push(`${day}/${now.getMonth() + 1}`);
+                }
+            }
+            
+            return dates;
+        }
 
-                    (async () => {
-                        try {
-                            if (!currentSheetId) return;
-                            
-                            console.log('[Vista Excel] Agregando usuario:', { nameInput, team });
-                            
-                            await fetchJson(API_USER, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ sheetId: currentSheetId, name: nameInput, role, team })
-                            });
-                            
-                            console.log('[Vista Excel] Usuario agregado exitosamente');
-                            
-                            // Remover de deletedUsers si estaba eliminado
-                            const key = `${team}||${nameInput}`;
-                            deletedUsers.delete(key);
-                            localStorage.setItem(`deletedUsers_${currentSheetId}`, JSON.stringify([...deletedUsers]));
-                            
-                            closeModal();
-                            await loadSheet(currentSheetId);
-                            renderExcel();
-                        } catch (e) {
-                            console.error('[Vista Excel] Error guardando usuario:', e);
-                            alert('Error al guardar usuario: ' + e.message);
-                        }
-                    })();
+        // Obtener fechas para el mes actualmente seleccionado
+        function getDatesForCurrentMonth() {
+            if (!currentMonthYear) {
+                const now = new Date();
+                currentMonthYear = `${now.getMonth() + 1}/${now.getFullYear()}`;
+            }
+            
+            const [month, year] = currentMonthYear.split('/').map(Number);
+            const dates = [];
+            for (let day = 1; day <= 28; day++) {
+                dates.push(`${day}/${month}`);
+            }
+            return dates;
+        }
+
+        // Crear un sheet para una fecha específica
+        async function createSheetForDate(date) {
+            if (!currentMonthYear) return null;
+            
+            try {
+                const [month, year] = currentMonthYear.split('/').map(Number);
+                const [day] = date.split('/').map(Number);
+                const sheetName = `${month}/${day}/${year}`;
+                
+                const response = await fetch('/api/llamadas-ventas-excel/sheets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: sheetName })
                 });
+                
+                const result = await response.json();
+                if (result.success && result.data) {
+                    sheetMap[date] = result.data._id;
+                    console.log(`[Excel] Sheet creado para ${date}:`, result.data._id);
+                    return result.data._id;
+                }
+            } catch (error) {
+                console.error(`[Excel] Error creando sheet para ${date}:`, error);
+            }
+            return null;
+        }
+
+        // Guardar celda en la base de datos (con debounce)
+        async function saveCellToDB(teamName, agentIdx, col, value) {
+            const sheetId = currentSheetId;
+            if (!sheetId) return;
+
+            const team = teams.find(t => t.name === teamName);
+            if (!team) return;
+
+            const agent = team.agents[agentIdx];
+            if (!agent) return;
+
+            const key = `${teamName}-${agentIdx}-${col}`;
+            
+            if (pendingSaves.has(key)) {
+                clearTimeout(pendingSaves.get(key));
             }
 
-            const renderExcel = () => {
+            const timeoutId = setTimeout(async () => {
                 try {
-                    const allTeamUsers = {
-                        'TEAM IRANIA': ['IRANIA S','MIGUEL NÚÑEZ','JOSUE RENDEROS','ROXANA MARTINEZ','GISELLE DIAZ','EMELY AYALA','NICOLE CRUZ','JORGE SEGOVIA','WLADIMIR VENTURA'],
-                        'TEAM ROBERTO': ['FRANCISCO AGUILAR','LUCIA FERMAN','LISBETH CORTEZ','NELSON CEREN','CINDY FLORES','MICHELLE LEIVA','LEVI MARTINEZ','BRYAN PEREZ','JONATHAN LOZANO'],
-                        'TEAM SANTANA': ['GUADALUPE SANTANA','ANDERSON GUZMAN','JULIO MEJIA','PRISCILA HERNANDEZ','RIQUELMI TORRES','ABIGAIL BERNAL'],
-                        'TEAM BRYAN': ['BRYAN PLEITEZ','DIEGO MEJIA','ALEXANDER RIVERA','LUIS CHAVARRIA','STEVEN VALERA','RENE GUTIERREZ','EMANUEL VELASQUEZ','JAIRO FLORES','JORGE ESCOBAR'],
-                        'TEAM MARISOL': ['MARISOL BELTRAN','KATERINE GOMEZ','FERNANDA CASTILLO','KIMBERLY IGLESIAS','EDUARDO ESPAÑA','STEFANI MARTINEZ','JONATHAN MORALES','INGRID GARCIA'],
-                        'TEAM LINEAS': ['LUIS GUTIERREZ','KARLA RODRIGUEZ','FERNANDO BELTRAN','DANIEL DEL CID','JONATHAN FIGUEROA','OSCAR RIVERA','MIGUEL HERRERA','CRISTIAN RIVERA','EDWARD RAMIREZ','JOCELYN REYES','NANCY LOPEZ','VICTOR HURTADO','MANUEL FLORES','MELANY HURTADO','ALEXIS RODRIGUEZ']
-                    };
-                    
-                    // Agregar usuarios nuevos desde currentSheetUsers que no estén en la lista
-                    if (Array.isArray(currentSheetUsers)) {
-                        currentSheetUsers.forEach(u => {
-                            if (u && u.name && u.team) {
-                                if (!allTeamUsers[u.team]) {
-                                    allTeamUsers[u.team] = [];
-                                }
-                                if (!allTeamUsers[u.team].includes(u.name)) {
-                                    allTeamUsers[u.team].push(u.name);
-                                }
-                            }
-                        });
-                    }
-                    
-                    // Filtrar: excluir usuarios eliminados
-                    const teamMap = {};
-                    Object.keys(allTeamUsers).forEach(teamName => {
-                        teamMap[teamName] = allTeamUsers[teamName].filter(person => {
-                            const key = `${teamName}||${person}`;
-                            return !deletedUsers.has(key);
-                        });
+                    const response = await fetch('/api/llamadas-ventas-excel/cell', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sheetId: sheetId,
+                            team: teamName,
+                            person: agent,
+                            col: col,
+                            value: String(value)
+                        })
                     });
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                        console.error('[Excel] Error guardando celda:', result.message);
+                    }
+                    pendingSaves.delete(key);
+                } catch (error) {
+                    console.error('[Excel] Error en saveCellToDB:', error);
+                    pendingSaves.delete(key);
+                }
+            }, 500);
 
-                    const teams = [
-                        { name: 'TEAM IRANIA', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM IRANIA'] || [] },
-                        { name: 'TEAM ROBERTO', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM ROBERTO'] || [] },
-                        { name: 'TEAM SANTANA', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM SANTANA'] || [] },
-                        { name: 'TEAM BRYAN', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM BRYAN'] || [] },
-                        { name: 'TEAM MARISOL', cols: ['LLAMADAS','CALIS','VENTAS'], people: teamMap['TEAM MARISOL'] || [] },
-                        { name: 'TEAM LINEAS', cols: ['CALIS','VENTAS'], people: teamMap['TEAM LINEAS'] || [] }
-                    ];
+            pendingSaves.set(key, timeoutId);
+        }
 
-                    const cardHtml = (t) => {
-                        const hasLineas = t.name === 'TEAM LINEAS';
-                        const nameWidth = hasLineas ? '64%' : '52%';
+        // Cargar datos de un sheet específico desde la base de datos
+        async function loadSheetData(date) {
+            const sheetId = sheetMap[date];
+            if (!sheetId) return;
 
-                        const thead = `
-                            <thead>
-                                <tr>
-                                    <th style="width:${nameWidth};">${t.name}</th>
-                                    ${t.cols.map(() => '<th style="width:16%;">&nbsp;</th>').join('')}
-                                </tr>
-                                <tr>
-                                    <th style="width:${nameWidth};">&nbsp;</th>
-                                    ${t.cols.map(c => `<th>${c}</th>`).join('')}
-                                </tr>
-                            </thead>
-                        `;
+            try {
+                const response = await fetch(`/api/llamadas-ventas-excel/sheets/${sheetId}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    result.data.forEach(cell => {
+                        if (cell.kind === 'cell') {
+                            const teamName = cell.team;
+                            const agentName = cell.person;
+                            const col = cell.col;
+                            const value = parseInt(cell.value) || 0;
 
-                        const rows = t.people.map(p => {
-                            const cells = t.cols
-                                .map((c) => `<td class="excel-editable" contenteditable="true" data-team="${t.name}" data-person="${p}" data-col="${c}"></td>`)
-                                .join('');
-                            return `<tr><td class="excel-name-cell"><span class="excel-name excel-editable" contenteditable="false" data-team="${t.name}" data-person="${p}" data-type="name"></span><button class="excel-delete-btn" data-team="${t.name}" data-person="${p}" title="Eliminar usuario">×</button></td>${cells}</tr>`;
-                        }).join('');
-
-                        const totalCells = t.cols
-                            .map((c) => `<td class="excel-editable excel-total-cell" contenteditable="false" data-team="${t.name}" data-person="TOTAL" data-col="${c}"></td>`)
-                            .join('');
-
-                        const tbody = `
-                            <tbody>
-                                ${rows}
-                                <tr class="excel-total-row"><td>TOTAL</td>${totalCells}</tr>
-                            </tbody>
-                        `;
-
-                        return `
-                            <div class="excel-card">
-                                <table>${thead}${tbody}</table>
-                            </div>
-                        `;
-                    };
-
-                    const side = `
-                        <div class="excel-side" style="grid-column: 4; grid-row: 1 / span 2;">
-                            <div class="excel-mini">
-                                <input value="MARKETING" />
-                            </div>
-                            <div class="excel-mini">
-                                <table>
-                                    <tbody>
-                                        <tr><td>LLAMADAS</td><td class="excel-editable" contenteditable="false" data-metric="LLAMADAS"></td></tr>
-                                        <tr><td>CALIS</td><td class="excel-editable" contenteditable="false" data-metric="CALIS"></td></tr>
-                                        <tr><td>VENTAS</td><td class="excel-editable" contenteditable="false" data-metric="VENTAS"></td></tr>
-                                        <tr><td>PERDIDAS</td><td contenteditable="true" class="excel-editable" data-metric="PERDIDAS"></td></tr>
-                                        <tr><td>RECICLADAS</td><td contenteditable="true" class="excel-editable" data-metric="RECICLADAS"></td></tr>
-                                        <tr><td>TOTAL</td><td class="excel-editable" contenteditable="false" data-metric="TOTAL"></td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    `;
-
-                    const topA = `<div class="excel-slot" style="grid-column: 1; grid-row: 1;">${cardHtml(teams[0])}</div>`;
-                    const topB = `<div class="excel-slot" style="grid-column: 2; grid-row: 1;">${cardHtml(teams[1])}</div>`;
-                    const topC = `<div class="excel-slot" style="grid-column: 3; grid-row: 1;">${cardHtml(teams[2])}</div>`;
-                    const botA = `<div class="excel-slot" style="grid-column: 1; grid-row: 2;">${cardHtml(teams[3])}</div>`;
-                    const botB = `<div class="excel-slot" style="grid-column: 2; grid-row: 2;">${cardHtml(teams[4])}</div>`;
-                    const botC = `<div class="excel-slot" style="grid-column: 3; grid-row: 2;">${cardHtml(teams[5])}</div>`;
-
-                    excelRoot.innerHTML = topA + topB + topC + side + botA + botB + botC;
-
-                    const restoreFromSheet = () => {
-                        // dataset cells
-                        const cellMap = new Map();
-                        (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
-                            if (!d) return;
-                            if (d.kind === 'cell') {
-                                const k = `${String(d.team)}||${String(d.person)}||${String(d.col || '').toUpperCase()}`;
-                                cellMap.set(k, String(d.value ?? ''));
-                            }
-                        });
-                        const summaryMap = new Map();
-                        (Array.isArray(currentSheetData) ? currentSheetData : []).forEach(d => {
-                            if (d && d.kind === 'summary' && d.metric) {
-                                summaryMap.set(String(d.metric).toUpperCase(), String(d.value ?? ''));
-                            }
-                        });
-                        
-                        const editableCells = Array.from(excelRoot.querySelectorAll('.excel-editable'));
-                        editableCells.forEach((el) => {
-                            if (!el || !el.dataset) return;
-                            const metric = (el.dataset.metric || '').toUpperCase();
-                            const team = el.dataset.team;
-                            const person = el.dataset.person;
-                            const dataType = el.dataset.type;
-                            const col = (el.dataset.col || '').toUpperCase();
-
-                            // Llenar nombres de agentes
-                            if (dataType === 'name' && person) {
-                                el.textContent = person;
-                                return;
-                            }
-
-                            if (metric === 'PERDIDAS' || metric === 'RECICLADAS') {
-                                const v = summaryMap.get(metric);
-                                if (v !== undefined && v !== null && String(v) !== '') el.textContent = String(v);
-                                return;
-                            }
-                            if (team && person && col && person !== 'TOTAL') {
-                                const v = cellMap.get(`${team}||${person}||${col}`);
-                                if (v !== undefined && v !== null && String(v) !== '') el.textContent = String(v);
-                            }
-                        });
-                    };
-
-                    const toNum = (v) => {
-                        const n = parseFloat(String(v || '').replace(/[^0-9.\-]/g, ''));
-                        return Number.isFinite(n) ? n : 0;
-                    };
-                    const fmtInt = (n) => {
-                        const x = Number.isFinite(n) ? n : 0;
-                        const r = Math.round(x);
-                        return String(r);
-                    };
-                    const getCell = (team, col) => excelRoot.querySelector(`.excel-editable[data-team="${team}"][data-person="TOTAL"][data-col="${col}"]`);
-                    const getPersonCells = (team, col) => Array.from(excelRoot.querySelectorAll(`.excel-editable[data-team="${team}"][data-col="${col}"]`))
-                        .filter(el => el && el.dataset && el.dataset.person && el.dataset.person !== 'TOTAL');
-                    const setSummaryMetric = (metric, text) => {
-                        const el = excelRoot.querySelector(`.excel-editable[data-metric="${metric}"]`);
-                        if (el) el.textContent = text;
-                    };
-
-                    const getSummaryMetricNum = (metric) => {
-                        const el = excelRoot.querySelector(`.excel-editable[data-metric="${metric}"]`);
-                        return toNum(el ? el.textContent : '0');
-                    };
-
-                    const monthlySaveDebounce = new Map();
-
-                    const parseDayFromSheetName = () => {
-                        const raw = String(currentSheetName || '').trim();
-                        if (!raw) return null;
-                        const m1 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-                        if (m1) {
-                            const d = parseInt(m1[1], 10);
-                            return Number.isFinite(d) ? d : null;
-                        }
-                        const m2 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                        if (m2) {
-                            const d = parseInt(m2[3], 10);
-                            return Number.isFinite(d) ? d : null;
-                        }
-                        return null;
-                    };
-
-                    const setMonthlyCell = (day, team, type, valueText) => {
-                        const el = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="${type}"]`);
-                        if (!el) return;
-                        el.textContent = String(valueText);
-                        el.dataset.originalValue = String(valueText === '-' ? '0' : valueText);
-                    };
-
-                    const persistMonthlyCell = (day, team, type, valueText) => {
-                        const key = `${day}::${team}::${type}`;
-                        if (monthlySaveDebounce.has(key)) {
-                            clearTimeout(monthlySaveDebounce.get(key));
-                        }
-
-                        const normalizedValue = (String(valueText || '').trim() === '' || String(valueText || '').trim() === '-')
-                            ? '0'
-                            : String(valueText).trim();
-
-                        const to = setTimeout(async () => {
-                            try {
-                                await fetchJson('/api/llamadas-ventas', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        day: parseInt(day, 10),
-                                        team: String(team),
-                                        type: String(type),
-                                        value: normalizedValue
-                                    })
-                                });
-                            } catch (e) {
-                                console.error('[Vista Excel] Error persistiendo totales en tabla mensual:', e);
-                            }
-                        }, 350);
-                        monthlySaveDebounce.set(key, to);
-                    };
-
-                    const syncTotalsToMonthlyTable = (totalsByTeam) => {
-                        const day = parseDayFromSheetName();
-                        if (!day) return;
-
-                        const monthlyTeams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-                        let totalLlamadas = 0;
-                        let totalVentas = 0;
-
-                        monthlyTeams.forEach((teamName) => {
-                            const ll = Math.round(Number(totalsByTeam?.[teamName]?.LLAMADAS || 0));
-                            const ve = Math.round(Number(totalsByTeam?.[teamName]?.VENTAS || 0));
-                            totalLlamadas += ll;
-                            totalVentas += ve;
-
-                            const llText = ll === 0 ? '-' : String(ll);
-                            const veText = ve === 0 ? '-' : String(ve);
-                            setMonthlyCell(day, teamName, 'LLAMADAS', llText);
-                            setMonthlyCell(day, teamName, 'VENTAS', veText);
-                            setMonthlyCell(day, teamName, 'TOTALES', `${ll}/${ve}`);
-
-                            persistMonthlyCell(day, teamName, 'LLAMADAS', llText);
-                            persistMonthlyCell(day, teamName, 'VENTAS', veText);
-                            persistMonthlyCell(day, teamName, 'TOTALES', `${ll}/${ve}`);
-                        });
-
-                        const totalLlamadasText = totalLlamadas === 0 ? '-' : String(totalLlamadas);
-                        const totalVentasText = totalVentas === 0 ? '-' : String(totalVentas);
-                        setMonthlyCell(day, 'TOTALES', 'TOTAL DE LLAMADAS', totalLlamadasText);
-                        setMonthlyCell(day, 'TOTALES', 'TOTAL DE VENTAS', totalVentasText);
-                        persistMonthlyCell(day, 'TOTALES', 'TOTAL DE LLAMADAS', totalLlamadasText);
-                        persistMonthlyCell(day, 'TOTALES', 'TOTAL DE VENTAS', totalVentasText);
-                    };
-
-                    const updateTotalsAndSummary = () => {
-                        const totalsByTeam = {};
-                        teams.forEach(t => {
-                            totalsByTeam[t.name] = {};
-                            t.cols.forEach(col => {
-                                const sum = getPersonCells(t.name, col)
-                                    .reduce((acc, el) => acc + toNum(el.textContent), 0);
-                                totalsByTeam[t.name][col] = sum;
-                                const totalCell = getCell(t.name, col);
-                                if (totalCell) totalCell.textContent = fmtInt(sum);
-                            });
-                        });
-
-                        const globalLlamadas = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].LLAMADAS || 0), 0);
-                        const globalCalis = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].CALIS || 0), 0);
-                        const globalVentas = teams.reduce((acc, t) => acc + (totalsByTeam[t.name].VENTAS || 0), 0);
-
-                        setSummaryMetric('LLAMADAS', fmtInt(globalLlamadas));
-                        setSummaryMetric('CALIS', fmtInt(globalCalis));
-                        setSummaryMetric('VENTAS', fmtInt(globalVentas));
-
-                        const perdidas = getSummaryMetricNum('PERDIDAS');
-                        const recicladas = getSummaryMetricNum('RECICLADAS');
-                        const total = globalLlamadas + perdidas + recicladas;
-                        setSummaryMetric('TOTAL', fmtInt(total));
-
-                        syncTotalsToMonthlyTable(totalsByTeam);
-                    };
-
-                    const persistToDb = (target) => {
-                        if (!currentSheetId || !target || !target.dataset) return;
-                        
-                        const metricRaw = target.dataset.metric;
-                        const metric = (metricRaw || '').toUpperCase();
-                        const team = (target.dataset.team || '').trim();
-                        const person = (target.dataset.person || '').trim();
-                        const dataType = (target.dataset.type || '').trim();
-                        const col = (target.dataset.col || '').toUpperCase().trim();
-                        const value = (target.textContent || '').trim();
-                        
-                        // Para métrica, guardar siempre que haya métrica y sheetId
-                        if (metric) {
-                            const payload = { sheetId: currentSheetId, metric, value };
-                            const key = `m:${metric}`;
-                            
-                            if (saveDebounce.has(key)) {
-                                clearTimeout(saveDebounce.get(key));
-                            }
-                            const to = setTimeout(async () => {
-                                try {
-                                    await fetchJson(API_CELL, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(payload)
-                                    });
-                                } catch (e) {
-                                    console.error('[Vista Excel] Error guardando celda:', e);
-                                }
-                            }, 250);
-                            saveDebounce.set(key, to);
-                            return;
-                        }
-                        
-                        // Para nombres editados (tipo 'name'), guardar con team y el nuevo nombre
-                        if (dataType === 'name' && team && person && value) {
-                            const payload = { sheetId: currentSheetId, team, person, col: 'NOMBRE', value };
-                            const key = `n:${team}:${person}`;
-                            
-                            if (saveDebounce.has(key)) {
-                                clearTimeout(saveDebounce.get(key));
-                            }
-                            const to = setTimeout(async () => {
-                                try {
-                                    await fetchJson(API_CELL, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(payload)
-                                    });
-                                    // Actualizar el atributo data-person con el nuevo nombre
-                                    target.dataset.person = value;
+                            const team = teams.find(t => t.name === teamName);
+                            if (team) {
+                                const agentIdx = team.agents.indexOf(agentName);
+                                if (agentIdx !== -1) {
+                                    if (!excelData[date][teamName]) excelData[date][teamName] = {};
+                                    if (!excelData[date][teamName][agentIdx]) excelData[date][teamName][agentIdx] = {};
                                     
-                                    // Actualizar currentSheetUsers para persistir el cambio
-                                    if (Array.isArray(currentSheetUsers)) {
-                                        const userIndex = currentSheetUsers.findIndex(u => u && u.name === person);
-                                        if (userIndex !== -1) {
-                                            currentSheetUsers[userIndex].name = value;
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error('[Vista Excel] Error guardando nombre:', e);
+                                    if (col === 'LL') excelData[date][teamName][agentIdx].llamadas = value;
+                                    else if (col === 'CA') excelData[date][teamName][agentIdx].calis = value;
+                                    else if (col === 'V') excelData[date][teamName][agentIdx].ventas = value;
                                 }
-                            }, 250);
-                            saveDebounce.set(key, to);
-                            return;
-                        }
-                        
-                        // Para celdas de datos, requiere team, person, col
-                        if (!team || !person || !col) return;
-                        
-                        const payload = { sheetId: currentSheetId, team, person, col, value };
-                        const key = `c:${team}:${person}:${col}`;
-
-                        if (saveDebounce.has(key)) {
-                            clearTimeout(saveDebounce.get(key));
-                        }
-                        const to = setTimeout(async () => {
-                            try {
-                                await fetchJson(API_CELL, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload)
-                                });
-                            } catch (e) {
-                                console.error('[Vista Excel] Error guardando celda:', e);
                             }
-                        }, 250);
-                        saveDebounce.set(key, to);
-                    };
-
-                    restoreFromSheet();
-                    updateTotalsAndSummary();
-                    
-                    // Manejador para doble click en celdas editables
-                    excelRoot.ondblclick = (ev) => {
-                        const t = ev && ev.target;
-                        if (t && t.classList && t.classList.contains('excel-editable')) {
-                            t.contentEditable = 'true';
-                            t.focus();
-                            // Seleccionar todo el texto
-                            const range = document.createRange();
-                            range.selectNodeContents(t);
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                        }
-                    };
-                    
-                    // Manejador para cuando se pierde el focus
-                    excelRoot.addEventListener('blur', (ev) => {
-                        const t = ev && ev.target;
-                        if (t && t.classList && t.classList.contains('excel-editable')) {
-                            // Guardar cambios antes de hacer no-editable
-                            persistToDb(t);
-                            // Hacer no-editable nuevamente
-                            if (t.dataset.type === 'name') {
-                                t.contentEditable = 'false';
-                            }
-                        }
-                    }, true);
-                    
-                    excelRoot.oninput = (ev) => {
-                        const t = ev && ev.target;
-                        if (t && t.classList && t.classList.contains('excel-editable')) {
-                            persistToDb(t);
-                            updateTotalsAndSummary();
-                        }
-                    };
-
-                    // Agregar event listener para botones de eliminar usuario
-                    excelRoot.addEventListener('click', async (ev) => {
-                        const deleteBtn = ev.target.closest && ev.target.closest('.excel-delete-btn');
-                        if (!deleteBtn) return;
-
-                        const team = deleteBtn.dataset.team;
-                        const person = deleteBtn.dataset.person;
-
-                        if (!team || !person) return;
-                        if (!confirm(`¿Estás seguro de que quieres eliminar a ${person} de ${team}?`)) return;
-
-                        try {
-                            console.log('[Vista Excel] Eliminando usuario:', { sheetId: currentSheetId, name: person, team });
-                            
-                            const response = await fetch(API_USER, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ sheetId: currentSheetId, name: person, team, action: 'delete' })
-                            });
-
-                            const raw = await response.text();
-                            let result;
-                            try { result = JSON.parse(raw); } catch (_) { result = { success: false, message: raw }; }
-
-                            console.log('[Vista Excel] Respuesta de eliminar:', result);
-
-                            if (response.ok && (result.success !== false)) {
-                                console.log(`✅ Usuario ${person} eliminado`);
-                                // Agregar a deletedUsers y guardar en localStorage
-                                const key = `${team}||${person}`;
-                                deletedUsers.add(key);
-                                localStorage.setItem(`deletedUsers_${currentSheetId}`, JSON.stringify([...deletedUsers]));
-                                renderExcel();
-                            } else {
-                                throw new Error(result.message || 'Error desconocido');
-                            }
-                        } catch (e) {
-                            console.error('[Vista Excel] Error eliminando usuario:', e);
-                            alert('Error al eliminar usuario: ' + (e.message || e));
                         }
                     });
-                } catch (e) {
-                    console.error('[Vista Excel] Error renderizando:', e);
-                    excelRoot.innerHTML = `<div style="grid-column: 1 / -1; padding: 12px; border: 1px solid #ef4444; background: #fee2e2; color: #7f1d1d; font-weight: 800;">Error renderizando Vista Excel: ${String(e && e.message ? e.message : e)}</div>`;
-                }
-            };
-
-            const apply = () => {
-                const on = !!toggle.checked;
-                monthlyView.style.display = on ? 'none' : '';
-                excelView.style.display = on ? 'block' : 'none';
-                if (addBtn) addBtn.style.display = on ? '' : 'none';
-                if (excelTabs) excelTabs.style.display = on ? '' : 'none';
-                if (on) {
-                    (async () => {
-                        try {
-                            await renderTabs();
-                            if (currentSheetId) {
-                                await loadSheet(currentSheetId);
-                            }
-                        } catch (e) {
-                            console.error('[Vista Excel] Error cargando sheets:', e);
-                            renderExcel();
-                        }
-                    })();
-                }
-            };
-
-            toggle.addEventListener('change', apply);
-            apply();
-        }
-
-        function generateDailyRows() {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-            
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth();
-            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-            
-            const teams = [
-                { name: 'TEAM IRANIA', color: '#f8fbff' },
-                { name: 'TEAM BRYAN', color: '#faf5ff' },
-                { name: 'TEAM ROBERTO', color: '#f1f8f1' },
-                { name: 'TEAM MARISOL', color: '#fff8f1' },
-                { name: 'TEAM SANTANA', color: '#fff0f5' }
-            ];
-            
-            for (let day = 1; day <= daysInMonth; day++) {
-                const row = document.createElement('tr');
-                const date = new Date(currentYear, currentMonth, day);
-                const dateStr = date.toLocaleDateString('es-ES', { 
-                    day: '2-digit', 
-                    month: '2-digit' 
-                });
-                
-                let rowHTML = `<td style="padding: 12px; text-align: left; font-weight: 800;">${dateStr}</td>`;
-                
-                // Generar celdas para los 5 teams
-                teams.forEach((team, teamIndex) => {
-                    const cellIndex = teamIndex * 3;
-                    rowHTML += `
-                        <td class="editable-cell" 
-                            style="padding: 12px; text-align: center; background: ${team.color};" 
-                            contenteditable="true" 
-                            data-day="${day}" 
-                            data-team="${team.name}" 
-                            data-type="LLAMADAS"
-                            onfocus="rememberCellValue(this)"
-                            onblur="saveCell(this)"
-                            onkeydown="handleKeydown(event, this)">-</td>
-                        <td class="editable-cell" 
-                            style="padding: 12px; text-align: center; background: ${team.color};" 
-                            contenteditable="true" 
-                            data-day="${day}" 
-                            data-team="${team.name}" 
-                            data-type="VENTAS"
-                            onfocus="rememberCellValue(this)"
-                            onblur="saveCell(this)"
-                            onkeydown="handleKeydown(event, this)">-</td>
-                        <td 
-                            style="padding: 12px; text-align: center; background: ${team.color};" 
-                            data-day="${day}" 
-                            data-team="${team.name}" 
-                            data-type="TOTALES">-</td>
-                    `;
-                });
-                
-                // Agregar columna TOTALES al final
-                rowHTML += `
-                    <td style="padding: 12px; text-align: center; background: #e8eaf6;" 
-                        data-day="${day}" 
-                        data-team="TOTALES" 
-                        data-type="TOTAL DE LLAMADAS">-</td>
-                    <td style="padding: 12px; text-align: center; background: #e8eaf6;" 
-                        data-day="${day}" 
-                        data-team="TOTALES" 
-                        data-type="TOTAL DE VENTAS">-</td>
-                `;
-                
-                row.innerHTML = rowHTML;
-                tbody.appendChild(row);
-            }
-            
-            // Agregar fila de totales generales al final
-            const totalsRow = document.createElement('tr');
-            totalsRow.innerHTML = `
-                <td style="padding: 12px; text-align: left; font-weight: 800; background: #f3f4f6; border-top: 2px solid #374151;">TOTALES GENERALES</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL VENTAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM IRANIA" data-type="TOTAL GENERAL">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL VENTAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM BRYAN" data-type="TOTAL GENERAL">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL VENTAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM ROBERTO" data-type="TOTAL GENERAL">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL VENTAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM MARISOL" data-type="TOTAL GENERAL">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL VENTAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #f3f4f6; border-top: 2px solid #374151;" data-day="TOTALS" data-team="TEAM SANTANA" data-type="TOTAL GENERAL">-</td>
-                <td style="padding: 12px; text-align: center; background: #e8eaf6; border-top: 2px solid #374151; font-weight: bold;" data-day="TOTALS" data-team="TOTALS" data-type="TOTAL GENERAL LLAMADAS">-</td>
-                <td style="padding: 12px; text-align: center; background: #e8eaf6; border-top: 2px solid #374151; font-weight: bold;" data-day="TOTALS" data-team="TOTALS" data-type="TOTAL GENERAL VENTAS">-</td>
-            `;
-            tbody.appendChild(totalsRow);
-            
-            // Cargar datos desde la base de datos DESPUÉS de generar las filas
-            loadDataFromDatabase();
-        }
-
-        async function loadDataFromDatabase() {
-            try {
-                const today = new Date();
-                const response = await fetch(`/api/llamadas-ventas?month=${today.getMonth() + 1}&year=${today.getFullYear()}`);
-                const raw = await response.text();
-                let result;
-                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
-                
-                if (result.success) {
-                    await populateTableWithData(result.data);
-                    console.log('Datos cargados desde la base de datos:', result.data.length, 'registros');
-                } else {
-                    console.error('Error al cargar datos:', result.message, { status: response.status, result });
+                    console.log(`[Excel] Datos cargados para ${date}`);
                 }
             } catch (error) {
-                console.error('Error de conexión:', error);
+                console.error(`[Excel] Error cargando datos de ${date}:`, error);
             }
         }
 
-        async function populateTableWithData(data) {
-            console.log('Datos recibidos:', data.length, 'registros');
+        // Renderizar pestañas de MESES
+        function renderMonthTabs() {
+            const container = document.getElementById('monthTabs');
+            if (!container) return;
             
-            for (const record of data) {
-                const fecha = new Date(record.fecha);
-                const dayLocal = fecha.getDate();
-                const dayUtc = fecha.getUTCDate();
-                const team = (record.team || '').trim();
-                const type = (record.tipo || '').trim();
-                const value = (record.valor ?? 0);
-                
-                // Buscar la celda correspondiente
-                let cell = document.querySelector(`[data-day="${dayUtc}"][data-team="${team}"][data-type="${type}"]`);
-                if (!cell && dayLocal !== dayUtc) {
-                    cell = document.querySelector(`[data-day="${dayLocal}"][data-team="${team}"][data-type="${type}"]`);
-                }
-
-                if (cell) {
-                    const displayValue = (String(value).trim() === '' || Number(value) === 0) ? '-' : value;
-                    cell.textContent = displayValue;
-                } else {
-                    console.warn(`Celda no encontrada: ${dayLocal}/${dayUtc}-${team}-${type}`, record);
-                }
-            }
-            
-            // Ahora que el DOM está actualizado, calcular todos los totales.
-            await calculateAllTotalsAfterPopulate();
+            let html = '';
+            availableMonths.forEach(monthYear => {
+                const [month, year] = monthYear.split('/').map(Number);
+                const label = formatMonthYear(month, year);
+                const activeClass = monthYear === currentMonthYear ? 'active' : '';
+                html += `<div class="month-tab ${activeClass}" onclick="switchMonth('${monthYear}')">${label}</div>`;
+            });
+            container.innerHTML = html;
         }
 
-        async function calculateAllTotalsAfterPopulate() {
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth();
-            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        // Renderizar pestañas de DÍAS
+        function renderDateTabs() {
+            const container = document.getElementById('dateTabs');
+            const dates = getDatesForCurrentMonth();
             
-            for (let day = 1; day <= daysInMonth; day++) {
-                const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-                teams.forEach(team => {
-                    calculateTotals_InitialLoad(day, team);
-                });
-                calculateGeneralTotals_InitialLoad(day);
-            }
-            
-            // Calcular totales generales de la fila TOTALS al final
-            calculateGeneralTotalsForTotalsRow();
+            let html = '';
+            dates.forEach(date => {
+                const activeClass = date === currentDate ? 'active' : '';
+                const hasDataClass = sheetMap[date] ? 'has-data' : '';
+                html += `<div class="excel-tab ${activeClass} ${hasDataClass}" onclick="switchDate('${date}')">${date}</div>`;
+            });
+            container.innerHTML = html;
         }
 
-        async function saveCell(cell) {
-            const value = (cell.textContent || '').trim();
-            const day = cell.dataset.day;
-            const team = cell.dataset.team;
-            const type = cell.dataset.type;
+        // Cambiar de mes
+        async function switchMonth(monthYear) {
+            await flushPendingSaves();
+            currentMonthYear = monthYear;
+            
+            // Seleccionar primer día del mes
+            const [month] = monthYear.split('/').map(Number);
+            const firstDate = `1/${month}`;
+            
+            renderMonthTabs();
+            renderDateTabs();
+            await switchDate(firstDate, false);
+        }
 
-            const originalValue = (cell.dataset.originalValue ?? '').trim();
-            const originalNormalized = (originalValue === '' || originalValue === '-') ? '0' : originalValue;
-            const normalizedValue = (value === '' || value === '-') ? '0' : value;
-
-            if (normalizedValue === originalNormalized) {
-                return;
-            }
-
-            // Si el usuario borra, interpretarlo como 0 y permitir guardar.
-            // Visualmente mostramos '-' para 0 para mantener la tabla limpia.
-            const shouldShowDash = normalizedValue === '0';
-            if (shouldShowDash) {
-                cell.textContent = '-';
-            } else {
-                cell.textContent = normalizedValue;
+        // Cambiar de día
+        async function switchDate(date, flushSaves = true) {
+            if (flushSaves) {
+                saveCurrentDateData();
+                await flushPendingSaves();
             }
             
-            // Guardar valor temporal para evitar que se borre
-            cell.dataset.tempValue = normalizedValue;
+            currentDate = date;
             
+            if (!sheetMap[date]) {
+                await createSheetForDate(date);
+            }
+            
+            currentSheetId = sheetMap[date];
+            await loadSheetData(date);
+            
+            renderDateTabs();
+            loadDateData();
+            teams.forEach(team => calcularTeam(team.name));
+        }
+
+        async function flushPendingSaves() {
+            const promises = [];
+            pendingSaves.forEach((timeoutId, key) => {
+                clearTimeout(timeoutId);
+                const [teamName, agentIdx, col] = key.split('-');
+                const value = excelData[currentDate]?.[teamName]?.[agentIdx]?.[
+                    col === 'LL' ? 'llamadas' : col === 'CA' ? 'calis' : 'ventas'
+                ] || 0;
+                promises.push(saveCellToDBImmediate(teamName, parseInt(agentIdx), col, value));
+            });
+            pendingSaves.clear();
+            await Promise.all(promises);
+        }
+
+        async function saveCellToDBImmediate(teamName, agentIdx, col, value) {
+            const sheetId = currentSheetId;
+            if (!sheetId) return;
+
+            const team = teams.find(t => t.name === teamName);
+            if (!team) return;
+
+            const agent = team.agents[agentIdx];
+            if (!agent) return;
+
             try {
-                const response = await fetch('/api/llamadas-ventas', {
+                await fetch('/api/llamadas-ventas-excel/cell', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        day: parseInt(day),
-                        team: team,
-                        type: type,
-                        value: normalizedValue
+                        sheetId: sheetId,
+                        team: teamName,
+                        person: agent,
+                        col: col,
+                        value: String(value)
                     })
                 });
-
-                const raw = await response.text();
-                let result;
-                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
-                
-                if (result.success) {
-                    console.log('Guardado en base de datos:', { day, team, type, value: normalizedValue });
-
-                    cell.dataset.originalValue = normalizedValue;
-                    
-                    // Después de guardar, recalcular los totales para el día afectado
-                    if (type === 'LLAMADAS' || type === 'VENTAS') {
-                        calculateTotals(day, team); // Recalcula el total del team
-                        calculateGeneralTotals(day); // Recalcula el total general del día
-                    }
-                } else {
-                    console.error('Error al guardar:', result.message, { status: response.status, result });
-                    // NO revertir el cambio, mantener el valor escrito
-                    cell.textContent = (cell.dataset.tempValue === '0') ? '-' : (cell.dataset.tempValue || normalizedValue);
-                }
             } catch (error) {
-                console.error('Error de conexión al guardar:', error);
-                // NO revertir el cambio, mantener el valor escrito
-                cell.textContent = (cell.dataset.tempValue === '0') ? '-' : (cell.dataset.tempValue || normalizedValue);
+                console.error('[Excel] Error guardando celda inmediata:', error);
             }
         }
 
-        async function saveCellWithoutRecalculation(cell) {
-            if (!cell || !cell.dataset) return;
+        function saveCurrentDateData() {
+            if (!currentSheetId || !currentDate) return;
             
-            const value = cell.textContent.trim();
-            const day = cell.dataset.day;
-            const team = cell.dataset.team;
-            const type = cell.dataset.type;
-            
-            // NO guardar celdas sin los campos requeridos
-            if (!day || !team || !type) {
-                console.warn('saveCellWithoutRecalculation: Ignorando celda sin day/team/type');
-                return;
-            }
-            
-            // Guardar valor temporal para evitar que se borre
-            cell.dataset.tempValue = value;
-            
-            try {
-                const response = await fetch('/api/llamadas-ventas', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        day: parseInt(day),
-                        team: team,
-                        type: type,
-                        value: value
-                    })
-                });
-
-                const raw = await response.text();
-                let result;
-                try { result = JSON.parse(raw); } catch (e) { result = { success: false, message: raw }; }
-                
-                if (result.success) {
-                    console.log('Guardado en base de datos:', { day, team, type, value });
-                } else {
-                    console.error('Error al guardar:', result.message, { status: response.status, result });
-                    // NO revertir el cambio, mantener el valor escrito
-                    cell.textContent = cell.dataset.tempValue || value;
-                }
-            } catch (error) {
-                console.error('Error de conexión al guardar:', error);
-                // NO revertir el cambio, mantener el valor escrito
-                cell.textContent = cell.dataset.tempValue || value;
-            }
-        }
-
-        function calculateTotals_InitialLoad(day, team) {
-            // Versión de calculateTotals que NO guarda en la base de datos.
-            // Se usa solo para la carga inicial de la página.
-            const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-            const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-            const totalesCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="TOTALES"]`);
-
-            if (!llamadasCell || !ventasCell || !totalesCell) return;
-
-            const llamadas = parseFloat(llamadasCell.textContent) || 0;
-            const ventas = parseFloat(ventasCell.textContent) || 0;
-
-            totalesCell.textContent = `${llamadas}/${ventas}`;
-        }
-
-        function calculateTotals(day, team) {
-            const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-            const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-            const totalesCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="TOTALES"]`);
-
-            if (!llamadasCell || !ventasCell || !totalesCell) {
-                return;
-            }
-            
-            const llamadas = parseFloat(llamadasCell.textContent) || 0;
-            const ventas = parseFloat(ventasCell.textContent) || 0;
-
-            totalesCell.textContent = `${llamadas}/${ventas}`;
-            // Los totales son calculados, no se guardan en BD
-        }
-
-        function calculateGeneralTotals_InitialLoad(day) {
-            // Versión de calculateGeneralTotals que NO guarda en la base de datos.
-            let totalLlamadas = 0;
-            let totalVentas = 0;
-            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-
-            teams.forEach((team, index) => {
-                const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-                const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-                const llamadas = parseFloat(llamadasCell?.textContent) || 0;
-                const ventas = parseFloat(ventasCell?.textContent) || 0;
-                totalLlamadas += llamadas;
-                totalVentas += ventas;
-            });
-
-            const totalLlamadasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE LLAMADAS"]`);
-            const totalVentasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE VENTAS"]`);
-
-            if (!totalLlamadasCell || !totalVentasCell) return;
-
-            totalLlamadasCell.textContent = totalLlamadas;
-            totalVentasCell.textContent = totalVentas;
-        }
-
-        function calculateGeneralTotals(day) {
-            const totalLlamadasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE LLAMADAS"]`);
-            const totalVentasCell = document.querySelector(`[data-day="${day}"][data-team="TOTALES"][data-type="TOTAL DE VENTAS"]`);
-
-            if (!totalLlamadasCell || !totalVentasCell) {
-                return;
-            }
-            
-            // Calcular total de llamadas de todos los teams
-            let totalLlamadas = 0;
-            let totalVentas = 0;
-            
-            // Teams y sus posiciones base
-            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-            
-            teams.forEach((team, index) => {
-                const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-                const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-                const llamadas = parseFloat(llamadasCell?.textContent) || 0;
-                const ventas = parseFloat(ventasCell?.textContent) || 0;
-                
-                totalLlamadas += llamadas;
-                totalVentas += ventas;
-            });
-            
-            totalLlamadasCell.textContent = totalLlamadas;
-            totalVentasCell.textContent = totalVentas;
-            
-            // Los totales son calculados, no se guardan en BD
-            // Calcular y guardar totales generales de la fila TOTALS
-            calculateGeneralTotalsForTotalsRow();
-        }
-
-        function calculateGeneralTotalsForTotalsRow() {
-            const teams = ['TEAM IRANIA', 'TEAM BRYAN', 'TEAM ROBERTO', 'TEAM MARISOL', 'TEAM SANTANA'];
-            
-            // Calcular totales de todos los días del mes para cada team
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth();
-            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-            
-            // Calcular y actualizar totales para cada team individual
             teams.forEach(team => {
-                let totalTeamLlamadas = 0;
-                let totalTeamVentas = 0;
-                
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-                    const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-                    const llamadas = parseFloat(llamadasCell?.textContent) || 0;
-                    const ventas = parseFloat(ventasCell?.textContent) || 0;
+                team.agents.forEach((agent, idx) => {
+                    if (!excelData[currentDate]) excelData[currentDate] = {};
+                    if (!excelData[currentDate][team.name]) excelData[currentDate][team.name] = {};
+                    if (!excelData[currentDate][team.name][idx]) excelData[currentDate][team.name][idx] = {};
                     
-                    totalTeamLlamadas += llamadas;
-                    totalTeamVentas += ventas;
+                    if (team.hasLlamadas) {
+                        const llInput = document.querySelector(`.${team.name}-ll-${idx}`);
+                        if (llInput) {
+                            const val = parseInt(llInput.value) || 0;
+                            excelData[currentDate][team.name][idx].llamadas = val;
+                            saveCellToDB(team.name, idx, 'LL', val);
+                        }
+                    }
+                    
+                    const caInput = document.querySelector(`.${team.name}-ca-${idx}`);
+                    if (caInput) {
+                        const val = parseInt(caInput.value) || 0;
+                        excelData[currentDate][team.name][idx].calis = val;
+                        saveCellToDB(team.name, idx, 'CA', val);
+                    }
+                    
+                    const vInput = document.querySelector(`.${team.name}-v-${idx}`);
+                    if (vInput) {
+                        const val = parseInt(vInput.value) || 0;
+                        excelData[currentDate][team.name][idx].ventas = val;
+                        saveCellToDB(team.name, idx, 'V', val);
+                    }
+                });
+            });
+        }
+
+        function loadDateData() {
+            if (!currentDate) return;
+            
+            teams.forEach(team => {
+                team.agents.forEach((agent, idx) => {
+                    const data = excelData[currentDate]?.[team.name]?.[idx] || { llamadas: 0, calis: 0, ventas: 0 };
+                    
+                    if (team.hasLlamadas) {
+                        const llInput = document.querySelector(`.${team.name}-ll-${idx}`);
+                        if (llInput) llInput.value = data.llamadas || 0;
+                    }
+                    
+                    const caInput = document.querySelector(`.${team.name}-ca-${idx}`);
+                    if (caInput) caInput.value = data.calis || 0;
+                    
+                    const vInput = document.querySelector(`.${team.name}-v-${idx}`);
+                    if (vInput) vInput.value = data.ventas || 0;
+                });
+            });
+        }
+
+        function scrollTabs(direction) {
+            const tabs = document.getElementById('dateTabs');
+            const scrollAmount = 150;
+            if (direction === 'left') {
+                tabs.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                tabs.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+        }
+
+        // Modificar calcularTeam
+        calcularTeam = function(teamName) {
+            const team = teams.find(t => t.name === teamName);
+            let llamadas = 0, calis = 0, ventas = 0;
+
+            team.agents.forEach((agent, idx) => {
+                if (team.hasLlamadas) {
+                    const llInput = document.querySelector(`.${teamName}-ll-${idx}`);
+                    if (llInput) {
+                        llamadas += parseInt(llInput.value) || 0;
+                        if (currentSheetId) saveCellToDB(teamName, idx, 'LL', llInput.value);
+                    }
                 }
                 
-                // Actualizar celdas de totales del team
-                const totalTeamLlamadasCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL LLAMADAS"]`);
-                const totalTeamVentasCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL VENTAS"]`);
-                const totalTeamGeneralCell = document.querySelector(`[data-day="TOTALS"][data-team="${team}"][data-type="TOTAL GENERAL"]`);
-                
-                if (totalTeamLlamadasCell) {
-                    totalTeamLlamadasCell.textContent = totalTeamLlamadas;
+                const caInput = document.querySelector(`.${teamName}-ca-${idx}`);
+                if (caInput) {
+                    calis += parseInt(caInput.value) || 0;
+                    if (currentSheetId) saveCellToDB(teamName, idx, 'CA', caInput.value);
                 }
-                
-                if (totalTeamVentasCell) {
-                    totalTeamVentasCell.textContent = totalTeamVentas;
-                }
-                
-                if (totalTeamGeneralCell) {
-                    totalTeamGeneralCell.textContent = `${totalTeamLlamadas}/${totalTeamVentas}`;
+
+                const vInput = document.querySelector(`.${teamName}-v-${idx}`);
+                if (vInput) {
+                    ventas += parseInt(vInput.value) || 0;
+                    if (currentSheetId) saveCellToDB(teamName, idx, 'V', vInput.value);
                 }
             });
-            
-            // Calcular totales generales de todos los teams
-            let totalGeneralLlamadas = 0;
-            let totalGeneralVentas = 0;
-            
-            for (let day = 1; day <= daysInMonth; day++) {
-                teams.forEach(team => {
-                    const llamadasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="LLAMADAS"]`);
-                    const ventasCell = document.querySelector(`[data-day="${day}"][data-team="${team}"][data-type="VENTAS"]`);
-                    const llamadas = parseFloat(llamadasCell?.textContent) || 0;
-                    const ventas = parseFloat(ventasCell?.textContent) || 0;
-                    
-                    totalGeneralLlamadas += llamadas;
-                    totalGeneralVentas += ventas;
-                });
+
+            const el_ll = document.getElementById(`total-${teamName}-ll`);
+            if (el_ll) el_ll.textContent = llamadas;
+
+            const el_ca = document.getElementById(`total-${teamName}-ca`);
+            if (el_ca) el_ca.textContent = calis;
+
+            const el_v = document.getElementById(`total-${teamName}-v`);
+            if (el_v) el_v.textContent = ventas;
+
+            const eficiencia = llamadas > 0 ? (ventas / llamadas).toFixed(2) : 0;
+            document.getElementById(`eff-${teamName}`).textContent = eficiencia;
+
+            actualizarGlobal();
+        };
+
+        // Cargar datos iniciales
+        async function loadInitialData() {
+            // Si hay meses disponibles, seleccionar el más reciente
+            if (availableMonths.length > 0) {
+                currentMonthYear = availableMonths[0];
+            } else {
+                const now = new Date();
+                currentMonthYear = `${now.getMonth() + 1}/${now.getFullYear()}`;
             }
             
-            // Actualizar celdas de totales generales
-            const totalGeneralLlamadasCell = document.querySelector(`[data-day="TOTALS"][data-team="TOTALS"][data-type="TOTAL GENERAL LLAMADAS"]`);
-            const totalGeneralVentasCell = document.querySelector(`[data-day="TOTALS"][data-team="TOTALS"][data-type="TOTAL GENERAL VENTAS"]`);
+            const [month] = currentMonthYear.split('/').map(Number);
+            const firstDate = `1/${month}`;
             
-            if (totalGeneralLlamadasCell) {
-                totalGeneralLlamadasCell.textContent = totalGeneralLlamadas;
-            }
+            renderMonthTabs();
+            renderDateTabs();
             
-            if (totalGeneralVentasCell) {
-                totalGeneralVentasCell.textContent = totalGeneralVentas;
+            if (!sheetMap[firstDate]) {
+                await createSheetForDate(firstDate);
             }
+            currentSheetId = sheetMap[firstDate];
+            currentDate = firstDate;
+            await loadSheetData(firstDate);
+            loadDateData();
+            teams.forEach(team => calcularTeam(team.name));
         }
 
-        function handleKeydown(event, cell) {
-            // Guardar valor original antes de editar
-            if (!cell.dataset.originalValue) {
-                cell.dataset.originalValue = cell.textContent;
-            }
-            
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                cell.blur();
-            } else if (event.key === 'Tab') {
-                // Para Tab, no hacer nada, solo permitir el comportamiento normal
-                // El valor actual se mantendrá
-                return;
-            } else if (event.key === 'Escape') {
-                event.preventDefault();
-                // Restaurar valor original solo con Escape
-                cell.textContent = cell.dataset.originalValue || '-';
-                cell.blur();
-            }
+        // Modificar inicialización
+        async function init() {
+            initData();
+            await initExcelData();
+            renderGeneralTable();
+            renderTeams();
+            await loadInitialData();
         }
 
-        function rememberCellValue(cell) {
-            cell.dataset.originalValue = (cell.textContent || '').trim();
-            if (cell.dataset.originalValue === '-') {
-                cell.textContent = '';
-            }
-        }
+        init();
     </script>
 </body>
 </html>
