@@ -5032,16 +5032,23 @@
     window.reloadLeadsAfterSave = async function() {
       console.log('[reloadLeadsAfterSave] Forzando recarga de datos desde servidor...');
       try {
-        // Limpiar banderas de cache
+        // Limpiar TODOS los caches
         sessionStorage.removeItem('allPagesData');
         localStorage.removeItem('allPagesData');
+        sessionStorage.removeItem('__cachedLeads');
+        localStorage.removeItem('__cachedLeads');
         window.__bypassCache = true;
         
-        // Llamar fetchLeadsAgente
+        // Esperar un poco para asegurar que el servidor procesó el cambio
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Llamar fetchLeadsAgente SIN parámetros (recargar página actual)
         if (typeof fetchLeadsAgente === 'function') {
-          await fetchLeadsAgente();
+          console.log('[reloadLeadsAfterSave] Llamando fetchLeadsAgente()...');
+          await fetchLeadsAgente(window.__page || 1);
         } else if (typeof window.fetchLeadsAgente === 'function') {
-          await window.fetchLeadsAgente();
+          console.log('[reloadLeadsAfterSave] Llamando window.fetchLeadsAgente()...');
+          await window.fetchLeadsAgente(window.__page || 1);
         } else {
           console.warn('[reloadLeadsAfterSave] fetchLeadsAgente no disponible');
           return false;
