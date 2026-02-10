@@ -10770,7 +10770,17 @@
                 }
                 alert('âœ… Registro actualizado exitosamente (coincidencia encontrada)');
                 cerrarModalEdicion();
-                location.reload();
+                // Recargar datos sin perder la vista
+                try {
+                  if (typeof fetchLeadsAgente === 'function') {
+                    await fetchLeadsAgente();
+                  } else {
+                    location.reload();
+                  }
+                } catch (e) {
+                  console.warn('Error recargando leads:', e);
+                  location.reload();
+                }
                 return;
               }
 
@@ -10819,7 +10829,17 @@
                           }
                           alert('âœ… Registro actualizado exitosamente (coincidencia)');
                           cerrarModalEdicion();
-                          location.reload();
+                          // Recargar datos sin perder la vista
+                          try {
+                            if (typeof fetchLeadsAgente === 'function') {
+                              await fetchLeadsAgente();
+                            } else {
+                              location.reload();
+                            }
+                          } catch (e) {
+                            console.warn('Error recargando leads:', e);
+                            location.reload();
+                          }
                           return;
                         }
                       }
@@ -10850,7 +10870,22 @@
               }
               alert('âœ… Registro creado exitosamente');
               cerrarModalEdicion();
-              location.reload();
+              // Recargar datos sin perder la vista
+              try {
+                if (typeof fetchLeadsAgente === 'function') {
+                  console.log('[guardarCambiosLead] Recargando leads desde servidor...');
+                  await fetchLeadsAgente();
+                } else if (typeof window.fetchLeadsAgente === 'function') {
+                  console.log('[guardarCambiosLead] Recargando leads (global) desde servidor...');
+                  await window.fetchLeadsAgente();
+                } else {
+                  console.log('[guardarCambiosLead] fetchLeadsAgente no disponible, recargando pÃ¡gina');
+                  location.reload();
+                }
+              } catch (e) {
+                console.warn('[guardarCambiosLead] Error recargando leads, recargando pÃ¡gina:', e);
+                location.reload();
+              }
               return;
             } catch (e) {
               let msg = 'Error tratando 404: ';
@@ -10867,7 +10902,22 @@
         alert('âœ… Registro actualizado exitosamente');
         cerrarModalEdicion();
 
-        location.reload();
+        // Recargar datos sin perder la vista
+        try {
+          if (typeof fetchLeadsAgente === 'function') {
+            console.log('[guardarCambiosLead] Recargando leads desde servidor...');
+            await fetchLeadsAgente();
+          } else if (typeof window.fetchLeadsAgente === 'function') {
+            console.log('[guardarCambiosLead] Recargando leads (global) desde servidor...');
+            await window.fetchLeadsAgente();
+          } else {
+            console.log('[guardarCambiosLead] fetchLeadsAgente no disponible, recargando pÃ¡gina');
+            location.reload();
+          }
+        } catch (e) {
+          console.warn('[guardarCambiosLead] Error recargando leads, recargando pÃ¡gina:', e);
+          location.reload();
+        }
         return;
       } catch (error) {
         console.error('Error al guardar cambios:', error);
