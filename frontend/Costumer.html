@@ -5028,39 +5028,104 @@
       }
     }
 
-    // Función para recargar datos FORZANDO actualización desde servidor (sin cache)
+    // Función para recargar un lead específico desde servidor y actualizar tabla
     window.reloadLeadsAfterSave = async function() {
-      console.log('[reloadLeadsAfterSave] Forzando recarga de datos desde servidor...');
+      console.log('[reloadLeadsAfterSave] Iniciando recarga inteligente de lead...');
       try {
-        // Limpiar TODOS los caches
-        sessionStorage.removeItem('allPagesData');
-        localStorage.removeItem('allPagesData');
-        sessionStorage.removeItem('__cachedLeads');
-        localStorage.removeItem('__cachedLeads');
-        window.__bypassCache = true;
+        const leadIdRaw = document.getElementById('edit-id')?.value || '';
+        const leadId = String(leadIdRaw).trim();
         
-        // Esperar un poco para asegurar que el servidor procesó el cambio
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Llamar fetchLeadsAgente SIN parámetros (recargar página actual)
-        if (typeof fetchLeadsAgente === 'function') {
-          console.log('[reloadLeadsAfterSave] Llamando fetchLeadsAgente()...');
-          await fetchLeadsAgente(window.__page || 1);
-        } else if (typeof window.fetchLeadsAgente === 'function') {
-          console.log('[reloadLeadsAfterSave] Llamando window.fetchLeadsAgente()...');
-          await window.fetchLeadsAgente(window.__page || 1);
-        } else {
-          console.warn('[reloadLeadsAfterSave] fetchLeadsAgente no disponible');
-          return false;
+        if (!leadId) {
+          console.warn('[reloadLeadsAfterSave] Sin ID de lead, forzando recarga completa desde servidor');
+          // Si no hay ID, hacer recarga completa de la página
+          if (typeof fetchLeadsAgente === 'function') {
+            await fetchLeadsAgente(window.__page || 1);
+          } else {
+            location.reload();
+            return false;
+          }
+          return true;
         }
         
-        console.log('[reloadLeadsAfterSave] Datos recargados exitosamente');
+        // Fetch fresco del lead guardado directamente desde servidor (sin cache)
+        console.log('[reloadLeadsAfterSave] Obteniendo lead fresco desde servidor:', leadId);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        let freshLead = null;
+        try {
+          const getUrl = `/api/leads/${encodeURIComponent(leadId)}`;
+          const getFetch = await fetch(getUrl, {
+            method: 'GET',
+            credentials: 'include',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          });
+          
+          if (getFetch.ok) {
+            const getResp = await getFetch.json();
+            freshLead = getResp?.customer || getResp?.data || getResp;
+            console.log('[reloadLeadsAfterSave] ✅ Lead fresco obtenido:', freshLead);
+          } else {
+            console.warn('[reloadLeadsAfterSave] GET falló con status:', getFetch.status);
+          }
+        } catch (e) {
+          console.warn('[reloadLeadsAfterSave] Error obteniendo lead fresco:', e?.message);
+        }
+        
+        // Actualizar en caché local con los datos frescos del servidor
+        if (freshLead && window.ultimaListaLeads && Array.isArray(window.ultimaListaLeads)) {
+          try {
+            const idx = window.ultimaListaLeads.findIndex(l => {
+              const lid = (typeof extractLeadId === 'function') ? String(extractLeadId(l) || '').trim() : String(l?._id || l?.id || '').trim();
+              return lid === leadId;
+            });
+            
+            if (idx >= 0) {
+              console.log('[reloadLeadsAfterSave] Actualizando registro en caché local con datos frescos, índice:', idx);
+              // Reemplazar completamente con datos frescos del servidor
+              window.ultimaListaLeads[idx] = Object.assign({}, window.ultimaListaLeads[idx], freshLead);
+              console.log('[reloadLeadsAfterSave] ✅ Lead actualizado en caché con datos frescos');
+            }
+          } catch (e) {
+            console.warn('[reloadLeadsAfterSave] Error actualizando caché local:', e);
+          }
+        }
+        
+        // CRÍTICO: Actualizar también el objeto de edición en memoria
+        // Esto asegura que si el usuario reabre el modal sin recargar la página, tenga datos frescos
+        if (freshLead && window.__currentEditingLead) {
+          try {
+            console.log('[reloadLeadsAfterSave] Actualizando window.__currentEditingLead con datos frescos del servidor');
+            Object.assign(window.__currentEditingLead, freshLead);
+            console.log('[reloadLeadsAfterSave] ✅ window.__currentEditingLead actualizado con agenteNombre =', freshLead.agenteNombre);
+          } catch (e) {
+            console.warn('[reloadLeadsAfterSave] Error actualizando __currentEditingLead:', e);
+          }
+        }
+        
+        // Refrescar la tabla
+        try {
+          if (typeof renderCostumerTable === 'function') {
+            console.log('[reloadLeadsAfterSave] Refrescando tabla con datos actualizados...');
+            renderCostumerTable(window.ultimaListaLeads);
+            console.log('[reloadLeadsAfterSave] ✅ Tabla refrescada exitosamente');
+          }
+        } catch (e) {
+          console.error('[reloadLeadsAfterSave] Error refrescando tabla:', e);
+          // Fallback: hacer fetch completo desde servidor si hay error
+          console.log('[reloadLeadsAfterSave] Fallback: recargando página completa');
+          if (typeof fetchLeadsAgente === 'function') {
+            await fetchLeadsAgente(window.__page || 1);
+          } else {
+            location.reload();
+            return false;
+          }
+        }
+        
+        console.log('[reloadLeadsAfterSave] ✅ Completado exitosamente');
         return true;
       } catch (e) {
-        console.error('[reloadLeadsAfterSave] Error:', e);
+        console.error('[reloadLeadsAfterSave] Error general:', e);
         return false;
-      } finally {
-        window.__bypassCache = false;
       }
     };
 
@@ -9315,8 +9380,6 @@
         try {
           const forced = String(forcedId || '').trim();
           if ((/^[a-fA-F0-9]{24}$/).test(forced)) return forced;
-          // Importante: NO tomar cualquier 24-hex del JSON (puede ser agenteId/supervisorId).
-          // Solo aceptar el _id real del lead.
           if (typeof extractLeadId === 'function') {
             const id = String(extractLeadId(lead) || '').trim();
             return (/^[a-fA-F0-9]{24}$/).test(id) ? id : '';
@@ -9331,6 +9394,44 @@
           return '';
         }
       })();
+
+      // CRÍTICO: Obtener datos FRESCOS del servidor ANTES de abrir el modal
+      // Esto asegura que siempre vemos la versión más reciente
+      if (leadId) {
+        (async () => {
+          try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const freshRes = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            
+            if (freshRes.ok) {
+              const freshData = await freshRes.json();
+              // Usar los datos frescos en lugar del objeto cacheado
+              lead = freshData?.customer || freshData?.data || freshData || lead;
+              console.log('[abrirModalEdicion] Datos frescos obtenidos del servidor para lead:', leadId);
+              // Ahora rellenar el modal con datos frescos
+              rellenarModalEdicion(lead, leadId);
+              return;
+            }
+          } catch (e) {
+            console.warn('[abrirModalEdicion] No se pudieron obtener datos frescos, usando cache:', e?.message);
+          }
+          
+          // Fallback: usar datos del cache si hay error
+          rellenarModalEdicion(lead, leadId);
+        })();
+      } else {
+        // Si no hay ID, rellenar con lo que tenemos
+        rellenarModalEdicion(lead, leadId);
+      }
+    }
+
+    function rellenarModalEdicion(lead, leadId) {
+      const modal = document.getElementById('editarModal');
+      if (!modal) return;
 
       const editIdEl = document.getElementById('edit-id');
       if (editIdEl) editIdEl.value = leadId;
@@ -10612,13 +10713,23 @@
             [getInput('edit-nombres'), getInput('edit-apellidos')].filter(Boolean).join(' ').trim() :
             getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
           telefono_principal: getInput('edit-telefono') || getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
+          telefono_alterno: getInput('edit-telefono-alt') || getFromLead('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2'),
           direccion: getInput('edit-direccion') || getFromLead('direccion', 'address', 'domicilio'),
           supervisor: getInput('edit-supervisor') || getInput('edit-sup') || getFromLead('supervisor', 'SUPERVISOR', 'team', 'Team'),
+          representante: getInput('edit-representante') || getFromLead('representante', 'rep', 'agente'),
           motivo_llamada: getInput('edit-motivo-llamada') || getFromLead('motivo_llamada', 'motivo', 'call_reason', 'reason'),
           comentario: getInput('edit-comentario') || getFromLead('comentario', 'comment', 'comentarios'),
           servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
           tipo_servicio: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
-          tipo_servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto')
+          tipo_servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          status: getInput('edit-status') || getFromLead('status', 'estado'),
+          mercado: getInput('edit-mercado') || getFromLead('mercado', 'market'),
+          riesgo: (getInput('edit-riesgo') || getFromLead('riesgo', 'risk')).toString().toLowerCase(),
+          puntaje: parseFloat(getInput('edit-puntaje') || getFromLead('puntaje', 'score')) || 0,
+          autopago: getInput('edit-autopago') || getFromLead('autopago', 'autoPay'),
+          sistema: getInput('edit-sistema') || getFromLead('sistema', 'system'),
+          numero_cuenta: getInput('edit-numero-cuenta') || getFromLead('numero_cuenta', 'account_number'),
+          zip_code: getInput('edit-zip-code') || getFromLead('zip_code', 'zip')
         };
       }
 
@@ -10808,6 +10919,9 @@
                 }
                 alert('âœ… Registro actualizado exitosamente (coincidencia encontrada)');
                 
+                // Esperar a que el servidor procese completamente el UPDATE
+                await new Promise(r => setTimeout(r, 800));
+                
                 // Recargar datos FORZANDO actualización desde servidor
                 try {
                   const reloaded = await window.reloadLeadsAfterSave();
@@ -10871,6 +10985,9 @@
                             throw new Error('Error al actualizar la coincidencia: ' + (put2txt || putResp2.status));
                           }
                           alert('âœ… Registro actualizado exitosamente (coincidencia)');
+                          
+                          // Esperar a que el servidor procese completamente el UPDATE
+                          await new Promise(r => setTimeout(r, 800));
                           
                           // Recargar datos FORZANDO actualización desde servidor
                           try {
@@ -10947,23 +11064,29 @@
           throw new Error(msg);
         }
 
-        alert('âœ… Registro actualizado exitosamente');
+        alert('✅ Registro actualizado exitosamente');
+
+        // Esperar a que el servidor procese completamente el UPDATE
+        await new Promise(r => setTimeout(r, 800));
 
         // Recargar datos FORZANDO actualización desde servidor
         try {
-          const reloaded = await window.reloadLeadsAfterSave();
-          if (!reloaded) {
-            console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
+          console.log('[guardarCambiosLead] FORZANDO recarga completa de datos desde servidor...');
+          if (typeof fetchLeadsAgente === 'function') {
+            // Recarga completa de todos los leads desde el servidor (NO usar reloadLeadsAfterSave que usa cache)
+            await fetchLeadsAgente(window.__page || 1);
+            console.log('[guardarCambiosLead] ✅ Datos recargados completamente desde servidor');
+          } else {
             location.reload();
             return;
           }
         } catch (e) {
-          console.error('[guardarCambiosLead] Error recargando leads:', e);
+          console.error('[guardarCambiosLead] Error en recarga completa:', e);
           location.reload();
           return;
         }
 
-        // Cerrar el modal DESPUÉS de recargar los datos
+        // Cerrar el modal DESPUÉS de recargar completamente los datos
         cerrarModalEdicion();
         return;
       } catch (error) {

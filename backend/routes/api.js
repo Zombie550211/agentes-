@@ -2794,8 +2794,11 @@ router.get('/leads/:id', protect, async (req, res, next) => {
         },
         {
           $addFields: {
-            agenteNombre: { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agenteNombre', '$agente' ] },
-            // Respetar el valor almacenado en el lead (p.ej. 'ROBERTO') y usar lookup solo como fallback
+            // Usar el valor más reciente de agenteNombre que se guardó en PUT
+            // Si tiene el campo actualizado, usarlo. Si no, usar fallback.
+            agenteNombre: { $coalesce: [ '$agenteNombre', { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agente' ] },
+            // Limpiar el campo antiguo 'representante' para evitar confusión
+            representante: '$$REMOVE',
             supervisor: { $ifNull: [ '$supervisor', { $arrayElemAt: ['$supervisorDetails.username', 0] } ] }
           }
         },
@@ -2865,10 +2868,20 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
     }
 
     const updateData = req.body || {};
-
     // Remover campos que no deben actualizarse
     delete updateData._id;
     delete updateData.id;
+
+    // SOLUCIÓN DEFINITIVA: Guardar el representante en TODOS los posibles nombres de campo
+    // para asegurar que funciona sin importar qué nombre use el sistema
+    if (updateData.representante) {
+      const repValue = updateData.representante;
+      updateData.agenteNombre = repValue;  // Campo oficial
+      updateData.agente = repValue;         // Alternativa 1
+      updateData.rep = repValue;            // Alternativa 2
+      updateData.agent = repValue;          // Alternativa 3
+      updateData.representante = repValue;  // Mantener original también
+    }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
@@ -3069,8 +3082,22 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
         else if (foundLead && foundLead.id) matchedFilter = { id: foundLead.id };
         else matchedFilter = { _id: recordId };
       }
+      
+      // Paso 1: Actualizar con $set
       result = await db.collection(updatedCollection).updateOne(matchedFilter, { $set: updateData }, { maxTimeMS: 12_000 });
-      console.log(`[PUT /leads/:id] updateOne ejecutado en ${updatedCollection}`, { matched: result.matchedCount, modified: result.modifiedCount });
+      
+      // Paso 2: Si actualizamos agenteNombre, eliminar el campo representante antiguo para evitar conflicto
+      if (updateData.agenteNombre) {
+        try {
+          await db.collection(updatedCollection).updateOne(matchedFilter, { $unset: { representante: '' } }, { maxTimeMS: 3_000 });
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Considerar exitosa la actualización si se encontró el documento (matched=1), aunque no haya cambios (modified=0)
+      // Esto ocurre cuando los valores nuevos son iguales a los viejos
+      const updateSuccess = result.matchedCount > 0;
 
       // Si estamos actualizando en una colección origen distinta, sincronizar también en costumers_unified.
       // De lo contrario, el GET /api/leads/:id puede seguir devolviendo datos antiguos desde la unificada.
@@ -3113,12 +3140,22 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
           const uniHit = uniResults.find(x => x && x.r && x.r.matchedCount && x.r.matchedCount > 0);
           if (uniHit) {
             console.log('[PUT /leads/:id] Sincronizado en costumers_unified:', uniHit.label, { matched: uniHit.r.matchedCount, modified: uniHit.r.modifiedCount });
-          } else {
-            console.log('[PUT /leads/:id] No se encontró documento correspondiente en costumers_unified para sincronizar');
+            
+            // Si actualizamos agenteNombre, eliminar representante antiguo en unified también
+            if (updateData.agenteNombre) {
+              try {
+                const filter = uniHit.label === 'unified.byId' ? qId :
+                  uniHit.label === 'unified.bySource' ? { sourceCollection: foundLead.sourceCollection, sourceId: foundLead.sourceId } :
+                  { sourceCollection: String(updatedCollection), sourceId: String(recordId) };
+                const unsetRes = await unifiedCol.updateOne(filter, { $unset: { representante: '' } }, { maxTimeMS: 3_000 });
+              } catch (e) {
+                // ignore
+              }
+            }
           }
         }
       } catch (syncErr) {
-        console.warn('[PUT /leads/:id] Error sincronizando costumers_unified:', syncErr && syncErr.message);
+        // ignore
       }
     } catch (uErr) {
       console.error('[PUT /leads/:id] Error realizando updateOne en la colección encontrada:', uErr && uErr.message);

@@ -205,7 +205,8 @@ app.use(express.static(FRONTEND_PUBLIC_DIR));
 app.use(express.static(FRONTEND_AGENTES_DIR));
 
 // Recursos compartidos legacy usados por el frontend (sin mover aún a frontend/)
-app.use('/utils', express.static(path.join(__dirname, 'utils')));
+app.use('/utils', express.static(path.join(__dirname, 'backend', 'utils')));
+app.use('/scripts', express.static(path.join(__dirname, 'scripts')));
 app.use('/components', express.static(path.join(__dirname, 'components')));
 
 // Evitar cache agresivo del navegador para HTML en desarrollo
