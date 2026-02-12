@@ -11,7 +11,11 @@
         const role = String(user.role||'').toLowerCase();
         const team = String(user.team||'').toLowerCase();
         const uname = String(user.username || user.name || user.email || '').toLowerCase();
-        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || uname.startsWith('lineas-');
+        // Permitir: Team Líneas, Supervisor Team Líneas, Administrador, Back Office
+        const isTeamLineas = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || uname.startsWith('lineas-');
+        const isAdmin = role === 'admin' || role === 'administrador';
+        const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'bo' || role === 'b.o' || role === 'b:o' || role === 'b-o';
+        const ok = isTeamLineas || isAdmin || isBackoffice;
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();
@@ -37,7 +41,7 @@
 
         <!-- Barra de filtros principal -->
         <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div style="display:flex; gap:8px; align-items:center;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input id="q" class="form-control" placeholder="Buscar (nombre, teléfono, cuenta, dirección, ID)" style="min-width:320px;" />
             <select id="qs" class="form-control" style="min-width:140px;">
               <option value="">STATUS: Todos</option>
@@ -47,6 +51,9 @@
             <select id="agentFilter" class="form-control" style="min-width:180px;">
               <option value="">AGENTE: Todos</option>
             </select>
+            <input id="dateFrom" type="date" class="form-control" placeholder="Desde" style="min-width:150px;" />
+            <input id="dateTo" type="date" class="form-control" placeholder="Hasta" style="min-width:150px;" />
+            <button id="btnClearDates" class="form-control" style="min-width:100px; background:#64748b; color:#fff; border:none; cursor:pointer;">Limpiar Fechas</button>
           </div>
           <div id="admin-actions" style="display:none; margin-left: auto;">
             <button id="btn-seed-data" style="background-color: #dc2626; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">Crear Datos de Prueba</button>
@@ -412,6 +419,8 @@
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
         const qagent = ($('#agentFilter')?.value || '').trim().toUpperCase();
+        const dateFrom = ($('#dateFrom')?.value || '').trim();
+        const dateTo = ($('#dateTo')?.value || '').trim();
         const nombre = '';
         const tel = '';
         const cuenta = '';
@@ -458,6 +467,14 @@
           if (qagent && !(String(it.agenteAsignado||'').toUpperCase().includes(qagent) || 
                           String(it.agenteNombre||'').toUpperCase().includes(qagent) ||
                           String(it.agente||'').toUpperCase().includes(qagent))) return false;
+          
+          // Filtro por rango de fechas (dia_venta)
+          if (dateFrom || dateTo) {
+            const diaVenta = it.dia_venta || '';
+            if (dateFrom && diaVenta < dateFrom) return false;
+            if (dateTo && diaVenta > dateTo) return false;
+          }
+          
           return true;
         });
       }
@@ -595,10 +612,14 @@
                 notasLength: notas.length
               });
               
+              // Obtener status de esta línea específica
+              const lineasStatus = it.lineas_status || {};
+              const lineStatus = lineasStatus[i] || 'PENDING';
+              
               detailsHTML += `
                 <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fafbfc;">
                   <div style="font-weight:700; color:#0f172a; margin-bottom:8px;">Línea ${i+1}</div>
-                  <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; font-size:14px; margin-bottom:12px;">
+                  <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; font-size:14px; margin-bottom:12px;">
                     <div>
                       <span style="color:#64748b; font-size:12px;">Teléfono:</span><br>
                       <span style="font-weight:600;">${telefono || 'N/A'}</span>
@@ -606,6 +627,16 @@
                     <div>
                       <span style="color:#64748b; font-size:12px;">Servicio:</span><br>
                       <span style="font-weight:600;">${servicio || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span style="color:#64748b; font-size:12px;">STATUS:</span><br>
+                      <select class="line-status-select" data-client-id="${docId}" data-line-index="${i}" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; width:auto; max-width:150px;">
+                        <option value="PENDING" ${lineStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
+                        <option value="ACTIVE" ${lineStatus === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
+                        <option value="COMPLETED" ${lineStatus === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
+                        <option value="REPRO" ${lineStatus === 'REPRO' ? 'selected' : ''}>REPRO</option>
+                        <option value="CANCELLED" ${lineStatus === 'CANCELLED' ? 'selected' : ''}>CANCELLED</option>
+                      </select>
                     </div>
                   </div>
                   
@@ -1140,6 +1171,61 @@
           });
         });
         
+        // Event listeners para cambio de status de línea individual
+        document.querySelectorAll('.line-status-select').forEach(select => {
+          select.addEventListener('change', async function(e) {
+            e.stopPropagation();
+            
+            const clientId = this.getAttribute('data-client-id');
+            const lineIndex = parseInt(this.getAttribute('data-line-index'));
+            const newStatus = this.value;
+            
+            // Obtener datos del cliente antes del try para usarlo en el catch
+            const clientData = allItems.find(item => (item._id || item.id) === clientId);
+            const previousStatus = clientData?.lineas_status?.[lineIndex] || 'PENDING';
+            
+            try {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              const response = await fetch('/api/lineas-team/line-status', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  clientId: clientId,
+                  lineIndex: lineIndex,
+                  status: newStatus
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Error al actualizar el status de la línea');
+              }
+              
+              // Actualizar el objeto en allItems
+              if (clientData) {
+                if (!clientData.lineas_status) {
+                  clientData.lineas_status = {};
+                }
+                clientData.lineas_status[lineIndex] = newStatus;
+              }
+              
+              showNotification(`Status de línea ${lineIndex + 1} actualizado a ${newStatus}`, 'success');
+              
+              // Recargar datos para actualizar conteos
+              await load();
+            } catch (error) {
+              console.error('Error al actualizar status de línea:', error);
+              showNotification('Error al actualizar el status: ' + error.message, 'error');
+              // Revertir el select al valor anterior
+              this.value = previousStatus;
+            }
+          });
+        });
+        
         // Event listeners para eliminar cliente
         document.querySelectorAll('.btn-delete-client').forEach(btn => {
           btn.addEventListener('click', async function(e) {
@@ -1209,9 +1295,20 @@
       const q = $('#q');
       const qs = $('#qs');
       const agentFilter = $('#agentFilter');
+      const dateFrom = $('#dateFrom');
+      const dateTo = $('#dateTo');
+      const btnClearDates = $('#btnClearDates');
+      
       if (q) q.addEventListener('input', ()=> renderTable(applyFilters(allItems)) );
       if (qs) qs.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
       if (agentFilter) agentFilter.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+      if (dateFrom) dateFrom.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+      if (dateTo) dateTo.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+      if (btnClearDates) btnClearDates.addEventListener('click', ()=> {
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
+        renderTable(applyFilters(allItems));
+      });
 
       // Detect supervisor por usuario y marcar por defecto
       let defaultSupervisor = '';

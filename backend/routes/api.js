@@ -3511,6 +3511,108 @@ router.put('/lineas-team/status', protect, async (req, res) => {
   }
 });
 
+// PUT /lineas-team/line-status - Actualizar STATUS de una línea individual
+router.put('/lineas-team/line-status', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const username = user?.username || '';
+    const role = (user?.role || '').toLowerCase();
+    const team = (user?.team || '').toLowerCase();
+    
+    console.log('[API PUT /lineas-team/line-status] Usuario:', username, 'Rol:', role);
+    
+    // Verificar permisos
+    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('supervisor') || team.includes('lineas');
+    if (!canEdit) {
+      return res.status(403).json({ success: false, message: 'No tienes permisos para cambiar el STATUS' });
+    }
+    
+    const { clientId, lineIndex, status } = req.body;
+    
+    if (!clientId || lineIndex === undefined || !status) {
+      return res.status(400).json({ success: false, message: 'clientId, lineIndex y status son requeridos' });
+    }
+    
+    // Conectar a la base de datos TEAM_LINEAS
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      console.error('[API PUT /lineas-team/line-status] No se pudo conectar a TEAM_LINEAS');
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+    
+    const { ObjectId } = require('mongodb');
+    
+    // Buscar y actualizar en todas las colecciones de agentes
+    let updated = false;
+    let collections = [];
+    try {
+      const cols = await db.listCollections().toArray();
+      collections = cols.map(c => c.name);
+    } catch (e) {
+      collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ', 'KARLA_PONCE'];
+    }
+
+    console.log('[API PUT /lineas-team/line-status] Buscando cliente:', clientId, 'para actualizar línea', lineIndex);
+    
+    for (const colName of collections) {
+      try {
+        const collection = db.collection(colName);
+        
+        // Intentar con ObjectId
+        let result = null;
+        try {
+          const objId = new ObjectId(clientId);
+          result = await collection.updateOne(
+            { _id: objId },
+            { 
+              $set: { 
+                [`lineas_status.${lineIndex}`]: String(status).toUpperCase(),
+                actualizadoEn: new Date() 
+              } 
+            }
+          );
+          if (result.modifiedCount > 0) {
+            updated = true;
+            console.log(`[API PUT /lineas-team/line-status] Status de línea ${lineIndex} actualizado en ${colName}`);
+            break;
+          }
+        } catch (e) {
+          // Intentar con string
+          result = await collection.updateOne(
+            { _id: clientId },
+            { 
+              $set: { 
+                [`lineas_status.${lineIndex}`]: String(status).toUpperCase(),
+                actualizadoEn: new Date() 
+              } 
+            }
+          );
+          if (result.modifiedCount > 0) {
+            updated = true;
+            console.log(`[API PUT /lineas-team/line-status] Status de línea ${lineIndex} actualizado en ${colName}`);
+            break;
+          }
+        }
+      } catch (e) {
+        console.error(`[API PUT /lineas-team/line-status] Error en colección ${colName}:`, e);
+      }
+    }
+    
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+    }
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: `Status de línea ${lineIndex + 1} actualizado a ${status}`
+    });
+    
+  } catch (error) {
+    console.error('[API PUT /lineas-team/line-status] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el status de la línea', error: error.message });
+  }
+});
+
 router.post('/seed-lineas-leads', protect, async (req, res) => {
   try {
     const user = req.user;
@@ -5862,6 +5964,117 @@ router.get('/comisiones/agentes-lineas', protect, async (req, res) => {
   } catch (error) {
     console.error('[API /comisiones/agentes-lineas] Error:', error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/leads-lineas
+ * @desc Obtener datos de Team Líneas desde la base de datos TEAM_LINEAS
+ * @access Private
+ */
+router.get('/leads-lineas', protect, async (req, res) => {
+  console.log('[API /leads-lineas] ===== INICIO PETICIÓN =====');
+  console.log('[API /leads-lineas] Usuario:', req.user?.username, 'Role:', req.user?.role);
+  
+  try {
+    const dbTL = getDbFor('TEAM_LINEAS');
+    if (!dbTL) {
+      console.warn('[API /leads-lineas] No se pudo conectar a la base de datos TEAM_LINEAS');
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Base de datos TEAM_LINEAS no disponible' 
+      });
+    }
+
+    // Obtener todas las colecciones de TEAM_LINEAS
+    const collectionNames = await __getTeamLineasCollectionsCached(dbTL);
+    console.log('[API /leads-lineas] Colecciones encontradas:', collectionNames);
+
+    if (!collectionNames || collectionNames.length === 0) {
+      console.warn('[API /leads-lineas] No hay colecciones en TEAM_LINEAS');
+      return res.json({ success: true, data: [] });
+    }
+
+    // Obtener parámetros de filtro
+    const { supervisor, fechaInicio, fechaFin, month, allData } = req.query;
+    
+    // Construir filtro de fechas
+    let dateFilter = {};
+    if (!allData) {
+      if (month && /^\d{4}-\d{2}$/.test(month)) {
+        const [year, monthNum] = month.split('-').map(Number);
+        const daysInMonth = new Date(year, monthNum, 0).getDate();
+        const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
+        const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+        dateFilter = {
+          $or: [
+            { dia_venta: { $gte: startDate, $lte: endDate } },
+            { fecha_venta: { $gte: startDate, $lte: endDate } },
+            { createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+          ]
+        };
+      } else if (fechaInicio && fechaFin) {
+        dateFilter = {
+          $or: [
+            { dia_venta: { $gte: fechaInicio, $lte: fechaFin } },
+            { fecha_venta: { $gte: fechaInicio, $lte: fechaFin } },
+            { createdAt: { $gte: new Date(fechaInicio), $lte: new Date(fechaFin) } }
+          ]
+        };
+      }
+    }
+
+    // Recolectar datos de todas las colecciones
+    const allLeads = [];
+    
+    for (const colName of collectionNames) {
+      try {
+        const col = dbTL.collection(colName);
+        
+        // Construir query
+        let query = { ...dateFilter };
+        
+        // Filtrar por supervisor si se especifica
+        if (supervisor) {
+          query.supervisor = supervisor;
+        }
+        
+        const docs = await col.find(query).toArray();
+        
+        // Agregar información de la colección (nombre del agente)
+        const docsWithMeta = docs.map(doc => ({
+          ...doc,
+          _id: doc._id ? String(doc._id) : doc.id,
+          nombre_agente: doc.nombre_agente || doc.agenteNombre || doc.agente || colName,
+          _collection: colName
+        }));
+        
+        allLeads.push(...docsWithMeta);
+        
+        console.log(`[API /leads-lineas] Colección ${colName}: ${docs.length} registros`);
+      } catch (colErr) {
+        console.warn(`[API /leads-lineas] Error en colección ${colName}:`, colErr.message);
+      }
+    }
+
+    console.log(`[API /leads-lineas] Total de registros: ${allLeads.length}`);
+    
+    return res.json({ 
+      success: true, 
+      data: allLeads,
+      meta: {
+        totalRecords: allLeads.length,
+        collections: collectionNames.length,
+        filters: { supervisor, fechaInicio, fechaFin, month }
+      }
+    });
+
+  } catch (error) {
+    console.error('[API /leads-lineas] Error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 

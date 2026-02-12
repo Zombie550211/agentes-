@@ -623,6 +623,8 @@
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
+      { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: 'TEAM LINEAS/COSTUMER-LINEAS.html', roles: adminBackofficeRoles },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: 'TEAM LINEAS/ESTADISTICAS-LINEAS.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'rankingAgente.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },

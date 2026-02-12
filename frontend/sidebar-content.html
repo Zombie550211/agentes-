@@ -18,6 +18,7 @@
   <ul class="menu">
     <li><a href="inicio.html" class="btn btn-sidebar" title="Inicio"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
     <li><a href="Ranking y Promociones.html" class="btn btn-sidebar" title="Ranking y Promociones"><i class="fas fa-trophy"></i><span class="menu-label">Ranking y Promociones</span></a></li>
+    <li id="costumer-lineas-menu" style="display:none;"><a href="costumer-lineas.html" class="btn btn-sidebar" title="Costumer Líneas"><i class="fas fa-phone"></i><span class="menu-label">Costumer Líneas</span></a></li>
     <li><a href="lead.html" class="btn btn-sidebar" title="Lead"><i class="fas fa-user-plus"></i><span class="menu-label">Lead</span></a></li>
     <li><a href="Costumer.html" class="btn btn-sidebar" title="Costumer"><i class="fas fa-users"></i><span class="menu-label">Costumer</span></a></li>
     <li><a href="facturacion.html" class="btn btn-sidebar" title="Facturación"><i class="fas fa-file-invoice-dollar"></i><span class="menu-label">Facturación</span></a></li>
@@ -32,3 +33,38 @@
   <!-- Frase al pie -->
   <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
 </nav>
+
+<script>
+  // Verificar rol y mostrar/ocultar botón "Costumer Líneas"
+  (function() {
+    try {
+      const costumerLineasMenu = document.getElementById('costumer-lineas-menu');
+      if (!costumerLineasMenu) return;
+
+      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const roleRaw = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
+      
+      // Permitir visualización para Administrador y Back office
+      const allowedRoles = new Set([
+        'admin',
+        'administrador',
+        'administrator',
+        'backoffice',
+        'back office',
+        'back_office',
+        'bo',
+        'b.o',
+        'b:o',
+        'b-o'
+      ]);
+
+      if (allowedRoles.has(roleRaw)) {
+        costumerLineasMenu.style.display = 'block';
+      } else {
+        costumerLineasMenu.style.display = 'none';
+      }
+    } catch (error) {
+      console.warn('[Sidebar] Error verificando rol para Costumer Líneas:', error);
+    }
+  })();
+</script>

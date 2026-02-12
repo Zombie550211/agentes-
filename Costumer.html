@@ -30,28 +30,28 @@
           if (typeof window.openDateFilterPopup === 'function') {
             window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
           } else {
-            console.warn('openDateFilterPopup no está disponible todavía');
+            console.warn('openDateFilterPopup no estÃ¡ disponible todavÃ­a');
           }
         } catch(err) { console.error('date-filter delegated click error', err); }
       });
     </script>
   <script>
             function rebuildStickyHead(){ 
-              // Función deshabilitada temporalmente para evitar errores de DOM
+              // FunciÃ³n deshabilitada temporalmente para evitar errores de DOM
               // El sticky head no es crÃ­tico para la funcionalidad del filtro
               return;
         }
         // expose globally to re-run after rendering
         window.rebuildStickyHead = rebuildStickyHead;
 
-    // Edición por clave local cuando el lead no tiene _id/id (por ejemplo, datos inyectados temporalmente)
+    // EdiciÃ³n por clave local cuando el lead no tiene _id/id (por ejemplo, datos inyectados temporalmente)
     window.editarLeadKey = function(key) {
       try {
-        if (!key) { alert('Error: No se proporcionó clave local'); return null; }
+        if (!key) { alert('Error: No se proporcionÃ³ clave local'); return null; }
         const map = (window.__leadKeyMap instanceof Map) ? window.__leadKeyMap : null;
         if (!map) { console.warn('editarLeadKey: no hay mapa de leads locales'); return null; }
         const lead = map.get(key);
-        if (!lead) { alert('Error: No se encontró el registro local'); return null; }
+        if (!lead) { alert('Error: No se encontrÃ³ el registro local'); return null; }
         try {
           const lid = (typeof extractLeadId === 'function') ? String(extractLeadId(lead) || '').trim() : '';
           if (!(/^[a-fA-F0-9]{24}$/).test(lid)) {
@@ -74,11 +74,11 @@
 
     window.eliminarLeadKey = async function(key) {
       try {
-        if (!key) { alert('Error: No se proporcionó clave local'); return false; }
+        if (!key) { alert('Error: No se proporcionÃ³ clave local'); return false; }
         const map = (window.__leadKeyMap instanceof Map) ? window.__leadKeyMap : null;
         if (!map) { console.warn('eliminarLeadKey: no hay mapa de leads locales'); return false; }
         const lead = map.get(key);
-        if (!lead) { alert('Error: No se encontró el registro local'); return false; }
+        if (!lead) { alert('Error: No se encontrÃ³ el registro local'); return false; }
         const id = (typeof getLeadId === 'function') ? getLeadId(lead) : (lead?._id?.$oid || lead?._id || lead?.id || '');
         const cleanId = String(id || '').trim();
         if (!cleanId) {
@@ -137,7 +137,7 @@
               clearTimeout(hideTO);
               hideTO = setTimeout(() => {
                 if (document.body) document.body.classList.remove('show-sidebar');
-              }, 200); // pequeño delay para evitar parpadeos
+              }, 200); // pequeÃ±o delay para evitar parpadeos
             };
 
             zone?.addEventListener('mouseenter', show);
@@ -175,8 +175,8 @@
         return l.servicios_texto || l.tipo_servicios || l.servicios || l.producto || '';
       }
     // normDate ahora se carga desde js/date-formatter.js
-    function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÃ“N','DÃA DE VENTA','DÃA DE INSTALACIÃ“N','STATUS','CANTIDAD DE LÃNEAS','TELÉFONOS DE LAS LÃNEAS','ID','SUPERVISOR','MERCADO']; }
-    // NormalizaciónÃ³n de nombres de agente (alias -> canónico)
+    function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONOÃ‰FONO PRINCIPAL','NÃšMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÃ“N','DÃA DE VENTA','DÃA DE INSTALACIÃ“N','STATUS','CANTIDAD DE LÃNEAS','TELÃ‰FONOS DE LAS LÃNEAS','ID','SUPERVISOR','MERCADO']; }
+    // NormalizaciÃ³n de nombres de agente (alias -> canÃ³nico)
     function __normStrAgent(s){
       try {
         return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/\s+/g,'').replace(/\./g,'');
@@ -217,7 +217,7 @@
 
       function makeTrFromLead(l) {
         const autop = (l.autopay ?? l.autopago);
-        const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : (String(autop || '').toUpperCase() === 'NO' ? 'No' : String(autop || '')));
+        const autopTxt = typeof autop === 'boolean' ? (autop ? 'SÃ­' : 'No') : (String(autop || '').toUpperCase() === 'SI' ? 'SÃ­' : (String(autop || '').toUpperCase() === 'NO' ? 'No' : String(autop || '')));
         const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : (Array.isArray(l.telefonos) ? l.telefonos.length : '');
         const statusRaw = (l.status || '').toString();
         const statusNorm = statusRaw.trim().toLowerCase();
@@ -599,7 +599,7 @@
         }catch {}
       }
 
-      // Función para forzar recoloreo completo (Ãºtil despuÃ©s de cambios de tema)
+      // FunciÃ³n para forzar recoloreo completo (Ãºtil despuÃ©s de cambios de tema)
       window.forceRecolorAllRows = function() {
         try {
           const tbody = document.getElementById('costumer-tbody');
@@ -769,7 +769,7 @@
         console.error('Theme observer setup failed:', e);
       }
 
-      // Función de debug para verificar colores
+      // FunciÃ³n de debug para verificar colores
       window.debugThemeColors = function() {
         try {
           console.log('=== DEBUG THEME COLORS ===');
@@ -837,7 +837,7 @@
         }
       }, 3000);
 
-      // Función para forzar normalizaciÃ³n de multimedia
+      // FunciÃ³n para forzar normalizaciÃ³n de multimedia
       window.normalizeMultimediaElement = function() {
         try {
           const multimediaElements = document.querySelectorAll(
@@ -957,7 +957,7 @@
   
   <!-- Script inmediato para normalizar multimedia -->
   <script>
-    // Función global para normalizar multimedia
+    // FunciÃ³n global para normalizar multimedia
     window.forceNormalizeMultimedia = function() {
       console.log('ðŸŽ¬ [IMMEDIATE] Ejecutando normalizaciÃ³n inmediata de multimedia...');
       
@@ -1462,7 +1462,7 @@
       max-width: 100%;
     }
 
-    /* Select de STATUS: pequeño y ajustado al texto */
+    /* Select de STATUS: pequeÃ±o y ajustado al texto */
     .costumer-table td:nth-child(9) select {
       width: auto !important;
       min-width: 84px;
@@ -1516,7 +1516,7 @@
       max-width: 140px;
     }
 
-    /* VersiÃ³n aÃºn mÃ¡s compacta cuando el contenedor está en modo compacto */
+    /* VersiÃ³n aÃºn mÃ¡s compacta cuando el contenedor estÃ¡ en modo compacto */
     .costumer-table-container.compact .costumer-table th:nth-child(6),
     .costumer-table-container.compact .costumer-table td:nth-child(6) {
       max-width: 160px;
@@ -2044,7 +2044,7 @@
   </style>
 <body>
   <div class="layout">
-    <!-- SIDEBAR (cargado dinámicamente) -->
+    <!-- SIDEBAR (cargado dinÃ¡micamente) -->
     <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
     <script>
       // InyecciÃ³n de Teams y Usuarios en el Sidebar
@@ -2515,13 +2515,6 @@
               <option value="hold">Hold</option>
               <option value="rescheduled">Rescheduled</option>
             </select>
-            <label for="dateFrom">Desde</label>
-            <input id="dateFrom" type="date" class="costumer-filter-input" style="min-width:150px;" />
-            <label for="dateTo">Hasta</label>
-            <input id="dateTo" type="date" class="costumer-filter-input" style="min-width:150px;" />
-            <button id="btnClearDates" class="action-btn" title="Limpiar fechas" style="background:#64748b;">
-              <i class="fas fa-times"></i>
-            </button>
             <label for="recuentoCount">Recuento</label>
             <input id="recuentoCount" class="costumer-filter-input" type="text" value="0" readonly style="width: 90px; text-align: center; font-weight: 700;" />
             <button id="scroll-left" class="action-btn" title="Desplazar a la izquierda">
@@ -3106,7 +3099,7 @@
           </div>
           <!-- Contenedor de notas dinÃ¡mico -->
           <div id="edit-notes-list" style="max-height: none; overflow-y: visible; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb;">
-            <!-- Las notas se cargarÃ¡n aquÃ­ dinámicamente -->
+            <!-- Las notas se cargarÃ¡n aquÃ­ dinÃ¡micamente -->
           </div>
         </div>
       </div>
@@ -3233,8 +3226,8 @@
     // Registrar ChartDataLabels de forma idempotente y defensiva para evitar registros dobles
     (function(){
       try{
-        if (typeof Chart === 'undefined') { console.warn('Chart no está definido al registrar plugins (Costumer.html)'); return; }
-        if (typeof ChartDataLabels === 'undefined') { console.warn('ChartDataLabels no está definido al intentar registrar (Costumer.html)'); return; }
+        if (typeof Chart === 'undefined') { console.warn('Chart no estÃ¡ definido al registrar plugins (Costumer.html)'); return; }
+        if (typeof ChartDataLabels === 'undefined') { console.warn('ChartDataLabels no estÃ¡ definido al intentar registrar (Costumer.html)'); return; }
         // Intentar limpiar registros previos del plugin por id si la estructura lo permite
         try {
           if (Chart && Chart.registry && Chart.registry.plugins && Array.isArray(Chart.registry.plugins.items)) {
@@ -3251,7 +3244,7 @@
             try { ChartDataLabels.__registeredWithChart = true; } catch(_){ }
             console.log('ChartDataLabels registrado (idempotente) en Costumer.html');
           } else {
-            console.warn('No se encontró mÃ©todo Chart.register para registrar plugins (Costumer.html)');
+            console.warn('No se encontrÃ³ mÃ©todo Chart.register para registrar plugins (Costumer.html)');
           }
         } catch(e){ console.warn('Error registrando ChartDataLabels (Costumer.html):', e); }
       }catch(e){ console.warn('Registro ChartDataLabels fallo (Costumer.html):', e); }
@@ -3259,7 +3252,7 @@
   </script>
   <script src="utils/teams.js"></script>
   <script>
-    // Función para crear toolbar de supervisor
+    // FunciÃ³n para crear toolbar de supervisor
     window.createSupervisorToolbar = function(leads) {
       // Deshabilitado temporalmente: no renderizar barra de filtros por agente para supervisores
       return;
@@ -3795,7 +3788,7 @@
           // Aplicar encabezado Team LÃ­neas
           const thead = document.querySelector('.costumer-table thead');
           if (thead) {
-            const headers = ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÃ“N','DÃA DE VENTA','DÃA DE INSTALACIÃ“N','STATUS','CANTIDAD DE LÃNEAS','TELÉFONOS DE LAS LÃNEAS','ID','SUPERVISOR','MERCADO'];
+            const headers = ['NOMBRE CLIENTE','TELÃ‰FONO PRINCIPAL','NÃšMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÃ“N','DÃA DE VENTA','DÃA DE INSTALACIÃ“N','STATUS','CANTIDAD DE LÃNEAS','TELÃ‰FONOS DE LAS LÃNEAS','ID','SUPERVISOR','MERCADO'];
             thead.innerHTML = `<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
           }
           
@@ -3807,8 +3800,8 @@
             
             arr.forEach(l => {
               const autop = (l.autopay ?? l.autopago);
-              const autopTxt = typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : 
-                              (String(autop||'').toUpperCase() === 'SI' ? 'Sí' : 
+              const autopTxt = typeof autop === 'boolean' ? (autop ? 'SÃ­' : 'No') : 
+                              (String(autop||'').toUpperCase() === 'SI' ? 'SÃ­' : 
                               (String(autop||'').toUpperCase() === 'NO' ? 'No' : String(autop||'')));
               
               const cant = (l.cantidad_lineas != null) ? l.cantidad_lineas : 
@@ -4032,7 +4025,7 @@
           const now = new Date();
           const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-          // Si el mes actual no existe en el select (porque las opciones están hardcodeadas), agregarlo.
+          // Si el mes actual no existe en el select (porque las opciones estÃ¡n hardcodeadas), agregarlo.
           const hasOption = Array.from(monthFilterEl.options || []).some(o => String(o.value) === currentMonth);
           if (!hasOption) {
             const opt = document.createElement('option');
@@ -4081,7 +4074,7 @@
           console.error('[INIT] Error cargando datos:', err);
         });
       } else {
-        console.warn('[INIT] fetchLeadsAgente no está definido');
+        console.warn('[INIT] fetchLeadsAgente no estÃ¡ definido');
       }
 
       try {
@@ -4227,7 +4220,7 @@
           }
         }
 
-        // NormalizaciónÂ¨Â®n y render tipo chat
+        // NormalizaciÂ¨Â®n y render tipo chat
         const usuario = obtenerUsuarioActual();
         const mensajes = (comments || []).map(c => ({
           autor: c.autor || c.user || 'Desconocido',
@@ -4445,7 +4438,7 @@
     // Variable global para almacenar los leads
     window.ultimaListaLeads = [];
     
-    // NormalizaciónÂ¨Â®n de leads desde el backend a la estructura usada en frontend
+    // NormalizaciÂ¨Â®n de leads desde el backend a la estructura usada en frontend
     function escapeAttr(s) {
       try {
         return String(s)
@@ -5035,6 +5028,107 @@
       }
     }
 
+    // Función para recargar un lead específico desde servidor y actualizar tabla
+    window.reloadLeadsAfterSave = async function() {
+      console.log('[reloadLeadsAfterSave] Iniciando recarga inteligente de lead...');
+      try {
+        const leadIdRaw = document.getElementById('edit-id')?.value || '';
+        const leadId = String(leadIdRaw).trim();
+        
+        if (!leadId) {
+          console.warn('[reloadLeadsAfterSave] Sin ID de lead, forzando recarga completa desde servidor');
+          // Si no hay ID, hacer recarga completa de la página
+          if (typeof fetchLeadsAgente === 'function') {
+            await fetchLeadsAgente(window.__page || 1);
+          } else {
+            location.reload();
+            return false;
+          }
+          return true;
+        }
+        
+        // Fetch fresco del lead guardado directamente desde servidor (sin cache)
+        console.log('[reloadLeadsAfterSave] Obteniendo lead fresco desde servidor:', leadId);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        let freshLead = null;
+        try {
+          const getUrl = `/api/leads/${encodeURIComponent(leadId)}`;
+          const getFetch = await fetch(getUrl, {
+            method: 'GET',
+            credentials: 'include',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          });
+          
+          if (getFetch.ok) {
+            const getResp = await getFetch.json();
+            freshLead = getResp?.customer || getResp?.data || getResp;
+            console.log('[reloadLeadsAfterSave] ✅ Lead fresco obtenido:', freshLead);
+          } else {
+            console.warn('[reloadLeadsAfterSave] GET falló con status:', getFetch.status);
+          }
+        } catch (e) {
+          console.warn('[reloadLeadsAfterSave] Error obteniendo lead fresco:', e?.message);
+        }
+        
+        // Actualizar en caché local con los datos frescos del servidor
+        if (freshLead && window.ultimaListaLeads && Array.isArray(window.ultimaListaLeads)) {
+          try {
+            const idx = window.ultimaListaLeads.findIndex(l => {
+              const lid = (typeof extractLeadId === 'function') ? String(extractLeadId(l) || '').trim() : String(l?._id || l?.id || '').trim();
+              return lid === leadId;
+            });
+            
+            if (idx >= 0) {
+              console.log('[reloadLeadsAfterSave] Actualizando registro en caché local con datos frescos, índice:', idx);
+              // Reemplazar completamente con datos frescos del servidor
+              window.ultimaListaLeads[idx] = Object.assign({}, window.ultimaListaLeads[idx], freshLead);
+              console.log('[reloadLeadsAfterSave] ✅ Lead actualizado en caché con datos frescos');
+            }
+          } catch (e) {
+            console.warn('[reloadLeadsAfterSave] Error actualizando caché local:', e);
+          }
+        }
+        
+        // CRÍTICO: Actualizar también el objeto de edición en memoria
+        // Esto asegura que si el usuario reabre el modal sin recargar la página, tenga datos frescos
+        if (freshLead && window.__currentEditingLead) {
+          try {
+            console.log('[reloadLeadsAfterSave] Actualizando window.__currentEditingLead con datos frescos del servidor');
+            Object.assign(window.__currentEditingLead, freshLead);
+            console.log('[reloadLeadsAfterSave] ✅ window.__currentEditingLead actualizado con agenteNombre =', freshLead.agenteNombre);
+          } catch (e) {
+            console.warn('[reloadLeadsAfterSave] Error actualizando __currentEditingLead:', e);
+          }
+        }
+        
+        // Refrescar la tabla
+        try {
+          if (typeof renderCostumerTable === 'function') {
+            console.log('[reloadLeadsAfterSave] Refrescando tabla con datos actualizados...');
+            renderCostumerTable(window.ultimaListaLeads);
+            console.log('[reloadLeadsAfterSave] ✅ Tabla refrescada exitosamente');
+          }
+        } catch (e) {
+          console.error('[reloadLeadsAfterSave] Error refrescando tabla:', e);
+          // Fallback: hacer fetch completo desde servidor si hay error
+          console.log('[reloadLeadsAfterSave] Fallback: recargando página completa');
+          if (typeof fetchLeadsAgente === 'function') {
+            await fetchLeadsAgente(window.__page || 1);
+          } else {
+            location.reload();
+            return false;
+          }
+        }
+        
+        console.log('[reloadLeadsAfterSave] ✅ Completado exitosamente');
+        return true;
+      } catch (e) {
+        console.error('[reloadLeadsAfterSave] Error general:', e);
+        return false;
+      }
+    };
+
     async function fetchLeadsAgente(page = __page) {
       console.log('[fetchLeadsAgente] Iniciando carga de datos...');
       console.log('[fetchLeadsAgente] User role:', JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}').role);
@@ -5072,7 +5166,7 @@
         })();
         const effectiveSelectedMonth = uiMonth || stateMonth;
         try { window.__selectedMonth = effectiveSelectedMonth || ''; } catch (_) {}
-        const __bypassPrecache = !!effectiveSelectedMonth;
+        const __bypassPrecache = !!effectiveSelectedMonth || !!window.__bypassCache;
 
         // FAST PATH: Intentar cargar desde cache precalentado en login
         const cachedCustomers = null;
@@ -5091,7 +5185,7 @@
           // Actualizar los KPIs con los datos del cache
           updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
           
-          // Cargar columnas adicionales si están disponibles
+          // Cargar columnas adicionales si estÃ¡n disponibles
           try {
             if (typeof initializeSpecialColumns === 'function') initializeSpecialColumns();
           } catch (e) { /* no-op */ }
@@ -5484,7 +5578,7 @@
               }
             }
             
-            // Si no encontró por ID, intentar por nombre (Ãºltimo resort)
+            // Si no encontrÃ³ por ID, intentar por nombre (Ãºltimo resort)
             if (!acc.length && names.length > 0) {
               for (const nm of names) {
                 const byName = await fetchLeadsByAgentName(nm);
@@ -5502,7 +5596,7 @@
         }
 
         // OPTIMIZACIÃ“N: Con limit=50000, el backend retorna TODO en una sola pÃ¡gina
-        // Si totalPages > 1, algo está mal en el backend (exceso de datos)
+        // Si totalPages > 1, algo estÃ¡ mal en el backend (exceso de datos)
         // No hacer paginaciÃ³n manual: es un anti-patrÃ³n
         try {
           const totalPages = Number(data?.pages || data?.pagination?.totalPages || 1);
@@ -5753,7 +5847,7 @@
           }
           const supName = (userData.name || userData.nombre || userData.username || userData?.usuario?.name || userData?.usuario?.nombre || '').toString();
           // Intentar obtener agentes desde la API local (fuente autoritativa) primero, y caer
-          // en el wrapper `window.Teams` si la API no está disponible o no devuelve agentes.
+          // en el wrapper `window.Teams` si la API no estÃ¡ disponible o no devuelve agentes.
           let agents = [];
           const norm = (window.Teams && window.Teams.norm) || ((s)=>String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim());
           const canonicalFromName = (window.Teams && window.Teams.canonicalFromName) || ((name)=> norm(name));
@@ -5802,7 +5896,7 @@
             console.log('[Filtro rol=supervisor][diagnostico] supName=', supName, 'agents=', Array.isArray(agents)?agents.length:agents, 'agentsSample=', (Array.isArray(agents)?agents.slice(0,10):agents), 'leadSupervisorSample=', sample.slice(0,10));
           } catch(_) {}
             if (Array.isArray(agents) && agents.length) {
-            // Conjunto de agentes canónicos del supervisor
+            // Conjunto de agentes canÃ³nicos del supervisor
             const teamAgentsCanon = new Set((agents || []).map(a => canonicalFromName(a)));
             const getName = (l) => {
               if (typeof getAgentName === 'function') return getAgentName(l);
@@ -5912,7 +6006,7 @@
             window.createSupervisorToolbar(normalizedLeads);
             console.log('ðŸ”§ [fetchLeadsAgente] createSupervisorToolbar ejecutada');
         } else {
-            console.error('âŒ [fetchLeadsAgente] createSupervisorToolbar NO está disponible');
+            console.error('âŒ [fetchLeadsAgente] createSupervisorToolbar NO estÃ¡ disponible');
             console.log('ðŸ”§ [fetchLeadsAgente] Verificando funciones disponibles:', Object.keys(window).filter(k => k.includes('create')));
         }
         
@@ -6173,10 +6267,10 @@
         });
     }
 
-    // Función para formatear fechas con el formato 'dÃ­a_de_la_semana nÃºmero_del_dÃ­a' (ej: 'miÃ© 13')
+    // FunciÃ³n para formatear fechas con el formato 'dÃ­a_de_la_semana nÃºmero_del_dÃ­a' (ej: 'miÃ© 13')
     function formatearFechaSinDesfase(fechaStr) {
       try {
-        // Usar utilidad centralizada si está disponible
+        // Usar utilidad centralizada si estÃ¡ disponible
         if (window.DateUtils && window.DateUtils.formatShortDate) {
           return window.DateUtils.formatShortDate(fechaStr);
         }
@@ -6814,8 +6908,8 @@
           <td>${lead.numero_cuenta || 'N/A'}</td>
           <td>${(() => {
             const autop = lead.autopay ?? lead.autopago;
-            return typeof autop === 'boolean' ? (autop ? 'Sí' : 'No') : 
-                   (String(autop || '').toUpperCase() === 'SI' ? 'Sí' : 
+            return typeof autop === 'boolean' ? (autop ? 'SÃ­' : 'No') : 
+                   (String(autop || '').toUpperCase() === 'SI' ? 'SÃ­' : 
                    (String(autop || '').toUpperCase() === 'NO' ? 'No' : (autop || 'N/A')));
           })()}</td>
           <td>${lead.direccion || 'N/A'}</td>
@@ -7080,7 +7174,7 @@
             const beforeFilter = list.length;
             const selectedTeamNorm = selectedTeam.toLowerCase().trim();
             
-            // Verificar si la lista ya está filtrada por este supervisor
+            // Verificar si la lista ya estÃ¡ filtrada por este supervisor
             const supervisorsInList = [...new Set(list.map(l => (l?.supervisor || '').toLowerCase().trim()))];
             const alreadyFiltered = supervisorsInList.length === 1 && supervisorsInList[0] === selectedTeamNorm;
             
@@ -7552,7 +7646,7 @@
                 console.log('[RENDER DEBUG] firstRow styles:', { display: cs.display, visibility: cs.visibility, color: cs.color, background: cs.backgroundColor, offsetHeight: firstRow.offsetHeight });
               } catch(e){ console.warn('[RENDER DEBUG] error leyendo estilos firstRow', e); }
             } else {
-              console.warn('[RENDER DEBUG] No se encontró primera fila no-separador');
+              console.warn('[RENDER DEBUG] No se encontrÃ³ primera fila no-separador');
             }
           } catch(e) { console.warn('[RENDER DEBUG] error conteo filas:', e); }
         }, 250);
@@ -7883,7 +7977,7 @@
               const tbodyEl = document.getElementById('costumer-tbody');
               console.log('[Toolbar Supervisor] tbodyEl encontrado:', !!tbodyEl);
               if (!tbodyEl) {
-                console.warn('[Toolbar Supervisor] No se encontró el elemento costumer-tbody, abortando creaciÃ³n de toolbar');
+                console.warn('[Toolbar Supervisor] No se encontrÃ³ el elemento costumer-tbody, abortando creaciÃ³n de toolbar');
                 return;
               }
               const tableEl = tbodyEl.closest('table');
@@ -8478,7 +8572,7 @@
       }
     };
 
-    // Función para actualizar las tarjetas de resumen
+    // FunciÃ³n para actualizar las tarjetas de resumen
     function updateSummaryCards(leads) {
       // Obtener referencias a los elementos del DOM primero
       const ventasHoyElement = document.getElementById('costumer-ventas-hoy');
@@ -8689,7 +8783,7 @@
         console.log('Fecha actual:', hoy.toLocaleDateString());
         
         // Normalizar fechas con la misma lÂ¨Â®gica de las grÂ¨Â¢ficas (zona horaria de negocio)
-        // (las variables todayISO, yNow y mNow ya están definidas arriba)
+        // (las variables todayISO, yNow y mNow ya estÃ¡n definidas arriba)
 
         // Procesar cada lead
         leads.forEach(lead => {
@@ -8751,7 +8845,7 @@
                 }
               }
             }
-            // DEBUG: mostrar en consola cÃ³mo se están filtrando estos KPIs
+            // DEBUG: mostrar en consola cÃ³mo se estÃ¡n filtrando estos KPIs
             if (isPending || isCancel || isActive) {
               console.log('[KPI-DEBUG]', {
                 status,
@@ -9158,7 +9252,7 @@
     window.editarLead = async function(id) {
       console.log('Editar lead:', id);
       if (!id) {
-        alert('Error: No se proporcionó un ID vÃ¡lido');
+        alert('Error: No se proporcionÃ³ un ID vÃ¡lido');
         return;
       }
       try {
@@ -9286,8 +9380,6 @@
         try {
           const forced = String(forcedId || '').trim();
           if ((/^[a-fA-F0-9]{24}$/).test(forced)) return forced;
-          // Importante: NO tomar cualquier 24-hex del JSON (puede ser agenteId/supervisorId).
-          // Solo aceptar el _id real del lead.
           if (typeof extractLeadId === 'function') {
             const id = String(extractLeadId(lead) || '').trim();
             return (/^[a-fA-F0-9]{24}$/).test(id) ? id : '';
@@ -9302,6 +9394,44 @@
           return '';
         }
       })();
+
+      // CRÍTICO: Obtener datos FRESCOS del servidor ANTES de abrir el modal
+      // Esto asegura que siempre vemos la versión más reciente
+      if (leadId) {
+        (async () => {
+          try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const freshRes = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            
+            if (freshRes.ok) {
+              const freshData = await freshRes.json();
+              // Usar los datos frescos en lugar del objeto cacheado
+              lead = freshData?.customer || freshData?.data || freshData || lead;
+              console.log('[abrirModalEdicion] Datos frescos obtenidos del servidor para lead:', leadId);
+              // Ahora rellenar el modal con datos frescos
+              rellenarModalEdicion(lead, leadId);
+              return;
+            }
+          } catch (e) {
+            console.warn('[abrirModalEdicion] No se pudieron obtener datos frescos, usando cache:', e?.message);
+          }
+          
+          // Fallback: usar datos del cache si hay error
+          rellenarModalEdicion(lead, leadId);
+        })();
+      } else {
+        // Si no hay ID, rellenar con lo que tenemos
+        rellenarModalEdicion(lead, leadId);
+      }
+    }
+
+    function rellenarModalEdicion(lead, leadId) {
+      const modal = document.getElementById('editarModal');
+      if (!modal) return;
 
       const editIdEl = document.getElementById('edit-id');
       if (editIdEl) editIdEl.value = leadId;
@@ -9490,7 +9620,7 @@
     }
 
     (function initSocketIO() {
-      // Cargar Socket.io cliente desde CDN si no está disponible localmente
+      // Cargar Socket.io cliente desde CDN si no estÃ¡ disponible localmente
       function loadSocketIO(src, fallback) {
         const script = document.createElement('script');
         script.src = src;
@@ -9704,7 +9834,7 @@
         if (Notification.permission === 'granted') {
           // Enviar notificaciÃ³n de prueba
           window.NotificationSystem.show('ðŸ”” Notificaciones Activas', {
-            body: 'Las notificaciones están funcionando correctamente'
+            body: 'Las notificaciones estÃ¡n funcionando correctamente'
           });
           return;
         }
@@ -9739,7 +9869,7 @@
       setTimeout(initNotificationButton, 100);
     }
 
-    // Función helper para crear una tarjeta de nota con botones
+    // FunciÃ³n helper para crear una tarjeta de nota con botones
     function createNoteCard(note, index) {
       const div = document.createElement('div');
       div.className = 'note-card';
@@ -9905,7 +10035,7 @@
       });
     }
 
-    // Función para editar una nota (usa el textarea de agregar nota)
+    // FunciÃ³n para editar una nota (usa el textarea de agregar nota)
     window.__editingNoteIndex = null;
     
     window.editarNota = function(index) {
@@ -9925,14 +10055,14 @@
         textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       
-      // Cambiar botÃ³n a "Guardar Edición"
+      // Cambiar botÃ³n a "Guardar EdiciÃ³n"
       if (btn) {
-        btn.innerHTML = '<i class="fas fa-save"></i> Guardar Edición';
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar EdiciÃ³n';
         btn.setAttribute('onclick', 'guardarEdicionNota()');
         btn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
       }
       
-      // Guardar Ã­ndice de la nota que se está editando
+      // Guardar Ã­ndice de la nota que se estÃ¡ editando
       window.__editingNoteIndex = index;
     };
 
@@ -10026,7 +10156,7 @@
       }
     };
 
-    // Función para eliminar una nota
+    // FunciÃ³n para eliminar una nota
     window.eliminarNota = async function(index) {
       if (!confirm('Â¿EstÃ¡s seguro de eliminar esta nota?')) return;
       
@@ -10317,7 +10447,7 @@
       }
     };
 
-    // Función para refrescar notas desde el servidor
+    // FunciÃ³n para refrescar notas desde el servidor
     window.refrescarNotasLead = async function() {
       try {
         const leadId = (() => {
@@ -10386,7 +10516,7 @@
       }
     };
 
-    // Función para cerrar el modal de ediciÃ³n
+    // FunciÃ³n para cerrar el modal de ediciÃ³n
     window.cerrarModalEdicion = function() {
       const modal = document.getElementById('editarModal');
       if (modal) {
@@ -10394,7 +10524,7 @@
       }
     };
 
-    // Función para abrir imagen en modal grande
+    // FunciÃ³n para abrir imagen en modal grande
     window.abrirImagenModal = function(imageUrl) {
       let modal = document.getElementById('imagenGrandeModal');
       if (!modal) {
@@ -10425,13 +10555,13 @@
       modal.style.display = 'flex';
     };
 
-    // Función para cerrar modal de imagen
+    // FunciÃ³n para cerrar modal de imagen
     window.cerrarImagenModal = function() {
       const modal = document.getElementById('imagenGrandeModal');
       if (modal) modal.style.display = 'none';
     };
 
-    // Función para guardar los cambios
+    // FunciÃ³n para guardar los cambios
     // Helper: fetch con timeout usando AbortController
     async function timedFetch(url, opts = {}, timeout = 10000) {
       const controller = new AbortController();
@@ -10471,7 +10601,7 @@
       try {
         const alive = await checkServerAlive(3000);
         if (!alive) {
-          alert('âŒ El servidor no está disponible (conexiÃ³n rechazada o muy lenta). Intenta arrancar el servidor y reintenta.');
+          alert('âŒ El servidor no estÃ¡ disponible (conexiÃ³n rechazada o muy lenta). Intenta arrancar el servidor y reintenta.');
           try { window.__savingLead = false; } catch(_){}
           return;
         }
@@ -10577,17 +10707,29 @@
         };
       } else {
         datosActualizados = {
-          dia_venta: document.getElementById('edit-dia-venta').value,
-          dia_instalacion: document.getElementById('edit-dia-instalacion').value,
-          nombre_cliente: getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
-          telefono_principal: getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
-          direccion: getFromLead('direccion', 'address', 'domicilio'),
-          supervisor: getInput('edit-supervisor') || getFromLead('supervisor', 'SUPERVISOR', 'team', 'Team'),
+          dia_venta: getInput('edit-dia-venta') || getFromLead('dia_venta', 'fecha_contratacion', 'fecha'),
+          dia_instalacion: getInput('edit-dia-instalacion') || getFromLead('dia_instalacion', 'fecha_instalacion'),
+          nombre_cliente: getInput('edit-nombres') || getInput('edit-apellidos') ? 
+            [getInput('edit-nombres'), getInput('edit-apellidos')].filter(Boolean).join(' ').trim() :
+            getFromLead('nombre_cliente', 'nombre', 'name', 'cliente'),
+          telefono_principal: getInput('edit-telefono') || getFromLead('telefono_principal', 'telefono', 'phone', 'tel'),
+          telefono_alterno: getInput('edit-telefono-alt') || getFromLead('telefono_alterno', 'telefono_secundario', 'phone2', 'tel2'),
+          direccion: getInput('edit-direccion') || getFromLead('direccion', 'address', 'domicilio'),
+          supervisor: getInput('edit-supervisor') || getInput('edit-sup') || getFromLead('supervisor', 'SUPERVISOR', 'team', 'Team'),
+          representante: getInput('edit-representante') || getFromLead('representante', 'rep', 'agente'),
           motivo_llamada: getInput('edit-motivo-llamada') || getFromLead('motivo_llamada', 'motivo', 'call_reason', 'reason'),
           comentario: getInput('edit-comentario') || getFromLead('comentario', 'comment', 'comentarios'),
-          servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
-          tipo_servicio: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
-          tipo_servicios: getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto')
+          servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicio: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          tipo_servicios: getInput('edit-servicios') || getFromLead('tipo_servicio', 'tipo_servicios', 'servicios', 'servicios_texto'),
+          status: getInput('edit-status') || getFromLead('status', 'estado'),
+          mercado: getInput('edit-mercado') || getFromLead('mercado', 'market'),
+          riesgo: (getInput('edit-riesgo') || getFromLead('riesgo', 'risk')).toString().toLowerCase(),
+          puntaje: parseFloat(getInput('edit-puntaje') || getFromLead('puntaje', 'score')) || 0,
+          autopago: getInput('edit-autopago') || getFromLead('autopago', 'autoPay'),
+          sistema: getInput('edit-sistema') || getFromLead('sistema', 'system'),
+          numero_cuenta: getInput('edit-numero-cuenta') || getFromLead('numero_cuenta', 'account_number'),
+          zip_code: getInput('edit-zip-code') || getFromLead('zip_code', 'zip')
         };
       }
 
@@ -10743,7 +10885,7 @@
                   // Si no es match fuerte, pedir confirmaciÃ³n explÃ­cita
                   if (!isStrong) {
                     const msg = [
-                      'Se encontró un registro similar para actualizar.',
+                      'Se encontrÃ³ un registro similar para actualizar.',
                       '',
                       `ID en ediciÃ³n: ${originalId || '(vacÃ­o)'}`,
                       `ID encontrado: ${foundId || '(vacÃ­o)'}`,
@@ -10776,8 +10918,26 @@
                   throw new Error('Error al actualizar lead encontrado: ' + (t || putResp.status));
                 }
                 alert('âœ… Registro actualizado exitosamente (coincidencia encontrada)');
+                
+                // Esperar a que el servidor procese completamente el UPDATE
+                await new Promise(r => setTimeout(r, 800));
+                
+                // Recargar datos FORZANDO actualización desde servidor
+                try {
+                  const reloaded = await window.reloadLeadsAfterSave();
+                  if (!reloaded) {
+                    console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
+                    location.reload();
+                    return;
+                  }
+                } catch (e) {
+                  console.error('[guardarCambiosLead] Error recargando leads:', e);
+                  location.reload();
+                  return;
+                }
+                
+                // Cerrar el modal DESPUÉS de recargar los datos
                 cerrarModalEdicion();
-                location.reload();
                 return;
               }
 
@@ -10825,8 +10985,26 @@
                             throw new Error('Error al actualizar la coincidencia: ' + (put2txt || putResp2.status));
                           }
                           alert('âœ… Registro actualizado exitosamente (coincidencia)');
+                          
+                          // Esperar a que el servidor procese completamente el UPDATE
+                          await new Promise(r => setTimeout(r, 800));
+                          
+                          // Recargar datos FORZANDO actualización desde servidor
+                          try {
+                            const reloaded = await window.reloadLeadsAfterSave();
+                            if (!reloaded) {
+                              console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
+                              location.reload();
+                              return;
+                            }
+                          } catch (e) {
+                            console.error('[guardarCambiosLead] Error recargando leads:', e);
+                            location.reload();
+                            return;
+                          }
+                          
+                          // Cerrar el modal DESPUÉS de recargar los datos
                           cerrarModalEdicion();
-                          location.reload();
                           return;
                         }
                       }
@@ -10856,8 +11034,23 @@
                 throw new Error('Error al crear el registro: ' + (postTxt || postResp.status));
               }
               alert('âœ… Registro creado exitosamente');
+              
+              // Recargar datos FORZANDO actualización desde servidor
+              try {
+                const reloaded = await window.reloadLeadsAfterSave();
+                if (!reloaded) {
+                  console.warn('[guardarCambiosLead] reloadLeadsAfterSave falló, recargando página');
+                  location.reload();
+                  return;
+                }
+              } catch (e) {
+                console.error('[guardarCambiosLead] Error recargando leads:', e);
+                location.reload();
+                return;
+              }
+              
+              // Cerrar el modal DESPUÉS de recargar los datos
               cerrarModalEdicion();
-              location.reload();
               return;
             } catch (e) {
               let msg = 'Error tratando 404: ';
@@ -10871,10 +11064,30 @@
           throw new Error(msg);
         }
 
-        alert('âœ… Registro actualizado exitosamente');
-        cerrarModalEdicion();
+        alert('✅ Registro actualizado exitosamente');
 
-        location.reload();
+        // Esperar a que el servidor procese completamente el UPDATE
+        await new Promise(r => setTimeout(r, 800));
+
+        // Recargar datos FORZANDO actualización desde servidor
+        try {
+          console.log('[guardarCambiosLead] FORZANDO recarga completa de datos desde servidor...');
+          if (typeof fetchLeadsAgente === 'function') {
+            // Recarga completa de todos los leads desde el servidor (NO usar reloadLeadsAfterSave que usa cache)
+            await fetchLeadsAgente(window.__page || 1);
+            console.log('[guardarCambiosLead] ✅ Datos recargados completamente desde servidor');
+          } else {
+            location.reload();
+            return;
+          }
+        } catch (e) {
+          console.error('[guardarCambiosLead] Error en recarga completa:', e);
+          location.reload();
+          return;
+        }
+
+        // Cerrar el modal DESPUÉS de recargar completamente los datos
+        cerrarModalEdicion();
         return;
       } catch (error) {
         console.error('Error al guardar cambios:', error);
@@ -10888,7 +11101,7 @@
   <!-- Cargar primero el mÃ³dulo de datos de clientes -->
   <!-- <script src="js/data/costumer-mock-data.js"></script> -->
   <script>
-    // Función para mostrar mensajes de depuraciÃ³n
+    // FunciÃ³n para mostrar mensajes de depuraciÃ³n
     function debugLog(message, data) {
       if (data !== undefined) {
         console.log(`[DEBUG] ${message}`, data);
@@ -11065,7 +11278,7 @@
       // Inicializar la pÃ¡gina
       initPage();
       
-      // Función para habilitar debug del filtro (usar en consola: enableMonthFilterDebug())
+      // FunciÃ³n para habilitar debug del filtro (usar en consola: enableMonthFilterDebug())
       window.enableMonthFilterDebug = function() {
         window.__debugMonthFilter = true;
         console.log('[MonthFilter] Debug habilitado');
@@ -11074,7 +11287,7 @@
       // Debug habilitado para diagnosticar problema de datos incompletos
       window.__debugMonthFilter = true;
       
-      // Función para poblar filtros de Team y Agente
+      // FunciÃ³n para poblar filtros de Team y Agente
       window.populateTeamAndAgentFilters = async function(leads) {
         try {
           if (!Array.isArray(leads)) return;
@@ -11287,7 +11500,7 @@
         }
       };
       
-      // Función para limpiar todos los filtros
+      // FunciÃ³n para limpiar todos los filtros
       window.clearAllFilters = function(forceReload = false) {
         try {
           const monthFilter = document.getElementById('monthFilter');
@@ -11364,7 +11577,7 @@
         }
       };
       
-      // Función para forzar recarga completa de datos
+      // FunciÃ³n para forzar recarga completa de datos
       window.forceReloadData = function() {
         console.log('[ForceReload] Limpiando cachÃ© y recargando...');
         try {
@@ -11567,58 +11780,6 @@
           } catch (_) {}
           
           // Re-renderizar tabla
-          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
-            const prevSuspend = window.__suspendRender;
-            try {
-              window.__suspendRender = false;
-              window.renderCostumerTable(window.ultimaListaLeads);
-            } finally {
-              window.__suspendRender = prevSuspend;
-            }
-          }
-        });
-      }
-
-      // Configurar filtros de fecha
-      const dateFrom = document.getElementById('dateFrom');
-      const dateTo = document.getElementById('dateTo');
-      const btnClearDates = document.getElementById('btnClearDates');
-      
-      if (dateFrom) {
-        dateFrom.addEventListener('change', function() {
-          console.log('[DATE FILTER] Fecha desde:', this.value);
-          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
-            const prevSuspend = window.__suspendRender;
-            try {
-              window.__suspendRender = false;
-              window.renderCostumerTable(window.ultimaListaLeads);
-            } finally {
-              window.__suspendRender = prevSuspend;
-            }
-          }
-        });
-      }
-      
-      if (dateTo) {
-        dateTo.addEventListener('change', function() {
-          console.log('[DATE FILTER] Fecha hasta:', this.value);
-          if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
-            const prevSuspend = window.__suspendRender;
-            try {
-              window.__suspendRender = false;
-              window.renderCostumerTable(window.ultimaListaLeads);
-            } finally {
-              window.__suspendRender = prevSuspend;
-            }
-          }
-        });
-      }
-      
-      if (btnClearDates) {
-        btnClearDates.addEventListener('click', function() {
-          console.log('[DATE FILTER] Limpiando fechas');
-          if (dateFrom) dateFrom.value = '';
-          if (dateTo) dateTo.value = '';
           if (window.ultimaListaLeads && typeof window.renderCostumerTable === 'function') {
             const prevSuspend = window.__suspendRender;
             try {
@@ -11906,7 +12067,7 @@
         if (typeof window.openDateFilterPopup === 'function') {
           window.openDateFilterPopup({ field: field, lsKey: lsKey, trigger: btn, label: btn.title || '' });
         } else {
-          console.warn('openDateFilterPopup no está disponible todavía');
+          console.warn('openDateFilterPopup no estÃ¡ disponible todavÃ­a');
         }
       } catch(err) { console.error('date-filter delegated click error', err); }
     });
