@@ -70,9 +70,52 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
       'Administración': { supervisor: null, supervisorName: null }
     };
 
-    const derivedSup = TEAM_SUPERVISOR_MAP[normalizedTeam] || null;
-    const supNameFinal = String(supervisorName || derivedSup?.supervisorName || supervisor || '').trim();
-    const supUserFinal = String(supervisor || derivedSup?.supervisor || '').trim();
+    const SUPERVISOR_ALIAS_TO_TEAM = {
+      'IRANIA': 'TEAM IRANIA',
+      'ROBERTO': 'TEAM ROBERTO VELASQUEZ',
+      'MARISOL': 'TEAM MARISOL BELTRAN',
+      'PLEITEZ': 'TEAM BRYAN PLEITEZ',
+      'BRYAN': 'TEAM BRYAN PLEITEZ',
+      'JOHANA': 'TEAM JOHANA',
+      'JONATHAN': 'TEAM LINEAS',
+      'JONATHAN F': 'TEAM LINEAS',
+      'LUIS': 'TEAM LINEAS',
+      'LUIS G': 'TEAM LINEAS'
+    };
+
+    const canonicalizeSupervisorKey = (v) => {
+      const s = String(v || '').trim();
+      if (!s) return '';
+      return s
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase();
+    };
+
+    // 1) Derivar team desde supervisor si viene supervisor/supervisorName
+    const supKey = canonicalizeSupervisorKey(supervisor || supervisorName);
+    const teamFromSupervisor = SUPERVISOR_ALIAS_TO_TEAM[supKey] || '';
+
+    // 2) Resolver team final: supervisor tiene prioridad; si no hay supervisor, usar team (compatibilidad)
+    const normalizedTeamFinal = teamFromSupervisor || normalizedTeam || '';
+
+    // 3) Derivar supervisor final desde el team resuelto, si no vino explícito
+    const derivedSup = TEAM_SUPERVISOR_MAP[normalizedTeamFinal] || null;
+
+    // Si el frontend manda un alias corto (ej: "IRANIA"), preferir el supervisor real del team derivado
+    // para poder resolver supervisorId y mantener consistencia.
+    const supNameInput = String(supervisorName || '').trim();
+    const supUserInput = String(supervisor || '').trim();
+    const shouldPreferDerivedSupervisor = !!teamFromSupervisor;
+
+    const supNameFinal = shouldPreferDerivedSupervisor
+      ? String(derivedSup?.supervisorName || supNameInput || supUserInput || '').trim()
+      : String(supNameInput || derivedSup?.supervisorName || supUserInput || '').trim();
+
+    const supUserFinal = shouldPreferDerivedSupervisor
+      ? String(derivedSup?.supervisor || supUserInput || '').trim()
+      : String(supUserInput || derivedSup?.supervisor || '').trim();
 
     let supIdFinal = supervisorId || null;
     if (!supIdFinal && (supNameFinal || supUserFinal)) {
@@ -97,7 +140,7 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
       username,
       password: hashed,
       role,
-      team: normalizedTeam || '',
+      team: normalizedTeamFinal || '',
       name: name || '',
       email: email || '',
       supervisor: supUserFinal || (supNameFinal || ''),

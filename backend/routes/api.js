@@ -4121,34 +4121,6 @@ router.put('/users/:id/role', protect, async (req, res) => {
     const now = new Date();
     let finalTeam = team || currentUser.team || null;
 
-    const isSupervisorRole = String(role).toLowerCase().includes('supervisor');
-
-    if (isSupervisorRole && finalTeam) {
-      // Construir nuevo nombre de team basado en el nombre del supervisor
-      const displayName = currentUser.name || currentUser.fullName || currentUser.nombre || currentUser.username || 'SUPERVISOR';
-      const newTeamName = `TEAM ${displayName}`.toUpperCase();
-
-      // Renombrar team para todos los usuarios que pertenecen a ese team
-      const renameResult = await usersColl.updateMany(
-        { team: finalTeam },
-        {
-          $set: {
-            team: newTeamName,
-            updatedAt: now,
-            updatedBy: req.user?.username || 'system'
-          }
-        }
-      );
-
-      console.log('[USERS UPDATE ROLE] Team renombrado', {
-        oldTeam: finalTeam,
-        newTeam: newTeamName,
-        modifiedCount: renameResult.modifiedCount
-      });
-
-      finalTeam = newTeamName;
-    }
-
     const update = {
       $set: {
         role,
