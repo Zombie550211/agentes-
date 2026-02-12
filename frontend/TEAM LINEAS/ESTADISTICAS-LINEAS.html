@@ -139,6 +139,57 @@
           </div>
         </div>
 
+        <!-- KPIs Globales -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-shopping-cart" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Total Ventas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Activas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-activas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-clock" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Pendientes</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-lineas-pendientes">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-hourglass-half" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Ventas Pendientes</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas-pendientes">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Team Jonathan F -->
         <div class="team-section">
           <h2 class="team-title" id="team-title-jonathan">Team Jonathan F</h2>
@@ -167,8 +218,8 @@
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Pendientes</p>
-                  <p class="kpi-value" id="kpi-jonathan-pendientes">-</p>
+                  <p class="kpi-label">Líneas Pendientes</p>
+                  <p class="kpi-value" id="kpi-jonathan-lineas-pendientes">-</p>
                 </div>
               </div>
             </div>
@@ -203,8 +254,8 @@
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Pendientes</p>
-                  <p class="kpi-value" id="kpi-luis-pendientes">-</p>
+                  <p class="kpi-label">Líneas Pendientes</p>
+                  <p class="kpi-value" id="kpi-luis-lineas-pendientes">-</p>
                 </div>
               </div>
             </div>
@@ -481,7 +532,7 @@
           // Resetear KPIs
           document.getElementById('kpi-jonathan-ventas').textContent = '0';
           document.getElementById('kpi-jonathan-activas').textContent = '0';
-          document.getElementById('kpi-jonathan-pendientes').textContent = '0';
+          document.getElementById('kpi-jonathan-lineas-pendientes').textContent = '0';
         }
         
         if (team2Leads.length > 0) {
@@ -497,12 +548,67 @@
           // Resetear KPIs
           document.getElementById('kpi-luis-ventas').textContent = '0';
           document.getElementById('kpi-luis-activas').textContent = '0';
-          document.getElementById('kpi-luis-pendientes').textContent = '0';
+          document.getElementById('kpi-luis-lineas-pendientes').textContent = '0';
         }
+        
+        // Actualizar KPIs globales (suma de ambos teams)
+        updateGlobalKPIs([...team1Leads, ...team2Leads]);
 
       } catch (error) {
         console.error('[loadEstadisticas] Error fatal:', error);
       }
+    }
+
+    function updateGlobalKPIs(allLeads) {
+      console.log('[updateGlobalKPIs] Calculando KPIs globales con', allLeads.length, 'leads totales');
+      
+      const totalVentas = allLeads.length;
+      let totalLineasActivas = 0;
+      let totalLineasPendientes = 0;
+      let totalVentasPendientes = 0; // Leads con status pending
+      
+      allLeads.forEach(lead => {
+        const lineasStatus = lead.lineas_status || {};
+        const cantidadLineas = lead.cantidad_lineas || 1;
+        const statusGlobal = (lead.status || '').toLowerCase();
+        
+        // Contar ventas pendientes (leads con status pending)
+        if (statusGlobal.includes('pending')) {
+          totalVentasPendientes++;
+        }
+        
+        // Si no hay lineas_status definido, usar el status global del lead
+        if (Object.keys(lineasStatus).length === 0) {
+          if (statusGlobal.includes('active')) {
+            totalLineasActivas += cantidadLineas;
+          } else if (statusGlobal.includes('pending')) {
+            totalLineasPendientes += cantidadLineas;
+          }
+        } else {
+          // Contar líneas por status individual
+          for (let i = 0; i < cantidadLineas; i++) {
+            const lineStatus = (lineasStatus[i] || 'PENDING').toUpperCase();
+            if (lineStatus === 'ACTIVE') {
+              totalLineasActivas++;
+            } else if (lineStatus === 'PENDING') {
+              totalLineasPendientes++;
+            }
+          }
+        }
+      });
+      
+      // Actualizar KPIs globales en el DOM
+      document.getElementById('kpi-global-ventas').textContent = totalVentas;
+      document.getElementById('kpi-global-activas').textContent = totalLineasActivas;
+      document.getElementById('kpi-global-lineas-pendientes').textContent = totalLineasPendientes;
+      document.getElementById('kpi-global-ventas-pendientes').textContent = totalVentasPendientes;
+      
+      console.log('[updateGlobalKPIs] Totales:', {
+        ventas: totalVentas,
+        lineasActivas: totalLineasActivas,
+        lineasPendientes: totalLineasPendientes,
+        ventasPendientes: totalVentasPendientes
+      });
     }
 
     function renderTeamData(teamName, leads, canvasId, kpiPrefix) {
@@ -615,8 +721,10 @@
       // Calcular KPIs globales - TODOS los leads cuentan como ventas
       const ventas = leads.length; // Contar TODOS los leads
       
-      // Contar líneas activas: sumar líneas individuales con status ACTIVE
+      // Contar líneas activas y pendientes: sumar líneas individuales por status
       let lineasActivas = 0;
+      let lineasPendientes = 0;
+      
       leads.forEach(lead => {
         const lineasStatus = lead.lineas_status || {};
         const cantidadLineas = lead.cantidad_lineas || 1;
@@ -626,25 +734,29 @@
           const statusGlobal = (lead.status || '').toLowerCase();
           if (statusGlobal.includes('active')) {
             lineasActivas += cantidadLineas;
+          } else if (statusGlobal.includes('pending')) {
+            lineasPendientes += cantidadLineas;
           }
         } else {
-          // Contar solo las líneas con status ACTIVE individual
+          // Contar líneas por status individual
           for (let i = 0; i < cantidadLineas; i++) {
-            const lineStatus = lineasStatus[i] || 'PENDING';
-            if (lineStatus.toUpperCase() === 'ACTIVE') {
+            const lineStatus = (lineasStatus[i] || 'PENDING').toUpperCase();
+            if (lineStatus === 'ACTIVE') {
               lineasActivas++;
+            } else if (lineStatus === 'PENDING') {
+              lineasPendientes++;
             }
           }
         }
       });
       
       const activas = lineasActivas;
-      const pendientes = leads.filter(l => (l.status || '').toLowerCase().includes('pending')).length;
+      const pendientes = lineasPendientes;
 
       // Actualizar KPIs
       document.getElementById(kpiPrefix + 'ventas').textContent = ventas;
       document.getElementById(kpiPrefix + 'activas').textContent = activas;
-      document.getElementById(kpiPrefix + 'pendientes').textContent = pendientes;
+      document.getElementById(kpiPrefix + 'lineas-pendientes').textContent = pendientes;
 
       // Preparar datos para gráfica de barras
       const agentes = Object.keys(agentData).sort();
