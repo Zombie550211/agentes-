@@ -3,7 +3,7 @@ const router = express.Router();
 const { ObjectId } = require('mongodb');
 const { protect } = require('../middleware/auth');
 const User = require('../models/User');
-const { connectToMongoDB, getDb } = require('../config/db');
+const { connectToMongoDB, getDb, getDbFor } = require('../config/db');
 
 // Middleware para manejar la conexión a la base de datos
 const withDatabase = async (req, res, next) => {
@@ -30,7 +30,6 @@ const withDatabase = async (req, res, next) => {
 
 // Ruta para obtener leads completos (o datos para gráficas si paraGrafica=true)
 router.get('/leads', protect, withDatabase, async (req, res) => {
-  const db = req.db;
   let filtro = {}; 
   let usuarioAutenticado = req.user || null;
   let customers = [];
@@ -47,19 +46,69 @@ router.get('/leads', protect, withDatabase, async (req, res) => {
     console.log('🔥 [ENDPOINT] /api/leads ejecutándose');
     console.log('[DEBUG] Query params:', req.query);
     console.log('[DEBUG] Usuario autenticado:', usuarioAutenticado || 'No autenticado');
+    if (usuarioAutenticado) {
+      console.log('[DEBUG] Usuario.role:', usuarioAutenticado.role, '(tipo:', typeof usuarioAutenticado.role + ')');
+      console.log('[DEBUG] Usuario.team:', usuarioAutenticado.team, '(tipo:', typeof usuarioAutenticado.team + ')');
+    }
 
-    // Obtener la colección
-    let collection;
-    try {
-      collection = db.collection('costumers');
-      console.log('[DEBUG] Colección costumers obtenida correctamente');
-    } catch (error) {
-      console.error('[ERROR] Error al obtener la colección costumers:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error al acceder a la colección de clientes',
-        error: error.message 
-      });
+    // Obtener las colecciones de TEAM_LINEAS si el usuario es de ese equipo O es Administrador/Backoffice
+    let customers = [];
+    const useTeamLineas = usuarioAutenticado && (
+      usuarioAutenticado.team === 'TEAM LINEAS' ||
+      usuarioAutenticado.role === 'Administrador' ||
+      usuarioAutenticado.role === 'Backoffice'
+    );
+    
+    console.log('[DEBUG] useTeamLineas:', useTeamLineas);
+
+    if (useTeamLineas) {
+      // Obtener la base de datos TEAM_LINEAS
+      const teamLineasDb = getDbFor('TEAM_LINEAS');
+      if (!teamLineasDb) {
+        console.error('[ERROR] No se pudo obtener la base de datos TEAM_LINEAS');
+        return res.status(500).json({
+          success: false,
+          message: 'Error al acceder a la base de datos TEAM_LINEAS'
+        });
+      }
+      
+      // Lista de agentes del equipo TEAM_LINEAS
+      const agentesTeamLineas = [
+        'ALEXIS_RODRIGUES', 'ANDREA_ARDON', 'CESAR_CLAROS', 'CRISTIAN_RIVERA', 'DANIEL_DEL_CID',
+        'DENNIS_VASQUEZ', 'EDWARD_RAMIREZ', 'FERNANDO_BELTRAN', 'JOCELYN_REYES', 'JONATHAN_F',
+        'KARLA_PONCE', 'KARLA_RODRIGUEZ', 'LUIS_G', 'MANUEL_FLORES', 'MELANIE_HURTADO',
+        'NANCY_LOPEZ', 'OSCAR_RIVERA', 'TATIANA_GIRON', 'VICTOR_HURTADO'
+      ];
+      
+      console.log('[API /leads] Usando datos de TEAM_LINEAS para usuario:', usuarioAutenticado.username, 'role:', usuarioAutenticado.role);
+      
+      for (const agente of agentesTeamLineas) {
+        try {
+          const collection = teamLineasDb.collection(agente);
+          const docs = await collection.find(filtro).toArray();
+          customers = customers.concat(docs);
+          console.log(`[API /leads] Agregados ${docs.length} documentos de ${agente}`);
+        } catch (error) {
+          console.error(`[ERROR] Error al obtener la colección ${agente}:`, error.message);
+        }
+      }
+      console.log('[API /leads] Total de leads de TEAM_LINEAS:', customers.length);
+    } else {
+      // Si no es TEAM_LINEAS ni Admin/Backoffice, usar costumers
+      const db = req.db;
+      console.log('[API /leads] Usando datos de costumers para usuario:', usuarioAutenticado.username);
+      try {
+        const collection = db.collection('costumers');
+        customers = await collection.find(filtro).toArray();
+        console.log('[DEBUG] Colección costumers obtenida correctamente, total:', customers.length);
+      } catch (error) {
+        console.error('[ERROR] Error al obtener la colección costumers:', error);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al acceder a la colección de clientes',
+          error: error.message 
+        });
+      }
     }
 
     // Construir el filtro de consulta

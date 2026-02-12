@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Agente - Costumer Líneas</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 240px;
+      background: #fff;
+      border-right: 1px solid #e0e0e0;
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+      z-index: 100;
+    }
+
+    .main-content {
+      margin-left: 240px;
+      flex: 1;
+      padding: 30px;
+      min-height: 100vh;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+      transition: transform 0.3s ease;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+
+    .card-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .card-label {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .table-container {
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(2, 8, 20, 0.06);
+      border: 1px solid #e6eef5;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .search-input {
+      padding: 8px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      width: 250px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      overflow-y: auto;
+      height: calc(100vh - 420px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1200px;
+    }
+
+    th {
+      background: linear-gradient(180deg, #f9fbff 0%, #f3f6fb 100%);
+      font-weight: 600;
+      color: #1f2937;
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid #e6eef5;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #eef2f7;
+      color: #334155;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #fbfdff;
+    }
+
+    tbody tr:hover {
+      background-color: #f6fafe;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background-color: #e6f7ed;
+      color: #10b981;
+    }
+
+    .badge-active {
+      background-color: #e6f7ed;
+      color: #10b981;
+    }
+
+    .badge-pending {
+      background-color: #fef3c7;
+      color: #d97706;
+    }
+
+    .badge-cancelled {
+      background-color: #fee2e2;
+      color: #dc2626;
+    }
+
+    .action-btn {
+      background: none;
+      border: none;
+      color: #718096;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background-color: #f1f5f9;
+      color: #3b82f6;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+    }
+
+    .spin {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #dc2626;
+    }
+
+    .success-message {
+      background-color: #e6f7ed;
+      color: #065f46;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #10b981;
+    }
+
+    /* Tema oscuro */
+    @media (prefers-color-scheme: dark) {
+      body.dark-theme {
+        background-color: #0f172a;
+        color: #e0e0e0;
+      }
+
+      body.dark-theme .summary-card {
+        background: #1e293b;
+        border-color: #334155;
+      }
+
+      body.dark-theme th {
+        background: #1a2436;
+        color: #f1f5f9;
+      }
+
+      body.dark-theme tbody tr:nth-child(even) {
+        background-color: #0f172a;
+      }
+
+      body.dark-theme tbody tr:hover {
+        background-color: #1a2436;
+      }
+
+      body.dark-theme .table-container {
+        background: #1e293b;
+        border-color: #334155;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Seguridad: Verificar que el usuario es Admin o Back Office
+    (function() {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const roleRaw = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
+        
+        const allowedRoles = new Set([
+          'admin',
+          'administrador',
+          'administrator',
+          'backoffice',
+          'back office',
+          'back_office',
+          'bo',
+          'b.o',
+          'b:o',
+          'b-o'
+        ]);
+
+        if (!allowedRoles.has(roleRaw)) {
+          window.location.href = '/inicio.html';
+        }
+      } catch (e) {
+        console.error('Error de seguridad:', e);
+        window.location.href = '/login.html';
+      }
+    })();
+  </script>
+
+  <div class="container">
+    <!-- SIDEBAR (cargado dinámicamente) -->
+    <nav class="sidebar sidebar-inicio" data-active="costumer-lineas"></nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Encabezado -->
+      <div class="page-header">
+        <h1 class="page-title">Costumer Líneas</h1>
+        <button id="refresh-btn" class="action-btn" title="Refrescar">
+          <i class="fas fa-sync-alt"></i> Refrescar
+        </button>
+      </div>
+
+      <!-- Tarjetas de Resumen -->
+      <div class="summary-cards">
+        <div class="summary-card">
+          <div class="card-icon">
+            <i class="fas fa-phone-alt"></i>
+          </div>
+          <div class="card-value" id="total-lineas">0</div>
+          <div class="card-label">Total de Líneas</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="card-value" id="active-lineas">0</div>
+          <div class="card-label">Líneas Activas</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            <i class="fas fa-hourglass-half"></i>
+          </div>
+          <div class="card-value" id="pending-lineas">0</div>
+          <div class="card-label">Líneas Pendientes</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="card-icon" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <i class="fas fa-times-circle"></i>
+          </div>
+          <div class="card-value" id="cancelled-lineas">0</div>
+          <div class="card-label">Líneas Canceladas</div>
+        </div>
+      </div>
+
+      <!-- Tabla de Líneas -->
+      <div class="table-container">
+        <div class="table-header">
+          <h2 class="table-title">Listado de Líneas</h2>
+          <div class="table-actions">
+            <input type="text" class="search-input" id="search-input" placeholder="Buscar línea...">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table id="lineas-table">
+            <thead>
+              <tr>
+                <th>Teléfono</th>
+                <th>Cliente</th>
+                <th>Producto/Servicio</th>
+                <th>Status</th>
+                <th>Mercado</th>
+                <th>Supervisor</th>
+                <th>Fecha de Venta</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="lineas-tbody">
+              <tr>
+                <td colspan="8" class="loading">
+                  <i class="fas fa-spinner spin"></i> Cargando líneas...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+
+  <script>
+    let allLineas = [];
+
+    // Cargar datos de líneas
+    async function loadLineas() {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+        const response = await fetch('/api/lineas', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error al cargar líneas: ${response.status}`);
+        }
+
+        const data = await response.json();
+        allLineas = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        
+        renderTable(allLineas);
+        updateStats(allLineas);
+      } catch (error) {
+        console.error('Error cargando líneas:', error);
+        const tbody = document.getElementById('lineas-tbody');
+        tbody.innerHTML = `<tr><td colspan="8" class="error-message" style="text-align: center;"><i class="fas fa-exclamation-circle"></i> ${error.message}</td></tr>`;
+      }
+    }
+
+    function renderTable(lineas) {
+      const tbody = document.getElementById('lineas-tbody');
+      
+      if (!lineas || lineas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">No hay líneas disponibles</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lineas.map(linea => {
+        const phone = linea.telefono || linea.phone || '-';
+        const cliente = linea.nombre_cliente || linea.customer_name || '-';
+        const producto = linea.producto || linea.servicio || linea.tipo_servicios || '-';
+        const status = (linea.status || 'PENDING').toUpperCase();
+        const mercado = linea.mercado || linea.market || '-';
+        const supervisor = linea.supervisor || linea.team || '-';
+        const fechaVenta = linea.dia_venta || linea.fecha_contratacion || linea.fecha || '-';
+
+        const statusBadgeClass = status === 'ACTIVE' ? 'badge-active' : 
+                                 status === 'PENDING' ? 'badge-pending' :
+                                 status === 'CANCELLED' ? 'badge-cancelled' : 'badge-pending';
+
+        return `
+          <tr>
+            <td><strong>${phone}</strong></td>
+            <td>${cliente}</td>
+            <td>${producto}</td>
+            <td><span class="badge ${statusBadgeClass}">${status}</span></td>
+            <td>${mercado}</td>
+            <td>${supervisor}</td>
+            <td>${fechaVenta}</td>
+            <td>
+              <button class="action-btn" title="Ver detalles"><i class="fas fa-eye"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateStats(lineas) {
+      const total = lineas.length;
+      const active = lineas.filter(l => (l.status || '').toUpperCase() === 'ACTIVE').length;
+      const pending = lineas.filter(l => (l.status || '').toUpperCase() === 'PENDING').length;
+      const cancelled = lineas.filter(l => (l.status || '').toUpperCase() === 'CANCELLED').length;
+
+      document.getElementById('total-lineas').textContent = total;
+      document.getElementById('active-lineas').textContent = active;
+      document.getElementById('pending-lineas').textContent = pending;
+      document.getElementById('cancelled-lineas').textContent = cancelled;
+    }
+
+    function filterTable(searchTerm) {
+      const filtered = allLineas.filter(linea => {
+        const searchLower = searchTerm.toLowerCase();
+        const phone = (linea.telefono || linea.phone || '').toLowerCase();
+        const cliente = (linea.nombre_cliente || linea.customer_name || '').toLowerCase();
+        const producto = (linea.producto || linea.servicio || '').toLowerCase();
+        
+        return phone.includes(searchLower) || 
+               cliente.includes(searchLower) || 
+               producto.includes(searchLower);
+      });
+
+      renderTable(filtered);
+    }
+
+    // Event Listeners
+    document.getElementById('refresh-btn').addEventListener('click', loadLineas);
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      filterTable(e.target.value);
+    });
+
+    // Cargar datos al iniciar
+    document.addEventListener('DOMContentLoaded', loadLineas);
+  </script>
+</body>
+</html>
