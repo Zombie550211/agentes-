@@ -532,18 +532,17 @@
                 </div>
 
                 <div class="form-group full-width">
-                    <label for="team">Equipo (opcional)</label>
+                    <label for="supervisor">Supervisor (opcional)</label>
                     <div class="input-wrapper">
-                        <select id="team">
-                            <option value="" selected>— Seleccione equipo —</option>
-                            <option value="team_irania">TEAM IRANIA</option>
-                            <option value="team_bryan">TEAM BRYAN PLEITEZ</option>
-                            <option value="team_marisol">TEAM MARISOL BELTRAN</option>
-                            <option value="team_roberto">TEAM ROBERTO VELASQUEZ</option>
-                            <option value="team_johana">TEAM JOHANA</option>
-                            <option value="team_lineas">TEAM LÍNEAS</option>
-                            <option value="backoffice">Backoffice</option>
-                            <option value="administracion">Administración</option>
+                        <select id="supervisor">
+                            <option value="" selected>— Seleccione supervisor —</option>
+                            <option value="IRANIA">IRANIA</option>
+                            <option value="ROBERTO">ROBERTO</option>
+                            <option value="MARISOL">MARISOL</option>
+                            <option value="PLEITEZ">PLEITEZ</option>
+                            <option value="JOHANA">JOHANA</option>
+                            <option value="JONATHAN">JONATHAN</option>
+                            <option value="LUIS">LUIS</option>
                         </select>
                         <span class="input-icon">👥</span>
                     </div>
@@ -656,19 +655,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="editTeam">Nuevo equipo</label>
+                        <label for="editSupervisor">Nuevo supervisor</label>
                         <div class="input-wrapper">
-                            <select id="editTeam">
-                                <option value="" selected>— Seleccione equipo —</option>
-                                <option value="TEAM IRANIA">TEAM IRANIA</option>
-                                <option value="TEAM BRYAN PLEITEZ">TEAM BRYAN PLEITEZ</option>
-                                <option value="TEAM MARISOL BELTRAN">TEAM MARISOL BELTRAN</option>
-                                <option value="TEAM ROBERTO VELASQUEZ">TEAM ROBERTO VELASQUEZ</option>
-                                <option value="TEAM JOHANA">TEAM JOHANA</option>
-                                <option value="TEAM RANDAL MARTINEZ">TEAM RANDAL MARTINEZ</option>
-                                <option value="TEAM LINEAS">TEAM LÍNEAS</option>
-                                <option value="Backoffice">Backoffice</option>
-                                <option value="Administración">Administración</option>
+                            <select id="editSupervisor">
+                                <option value="" selected>— Seleccione supervisor —</option>
+                                <option value="IRANIA">IRANIA</option>
+                                <option value="ROBERTO">ROBERTO</option>
+                                <option value="MARISOL">MARISOL</option>
+                                <option value="PLEITEZ">PLEITEZ</option>
+                                <option value="JOHANA">JOHANA</option>
+                                <option value="JONATHAN">JONATHAN</option>
+                                <option value="LUIS">LUIS</option>
                             </select>
                         </div>
                     </div>
@@ -688,7 +685,7 @@
 
                 <div class="button-group">
                     <button type="button" class="btn btn-submit" id="btnUpdateUserRole">
-                        Actualizar rol y equipo
+                        Actualizar rol y supervisor
                     </button>
                     <button type="button" class="btn btn-cancel" id="btnDeleteUser" style="background:#ff4d4f;color:white;border:0;margin-left:10px;">
                         Eliminar usuario
@@ -840,10 +837,10 @@
         const btnUpdateCredentials = document.getElementById('btnUpdateCredentials');
         const editUserSummaryCard = document.getElementById('editUserSummary');
         const editCredentialsSummaryCard = document.getElementById('editCredentialsSummary');
-        const teamSelect = document.getElementById('team');
+        const supervisorSelect = document.getElementById('supervisor');
         const lineasSubteamGroup = document.getElementById('lineasSubteamGroup');
         const lineasSubteam = document.getElementById('lineasSubteam');
-        const editTeam = document.getElementById('editTeam');
+        const editSupervisor = document.getElementById('editSupervisor');
         const editLineasSubteamGroup = document.getElementById('editLineasSubteamGroup');
         const editLineasSubteam = document.getElementById('editLineasSubteam');
         const deleteUserSelect = document.getElementById('deleteUserSelect');
@@ -941,9 +938,10 @@
         }
 
         // Mostrar/ocultar select de subdivisiones de Team Líneas
-        if (teamSelect) {
-            teamSelect.addEventListener('change', function() {
-                if (this.value === 'team_lineas') {
+        if (supervisorSelect) {
+            supervisorSelect.addEventListener('change', function() {
+                const v = String(this.value || '').trim().toUpperCase();
+                if (v === 'JONATHAN' || v === 'LUIS') {
                     lineasSubteamGroup.style.display = 'block';
                     lineasSubteam.focus();
                 } else {
@@ -1002,9 +1000,9 @@
                 return;
             }
 
-            // Validar que si se selecciona Team Líneas, también se seleccione la subdivisión
-            const selectedTeam = document.getElementById('team').value;
-            if (selectedTeam === 'team_lineas') {
+            // Validar que si el supervisor es de líneas (Jonathan/Luis), también se seleccione la subdivisión
+            const selectedSupervisor = String(document.getElementById('supervisor')?.value || '').trim().toUpperCase();
+            if (selectedSupervisor === 'JONATHAN' || selectedSupervisor === 'LUIS') {
                 if (!lineasSubteam.value) {
                     alert('⚠️ Debes especificar a cuál línea asignar este usuario.');
                     lineasSubteam.focus();
@@ -1013,23 +1011,17 @@
             }
 
             // Recopilar datos del formulario
-            const teamValue = selectedTeam === 'team_lineas' ? lineasSubteam.value : document.getElementById('team').value;
-            
-            // Determinar supervisor automáticamente según el team de Líneas
-            let supervisorValue = null;
-            if (teamValue === 'team lineas jonathan') {
-                supervisorValue = 'JONATHAN F';
-            } else if (teamValue === 'team lineas luis') {
-                supervisorValue = 'LUIS G';
-            }
+            let supervisorValue = selectedSupervisor || null;
+            if (selectedSupervisor === 'JONATHAN') supervisorValue = 'JONATHAN F';
+            if (selectedSupervisor === 'LUIS') supervisorValue = 'LUIS G';
             
             const formData = {
                 name: document.getElementById('fullName').value,
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
                 role: document.getElementById('role').value,
-                team: teamValue,
                 supervisor: supervisorValue,
+                supervisorName: supervisorValue,
                 password: password.value
             };
 
@@ -1052,7 +1044,7 @@
                     form.style.opacity = '0.5';
                     form.style.pointerEvents = 'none';
                     setTimeout(() => {
-                        alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role + '\n👥 Equipo: ' + (formData.team || 'Sin asignar'));
+                        alert('✅ Cuenta creada exitosamente!\n\n👤 Usuario: ' + formData.username + '\n🎯 Rol: ' + formData.role + '\n� Supervisor: ' + (formData.supervisor || 'Sin asignar'));
                         form.reset();
                         strengthBar.className = 'password-strength-bar';
                         successMessage.classList.remove('show');

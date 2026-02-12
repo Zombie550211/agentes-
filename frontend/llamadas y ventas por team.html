@@ -243,22 +243,22 @@
         }
 
         tbody tr:nth-child(even) {
-            background: var(--yellow);
+            background: rgba(248, 250, 252, 1);
         }
 
         tbody tr:hover {
-            background: rgba(139, 92, 246, 0.08);
+            background: rgba(226, 232, 240, 0.7);
         }
 
         tbody tr:last-child {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
             color: white;
             font-weight: 700;
         }
 
         tbody tr:last-child td {
             color: white;
-            border-color: var(--primary-dark);
+            border-color: rgba(148, 163, 184, 0.35);
         }
 
         input[type="number"] {
@@ -865,14 +865,14 @@
         }
 
         .total-row {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%) !important;
             color: white;
             font-weight: 700;
         }
 
         .total-row td {
             color: white;
-            border-color: var(--primary-dark);
+            border-color: rgba(148, 163, 184, 0.35);
             height: 24px;
         }
 
@@ -1507,11 +1507,12 @@
             let html = '';
 
             dates.forEach(date => {
+                const safeDate = makeSafeDateKeyForCss(date);
                 let row = `<tr><td>${date}</td>`;
 
                 teams.slice(0, 5).forEach(team => {
-                    row += `<td><input type="number" class="date-${date}-${team.name}-ll" value="0" min="0" onchange="actualizarGlobalDesdeGeneral('${date}', '${team.name}', 'll')"></td>`;
-                    row += `<td><input type="number" class="date-${date}-${team.name}-v" value="0" min="0" onchange="actualizarGlobalDesdeGeneral('${date}', '${team.name}', 'v')"></td>`;
+                    row += `<td><input type="number" class="date-${safeDate}-${team.name}-ll" value="0" min="0" onchange="actualizarGlobalDesdeGeneral('${date}', '${team.name}', 'll')"></td>`;
+                    row += `<td><input type="number" class="date-${safeDate}-${team.name}-v" value="0" min="0" onchange="actualizarGlobalDesdeGeneral('${date}', '${team.name}', 'v')"></td>`;
                     row += `<td id="total-${date}-${team.name}">0/0</td>`;
                 });
 
@@ -1535,6 +1536,11 @@
             const container = document.getElementById('teamsContainer');
             let html = '';
 
+            const dateKey = currentDate || (() => {
+                const now = new Date();
+                return makeDateKey(now.getDate(), now.getMonth() + 1, now.getFullYear());
+            })();
+
             teams.forEach(team => {
                 const titleDisplay = team.title
                     .replace(/^TEAM\s+/i, 'Team ')
@@ -1543,6 +1549,7 @@
                 const headerCols = '<th>Llamadas</th><th>Calis</th><th>Ventas</th>';
 
                 let agentsHtml = team.agents.map((agent, idx) => {
+                    if (!isAgentActiveForDate(team.name, agent, dateKey)) return '';
                     const llCell = `<td><input type="number" class="stat-input editable-cell ${team.name}-ll-${idx}" value="0" onchange="calcularTeam('${team.name}')"></td>`;
 
                     return `
@@ -1594,6 +1601,64 @@
             });
 
             container.innerHTML = html;
+        }
+
+        const ROSTER_STORAGE_KEY = 'llamadas_ventas_roster_v1';
+
+        function compareDateKey(a, b) {
+            const pa = parseDateKey(a);
+            const pb = parseDateKey(b);
+            if (pa.year !== pb.year) return pa.year - pb.year;
+            if (pa.month !== pb.month) return pa.month - pb.month;
+            return pa.day - pb.day;
+        }
+
+        function loadRosterState() {
+            try {
+                const raw = localStorage.getItem(ROSTER_STORAGE_KEY);
+                const parsed = raw ? JSON.parse(raw) : null;
+                if (parsed && typeof parsed === 'object') return parsed;
+            } catch (e) {}
+            return { teams: {} };
+        }
+
+        function saveRosterState(state) {
+            try {
+                localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(state || { teams: {} }));
+            } catch (e) {}
+        }
+
+        function ensureRosterInitialized() {
+            const state = loadRosterState();
+            if (!state.teams) state.teams = {};
+
+            teams.forEach(team => {
+                if (!state.teams[team.name]) state.teams[team.name] = {};
+                (team.agents || []).forEach(agent => {
+                    const key = String(agent || '').toUpperCase();
+                    if (!key) return;
+                    if (!state.teams[team.name][key]) {
+                        state.teams[team.name][key] = { addedAt: null, removedAt: null };
+                    }
+                });
+            });
+
+            saveRosterState(state);
+        }
+
+        function isAgentActiveForDate(teamName, agentName, dateKey) {
+            const state = loadRosterState();
+            const meta = state.teams?.[teamName]?.[String(agentName || '').toUpperCase()];
+            if (!meta) return true;
+
+            if (meta.addedAt && compareDateKey(dateKey, meta.addedAt) < 0) return false;
+            if (meta.removedAt && compareDateKey(dateKey, meta.removedAt) >= 0) return false;
+            return true;
+        }
+
+        function isAgentActiveForCurrentDate(teamName, agentName) {
+            if (!currentDate) return true;
+            return isAgentActiveForDate(teamName, agentName, currentDate);
         }
 
         function renderTimeline() {
@@ -1712,9 +1777,10 @@
                 teams.slice(0, 5).forEach(team => {
                     const llVal = parseInt(document.getElementById(`total-${team.name}-ll`)?.textContent) || 0;
                     const vVal = parseInt(document.getElementById(`total-${team.name}-v`)?.textContent) || 0;
+                    const safeDisplayDate = makeSafeDateKeyForCss(displayDate);
                     
-                    const llInput = document.querySelector(`.date-${displayDate}-${team.name}-ll`);
-                    const vInput = document.querySelector(`.date-${displayDate}-${team.name}-v`);
+                    const llInput = document.querySelector(`.date-${safeDisplayDate}-${team.name}-ll`);
+                    const vInput = document.querySelector(`.date-${safeDisplayDate}-${team.name}-v`);
                     
                     if (llInput) llInput.value = llVal;
                     if (vInput) vInput.value = vVal;
@@ -1733,7 +1799,8 @@
         }
 
         async function actualizarGlobalDesdeGeneral(date, teamName, type) {
-            const val = parseInt(document.querySelector(`.date-${date}-${teamName}-${type}`)?.value) || 0;
+            const safeDate = makeSafeDateKeyForCss(date);
+            const val = parseInt(document.querySelector(`.date-${safeDate}-${teamName}-${type}`)?.value) || 0;
             
             // Si la fecha editada es la actual, sincronizar con la vista Teams
             const currentDisplayDate = currentDate ? `${parseDateKey(currentDate).day}/${parseDateKey(currentDate).month}` : '';
@@ -1760,13 +1827,14 @@
             // Recalcular totales de la fila en la tabla general
             let rowLL = 0, rowV = 0;
             teams.slice(0, 5).forEach(t => {
-                rowLL += parseInt(document.querySelector(`.date-${date}-${t.name}-ll`)?.value) || 0;
-                rowV += parseInt(document.querySelector(`.date-${date}-${t.name}-v`)?.value) || 0;
+                const safe = makeSafeDateKeyForCss(date);
+                rowLL += parseInt(document.querySelector(`.date-${safe}-${t.name}-ll`)?.value) || 0;
+                rowV += parseInt(document.querySelector(`.date-${safe}-${t.name}-v`)?.value) || 0;
                 
                 const totalCell = document.getElementById(`total-${date}-${t.name}`);
                 if (totalCell) {
-                    const ll = parseInt(document.querySelector(`.date-${date}-${t.name}-ll`)?.value) || 0;
-                    const v = parseInt(document.querySelector(`.date-${date}-${t.name}-v`)?.value) || 0;
+                    const ll = parseInt(document.querySelector(`.date-${safe}-${t.name}-ll`)?.value) || 0;
+                    const v = parseInt(document.querySelector(`.date-${safe}-${t.name}-v`)?.value) || 0;
                     totalCell.textContent = `${ll}/${v}`;
                 }
             });
@@ -1786,8 +1854,9 @@
 
             dates.forEach(date => {
                 teams.slice(0, 5).forEach(team => {
-                    const ll = parseInt(document.querySelector(`.date-${date}-${team.name}-ll`)?.value) || 0;
-                    const v = parseInt(document.querySelector(`.date-${date}-${team.name}-v`)?.value) || 0;
+                    const safe = makeSafeDateKeyForCss(date);
+                    const ll = parseInt(document.querySelector(`.date-${safe}-${team.name}-ll`)?.value) || 0;
+                    const v = parseInt(document.querySelector(`.date-${safe}-${team.name}-v`)?.value) || 0;
                     teamTotals[team.name].ll += ll;
                     teamTotals[team.name].v += v;
                 });
@@ -1849,6 +1918,7 @@
                 // Si el foco está en un input de recicladas
                 else if (activeId === 'gen-recicladas' || activeId === 'excel-recicladas') {
                     const val = activeId === 'gen-recicladas' ? genRecicladas : excelRecicladas;
+                    const otherInput = activeId === 'gen-recicladas' ? document.getElementById('excel-recicladas') : document.getElementById('gen-recicladas');
                     if (otherInput) otherInput.value = val;
                     excelData[currentDate].recicladas = val;
                     saveCellToDB('GLOBAL', 0, 'RECICLADAS', val);
@@ -1885,7 +1955,20 @@
 
             const team = teams.find(t => t.name === teamName);
             if (team) {
-                team.agents.push(nombre.toUpperCase());
+                const agentName = nombre.toUpperCase();
+                if (!team.agents.includes(agentName)) {
+                    team.agents.push(agentName);
+                }
+
+                ensureRosterInitialized();
+                const state = loadRosterState();
+                if (!state.teams) state.teams = {};
+                if (!state.teams[teamName]) state.teams[teamName] = {};
+                if (!state.teams[teamName][agentName]) state.teams[teamName][agentName] = { addedAt: null, removedAt: null };
+                state.teams[teamName][agentName].addedAt = currentDate || state.teams[teamName][agentName].addedAt;
+                state.teams[teamName][agentName].removedAt = null;
+                saveRosterState(state);
+
                 cerrarModal();
                 renderTeams();
                 teams.forEach(t => calcularTeam(t.name));
@@ -1894,8 +1977,19 @@
 
         function eliminarAgente(teamName, idx) {
             const team = teams.find(t => t.name === teamName);
-            if (team && confirm(`¿Eliminar ${team.agents[idx]}?`)) {
-                team.agents.splice(idx, 1);
+            const agentName = team?.agents?.[idx];
+            if (!team || !agentName) return;
+
+            if (confirm(`¿Eliminar ${agentName}?`)) {
+                ensureRosterInitialized();
+                const state = loadRosterState();
+                if (!state.teams) state.teams = {};
+                if (!state.teams[teamName]) state.teams[teamName] = {};
+                const key = String(agentName || '').toUpperCase();
+                if (!state.teams[teamName][key]) state.teams[teamName][key] = { addedAt: null, removedAt: null };
+                state.teams[teamName][key].removedAt = currentDate || state.teams[teamName][key].removedAt;
+                saveRosterState(state);
+
                 renderTeams();
                 calcularTeam(teamName);
             }
@@ -1940,6 +2034,10 @@
             return { day: d, month: m, year: y };
         }
 
+        function makeSafeDateKeyForCss(dateKey) {
+            return String(dateKey).replace(/\//g, '-');
+        }
+
         // Parsear nombre de sheet "2/5/2026" -> { month: 2, day: 5, year: 2026 }
         function parseSheetName(name) {
             const parts = String(name).split('/');
@@ -1970,18 +2068,27 @@
             // Cargar todos los sheets existentes
             await loadAllSheetsFromDB();
             
-            // Inicializar estructura local vacía para todas las fechas disponibles
+            // Inicializar SOLO lo que haga falta, sin sobrescribir datos ya cargados desde la BD
             const allDates = getAllAvailableDates();
             allDates.forEach(date => {
-                excelData[date] = {};
+                if (!excelData[date]) excelData[date] = {};
                 teams.forEach(team => {
-                    excelData[date][team.name] = {};
+                    if (!excelData[date][team.name]) excelData[date][team.name] = {};
                     team.agents.forEach((agent, idx) => {
-                        excelData[date][team.name][idx] = {
-                            llamadas: 0,
-                            calis: 0,
-                            ventas: 0
-                        };
+                        if (!excelData[date][team.name][idx]) {
+                            excelData[date][team.name][idx] = { llamadas: 0, calis: 0, ventas: 0 };
+                            return;
+                        }
+
+                        if (typeof excelData[date][team.name][idx].llamadas !== 'number') {
+                            excelData[date][team.name][idx].llamadas = 0;
+                        }
+                        if (typeof excelData[date][team.name][idx].calis !== 'number') {
+                            excelData[date][team.name][idx].calis = 0;
+                        }
+                        if (typeof excelData[date][team.name][idx].ventas !== 'number') {
+                            excelData[date][team.name][idx].ventas = 0;
+                        }
                     });
                 });
             });
@@ -2127,6 +2234,7 @@
             const dayData = excelData[fullDateKey];
             if (!dayData) return;
 
+            const safeDisplayDate = makeSafeDateKeyForCss(displayDate);
             let rowLL = 0, rowV = 0;
 
             teams.slice(0, 5).forEach(team => {
@@ -2147,8 +2255,8 @@
                     });
                 }
 
-                const llInput = document.querySelector(`.date-${displayDate}-${team.name}-ll`);
-                const vInput = document.querySelector(`.date-${displayDate}-${team.name}-v`);
+                const llInput = document.querySelector(`.date-${safeDisplayDate}-${team.name}-ll`);
+                const vInput = document.querySelector(`.date-${safeDisplayDate}-${team.name}-v`);
                 
                 if (llInput) llInput.value = teamLL;
                 if (vInput) vInput.value = teamV;
@@ -2261,7 +2369,7 @@
                             body: JSON.stringify({
                                 sheetId: sheetId,
                                 team: 'GLOBAL',
-                                person: 0,
+                                person: 'RESUMEN',
                                 col: col,
                                 value: String(value)
                             })
@@ -2502,6 +2610,7 @@
 
             teams.forEach(team => {
                 team.agents.forEach((agent, idx) => {
+                    if (!isAgentActiveForCurrentDate(team.name, agent)) return;
                     if (!excelData[currentDate]) excelData[currentDate] = {};
                     if (!excelData[currentDate][team.name]) excelData[currentDate][team.name] = {};
                     if (!excelData[currentDate][team.name][idx]) excelData[currentDate][team.name][idx] = {};
@@ -2550,6 +2659,7 @@
 
             teams.forEach(team => {
                 team.agents.forEach((agent, idx) => {
+                    if (!isAgentActiveForCurrentDate(team.name, agent)) return;
                     const data = dayData[team.name]?.[idx] || { llamadas: 0, calis: 0, ventas: 0 };
                     
                     if (team.hasLlamadas) {
@@ -2582,6 +2692,7 @@
             let llamadas = 0, calis = 0, ventas = 0;
 
             team.agents.forEach((agent, idx) => {
+                if (!isAgentActiveForCurrentDate(teamName, agent)) return;
                 if (team.hasLlamadas) {
                     const llInput = document.querySelector(`.${teamName}-ll-${idx}`);
                     if (llInput) {
@@ -2649,6 +2760,7 @@
         // Modificar inicialización
         async function init() {
             initData();
+            ensureRosterInitialized();
             await initExcelData();
             renderGeneralTable();
             renderTeams();
