@@ -713,6 +713,14 @@ app.post('/api/lineas', protect, async (req, res) => {
     const telefonos = (Array.isArray(body.telefonos) ? body.telefonos : []).map(digitsOnly).filter(Boolean);
     const servicios = Array.isArray(body.servicios) ? body.servicios.map(String) : [];
 
+    const normalizeLineStatus = (v) => {
+      const s = String(v || '').trim().toUpperCase();
+      return s || '';
+    };
+
+    const payloadLines = Array.isArray(body.lines) ? body.lines : (Array.isArray(body.lineas) ? body.lineas : []);
+    const payloadLineasStatus = (body.lineas_status && typeof body.lineas_status === 'object') ? body.lineas_status : null;
+
     // Validaciones de dominio
     const autopayVal = String(body.autopay || '').toLowerCase();
     if (!['si','no'].includes(autopayVal)) errors.push('autopay debe ser si | no');
@@ -782,6 +790,30 @@ app.post('/api/lineas', protect, async (req, res) => {
       actualizadoEn: now,
       _raw: body
     };
+
+    const initialLineasStatus = {};
+    const initialLines = [];
+    for (let i = 0; i < cantidadLineas; i++) {
+      let st = '';
+      if (payloadLineasStatus && Object.prototype.hasOwnProperty.call(payloadLineasStatus, i)) {
+        st = normalizeLineStatus(payloadLineasStatus[i]);
+      }
+      if (!st && payloadLines[i]) {
+        const row = payloadLines[i];
+        st = normalizeLineStatus(row.estado ?? row.status ?? row.STATUS ?? row.state);
+      }
+      if (!st) {
+        st = statusVal === 'pending' ? 'PENDING' : statusVal.toUpperCase();
+      }
+      initialLineasStatus[i] = st;
+
+      const tel = telefonos[i] || digitsOnly(payloadLines[i]?.telefono);
+      const svc = servicios[i] || String(payloadLines[i]?.servicio || '');
+      initialLines.push({ telefono: tel || '', servicio: svc || '', estado: st });
+    }
+
+    doc.lineas_status = initialLineasStatus;
+    doc.lines = initialLines;
 
     const collection = teamLineasDb.collection(targetCollectionName);
     const result = await collection.insertOne(doc);

@@ -3613,6 +3613,346 @@ router.put('/lineas-team/line-status', protect, async (req, res) => {
   }
 });
 
+router.post('/lineas-team/backfill-lineas-status', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = String(user?.role || '').toLowerCase();
+    const canRun = role.includes('admin') || role.includes('administrador');
+    if (!canRun) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+
+    const normalizeLineStatus = (v) => {
+      const s = String(v || '').trim().toUpperCase();
+      return s || '';
+    };
+
+    const getLineStatusForIdx = (doc, idx) => {
+      try {
+        const ls = doc?.lineas_status;
+        if (ls && typeof ls === 'object' && Object.prototype.hasOwnProperty.call(ls, idx)) {
+          const norm = normalizeLineStatus(ls[idx]);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      try {
+        const rawLs = doc?._raw?.lineas_status;
+        if (rawLs && typeof rawLs === 'object' && Object.prototype.hasOwnProperty.call(rawLs, idx)) {
+          const norm = normalizeLineStatus(rawLs[idx]);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      try {
+        const lines = Array.isArray(doc?.lines) ? doc.lines : null;
+        const row = lines && lines[idx] ? lines[idx] : null;
+        if (row) {
+          const norm = normalizeLineStatus(row.estado ?? row.status ?? row.STATUS ?? row.state);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      try {
+        const rawLines = Array.isArray(doc?._raw?.lines) ? doc._raw.lines : (Array.isArray(doc?._raw?.lineas) ? doc._raw.lineas : null);
+        const row = rawLines && rawLines[idx] ? rawLines[idx] : null;
+        if (row) {
+          const norm = normalizeLineStatus(row.estado ?? row.status ?? row.STATUS ?? row.state);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      const global = normalizeLineStatus(doc?.status ?? doc?.STATUS ?? doc?._raw?.status ?? doc?._raw?.STATUS);
+      if (global) return global;
+      return 'PENDING';
+    };
+
+    const getLineDataForIdx = (doc, idx) => {
+      let telefono = '';
+      let servicio = '';
+
+      try {
+        const arr = Array.isArray(doc?.telefonos) ? doc.telefonos : null;
+        if (arr && arr[idx] != null) telefono = String(arr[idx] || '');
+      } catch (_) {}
+
+      try {
+        const arr = Array.isArray(doc?._raw?.telefonos) ? doc._raw.telefonos : null;
+        if (!telefono && arr && arr[idx] != null) telefono = String(arr[idx] || '');
+      } catch (_) {}
+
+      try {
+        const arr = Array.isArray(doc?.servicios) ? doc.servicios : null;
+        if (arr && arr[idx] != null) servicio = String(arr[idx] || '');
+      } catch (_) {}
+
+      try {
+        const arr = Array.isArray(doc?._raw?.servicios) ? doc._raw.servicios : null;
+        if (!servicio && arr && arr[idx] != null) servicio = String(arr[idx] || '');
+      } catch (_) {}
+
+      try {
+        const arr = Array.isArray(doc?.lines) ? doc.lines : null;
+        const row = arr && arr[idx] ? arr[idx] : null;
+        if (row) {
+          if (!telefono && row.telefono != null) telefono = String(row.telefono || '');
+          if (!servicio && row.servicio != null) servicio = String(row.servicio || '');
+        }
+      } catch (_) {}
+
+      try {
+        const arr = Array.isArray(doc?._raw?.lines) ? doc._raw.lines : (Array.isArray(doc?._raw?.lineas) ? doc._raw.lineas : null);
+        const row = arr && arr[idx] ? arr[idx] : null;
+        if (row) {
+          if (!telefono && row.telefono != null) telefono = String(row.telefono || '');
+          if (!servicio && row.servicio != null) servicio = String(row.servicio || '');
+        }
+      } catch (_) {}
+
+      return { telefono, servicio };
+    };
+
+    let collections = [];
+    try {
+      collections = (await db.listCollections().toArray()).map(c => c && c.name).filter(Boolean);
+    } catch (_) {
+      collections = [];
+    }
+
+    const stats = {
+      collections: collections.length,
+      scanned: 0,
+      matched: 0,
+      updated: 0,
+      errors: 0
+    };
+
+    for (const colName of collections) {
+      const col = db.collection(colName);
+
+      let cursor;
+      try {
+        cursor = col.find({ $or: [{ lineas_status: { $exists: false } }, { lineas_status: null }, { lineas_status: {} }] });
+      } catch (_) {
+        cursor = col.find({});
+      }
+
+      const ops = [];
+      const maxOps = 500;
+
+      while (await cursor.hasNext()) {
+        const doc = await cursor.next();
+        stats.scanned++;
+
+        const cantidadLineas = Number(doc?.cantidad_lineas || doc?._raw?.cantidad_lineas || 0) || 0;
+        if (!cantidadLineas || cantidadLineas < 1) continue;
+
+        const hasLineasStatus = doc?.lineas_status && typeof doc.lineas_status === 'object' && Object.keys(doc.lineas_status).length > 0;
+        if (hasLineasStatus) continue;
+
+        stats.matched++;
+
+        const newLineasStatus = {};
+        const newLines = [];
+        let anyStatus = false;
+
+        const globalNorm = normalizeLineStatus(doc?.status ?? doc?.STATUS ?? doc?._raw?.status ?? doc?._raw?.STATUS);
+        const hasExplicitLineasStatus = (() => {
+          try {
+            const ls = doc?.lineas_status;
+            if (ls && typeof ls === 'object' && Object.keys(ls).length > 0) return true;
+          } catch (_) {}
+          try {
+            const rls = doc?._raw?.lineas_status;
+            if (rls && typeof rls === 'object' && Object.keys(rls).length > 0) return true;
+          } catch (_) {}
+          return false;
+        })();
+
+        for (let i = 0; i < cantidadLineas; i++) {
+          let st = getLineStatusForIdx(doc, i);
+
+          // Heurística segura:
+          // Si el lead global está PENDING y NO hay lineas_status explícito, no confiar en estados "ACTIVE"
+          // que vienen de _raw.lines (históricamente el frontend enviaba ACTIVE por defecto).
+          if (!hasExplicitLineasStatus && globalNorm === 'PENDING' && st === 'ACTIVE') {
+            st = 'PENDING';
+          }
+
+          if (!st) st = globalNorm || 'PENDING';
+          if (st) anyStatus = true;
+          newLineasStatus[i] = st || 'PENDING';
+
+          const ld = getLineDataForIdx(doc, i);
+          newLines.push({ telefono: ld.telefono || '', servicio: ld.servicio || '', estado: newLineasStatus[i] });
+        }
+
+        if (!anyStatus) continue;
+
+        ops.push({
+          updateOne: {
+            filter: { _id: doc._id },
+            update: {
+              $set: {
+                lineas_status: newLineasStatus,
+                lines: newLines,
+                actualizadoEn: new Date()
+              }
+            }
+          }
+        });
+
+        if (ops.length >= maxOps) {
+          try {
+            const r = await col.bulkWrite(ops, { ordered: false });
+            stats.updated += (r.modifiedCount || 0);
+          } catch (_) {
+            stats.errors++;
+          }
+          ops.length = 0;
+        }
+      }
+
+      if (ops.length) {
+        try {
+          const r = await col.bulkWrite(ops, { ordered: false });
+          stats.updated += (r.modifiedCount || 0);
+        } catch (_) {
+          stats.errors++;
+        }
+      }
+    }
+
+    return res.json({ success: true, stats });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error en backfill', error: error.message });
+  }
+});
+
+router.post('/lineas-team/repair-lineas-status-pending', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = String(user?.role || '').toLowerCase();
+    const canRun = role.includes('admin') || role.includes('administrador');
+    if (!canRun) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+
+    const normalizeLineStatus = (v) => {
+      const s = String(v || '').trim().toUpperCase();
+      return s || '';
+    };
+
+    let collections = [];
+    try {
+      collections = (await db.listCollections().toArray()).map(c => c && c.name).filter(Boolean);
+    } catch (_) {
+      collections = [];
+    }
+
+    const stats = {
+      collections: collections.length,
+      scanned: 0,
+      matched: 0,
+      updated: 0,
+      errors: 0
+    };
+
+    for (const colName of collections) {
+      const col = db.collection(colName);
+
+      const cursor = col.find({
+        $or: [{ status: 'PENDING' }, { status: 'pending' }, { status: { $regex: /^pending$/i } }]
+      });
+
+      const ops = [];
+      const maxOps = 500;
+
+      while (await cursor.hasNext()) {
+        const doc = await cursor.next();
+        stats.scanned++;
+
+        const cantidadLineas = Number(doc?.cantidad_lineas || doc?._raw?.cantidad_lineas || 0) || 0;
+        if (!cantidadLineas || cantidadLineas < 1) continue;
+
+        const ls = doc?.lineas_status;
+        if (!ls || typeof ls !== 'object') continue;
+
+        const vals = [];
+        for (let i = 0; i < cantidadLineas; i++) {
+          const v = normalizeLineStatus(ls[i]);
+          if (v) vals.push(v);
+        }
+
+        if (!vals.length) continue;
+
+        // Solo reparar casos claramente incorrectos: lead global PENDING y TODAS las líneas quedaron ACTIVE.
+        const allActive = vals.length === cantidadLineas && vals.every(v => v === 'ACTIVE');
+        if (!allActive) continue;
+
+        // Evitar tocar casos donde existía lineas_status explícito original en _raw
+        const rawLs = doc?._raw?.lineas_status;
+        if (rawLs && typeof rawLs === 'object' && Object.keys(rawLs).length > 0) continue;
+
+        stats.matched++;
+
+        const newLineasStatus = {};
+        const newLines = Array.isArray(doc?.lines) ? doc.lines.map(x => ({ ...x })) : [];
+        for (let i = 0; i < cantidadLineas; i++) {
+          newLineasStatus[i] = 'PENDING';
+          if (newLines[i]) newLines[i].estado = 'PENDING';
+        }
+
+        ops.push({
+          updateOne: {
+            filter: { _id: doc._id },
+            update: {
+              $set: {
+                lineas_status: newLineasStatus,
+                ...(newLines.length ? { lines: newLines } : {}),
+                actualizadoEn: new Date()
+              }
+            }
+          }
+        });
+
+        if (ops.length >= maxOps) {
+          try {
+            const r = await col.bulkWrite(ops, { ordered: false });
+            stats.updated += (r.modifiedCount || 0);
+          } catch (_) {
+            stats.errors++;
+          }
+          ops.length = 0;
+        }
+      }
+
+      if (ops.length) {
+        try {
+          const r = await col.bulkWrite(ops, { ordered: false });
+          stats.updated += (r.modifiedCount || 0);
+        } catch (_) {
+          stats.errors++;
+        }
+      }
+    }
+
+    return res.json({ success: true, stats });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error en repair', error: error.message });
+  }
+});
+
 router.post('/seed-lineas-leads', protect, async (req, res) => {
   try {
     const user = req.user;
