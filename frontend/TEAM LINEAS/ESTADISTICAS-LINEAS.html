@@ -559,6 +559,56 @@
       }
     }
 
+    function __lineasStatNormalizeStatus(v) {
+      const s = String(v || '').trim();
+      if (!s) return '';
+      return s.toUpperCase();
+    }
+
+    function __getLineStatus(lead, idx) {
+      try {
+        const ls = lead?.lineas_status || lead?.lineasStatus || lead?.lineasStatusMap || null;
+        if (ls && Object.prototype.hasOwnProperty.call(ls, idx)) {
+          return __lineasStatNormalizeStatus(ls[idx]);
+        }
+      } catch (_) {}
+
+      try {
+        const rawLs = lead?._raw?.lineas_status || lead?._raw?.lineasStatus || lead?._raw?.lineasStatusMap || null;
+        if (rawLs && Object.prototype.hasOwnProperty.call(rawLs, idx)) {
+          return __lineasStatNormalizeStatus(rawLs[idx]);
+        }
+      } catch (_) {}
+
+      try {
+        const lines = Array.isArray(lead?.lines) ? lead.lines : (Array.isArray(lead?.lineas) ? lead.lineas : null);
+        const row = lines && lines[idx] ? lines[idx] : null;
+        if (row) {
+          const st = row.estado ?? row.status ?? row.STATUS ?? row.state;
+          const norm = __lineasStatNormalizeStatus(st);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      try {
+        const rawLines = Array.isArray(lead?._raw?.lines) ? lead._raw.lines : (Array.isArray(lead?._raw?.lineas) ? lead._raw.lineas : null);
+        const row = rawLines && rawLines[idx] ? rawLines[idx] : null;
+        if (row) {
+          const st = row.estado ?? row.status ?? row.STATUS ?? row.state;
+          const norm = __lineasStatNormalizeStatus(st);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      try {
+        const global = lead?.status ?? lead?.STATUS ?? lead?.estado;
+        const norm = __lineasStatNormalizeStatus(global);
+        if (norm) return norm;
+      } catch (_) {}
+
+      return 'PENDING';
+    }
+
     function updateGlobalKPIs(allLeads) {
       console.log('[updateGlobalKPIs] Calculando KPIs globales con', allLeads.length, 'leads totales');
       
@@ -568,7 +618,6 @@
       let totalVentasPendientes = 0; // Leads con status pending
       
       allLeads.forEach(lead => {
-        const lineasStatus = lead.lineas_status || {};
         const cantidadLineas = lead.cantidad_lineas || 1;
         const statusGlobal = (lead.status || '').toLowerCase();
         
@@ -576,24 +625,11 @@
         if (statusGlobal.includes('pending')) {
           totalVentasPendientes++;
         }
-        
-        // Si no hay lineas_status definido, usar el status global del lead
-        if (Object.keys(lineasStatus).length === 0) {
-          if (statusGlobal.includes('active')) {
-            totalLineasActivas += cantidadLineas;
-          } else if (statusGlobal.includes('pending')) {
-            totalLineasPendientes += cantidadLineas;
-          }
-        } else {
-          // Contar líneas por status individual
-          for (let i = 0; i < cantidadLineas; i++) {
-            const lineStatus = (lineasStatus[i] || 'PENDING').toUpperCase();
-            if (lineStatus === 'ACTIVE') {
-              totalLineasActivas++;
-            } else if (lineStatus === 'PENDING') {
-              totalLineasPendientes++;
-            }
-          }
+
+        for (let i = 0; i < cantidadLineas; i++) {
+          const lineStatus = __getLineStatus(lead, i);
+          if (lineStatus === 'ACTIVE') totalLineasActivas++;
+          else if (lineStatus === 'PENDING') totalLineasPendientes++;
         }
       });
       
@@ -726,27 +762,12 @@
       let lineasPendientes = 0;
       
       leads.forEach(lead => {
-        const lineasStatus = lead.lineas_status || {};
         const cantidadLineas = lead.cantidad_lineas || 1;
-        
-        // Si no hay lineas_status definido, usar el status global del lead
-        if (Object.keys(lineasStatus).length === 0) {
-          const statusGlobal = (lead.status || '').toLowerCase();
-          if (statusGlobal.includes('active')) {
-            lineasActivas += cantidadLineas;
-          } else if (statusGlobal.includes('pending')) {
-            lineasPendientes += cantidadLineas;
-          }
-        } else {
-          // Contar líneas por status individual
-          for (let i = 0; i < cantidadLineas; i++) {
-            const lineStatus = (lineasStatus[i] || 'PENDING').toUpperCase();
-            if (lineStatus === 'ACTIVE') {
-              lineasActivas++;
-            } else if (lineStatus === 'PENDING') {
-              lineasPendientes++;
-            }
-          }
+
+        for (let i = 0; i < cantidadLineas; i++) {
+          const lineStatus = __getLineStatus(lead, i);
+          if (lineStatus === 'ACTIVE') lineasActivas++;
+          else if (lineStatus === 'PENDING') lineasPendientes++;
         }
       });
       

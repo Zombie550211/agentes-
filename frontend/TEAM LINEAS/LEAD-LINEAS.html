@@ -249,15 +249,16 @@
         const telefonos = [];
         const servicios = [];
         const lines = [];
+        const status = (document.querySelector('input[name="status"]:checked')||{}).value || 'pending';
+        const defaultLineStatus = String(status || '').toLowerCase() === 'pending' ? 'PENDING' : String(status || '').toUpperCase();
         for (let i=1;i<=n;i++) {
           const v = (document.getElementById(`tel_${i}`).value||'').replace(/\D+/g,'');
           const s = (document.getElementById(`svc_${i}`)||{}).value || 'WIRELESS';
           telefonos.push(v);
           servicios.push(s);
-          lines.push({ telefono: v, servicio: s, estado: 'ACTIVE' });
+          lines.push({ telefono: v, servicio: s, estado: defaultLineStatus });
         }
         const autopay = (document.querySelector('input[name="autopay"]:checked')||{}).value || 'si';
-        const status = (document.querySelector('input[name="status"]:checked')||{}).value || 'pending';
         const mercadoSel = Array.from(document.querySelectorAll('input[name="mercado"]:checked')).map(i=>i.value);
         const supervisor = (document.querySelector('input[name="supervisor"]:checked')||{}).value || 'JONATHAN';
         // Normalizar: server espera un único mercado
