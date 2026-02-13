@@ -111,6 +111,9 @@
       .team-content { grid-template-columns: 1fr; }
       .chart-container { height: 400px; }
     }
+    @media (max-width: 1280px) {
+      .content-container > div:first-of-type { grid-template-columns: repeat(2, 1fr) !important; }
+    }
   </style>
 </head>
 <body>
@@ -140,7 +143,7 @@
         </div>
 
         <!-- KPIs Globales -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 32px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
@@ -149,6 +152,18 @@
               <div>
                 <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Total Ventas</p>
                 <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-layer-group" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Ventas Líneas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas-lineas">-</p>
               </div>
             </div>
           </div>
@@ -222,6 +237,13 @@
                   <p class="kpi-value" id="kpi-jonathan-lineas-pendientes">-</p>
                 </div>
               </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Ventas Líneas</p>
+                  <p class="kpi-value" id="kpi-jonathan-ventas-lineas">-</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -256,6 +278,13 @@
                 <div class="kpi-content">
                   <p class="kpi-label">Líneas Pendientes</p>
                   <p class="kpi-value" id="kpi-luis-lineas-pendientes">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Ventas Líneas</p>
+                  <p class="kpi-value" id="kpi-luis-ventas-lineas">-</p>
                 </div>
               </div>
             </div>
@@ -533,6 +562,7 @@
           document.getElementById('kpi-jonathan-ventas').textContent = '0';
           document.getElementById('kpi-jonathan-activas').textContent = '0';
           document.getElementById('kpi-jonathan-lineas-pendientes').textContent = '0';
+          document.getElementById('kpi-jonathan-ventas-lineas').textContent = '0';
         }
         
         if (team2Leads.length > 0) {
@@ -549,6 +579,7 @@
           document.getElementById('kpi-luis-ventas').textContent = '0';
           document.getElementById('kpi-luis-activas').textContent = '0';
           document.getElementById('kpi-luis-lineas-pendientes').textContent = '0';
+          document.getElementById('kpi-luis-ventas-lineas').textContent = '0';
         }
         
         // Actualizar KPIs globales (suma de ambos teams)
@@ -616,10 +647,13 @@
       let totalLineasActivas = 0;
       let totalLineasPendientes = 0;
       let totalVentasPendientes = 0; // Leads con status pending
+      let totalVentasLineas = 0; // Total de líneas sin importar status
       
       allLeads.forEach(lead => {
         const cantidadLineas = lead.cantidad_lineas || 1;
         const statusGlobal = (lead.status || '').toLowerCase();
+        
+        totalVentasLineas += cantidadLineas;
         
         // Contar ventas pendientes (leads con status pending)
         if (statusGlobal.includes('pending')) {
@@ -638,6 +672,7 @@
       document.getElementById('kpi-global-activas').textContent = totalLineasActivas;
       document.getElementById('kpi-global-lineas-pendientes').textContent = totalLineasPendientes;
       document.getElementById('kpi-global-ventas-pendientes').textContent = totalVentasPendientes;
+      document.getElementById('kpi-global-ventas-lineas').textContent = totalVentasLineas;
       
       console.log('[updateGlobalKPIs] Totales:', {
         ventas: totalVentas,
@@ -760,9 +795,11 @@
       // Contar líneas activas y pendientes: sumar líneas individuales por status
       let lineasActivas = 0;
       let lineasPendientes = 0;
+      let ventasLineas = 0;
       
       leads.forEach(lead => {
         const cantidadLineas = lead.cantidad_lineas || 1;
+        ventasLineas += cantidadLineas;
 
         for (let i = 0; i < cantidadLineas; i++) {
           const lineStatus = __getLineStatus(lead, i);
@@ -778,6 +815,7 @@
       document.getElementById(kpiPrefix + 'ventas').textContent = ventas;
       document.getElementById(kpiPrefix + 'activas').textContent = activas;
       document.getElementById(kpiPrefix + 'lineas-pendientes').textContent = pendientes;
+      document.getElementById(kpiPrefix + 'ventas-lineas').textContent = ventasLineas;
 
       // Preparar datos para gráfica de barras
       const agentes = Object.keys(agentData).sort();
