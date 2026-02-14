@@ -3834,6 +3834,123 @@ router.post('/lineas-team/backfill-lineas-status', protect, async (req, res) => 
   }
 });
 
+/**
+ * @route POST /api/lineas-team/set-all-lines-pending
+ * @desc Cambiar TODAS las líneas de TODOS los leads a PENDING (masivo)
+ * @access Private (admin only)
+ */
+router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = String(user?.role || '').toLowerCase();
+    const canRun = role.includes('admin') || role.includes('administrador');
+    if (!canRun) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+
+    let collections = [];
+    try {
+      collections = (await db.listCollections().toArray()).map(c => c && c.name).filter(Boolean);
+    } catch (_) {
+      collections = [];
+    }
+
+    const stats = {
+      collections: collections.length,
+      scanned: 0,
+      updated: 0,
+      errors: 0,
+      totalLinesChanged: 0
+    };
+
+    for (const colName of collections) {
+      const col = db.collection(colName);
+      
+      // Obtener TODOS los documentos que tengan líneas
+      const cursor = col.find({
+        $or: [
+          { cantidad_lineas: { $gt: 0 } },
+          { lineas_status: { $exists: true } },
+          { lines: { $exists: true } }
+        ]
+      });
+
+      const ops = [];
+      const maxOps = 500;
+
+      while (await cursor.hasNext()) {
+        const doc = await cursor.next();
+        stats.scanned++;
+
+        const cantidadLineas = Number(doc?.cantidad_lineas || doc?._raw?.cantidad_lineas || 0) || 0;
+        if (!cantidadLineas || cantidadLineas < 1) continue;
+
+        stats.matched = (stats.matched || 0) + 1;
+
+        // Crear lineas_status todo en PENDING
+        const newLineasStatus = {};
+        const newLines = Array.isArray(doc?.lines) ? doc.lines.map(x => ({ ...x })) : [];
+        
+        for (let i = 0; i < cantidadLineas; i++) {
+          newLineasStatus[i] = 'PENDING';
+          if (newLines[i]) newLines[i].estado = 'PENDING';
+          stats.totalLinesChanged++;
+        }
+
+        ops.push({
+          updateOne: {
+            filter: { _id: doc._id },
+            update: {
+              $set: {
+                lineas_status: newLineasStatus,
+                ...(newLines.length ? { lines: newLines } : {}),
+                actualizadoEn: new Date()
+              }
+            }
+          }
+        });
+
+        if (ops.length >= maxOps) {
+          try {
+            const r = await col.bulkWrite(ops, { ordered: false });
+            stats.updated += (r.modifiedCount || 0);
+          } catch (e) {
+            console.error('Error bulkWrite:', e);
+            stats.errors++;
+          }
+          ops.length = 0;
+        }
+      }
+
+      // Procesar ops restantes
+      if (ops.length > 0) {
+        try {
+          const r = await col.bulkWrite(ops, { ordered: false });
+          stats.updated += (r.modifiedCount || 0);
+        } catch (e) {
+          console.error('Error bulkWrite final:', e);
+          stats.errors++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Proceso completado. ${stats.updated} documentos actualizados. ${stats.totalLinesChanged} líneas cambiadas a PENDING.`,
+      stats
+    });
+
+  } catch (error) {
+    console.error('Error en set-all-lines-pending:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post('/lineas-team/repair-lineas-status-pending', protect, async (req, res) => {
   try {
     const user = req.user;

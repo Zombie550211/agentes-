@@ -143,14 +143,14 @@
         </div>
 
         <!-- KPIs Globales -->
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 32px;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-shopping-cart" style="font-size: 24px;"></i>
               </div>
               <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Total Ventas</p>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Ventas</p>
                 <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
               </div>
             </div>
@@ -162,7 +162,7 @@
                 <i class="fas fa-layer-group" style="font-size: 24px;"></i>
               </div>
               <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Ventas Líneas</p>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Líneas</p>
                 <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas-lineas">-</p>
               </div>
             </div>
@@ -191,18 +191,6 @@
               </div>
             </div>
           </div>
-          
-          <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-hourglass-half" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Ventas Pendientes</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas-pendientes">-</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Team Jonathan F -->
@@ -219,8 +207,15 @@
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Ventas</p>
+                  <p class="kpi-label">Cantidad de Ventas</p>
                   <p class="kpi-value" id="kpi-jonathan-ventas">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Cantidad de Líneas</p>
+                  <p class="kpi-value" id="kpi-jonathan-ventas-lineas">-</p>
                 </div>
               </div>
               <div class="kpi-item">
@@ -235,13 +230,6 @@
                 <div class="kpi-content">
                   <p class="kpi-label">Líneas Pendientes</p>
                   <p class="kpi-value" id="kpi-jonathan-lineas-pendientes">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Ventas Líneas</p>
-                  <p class="kpi-value" id="kpi-jonathan-ventas-lineas">-</p>
                 </div>
               </div>
             </div>
@@ -262,8 +250,15 @@
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Ventas</p>
+                  <p class="kpi-label">Cantidad de Ventas</p>
                   <p class="kpi-value" id="kpi-luis-ventas">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Cantidad de Líneas</p>
+                  <p class="kpi-value" id="kpi-luis-ventas-lineas">-</p>
                 </div>
               </div>
               <div class="kpi-item">
@@ -278,13 +273,6 @@
                 <div class="kpi-content">
                   <p class="kpi-label">Líneas Pendientes</p>
                   <p class="kpi-value" id="kpi-luis-lineas-pendientes">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Ventas Líneas</p>
-                  <p class="kpi-value" id="kpi-luis-ventas-lineas">-</p>
                 </div>
               </div>
             </div>
@@ -671,14 +659,13 @@
       document.getElementById('kpi-global-ventas').textContent = totalVentas;
       document.getElementById('kpi-global-activas').textContent = totalLineasActivas;
       document.getElementById('kpi-global-lineas-pendientes').textContent = totalLineasPendientes;
-      document.getElementById('kpi-global-ventas-pendientes').textContent = totalVentasPendientes;
       document.getElementById('kpi-global-ventas-lineas').textContent = totalVentasLineas;
       
       console.log('[updateGlobalKPIs] Totales:', {
         ventas: totalVentas,
         lineasActivas: totalLineasActivas,
         lineasPendientes: totalLineasPendientes,
-        ventasPendientes: totalVentasPendientes
+        ventasLineas: totalVentasLineas
       });
     }
 

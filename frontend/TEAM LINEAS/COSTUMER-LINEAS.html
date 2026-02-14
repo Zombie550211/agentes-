@@ -378,7 +378,7 @@
       }
       function canEditStatus(){
         const r = getUserRole();
-        return r.includes('admin') || r.includes('administrador') || r.includes('backoffice') || r.includes('supervisor');
+        return r.includes('admin') || r.includes('administrador') || r.includes('backoffice');
       }
 
       function normalizeDigits(v){ return String(v||'').replace(/\D+/g,''); }
@@ -630,7 +630,7 @@
                     </div>
                     <div>
                       <span style="color:#64748b; font-size:12px;">STATUS:</span><br>
-                      <select class="line-status-select" data-client-id="${docId}" data-line-index="${i}" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; width:auto; max-width:150px;">
+                      <select class="line-status-select" data-client-id="${docId}" data-line-index="${i}" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; width:auto; max-width:150px;" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
                         <option value="PENDING" ${lineStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
                         <option value="ACTIVE" ${lineStatus === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
                         <option value="COMPLETED" ${lineStatus === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
@@ -1171,8 +1171,8 @@
           });
         });
         
-        // Event listeners para cambio de status de línea individual
-        document.querySelectorAll('.line-status-select').forEach(select => {
+        // Event listeners para cambio de status de línea individual (solo si no es supervisor)
+        document.querySelectorAll('.line-status-select:not([disabled])').forEach(select => {
           select.addEventListener('change', async function(e) {
             e.stopPropagation();
             
