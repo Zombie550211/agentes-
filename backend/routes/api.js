@@ -3283,7 +3283,7 @@ router.get('/lineas-team', protect, async (req, res) => {
     
     console.log('[API /lineas-team] Usuario:', username, 'Rol:', role, 'Team:', team);
     
-    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador';
+    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon';
     if (!isTeamLineas) {
       return res.status(403).json({ success: false, message: 'Acceso denegado' });
     }
@@ -3301,7 +3301,7 @@ router.get('/lineas-team', protect, async (req, res) => {
     
     let leads = [];
     
-    if (role === 'admin' || role === 'administrador') {
+    if (role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon') {
       // Admin ve todas las colecciones
       const collections = await db.listCollections().toArray();
       console.log('[API /lineas-team] Colecciones disponibles:', collections.map(c => c.name));
