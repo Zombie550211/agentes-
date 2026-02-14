@@ -3283,7 +3283,8 @@ router.get('/lineas-team', protect, async (req, res) => {
     
     console.log('[API /lineas-team] Usuario:', username, 'Rol:', role, 'Team:', team);
     
-    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon';
+    const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office';
+    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon' || isBackoffice;
     if (!isTeamLineas) {
       return res.status(403).json({ success: false, message: 'Acceso denegado' });
     }
@@ -3301,24 +3302,33 @@ router.get('/lineas-team', protect, async (req, res) => {
     
     let leads = [];
     
-    if (role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon') {
-      // Admin ve todas las colecciones
+    // Admin y BackOffice ven TODO
+    if (role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon' || isBackoffice) {
       const collections = await db.listCollections().toArray();
-      console.log('[API /lineas-team] Colecciones disponibles:', collections.map(c => c.name));
+      console.log('[API /lineas-team] Admin/BackOffice/rol_icon - Colecciones disponibles:', collections.map(c => c.name));
       
       for (const coll of collections) {
         const docs = await db.collection(coll.name).find({}).toArray();
+        console.log(`[API /lineas-team] Colección ${coll.name}: ${docs.length} documentos`);
         leads = leads.concat(docs.map(d => ({ ...d, _collectionName: coll.name })));
       }
+      console.log('[API /lineas-team] Total leads para admin/backoffice/rol_icon:', leads.length);
     } else if (role === 'supervisor' || role === 'supervisor team lineas') {
-      // Supervisor ve todas las colecciones de su equipo
+      // Supervisor ve solo leads de sus agentes asignados
       const collections = await db.listCollections().toArray();
+      console.log('[API /lineas-team] Supervisor - Buscando leads de agentes asignados');
+      
       for (const coll of collections) {
         const docs = await db.collection(coll.name).find({}).toArray();
-        leads = leads.concat(docs.map(d => ({ ...d, _collectionName: coll.name })));
+        // Filtrar por supervisor
+        const filteredDocs = docs.filter(doc => {
+          const supervisor = String(doc.supervisor || '').toUpperCase();
+          return supervisor.includes(username.toUpperCase()) || supervisor === username.toUpperCase();
+        });
+        leads = leads.concat(filteredDocs.map(d => ({ ...d, _collectionName: coll.name })));
       }
     } else {
-      // Agente ve solo su colección
+      // Agente ve solo su colección (sus propios leads)
       const collection = db.collection(collectionName);
       leads = await collection.find({}).toArray();
       leads = leads.map(d => ({ ...d, _collectionName: collectionName }));
