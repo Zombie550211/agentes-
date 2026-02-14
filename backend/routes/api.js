@@ -3402,7 +3402,7 @@ router.put('/lineas-team/status', protect, async (req, res) => {
     console.log('[API PUT /lineas-team/status] Usuario:', username, 'Rol:', role);
     
     // Verificar permisos
-    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('supervisor') || team.includes('lineas');
+    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('rol_icon') || role.includes('supervisor') || team.includes('lineas');
     if (!canEdit) {
       return res.status(403).json({ success: false, message: 'No tienes permisos para cambiar el STATUS' });
     }
@@ -3522,7 +3522,7 @@ router.put('/lineas-team/line-status', protect, async (req, res) => {
     console.log('[API PUT /lineas-team/line-status] Usuario:', username, 'Rol:', role);
     
     // Verificar permisos
-    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('supervisor') || team.includes('lineas');
+    const canEdit = role.includes('admin') || role.includes('administrador') || role.includes('backoffice') || role.includes('rol_icon') || role.includes('supervisor') || team.includes('lineas');
     if (!canEdit) {
       return res.status(403).json({ success: false, message: 'No tienes permisos para cambiar el STATUS' });
     }
