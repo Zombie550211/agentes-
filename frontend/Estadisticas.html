@@ -14,10 +14,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
   <!-- Scripts de app -->
-  <!-- Cargar primero las dependencias -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- ChartDataLabels para mostrar totales en barras -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <!-- Highcharts 3D -->
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-3d.js"></script>
   <!-- Eliminado kit de Font Awesome (403). Se usa el CSS 5.15.4 ya cargado arriba. -->
   
   <!-- Luego cargar los scripts de la aplicaciÃ³n -->
@@ -28,27 +27,11 @@
   
   <!-- Script de inicializaciÃ³n de grÃ¡ficos -->
   <script>
-    // Verificar que Chart.js está disponible
-    if (typeof Chart === 'undefined') {
-      console.error('Error: No se pudo cargar Chart.js');
+    // Verificar que Highcharts está disponible
+    if (typeof Highcharts === 'undefined') {
+      console.error('Error: No se pudo cargar Highcharts');
     } else {
-      console.log('Chart.js cargado correctamente');
-      
-      // Registrar ChartDataLabels una sola vez (necesario para que las gráficas muestren etiquetas)
-      // Nota: En "Ventas Activas" se desactiva datalabels a nivel de chart para evitar duplicados.
-      try {
-        if (typeof ChartDataLabels !== 'undefined' && typeof Chart.register === 'function') {
-          if (!window.__CHART_DATALABELS_REGISTERED) {
-            Chart.register(ChartDataLabels);
-            window.__CHART_DATALABELS_REGISTERED = true;
-          }
-          console.log('ChartDataLabels registrado');
-        } else {
-          console.warn('ChartDataLabels no disponible');
-        }
-      } catch (e) {
-        console.warn('No se pudo registrar ChartDataLabels:', e);
-      }
+      console.log('Highcharts 3D cargado correctamente:', Highcharts.version);
     }
 
     // Marcar inicialización de porcentaje para evitar dibujar donuts provisionales
@@ -61,7 +44,7 @@
     /* Layout general consistente con otras pÃ¡ginas */
     * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body { margin: 0; font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #1e293b; }
+    body { margin: 0; font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #F8FAFC; color: #1e293b; }
 
     .layout { display: flex; min-height: 100vh; }
 
@@ -752,7 +735,7 @@
                 </div>
                 <div class="porcentaje-right">
                   <div class="chart-wrapper">
-                    <canvas id="chart-porcentaje-activacion"></canvas>
+                    <div id="chart-porcentaje-activacion" style="width: 100%; height: 100%;"></div>
                   </div>
                 </div>
               </div>
@@ -768,7 +751,7 @@
                 </div>
                 <div class="ventas-activas-right">
                   <div class="chart-wrapper">
-                    <canvas id="chart-ventas-activas-mes"></canvas>
+                    <div id="chart-ventas-activas-mes" style="width: 100%; height: 100%;"></div>
                   </div>
                 </div>
               </div>
@@ -833,7 +816,7 @@
 
             <!-- Gráfica de Ventas y Puntaje -->
             <div class="graph-container">
-              <canvas id="ventasPuntajeChart" class="graph-canvas"></canvas>
+              <div id="ventasPuntajeChart" class="graph-canvas" style="width: 100%; height: 400px;"></div>
             </div>
           </div>
 
@@ -844,7 +827,7 @@
               <button id="products-next" class="filter-button" style="height:32px;width:32px;font-size:16px;" title="Mes siguiente">▶</button>
             </div>
             <div class="chart-wrapper">
-              <canvas id="productsChart"></canvas>
+              <div id="productsChart" style="width: 100%; height: 100%;"></div>
             </div>
           </div>
         </div>
@@ -1964,96 +1947,69 @@
               if (msg) msg.remove();
             }
             if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
-            const ctx = canvas.getContext('2d');
-            window.ventasActivasMesChart = new Chart(ctx, {
-              type: 'bar',
-              data: {
-                labels,
-                datasets: [{
-                  label: 'Ventas activas',
-                  data: dataVals,
-                  backgroundColor: '#10b981',
-                  borderRadius: 6,
-                  maxBarThickness: 38
-                }]
-              },
-              options: {
-                layout: {
-                  padding: { top: 30, right: 10, bottom: 10, left: 10 }
+            
+            window.ventasActivasMesChart = Highcharts.chart('chart-ventas-activas-mes', {
+              chart: {
+                type: 'column',
+                options3d: {
+                  enabled: true,
+                  alpha: 15,
+                  beta: 0,
+                  depth: 100,
+                  viewDistance: 35
                 },
-                plugins: { 
-                  legend: { display: false },
-                  tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    cornerRadius: 8,
-                    displayColors: true,
-                    callbacks: {
-                      label: function(context) {
-                        const idx = context.dataIndex;
-                        const activas = dataVals[idx];
-                        const total = filtered[idx].Total;
-                        return `Activas: ${activas} de ${total}`;
-                      }
+                backgroundColor: '#ffffff'
+              },
+              title: { text: null },
+              xAxis: {
+                categories: labels,
+                labels: {
+                  skew3d: false,
+                  style: { fontSize: '11px' }
+                }
+              },
+              yAxis: {
+                title: { text: 'Ventas Activas' },
+                gridLineWidth: 0,
+                allowDecimals: false
+              },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                borderRadius: 8,
+                style: { color: '#fff' },
+                formatter: function() {
+                  const idx = this.point.index;
+                  const activas = dataVals[idx];
+                  const total = filtered[idx].Total;
+                  return `<b>${this.x}</b><br/>Activas: ${activas} de ${total}`;
+                }
+              },
+              plotOptions: {
+                column: {
+                  depth: 70,
+                  maxPointWidth: 38,
+                  dataLabels: {
+                    enabled: true,
+                    style: {
+                      fontWeight: 'bold',
+                      color: '#1f3b63',
+                      textOutline: 'none',
+                      fontSize: '13px'
                     }
                   },
-                  datalabels: {
-                    display: false
-                  }
+                  borderWidth: 0
                 }
               },
-              plugins: [
-                {
-                  id: 'barShadow3D',
-                  beforeDatasetsDraw: (chart) => {
-                    const ctx = chart.ctx;
-                    ctx.save();
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                    ctx.shadowBlur = 10;
-                    ctx.shadowOffsetX = 4;
-                    ctx.shadowOffsetY = 4;
-                  },
-                  afterDatasetsDraw: (chart) => {
-                    chart.ctx.restore();
-                  }
-                },
-                {
-                  id: 'ventasActivasValueLabels',
-                  afterDatasetsDraw: (chart) => {
-                    try {
-                      const ctx = chart.ctx;
-                      const meta = chart.getDatasetMeta(0);
-                      if (!meta || !meta.data) return;
-                      ctx.save();
-                      ctx.fillStyle = '#1f3b63';
-                      ctx.font = 'bold 13px Roboto, Segoe UI, Arial';
-                      ctx.textAlign = 'center';
-                      ctx.textBaseline = 'bottom';
-                      meta.data.forEach((bar, i) => {
-                        const v = Number(chart.data?.datasets?.[0]?.data?.[i] ?? 0);
-                        if (!Number.isFinite(v)) return;
-                        const txt = String(v);
-                        const x = bar.x;
-                        const y = bar.y - 6;
-                        ctx.fillText(txt, x, y);
-                      });
-                      ctx.restore();
-                    } catch (_) {}
-                  }
+              legend: { enabled: false },
+              series: [{
+                name: 'Ventas activas',
+                data: dataVals,
+                color: {
+                  linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+                  stops: [[0, '#10b981'], [1, '#059669']]
                 }
-              ]
+              }]
             });
-            // Forzar un resize para asegurar que el gráfico se renderice correctamente
-            try {
-              if (window.ventasActivasMesChart && typeof window.ventasActivasMesChart.resize === 'function') {
-                setTimeout(() => {
-                  try {
-                    window.ventasActivasMesChart.resize();
-                    window.ventasActivasMesChart.update('none');
-                  } catch(_) {}
-                }, 100);
-              }
-            } catch(_) {}
             console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
             showChartSpinner(canvas, false);
           } catch (e) { 
@@ -2119,12 +2075,56 @@
             let msg = document.getElementById('products-no-data-msg');
             if (msg) msg.remove();
           }
-          const ctx = canvas.getContext('2d');
           if (productsChartRef) try { productsChartRef.destroy(); } catch(_){}
-          productsChartRef = new Chart(ctx, {
-            type: 'bar',
-            data: { labels, datasets: [{ label: 'Cantidad', data: dataVals, backgroundColor: 'rgba(54,162,235,.7)', borderColor: 'rgba(54,162,235,1)', borderWidth: 1, borderRadius: 4 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } } }
+          productsChartRef = Highcharts.chart('productsChart', {
+            chart: {
+              type: 'column',
+              options3d: {
+                enabled: true,
+                alpha: 15,
+                beta: 0,
+                depth: 100,
+                viewDistance: 35
+              },
+              backgroundColor: '#ffffff'
+            },
+            title: { text: null },
+            xAxis: {
+              categories: labels,
+              labels: {
+                skew3d: false,
+                rotation: -45,
+                style: { fontSize: '11px' }
+              }
+            },
+            yAxis: {
+              title: { text: 'Cantidad' },
+              gridLineWidth: 0,
+              allowDecimals: false
+            },
+            tooltip: {
+              headerFormat: '<b>{point.key}</b><br>',
+              pointFormat: 'Cantidad: {point.y}'
+            },
+            plotOptions: {
+              column: {
+                depth: 70,
+                dataLabels: {
+                  enabled: true,
+                  style: { fontWeight: 'bold', textOutline: 'none' }
+                },
+                borderWidth: 0
+              }
+            },
+            legend: { enabled: false },
+            series: [{
+              name: 'Cantidad',
+              data: dataVals,
+              color: {
+                linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+                stops: [[0, 'rgba(54,162,235,0.9)'], [1, 'rgba(54,162,235,0.7)']]
+              }
+            }]
           });
         } catch (e) { console.warn('renderProducts error', e); }
         showChartSpinner(canvas, false);
@@ -2248,71 +2248,63 @@
         const labels = entries.map(e => e[0]);
         const dataVals = entries.map(e => e[1]);
 
-        // Actualizar gráfico
-        const canvas = document.getElementById('productsChart');
-        if (!canvas) return;
+        // Actualizar gráfico con Highcharts
+        const chartEl = document.getElementById('productsChart');
+        if (!chartEl) return;
 
         if (productsChartRef) {
           productsChartRef.destroy();
         }
 
-        productsChartRef = new Chart(canvas.getContext('2d'), {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [{
-              label: 'Cantidad',
-              data: dataVals,
-              backgroundColor: 'rgba(54,162,235,.7)',
-              borderColor: 'rgba(54,162,235,1)',
-              borderWidth: 1,
-              borderRadius: 4
-            }]
+        productsChartRef = Highcharts.chart('productsChart', {
+          chart: {
+            type: 'column',
+            options3d: {
+              enabled: true,
+              alpha: 15,
+              beta: 0,
+              depth: 100,
+              viewDistance: 35
+            },
+            backgroundColor: '#ffffff'
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-              padding: { top: 30, right: 10, bottom: 10, left: 10 }
-            },
-            plugins: {
-              legend: { display: false },
-              title: {
-                display: true,
-                text: `Total: ${dataVals.reduce((a,b) => a + b, 0)} ventas`,
-                padding: {top: 10, bottom: 10},
-                font: { size: 14, weight: 'bold' }
-              },
-              datalabels: {
-                display: true,
-                anchor: 'end',
-                align: 'top',
-                offset: 4,
-                color: '#333',
-                font: {
-                  weight: 'bold',
-                  size: 13
-                },
-                formatter: function(value) {
-                  return value;
-                }
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: { stepSize: 1 }
-              },
-              x: {
-                ticks: {
-                  autoSkip: false,
-                  maxRotation: 45,
-                  minRotation: 45
-                }
-              }
+          title: { text: null },
+          xAxis: {
+            categories: labels,
+            labels: {
+              skew3d: false,
+              rotation: -45,
+              style: { fontSize: '11px' }
             }
-          }
-          // ChartDataLabels ya está registrado globalmente desde el CDN
+          },
+          yAxis: {
+            title: { text: 'Cantidad' },
+            gridLineWidth: 0,
+            allowDecimals: false
+          },
+          tooltip: {
+            headerFormat: '<b>{point.key}</b><br>',
+            pointFormat: 'Cantidad: {point.y}'
+          },
+          plotOptions: {
+            column: {
+              depth: 70,
+              dataLabels: {
+                enabled: true,
+                style: { fontWeight: 'bold', textOutline: 'none' }
+              },
+              borderWidth: 0
+            }
+          },
+          legend: { enabled: false },
+          series: [{
+            name: 'Cantidad',
+            data: dataVals,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [[0, 'rgba(54,162,235,0.9)'], [1, 'rgba(54,162,235,0.7)']]
+            }
+          }]
         });
 
       } catch(e) { 
@@ -2323,43 +2315,14 @@
 
     // Función auxiliar para mostrar mensaje cuando no hay datos
     function showNoDataMessage() {
-      const canvas = document.getElementById('productsChart');
-      if (!canvas) return;
+      const chartEl = document.getElementById('productsChart');
+      if (!chartEl) return;
 
       if (productsChartRef) {
         productsChartRef.destroy();
       }
 
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#666666';
-      ctx.font = '14px Arial';
-      ctx.fillText('No hay datos disponibles para este mes', canvas.width / 2, canvas.height / 2);
-      ctx.restore();
-    }
-    
-
-    // Función auxiliar para mostrar mensaje cuando no hay datos
-    function showNoDataMessage() {
-      const canvas = document.getElementById('productsChart');
-      if (!canvas) return;
-
-      if (productsChartRef) {
-        productsChartRef.destroy();
-      }
-
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#666666';
-      ctx.font = '14px Arial';
-      ctx.fillText('No hay datos disponibles para este mes', canvas.width / 2, canvas.height / 2);
-      ctx.restore();
+      chartEl.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666666; font-size: 14px;">No hay datos disponibles para este mes</div>';
     }
 
     // Configurar eventos de navegación después de que el DOM esté listo
@@ -2647,9 +2610,9 @@
     function initializeApp() {
       console.log('Inicializando aplicación...');
       
-      // Verificar que Chart esté disponible
-      if (typeof Chart === 'undefined') {
-        console.error('Error: Chart.js no se ha cargado correctamente');
+      // Verificar que Highcharts esté disponible
+      if (typeof Highcharts === 'undefined') {
+        console.error('Error: Highcharts no se ha cargado correctamente');
         const chartContainer = document.querySelector('.chart-wrapper');
         if (chartContainer) {
           chartContainer.innerHTML = `
@@ -2662,7 +2625,7 @@
         return;
       }
       
-      console.log('Chart.js cargado correctamente:', Chart.version);
+      console.log('Highcharts cargado correctamente:', Highcharts.version);
       
       // Inicializar gráficos
       initCharts();
@@ -3451,65 +3414,57 @@
                 return;
               }
               if (window.porcentajeActivacionChart) try { cleanupPorcLabels(window.porcentajeActivacionChart); window.porcentajeActivacionChart.destroy(); window.porcentajeActivacionChart = null; } catch(_){ }
-              const ctx = canvas.getContext('2d');
-              // generate colors
+              
               // Paleta provista por el usuario (imagen)
               const palette = ['#588A87', '#B6C6BE', '#DFD9CA', '#EFCABF', '#EEA995'];
-              const background = labels.map((_,i)=> palette[i % palette.length]);
               
-              // Solo incluir plugin de sombras 3D
-              const chartPlugins = [{
-                id: 'shadow3D',
-                beforeDraw: (chart) => {
-                  const ctx = chart.ctx;
-                  ctx.save();
-                  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                  ctx.shadowBlur = 15;
-                  ctx.shadowOffsetX = 5;
-                  ctx.shadowOffsetY = 5;
-                },
-                afterDraw: (chart) => {
-                  chart.ctx.restore();
-                }
-              }];
+              // Preparar datos para Highcharts
+              const seriesData = labels.map((label, i) => ({
+                name: label,
+                y: dataToUse[i],
+                color: palette[i % palette.length]
+              }));
               
-              window.porcentajeActivacionChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: labels, datasets: [{ data: dataToUse, backgroundColor: background, borderColor: '#fff', borderWidth: 3 }] },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  cutout: '60%',
-                  // Efecto 3D con sombras
-                  layout: {
-                    padding: 15
+              window.porcentajeActivacionChart = Highcharts.chart('chart-porcentaje-activacion', {
+                chart: {
+                  type: 'pie',
+                  options3d: {
+                    enabled: true,
+                    alpha: 45,
+                    beta: 0
                   },
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: { 
-                      intersect: false, 
-                      position: 'nearest',
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      padding: 12,
-                      cornerRadius: 8,
-                      displayColors: true,
-                      callbacks: { 
-                        label: function(ctx){ 
-                          const idx = ctx.dataIndex;
-                          const team = rowsArr[idx];
-                          const totalVentas = Number(team.Total || 0);
-                          const totalActivas = Number(team.ACTIVAS || 0);
-                          const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
-                          return `${ctx.label}: ${totalActivas}/${totalVentas} (${porcentaje.toFixed(1)}% activación)`;
-                        } 
-                      } 
-                    },
-                    datalabels: {
-                      display: false  // Desactivar etiquetas en gráfica de donut
-                    }
+                  backgroundColor: '#ffffff'
+                },
+                title: { text: null },
+                tooltip: {
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  borderRadius: 8,
+                  style: { color: '#fff' },
+                  formatter: function() {
+                    const idx = this.point.index;
+                    const team = rowsArr[idx];
+                    const totalVentas = Number(team.Total || 0);
+                    const totalActivas = Number(team.ACTIVAS || 0);
+                    const porcentaje = totalVentas > 0 ? (totalActivas / totalVentas) * 100 : 0;
+                    return `<b>${this.point.name}</b><br/>${totalActivas}/${totalVentas} (${porcentaje.toFixed(1)}% activación)`;
                   }
                 },
-                plugins: chartPlugins
+                plotOptions: {
+                  pie: {
+                    innerSize: '60%',
+                    depth: 45,
+                    dataLabels: {
+                      enabled: false
+                    },
+                    borderWidth: 3,
+                    borderColor: '#fff'
+                  }
+                },
+                legend: { enabled: false },
+                series: [{
+                  name: 'Equipos',
+                  data: seriesData
+                }]
               });
 
               // Populate the compact left-side list (`#porc-team-list`) with the
@@ -5069,116 +5024,102 @@
           ventasPuntajeChart = null;
         }
         
-        const ctx = canvas.getContext('2d');
         const container = canvas.parentElement;
         container.style.width = '100%';
         container.style.height = '400px';
         
-        return new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: [],
-            datasets: [
-              {
-                label: 'Ventas',
-                type: 'bar',
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                yAxisID: 'y',
-                datalabels: {
-                  anchor: 'end',
-                  align: 'end',
-                  offset: 4,
-                  color: '#2c3e50',
-                  font: { weight: 'bold' },
-                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
-                }
-              },
-              {
-                label: 'Puntaje',
-                type: 'bar',
-                backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1,
-                borderRadius: 4,
-                yAxisID: 'y1',
-                datalabels: {
-                  anchor: 'end',
-                  align: 'end',
-                  offset: 4,
-                  color: '#7f1d1d',
-                  font: { weight: 'bold' },
-                  formatter: (v) => {
-                    if (v == null || isNaN(v) || Number(v) === 0) return '';
-                    const n = Number(v);
-                    return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
-                  }
-                }
-              }
-            ]
+        return Highcharts.chart(canvas.id, {
+          chart: {
+            type: 'column',
+            options3d: {
+              enabled: true,
+              alpha: 15,
+              beta: 0,
+              depth: 100,
+              viewDistance: 35
+            },
+            backgroundColor: '#ffffff'
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { bottom: 40 } },
-            plugins: {
-              legend: {
-                position: 'right'
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    let label = context.dataset.label || '';
-                    if (label) {
-                      label += ': ';
-                    }
-                    if (context.parsed !== null) {
-                      label += context.parsed;
-                    }
-                    return label;
-                  }
+          title: {
+            text: null
+          },
+          xAxis: {
+            categories: [],
+            labels: {
+              skew3d: false,
+              style: {
+                fontSize: '11px',
+                color: '#475569'
+              }
+            }
+          },
+          yAxis: [{
+            title: {
+              text: 'Ventas',
+              style: { color: '#475569' }
+            },
+            labels: {
+              style: { color: '#475569' }
+            },
+            gridLineWidth: 0
+          }, {
+            title: {
+              text: 'Puntaje',
+              style: { color: '#475569' }
+            },
+            labels: {
+              style: { color: '#475569' }
+            },
+            opposite: true,
+            min: 0,
+            max: 100,
+            gridLineWidth: 0
+          }],
+          tooltip: {
+            shared: true
+          },
+          plotOptions: {
+            column: {
+              depth: 70,
+              dataLabels: {
+                enabled: true,
+                style: {
+                  fontWeight: 'bold',
+                  textOutline: 'none'
                 }
               },
-              datalabels: {
-                display: true,
-                clamp: false,
-                clip: false
-              }
-            },
-            scales: {
-              y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                title: { display: false, text: 'Ventas' },
-                grid: { display: false, drawTicks: false },
-                border: { display: false },
-                ticks: { display: true, color: '#475569' }
-              },
-              y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                grid: { display: false, drawOnChartArea: false, drawTicks: false },
-                border: { display: false },
-                title: { display: false, text: 'Puntaje' },
-                ticks: { display: true, color: '#475569' },
-                min: 0,
-                max: 100
-              },
-              x: {
-                display: true,
-                grid: { display: false },
-                ticks: { display: true, color: '#475569' },
-                title: { display: false, text: '' }
-              }
-            },
-            elements: {
-              point: { radius: 0, hoverRadius: 0 }
+              groupZPadding: 10,
+              borderWidth: 0
             }
-          }
-          // ChartDataLabels ya está registrado globalmente desde el CDN
+          },
+          legend: {
+            align: 'right',
+            verticalAlign: 'top',
+            layout: 'vertical'
+          },
+          series: [{
+            name: 'Ventas',
+            data: [],
+            yAxis: 0,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, 'rgba(54, 162, 235, 0.8)'],
+                [1, 'rgba(54, 162, 235, 0.5)']
+              ]
+            }
+          }, {
+            name: 'Puntaje',
+            data: [],
+            yAxis: 1,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, 'rgba(255, 99, 132, 0.9)'],
+                [1, 'rgba(255, 99, 132, 0.7)']
+              ]
+            }
+          }]
         });
       } catch (error) {
         console.error('Error al inicializar la gráfica de ventas y puntaje:', error);
@@ -5608,144 +5549,96 @@
           puntajesData.push(Number(item.puntaje) || 0);
         });
 
-        // Calcular máximos para escalar ejes
-        const maxVentas = Math.max(...ventasData);
-        const maxPuntaje = Math.max(...puntajesData);
-        const maxBoth = Math.max(maxVentas, maxPuntaje);
-
-        // Configuración de la gráfica
-        const config = {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'Ventas',
-                data: ventasData,
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                borderRadius: 4,
-                yAxisID: 'y',
-                categoryPercentage: 0.6,
-                barPercentage: 0.9,
-                datalabels: {
-                  anchor: 'end',
-                  align: 'end',
-                  offset: 4,
-                  color: '#2c3e50',
-                  font: { weight: 'bold' },
-                  formatter: (v) => (v != null && !isNaN(v) && Number(v) !== 0 ? Math.round(v) : '')
-                }
-              },
-              {
-                label: 'Puntaje',
-                data: puntajesData,
-                type: 'bar',
-                backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1,
-                borderRadius: 4,
-                yAxisID: 'y1',
-                categoryPercentage: 0.6,
-                barPercentage: 0.9,
-                datalabels: {
-                  anchor: 'end',
-                  align: 'end',
-                  offset: 4,
-                  color: '#7f1d1d',
-                  font: { weight: 'bold' },
-                  formatter: (v) => {
-                    if (v == null || isNaN(v) || Number(v) === 0) return '';
-                    const n = Number(v);
-                    return n.toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
-                  }
-                }
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { bottom: 40 } },
-            scales: {
-              x: {
-                display: true,
-                grid: { display: false },
-                ticks: {
-                  display: true,
-                  color: '#4a4a4a',
-                  autoSkip: false,
-                  maxRotation: 0,
-                  minRotation: 0,
-                  padding: 8,
-                  font: { size: 12 }
-                },
-                title: { display: true, text: 'Días' }
-              },
-              y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                title: { display: false, text: 'N° de Ventas' },
-                beginAtZero: true,
-                grid: { display: false },
-                border: { display: false },
-                ticks: { display: true, color: '#475569' },
-                max: Math.max(5, Math.ceil(maxBoth * 1.2))
-              },
-              y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                grid: { display: false, drawOnChartArea: false },
-                border: { display: false },
-                title: { display: false, text: 'Puntaje' },
-                beginAtZero: true,
-                min: 0,
-                max: Math.max(5, Math.ceil(maxBoth * 1.2)),
-                ticks: { display: true, color: '#475569' }
-              }
-            },
-            plugins: {
-              tooltip: {
-                mode: 'index',
-                intersect: false,
-                callbacks: {
-                  label: function(context) {
-                    let label = context.dataset.label || '';
-                    if (label) { label += ': '; }
-                    if (context.parsed.y !== null) { label += context.parsed.y; }
-                    return label;
-                  }
-                }
-              },
-              legend: {
-                position: 'top',
-                labels: { usePointStyle: true, pointStyle: 'circle', padding: 20 }
-              },
-              datalabels: {
-                display: true,
-                // allow labels to render outside the bar area (above)
-                clamp: false,
-                clip: false
-              }
-            }
-          }
-        };
-
-        // Reconstruir la gráfica
-        const canvasEl = document.getElementById('ventasPuntajeChart');
-        if (!canvasEl) throw new Error('Canvas ventasPuntajeChart no encontrado');
-        const ctx = canvasEl.getContext('2d');
+        // Reconstruir la gráfica con Highcharts
+        const chartEl = document.getElementById('ventasPuntajeChart');
+        if (!chartEl) throw new Error('Elemento ventasPuntajeChart no encontrado');
+        
         if (ventasPuntajeChart) {
           try { ventasPuntajeChart.destroy(); } catch (_) {}
           ventasPuntajeChart = null;
         }
-        ventasPuntajeChart = new Chart(ctx, config);
-        // ChartDataLabels ya está registrado globalmente desde el CDN
         
-        console.log('Gráfica de ventas y puntaje actualizada correctamente');
+        const maxBoth = Math.max(5, Math.ceil(Math.max(...ventasData, ...puntajesData) * 1.2));
+        
+        ventasPuntajeChart = Highcharts.chart('ventasPuntajeChart', {
+          chart: {
+            type: 'column',
+            options3d: {
+              enabled: true,
+              alpha: 15,
+              beta: 0,
+              depth: 100,
+              viewDistance: 35
+            },
+            backgroundColor: '#ffffff'
+          },
+          title: { text: null },
+          xAxis: {
+            categories: labels,
+            title: { text: 'Días' },
+            labels: {
+              skew3d: false,
+              style: { fontSize: '12px', color: '#4a4a4a' }
+            }
+          },
+          yAxis: [{
+            title: { text: 'N° de Ventas' },
+            labels: { style: { color: '#475569' } },
+            gridLineWidth: 0,
+            max: maxBoth
+          }, {
+            title: { text: 'Puntaje' },
+            labels: { style: { color: '#475569' } },
+            opposite: true,
+            min: 0,
+            max: maxBoth,
+            gridLineWidth: 0
+          }],
+          tooltip: { shared: true },
+          plotOptions: {
+            column: {
+              depth: 70,
+              dataLabels: {
+                enabled: true,
+                style: { 
+                  fontWeight: 'bold', 
+                  textOutline: 'none',
+                  fontSize: '11px'
+                },
+                formatter: function() {
+                  const val = this.y;
+                  if (val === Math.floor(val)) return val;
+                  return val.toFixed(2).replace(/\.00$/, '').replace(/(\d*[1-9])0+$/, '$1');
+                }
+              },
+              groupZPadding: 10,
+              borderWidth: 0
+            }
+          },
+          legend: {
+            align: 'center',
+            verticalAlign: 'top'
+          },
+          series: [{
+            name: 'Ventas',
+            data: ventasData,
+            yAxis: 0,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [[0, 'rgba(54, 162, 235, 0.9)'], [1, 'rgba(54, 162, 235, 0.7)']]
+            }
+          }, {
+            name: 'Puntaje',
+            data: puntajesData,
+            yAxis: 1,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [[0, 'rgba(255, 99, 132, 0.9)'], [1, 'rgba(255, 99, 132, 0.7)']]
+            }
+          }]
+        });
+        
+        console.log('Gráfica de ventas y puntaje actualizada correctamente con Highcharts');
         return true;
       } catch (error) {
         console.error('Error al procesar datos de la gráfica:', error);

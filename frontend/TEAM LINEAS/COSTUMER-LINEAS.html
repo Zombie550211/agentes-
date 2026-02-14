@@ -21,79 +21,410 @@
       }catch(e){ window.location.replace('/inicio.html'); }
     })();
   </script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
   <link rel="stylesheet" href="/css/costumer-table-clean.css" />
   <link rel="stylesheet" href="/css/costumer-table-actions.css" />
   <link rel="stylesheet" href="/css/costumer-table-comments.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    .filters { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+    
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px -10px rgba(102, 126, 234, 0.2);
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    
+    .status-completed {
+      background: #DCFCE7;
+      color: #166534;
+      border: 1px solid #BBF7D0;
+    }
+    
+    .status-pending {
+      background: #FEF3C7;
+      color: #92400E;
+      border: 1px solid #FDE68A;
+    }
+    
+    .status-active {
+      background: #DBEAFE;
+      color: #1E40AF;
+      border: 1px solid #BFDBFE;
+    }
+    
+    .search-bar {
+      transition: all 0.3s ease;
+    }
+    
+    .search-bar:focus {
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+    
+    .table-row {
+      transition: all 0.2s ease;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    
+    .table-row:hover {
+      background: #F8FAFC;
+      box-shadow: 0 2px 8px -2px rgba(102, 126, 234, 0.08);
+    }
+    
+    /* Optimización de tabla - más padding y jerarquía */
+    .costumer-table td {
+      padding: 16px 12px !important;
+      vertical-align: middle;
+    }
+    
+    .costumer-table th {
+      padding: 14px 12px !important;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748B;
+      background: #F8FAFC;
+      border-bottom: 2px solid #E2E8F0;
+    }
+    
+    /* Jerarquía de texto en celdas */
+    .client-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1E293B;
+      margin-bottom: 2px;
+    }
+    
+    .client-id {
+      font-size: 12px;
+      color: #94A3B8;
+      font-weight: 400;
+    }
+    
+    .metric-card {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      border: 1px solid #F1F5F9;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    }
+    
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(102, 126, 234, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    
+    .metric-card:hover {
+      border-color: #E2E8F0;
+      box-shadow: 0 4px 12px -2px rgba(102, 126, 234, 0.12);
+    }
+    
+    .filters { 
+      background:#fff; 
+      border:1px solid #F1F5F9; 
+      border-radius:16px; 
+      padding:20px; 
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    }
     .grid-2 { display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between; }
     .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    
+    
+    /* Tabla con header sticky - Enfoque simplificado */
+    .table-wrapper {
+      position: relative;
+      height: calc(100vh - 450px);
+      overflow: auto;
+    }
+    
+    .table-container {
+      position: relative;
+    }
+    
+    .costumer-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .costumer-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .costumer-table thead th {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      padding: 16px 24px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .costumer-table tbody {
+      background: white;
+    }
+    
+    .costumer-table tbody tr {
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    
+    /* Efecto 3D para gráficas */
+    #statusChart {
+      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.15)) 
+              drop-shadow(0 6px 6px rgba(0, 0, 0, 0.1));
+    }
+    
+    #agentChart {
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    }
+    
+    
   </style>
 </head>
-<body>
+<body style="background: #F8FAFC;">
   <div class="layout">
     <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
     <main class="main-content">
-      <div style="max-width:100%; margin:16px auto 0;">
-        <h1 style="margin:0 0 12px;">Customer - Team Líneas</h1>
-
-        <!-- Barra de filtros principal -->
-        <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <input id="q" class="form-control" placeholder="Buscar (nombre, teléfono, cuenta, dirección, ID)" style="min-width:320px;" />
-            <select id="qs" class="form-control" style="min-width:140px;">
-              <option value="">STATUS: Todos</option>
-              <option value="pending">PENDING</option>
-              <option value="repro">REPRO</option>
-            </select>
-            <select id="agentFilter" class="form-control" style="min-width:180px;">
-              <option value="">AGENTE: Todos</option>
-            </select>
-            <input id="dateFrom" type="date" class="form-control" placeholder="Desde" style="min-width:150px;" />
-            <input id="dateTo" type="date" class="form-control" placeholder="Hasta" style="min-width:150px;" />
-            <button id="btnClearDates" class="form-control" style="min-width:100px; background:#64748b; color:#fff; border:none; cursor:pointer;">Limpiar Fechas</button>
+      <!-- Header moderno con gradiente -->
+      <header class="gradient-bg shadow-lg" style="margin: -16px -16px 0 -16px; padding: 0;">
+        <div class="max-w-full px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <div class="bg-white p-2 rounded-lg">
+                <i class="fas fa-users text-purple-600 text-2xl"></i>
+              </div>
+              <div>
+                <h1 class="text-white text-2xl font-bold m-0">Gestión de Clientes</h1>
+                <p class="text-purple-200 text-sm m-0">Panel de control y análisis - Team Líneas</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="text-right">
+                <p class="text-white text-sm font-semibold m-0" id="header-username">Usuario</p>
+                <p class="text-purple-200 text-xs m-0">Último acceso: Hoy</p>
+              </div>
+              <div class="bg-white p-2 rounded-full w-10 h-10 flex items-center justify-center">
+                <i class="fas fa-user text-purple-600"></i>
+              </div>
+            </div>
           </div>
-          <div id="admin-actions" style="display:none; margin-left: auto;">
-            <button id="btn-seed-data" style="background-color: #dc2626; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">Crear Datos de Prueba</button>
+        </div>
+      </header>
+
+      <div class="max-w-full px-6 py-6">
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <!-- Cantidad de Ventas -->
+          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
+            <div class="flex items-center justify-between mb-4">
+              <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 12px;">
+                <i class="fas fa-shopping-cart" style="color: #3B82F6; font-size: 24px;"></i>
+              </div>
+            </div>
+            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Cantidad de Ventas</h3>
+            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-cantidad-ventas">0</p>
+            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">Total de ventas realizadas</p>
+          </div>
+
+          <!-- Cantidad de Líneas -->
+          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
+            <div class="flex items-center justify-between mb-4">
+              <div style="background: rgba(139, 92, 246, 0.1); padding: 12px; border-radius: 12px;">
+                <i class="fas fa-layer-group" style="color: #8B5CF6; font-size: 24px;"></i>
+              </div>
+            </div>
+            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Cantidad de Líneas</h3>
+            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-cantidad-lineas">0</p>
+            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">Total de líneas vendidas</p>
+          </div>
+
+          <!-- Líneas Activas -->
+          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
+            <div class="flex items-center justify-between mb-4">
+              <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 12px;">
+                <i class="fas fa-check-circle" style="color: #22C55E; font-size: 24px;"></i>
+              </div>
+            </div>
+            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Líneas Activas</h3>
+            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-lineas-activas">0</p>
+            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">Líneas en operación</p>
+          </div>
+
+          <!-- Líneas Pendientes -->
+          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
+            <div class="flex items-center justify-between mb-4">
+              <div style="background: rgba(6, 182, 212, 0.1); padding: 12px; border-radius: 12px;">
+                <i class="fas fa-clock" style="color: #06B6D4; font-size: 24px;"></i>
+              </div>
+            </div>
+            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Líneas Pendientes</h3>
+            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-lineas-pendientes">0</p>
+            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">Líneas por activar</p>
           </div>
         </div>
 
-        <section style="margin-top:16px;">
-          <div class="costumer-table-container">
-            <div class="costumer-table-header">
-              <h2 class="costumer-table-title">Lista de Clientes</h2>
-              <div class="costumer-table-actions"></div>
-            </div>
-            <div class="table-responsive">
-              <table class="costumer-table">
-                <thead id="costumer-thead">
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Teléfono</th>
-                    <th>Cuenta</th>
-                    <th>Cant. líneas</th>
-                    <th>Líneas</th>
-                    <th>STATUS</th>
-                    <th>Día venta</th>
-                    <th>Día instalación</th>
-                    <th>ID</th> 
-                    <th>Mercado</th>
-                    <th>Supervisor</th>
-                    <th>ACCIÓN</th>
-                  </tr>
-                </thead>
-                <tbody id="costumer-tbody"></tbody>
-              </table>
-            </div>
-            <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="height:1px;"></div></div>
+        <!-- Gráficas de Distribución y Tendencia -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <!-- Gráfica de Distribución por Estado -->
+          <div class="bg-white p-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+            <h3 style="font-size: 16px; font-weight: 600; color: #1E293B; margin-bottom: 20px; display: flex; align-items: center;">
+              <i class="fas fa-chart-pie mr-2" style="color: #8B5CF6;"></i>
+              Distribución por Estado
+            </h3>
+            <div id="statusChart" style="height: 300px;"></div>
           </div>
-        </section>
+
+          <!-- Gráfica de Líneas vendidas por agente -->
+          <div class="bg-white p-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+            <h3 style="font-size: 16px; font-weight: 600; color: #1E293B; margin-bottom: 20px; display: flex; align-items: center;">
+              <i class="fas fa-chart-bar mr-2" style="color: #8B5CF6;"></i>
+              Líneas vendidas por agente
+            </h3>
+            <div id="agentChart" style="height: 300px;"></div>
+          </div>
+        </div>
+
+        <!-- Filtros modernos con Tailwind -->
+        <div class="bg-white p-6 mb-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-search mr-1"></i> Buscar
+              </label>
+              <input type="text" id="q" placeholder="Buscar cliente..." 
+                     style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" class="search-bar" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            </div>
+            <div id="status-filter-container">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-filter mr-1"></i> Estado
+              </label>
+              <select id="qs" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+                <option value="">Todos</option>
+                <option value="pending">PENDING</option>
+                <option value="repro">REPRO</option>
+              </select>
+            </div>
+            <div id="agent-filter-container">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-user-tie mr-1"></i> Agente
+              </label>
+              <select id="agentFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-calendar mr-1"></i> Fecha Desde
+              </label>
+              <input type="date" id="dateFrom" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-calendar mr-1"></i> Fecha Hasta
+              </label>
+              <input type="date" id="dateTo" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            </div>
+            <div class="flex items-end">
+              <button id="btnClearDates" style="width: 100%; background: #64748B; color: white; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748B'">
+                <i class="fas fa-eraser mr-2"></i>Limpiar Fechas
+              </button>
+            </div>
+            <div class="flex items-end" id="admin-actions" style="display:none;">
+              <button id="btn-seed-data" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
+                <i class="fas fa-database mr-2"></i>Crear Datos de Prueba
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla principal con diseño moderno -->
+        <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+          <div class="p-6 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
+            <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
+              <i class="fas fa-table mr-2" style="color: #8B5CF6;"></i>
+              Lista de Clientes
+            </h2>
+          </div>
+          
+          <div class="table-wrapper">
+            <div class="table-container">
+              <table class="w-full costumer-table">
+              <thead>
+                <tr id="costumer-thead">
+                  <th class="text-left">Cliente</th>
+                  <th class="text-left">Teléfono</th>
+                  <th class="text-left">Cuenta</th>
+                  <th class="text-left">Cant. líneas</th>
+                  <th class="text-left">Líneas</th>
+                  <th class="text-left">Estado</th>
+                  <th class="text-left">Día venta</th>
+                  <th class="text-left">Día instalación</th>
+                  <th class="text-left">ID</th>
+                  <th class="text-left">Mercado</th>
+                  <th class="text-left">Supervisor</th>
+                  <th class="text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="costumer-tbody" class="divide-y divide-gray-200"></tbody>
+            </table>
+            </div>
+          </div>
+          <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="height:1px;"></div></div>
+        </div>
       </div>
     </main>
   </div>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-3d.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
@@ -102,17 +433,29 @@
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
 
+      // Inicializar gráficas después de un pequeño delay para asegurar que Chart.js esté cargado
+      setTimeout(initCharts, 100);
+
       // Lógica para el botón de seeding
       const userRole = getUserRole();
       if (userRole === 'admin' || userRole === 'administrador') {
         document.getElementById('admin-actions').style.display = 'block';
       }
 
+      // Mostrar nombre de usuario en header
+      try {
+        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+        const username = user.username || user.name || 'Usuario';
+        document.getElementById('header-username').textContent = username;
+      } catch (_) {}
+
       // Para agentes de Team Líneas: ocultar filtros avanzados (STATUS / AGENTE)
       if (!userRole.includes('supervisor')) {
         try {
-          document.querySelectorAll('#qs').forEach(el => { el.style.display = 'none'; });
-          document.querySelectorAll('#agentFilter').forEach(el => { el.style.display = 'none'; });
+          const statusContainer = document.getElementById('status-filter-container');
+          const agentContainer = document.getElementById('agent-filter-container');
+          if (statusContainer) statusContainer.style.display = 'none';
+          if (agentContainer) agentContainer.style.display = 'none';
         } catch (_) {}
       }
 
@@ -397,7 +740,42 @@
           headers: headers
         });
         const j = await resp.json();
-        return Array.isArray(j?.data) ? j.data : [];
+        let data = Array.isArray(j?.data) ? j.data : [];
+        
+        // Filtrar datos según rol del usuario
+        try {
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const role = String(user.role || '').toLowerCase();
+          const username = String(user.username || '').toUpperCase();
+          
+          console.log('[fetchData] Rol del usuario:', role, 'Username:', username);
+          console.log('[fetchData] Datos recibidos del backend:', data.length);
+          
+          // Admin, BackOffice y rol_icon ven TODO
+          if (role === 'admin' || role === 'administrador' || role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon') {
+            console.log('[fetchData] Usuario es admin/backoffice/rol_icon - retornando todos los datos');
+            return data;
+          }
+          
+          // Supervisores ven solo leads de sus agentes
+          if (role === 'supervisor' || role === 'supervisor team lineas') {
+            console.log('[fetchData] Usuario es supervisor - el backend ya filtró los datos');
+            return data;
+          }
+          
+          // Agentes solo ven sus propios leads
+          console.log('[fetchData] Usuario es agente - filtrando por username');
+          data = data.filter(item => {
+            const agente = String(item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || '').toUpperCase();
+            return agente.includes(username) || agente === username;
+          });
+          console.log('[fetchData] Datos después de filtrar para agente:', data.length);
+          
+        } catch (e) {
+          console.error('Error al filtrar datos por rol:', e);
+        }
+        
+        return data;
       }
 
       function buildHeaders(){
@@ -424,8 +802,19 @@
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
         const qagent = ($('#agentFilter')?.value || '').trim().toUpperCase();
-        const dateFrom = ($('#dateFrom')?.value || '').trim();
-        const dateTo = ($('#dateTo')?.value || '').trim();
+        let dateFrom = ($('#dateFrom')?.value || '').trim();
+        let dateTo = ($('#dateTo')?.value || '').trim();
+        
+        // Si no hay filtros de fecha establecidos, filtrar por mes actual por defecto
+        if (!dateFrom && !dateTo) {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          dateFrom = `${year}-${month}-01`;
+          const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+          dateTo = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+        }
+        
         const nombre = '';
         const tel = '';
         const cuenta = '';
@@ -473,12 +862,10 @@
                           String(it.agenteNombre||'').toUpperCase().includes(qagent) ||
                           String(it.agente||'').toUpperCase().includes(qagent))) return false;
           
-          // Filtro por rango de fechas (dia_venta)
-          if (dateFrom || dateTo) {
-            const diaVenta = it.dia_venta || '';
-            if (dateFrom && diaVenta < dateFrom) return false;
-            if (dateTo && diaVenta > dateTo) return false;
-          }
+          // Filtro por rango de fechas (dia_venta) - ahora siempre aplica (mes actual por defecto)
+          const diaVenta = it.dia_venta || '';
+          if (dateFrom && diaVenta < dateFrom) return false;
+          if (dateTo && diaVenta > dateTo) return false;
           
           return true;
         });
@@ -510,95 +897,98 @@
                </select>`
             : String(it.status||'').toUpperCase();
           
-          let mainRow = `<tr class="${hasMultipleLines ? 'expandable-row' : ''}" data-row-index="${idx}" style="${hasMultipleLines ? 'cursor:pointer;' : ''}">
-            <td>${it.nombre_cliente||''}${hasMultipleLines ? ' <span style="color:#22b3ec;">▼</span>' : ''}</td>
-            <td>${it.telefono_principal||''}</td>
-            <td>${it.numero_cuenta||''}</td>
-            <td>${cant}</td>
-            <td>${pairs.length ? pairs.map(p=>`<div>${p}</div>`).join('') : ''}</td>
-            <td>${statusCell}</td>
-            <td>${it.dia_venta||''}</td>
-            <td>${it.dia_instalacion||''}</td>
-            <td>${it.ID||it.id||it._id||''}</td>
-            <td>${it.mercado||''}</td>
-            <td>${it.supervisor||''}</td>
-            <td>
-              <div style="display:flex; gap:4px; justify-content:center;">
-                <button class="btn-edit-client" data-id="${docId}" style="background:#3b82f6; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px;" title="Editar cliente">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                  Editar
+          // Determinar color del badge de status
+          let statusBadgeClass = 'status-badge ';
+          if (statusLower === 'completed') statusBadgeClass += 'status-completed';
+          else if (statusLower === 'pending') statusBadgeClass += 'status-pending';
+          else if (statusLower === 'active') statusBadgeClass += 'status-active';
+          else statusBadgeClass += 'bg-gray-200 text-gray-700';
+
+          let mainRow = `<tr class="table-row ${hasMultipleLines ? 'expandable-row' : ''}" data-row-index="${idx}" style="${hasMultipleLines ? 'cursor:pointer;' : ''}">
+            <td class="px-6 py-4">
+              <div class="flex items-center">
+                <div class="${statusLower === 'completed' ? 'bg-green-100' : 'bg-purple-100'} p-2 rounded-full mr-3">
+                  <i class="fas fa-user ${statusLower === 'completed' ? 'text-green-600' : 'text-purple-600'}"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-gray-900 m-0">${it.nombre_cliente||''}${hasMultipleLines ? ' <span class="text-blue-500">▼</span>' : ''}</p>
+                  <p class="text-xs text-gray-500 m-0">ID: ${it.ID||it.id||it._id||''}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.telefono_principal||''}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.numero_cuenta||''}</td>
+            <td class="px-6 py-4">
+              ${hasMultipleLines ? `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">${cant} líneas</span>` : `<span class="text-sm text-gray-600">${cant}</span>`}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">${pairs.length ? pairs.map(p=>`<div>${p}</div>`).join('') : ''}</td>
+            <td class="px-6 py-4">
+              ${editable ? statusCell : `<span class="${statusBadgeClass}"><i class="fas ${statusLower === 'completed' ? 'fa-check-circle' : statusLower === 'pending' ? 'fa-clock' : 'fa-circle'} mr-1"></i>${String(it.status||'').toUpperCase()}</span>`}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.dia_venta||''}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.dia_instalacion||''}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.ID||it.id||it._id||''}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">${it.mercado||''}</td>
+            <td class="px-6 py-4">
+              <div class="flex items-center">
+                <i class="fas fa-user-tie text-gray-400 mr-2"></i>
+                <span class="text-sm text-gray-600">${it.supervisor||''}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex space-x-2">
+                <button class="btn-edit-client bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Editar cliente">
+                  <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn-delete-client" data-id="${docId}" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; ${canDelete() ? '' : 'display:none;'}" title="Eliminar cliente">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                  Eliminar
+                <button class="btn-delete-client bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Eliminar cliente" style="${canDelete() ? '' : 'display:none;'}">
+                  <i class="fas fa-trash"></i>
                 </button>
               </div>
             </td>
           </tr>`;
           
-          // Fila expandible con detalles de todas las líneas
+          // Fila expandible con detalles de todas las líneas - Diseño moderno
           if (hasMultipleLines) {
-            let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none; background:#f8f9fa;">
-              <td colspan="12" style="padding:20px;">
-                <div style="background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px;">
-                  <h4 style="margin:0 0 16px; color:#0f172a; font-size:16px;">Detalle Completo - ${it.nombre_cliente||''}</h4>
-                  
-                  <!-- Información General del Cliente -->
-                  <div style="background:#f8f9fa; border:1px solid #e5e7eb; border-radius:6px; padding:16px; margin-bottom:16px;">
-                    <div style="font-weight:700; color:#0f172a; margin-bottom:12px; font-size:15px;">Información del Cliente</div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; font-size:14px;">
+            let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none;">
+              <td colspan="12" style="padding:0;">
+                <div class="gradient-bg" style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.2);">
+                  <h4 class="text-white text-lg font-bold m-0 flex items-center">
+                    <i class="fas fa-phone-volume mr-3"></i>
+                    Detalle de Líneas - ${it.nombre_cliente||''}
+                  </h4>
+                </div>
+                <div style="padding:20px; background:#f8f9fa;">
+                  <!-- Información General del Cliente con diseño moderno -->
+                  <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <span style="color:#64748b; font-size:12px;">Cliente:</span><br>
-                        <span style="font-weight:600;">${it.nombre_cliente||'N/A'}</span>
+                        <p class="text-sm text-gray-600 mb-1">Cliente</p>
+                        <p class="font-semibold text-gray-800 m-0">${it.nombre_cliente||'N/A'}</p>
                       </div>
                       <div>
-                        <span style="color:#64748b; font-size:12px;">Teléfono Principal:</span><br>
-                        <span style="font-weight:600;">${it.telefono_principal||'N/A'}</span>
+                        <p class="text-sm text-gray-600 mb-1">Teléfono Principal</p>
+                        <p class="font-semibold text-gray-800 m-0">${it.telefono_principal||'N/A'}</p>
                       </div>
                       <div>
-                        <span style="color:#64748b; font-size:12px;">Número de Cuenta:</span><br>
-                        <span style="font-weight:600;">${it.numero_cuenta||'N/A'}</span>
+                        <p class="text-sm text-gray-600 mb-1">Fecha de Venta</p>
+                        <p class="font-semibold text-gray-800 m-0">${it.dia_venta||'N/A'}</p>
                       </div>
                       <div>
-                        <span style="color:#64748b; font-size:12px;">Cantidad de Líneas:</span><br>
-                        <span style="font-weight:600;">${cant}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">STATUS:</span><br>
-                        <span style="font-weight:600; color:${statusLower === 'pending' ? '#f59e0b' : statusLower === 'completed' ? '#059669' : '#64748b'};">${String(it.status||'').toUpperCase()}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">Día de Venta:</span><br>
-                        <span style="font-weight:600;">${it.dia_venta||'N/A'}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">Día de Instalación:</span><br>
-                        <span style="font-weight:600;">${it.dia_instalacion||'N/A'}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">ID:</span><br>
-                        <span style="font-weight:600;">${it.id||'N/A'}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">Mercado:</span><br>
-                        <span style="font-weight:600;">${it.mercado||'N/A'}</span>
-                      </div>
-                      <div>
-                        <span style="color:#64748b; font-size:12px;">Supervisor:</span><br>
-                        <span style="font-weight:600;">${it.supervisor||'N/A'}</span>
+                        <p class="text-sm text-gray-600 mb-1">Estado General</p>
+                        <span class="${statusBadgeClass}">
+                          <i class="fas ${statusLower === 'completed' ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
+                          ${String(it.status||'').toUpperCase()}
+                        </span>
                       </div>
                     </div>
                   </div>
                   
-                  <!-- Detalle de Líneas -->
-                  <div style="font-weight:700; color:#0f172a; margin-bottom:12px; font-size:15px;">Detalle de Líneas</div>
-                  <div style="display:grid; gap:12px;">`;
+                  <!-- Líneas Asociadas -->
+                  <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-list-ul text-purple-600 mr-2"></i>
+                    Líneas Asociadas
+                  </h4>
+                  <div style="display:grid; gap:16px;">`;
             
             // Mostrar cada línea con su información completa
             for (let i = 0; i < maxLen; i++) {
@@ -621,21 +1011,36 @@
               const lineasStatus = it.lineas_status || {};
               const lineStatus = lineasStatus[i] || 'PENDING';
               
+              // Determinar badge de status de línea
+              let lineStatusBadge = '';
+              if (lineStatus === 'ACTIVE') lineStatusBadge = '<span class="status-badge status-active">ACTIVE</span>';
+              else if (lineStatus === 'PENDING') lineStatusBadge = '<span class="status-badge status-pending">PENDING</span>';
+              else if (lineStatus === 'COMPLETED') lineStatusBadge = '<span class="status-badge status-completed">COMPLETED</span>';
+              else lineStatusBadge = `<span class="status-badge bg-gray-200 text-gray-700">${lineStatus}</span>`;
+
               detailsHTML += `
-                <div style="border:1px solid #e5e7eb; border-radius:6px; padding:12px; background:#fafbfc;">
-                  <div style="font-weight:700; color:#0f172a; margin-bottom:8px;">Línea ${i+1}</div>
-                  <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; font-size:14px; margin-bottom:12px;">
+                <div class="bg-white border-2 border-gray-200 rounded-lg p-5 hover:border-purple-300 transition">
+                  <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center">
+                      <div class="bg-blue-100 p-3 rounded-lg mr-3">
+                        <i class="fas fa-phone-alt text-blue-600 text-lg"></i>
+                      </div>
+                      <div>
+                        <h5 class="font-semibold text-gray-800 text-lg m-0">Línea ${i+1}</h5>
+                        <p class="text-sm text-gray-500 m-0">${telefono || 'Sin teléfono'}</p>
+                      </div>
+                    </div>
+                    ${lineStatusBadge}
+                  </div>
+                  
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <span style="color:#64748b; font-size:12px;">Teléfono:</span><br>
-                      <span style="font-weight:600;">${telefono || 'N/A'}</span>
+                      <p class="text-xs text-gray-500 mb-1">Servicio</p>
+                      <p class="font-medium text-gray-700 m-0">${servicio || 'N/A'}</p>
                     </div>
                     <div>
-                      <span style="color:#64748b; font-size:12px;">Servicio:</span><br>
-                      <span style="font-weight:600;">${servicio || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span style="color:#64748b; font-size:12px;">STATUS:</span><br>
-                      <select class="line-status-select" data-client-id="${docId}" data-line-index="${i}" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; width:auto; max-width:150px;" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
+                      <p class="text-xs text-gray-500 mb-1">Estado</p>
+                      <select class="line-status-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-purple-500" data-client-id="${docId}" data-line-index="${i}" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
                         <option value="PENDING" ${lineStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
                         <option value="ACTIVE" ${lineStatus === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
                         <option value="COMPLETED" ${lineStatus === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
@@ -646,7 +1051,7 @@
                   </div>
                   
                   <!-- Sección de Notas -->
-                  <div style="border-top:1px solid #e5e7eb; padding-top:12px;">
+                  <div class="bg-gray-50 rounded-lg p-3 mt-4">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                       <span style="color:#64748b; font-size:12px; font-weight:600;">Notas:</span>
                       <button class="btn-add-note" data-client-id="${docId}" data-line-index="${i}" style="background:#10b981; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
@@ -1280,18 +1685,267 @@
       }
 
       let allItems = [];
+      
+      // Variables para las gráficas
+      let statusChart = null;
+      let agentChart = null;
+      
+      function initCharts() {
+        // Verificar que Highcharts esté disponible
+        if (typeof Highcharts === 'undefined') {
+          console.error('Highcharts no está cargado');
+          setTimeout(initCharts, 100);
+          return;
+        }
+        
+        console.log('Inicializando gráficas Highcharts 3D...');
+        
+        // Gráfica 3D de distribución por estado (Pie Chart 3D)
+        statusChart = Highcharts.chart('statusChart', {
+          chart: {
+            type: 'pie',
+            options3d: {
+              enabled: true,
+              alpha: 75,
+              beta: 0
+            },
+            backgroundColor: '#ffffff'
+          },
+          title: {
+            text: null
+          },
+          tooltip: {
+            pointFormat: '{series.name}: <b>{point.y}</b> ({point.percentage:.1f}%)'
+          },
+          accessibility: {
+            point: {
+              valueSuffix: '%'
+            }
+          },
+          plotOptions: {
+            pie: {
+              allowPointSelect: true,
+              cursor: 'pointer',
+              depth: 60,
+              innerSize: 0,
+              dataLabels: {
+                enabled: true,
+                format: '<b>{point.name}</b>: {point.y}',
+                style: {
+                  color: '#000',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                  textOutline: 'none'
+                },
+                distance: 10
+              },
+              showInLegend: true,
+              borderWidth: 0
+            }
+          },
+          legend: {
+            align: 'center',
+            verticalAlign: 'bottom',
+            layout: 'horizontal'
+          },
+          series: [{
+            name: 'Cantidad',
+            colorByPoint: true,
+            data: [
+              { name: 'Activas', y: 0, color: '#10b981' },
+              { name: 'Pendientes', y: 0, color: '#3b82f6' }
+            ]
+          }]
+        });
+        console.log('Gráfica 3D de estado creada exitosamente');
+        
+        // Gráfica 3D de columnas por agente (Column Chart 3D)
+        agentChart = Highcharts.chart('agentChart', {
+          chart: {
+            type: 'column',
+            options3d: {
+              enabled: true,
+              alpha: 15,
+              beta: 0,
+              depth: 100,
+              viewDistance: 35
+            },
+            backgroundColor: '#ffffff'
+          },
+          title: {
+            text: null
+          },
+          xAxis: {
+            categories: [],
+            labels: {
+              skew3d: false,
+              style: {
+                fontSize: '11px'
+              }
+            },
+            gridLineWidth: 0
+          },
+          yAxis: {
+            allowDecimals: false,
+            min: 0,
+            title: {
+              text: null
+            },
+            labels: {
+              enabled: false
+            },
+            gridLineWidth: 0
+          },
+          tooltip: {
+            headerFormat: '<b>{point.key}</b><br>',
+            pointFormat: 'Líneas: {point.y}'
+          },
+          plotOptions: {
+            column: {
+              depth: 70,
+              dataLabels: {
+                enabled: true,
+                format: '{point.y}',
+                style: {
+                  color: '#000',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  textOutline: 'none'
+                }
+              },
+              colorByPoint: false,
+              color: {
+                linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+                stops: [
+                  [0, '#667eea'],
+                  [0.5, '#6b7fd4'],
+                  [1, '#764ba2']
+                ]
+              },
+              borderWidth: 0,
+              groupZPadding: 10
+            }
+          },
+          legend: {
+            enabled: false
+          },
+          series: [{
+            name: 'Líneas',
+            data: []
+          }]
+        });
+        console.log('Gráfica 3D de agentes creada exitosamente');
+      }
+      
+      function updateKPIs(items) {
+        // Calcular KPIs según lógica de ESTADISTICAS-LINEAS
+        // 1. Cantidad de Ventas = Total de leads/clientes
+        const cantidadVentas = items.length;
+        
+        // 2. Contar líneas activas, pendientes y total de líneas
+        let lineasActivas = 0;
+        let lineasPendientes = 0;
+        let cantidadLineas = 0;
+        
+        console.log('=== DEBUG KPIs ===');
+        console.log('Total ventas (leads):', cantidadVentas);
+        
+        items.forEach((item, index) => {
+          const cantLineas = item.cantidad_lineas || 1;
+          cantidadLineas += cantLineas;
+          
+          // Debug: Ver estructura de datos del primer item
+          if (index === 0) {
+            console.log('Estructura del primer item:', {
+              cantidad_lineas: item.cantidad_lineas,
+              lineas_status: item.lineas_status,
+              lineas_status_type: typeof item.lineas_status,
+              lineas_status_isArray: Array.isArray(item.lineas_status)
+            });
+          }
+          
+          // Contar líneas por status individual
+          for (let i = 0; i < cantLineas; i++) {
+            let lineStatus = 'PENDING'; // Default
+            
+            if (item.lineas_status) {
+              if (Array.isArray(item.lineas_status)) {
+                lineStatus = item.lineas_status[i] || 'PENDING';
+              } else if (typeof item.lineas_status === 'object') {
+                lineStatus = item.lineas_status[i] || 'PENDING';
+              }
+            }
+            
+            const statusUpper = String(lineStatus).toUpperCase();
+            if (statusUpper === 'ACTIVE') {
+              lineasActivas++;
+            } else if (statusUpper === 'PENDING') {
+              lineasPendientes++;
+            }
+          }
+        });
+        
+        console.log('Cantidad de Ventas:', cantidadVentas);
+        console.log('Cantidad de Líneas:', cantidadLineas);
+        console.log('Líneas Activas:', lineasActivas);
+        console.log('Líneas Pendientes:', lineasPendientes);
+        
+        // Actualizar KPIs en el DOM
+        document.getElementById('kpi-cantidad-ventas').textContent = cantidadVentas;
+        document.getElementById('kpi-cantidad-lineas').textContent = cantidadLineas;
+        document.getElementById('kpi-lineas-activas').textContent = lineasActivas;
+        document.getElementById('kpi-lineas-pendientes').textContent = lineasPendientes;
+        
+        // Actualizar gráfica 3D de estados (Highcharts)
+        if (statusChart) {
+          statusChart.series[0].setData([
+            { name: 'Activas', y: lineasActivas, color: '#10b981' },
+            { name: 'Pendientes', y: lineasPendientes, color: '#3b82f6' }
+          ]);
+        }
+        
+        // Actualizar gráfica 3D de agentes (Highcharts)
+        if (agentChart) {
+          const agentStats = {};
+          items.forEach(item => {
+            const agente = item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || 'Sin asignar';
+            const cantLineas = Number(item.cantidad_lineas || 0);
+            agentStats[agente] = (agentStats[agente] || 0) + cantLineas;
+          });
+          
+          // Ordenar y tomar top 10 agentes
+          const sortedAgents = Object.entries(agentStats)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+          
+          const agentLabels = sortedAgents.map(([name]) => name);
+          const agentData = sortedAgents.map(([, value]) => value);
+          
+          agentChart.xAxis[0].setCategories(agentLabels);
+          agentChart.series[0].setData(agentData);
+        }
+      }
+      
       async function load(){
         allItems = await fetchData();
-        renderTable(applyFilters(allItems));
+        const filteredItems = applyFilters(allItems);
+        updateKPIs(filteredItems);
+        renderTable(filteredItems);
       }
 
       const btnBuscar = document.getElementById('btnBuscar');
-      if (btnBuscar) btnBuscar.addEventListener('click', ()=>{ renderTable(applyFilters(allItems)); });
+      if (btnBuscar) btnBuscar.addEventListener('click', ()=>{ 
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
       const btnReset = document.getElementById('btnReset');
       if (btnReset) btnReset.addEventListener('click', ()=>{
         if ($('#q')) $('#q').value = '';
         if ($('#qs')) $('#qs').value = '';
-        renderTable(allItems);
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
       });
 
       // No hay campos de formulario adicionales
@@ -1304,15 +1958,37 @@
       const dateTo = $('#dateTo');
       const btnClearDates = $('#btnClearDates');
       
-      if (q) q.addEventListener('input', ()=> renderTable(applyFilters(allItems)) );
-      if (qs) qs.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
-      if (agentFilter) agentFilter.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
-      if (dateFrom) dateFrom.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
-      if (dateTo) dateTo.addEventListener('change', ()=> renderTable(applyFilters(allItems)) );
+      if (q) q.addEventListener('input', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
+      if (qs) qs.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
+      if (agentFilter) agentFilter.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
+      if (dateFrom) dateFrom.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
+      if (dateTo) dateTo.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+      });
       if (btnClearDates) btnClearDates.addEventListener('click', ()=> {
         if (dateFrom) dateFrom.value = '';
         if (dateTo) dateTo.value = '';
-        renderTable(applyFilters(allItems));
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
       });
 
       // Detect supervisor por usuario y marcar por defecto

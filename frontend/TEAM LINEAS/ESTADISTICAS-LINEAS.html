@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.css" />
+  <!-- Highcharts 3D -->
   <style>
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f5f5; }
     .layout { display: flex; min-height: 100vh; }
@@ -106,6 +106,39 @@
     .spinner { display: inline-block; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+    /* Efecto 3D para KPIs globales */
+    .kpi-global-card {
+      position: relative;
+      overflow: visible;
+      transform-style: preserve-3d;
+      transform: perspective(1000px) rotateX(5deg) rotateY(-2deg);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.15),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .kpi-global-card::after {
+      content: '';
+      position: absolute;
+      bottom: -20px;
+      left: 10%;
+      width: 80%;
+      height: 20px;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.2) 0%, transparent 70%);
+      filter: blur(10px);
+      z-index: -1;
+    }
+    
+    .kpi-global-card:hover {
+      transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-10px) scale(1.02);
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.2),
+        0 15px 30px rgba(0, 0, 0, 0.15),
+        inset 0 -3px 15px rgba(0, 0, 0, 0.08);
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
       .team-content { grid-template-columns: 1fr; }
@@ -144,19 +177,19 @@
 
         <!-- KPIs Globales -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-shopping-cart" style="font-size: 24px;"></i>
               </div>
               <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Ventas</p>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Clientes</p>
                 <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
               </div>
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-layer-group" style="font-size: 24px;"></i>
@@ -168,7 +201,7 @@
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 24px; color: white;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-check-circle" style="font-size: 24px;"></i>
@@ -180,7 +213,7 @@
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 24px; color: white;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-clock" style="font-size: 24px;"></i>
@@ -201,13 +234,13 @@
               <div class="loading" id="loading-jonathan">
                 <div class="spinner"></div>
               </div>
-              <canvas id="chartJonathan"></canvas>
+              <div id="chartJonathan" style="width: 100%; height: 100%;"></div>
             </div>
             <div class="kpi-card">
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Ventas</p>
+                  <p class="kpi-label">Cantidad de Clientes</p>
                   <p class="kpi-value" id="kpi-jonathan-ventas">-</p>
                 </div>
               </div>
@@ -244,13 +277,13 @@
               <div class="loading" id="loading-luis">
                 <div class="spinner"></div>
               </div>
-              <canvas id="chartLuis"></canvas>
+              <div id="chartLuis" style="width: 100%; height: 100%;"></div>
             </div>
             <div class="kpi-card">
               <div class="kpi-item">
                 <div class="kpi-icon"></div>
                 <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Ventas</p>
+                  <p class="kpi-label">Cantidad de Clientes</p>
                   <p class="kpi-value" id="kpi-luis-ventas">-</p>
                 </div>
               </div>
@@ -283,16 +316,14 @@
     </main>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-3d.js"></script>
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="/js/sidebar-loader.js"></script>
   <script>
-    // Registrar plugin de datalabels
-    Chart.register(ChartDataLabels);
-    
+    // Variables para instancias de Highcharts
     let chartJonathanInstance = null;
     let chartLuisInstance = null;
     
@@ -799,93 +830,112 @@
 
       console.log(`[renderTeamData] Agentes para ${teamName}:`, agentes);
 
-      // Renderizar gráfica con Chart.js
-      const canvasElement = document.getElementById(canvasId);
-      if (!canvasElement) {
-        console.error(`[renderTeamData] Canvas ${canvasId} no encontrado`);
+      // Renderizar gráfica con Highcharts 3D
+      const chartElement = document.getElementById(canvasId);
+      if (!chartElement) {
+        console.error(`[renderTeamData] Elemento ${canvasId} no encontrado`);
         return;
       }
 
-      const ctx = canvasElement.getContext('2d');
       if (window[canvasId + 'Instance']) {
         window[canvasId + 'Instance'].destroy();
       }
 
-      window[canvasId + 'Instance'] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: agentes,
-          datasets: [
-            {
-              label: 'Ventas',
-              data: ventasData,
-              backgroundColor: '#3b82f6',
-              borderColor: '#2563eb',
-              borderWidth: 2,
-              borderRadius: 6,
-              barThickness: 40,
-            },
-            {
-              label: 'Líneas',
-              data: lineasData,
-              backgroundColor: '#ef4444',
-              borderColor: '#dc2626',
-              borderWidth: 2,
-              borderRadius: 6,
-              barThickness: 40,
-            }
-          ],
+      window[canvasId + 'Instance'] = Highcharts.chart(canvasId, {
+        chart: {
+          type: 'column',
+          options3d: {
+            enabled: true,
+            alpha: 15,
+            beta: 0,
+            depth: 100,
+            viewDistance: 35
+          },
+          backgroundColor: '#ffffff'
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { 
-              position: 'top',
-              labels: {
-                font: { size: 14, weight: 'bold' },
-                padding: 15,
-                usePointStyle: true,
-                pointStyle: 'circle'
+        title: {
+          text: `Rendimiento por Agente - ${teamName}`,
+          style: {
+            fontSize: '18px',
+            fontWeight: 'bold'
+          }
+        },
+        xAxis: {
+          categories: agentes,
+          labels: {
+            skew3d: false,
+            style: {
+              fontSize: '11px',
+              fontWeight: '600'
+            },
+            rotation: -45
+          }
+        },
+        yAxis: {
+          title: {
+            text: null
+          },
+          labels: {
+            enabled: false
+          },
+          gridLineWidth: 0
+        },
+        tooltip: {
+          headerFormat: '<b>{point.key}</b><br>',
+          pointFormat: '{series.name}: {point.y}'
+        },
+        plotOptions: {
+          column: {
+            depth: 70,
+            dataLabels: {
+              enabled: true,
+              format: '{point.y}',
+              style: {
+                color: '#000',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                textOutline: 'none'
               }
             },
-            title: { 
-              display: true, 
-              text: `Rendimiento por Agente - ${teamName}`,
-              font: { size: 18, weight: 'bold' },
-              padding: { top: 10, bottom: 20 }
-            },
-            datalabels: {
-              anchor: 'end',
-              align: 'top',
-              color: '#111827',
-              font: {
-                weight: 'bold',
-                size: 14
-              },
-              formatter: function(value) {
-                return value > 0 ? value : '';
-              },
-              offset: 4
+            groupZPadding: 10,
+            borderWidth: 0
+          }
+        },
+        legend: {
+          align: 'center',
+          verticalAlign: 'top',
+          layout: 'horizontal',
+          itemStyle: {
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }
+        },
+        series: [
+          {
+            name: 'Ventas',
+            data: ventasData,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, '#3b82f6'],
+                [0.5, '#2563eb'],
+                [1, '#1d4ed8']
+              ]
             }
           },
-          scales: {
-            y: { 
-              display: false,
-              beginAtZero: true,
-              grid: { display: false }
-            },
-            x: { 
-              grid: { display: false },
-              ticks: {
-                color: '#111827',
-                font: { size: 12, weight: '600' },
-                maxRotation: 45,
-                minRotation: 45
-              }
-            },
-          },
-        },
+          {
+            name: 'Líneas',
+            data: lineasData,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, '#ef4444'],
+                [0.5, '#dc2626'],
+                [1, '#b91c1c']
+              ]
+            }
+          }
+        ]
       });
     }
 
