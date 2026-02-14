@@ -11,7 +11,12 @@
         const role = String(user.role||'').toLowerCase();
         const team = String(user.team||'').toLowerCase();
         const username = String(user.username||'').toLowerCase();
-        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
+        // Permitir: Team Líneas, Supervisor Team Líneas, Administrador, Back Office, Rol_icon
+        const isTeamLineas = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
+        const isAdmin = role === 'admin' || role === 'administrador';
+        const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'bo' || role === 'b.o' || role === 'b:o' || role === 'b-o';
+        const isRolIcon = role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon';
+        const ok = isTeamLineas || isAdmin || isBackoffice || isRolIcon;
         if(!ok){ window.location.replace('/inicio.html'); }
       }catch(e){ window.location.replace('/inicio.html'); }
     })();

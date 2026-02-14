@@ -602,20 +602,8 @@
       try {
         const lines = Array.isArray(lead?.lines) ? lead.lines : (Array.isArray(lead?.lineas) ? lead.lineas : null);
         const row = lines && lines[idx] ? lines[idx] : null;
-        if (row) {
-          const st = row.estado ?? row.status ?? row.STATUS ?? row.state;
-          const norm = __lineasStatNormalizeStatus(st);
-          if (norm) return norm;
-        }
-      } catch (_) {}
-
-      try {
-        const rawLines = Array.isArray(lead?._raw?.lines) ? lead._raw.lines : (Array.isArray(lead?._raw?.lineas) ? lead._raw.lineas : null);
-        const row = rawLines && rawLines[idx] ? rawLines[idx] : null;
-        if (row) {
-          const st = row.estado ?? row.status ?? row.STATUS ?? row.state;
-          const norm = __lineasStatNormalizeStatus(st);
-          if (norm) return norm;
+        if (row && (row.estado || row.status)) {
+          return __lineasStatNormalizeStatus(row.estado || row.status);
         }
       } catch (_) {}
 

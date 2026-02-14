@@ -3841,21 +3841,28 @@ router.post('/lineas-team/backfill-lineas-status', protect, async (req, res) => 
  */
 router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
   try {
+    console.log('[SET-ALL-LINES-PENDING] Iniciando proceso...');
     const user = req.user;
+    console.log('[SET-ALL-LINES-PENDING] Usuario:', user?.username, 'Role:', user?.role);
+    
     const role = String(user?.role || '').toLowerCase();
     const canRun = role.includes('admin') || role.includes('administrador');
     if (!canRun) {
+      console.log('[SET-ALL-LINES-PENDING] Acceso denegado para:', user?.username);
       return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
     }
 
+    console.log('[SET-ALL-LINES-PENDING] Acceso autorizado, conectando a DB...');
     const db = getDbFor('TEAM_LINEAS');
     if (!db) {
+      console.error('[SET-ALL-LINES-PENDING] Error de conexión a DB');
       return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
     }
 
     let collections = [];
     try {
       collections = (await db.listCollections().toArray()).map(c => c && c.name).filter(Boolean);
+      console.log('[SET-ALL-LINES-PENDING] Colecciones encontradas:', collections.length);
     } catch (_) {
       collections = [];
     }
@@ -3868,7 +3875,14 @@ router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
       totalLinesChanged: 0
     };
 
+    console.log('[SET-ALL-LINES-PENDING] Procesando', collections.length, 'colecciones...');
+
+    // Aumentar timeout para esta operación larga
+    req.socket.setTimeout(10 * 60 * 1000); // 10 minutos
+    res.setTimeout(10 * 60 * 1000); // 10 minutos
+
     for (const colName of collections) {
+      console.log(`[SET-ALL-LINES-PENDING] Procesando colección: ${colName}`);
       const col = db.collection(colName);
       
       // Obtener TODOS los documentos que tengan líneas
@@ -3919,6 +3933,7 @@ router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
           try {
             const r = await col.bulkWrite(ops, { ordered: false });
             stats.updated += (r.modifiedCount || 0);
+            console.log(`[SET-ALL-LINES-PENDING] Batch actualizado: ${r.modifiedCount} documentos`);
           } catch (e) {
             console.error('Error bulkWrite:', e);
             stats.errors++;
@@ -3932,6 +3947,7 @@ router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
         try {
           const r = await col.bulkWrite(ops, { ordered: false });
           stats.updated += (r.modifiedCount || 0);
+          console.log(`[SET-ALL-LINES-PENDING] Batch final actualizado: ${r.modifiedCount} documentos`);
         } catch (e) {
           console.error('Error bulkWrite final:', e);
           stats.errors++;
@@ -3939,6 +3955,7 @@ router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
       }
     }
 
+    console.log('[SET-ALL-LINES-PENDING] Proceso completado:', stats);
     res.json({
       success: true,
       message: `Proceso completado. ${stats.updated} documentos actualizados. ${stats.totalLinesChanged} líneas cambiadas a PENDING.`,
@@ -3946,7 +3963,157 @@ router.post('/lineas-team/set-all-lines-pending', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en set-all-lines-pending:', error);
+    console.error('[SET-ALL-LINES-PENDING] Error fatal:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/lineas-team/collections
+ * @desc Obtener lista de colecciones de TEAM_LINEAS
+ * @access Private (admin only)
+ */
+router.get('/lineas-team/collections', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = String(user?.role || '').toLowerCase();
+    const canRun = role.includes('admin') || role.includes('administrador');
+    if (!canRun) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+
+    let collections = [];
+    try {
+      collections = (await db.listCollections().toArray()).map(c => c && c.name).filter(Boolean);
+    } catch (_) {
+      collections = [];
+    }
+
+    res.json({
+      success: true,
+      collections
+    });
+
+  } catch (error) {
+    console.error('[GET COLLECTIONS] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route POST /api/lineas-team/set-all-lines-pending-batch
+ * @desc Cambiar líneas a PENDING para una colección específica
+ * @access Private (admin only)
+ */
+router.post('/lineas-team/set-all-lines-pending-batch', protect, async (req, res) => {
+  try {
+    const user = req.user;
+    const role = String(user?.role || '').toLowerCase();
+    const canRun = role.includes('admin') || role.includes('administrador');
+    if (!canRun) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo para administradores.' });
+    }
+
+    const { collection } = req.body;
+    if (!collection) {
+      return res.status(400).json({ success: false, message: 'Se requiere el nombre de la colección' });
+    }
+
+    console.log(`[BATCH-PENDING] Procesando colección: ${collection}`);
+    
+    const db = getDbFor('TEAM_LINEAS');
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Error de conexión a DB TEAM_LINEAS' });
+    }
+
+    const col = db.collection(collection);
+    
+    // Obtener todos los documentos con líneas
+    const cursor = col.find({
+      $or: [
+        { cantidad_lineas: { $gt: 0 } },
+        { lineas_status: { $exists: true } },
+        { lines: { $exists: true } }
+      ]
+    });
+
+    const ops = [];
+    const maxOps = 100; // Más pequeño para procesar más rápido
+    const stats = {
+      scanned: 0,
+      updated: 0,
+      errors: 0,
+      totalLinesChanged: 0
+    };
+
+    while (await cursor.hasNext()) {
+      const doc = await cursor.next();
+      stats.scanned++;
+
+      const cantidadLineas = Number(doc?.cantidad_lineas || doc?._raw?.cantidad_lineas || 0) || 0;
+      if (!cantidadLineas || cantidadLineas < 1) continue;
+
+      // Crear lineas_status todo en PENDING
+      const newLineasStatus = {};
+      const newLines = Array.isArray(doc?.lines) ? doc.lines.map(x => ({ ...x })) : [];
+      
+      for (let i = 0; i < cantidadLineas; i++) {
+        newLineasStatus[i] = 'PENDING';
+        if (newLines[i]) newLines[i].estado = 'PENDING';
+        stats.totalLinesChanged++;
+      }
+
+      ops.push({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: {
+            $set: {
+              lineas_status: newLineasStatus,
+              ...(newLines.length ? { lines: newLines } : {}),
+              actualizadoEn: new Date()
+            }
+          }
+        }
+      });
+
+      if (ops.length >= maxOps) {
+        try {
+          const r = await col.bulkWrite(ops, { ordered: false });
+          stats.updated += (r.modifiedCount || 0);
+        } catch (e) {
+          console.error('Error bulkWrite:', e);
+          stats.errors++;
+        }
+        ops.length = 0;
+      }
+    }
+
+    // Procesar ops restantes
+    if (ops.length > 0) {
+      try {
+        const r = await col.bulkWrite(ops, { ordered: false });
+        stats.updated += (r.modifiedCount || 0);
+      } catch (e) {
+        console.error('Error bulkWrite final:', e);
+        stats.errors++;
+      }
+    }
+
+    console.log(`[BATCH-PENDING] ${collection} completado:`, stats);
+    
+    res.json({
+      success: true,
+      message: `Colección ${collection} procesada. ${stats.updated} documentos actualizados.`,
+      stats
+    });
+
+  } catch (error) {
+    console.error('[BATCH-PENDING] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
