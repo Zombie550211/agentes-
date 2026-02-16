@@ -6895,6 +6895,26 @@
           return false;
         } catch { return false; }
       }
+
+      window.canFullEdit = function canFullEdit(){
+        try{
+          const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const roleRaw = String(u.role||u?.usuario?.role||'').toLowerCase().trim();
+          const role = roleRaw.replace(/\s+/g,'_').replace(/-+/g,'_');
+          const team = String(u.team||u?.usuario?.team||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/_+/g,' ');
+
+          const isAdmin = role==='admin' || role==='administrador' || role==='administrator';
+          const isBackoffice = role==='backoffice' || role==='back_office' || role==='backoffice' || role==='bo' || role==='b.o' || role==='b-o' || role==='b:o' || role==='rol_icon' || role==='rol_bamo';
+
+          const isSupervisorTeamLineas = role==='supervisor_team_lineas' || role==='supervisor_team_linea' || role==='supervisor_team_lineas';
+          const isSupervisorLineas = (role==='supervisor' && team.includes('lineas'));
+
+          return isAdmin || isBackoffice || isSupervisorTeamLineas || isSupervisorLineas;
+        } catch {
+          return false;
+        }
+      };
+
       window.canDeleteLead = canDeleteLead;
       window.updateLeadStatus = async function(selectEl, id){
         try{
