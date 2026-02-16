@@ -634,6 +634,15 @@ router.get('/leads', protect, async (req, res) => {
       const dateOrConditions = [
         { dia_venta: { $in: dateStrings } },
         { fecha_contratacion: { $in: dateStrings } },
+        // Algunos documentos guardan las fechas dentro de _raw (ej. costumers_unified)
+        { '_raw.dia_venta': { $in: dateStrings } },
+        { '_raw.fecha_contratacion': { $in: dateStrings } },
+        // Variantes camelCase comunes
+        { '_raw.diaVenta': { $in: dateStrings } },
+        { '_raw.fechaContratacion': { $in: dateStrings } },
+        // Campos Date
+        { dia_venta: { $gte: start, $lte: end } },
+        { fecha_contratacion: { $gte: start, $lte: end } },
         { createdAt: { $gte: start, $lte: end } },
         { creadoEn: { $gte: start, $lte: end } },
         { actualizadoEn: { $gte: start, $lte: end } }
@@ -643,7 +652,33 @@ router.get('/leads', protect, async (req, res) => {
       dateRegexes.forEach(regex => {
         dateOrConditions.push({ dia_venta: { $regex: regex.source, $options: 'i' } });
         dateOrConditions.push({ fecha_contratacion: { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ '_raw.dia_venta': { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ '_raw.fecha_contratacion': { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ '_raw.diaVenta': { $regex: regex.source, $options: 'i' } });
+        dateOrConditions.push({ '_raw.fechaContratacion': { $regex: regex.source, $options: 'i' } });
       });
+
+      // Más variantes de campos de fecha (visto en bases con formatos mixtos)
+      const extraDateFields = [
+        'diaVenta',
+        'fechaVenta',
+        'fecha_venta',
+        'fechaDeVenta',
+        'saleDate',
+        'sale_date',
+        'dia_instalacion',
+        'fecha_instalacion',
+        'diaInstalacion',
+        'fechaInstalacion'
+      ];
+      const extraPaths = [...extraDateFields, ...extraDateFields.map(f => `_raw.${f}`)];
+      for (const p of extraPaths) {
+        dateOrConditions.push({ [p]: { $in: dateStrings } });
+        dateRegexes.forEach(regex => {
+          dateOrConditions.push({ [p]: { $regex: regex.source, $options: 'i' } });
+        });
+        dateOrConditions.push({ [p]: { $gte: start, $lte: end } });
+      }
 
       const dateQuery = { $or: dateOrConditions };
       andConditions.push(dateQuery);
