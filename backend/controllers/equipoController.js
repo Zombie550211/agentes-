@@ -577,6 +577,17 @@ async function obtenerEstadisticasEquipos(req, res) {
           if (!s) return '';
           let v = String(s).toUpperCase().trim();
           if (v.startsWith('TEAM ')) v = v.slice(5).trim();
+          v = v.replace(/_+/g, ' ').trim();
+
+          // Canonicalizaciones puntuales para evitar duplicados por nombres compuestos
+          // Ej: "TEAM BRYAN PLEITEZ" o "BRYAN_PLEITEZ" deben agruparse como "PLEITEZ"
+          if (v.includes('PLEITEZ')) return 'PLEITEZ';
+          if (v.includes('IRANIA')) return 'IRANIA';
+          if (v.includes('ROBERTO')) return 'ROBERTO';
+          if (v.includes('MARISOL')) return 'MARISOL';
+          if (v.includes('JOHANA') || v.includes('JOHANNA')) return 'JOHANA';
+          if (v.includes('LINEAS') || v.includes('LÍNEAS')) return 'LINEAS';
+
           const first = v.split(/\s+/)[0] || '';
           return first;
         } catch { return ''; }

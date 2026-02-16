@@ -68,7 +68,7 @@
             }
 
             .ranking-row { 
-                grid-template-columns: 60px 1fr 150px 200px; 
+                grid-template-columns: 60px 1fr 140px 140px 200px; 
             }
         }
 
@@ -317,12 +317,14 @@
 
         .ranking-row {
             display: grid;
-            grid-template-columns: 80px 1fr 200px 280px;
+            grid-template-columns: 80px 1fr 160px 160px 280px;
             align-items: center;
             padding: 25px;
-            margin-bottom: 15px;
-            border-radius: 15px;
-            border: 2px solid transparent;
+            margin: 15px 0;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid;
             transition: all 0.3s ease;
             position: relative;
         }
@@ -1403,12 +1405,14 @@
         function buildTeamTooltipHtml(row) {
             const name = row?.dataset?.ttName || '—';
             const ventas = row?.dataset?.ttVentas || '0';
+            const puntos = row?.dataset?.ttPuntos || '0';
             const status = row?.dataset?.ttStatus || '—';
             const sub = row?.dataset?.ttSub || '';
             return `
                 <div class="tt-title">${name}</div>
                 ${sub ? `<div style="margin-bottom:6px; color: rgba(226,232,240,0.75); font-weight:700;">${sub}</div>` : ''}
                 <div class="tt-row"><span class="tt-label">Ventas</span><span class="tt-val">${ventas}</span></div>
+                <div class="tt-row"><span class="tt-label">Puntaje</span><span class="tt-val">${puntos}</span></div>
                 <div class="tt-row"><span class="tt-label">Estado</span><span class="tt-val">${status.toUpperCase()}</span></div>
             `;
         }
@@ -1428,11 +1432,11 @@
         }
 
         let equipos = [
-            { id: 1, nombre: 'Pleitez', posicion: 1, ventas: 0 },
-            { id: 2, nombre: 'Roberto', posicion: 2, ventas: 0 },
-            { id: 3, nombre: 'Marisol', posicion: 3, ventas: 0 },
-            { id: 4, nombre: 'Johana', posicion: 4, ventas: 0 },
-            { id: 5, nombre: 'Irania', posicion: 5, ventas: 0 }
+            { id: 1, nombre: 'Pleitez', posicion: 1, ventas: 0, puntos: 0 },
+            { id: 2, nombre: 'Roberto', posicion: 2, ventas: 0, puntos: 0 },
+            { id: 3, nombre: 'Marisol', posicion: 3, ventas: 0, puntos: 0 },
+            { id: 4, nombre: 'Johana', posicion: 4, ventas: 0, puntos: 0 },
+            { id: 5, nombre: 'Irania', posicion: 5, ventas: 0, puntos: 0 }
         ];
 
         function getColor(posicion) {
@@ -1442,19 +1446,21 @@
         }
 
         function renderEquipos() {
-            const table = document.getElementById('ranking-table');
-            if (!table) return;
+            const container = document.getElementById('ranking-table');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const table = document.createElement('div');
+            table.className = 'ranking-table';
 
             const metricTop3 = document.getElementById('metric-top3');
             const metricWarning = document.getElementById('metric-warning');
             const metricDanger = document.getElementById('metric-danger');
             const metricTotal = document.getElementById('metric-total');
 
-            table.innerHTML = '';
-
-            let top3 = 0;
-            let warning = 0;
-            let danger = 0;
+            let top3Count = 0;
+            let warningCount = 0;
+            let dangerCount = 0;
             let totalVentas = 0;
 
             const getRowStatus = (pos) => {
@@ -1481,62 +1487,12 @@
                 return '🚨 PELIGRO';
             };
 
-            const stripDiacritics = (str) => String(str || '')
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '');
-
-            const supervisorSlug = (name) => {
-                const base = stripDiacritics(String(name || '').trim()).toLowerCase();
-                return base
-                    .replace(/[^a-z0-9\s._-]/g, '')
-                    .replace(/\s+/g, '-')
-                    .replace(/-+/g, '-')
-                    .replace(/^[-.]+|[-.]+$/g, '');
-            };
-
-            const setSupervisorPhoto = (imgEl, supervisorName) => {
-                if (!imgEl) return;
-
-                const original = imgEl.dataset.originalSrc || imgEl.getAttribute('src') || '';
-                if (!imgEl.dataset.originalSrc) imgEl.dataset.originalSrc = original;
-
-                const slug = supervisorSlug(supervisorName);
-                if (!slug) {
-                    if (original) imgEl.src = original;
-                    return;
-                }
-
-                const candidates = [
-                    `images/supervisores/${slug}.png`,
-                    `images/supervisores/${slug}.jpg`,
-                    `images/supervisores/${slug}.jpeg`,
-                    `images/supervisores/${slug}.webp`,
-                ];
-
-                let idx = 0;
-                const tryNext = () => {
-                    if (idx >= candidates.length) {
-                        if (original) imgEl.src = original;
-                        return;
-                    }
-                    const nextSrc = candidates[idx++];
-                    imgEl.onerror = tryNext;
-                    imgEl.src = nextSrc;
-                };
-
-                imgEl.onerror = null;
-                tryNext();
-            };
-
             const updateTeamTop3Podium = () => {
                 const podium = document.getElementById('teams-top3-podium');
                 if (!podium) return;
                 const list = Array.isArray(equipos) ? equipos.slice() : [];
                 list.sort((a, b) => (Number(b?.ventas || 0) - Number(a?.ventas || 0)));
                 const top = list.slice(0, 3);
-                const top1 = top[0] || null;
-                const top2 = top[1] || null;
-                const top3 = top[2] || null;
 
                 const setSlot = (selectorBase, item) => {
                     const nameEl = podium.querySelector(`${selectorBase} .astronaut-name`);
@@ -1547,19 +1503,20 @@
                     if (scoreEl) scoreEl.textContent = String(score);
                 };
 
-                setSlot('.first-pos', top1);
-                setSlot('.second-pos', top2);
-                setSlot('.third-pos', top3);
+                setSlot('.first-pos', top[0] || null);
+                setSlot('.second-pos', top[1] || null);
+                setSlot('.third-pos', top[2] || null);
             };
 
             (equipos || []).forEach((equipo) => {
                 const pos = Number(equipo?.posicion || 0);
                 const ventas = Number(equipo?.ventas || 0);
+                const puntos = Number(equipo?.puntos || 0);
                 const status = getRowStatus(pos);
 
-                if (status === 'top') top3 += 1;
-                else if (status === 'warning') warning += 1;
-                else danger += 1;
+                if (status === 'top') top3Count += 1;
+                else if (status === 'warning') warningCount += 1;
+                else dangerCount += 1;
                 totalVentas += ventas;
 
                 const row = document.createElement('div');
@@ -1567,9 +1524,11 @@
                 try {
                     row.dataset.ttName = String(equipo?.nombre || '—');
                     row.dataset.ttVentas = String(ventas);
+                    row.dataset.ttPuntos = String(formatScore(puntos));
                     row.dataset.ttStatus = String(status);
                     row.dataset.ttSub = String(getRowSub(status) || '');
                 } catch (_) {}
+
                 row.innerHTML = `
                     <div class="ranking-position">
                         <div class="position-badge">${pos}</div>
@@ -1582,25 +1541,31 @@
                         <div class="sales-number">${ventas}</div>
                         <div class="sales-label">Ventas</div>
                     </div>
+                    <div class="ranking-sales">
+                        <div class="sales-number">${formatScore(puntos)}</div>
+                        <div class="sales-label">Puntaje</div>
+                    </div>
                     <div class="ranking-status">
                         <span class="status-badge ${status}">${getRowBadge(status, pos)}</span>
                     </div>
                 `;
-                try {
-                    attachTooltip(row, buildTeamTooltipHtml);
-                } catch (_) {}
+
+                try { attachTooltip(row, buildTeamTooltipHtml); } catch (_) {}
                 try {
                     const badgeEl = row.querySelector('.status-badge');
                     if (badgeEl && pos >= 1 && pos <= 5) {
                         badgeEl.classList.add('status-image');
                     }
                 } catch (_) {}
+
                 table.appendChild(row);
             });
 
-            if (metricTop3) metricTop3.textContent = String(top3);
-            if (metricWarning) metricWarning.textContent = String(warning);
-            if (metricDanger) metricDanger.textContent = String(danger);
+            container.appendChild(table);
+
+            if (metricTop3) metricTop3.textContent = String(top3Count);
+            if (metricWarning) metricWarning.textContent = String(warningCount);
+            if (metricDanger) metricDanger.textContent = String(dangerCount);
             if (metricTotal) metricTotal.textContent = String(totalVentas);
 
             updateTeamTop3Podium();
@@ -2434,10 +2399,19 @@
                     continue;
                 }
                 const ventas = normalizeVentasValue(row);
-                map.set(name, (map.get(name) || 0) + ventas);
+                const puntos = getScoreFromItem(row);
+
+                const cur = map.get(name) || { ventas: 0, puntos: 0 };
+                cur.ventas += ventas;
+                cur.puntos += (Number.isFinite(Number(puntos)) ? Number(puntos) : 0);
+                map.set(name, cur);
             }
 
-            const teams = Array.from(map.entries()).map(([nombre, ventas]) => ({ nombre: formatTeamDisplayName(nombre), ventas }));
+            const teams = Array.from(map.entries()).map(([nombre, agg]) => ({
+                nombre: formatTeamDisplayName(nombre),
+                ventas: Number(agg?.ventas || 0),
+                puntos: Number(agg?.puntos || 0)
+            }));
             teams.sort((a, b) => {
                 const diff = Number(b.ventas || 0) - Number(a.ventas || 0);
                 if (diff !== 0) return diff;
@@ -2482,7 +2456,8 @@
                     id: idx + 1,
                     nombre: t.nombre,
                     posicion: idx + 1,
-                    ventas: Number(t.ventas || 0)
+                    ventas: Number(t.ventas || 0),
+                    puntos: Number(t.puntos || 0)
                 }));
                 renderEquipos();
             } catch (err) {

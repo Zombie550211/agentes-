@@ -2838,7 +2838,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
  * @desc Actualizar un lead completo
  * @access Private
  */
-router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Supervisor','Agente'), async (req, res, next) => {
+router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Supervisor','Supervisor Team Lineas','Agente'), async (req, res, next) => {
   try {
     const { id: recordId } = req.params;
 
