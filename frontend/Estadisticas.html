@@ -326,6 +326,20 @@
       color: #fff;
       font-weight: 800;
     }
+    .pivot-3d-card .mini-table tbody {
+      max-height: 300px;
+      overflow-y: auto;
+      display: block;
+    }
+    .pivot-3d-card .mini-table thead,
+    .pivot-3d-card .mini-table tbody tr {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .pivot-3d-card .mini-table thead {
+      width: calc(100% - 8px);
+    }
     @media (max-width: 900px) { 
       .conv-two-col { display: block; width: 100%; } 
       .conv-left { min-width: 0; width: 100%; max-width: 100%; } 
@@ -1926,15 +1940,83 @@
       }
     }
 
+    async function loadServicePivotDay(targetDate) {
+      try {
+        if (!checkAuth()) return;
+        const base = (targetDate instanceof Date && !isNaN(targetDate)) ? targetDate : new Date();
+        const y = base.getFullYear();
+        const m = base.getMonth();
+        const d = base.getDate();
+        
+        // Fetch usando fechaInicio/fechaFin para el día específico
+        const fmt = (date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        const dayStr = fmt(base);
+        const url = `/api/leads?fechaInicio=${dayStr}&fechaFin=${dayStr}&limit=5000&offset=0`;
+        const resp = await fetchWithAuth(url);
+        const targetStr = `${String(d).padStart(2,'0')}/${String(m+1).padStart(2,'0')}/${y}`;
+        
+        if (!resp || !resp.ok) {
+          renderDailyServicePivot([], targetStr);
+          window.__servicePivotDayLeads = [];
+          window.__servicePivotDayLabel = targetStr;
+          window.__servicePivotDayDate = new Date(y, m, d, 12, 0, 0);
+          return;
+        }
+        
+        const json = await resp.json();
+        const allLeads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+        
+        // Filtrar adicionalmente por dia_venta para mayor precisión
+        const targetStrDash = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
+        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+        const normalizeDate = (val) => {
+          if (!val) return '';
+          const s = String(val).trim();
+          if (!s) return '';
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+          if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}/.test(s)) {
+            const parts = s.split(/[\/\-]/);
+            return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+          }
+          if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0,10);
+          return '';
+        };
+        
+        const inDay = allLeads.filter(lead => {
+          // Solo filtrar por campos de dia_venta (fecha real de venta), no por createdAt u otros
+          const dateFields = [
+            'dia_venta','diaVenta','fecha_venta','fechaVenta','saleDate','sale_date',
+            '_raw.dia_venta','_raw.diaVenta','_raw.fecha_venta','_raw.fechaVenta','_raw.saleDate','_raw.sale_date'
+          ];
+          for (const field of dateFields) {
+            const raw = getByPath(lead, field);
+            const norm = normalizeDate(raw);
+            if (norm === targetStrDash) return true;
+          }
+          return false;
+        });
+        
+        window.__servicePivotDayLeads = inDay;
+        window.__servicePivotDayLabel = targetStr;
+        window.__servicePivotDayDate = new Date(y, m, d, 12, 0, 0);
+        renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
+      } catch (e) {
+        try {
+          const today = new Date();
+          renderDailyServicePivot([], `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`);
+        } catch (_) {}
+      }
+    }
+
     function renderDailyServicePivot(leads, ymdLabel) {
       try {
         const root = document.getElementById('daily-service-pivot');
         if (!root) return;
         const list = Array.isArray(leads) ? leads : [];
 
-        const mode = (window.__servicePivotMode === 'month') ? 'month' : 'day';
-        if (!(window.__servicePivotMonthDate instanceof Date)) {
-          window.__servicePivotMonthDate = new Date();
+        if (!(window.__servicePivotDayDate instanceof Date)) {
+          window.__servicePivotDayDate = new Date();
         }
 
         const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
@@ -1982,12 +2064,10 @@
 
         root.innerHTML = `
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin: 0 0 10px 0;">
-            <div style="font-weight:800; color:#000; text-transform:uppercase; letter-spacing:.5px;">${mode === 'month' ? 'SERVICIOS DEL MES' : 'SERVICIOS DEL DÍA'} (${ymdLabel || ''})</div>
+            <div style="font-weight:800; color:#000; text-transform:uppercase; letter-spacing:.5px;">SERVICIOS DEL DÍA (${ymdLabel || ''})</div>
             <div style="display:flex; align-items:center; gap:8px;">
               <button id="svc-pivot-prev" class="filter-button" style="height:28px;width:32px;font-weight:700;">◀</button>
               <button id="svc-pivot-next" class="filter-button" style="height:28px;width:32px;font-weight:700;">▶</button>
-              <button id="svc-pivot-tab-day" class="filter-button" style="height:28px;">Día</button>
-              <button id="svc-pivot-tab-month" class="filter-button" style="height:28px;">Mes</button>
             </div>
           </div>
           <div class="mini-card pivot-3d-card" style="width:100%">
@@ -2018,54 +2098,16 @@
         `;
 
         try {
-          const btnDay = root.querySelector('#svc-pivot-tab-day');
-          const btnMonth = root.querySelector('#svc-pivot-tab-month');
           const btnPrev = root.querySelector('#svc-pivot-prev');
           const btnNext = root.querySelector('#svc-pivot-next');
 
-          const setActive = (which) => {
-            if (btnDay) {
-              btnDay.style.background = which === 'day' ? '#22b3ec' : '';
-              btnDay.style.color = which === 'day' ? '#fff' : '';
-            }
-            if (btnMonth) {
-              btnMonth.style.background = which === 'month' ? '#22b3ec' : '';
-              btnMonth.style.color = which === 'month' ? '#fff' : '';
-            }
+          const navDay = (delta) => {
+            const base = (window.__servicePivotDayDate instanceof Date) ? new Date(window.__servicePivotDayDate) : new Date();
+            base.setDate(base.getDate() + delta);
+            loadServicePivotDay(base);
           };
-          setActive(mode);
-
-          if (btnDay) {
-            btnDay.onclick = () => {
-              window.__servicePivotMode = 'day';
-              const dayLeads = Array.isArray(window.__servicePivotDayLeads) ? window.__servicePivotDayLeads : [];
-              const dayLabel = String(window.__servicePivotDayLabel || '').trim();
-              renderDailyServicePivot(dayLeads, dayLabel);
-            };
-          }
-          if (btnMonth) {
-            btnMonth.onclick = () => {
-              window.__servicePivotMode = 'month';
-              const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date();
-              loadServicePivotMonth(base);
-            };
-          }
-
-          const navMonth = (delta) => {
-            const base = (window.__servicePivotMonthDate instanceof Date) ? new Date(window.__servicePivotMonthDate) : new Date();
-            base.setMonth(base.getMonth() + delta);
-            window.__servicePivotMode = 'month';
-            loadServicePivotMonth(base);
-          };
-          if (btnPrev) btnPrev.onclick = () => navMonth(-1);
-          if (btnNext) btnNext.onclick = () => navMonth(1);
-
-          if (mode !== 'month') {
-            if (btnPrev) btnPrev.disabled = true;
-            if (btnNext) btnNext.disabled = true;
-            if (btnPrev) btnPrev.style.opacity = '0.55';
-            if (btnNext) btnNext.style.opacity = '0.55';
-          }
+          if (btnPrev) btnPrev.onclick = () => navDay(-1);
+          if (btnNext) btnNext.onclick = () => navDay(1);
         } catch (_) {}
       } catch (e) {
         try {
@@ -4164,13 +4206,8 @@
         try {
           window.__servicePivotDayLeads = inDay;
           window.__servicePivotDayLabel = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-          if (!window.__servicePivotMode) window.__servicePivotMode = 'day';
-          if (window.__servicePivotMode === 'month') {
-            const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date(y, Number(m) - 1, 15, 12, 0, 0);
-            loadServicePivotMonth(base);
-          } else {
-            renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
-          }
+          window.__servicePivotDayDate = new Date(y, Number(m) - 1, Number(d), 12, 0, 0);
+          renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
         } catch(_){ }
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
@@ -4827,13 +4864,8 @@
         try {
           window.__servicePivotDayLeads = inDay;
           window.__servicePivotDayLabel = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-          if (!window.__servicePivotMode) window.__servicePivotMode = 'day';
-          if (window.__servicePivotMode === 'month') {
-            const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date(y, Number(m) - 1, 15, 12, 0, 0);
-            loadServicePivotMonth(base);
-          } else {
-            renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
-          }
+          window.__servicePivotDayDate = new Date(y, Number(m) - 1, Number(d), 12, 0, 0);
+          renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
         } catch(_){ }
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
