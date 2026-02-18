@@ -254,8 +254,9 @@
       const DOC = document;
       if (!DOC || !DOC.head) return;
 
-      const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-shared.css"]');
-      const desiredHref = '/css/sidebar-shared.css?v=20251124f';
+      // Cargar el nuevo CSS moderno
+      const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-modern.css"]');
+      const desiredHref = '/css/sidebar-modern.css?v=20260218';
       if (!existing) {
         const link = DOC.createElement('link');
         link.rel = 'stylesheet';
@@ -264,7 +265,7 @@
       } else {
         try {
           const href = String(existing.getAttribute('href') || '');
-          if (!href.includes('v=20251124f')) {
+          if (!href.includes('v=20260218')) {
             existing.setAttribute('href', desiredHref);
           }
         } catch (_) { /* ignore */ }
@@ -351,6 +352,24 @@
         console.warn('Sidebar fallback post-render error:', e?.message);
       }
       
+      // Inicializar event listener para el submenu de clientes
+      try {
+        const clientesToggle = sidebarElement.querySelector('#clientes-toggle');
+        if (clientesToggle) {
+          // Usar capture phase para tener prioridad sobre otros listeners
+          clientesToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation(); // Evitar que otros listeners se ejecuten
+            window.toggleClientesSubmenu && window.toggleClientesSubmenu();
+            return false;
+          }, true); // true = capture phase
+          console.log('✅ Event listener del submenu clientes inicializado');
+        }
+      } catch (e) {
+        console.warn('Error inicializando submenu clientes:', e);
+      }
+
       // Emitir evento de sidebar cargado
       document.dispatchEvent(new Event('sidebar:loaded'));
       loadedOk = true;
@@ -466,10 +485,6 @@
   const initials = getInitials(displayName || 'U');
   const normalizedRole = normalizeRole(user.role);
   const roleName = getRoleDisplayName(normalizedRole);
-  // Detectar si el usuario pertenece a Team Líneas. Seguimos la misma lógica que el servidor (__isTeamLineas):
-  // - team contiene 'lineas'
-  // - role contiene 'teamlineas' o contiene 'lineas'
-  // - username comienza con 'lineas-'
   const uname = String(user.username || '').toLowerCase();
   const urole = String(user.role || '').toLowerCase();
   const uteam = String(user.team || '').toLowerCase();
@@ -503,44 +518,36 @@
       </div>
     `;
     
-    // Determinar menú según rol
-    const menuItems = getMenuItems(normalizedRole, normalizeActiveKey(activePage), { isLineas });
+    const normalizedActive = normalizeActiveKey(activePage);
+    const menuBlocks = getModernMenuBlocks(normalizedRole, normalizedActive, { isLineas });
 
     return `
-      <!-- Usuario -->
       <div class="user-info">
         <div class="user-details">
           ${avatarWrapper}
-          <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
-          <span class="user-role" id="user-role">${roleName}</span>
+          <div style="display:flex;flex-direction:column;">
+            <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
+            <span class="user-role" id="user-role">${roleName}</span>
+          </div>
         </div>
       </div>
 
-      <!-- Menú de navegación -->
-      <h3>NAVEGACIÓN</h3>
-      <ul class="menu">
-        ${menuItems}
-      </ul>
+      <div class="nav-content">
+        ${menuBlocks}
+      </div>
 
-      <!-- Interruptor de Tema -->
-      <div class="theme-switcher-container">
-        <button type="button" class="btn btn-sidebar theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
+      <div class="sidebar-footer">
+        <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
           <i class="fas fa-cog"></i>
-          <span class="menu-label">Cambiar Tema</span>
+          <span class="item-label">Cambiar Tema</span>
+        </button>
+        <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
+          <i class="fas fa-sign-out-alt"></i>
+          <span class="item-label">Cerrar Sesión</span>
         </button>
       </div>
 
-      <!-- Logout -->
-      <ul class="menu">
-        <li>
-          <button type="button" class="btn btn-sidebar btn-logout" data-logout-button title="Cerrar Sesión">
-            <i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar Sesión</span>
-          </button>
-        </li>
-      </ul>
-
-      <!-- Frase motivacional -->
-      <div class="sidebar-footer-quote">
+      <div class="sidebar-quote">
         "El éxito es la suma de pequeños esfuerzos repetidos día tras día"
       </div>
     `;
@@ -700,6 +707,147 @@
     console.log('✅ Items visibles para este rol:', visibleItems);
     return menuHTML;
   }
+
+  // Generador de menú moderno con bloques separados
+  function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
+    const isLineas = ctx.isLineas || false;
+    
+    const residencialItems = [
+      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html' },
+      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lead.html' },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true },
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/Comisiones.html' },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
+      { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' }
+    ];
+
+    const movilesItems = [
+      { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
+      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' },
+      { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/TEAM LINEAS/COMISIONES-LINEAS.html' },
+      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/TEAM LINEAS/FACTURACION-LINEAS.html' },
+      { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/TEAM LINEAS/LLAMADAS-LINEAS.html' }
+    ];
+
+    const teams = [
+      { name: 'Oficina', team: 'oficina' },
+      { name: 'Team Irania', team: 'irania' },
+      { name: 'Team Johana', team: 'johana' },
+      { name: 'Team Marisol', team: 'marisol' },
+      { name: 'Team Pleitez', team: 'pleitez' },
+      { name: 'Team Roberto', team: 'roberto' }
+    ];
+
+    const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
+    let html = '';
+
+    html += '<div class="nav-block res"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Residenciales</span></div>';
+
+    residencialItems.forEach(item => {
+      if (item.adminOnly && !isAdmin) return;
+      const isActive = item.key === normalizedActive ? 'active-res' : '';
+      
+      if (item.hasSubmenu) {
+        const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
+        console.log('[Sidebar] Generando submenu con', teams.length, 'teams');
+        html += `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
+          <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div><div class="submenu" id="clientes-submenu">
+          ${submenuHTML}
+        </div>`;
+      } else {
+        html += `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+      }
+    });
+
+    html += '</div><div class="block-divider"></div>';
+    html += '<div class="nav-block mov"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Móviles</span></div>';
+
+    movilesItems.forEach(item => {
+      const isActive = item.key === normalizedActive ? 'active-res' : '';
+      html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  // Toggle del submenu de clientes - definir globalmente
+  window.toggleClientesSubmenu = function() {
+    console.log('[Sidebar] toggleClientesSubmenu llamado');
+    const toggle = document.getElementById('clientes-toggle');
+    const submenu = document.getElementById('clientes-submenu');
+    console.log('[Sidebar] toggle:', toggle, 'submenu:', submenu);
+    if (!toggle || !submenu) {
+      console.warn('[Sidebar] No se encontraron elementos clientes-toggle o clientes-submenu');
+      return;
+    }
+    const isOpen = submenu.classList.contains('open');
+    console.log('[Sidebar] Estado actual isOpen:', isOpen);
+    submenu.classList.toggle('open', !isOpen);
+    toggle.classList.toggle('open', !isOpen);
+    console.log('[Sidebar] Submenu clientes toggled:', !isOpen ? 'ABIERTO' : 'CERRADO');
+    console.log('[Sidebar] Clases del submenu después del toggle:', submenu.className);
+  };
+
+  // Función para filtrar clientes por team sin recargar la página
+  window.filterByTeam = function(teamName) {
+    console.log('[Sidebar] Filtrando por team:', teamName);
+    
+    // Si existe una función de filtrado en Costumer.html, usarla
+    if (typeof window.applyTeamFilter === 'function') {
+      window.applyTeamFilter(teamName);
+      return;
+    }
+    
+    // Si existe la función de re-render con filtro, usarla
+    if (typeof window.renderCostumerTable === 'function' && window.__allLeadsData) {
+      const filtered = window.__allLeadsData.filter(lead => {
+        if (!teamName || teamName === 'todos') return true;
+        const leadTeam = (lead.supervisor || lead.team || lead.equipo || '').toLowerCase();
+        return leadTeam.includes(teamName.toLowerCase());
+      });
+      window.renderCostumerTable(filtered);
+      console.log('[Sidebar] Filtrado con renderCostumerTable. Leads visibles:', filtered.length);
+      return;
+    }
+    
+    // Fallback: filtrar las filas de la tabla directamente
+    const tbody = document.getElementById('costumer-tbody');
+    if (!tbody) {
+      console.warn('[Sidebar] No se encontró costumer-tbody');
+      return;
+    }
+    
+    const rows = tbody.querySelectorAll('tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+      // Buscar el team en varias celdas posibles
+      const cells = row.querySelectorAll('td');
+      let rowText = '';
+      cells.forEach(cell => {
+        rowText += ' ' + cell.textContent;
+      });
+      
+      if (!teamName || teamName === 'todos' || rowText.toLowerCase().includes(teamName.toLowerCase())) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    
+    console.log('[Sidebar] Filtrado completado. Filas visibles:', visibleCount);
+  };
 
   // Normalizar roles (inglés -> español)
   function normalizeRole(roleRaw) {
