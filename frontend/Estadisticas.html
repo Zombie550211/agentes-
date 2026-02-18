@@ -288,6 +288,44 @@
     .mini-card .mini-table { width: 100%; }
     .mini-card .mini-table th { padding: 8px; font-size: 0.85rem; }
     .mini-card .mini-table td { padding: 6px 8px; font-size: 0.9rem; text-align: center; }
+
+    .pivot-3d-card {
+      border-radius: 10px;
+      border: 1px solid #dbe3ef;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      box-shadow:
+        0 14px 26px rgba(15, 23, 42, 0.10),
+        0 4px 8px rgba(15, 23, 42, 0.08);
+      transform: perspective(900px) rotateX(2.5deg);
+      transform-origin: center top;
+    }
+    .pivot-3d-card .mini-table {
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .pivot-3d-card .mini-table th {
+      background: linear-gradient(180deg, #1f3b63 0%, #162a47 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.10);
+    }
+    .pivot-3d-card .mini-table td {
+      background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+    }
+    .pivot-3d-card .mini-table tbody tr:hover td {
+      background: linear-gradient(180deg, #f2f8ff 0%, #eaf4ff 100%);
+    }
+    .pivot-3d-card .mini-table td, .pivot-3d-card .mini-table th {
+      border-color: rgba(203, 213, 225, 0.85);
+    }
+    .pivot-3d-card .mini-table .total {
+      background: linear-gradient(180deg, #0b5ed7 0%, #074fb6 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .pivot-3d-card .mini-table .total td {
+      background: transparent;
+      color: #fff;
+      font-weight: 800;
+    }
     @media (max-width: 900px) { 
       .conv-two-col { display: block; width: 100%; } 
       .conv-left { min-width: 0; width: 100%; max-width: 100%; } 
@@ -741,18 +779,12 @@
               </div>
             </div>
 
-            <!-- Gráfico derecho: Ventas Activas -->
+            <!-- Cuadro derecho: Servicios del día (tipo_servicio) -->
             <div class="top-chart-section ventas-activas-section">
-              <h4 class="chart-subtitle"><i class="fas fa-chart-bar"></i> Ventas Activas</h4>
+              <h4 class="chart-subtitle"><i class="fas fa-table"></i> Servicios del día</h4>
               <div class="ventas-activas-content">
-                <div class="ventas-activas-left">
-                  <div id="ventas-activas-team-list" style="display:flex; flex-direction:column; gap:6px; max-height:400px; overflow:auto;"></div>
-                  <div id="ventas-activas-note" style="font-size:0.9rem;color:#374151; margin-top: 10px;"></div>
-                </div>
-                <div class="ventas-activas-right">
-                  <div class="chart-wrapper">
-                    <div id="chart-ventas-activas-mes" style="width: 100%; height: 100%;"></div>
-                  </div>
+                <div class="ventas-activas-right" style="width:100%">
+                  <div id="daily-service-pivot" style="width:100%; min-height: 420px;"></div>
                 </div>
               </div>
             </div>
@@ -1465,10 +1497,7 @@
           console.error('[MES] Error al conectar flechas:', err); 
         }
 
-  // Ahora, renderizar el gráfico de ventas activas del mes (barra).
-  // La gráfica de porcentaje (dona) se renderizará desde la carga asíncrona
-  // `loadPorcentajeForMonth` para evitar render duplicado durante inicialización.
-  try { renderVentasActivasMes(fallbackTeamData); } catch(_) { /* non-fatal */ }
+  try { /* sección Ventas Activas eliminada */ } catch(_) { /* non-fatal */ }
         
         // Filtro eliminado: no se requiere manejar eventos de filtrado
       } catch (e) {
@@ -1868,158 +1897,181 @@
       } catch(e){ console.warn('showChartSpinner error', e); }
     }
 
-    // Renderiza un gráfico de barras con ventas activas por equipo
-    function renderVentasActivasMes(teamData) {
+    async function loadServicePivotMonth(targetDate) {
       try {
-        console.log('[VENTAS ACTIVAS] Datos recibidos:', teamData);
-        const canvas = document.getElementById('chart-ventas-activas-mes');
-        showChartSpinner(canvas, true);
-        setTimeout(() => { // Simula carga asíncrona, reemplaza por fetch real si aplica
-          try {
-            const listEl = document.getElementById('ventas-activas-team-list');
-            const noteEl = document.getElementById('ventas-activas-note');
-            // Si no se pasan datos, intentar cargar del cache
-            if (!teamData || !Array.isArray(teamData) || teamData.length === 0) {
-              const cached = localStorage.getItem('cache_ventas_activas_mes');
-              if (cached) {
-                try { teamData = JSON.parse(cached); } catch(_) { teamData = []; }
-              }
-            } else {
-              // Guardar en cache los datos actuales
-              try { localStorage.setItem('cache_ventas_activas_mes', JSON.stringify(teamData)); } catch(_){}
+        if (!checkAuth()) return;
+        const base = (targetDate instanceof Date && !isNaN(targetDate)) ? targetDate : new Date();
+        const y = base.getFullYear();
+        const m = base.getMonth();
+        const start = new Date(y, m, 1, 12, 0, 0);
+        const end = new Date(y, m + 1, 0, 12, 0, 0);
+        const fmt = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const startStr = fmt(start);
+        const endStr = fmt(end);
+
+        window.__servicePivotMonthDate = new Date(y, m, 15, 12, 0, 0);
+        const resp = await fetchWithAuth(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}&limit=5000&offset=0`);
+        if (!resp || !resp.ok) {
+          renderDailyServicePivot([], `${String(m+1).padStart(2,'0')}/${y}`);
+          return;
+        }
+        const json = await resp.json();
+        const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+        renderDailyServicePivot(leads, `${String(m+1).padStart(2,'0')}/${y}`);
+      } catch (e) {
+        try {
+          const md = window.__servicePivotMonthDate instanceof Date ? window.__servicePivotMonthDate : new Date();
+          renderDailyServicePivot([], `${String(md.getMonth()+1).padStart(2,'0')}/${md.getFullYear()}`);
+        } catch (_) {}
+      }
+    }
+
+    function renderDailyServicePivot(leads, ymdLabel) {
+      try {
+        const root = document.getElementById('daily-service-pivot');
+        if (!root) return;
+        const list = Array.isArray(leads) ? leads : [];
+
+        const mode = (window.__servicePivotMode === 'month') ? 'month' : 'day';
+        if (!(window.__servicePivotMonthDate instanceof Date)) {
+          window.__servicePivotMonthDate = new Date();
+        }
+
+        const getByPath = (obj, path) => { try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; } };
+        const findFirst = (obj, paths) => { for (const p of paths) { const v = getByPath(obj, p); if (v !== undefined && v !== null && v !== '') return v; } return undefined; };
+
+        const servicioOf = (lead) => {
+          const raw = findFirst(lead, [
+            'servicios_texto',
+            '_raw.servicios_texto',
+            'tipo_servicio',
+            '_raw.tipo_servicio',
+            'tipo_servicios',
+            '_raw.tipo_servicios',
+            'servicios',
+            '_raw.servicios',
+            'servicio',
+            '_raw.servicio'
+          ]);
+          const s = (raw == null ? '' : String(raw)).trim();
+          return s ? s.toUpperCase() : 'SIN SERVICIO';
+        };
+
+        const puntajeOf = (lead) => {
+          const raw = findFirst(lead, ['puntaje','score','puntos','_raw.puntaje','_raw.score','_raw.puntos']);
+          const n = (typeof raw === 'number') ? raw : parseFloat(raw);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const map = new Map();
+        for (const l of list) {
+          const key = servicioOf(l);
+          const cur = map.get(key) || { servicio: key, count: 0, puntos: 0 };
+          cur.count += 1;
+          cur.puntos += puntajeOf(l);
+          map.set(key, cur);
+        }
+
+        const rows = Array.from(map.values())
+          .sort((a, b) => (b.count - a.count) || (b.puntos - a.puntos) || String(a.servicio).localeCompare(String(b.servicio)));
+
+        const totalCount = rows.reduce((a, r) => a + (r.count || 0), 0);
+        const totalPuntos = rows.reduce((a, r) => a + (r.puntos || 0), 0);
+
+        const title = ymdLabel ? `SERVICIOS DEL DÍA (${ymdLabel})` : 'SERVICIOS DEL DÍA';
+
+        root.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin: 0 0 10px 0;">
+            <div style="font-weight:800; color:#000; text-transform:uppercase; letter-spacing:.5px;">${mode === 'month' ? 'SERVICIOS DEL MES' : 'SERVICIOS DEL DÍA'} (${ymdLabel || ''})</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button id="svc-pivot-prev" class="filter-button" style="height:28px;width:32px;font-weight:700;">◀</button>
+              <button id="svc-pivot-next" class="filter-button" style="height:28px;width:32px;font-weight:700;">▶</button>
+              <button id="svc-pivot-tab-day" class="filter-button" style="height:28px;">Día</button>
+              <button id="svc-pivot-tab-month" class="filter-button" style="height:28px;">Mes</button>
+            </div>
+          </div>
+          <div class="mini-card pivot-3d-card" style="width:100%">
+            <table class="mini-table" style="margin-top:0">
+              <thead>
+                <tr>
+                  <th style="text-align:left">WorkingOrder Service</th>
+                  <th>COUNTA</th>
+                  <th>SUM</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(r => `
+                  <tr>
+                    <td style="text-align:left">${r.servicio}</td>
+                    <td>${r.count}</td>
+                    <td>${Number(r.puntos || 0).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+                <tr class="total">
+                  <td style="text-align:left">Grand Total</td>
+                  <td>${totalCount}</td>
+                  <td class="total-icon">${Number(totalPuntos || 0).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        try {
+          const btnDay = root.querySelector('#svc-pivot-tab-day');
+          const btnMonth = root.querySelector('#svc-pivot-tab-month');
+          const btnPrev = root.querySelector('#svc-pivot-prev');
+          const btnNext = root.querySelector('#svc-pivot-next');
+
+          const setActive = (which) => {
+            if (btnDay) {
+              btnDay.style.background = which === 'day' ? '#22b3ec' : '';
+              btnDay.style.color = which === 'day' ? '#fff' : '';
             }
-            if (!canvas) {
-              console.warn('[VENTAS ACTIVAS] Canvas no encontrado');
-              showChartSpinner(canvas, false);
-              return;
+            if (btnMonth) {
+              btnMonth.style.background = which === 'month' ? '#22b3ec' : '';
+              btnMonth.style.color = which === 'month' ? '#fff' : '';
             }
-            // Procesar datos
-            teamData = Array.isArray(teamData) ? teamData : [];
-            const EQUIPOS_ORDER = ['Pleitez', 'Roberto', 'Marisol', 'Johana', 'Irania', 'JONATHAN F', 'LUIS G'];
-            const mapByName = new Map();
-            for (const team of teamData) {
-              const key = String(team.name || '').trim().toUpperCase();
-              if (!mapByName.has(key)) {
-                mapByName.set(key, {
-                  name: team.name,
-                  ACTIVAS: Number(team.ACTIVAS || 0),
-                  Total: Number(team.Total || 0)
-                });
-              } else {
-                const existing = mapByName.get(key);
-                existing.ACTIVAS = (existing.ACTIVAS || 0) + Number(team.ACTIVAS || 0);
-                existing.Total = (existing.Total || 0) + Number(team.Total || 0);
-              }
-            }
-            for (const teamName of EQUIPOS_ORDER) {
-              const key = teamName.trim().toUpperCase();
-              if (!mapByName.has(key)) {
-                mapByName.set(key, {
-                  name: teamName,
-                  ACTIVAS: 0,
-                  Total: 0
-                });
-              }
-            }
-            const filtered = Array.from(mapByName.values());
-            const labels = filtered.map(t => t.name);
-            const dataVals = filtered.map(t => t.ACTIVAS);
-            // Si todos los valores son 0, mostrar mensaje de sin datos
-            if (dataVals.every(v => v === 0)) {
-              try { if (window.ventasActivasMesChart) { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } } catch(_){}
-              try {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                canvas.style.display = 'none';
-              } catch(_){}
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (!msg) {
-                msg = document.createElement('div');
-                msg.id = 'ventas-activas-no-data-msg';
-                msg.style = 'text-align:center;color:#64748b;font-size:1rem;padding:30px 0;';
-                canvas.parentElement.appendChild(msg);
-              }
-              msg.textContent = 'Sin datos para este mes.';
-              showChartSpinner(canvas, false);
-              return;
-            } else {
-              let msg = document.getElementById('ventas-activas-no-data-msg');
-              if (msg) msg.remove();
-            }
-            if (window.ventasActivasMesChart) try { window.ventasActivasMesChart.destroy(); window.ventasActivasMesChart = null; } catch(_){ }
-            
-            window.ventasActivasMesChart = Highcharts.chart('chart-ventas-activas-mes', {
-              chart: {
-                type: 'column',
-                options3d: {
-                  enabled: true,
-                  alpha: 15,
-                  beta: 0,
-                  depth: 100,
-                  viewDistance: 35
-                },
-                backgroundColor: '#ffffff'
-              },
-              title: { text: null },
-              xAxis: {
-                categories: labels,
-                labels: {
-                  skew3d: false,
-                  style: { fontSize: '11px' }
-                }
-              },
-              yAxis: {
-                title: { text: 'Ventas Activas' },
-                gridLineWidth: 0,
-                allowDecimals: false
-              },
-              tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                borderRadius: 8,
-                style: { color: '#fff' },
-                formatter: function() {
-                  const idx = this.point.index;
-                  const activas = dataVals[idx];
-                  const total = filtered[idx].Total;
-                  return `<b>${this.x}</b><br/>Activas: ${activas} de ${total}`;
-                }
-              },
-              plotOptions: {
-                column: {
-                  depth: 70,
-                  maxPointWidth: 38,
-                  dataLabels: {
-                    enabled: true,
-                    style: {
-                      fontWeight: 'bold',
-                      color: '#1f3b63',
-                      textOutline: 'none',
-                      fontSize: '13px'
-                    }
-                  },
-                  borderWidth: 0
-                }
-              },
-              legend: { enabled: false },
-              series: [{
-                name: 'Ventas activas',
-                data: dataVals,
-                color: {
-                  linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
-                  stops: [[0, '#10b981'], [1, '#059669']]
-                }
-              }]
-            });
-            console.log('[VENTAS ACTIVAS] Gráfico renderizado exitosamente');
-            showChartSpinner(canvas, false);
-          } catch (e) { 
-            showChartSpinner(canvas, false);
-            console.error('[VENTAS ACTIVAS] Error al renderizar:', e); 
+          };
+          setActive(mode);
+
+          if (btnDay) {
+            btnDay.onclick = () => {
+              window.__servicePivotMode = 'day';
+              const dayLeads = Array.isArray(window.__servicePivotDayLeads) ? window.__servicePivotDayLeads : [];
+              const dayLabel = String(window.__servicePivotDayLabel || '').trim();
+              renderDailyServicePivot(dayLeads, dayLabel);
+            };
           }
-        }, 0); // Quitar el setTimeout si ya es asíncrono
-      } catch (e) { 
-        showChartSpinner(document.getElementById('chart-ventas-activas-mes'), false);
-        console.error('[VENTAS ACTIVAS] Error general:', e); 
+          if (btnMonth) {
+            btnMonth.onclick = () => {
+              window.__servicePivotMode = 'month';
+              const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date();
+              loadServicePivotMonth(base);
+            };
+          }
+
+          const navMonth = (delta) => {
+            const base = (window.__servicePivotMonthDate instanceof Date) ? new Date(window.__servicePivotMonthDate) : new Date();
+            base.setMonth(base.getMonth() + delta);
+            window.__servicePivotMode = 'month';
+            loadServicePivotMonth(base);
+          };
+          if (btnPrev) btnPrev.onclick = () => navMonth(-1);
+          if (btnNext) btnNext.onclick = () => navMonth(1);
+
+          if (mode !== 'month') {
+            if (btnPrev) btnPrev.disabled = true;
+            if (btnNext) btnNext.disabled = true;
+            if (btnPrev) btnPrev.style.opacity = '0.55';
+            if (btnNext) btnNext.style.opacity = '0.55';
+          }
+        } catch (_) {}
+      } catch (e) {
+        try {
+          const root = document.getElementById('daily-service-pivot');
+          if (root) root.innerHTML = '<div style="padding:12px;color:#666;">No se pudo renderizar el cuadro de servicios.</div>';
+        } catch (_) {}
       }
     }
 
@@ -2924,8 +2976,7 @@
           try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){}
           renderPorcentajeTeams(teamData);
           
-          // Renderizar también el gráfico de ventas activas con los mismos datos
-          renderVentasActivasMes(teamData);
+          try { /* sección Ventas Activas eliminada */ } catch(_){ }
         } catch(e){ console.warn('loadPorcentajeForMonth error', e); }
         // ensure the initializing flag is cleared even on unexpected errors
         try { window.__porcIsInitializing = false; showPorcSpinner(false); } catch(_){ }
@@ -4109,6 +4160,18 @@
           const v = findFirst(l, createdPaths);
           return isSameDayAny(v);
         });
+
+        try {
+          window.__servicePivotDayLeads = inDay;
+          window.__servicePivotDayLabel = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+          if (!window.__servicePivotMode) window.__servicePivotMode = 'day';
+          if (window.__servicePivotMode === 'month') {
+            const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date(y, Number(m) - 1, 15, 12, 0, 0);
+            loadServicePivotMonth(base);
+          } else {
+            renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
+          }
+        } catch(_){ }
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
           const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
@@ -4760,6 +4823,18 @@
           return sameLocalDay(dt);
         };
         const inDay = leads.filter(l => { const v = findFirst(l, createdPaths); return isSameDayAny(v); });
+
+        try {
+          window.__servicePivotDayLeads = inDay;
+          window.__servicePivotDayLabel = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+          if (!window.__servicePivotMode) window.__servicePivotMode = 'day';
+          if (window.__servicePivotMode === 'month') {
+            const base = (window.__servicePivotMonthDate instanceof Date) ? window.__servicePivotMonthDate : new Date(y, Number(m) - 1, 15, 12, 0, 0);
+            loadServicePivotMonth(base);
+          } else {
+            renderDailyServicePivot(inDay, window.__servicePivotDayLabel);
+          }
+        } catch(_){ }
         // Construir filas de detalle (agente, servicio, etc.) y exponerlas globalmente
         const normalizeServicio = (lead) => {
           const raw = findFirst(lead, ['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);
