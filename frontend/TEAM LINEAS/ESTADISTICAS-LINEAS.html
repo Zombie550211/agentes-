@@ -408,17 +408,26 @@
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
       
-      console.log(`[filterLeadsByMonth] Filtrando por rango: ${startDate} a ${endDate}`);
+      // Calcular rango del mes anterior para el "colchón"
+      const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
+      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+      const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
+      const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
+      const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
+      
+      console.log(`[filterLeadsByMonth] Filtrando por rango MES ACTUAL: ${startDate} a ${endDate}`);
+      console.log(`[filterLeadsByMonth] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
       console.log(`[filterLeadsByMonth] Total de leads a filtrar: ${leads.length}`);
-      console.log(`[filterLeadsByMonth] Usando SOLO dia_venta (sin lógica de colchón)`);
+      console.log(`[filterLeadsByMonth] LÓGICA: Incluir ventas del mes anterior con instalación en mes actual`);
       
       let sinFecha = 0;
       let fueraRango = 0;
       let dentroRango = 0;
+      let colchonCount = 0;
       
       const filtered = leads.filter(lead => {
-        // Usar SOLO dia_venta
         const diaVenta = lead.dia_venta || lead.fecha_venta || '';
+        const diaInstalacion = lead.dia_instalacion || lead.fecha_instalacion || '';
         
         // Si no tiene dia_venta, excluir
         if (!diaVenta) {
@@ -426,19 +435,27 @@
           return false;
         }
         
-        // Verificar si dia_venta está en el rango del mes (comparación de strings YYYY-MM-DD)
-        const enRango = diaVenta >= startDate && diaVenta <= endDate;
+        // Caso 1: Venta del mes actual (normal)
+        const ventaMesActual = diaVenta >= startDate && diaVenta <= endDate;
         
-        if (enRango) {
+        // Caso 2: COLCHÓN - Venta del mes anterior CON instalación en mes actual
+        const ventaMesAnterior = diaVenta >= prevStartDate && diaVenta <= prevEndDate;
+        const instalacionMesActual = diaInstalacion && diaInstalacion >= startDate && diaInstalacion <= endDate;
+        const esColchon = ventaMesAnterior && instalacionMesActual;
+        
+        if (ventaMesActual) {
           dentroRango++;
+          return true;
+        } else if (esColchon) {
+          colchonCount++;
+          return true;
         } else {
           fueraRango++;
+          return false;
         }
-        
-        return enRango;
       });
       
-      console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} dentro del rango (por dia_venta), ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
+      console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} ventas del mes actual, ${colchonCount} ventas colchón (mes anterior con instalación actual), ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
       
       // Log específico para KARLA_RODRIGUEZ
       const karlaLeads = filtered.filter(l => {
@@ -454,7 +471,23 @@
           _collection: l._collection,
           agenteAsignado: l.agenteAsignado,
           dia_venta: l.dia_venta,
+          dia_instalacion: l.dia_instalacion,
           supervisor: l.supervisor
+        })));
+      }
+      
+      // Mostrar leads del colchón si hay
+      if (colchonCount > 0) {
+        const colchonLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          const di = l.dia_instalacion || l.fecha_instalacion || '';
+          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+        });
+        console.log(`[filterLeadsByMonth] Muestra de leads COLCHÓN (primeros 3):`, colchonLeads.slice(0, 3).map(l => ({
+          dia_venta: l.dia_venta,
+          dia_instalacion: l.dia_instalacion,
+          supervisor: l.supervisor,
+          agente: l.agenteAsignado || l._collection
         })));
       }
       
