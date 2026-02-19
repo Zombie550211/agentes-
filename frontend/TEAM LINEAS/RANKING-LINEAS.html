@@ -478,16 +478,8 @@ body {
       const pos = positions[idx];
       const crown = rankClass === 'rank-1' ? '<div class="crown">👑</div>' : '';
       
-      // Determinar si mostrar imagen o iniciales
-      let avatarUrl = '';
-      if (agent.avatarUrl) {
-        avatarUrl = agent.avatarUrl;
-      } else if (agent.avatarFileId) {
-        avatarUrl = `/api/user-avatars/${agent.avatarFileId}`;
-      }
-      const avatarContent = avatarUrl 
-        ? `<img src="${avatarUrl}" alt="${agent.name}" class="avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"><span class="avatar-initials" style="display:none;">${getInitials(agent.name)}</span>`
-        : `<span class="avatar-initials">${getInitials(agent.name)}</span>`;
+      // Solo mostrar iniciales (astronauta)
+      const avatarContent = `<span class="avatar-initials">${getInitials(agent.name)}</span>`;
 
       const card = document.createElement('div');
       card.className = `podium-card ${rankClass}`;
@@ -547,9 +539,7 @@ body {
         lineasTotal: (agent.lineasWireless || 0) + (agent.lineasSinWireless || 0),
         lineasWireless: agent.lineasWireless || 0,
         lineasSinWireless: agent.lineasSinWireless || 0,
-        ventas: agent.ventas || 0,
-        avatarUrl: agent.avatarUrl || '',
-        avatarFileId: agent.avatarFileId || ''
+        ventas: agent.ventas || 0
       })).sort((a, b) => {
         if (b.lineasTotal !== a.lineasTotal) return b.lineasTotal - a.lineasTotal;
         return b.ventas - a.ventas;
