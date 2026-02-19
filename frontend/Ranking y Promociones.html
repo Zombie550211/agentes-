@@ -618,6 +618,7 @@
       display: block;
     }
 
+    /* DESACTIVADO - Ya no usamos fotos de perfil en el podio
     .astronaut-image.avatar-photo {
       width: 240px !important;
       height: 240px !important;
@@ -638,6 +639,15 @@
       height: 100% !important;
       max-width: 100% !important;
       max-height: 100% !important;
+    }
+    */
+    
+    /* Astronautas SIN círculo blanco */
+    .astronaut-image {
+      border-radius: 0 !important;
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
     }
 
     .agent-details h4 {
@@ -1090,14 +1100,14 @@
     .circular-podium{ gap: 90px; align-items: flex-end; }
     .podium-item{ position: relative; padding-bottom: 60px; }
 
-    /* C├¡rculos del podio estilo imagen objetivo */
+    /* Círculos del podio - SIN fondo blanco, solo el astronauta */
     .podium-circle { 
       width: 100px; 
       height: 100px; 
       border-radius: 50%; 
-      background: white; 
-      border: 4px solid white; 
-      box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
+      background: transparent; 
+      border: none; 
+      box-shadow: none; 
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1105,12 +1115,13 @@
     }
     .podium-circle::before{ content: none !important; }
     
-    /* Tama├▒o y estilo especial para el primer lugar */
+    /* Tamaño especial para el primer lugar - SIN círculo */
     .first-place .podium-circle {
-      width: 120px;
-      height: 120px;
-      border: 5px solid #ffd700;
-      box-shadow: 0 10px 25px rgba(255,215,0,0.4);
+      width: 140px;
+      height: 140px;
+      border: none;
+      box-shadow: none;
+      background: transparent;
     }
     
     /* Ajustar im├ígenes dentro de los c├¡rculos */
@@ -1164,6 +1175,21 @@
     .podium-item::after { content: none !important; }
     .podium-item.first-place::before { content: none !important; }
     .podium-item .podium-circle { animation: none !important; }
+    
+    /* QUITAR CÍRCULO BLANCO - Override final */
+    .podium-circle,
+    .first-place .podium-circle,
+    .second-place .podium-circle,
+    .third-place .podium-circle {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .podium-circle::before,
+    .podium-circle::after {
+      display: none !important;
+      content: none !important;
+    }
   </style>
   <style>
     /* Podio con imagen de fondo - sin pedestales artificiales */
@@ -1203,9 +1229,11 @@
       pointer-events: none;
     }
 
-    /* C├¡rculo protagonista con ÔÇ£respiraci├│nÔÇØ y glow dorado */
+    /* Círculo protagonista - SIN sombra ni efectos de círculo */
     .podium-item.first-place .podium-circle{
-      box-shadow: 0 10px 26px rgba(234,179,8,.25);
+      box-shadow: none !important;
+      background: transparent !important;
+      border: none !important;
       animation: breathe 4s ease-in-out infinite;
     }
     .podium-item.first-place .trophy-icon{ color: #ca8a04; }
@@ -1462,6 +1490,39 @@
     .podium-circle:hover {
       transform: scale(1.05);
       transition: transform 0.3s ease;
+    }
+    
+    /* ========================================
+       OVERRIDE FINAL: QUITAR CÍRCULO BLANCO
+       de los astronautas del podio
+    ======================================== */
+    .astronaut-wrapper,
+    .astronaut-wrapper.winner,
+    .first-pos .astronaut-wrapper,
+    .second-pos .astronaut-wrapper,
+    .third-pos .astronaut-wrapper {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    
+    .astronaut-image,
+    .first-pos .astronaut-image,
+    .second-pos .astronaut-image,
+    .third-pos .astronaut-image {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+    
+    .astronaut-wrapper::before,
+    .astronaut-wrapper::after,
+    .astronaut-image::before,
+    .astronaut-image::after {
+      display: none !important;
+      content: none !important;
     }
   </style>
   <style>
@@ -2472,6 +2533,13 @@
         const applyAvatarToElement = (imgEl, agent, options = {}) => {
           const { allowPhoto = true } = options;
           if (!imgEl) return;
+          // NO guardar ni restaurar imágenes originales del podio - mantener las del semáforo
+          // Solo quitar la clase avatar-photo si no se usa foto
+          if (!allowPhoto) {
+            imgEl.classList.remove('avatar-photo');
+            imgEl.removeAttribute('loading');
+            return;
+          }
           if (!imgEl.dataset.defaultSrc) {
             imgEl.dataset.defaultSrc = imgEl.getAttribute('src') || '';
           }
@@ -2480,16 +2548,7 @@
           }
           const shouldUsePhoto = allowPhoto && avatarsEnabled() && agent;
           if (!shouldUsePhoto) {
-            if (imgEl.dataset.defaultSrc) {
-              imgEl.src = imgEl.dataset.defaultSrc;
-            }
             imgEl.classList.remove('avatar-photo');
-            if (imgEl.dataset.defaultAlt) {
-              imgEl.alt = imgEl.dataset.defaultAlt;
-            }
-            if (!allowPhoto) {
-              imgEl.removeAttribute('loading');
-            }
             return;
           }
           const url = buildAgentAvatarUrl(agent);
@@ -2500,17 +2559,15 @@
             imgEl.alt = resolveDisplayName(agent) || 'Avatar';
           } else {
             imgEl.classList.remove('avatar-photo');
-            if (imgEl.dataset.defaultSrc) {
-              imgEl.src = imgEl.dataset.defaultSrc;
-            }
           }
         };
 
-        document.querySelectorAll('.astronaut-image').forEach((img) => {
-          if (!img.dataset.defaultSrc) {
-            img.dataset.defaultSrc = img.getAttribute('src') || '';
-          }
-        });
+        // NO guardar defaultSrc de astronautas - mantener las imágenes del semáforo sin círculo
+        // document.querySelectorAll('.astronaut-image').forEach((img) => {
+        //   if (!img.dataset.defaultSrc) {
+        //     img.dataset.defaultSrc = img.getAttribute('src') || '';
+        //   }
+        // });
 
         async function getUser(){
           try {
@@ -2819,18 +2876,15 @@
             const setSlot=(sel,it)=>{
               const nameEl=document.querySelector(`${sel} .astronaut-name`);
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
-              const imgEl=document.querySelector(`${sel} .astronaut-image`);
+              // NO tocar las imágenes - mantener los astronautas del semáforo sin círculo
               if(nameEl) nameEl.textContent = displayName(it);
               if(scoreEl) scoreEl.textContent = fmt(getScore(it));
-              if(imgEl) applyAvatarToElement(imgEl, it, { allowPhoto: false });
             };
-            // limpiar
+            // limpiar - solo nombre y puntaje, NO las imágenes
             ['.first-pos','.second-pos','.third-pos'].forEach(sel=>{
               const nameEl=document.querySelector(`${sel} .astronaut-name`);
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
-              const imgEl=document.querySelector(`${sel} .astronaut-image`);
-              if(nameEl) nameEl.textContent='ÔÇö'; if(scoreEl) scoreEl.textContent='0';
-              if(imgEl) applyAvatarToElement(imgEl, null, { allowPhoto: false });
+              if(nameEl) nameEl.textContent='—'; if(scoreEl) scoreEl.textContent='0';
             });
             // set top3
             setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
