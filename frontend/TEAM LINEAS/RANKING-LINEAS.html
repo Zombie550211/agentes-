@@ -1,40 +1,165 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script>
-    (function immediateRedirect(){
-      try{ window.location.replace('/Ranking y Promociones.html'); }catch(e){}
-    })();
-  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ranking y Promociones - Team Líneas</title>
-  <script>
-    (function guard(){
-      try{
-        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
-        const role = String(user.role||'').toLowerCase();
-        const username = String(user.username||'').toLowerCase();
-        const team = String(user.team||'').toLowerCase();
-        const ok = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
-        if(!ok){ window.location.replace('/inicio.html'); }
-      }catch(e){ window.location.replace('/inicio.html'); }
-    })();
-  </script>
-  <link rel="stylesheet" href="/css/theme.css" />
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
+  <title>Ranking Líneas - CRM</title>
+  <link rel="stylesheet" href="../css/ranking-page.css" />
+  <script src="../js/fetch-interceptor.js" defer></script>
+  <script src="../js/sidebar-loader.js" defer></script>
+  <style>
+    .layout { min-height: 100vh; display: flex; }
+    .main-content { flex: 1; margin-left: 280px; width: calc(100% - 280px); padding: 40px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); }
+    @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; padding: 20px; } }
+    
+    .ranking-container { max-width: 1200px; margin: 0 auto; }
+    .ranking-header { text-align: center; margin-bottom: 40px; }
+    .ranking-title { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .ranking-subtitle { color: #64748b; font-size: 1.1rem; }
+    
+    .podium { display: flex; justify-content: center; gap: 30px; margin-bottom: 50px; align-items: flex-end; }
+    .podium-position { display: flex; flex-direction: column; align-items: center; }
+    .podium-agent { background: white; border-radius: 20px; padding: 30px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px; min-width: 200px; }
+    .podium-agent.first { border: 3px solid #fbbf24; }
+    .podium-agent.second { border: 3px solid #94a3b8; }
+    .podium-agent.third { border: 3px solid #cd7f32; }
+    
+    .agent-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold; margin: 0 auto 15px; }
+    .agent-name { font-size: 1.3rem; font-weight: 700; color: #1e293b; margin-bottom: 5px; }
+    .agent-stats { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+    .stat-item { display: flex; justify-content: space-between; font-size: 0.9rem; }
+    .stat-label { color: #64748b; }
+    .stat-value { font-weight: 700; color: #1e293b; }
+    
+    .podium-base { width: 120px; height: 80px; background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 900; color: white; }
+    .podium-base.first { height: 100px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); }
+    .podium-base.second { height: 80px; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); }
+    .podium-base.third { height: 60px; background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%); }
+    
+    .ranking-list { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    .ranking-list h2 { font-size: 1.8rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; }
+    .rank-item { display: flex; align-items: center; gap: 20px; padding: 20px; border-bottom: 1px solid #e2e8f0; transition: background 0.2s; }
+    .rank-item:hover { background: #f8fafc; }
+    .rank-number { font-size: 1.5rem; font-weight: 900; color: #6366f1; min-width: 40px; }
+    .rank-info { flex: 1; }
+    .rank-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+    .rank-stats { display: flex; gap: 30px; margin-top: 5px; }
+    .rank-stat { font-size: 0.9rem; color: #64748b; }
+    .rank-stat strong { color: #1e293b; font-weight: 700; }
+  </style>
 </head>
 <body>
   <div class="layout">
-    <nav class="sidebar sidebar-inicio" data-active="ranking"></nav>
-    <main class="main-content">
-      <h1 style="margin:16px 0;">Ranking y Promociones - Team Líneas</h1>
-      <p>Página base para Team Líneas.</p>
-    </main>
+    <div class="main-content">
+      <div class="ranking-container">
+        <div class="ranking-header">
+          <h1 class="ranking-title">🏆 Ranking Team Líneas</h1>
+          <p class="ranking-subtitle">Clasificación por cantidad de líneas y ventas</p>
+        </div>
+
+        <div class="podium" id="podium"></div>
+
+        <div class="ranking-list">
+          <h2>Clasificación Completa</h2>
+          <div id="ranking-list"></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <script src="/js/fetch-interceptor.js"></script>
-  <script src="/js/logout-handler.js"></script>
-  <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js"></script>
+
+  <script>
+    async function loadRankingLineas() {
+      try {
+        const response = await fetch('/api/comisiones/agentes-lineas');
+        if (!response.ok) throw new Error('Error cargando ranking');
+        
+        const data = await response.json();
+        const agentes = data.data || [];
+        
+        // Calcular ranking por líneas totales + ventas
+        const ranking = agentes.map(agent => ({
+          name: agent.nombre || agent.name || 'Agente',
+          lineasTotal: (agent.lineasWireless || 0) + (agent.lineasSinWireless || 0),
+          lineasWireless: agent.lineasWireless || 0,
+          lineasSinWireless: agent.lineasSinWireless || 0,
+          ventas: agent.ventas || 0,
+          score: ((agent.lineasWireless || 0) + (agent.lineasSinWireless || 0)) * 10 + (agent.ventas || 0)
+        })).sort((a, b) => {
+          if (b.lineasTotal !== a.lineasTotal) return b.lineasTotal - a.lineasTotal;
+          return b.ventas - a.ventas;
+        });
+
+        renderPodium(ranking.slice(0, 3));
+        renderRankingList(ranking);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    function getInitials(name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    function renderPodium(top3) {
+      const podium = document.getElementById('podium');
+      podium.innerHTML = '';
+
+      const positions = [
+        { agent: top3[1], class: 'second', baseClass: 'second', position: '2' },
+        { agent: top3[0], class: 'first', baseClass: 'first', position: '1' },
+        { agent: top3[2], class: 'third', baseClass: 'third', position: '3' }
+      ];
+
+      positions.forEach(({ agent, class: agentClass, baseClass, position }) => {
+        if (!agent) return;
+        
+        const div = document.createElement('div');
+        div.className = 'podium-position';
+        div.innerHTML = `
+          <div class="podium-agent ${agentClass}">
+            <div class="agent-avatar">${getInitials(agent.name)}</div>
+            <div class="agent-name">${agent.name}</div>
+            <div class="agent-stats">
+              <div class="stat-item">
+                <span class="stat-label">Líneas Totales</span>
+                <span class="stat-value">${agent.lineasTotal}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Ventas</span>
+                <span class="stat-value">${agent.ventas}</span>
+              </div>
+            </div>
+          </div>
+          <div class="podium-base ${baseClass}">${position}</div>
+        `;
+        podium.appendChild(div);
+      });
+    }
+
+    function renderRankingList(ranking) {
+      const list = document.getElementById('ranking-list');
+      list.innerHTML = '';
+
+      ranking.forEach((agent, index) => {
+        const div = document.createElement('div');
+        div.className = 'rank-item';
+        div.innerHTML = `
+          <div class="rank-number">${index + 1}</div>
+          <div class="rank-info">
+            <div class="rank-name">${agent.name}</div>
+            <div class="rank-stats">
+              <div class="rank-stat">Líneas Totales: <strong>${agent.lineasTotal}</strong></div>
+              <div class="rank-stat">Wireless: <strong>${agent.lineasWireless}</strong></div>
+              <div class="rank-stat">Sin Wireless: <strong>${agent.lineasSinWireless}</strong></div>
+              <div class="rank-stat">Ventas: <strong>${agent.ventas}</strong></div>
+            </div>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', loadRankingLineas);
+  </script>
 </body>
 </html>
