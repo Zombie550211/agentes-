@@ -30,6 +30,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
@@ -358,25 +360,55 @@
                 <option value="">Todos</option>
               </select>
             </div>
+            <div id="team-filter-container">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-users mr-1"></i> Team
+              </label>
+              <select id="teamFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'" onchange="applyAndRender()">
+                <option value="">Todos los Teams</option>
+                <option value="JONATHAN F">Team Jonathan</option>
+                <option value="LUIS G">Team Luis</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
             <div>
               <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                 <i class="fas fa-calendar mr-1"></i> Fecha Desde
               </label>
               <input type="date" id="dateFrom" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
             </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <div>
               <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                 <i class="fas fa-calendar mr-1"></i> Fecha Hasta
               </label>
               <input type="date" id="dateTo" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
             </div>
+            <div id="line-status-filter-container">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-signal mr-1"></i> Status Línea
+              </label>
+              <select id="lineStatusFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+                <option value="">Todos</option>
+                <option value="ACTIVA">ACTIVA</option>
+                <option value="PENDING">PENDING</option>
+                <option value="CANCELADA">CANCELADA</option>
+                <option value="SUSPENDIDA">SUSPENDIDA</option>
+              </select>
+            </div>
             <div class="flex items-end">
               <button id="btnClearDates" style="width: 100%; background: #64748B; color: white; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748B'">
                 <i class="fas fa-eraser mr-2"></i>Limpiar Fechas
               </button>
             </div>
+            <div class="flex items-end">
+              <button id="btnAnalyzeExcel" style="width: 100%; background: #10B981; color: white; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10B981'">
+                <i class="fas fa-file-excel mr-2"></i>Analizar Excel
+              </button>
+              <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <div class="flex items-end" id="admin-actions" style="display:none;">
               <button id="btn-seed-data" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
                 <i class="fas fa-database mr-2"></i>Crear Datos de Prueba
@@ -391,6 +423,7 @@
             <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
               <i class="fas fa-table mr-2" style="color: #8B5CF6;"></i>
               Lista de Clientes
+              <span id="leadCounter" style="margin-left: 12px; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700;">0 leads</span>
             </h2>
           </div>
           
@@ -422,9 +455,9 @@
       </div>
     </main>
   </div>
-  <script src="https://code.highcharts.com/highcharts.js"></script>
-  <script src="https://code.highcharts.com/highcharts-3d.js"></script>
-  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/exporting.min.js"></script>
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
@@ -802,6 +835,8 @@
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
         const qagent = ($('#agentFilter')?.value || '').trim().toUpperCase();
+        const qteam = ($('#teamFilter')?.value || '').trim().toUpperCase();
+        const qlineStatus = ($('#lineStatusFilter')?.value || '').trim().toUpperCase();
         let dateFrom = ($('#dateFrom')?.value || '').trim();
         let dateTo = ($('#dateTo')?.value || '').trim();
         
@@ -862,10 +897,29 @@
                           String(it.agenteNombre||'').toUpperCase().includes(qagent) ||
                           String(it.agente||'').toUpperCase().includes(qagent))) return false;
           
+          // Filtro por Team (supervisor)
+          if (qteam && !String(it.supervisor||'').toUpperCase().includes(qteam)) return false;
+          
+          // Filtro por status de línea (busca en el array de lines o en status general)
+          if (qlineStatus) {
+            const lines = Array.isArray(it.lines) ? it.lines : [];
+            const hasMatchingLine = lines.some(line => String(line.status||'').toUpperCase().includes(qlineStatus));
+            const generalStatus = String(it.status||'').toUpperCase();
+            if (!hasMatchingLine && !generalStatus.includes(qlineStatus)) return false;
+          }
+          
           // Filtro por rango de fechas (dia_venta) - ahora siempre aplica (mes actual por defecto)
-          const diaVenta = it.dia_venta || '';
-          if (dateFrom && diaVenta < dateFrom) return false;
-          if (dateTo && diaVenta > dateTo) return false;
+          let diaVenta = it.dia_venta || '';
+          // Normalizar formato de fecha a YYYY-MM-DD para comparación correcta
+          if (diaVenta && diaVenta.includes('/')) {
+            // Convertir DD/MM/YYYY a YYYY-MM-DD
+            const parts = diaVenta.split('/');
+            if (parts.length === 3) {
+              diaVenta = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+            }
+          }
+          if (dateFrom && diaVenta && diaVenta < dateFrom) return false;
+          if (dateTo && diaVenta && diaVenta > dateTo) return false;
           
           return true;
         });
@@ -1686,19 +1740,455 @@
 
       let allItems = [];
       
+      // Función para aplicar filtros y re-renderizar
+      function applyAndRender() {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+        updateLeadCounter(filtered.length);
+      }
+      
+      // Función para actualizar el contador de leads
+      function updateLeadCounter(count) {
+        const counter = document.getElementById('leadCounter');
+        if (counter) {
+          counter.textContent = `${count} lead${count !== 1 ? 's' : ''}`;
+        }
+      }
+      
+      // Función para analizar Excel y comparar con CRM
+      async function handleExcelAnalysis(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        try {
+          // Cargar SheetJS si no está disponible
+          if (typeof XLSX === 'undefined') {
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+          }
+          
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              const excelData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+              
+              // Procesar datos del Excel
+              analyzeExcelData(excelData);
+            } catch (err) {
+              console.error('Error al procesar Excel:', err);
+              showNotification('Error al procesar el archivo Excel: ' + err.message, 'error');
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        } catch (err) {
+          console.error('Error al cargar Excel:', err);
+          showNotification('Error al cargar el archivo: ' + err.message, 'error');
+        }
+        
+        // Limpiar input para permitir seleccionar el mismo archivo
+        event.target.value = '';
+      }
+      
+      // Función auxiliar para cargar scripts externos
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      
+      // Función para parsear fechas en formato español (ej: "vie, 23 ene", "mar, 27 ene", "dom, 1 feb")
+      function parseSpanishDate(dateStr, defaultYear = new Date().getFullYear()) {
+        if (!dateStr) return null;
+        const str = String(dateStr).toLowerCase().trim();
+        
+        // Mapa de meses en español
+        const meses = {
+          'ene': 0, 'enero': 0,
+          'feb': 1, 'febrero': 1,
+          'mar': 2, 'marzo': 2,
+          'abr': 3, 'abril': 3,
+          'may': 4, 'mayo': 4,
+          'jun': 5, 'junio': 5,
+          'jul': 6, 'julio': 6,
+          'ago': 7, 'agosto': 7,
+          'sep': 8, 'sept': 8, 'septiembre': 8,
+          'oct': 9, 'octubre': 9,
+          'nov': 10, 'noviembre': 10,
+          'dic': 11, 'diciembre': 11
+        };
+        
+        // Intentar parsear formato "día, DD mes" o "DD mes" o "DD/MM/YYYY"
+        let match = str.match(/(\d{1,2})\s+(\w+)/);
+        if (match) {
+          const day = parseInt(match[1]);
+          const mesStr = match[2].toLowerCase();
+          const month = meses[mesStr];
+          if (month !== undefined && day >= 1 && day <= 31) {
+            return new Date(defaultYear, month, day);
+          }
+        }
+        
+        // Intentar formato DD/MM/YYYY
+        match = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if (match) {
+          const day = parseInt(match[1]);
+          const month = parseInt(match[2]) - 1;
+          let year = parseInt(match[3]);
+          if (year < 100) year += 2000;
+          return new Date(year, month, day);
+        }
+        
+        // Intentar formato YYYY-MM-DD
+        match = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+        }
+        
+        return null;
+      }
+      
+      // Función para analizar datos del Excel vs CRM
+      function analyzeExcelData(excelData) {
+        if (!excelData || excelData.length < 2) {
+          showNotification('El archivo Excel está vacío o no tiene datos válidos', 'error');
+          return;
+        }
+        
+        // Obtener headers (primera fila)
+        const headers = excelData[0].map(h => String(h||'').toUpperCase().trim());
+        
+        // Encontrar índices de columnas importantes
+        const idxNombre = headers.findIndex(h => h.includes('NOMBRE') || h.includes('CLIENTE'));
+        const idxTelefono = headers.findIndex(h => h.includes('TELEFONO') || h.includes('TEL'));
+        const idxCuenta = headers.findIndex(h => h.includes('CUENTA'));
+        const idxStatus = headers.findIndex(h => h.includes('STATUS') || h === 'STATUS');
+        const idxId = headers.findIndex(h => h === 'ID' || h === 'ID:');
+        const idxFechaVenta = headers.findIndex(h => h.includes('FECHA') && h.includes('VENTA'));
+        
+        // Procesar filas del Excel (excluyendo header)
+        const excelClients = [];
+        let minDate = null;
+        let maxDate = null;
+        
+        for (let i = 1; i < excelData.length; i++) {
+          const row = excelData[i];
+          if (!row || row.length === 0) continue;
+          
+          const nombre = idxNombre >= 0 ? String(row[idxNombre]||'').toUpperCase().trim() : '';
+          const telefono = idxTelefono >= 0 ? String(row[idxTelefono]||'').replace(/\D/g, '') : '';
+          const cuenta = idxCuenta >= 0 ? String(row[idxCuenta]||'').trim() : '';
+          const status = idxStatus >= 0 ? String(row[idxStatus]||'').toUpperCase().trim() : '';
+          const id = idxId >= 0 ? String(row[idxId]||'').trim() : '';
+          const fechaVentaRaw = idxFechaVenta >= 0 ? row[idxFechaVenta] : '';
+          
+          // Parsear fecha de venta
+          const fechaVenta = parseSpanishDate(fechaVentaRaw);
+          if (fechaVenta) {
+            if (!minDate || fechaVenta < minDate) minDate = fechaVenta;
+            if (!maxDate || fechaVenta > maxDate) maxDate = fechaVenta;
+          }
+          
+          if (nombre || telefono || cuenta || id) {
+            excelClients.push({ nombre, telefono, cuenta, status, id, fechaVenta, row: i + 1 });
+          }
+        }
+        
+        // Filtrar CRM según el rango de fechas del Excel
+        let crmClients = [];
+        if (minDate && maxDate) {
+          // Formatear fechas para comparación
+          const formatDate = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return year + '-' + month + '-' + day;
+          };
+          const minDateStr = formatDate(minDate);
+          const maxDateStr = formatDate(maxDate);
+          
+          console.log('[Análisis Excel] Rango de fechas detectado:', minDateStr, 'a', maxDateStr);
+          
+          // Filtrar allItems por el rango de fechas del Excel
+          crmClients = allItems.filter(item => {
+            let diaVenta = item.dia_venta || '';
+            // Normalizar formato de fecha a YYYY-MM-DD
+            if (diaVenta && diaVenta.includes('/')) {
+              const parts = diaVenta.split('/');
+              if (parts.length === 3) {
+                diaVenta = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+              }
+            }
+            return diaVenta >= minDateStr && diaVenta <= maxDateStr;
+          });
+          
+          console.log('[Análisis Excel] Leads en CRM para ese rango:', crmClients.length);
+        } else {
+          // Si no se detectaron fechas, usar los datos filtrados actuales
+          crmClients = applyFilters(allItems);
+          console.log('[Análisis Excel] No se detectó rango de fechas, usando filtros actuales');
+        }
+        
+        // Análisis comparativo
+        let activasExcel = 0, activasCRM = 0;
+        let pendientesExcel = 0, pendientesCRM = 0;
+        let canceladasExcel = 0, canceladasCRM = 0;
+        const faltantesEnCRM = [];
+        const faltantesEnExcel = [];
+        
+        // Contar por status en Excel
+        excelClients.forEach(ec => {
+          if (ec.status.includes('ACTIVA')) activasExcel++;
+          else if (ec.status.includes('PENDING') || ec.status.includes('PENDIENTE')) pendientesExcel++;
+          else if (ec.status.includes('CANCELADA') || ec.status.includes('CANCEL')) canceladasExcel++;
+        });
+        
+        // Contar por status en CRM
+        crmClients.forEach(cc => {
+          const status = String(cc.status||'').toUpperCase();
+          if (status.includes('ACTIVA') || status.includes('COMPLETED')) activasCRM++;
+          else if (status.includes('PENDING') || status.includes('PENDIENTE')) pendientesCRM++;
+          else if (status.includes('CANCELADA') || status.includes('CANCEL')) canceladasCRM++;
+        });
+        
+        // Buscar faltantes en CRM (están en Excel pero no en CRM)
+        excelClients.forEach(ec => {
+          const found = crmClients.some(cc => {
+            const crmTel = String(cc.telefono_principal||'').replace(/\D/g, '');
+            const crmCuenta = String(cc.numero_cuenta||'').trim();
+            const crmId = String(cc.id||'').trim();
+            return (ec.telefono && crmTel.includes(ec.telefono)) ||
+                   (ec.cuenta && crmCuenta === ec.cuenta) ||
+                   (ec.id && crmId === ec.id);
+          });
+          if (!found) {
+            faltantesEnCRM.push(ec);
+          }
+        });
+        
+        // Buscar faltantes en Excel (están en CRM pero no en Excel)
+        crmClients.forEach(cc => {
+          const crmTel = String(cc.telefono_principal||'').replace(/\D/g, '');
+          const crmCuenta = String(cc.numero_cuenta||'').trim();
+          const crmId = String(cc.id||'').trim();
+          
+          const found = excelClients.some(ec => {
+            return (ec.telefono && crmTel.includes(ec.telefono)) ||
+                   (ec.cuenta && crmCuenta === ec.cuenta) ||
+                   (ec.id && crmId === ec.id);
+          });
+          if (!found) {
+            faltantesEnExcel.push(cc);
+          }
+        });
+        
+        // Formatear fechas para mostrar
+        const formatDateDisplay = (d) => {
+          if (!d) return 'N/A';
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return day + '/' + month + '/' + year;
+        };
+        
+        // Mostrar resultados en modal
+        showAnalysisResults({
+          totalExcel: excelClients.length,
+          totalCRM: crmClients.length,
+          activasExcel,
+          activasCRM,
+          pendientesExcel,
+          pendientesCRM,
+          canceladasExcel,
+          canceladasCRM,
+          faltantesEnCRM,
+          faltantesEnExcel,
+          fechaDesde: formatDateDisplay(minDate),
+          fechaHasta: formatDateDisplay(maxDate)
+        });
+      }
+      
+      // Función para mostrar resultados del análisis
+      function showAnalysisResults(results) {
+        const overlay = document.createElement('div');
+        overlay.id = 'analysis-overlay';
+        overlay.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.6); display: flex; align-items: center;
+          justify-content: center; z-index: 10002; animation: fadeIn 0.2s ease-out;
+          backdrop-filter: blur(4px);
+        `;
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          background: white; border-radius: 16px; padding: 24px; max-width: 800px;
+          width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        `;
+        
+        const diffActivas = results.activasExcel - results.activasCRM;
+        const diffPendientes = results.pendientesExcel - results.pendientesCRM;
+        const diffCanceladas = results.canceladasExcel - results.canceladasCRM;
+        
+        let faltantesCRMHtml = '';
+        if (results.faltantesEnCRM.length > 0) {
+          faltantesCRMHtml = results.faltantesEnCRM.slice(0, 10).map(f => 
+            '<div style="padding: 4px 0; border-bottom: 1px solid #FECACA;">' + (f.nombre || f.telefono || f.cuenta) + ' - ' + f.status + '</div>'
+          ).join('');
+          if (results.faltantesEnCRM.length > 10) {
+            faltantesCRMHtml += '<div style="padding: 4px 0; color: #DC2626;">... y ' + (results.faltantesEnCRM.length - 10) + ' más</div>';
+          }
+        } else {
+          faltantesCRMHtml = '<div style="color: #10B981;">✓ Todos los registros del Excel están en CRM</div>';
+        }
+        
+        let faltantesExcelHtml = '';
+        if (results.faltantesEnExcel.length > 0) {
+          faltantesExcelHtml = results.faltantesEnExcel.slice(0, 10).map(f => 
+            '<div style="padding: 4px 0; border-bottom: 1px solid #FDE68A;">' + (f.nombre_cliente || f.telefono_principal || f.numero_cuenta) + ' - ' + (f.status || 'N/A') + '</div>'
+          ).join('');
+          if (results.faltantesEnExcel.length > 10) {
+            faltantesExcelHtml += '<div style="padding: 4px 0; color: #D97706;">... y ' + (results.faltantesEnExcel.length - 10) + ' más</div>';
+          }
+        } else {
+          faltantesExcelHtml = '<div style="color: #10B981;">✓ Todos los registros del CRM están en Excel</div>';
+        }
+        
+        const rangoFechasHtml = (results.fechaDesde && results.fechaDesde !== 'N/A') ? 
+          '<div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: center;">' +
+          '<i class="fas fa-calendar-alt mr-2" style="color: #16A34A;"></i>' +
+          '<span style="font-weight: 600; color: #166534;">Rango de fechas analizado: ' + results.fechaDesde + ' - ' + results.fechaHasta + '</span></div>' : '';
+        
+        modal.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">' +
+          '<h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1E293B;">' +
+          '<i class="fas fa-chart-bar mr-2" style="color: #10B981;"></i>Análisis Excel vs CRM</h2>' +
+          '<button id="close-analysis" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748B;">&times;</button></div>' +
+          rangoFechasHtml +
+          '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">' +
+          '<div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); color: white; padding: 16px; border-radius: 12px;">' +
+          '<div style="font-size: 12px; opacity: 0.9;">Total en Excel</div>' +
+          '<div style="font-size: 28px; font-weight: 700;">' + results.totalExcel + '</div></div>' +
+          '<div style="background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 16px; border-radius: 12px;">' +
+          '<div style="font-size: 12px; opacity: 0.9;">Total en CRM</div>' +
+          '<div style="font-size: 28px; font-weight: 700;">' + results.totalCRM + '</div></div></div>' +
+          '<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;"><thead>' +
+          '<tr style="background: #F1F5F9;"><th style="padding: 12px; text-align: left; font-weight: 600;">Status</th>' +
+          '<th style="padding: 12px; text-align: center; font-weight: 600;">Excel</th>' +
+          '<th style="padding: 12px; text-align: center; font-weight: 600;">CRM</th>' +
+          '<th style="padding: 12px; text-align: center; font-weight: 600;">Diferencia</th></tr></thead><tbody>' +
+          '<tr style="border-bottom: 1px solid #E2E8F0;"><td style="padding: 12px;"><span style="color: #10B981; font-weight: 600;">● ACTIVAS</span></td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.activasExcel + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.activasCRM + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffActivas !== 0 ? '#EF4444' : '#10B981') + ';">' + diffActivas + '</td></tr>' +
+          '<tr style="border-bottom: 1px solid #E2E8F0;"><td style="padding: 12px;"><span style="color: #F59E0B; font-weight: 600;">● PENDIENTES</span></td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.pendientesExcel + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.pendientesCRM + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffPendientes !== 0 ? '#EF4444' : '#10B981') + ';">' + diffPendientes + '</td></tr>' +
+          '<tr><td style="padding: 12px;"><span style="color: #EF4444; font-weight: 600;">● CANCELADAS</span></td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.canceladasExcel + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.canceladasCRM + '</td>' +
+          '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffCanceladas !== 0 ? '#EF4444' : '#10B981') + ';">' + diffCanceladas + '</td></tr>' +
+          '</tbody></table>' +
+          '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">' +
+          '<div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px;">' +
+          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #DC2626;">' +
+          '<i class="fas fa-exclamation-triangle mr-2"></i>Faltantes en CRM (' + results.faltantesEnCRM.length + ')</h3>' +
+          '<div style="max-height: 150px; overflow-y: auto; font-size: 12px;">' + faltantesCRMHtml + '</div></div>' +
+          '<div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px;">' +
+          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #D97706;">' +
+          '<i class="fas fa-question-circle mr-2"></i>Faltantes en Excel (' + results.faltantesEnExcel.length + ')</h3>' +
+          '<div style="max-height: 150px; overflow-y: auto; font-size: 12px;">' + faltantesExcelHtml + '</div></div></div>';
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Cerrar modal
+        document.getElementById('close-analysis').addEventListener('click', () => {
+          overlay.remove();
+        });
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.remove();
+        });
+      }
+      
       // Variables para las gráficas
       let statusChart = null;
       let agentChart = null;
+      let chartInitAttempts = 0;
+      const MAX_CHART_ATTEMPTS = 20;
+      let highchartsLoading = false;
       
-      function initCharts() {
-        // Verificar que Highcharts esté disponible
-        if (typeof Highcharts === 'undefined') {
-          console.error('Highcharts no está cargado');
-          setTimeout(initCharts, 100);
+      function loadHighchartsScripts() {
+        if (highchartsLoading) return;
+        highchartsLoading = true;
+        
+        const script1 = document.createElement('script');
+        script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js';
+        script1.onload = function() {
+          const script2 = document.createElement('script');
+          script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js';
+          script2.onload = function() {
+            console.log('[Highcharts] Scripts cargados exitosamente');
+            initChartsAfterLoad();
+          };
+          script2.onerror = function() {
+            console.error('[Highcharts] Error cargando highcharts-3d');
+          };
+          document.head.appendChild(script2);
+        };
+        script1.onerror = function() {
+          console.error('[Highcharts] Error cargando highcharts');
+        };
+        document.head.appendChild(script1);
+      }
+      
+      function initChartsAfterLoad() {
+        const statusContainer = document.getElementById('statusChart');
+        const agentContainer = document.getElementById('agentChart');
+        
+        if (!statusContainer || !agentContainer) {
+          console.error('[initCharts] Contenedores de gráficas no encontrados');
           return;
         }
         
         console.log('Inicializando gráficas Highcharts 3D...');
+        createCharts();
+      }
+      
+      function initCharts() {
+        // Verificar que Highcharts esté disponible
+        if (typeof Highcharts === 'undefined') {
+          chartInitAttempts++;
+          if (chartInitAttempts === 1) {
+            console.log('[initCharts] Cargando Highcharts dinámicamente...');
+            loadHighchartsScripts();
+          } else if (chartInitAttempts < MAX_CHART_ATTEMPTS) {
+            setTimeout(initCharts, 300);
+          } else {
+            console.warn('[initCharts] Highcharts no disponible después de ' + MAX_CHART_ATTEMPTS + ' intentos.');
+          }
+          return;
+        }
+        
+        // Verificar que los contenedores existan
+        const statusContainer = document.getElementById('statusChart');
+        const agentContainer = document.getElementById('agentChart');
+        
+        if (!statusContainer || !agentContainer) {
+          console.error('[initCharts] Contenedores de gráficas no encontrados');
+          return;
+        }
+        
+        console.log('Inicializando gráficas Highcharts 3D...');
+        createCharts();
+      }
+      
+      function createCharts() {
         
         // Gráfica 3D de distribución por estado (Pie Chart 3D)
         statusChart = Highcharts.chart('statusChart', {
@@ -1931,6 +2421,11 @@
         const filteredItems = applyFilters(allItems);
         updateKPIs(filteredItems);
         renderTable(filteredItems);
+        updateLeadCounter(filteredItems.length);
+        // Inicializar gráficas si no están inicializadas
+        if (!statusChart || !agentChart) {
+          initCharts();
+        }
       }
 
       const btnBuscar = document.getElementById('btnBuscar');
@@ -1938,6 +2433,7 @@
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       const btnReset = document.getElementById('btnReset');
       if (btnReset) btnReset.addEventListener('click', ()=>{
@@ -1946,6 +2442,7 @@
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
 
       // No hay campos de formulario adicionales
@@ -1954,34 +2451,49 @@
       const q = $('#q');
       const qs = $('#qs');
       const agentFilter = $('#agentFilter');
+      const teamFilter = $('#teamFilter');
+      const lineStatusFilter = $('#lineStatusFilter');
       const dateFrom = $('#dateFrom');
       const dateTo = $('#dateTo');
       const btnClearDates = $('#btnClearDates');
+      const btnAnalyzeExcel = $('#btnAnalyzeExcel');
+      const excelFileInput = $('#excelFileInput');
       
       if (q) q.addEventListener('input', ()=> {
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       if (qs) qs.addEventListener('change', ()=> {
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       if (agentFilter) agentFilter.addEventListener('change', ()=> {
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
+      });
+      if (teamFilter) teamFilter.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       if (dateFrom) dateFrom.addEventListener('change', ()=> {
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       if (dateTo) dateTo.addEventListener('change', ()=> {
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
       if (btnClearDates) btnClearDates.addEventListener('click', ()=> {
         if (dateFrom) dateFrom.value = '';
@@ -1989,7 +2501,20 @@
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
+        updateLeadCounter(filtered.length);
       });
+      if (lineStatusFilter) lineStatusFilter.addEventListener('change', ()=> {
+        const filtered = applyFilters(allItems);
+        updateKPIs(filtered);
+        renderTable(filtered);
+        updateLeadCounter(filtered.length);
+      });
+      
+      // Botón para analizar Excel
+      if (btnAnalyzeExcel) btnAnalyzeExcel.addEventListener('click', ()=> {
+        excelFileInput.click();
+      });
+      if (excelFileInput) excelFileInput.addEventListener('change', handleExcelAnalysis);
 
       // Detect supervisor por usuario y marcar por defecto
       let defaultSupervisor = '';

@@ -488,7 +488,10 @@
   const uname = String(user.username || '').toLowerCase();
   const urole = String(user.role || '').toLowerCase();
   const uteam = String(user.team || '').toLowerCase();
-  const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-');
+  const udisplayName = String(user.name || user.displayName || '').toLowerCase();
+  // Supervisores conocidos de Team Líneas
+  const supervisoresLineas = ['jonathan f', 'luis g', 'jonathan figueroa', 'luis gutierrez'];
+  const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-') || supervisoresLineas.some(s => udisplayName.includes(s) || uname.includes(s.replace(' ', '')));
 
     const avatarInfo = resolveAvatar(user);
     const avatarUrl = avatarInfo.url;
@@ -724,16 +727,19 @@
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' },
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' }
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: '/crear-cuenta.html', adminOnly: true }
     ];
 
     const movilesItems = [
+      { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/TEAM LINEAS/INICIO-LINEAS.html' },
+      { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/TEAM LINEAS/LEAD-LINEAS.html' },
       { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
       { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' },
       { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/TEAM LINEAS/COMISIONES-LINEAS.html' },
-      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/TEAM LINEAS/FACTURACION-LINEAS.html' },
-      { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/TEAM LINEAS/LLAMADAS-LINEAS.html' }
+      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/TEAM LINEAS/FACTURACION-LINEAS.html', adminOnly: true },
+      { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/TEAM LINEAS/LLAMADAS-VENTAS-LINEAS.html', adminOnly: true }
     ];
 
     const teams = [
@@ -746,37 +752,67 @@
     ];
 
     const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
+    
+    // Determinar qué bloques mostrar según el rol y si pertenece a Team Líneas
+    // Admin y BackOffice: ven ambos bloques
+    // Supervisores/Agentes de Team Líneas (isLineas=true): solo Servicios Móviles
+    // Supervisores/Agentes residenciales (isLineas=false): solo Servicios Residenciales
+    const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
+    const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
+    
+    // Si es supervisor o agente, usar isLineas para determinar qué bloque mostrar
+    // Mostrar bloque residencial si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
+    const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
+    // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
+    const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
+    
+    console.log('[Sidebar] Visibilidad - Role:', normalizedRole, 'isLineas:', isLineas, 'showResidencial:', showResidencial, 'showMoviles:', showMoviles);
+    
     let html = '';
 
-    html += '<div class="nav-block res"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Residenciales</span></div>';
+    // Bloque Servicios Residenciales
+    if (showResidencial) {
+      html += '<div class="nav-block res"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Residenciales</span></div>';
 
-    residencialItems.forEach(item => {
-      if (item.adminOnly && !isAdmin) return;
-      const isActive = item.key === normalizedActive ? 'active-res' : '';
-      
-      if (item.hasSubmenu) {
-        const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
-        console.log('[Sidebar] Generando submenu con', teams.length, 'teams');
-        html += `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
-          <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
-          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </div><div class="submenu" id="clientes-submenu">
-          ${submenuHTML}
-        </div>`;
-      } else {
-        html += `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-      }
-    });
+      residencialItems.forEach(item => {
+        if (item.adminOnly && !isAdmin) return;
+        const isActive = item.key === normalizedActive ? 'active-res' : '';
+        
+        if (item.hasSubmenu) {
+          const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
+          console.log('[Sidebar] Generando submenu con', teams.length, 'teams');
+          html += `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
+            <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div><div class="submenu" id="clientes-submenu">
+            ${submenuHTML}
+          </div>`;
+        } else {
+          html += `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+        }
+      });
 
-    html += '</div><div class="block-divider"></div>';
-    html += '<div class="nav-block mov"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Móviles</span></div>';
+      html += '</div>';
+    }
+    
+    // Divisor solo si se muestran ambos bloques
+    if (showResidencial && showMoviles) {
+      html += '<div class="block-divider"></div>';
+    }
+    
+    // Bloque Servicios Móviles (Team Líneas)
+    if (showMoviles) {
+      html += '<div class="nav-block mov"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Móviles</span></div>';
 
-    movilesItems.forEach(item => {
-      const isActive = item.key === normalizedActive ? 'active-res' : '';
-      html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-    });
+      movilesItems.forEach(item => {
+        if (item.adminOnly && !isAdmin) return;
+        const isActive = item.key === normalizedActive ? 'active-res' : '';
+        html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+      });
 
-    html += '</div>';
+      html += '</div>';
+    }
+    
     return html;
   }
 

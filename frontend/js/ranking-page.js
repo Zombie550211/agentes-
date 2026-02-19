@@ -349,7 +349,7 @@
           if (nameEl) nameEl.textContent = resolveDisplayName(item);
           if (scoreEl) scoreEl.textContent = formatScore(rawScore);
         } catch (e) { console.warn('[RANKING][DEBUG] setSlot error', selectorBase, e); }
-        if (imgEl) applyAvatarToElement(imgEl, item, { allowPhoto: false });
+        if (imgEl) applyAvatarToElement(imgEl, item, { allowPhoto: true });
       };
       const clearSlot = (selectorBase) => {
         const nameEl = document.querySelector(`${selectorBase} .astronaut-name`);
@@ -586,7 +586,7 @@
           if(nameEl) nameEl.textContent = resolveDisplayName(it);
           if(scoreEl) scoreEl.textContent = fmt(raw);
         }catch(e){ console.warn('[RANKING][DEBUG] setSlot error', e); }
-        if(imgEl) applyAvatarToElement(imgEl, it, { allowPhoto: false });
+        if(imgEl) applyAvatarToElement(imgEl, it, { allowPhoto: true });
       };
       ['.first-pos','.second-pos','.third-pos'].forEach(sel=>{
         const nameEl=document.querySelector(`${sel} .astronaut-name`);

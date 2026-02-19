@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llamadas y Ventas - Team Líneas</title>
+    <link rel="stylesheet" href="../css/theme.css">
+    <link rel="stylesheet" href="../css/sidebar-shared.css?v=20251124f">
+    <script src="../js/fetch-interceptor.js" defer></script>
+    <script src="../js/sidebar-loader.js" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #8b5cf6;
+            --primary-dark: #7c3aed;
+            --light-bg: #faf5ff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: rgba(203, 213, 225, 0.6);
+        }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        .layout { display: flex; min-height: 100vh; }
+        .main-content { flex: 1; margin-left: 280px; padding: 20px; }
+        @media (max-width: 600px) { .main-content { margin-left: 0; } }
+
+        header {
+            background: var(--card-bg);
+            border-bottom: 2px solid var(--primary);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--primary);
+        }
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .team-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .team-header {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .team-header h3 {
+            color: white;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .team-table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .team-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .team-table th {
+            background: #f8fafc;
+            color: #334155;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 800;
+            padding: 12px;
+            text-align: center;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+        }
+        .team-table th:first-child { text-align: left; }
+        .team-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .team-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+        }
+        .team-table tbody tr:hover { background: rgba(139, 92, 246, 0.05); }
+
+        .stat-input {
+            width: 70px;
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .stat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .team-footer {
+            background: #f8fafc;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+            font-size: 13px;
+            color: #111827;
+            border-top: 2px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .date-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .date-nav button {
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+        .date-nav button:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .date-nav .current-date {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--primary);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .btn-save {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        .btn-save:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="main-content">
+            <header>
+                <div class="logo">📞 Llamadas y Ventas Líneas</div>
+            </header>
+
+            <!-- Navegación de Fecha -->
+            <div class="date-nav">
+                <button onclick="prevDay()">◀ Anterior</button>
+                <div class="current-date" id="currentDateDisplay">--</div>
+                <button onclick="nextDay()">Siguiente ▶</button>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Calis</div>
+                    <div class="kpi-value" id="total-calis">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Ventas</div>
+                    <div class="kpi-value" id="total-ventas">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Global</div>
+                    <div class="kpi-value" id="total-global">0</div>
+                </div>
+            </div>
+
+            <div class="section-title">
+                <span>Equipos de Trabajo - Team Líneas</span>
+                <button class="btn-save" onclick="guardarDatos()">💾 GUARDAR</button>
+            </div>
+
+            <div class="teams-grid" id="teamsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        
+        // Teams de Líneas (sin llamadas, solo calis y ventas)
+        const teams = [
+            { 
+                name: 'jonathan', 
+                title: 'TEAM JONATHAN F', 
+                agents: []
+            },
+            { 
+                name: 'luis', 
+                title: 'TEAM LUIS G', 
+                agents: []
+            }
+        ];
+
+        let currentDate = new Date();
+        let agentesData = {};
+
+        // Cargar agentes desde la API
+        async function loadAgentes() {
+            try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                
+                const res = await fetch('/api/comisiones/agentes-lineas', { headers, credentials: 'include' });
+                const data = await res.json();
+                
+                console.log('[LLAMADAS-VENTAS] Respuesta API:', data);
+                
+                if ((data.success || data.ok) && Array.isArray(data.data)) {
+                    // Separar por supervisor (la API usa 'nombre' no 'name')
+                    teams[0].agents = data.data.filter(a => a.supervisor === 'JONATHAN F').map(a => a.nombre || a.name);
+                    teams[1].agents = data.data.filter(a => a.supervisor === 'LUIS G').map(a => a.nombre || a.name);
+                    
+                    console.log('[LLAMADAS-VENTAS] Team Jonathan:', teams[0].agents);
+                    console.log('[LLAMADAS-VENTAS] Team Luis:', teams[1].agents);
+                }
+            } catch (e) {
+                console.error('Error cargando agentes:', e);
+            }
+        }
+
+        function formatDate(date) {
+            const day = date.getDate();
+            const month = date.getMonth() + 1;
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function getDateKey(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function updateDateDisplay() {
+            const day = currentDate.getDate();
+            const month = currentDate.getMonth();
+            const year = currentDate.getFullYear();
+            document.getElementById('currentDateDisplay').textContent = `${day} de ${MONTH_NAMES[month]} ${year}`;
+        }
+
+        function prevDay() {
+            currentDate.setDate(currentDate.getDate() - 1);
+            updateDateDisplay();
+            loadDayData();
+        }
+
+        function nextDay() {
+            currentDate.setDate(currentDate.getDate() + 1);
+            updateDateDisplay();
+            loadDayData();
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            let html = '';
+
+            teams.forEach(team => {
+                let agentsHtml = team.agents.map((agent, idx) => `
+                    <tr>
+                        <td>${agent}</td>
+                        <td><input type="number" class="stat-input" id="${team.name}-ca-${idx}" value="0" min="0" onchange="calcularTotales()"></td>
+                        <td><input type="number" class="stat-input" id="${team.name}-v-${idx}" value="0" min="0" onchange="calcularTotales()"></td>
+                    </tr>
+                `).join('');
+
+                html += `
+                    <div class="team-card">
+                        <div class="team-header">
+                            <h3>${team.title}</h3>
+                        </div>
+                        <div class="team-table-wrap">
+                            <table class="team-table">
+                                <thead>
+                                    <tr>
+                                        <th>Agente</th>
+                                        <th>Calis</th>
+                                        <th>Ventas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${agentsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="team-footer">
+                            <span>TOTAL</span>
+                            <span><span id="total-${team.name}-ca">0</span> / <span id="total-${team.name}-v">0</span></span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function calcularTotales() {
+            let totalCalis = 0, totalVentas = 0;
+
+            teams.forEach(team => {
+                let teamCalis = 0, teamVentas = 0;
+
+                team.agents.forEach((agent, idx) => {
+                    const caInput = document.getElementById(`${team.name}-ca-${idx}`);
+                    const vInput = document.getElementById(`${team.name}-v-${idx}`);
+                    
+                    if (caInput) teamCalis += parseInt(caInput.value) || 0;
+                    if (vInput) teamVentas += parseInt(vInput.value) || 0;
+                });
+
+                document.getElementById(`total-${team.name}-ca`).textContent = teamCalis;
+                document.getElementById(`total-${team.name}-v`).textContent = teamVentas;
+
+                totalCalis += teamCalis;
+                totalVentas += teamVentas;
+            });
+
+            document.getElementById('total-calis').textContent = totalCalis;
+            document.getElementById('total-ventas').textContent = totalVentas;
+            document.getElementById('total-global').textContent = totalCalis + totalVentas;
+        }
+
+        async function guardarDatos() {
+            const dateKey = getDateKey(currentDate);
+            const datos = { fecha: dateKey, equipos: {} };
+
+            teams.forEach(team => {
+                datos.equipos[team.name] = {};
+                team.agents.forEach((agent, idx) => {
+                    const caInput = document.getElementById(`${team.name}-ca-${idx}`);
+                    const vInput = document.getElementById(`${team.name}-v-${idx}`);
+                    
+                    datos.equipos[team.name][agent] = {
+                        calis: parseInt(caInput?.value) || 0,
+                        ventas: parseInt(vInput?.value) || 0
+                    };
+                });
+            });
+
+            try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const res = await fetch('/api/llamadas-ventas-lineas', {
+                    method: 'POST',
+                    headers,
+                    credentials: 'include',
+                    body: JSON.stringify(datos)
+                });
+
+                if (res.ok) {
+                    alert('✅ Datos guardados correctamente');
+                } else {
+                    alert('❌ Error al guardar los datos');
+                }
+            } catch (e) {
+                console.error('Error guardando:', e);
+                alert('❌ Error al guardar los datos');
+            }
+        }
+
+        async function loadDayData() {
+            const dateKey = getDateKey(currentDate);
+            
+            try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const res = await fetch(`/api/llamadas-ventas-lineas/${dateKey}`, { headers, credentials: 'include' });
+                const data = await res.json();
+
+                // Limpiar inputs
+                teams.forEach(team => {
+                    team.agents.forEach((agent, idx) => {
+                        const caInput = document.getElementById(`${team.name}-ca-${idx}`);
+                        const vInput = document.getElementById(`${team.name}-v-${idx}`);
+                        if (caInput) caInput.value = 0;
+                        if (vInput) vInput.value = 0;
+                    });
+                });
+
+                // Cargar datos si existen
+                console.log('[LLAMADAS-VENTAS] Datos del día:', data);
+                if ((data.ok || data.success) && data.data && data.data.equipos) {
+                    teams.forEach(team => {
+                        const teamData = data.data.equipos[team.name];
+                        if (teamData) {
+                            team.agents.forEach((agent, idx) => {
+                                const agentData = teamData[agent];
+                                if (agentData) {
+                                    const caInput = document.getElementById(`${team.name}-ca-${idx}`);
+                                    const vInput = document.getElementById(`${team.name}-v-${idx}`);
+                                    if (caInput) caInput.value = agentData.calis || 0;
+                                    if (vInput) vInput.value = agentData.ventas || 0;
+                                }
+                            });
+                        }
+                    });
+                }
+
+                calcularTotales();
+            } catch (e) {
+                console.error('Error cargando datos:', e);
+                calcularTotales();
+            }
+        }
+
+        async function init() {
+            await loadAgentes();
+            renderTeams();
+            updateDateDisplay();
+            loadDayData();
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

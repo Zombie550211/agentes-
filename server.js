@@ -87,6 +87,8 @@ const equipoRoutes = require('./backend/routes/equipoRoutes');
 let teamsRoutes = null;
 const employeesOfMonthRoutes = require('./backend/routes/employeesOfMonth');
 const facturacionRoutes = require('./backend/routes/facturacion');
+const facturacionLineasRoutes = require('./backend/routes/facturacionLineas');
+const llamadasVentasLineasRoutes = require('./backend/routes/llamadasVentasLineas');
 let mediaProxy = null;
 try {
   mediaProxy = require('./backend/routes/mediaProxy');
@@ -1878,6 +1880,8 @@ app.get('/api/debug/ingrid-score', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/facturacion', facturacionRoutes);
+app.use('/api/facturacion-lineas', facturacionLineasRoutes);
+app.use('/api/llamadas-ventas-lineas', llamadasVentasLineasRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/equipos', equipoRoutes);
 app.use('/api/employees-of-month', employeesOfMonthRoutes);
