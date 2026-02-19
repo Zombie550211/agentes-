@@ -25,19 +25,89 @@
     </div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
+
+        // Nombres de meses en español
+        const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
         const ComisionesLineas = () => {
             const [agentsLineas, setAgentsLineas] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [selectedAgent, setSelectedAgent] = useState(null);
+            const [showAgentModal, setShowAgentModal] = useState(false);
+            
+            // Estado para el usuario actual y su rol
+            const [currentUser, setCurrentUser] = useState(null);
+            const [userRole, setUserRole] = useState('');
+            const [userSupervisor, setUserSupervisor] = useState('');
+            const [isAgentView, setIsAgentView] = useState(false);
+            const [ownAgentData, setOwnAgentData] = useState(null);
+            
+            // Estado para navegación mensual
+            const now = new Date();
+            const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
+            const [currentYear, setCurrentYear] = useState(now.getFullYear());
+            
+            // Ref para long press
+            const longPressTimer = useRef(null);
+
+            // Cargar información del usuario actual
+            useEffect(() => {
+                const loadUserInfo = () => {
+                    try {
+                        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                        if (token) {
+                            const payload = JSON.parse(atob(token.split('.')[1]));
+                            const role = (payload.role || '').toLowerCase();
+                            const name = payload.name || payload.username || '';
+                            const displayName = (payload.displayName || payload.name || '').toUpperCase();
+                            
+                            setCurrentUser(payload);
+                            setUserRole(role);
+                            
+                            // Detectar si es admin
+                            const isAdminUser = role === 'admin' || role === 'backoffice' || role === 'administrador';
+                            const isSupervisorUser = role.includes('supervisor');
+                            
+                            // Detectar si es supervisor de líneas y determinar su equipo
+                            // Usar displayName, name y username para detectar
+                            const userName = (payload.username || '').toUpperCase();
+                            const fullName = displayName || userName;
+                            
+                            let supervisorTeam = '';
+                            if (isSupervisorUser && !isAdminUser) {
+                                // Detectar por nombre o username
+                                if (fullName.includes('JONATHAN') || userName.includes('JONATHAN')) {
+                                    supervisorTeam = 'JONATHAN F';
+                                } else if (fullName.includes('LUIS') || userName.includes('LUIS')) {
+                                    supervisorTeam = 'LUIS G';
+                                }
+                                console.log('[COMISIONES-LINEAS] Detectando supervisor - fullName:', fullName, 'userName:', userName, 'supervisorTeam:', supervisorTeam);
+                                setUserSupervisor(supervisorTeam);
+                            }
+                            
+                            // Detectar si es agente (no admin, no supervisor)
+                            if (!isAdminUser && !isSupervisorUser) {
+                                setIsAgentView(true);
+                            }
+                            
+                            console.log('[COMISIONES-LINEAS] Usuario:', displayName, 'Rol:', role, 'Es Admin:', isAdminUser, 'Es Supervisor:', isSupervisorUser, 'Equipo Supervisor:', supervisorTeam, 'Es agente:', !isAdminUser && !isSupervisorUser);
+                        }
+                    } catch (e) {
+                        console.error('Error cargando info de usuario:', e);
+                    }
+                };
+                loadUserInfo();
+            }, []);
 
             useEffect(() => {
                 loadAgentsLineas();
-            }, []);
+            }, [currentMonth, currentYear, currentUser]);
 
             const loadAgentsLineas = async () => {
+                setLoading(true);
                 try {
-                    const response = await fetch('/api/comisiones/agentes-lineas');
+                    const response = await fetch(`/api/comisiones/agentes-lineas?month=${currentMonth}&year=${currentYear}`);
                     if (!response.ok) throw new Error('Error cargando agentes');
                     
                     const data = await response.json();
@@ -50,15 +120,233 @@
                         lineasWireless: agent.lineasWireless || 0,
                         lineasSinWireless: agent.lineasSinWireless || 0,
                         commission: agent.comision || 0,
-                        supervisor: agent.supervisor || ''
+                        supervisor: agent.supervisor || '',
+                        leads: agent.leads || []
                     })).sort((a, b) => b.sales - a.sales);
                     
                     setAgentsLineas(procesados);
+                    
+                    // Si es agente, buscar sus propios datos
+                    if (isAgentView && currentUser) {
+                        const userName = (currentUser.name || currentUser.displayName || currentUser.username || '').toUpperCase();
+                        const ownData = procesados.find(a => a.name.toUpperCase() === userName || a.name.toUpperCase().includes(userName.split(' ')[0]));
+                        if (ownData) {
+                            setOwnAgentData(ownData);
+                            console.log('[COMISIONES-LINEAS] Datos propios del agente encontrados:', ownData);
+                        }
+                    }
                 } catch (error) {
                     console.error('Error:', error);
                 } finally {
                     setLoading(false);
                 }
+            };
+
+            // Navegación mensual
+            const goToPrevMonth = () => {
+                if (currentMonth === 1) {
+                    setCurrentMonth(12);
+                    setCurrentYear(currentYear - 1);
+                } else {
+                    setCurrentMonth(currentMonth - 1);
+                }
+            };
+
+            const goToNextMonth = () => {
+                if (currentMonth === 12) {
+                    setCurrentMonth(1);
+                    setCurrentYear(currentYear + 1);
+                } else {
+                    setCurrentMonth(currentMonth + 1);
+                }
+            };
+
+            // Long press handlers - abre modal de vista de agente
+            const handleMouseDown = (agent) => {
+                longPressTimer.current = setTimeout(() => {
+                    setSelectedAgent(agent);
+                    setShowAgentModal(true);
+                }, 500); // 500ms para activar
+            };
+
+            const handleMouseUp = () => {
+                if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                }
+            };
+
+            const handleTouchStart = (agent) => {
+                longPressTimer.current = setTimeout(() => {
+                    setSelectedAgent(agent);
+                    setShowAgentModal(true);
+                }, 500);
+            };
+
+            const handleTouchEnd = () => {
+                if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                }
+            };
+
+            // Componente Modal de Vista de Agente (estilo Comisiones.html)
+            const AgentViewModal = ({ agent, onClose }) => {
+                if (!agent) return null;
+                
+                const totalLineas = agent.lineasWireless + agent.lineasSinWireless;
+                const escala = totalLineas >= 31 ? 'Escala 31+' : 
+                              totalLineas >= 26 ? 'Escala 26-30' : 
+                              totalLineas >= 21 ? 'Escala 21-25' : 
+                              totalLineas >= 17 ? 'Escala 17-20' : 'Sin escala';
+                
+                // Calcular progreso de cada escala
+                const calcProgress = (min, max) => {
+                    if (totalLineas >= max) return 100;
+                    if (totalLineas < min) return 0;
+                    return Math.round(((totalLineas - min) / (max - min)) * 100);
+                };
+                
+                // Escala 17-20: 17,18,19,20 = 4 valores (17 es 25%, 18 es 50%, 19 es 75%, 20 es 100%)
+                const progress17_20 = totalLineas >= 20 ? 100 : (totalLineas >= 17 ? Math.round(((totalLineas - 16) / 4) * 100) : 0);
+                // Escala 21-25: 21,22,23,24,25 = 5 valores (21 es 20%, 25 es 100%)
+                const progress21_25 = totalLineas >= 25 ? 100 : (totalLineas >= 21 ? Math.round(((totalLineas - 20) / 5) * 100) : 0);
+                // Escala 26-30: 26,27,28,29,30 = 5 valores
+                const progress26_30 = totalLineas >= 30 ? 100 : (totalLineas >= 26 ? Math.round(((totalLineas - 25) / 5) * 100) : 0);
+                // Escala 31+
+                const progress31 = totalLineas >= 31 ? 100 : 0;
+                
+                const progressPercent = Math.min((totalLineas / 31) * 100, 100);
+                
+                return (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="bg-white rounded-t-3xl p-6 border-b flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                        ¡Hola, {agent.name}! 👋
+                                    </h1>
+                                    <p className="text-gray-500 mt-1">Aquí está tu rendimiento actual y tus ganancias</p>
+                                    <p className="text-gray-400 text-sm mt-2">{MONTH_NAMES[currentMonth - 1]} {currentYear}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                                        ROL: AGENTE
+                                    </span>
+                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl font-light">&times;</button>
+                                </div>
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                    {/* Card Comisión */}
+                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border-2 border-amber-400 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200 rounded-full opacity-20 -translate-y-1/2 translate-x-1/2"></div>
+                                        <div className="relative z-10 text-center">
+                                            <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm mb-4">COMISIÓN ESTIMADA</p>
+                                            <div className="text-5xl mb-4">💰</div>
+                                            <p className="text-5xl font-black text-amber-500 mb-2">{formatUsd(agent.commission)}</p>
+                                            <p className="text-gray-500 text-sm">Basado en tu fórmula de rendimiento</p>
+                                            
+                                            {/* Progress */}
+                                            <div className="mt-8">
+                                                <div className="flex justify-between text-sm font-semibold mb-2">
+                                                    <span>Progreso de Meta</span>
+                                                    <span className="text-amber-600">{escala}</span>
+                                                </div>
+                                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" style={{width: `${progressPercent}%`}}></div>
+                                                </div>
+                                                <div className="mt-4 space-y-3 text-sm">
+                                                    <div>
+                                                        <div className="flex justify-between mb-1"><span>Escala 17-20</span><span className={totalLineas >= 17 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress17_20}%</span></div>
+                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 20 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress17_20}%`}}></div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between mb-1"><span>Escala 21-25</span><span className={totalLineas >= 21 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress21_25}%</span></div>
+                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 25 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress21_25}%`}}></div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between mb-1"><span>Escala 26-30</span><span className={totalLineas >= 26 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress26_30}%</span></div>
+                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 30 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress26_30}%`}}></div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between mb-1"><span>Escala 31+</span><span className={totalLineas >= 31 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress31}%</span></div>
+                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 31 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress31}%`}}></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Stats Grid */}
+                                    <div className="bg-white rounded-2xl p-6 border shadow-lg">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            {/* Ventas Activas */}
+                                            <div className="border-b border-r pb-6 pr-6">
+                                                <div className="text-3xl mb-2">📊</div>
+                                                <p className="text-gray-500 text-sm font-semibold uppercase">VENTAS ACTIVAS</p>
+                                                <p className="text-4xl font-black text-gray-900">{agent.sales}</p>
+                                                <p className="text-gray-400 text-sm">Clientes este mes</p>
+                                            </div>
+                                            
+                                            {/* Puntaje Activo */}
+                                            <div className="border-b pb-6 pl-6">
+                                                <div className="text-3xl mb-2">⭐</div>
+                                                <p className="text-gray-500 text-sm font-semibold uppercase">PUNTAJE ACTIVO</p>
+                                                <p className="text-4xl font-black text-gray-900">{(totalLineas * 0.5).toFixed(2)}</p>
+                                                <p className="text-gray-400 text-sm">Nivel: Avanzado</p>
+                                            </div>
+                                            
+                                            {/* Pendientes */}
+                                            <div className="border-r pt-6 pr-6">
+                                                <div className="text-3xl mb-2">✅</div>
+                                                <p className="text-gray-500 text-sm font-semibold uppercase">LÍNEAS WIRELESS</p>
+                                                <p className="text-4xl font-black text-gray-900">{agent.lineasWireless}</p>
+                                                <p className="text-gray-400 text-sm">Líneas activas</p>
+                                            </div>
+                                            
+                                            {/* Escala */}
+                                            <div className="pt-6 pl-6">
+                                                <div className="text-3xl mb-2">🎯</div>
+                                                <p className="text-gray-500 text-sm font-semibold uppercase">ESCALA</p>
+                                                <p className="text-2xl font-black text-gray-900">{escala}</p>
+                                                <p className="text-gray-400 text-sm">Escala actual</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Resumen de Líneas */}
+                                <div className="bg-white rounded-2xl p-6 border shadow-lg">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-4">📈 Resumen de Líneas</h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-blue-50 rounded-xl p-4 text-center">
+                                            <p className="text-3xl font-black text-blue-600">{totalLineas}</p>
+                                            <p className="text-sm text-blue-600 font-semibold">Total Líneas</p>
+                                        </div>
+                                        <div className="bg-green-50 rounded-xl p-4 text-center">
+                                            <p className="text-3xl font-black text-green-600">{agent.lineasWireless}</p>
+                                            <p className="text-sm text-green-600 font-semibold">Wireless</p>
+                                        </div>
+                                        <div className="bg-purple-50 rounded-xl p-4 text-center">
+                                            <p className="text-3xl font-black text-purple-600">{agent.lineasSinWireless}</p>
+                                            <p className="text-sm text-purple-600 font-semibold">Sin Wireless</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
             };
 
             const getInitials = (name) => {
@@ -72,8 +360,28 @@
                 }).format(amount);
             };
 
-            const teamJonathan = agentsLineas.filter(a => a.supervisor === 'JONATHAN F');
-            const teamLuis = agentsLineas.filter(a => a.supervisor === 'LUIS G');
+            // Filtrar equipos según el rol del usuario
+            const isAdmin = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
+            const isSupervisor = userRole.includes('supervisor');
+            
+            console.log('[COMISIONES-LINEAS] Render - userRole:', userRole, 'isAdmin:', isAdmin, 'isSupervisor:', isSupervisor, 'userSupervisor:', userSupervisor);
+            
+            // Si es supervisor, solo mostrar su equipo
+            let teamJonathan = agentsLineas.filter(a => a.supervisor === 'JONATHAN F');
+            let teamLuis = agentsLineas.filter(a => a.supervisor === 'LUIS G');
+            
+            // Supervisores solo ven su propio equipo (no admins)
+            if (isSupervisor && !isAdmin) {
+                if (userSupervisor === 'JONATHAN F') {
+                    teamLuis = []; // No mostrar el otro equipo
+                    console.log('[COMISIONES-LINEAS] Supervisor JONATHAN F - ocultando Team Luis');
+                } else if (userSupervisor === 'LUIS G') {
+                    teamJonathan = []; // No mostrar el otro equipo
+                    console.log('[COMISIONES-LINEAS] Supervisor LUIS G - ocultando Team Jonathan');
+                } else {
+                    console.log('[COMISIONES-LINEAS] Supervisor sin equipo asignado, userSupervisor:', userSupervisor);
+                }
+            }
 
             if (loading) {
                 return (
@@ -83,11 +391,194 @@
                 );
             }
 
+            // Si es agente, mostrar directamente su vista de agente (sin modal, integrada)
+            if (isAgentView && ownAgentData) {
+                const agent = ownAgentData;
+                const totalLineas = agent.lineasWireless + agent.lineasSinWireless;
+                const escala = totalLineas >= 31 ? 'Escala 31+' : 
+                              totalLineas >= 26 ? 'Escala 26-30' : 
+                              totalLineas >= 21 ? 'Escala 21-25' : 
+                              totalLineas >= 17 ? 'Escala 17-20' : 'Sin escala';
+                
+                const progress17_20 = totalLineas >= 20 ? 100 : (totalLineas >= 17 ? Math.round(((totalLineas - 16) / 4) * 100) : 0);
+                const progress21_25 = totalLineas >= 25 ? 100 : (totalLineas >= 21 ? Math.round(((totalLineas - 20) / 5) * 100) : 0);
+                const progress26_30 = totalLineas >= 30 ? 100 : (totalLineas >= 26 ? Math.round(((totalLineas - 25) / 5) * 100) : 0);
+                const progress31 = totalLineas >= 31 ? 100 : 0;
+                const progressPercent = Math.min((totalLineas / 31) * 100, 100);
+                
+                return (
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-3xl p-6 border mb-6 shadow-lg">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                        ¡Hola, {agent.name}! 👋
+                                    </h1>
+                                    <p className="text-gray-500 mt-1">Aquí está tu rendimiento actual y tus ganancias</p>
+                                </div>
+                                <span className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                                    ROL: AGENTE
+                                </span>
+                            </div>
+                            
+                            {/* Navegación Mensual */}
+                            <div className="flex items-center justify-center gap-4 mt-4 bg-gray-50 rounded-xl p-4">
+                                <button onClick={goToPrevMonth} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <div className="text-center min-w-[200px]">
+                                    <span className="text-2xl font-bold text-gray-900">{MONTH_NAMES[currentMonth - 1]}</span>
+                                    <span className="text-2xl font-bold text-gray-400 ml-2">{currentYear}</span>
+                                </div>
+                                <button onClick={goToNextMonth} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Card Comisión */}
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border-2 border-amber-400 relative overflow-hidden shadow-lg">
+                                <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200 rounded-full opacity-20 -translate-y-1/2 translate-x-1/2"></div>
+                                <div className="relative z-10 text-center">
+                                    <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm mb-4">COMISIÓN ESTIMADA</p>
+                                    <div className="text-5xl mb-4">💰</div>
+                                    <p className="text-5xl font-black text-amber-500 mb-2">{formatUsd(agent.commission)}</p>
+                                    <p className="text-gray-500 text-sm">Basado en tu fórmula de rendimiento</p>
+                                    
+                                    {/* Progress */}
+                                    <div className="mt-8">
+                                        <div className="flex justify-between text-sm font-semibold mb-2">
+                                            <span>Progreso de Meta</span>
+                                            <span className="text-amber-600">{escala}</span>
+                                        </div>
+                                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" style={{width: `${progressPercent}%`}}></div>
+                                        </div>
+                                        <div className="mt-4 space-y-3 text-sm">
+                                            <div>
+                                                <div className="flex justify-between mb-1"><span>Escala 17-20</span><span className={totalLineas >= 17 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress17_20}%</span></div>
+                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 20 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress17_20}%`}}></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between mb-1"><span>Escala 21-25</span><span className={totalLineas >= 21 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress21_25}%</span></div>
+                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 25 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress21_25}%`}}></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between mb-1"><span>Escala 26-30</span><span className={totalLineas >= 26 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress26_30}%</span></div>
+                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 30 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress26_30}%`}}></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between mb-1"><span>Escala 31+</span><span className={totalLineas >= 31 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress31}%</span></div>
+                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 31 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress31}%`}}></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Stats Grid */}
+                            <div className="bg-white rounded-2xl p-6 border shadow-lg">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="border-b border-r pb-6 pr-6">
+                                        <div className="text-3xl mb-2">📊</div>
+                                        <p className="text-gray-500 text-sm font-semibold uppercase">VENTAS ACTIVAS</p>
+                                        <p className="text-4xl font-black text-gray-900">{agent.sales}</p>
+                                        <p className="text-gray-400 text-sm">Clientes este mes</p>
+                                    </div>
+                                    <div className="border-b pb-6 pl-6">
+                                        <div className="text-3xl mb-2">⭐</div>
+                                        <p className="text-gray-500 text-sm font-semibold uppercase">PUNTAJE ACTIVO</p>
+                                        <p className="text-4xl font-black text-gray-900">{(totalLineas * 0.5).toFixed(2)}</p>
+                                        <p className="text-gray-400 text-sm">Nivel: Avanzado</p>
+                                    </div>
+                                    <div className="border-r pt-6 pr-6">
+                                        <div className="text-3xl mb-2">✅</div>
+                                        <p className="text-gray-500 text-sm font-semibold uppercase">LÍNEAS WIRELESS</p>
+                                        <p className="text-4xl font-black text-gray-900">{agent.lineasWireless}</p>
+                                        <p className="text-gray-400 text-sm">Líneas activas</p>
+                                    </div>
+                                    <div className="pt-6 pl-6">
+                                        <div className="text-3xl mb-2">🎯</div>
+                                        <p className="text-gray-500 text-sm font-semibold uppercase">ESCALA</p>
+                                        <p className="text-2xl font-black text-gray-900">{escala}</p>
+                                        <p className="text-gray-400 text-sm">Escala actual</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Resumen de Líneas */}
+                        <div className="bg-white rounded-2xl p-6 border shadow-lg">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">📈 Resumen de Líneas</h3>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-blue-50 rounded-xl p-4 text-center">
+                                    <p className="text-3xl font-black text-blue-600">{totalLineas}</p>
+                                    <p className="text-sm text-blue-600 font-semibold">Total Líneas</p>
+                                </div>
+                                <div className="bg-green-50 rounded-xl p-4 text-center">
+                                    <p className="text-3xl font-black text-green-600">{agent.lineasWireless}</p>
+                                    <p className="text-sm text-green-600 font-semibold">Wireless</p>
+                                </div>
+                                <div className="bg-purple-50 rounded-xl p-4 text-center">
+                                    <p className="text-3xl font-black text-purple-600">{agent.lineasSinWireless}</p>
+                                    <p className="text-sm text-purple-600 font-semibold">Sin Wireless</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="max-w-7xl mx-auto">
+                    {/* Modal de Vista de Agente */}
+                    {showAgentModal && <AgentViewModal agent={selectedAgent} onClose={() => setShowAgentModal(false)} />}
+                    
                     <div className="mb-8">
                         <h1 className="text-4xl font-bold text-gray-900 mb-2">Comisiones - Team Líneas</h1>
-                        <p className="text-gray-600">Agentes de Team Líneas ({agentsLineas.length})</p>
+                        <p className="text-gray-600">
+                            {isSupervisor && userSupervisor ? `Equipo de ${userSupervisor}` : `Agentes de Team Líneas (${agentsLineas.length})`}
+                        </p>
+                        
+                        {/* Navegación Mensual */}
+                        <div className="flex items-center justify-center gap-4 mt-4 bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                            <button 
+                                onClick={goToPrevMonth}
+                                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                            <div className="text-center min-w-[200px]">
+                                <span className="text-2xl font-bold text-gray-900">{MONTH_NAMES[currentMonth - 1]}</span>
+                                <span className="text-2xl font-bold text-gray-400 ml-2">{currentYear}</span>
+                            </div>
+                            <button 
+                                onClick={goToNextMonth}
+                                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                        <p className="text-center text-sm text-gray-500 mt-2">💡 Mantén presionada una tarjeta para ver la vista completa del agente</p>
                     </div>
 
                     {agentsLineas.length === 0 ? (
@@ -96,14 +587,23 @@
                         </div>
                     ) : (
                         <div className="space-y-8">
-                            {/* Team Jonathan F */}
+                            {/* Team Jonathan F - solo mostrar si tiene agentes */}
+                            {teamJonathan.length > 0 && (
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                                     <span>📞</span> TEAM JONATHAN F
                                 </h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                     {teamJonathan.map(agent => (
-                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                        <div 
+                                            key={agent.id} 
+                                            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer select-none"
+                                            onMouseDown={() => handleMouseDown(agent)}
+                                            onMouseUp={handleMouseUp}
+                                            onMouseLeave={handleMouseUp}
+                                            onTouchStart={() => handleTouchStart(agent)}
+                                            onTouchEnd={handleTouchEnd}
+                                        >
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -138,15 +638,25 @@
                                     ))}
                                 </div>
                             </div>
+                            )}
 
                             {/* Team Luis G */}
+                            {teamLuis.length > 0 && (
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                                     <span>📞</span> TEAM LUIS G
                                 </h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                     {teamLuis.map(agent => (
-                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                                        <div 
+                                            key={agent.id} 
+                                            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer select-none"
+                                            onMouseDown={() => handleMouseDown(agent)}
+                                            onMouseUp={handleMouseUp}
+                                            onMouseLeave={handleMouseUp}
+                                            onTouchStart={() => handleTouchStart(agent)}
+                                            onTouchEnd={handleTouchEnd}
+                                        >
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -181,6 +691,7 @@
                                     ))}
                                 </div>
                             </div>
+                            )}
                         </div>
                     )}
                 </div>
