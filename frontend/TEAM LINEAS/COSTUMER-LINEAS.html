@@ -30,8 +30,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js"></script>
+  <!-- Highcharts se carga una sola vez después del body -->
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
@@ -796,13 +795,19 @@
             return data;
           }
           
-          // Agentes solo ven sus propios leads
-          console.log('[fetchData] Usuario es agente - filtrando por username');
+          // Vendedores/Agentes - el backend ya filtró los datos por su colección
+          if (role === 'vendedor' || role === 'agente' || role === 'agent' || role === 'seller') {
+            console.log('[fetchData] Usuario es vendedor/agente - el backend ya filtró los datos por colección');
+            return data;
+          }
+          
+          // Otros roles - filtrar por username como fallback
+          console.log('[fetchData] Usuario con rol desconocido - filtrando por username');
           data = data.filter(item => {
             const agente = String(item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || '').toUpperCase();
             return agente.includes(username) || agente === username;
           });
-          console.log('[fetchData] Datos después de filtrar para agente:', data.length);
+          console.log('[fetchData] Datos después de filtrar:', data.length);
           
         } catch (e) {
           console.error('Error al filtrar datos por rol:', e);
@@ -840,15 +845,8 @@
         let dateFrom = ($('#dateFrom')?.value || '').trim();
         let dateTo = ($('#dateTo')?.value || '').trim();
         
-        // Si no hay filtros de fecha establecidos, filtrar por mes actual por defecto
-        if (!dateFrom && !dateTo) {
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, '0');
-          dateFrom = `${year}-${month}-01`;
-          const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-          dateTo = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
-        }
+        // No aplicar filtro de fechas por defecto - mostrar todos los leads
+        // El usuario puede establecer fechas manualmente si lo desea
         
         const nombre = '';
         const tel = '';
@@ -2161,13 +2159,11 @@
       }
       
       function initCharts() {
-        // Verificar que Highcharts esté disponible
+        // Verificar que Highcharts esté disponible (ya cargado en el HTML)
         if (typeof Highcharts === 'undefined') {
           chartInitAttempts++;
-          if (chartInitAttempts === 1) {
-            console.log('[initCharts] Cargando Highcharts dinámicamente...');
-            loadHighchartsScripts();
-          } else if (chartInitAttempts < MAX_CHART_ATTEMPTS) {
+          if (chartInitAttempts < MAX_CHART_ATTEMPTS) {
+            // Esperar a que Highcharts se cargue (no cargar dinámicamente para evitar duplicados)
             setTimeout(initCharts, 300);
           } else {
             console.warn('[initCharts] Highcharts no disponible después de ' + MAX_CHART_ATTEMPTS + ' intentos.');
@@ -2516,7 +2512,7 @@
       });
       if (excelFileInput) excelFileInput.addEventListener('change', handleExcelAnalysis);
 
-      // Detect supervisor por usuario y marcar por defecto
+      // Detect supervisor por usuario y marcar por defecto (solo para supervisores)
       let defaultSupervisor = '';
       let agentsList = [];
       try {
@@ -2524,18 +2520,23 @@
         const name = String(user.supervisor||user.username||'').toUpperCase();
         const role = String(user.role||'').toLowerCase();
         
-        if (name.includes('JONATHAN')) {
-          defaultSupervisor = 'JONATHAN F';
-          agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'];
-        } else if (name.includes('GUTIERREZ') || name.includes('LUIS')) {
-          defaultSupervisor = 'LUIS G';
-          agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','KARLA PONCE','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','JOSUE HERNANDEZ'];
-        }
+        // Solo aplicar filtro de supervisor para roles de supervisor, NO para vendedores/agentes
+        const isSupervisor = role.includes('supervisor');
         
-        // Poblar filtro de agentes si es supervisor
-        if (role.includes('supervisor') && agentFilter && agentsList.length > 0) {
-          agentFilter.innerHTML = '<option value="">AGENTE: Todos</option>' + 
-            agentsList.map(a => `<option value="${a}">${a}</option>`).join('');
+        if (isSupervisor) {
+          if (name.includes('JONATHAN')) {
+            defaultSupervisor = 'JONATHAN F';
+            agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'];
+          } else if (name.includes('GUTIERREZ') || name.includes('LUIS')) {
+            defaultSupervisor = 'LUIS G';
+            agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','KARLA PONCE','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','JOSUE HERNANDEZ'];
+          }
+          
+          // Poblar filtro de agentes si es supervisor
+          if (agentFilter && agentsList.length > 0) {
+            agentFilter.innerHTML = '<option value="">AGENTE: Todos</option>' + 
+              agentsList.map(a => `<option value="${a}">${a}</option>`).join('');
+          }
         }
       } catch {}
       // Prefiltro aplicado en applyFilters sin mostrar controles

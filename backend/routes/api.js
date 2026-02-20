@@ -3319,8 +3319,13 @@ router.get('/lineas-team', protect, async (req, res) => {
     console.log('[API /lineas-team] Usuario:', username, 'Rol:', role, 'Team:', team);
     
     const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office';
-    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon' || isBackoffice;
+    const isVendedor = role === 'vendedor' || role === 'agente' || role === 'agent' || role === 'seller';
+    const isTeamLineas = team.includes('lineas') || role === 'lineas-agentes' || role === 'supervisor team lineas' || (role === 'supervisor' && team.includes('lineas')) || role === 'admin' || role === 'administrador' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon' || isBackoffice || isVendedor;
+    
+    console.log('[API /lineas-team] isTeamLineas:', isTeamLineas, 'isVendedor:', isVendedor, 'isBackoffice:', isBackoffice);
+    
     if (!isTeamLineas) {
+      console.log('[API /lineas-team] Acceso denegado para usuario:', username);
       return res.status(403).json({ success: false, message: 'Acceso denegado' });
     }
     
@@ -4680,6 +4685,239 @@ router.get('/fix-agent-names', async (req, res) => {
 // ============================
 // Gestión de usuarios (solo admin)
 // ============================
+
+// TEMPORAL: Verificar campos de leads de un agente y datos del usuario
+router.get('/temp-check-leads', async (req, res) => {
+  try {
+    const { getDbFor } = require('../config/db');
+    const dbTL = getDbFor('TEAM_LINEAS');
+    const dbMain = getDb();
+    
+    // Buscar info del usuario Manuel Flores
+    let userInfo = null;
+    if (dbMain) {
+      const user = await dbMain.collection('users').findOne({ username: /manuel.*flores/i });
+      if (user) {
+        userInfo = {
+          id: user._id?.toString(),
+          username: user.username,
+          name: user.name,
+          role: user.role,
+          team: user.team,
+          supervisor: user.supervisor
+        };
+      }
+    }
+    
+    if (!dbTL) return res.status(500).json({ success: false, message: 'DB TEAM_LINEAS no disponible', userInfo });
+    
+    const collectionName = req.query.collection || 'MANUEL_FLORES';
+    const leads = await dbTL.collection(collectionName).find({}).limit(3).toArray();
+    const totalLeads = await dbTL.collection(collectionName).countDocuments();
+    
+    return res.json({
+      success: true,
+      collection: collectionName,
+      totalLeads,
+      userInfo,
+      sample: leads.map(l => ({
+        id: l._id?.toString(),
+        agente: l.agente,
+        agenteAsignado: l.agenteAsignado,
+        agenteNombre: l.agenteNombre,
+        _collectionName: l._collectionName,
+        userId: l.userId?.toString(),
+        nombre_cliente: l.nombre_cliente,
+        dia_venta: l.dia_venta,
+        status: l.status
+      }))
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// TEMPORAL: Vincular leads de un agente a un usuario (ELIMINAR DESPUÉS DE USAR)
+router.get('/temp-link-leads', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    
+    // También buscar en la DB de Team Líneas
+    const { getDbFor } = require('../config/db');
+    const dbTL = getDbFor('TEAM_LINEAS');
+    
+    const agentName = req.query.agent || 'Manuel Flores';
+    const userId = req.query.userId || '6997bc51785bd0758b9e9fab';
+    const execute = req.query.execute === 'true';
+    
+    // Convertir nombre a formato de colección (MANUEL_FLORES)
+    const collectionName = agentName.toUpperCase().replace(/\s+/g, '_');
+    
+    let allLeads = [];
+    let collectionsFound = [];
+    
+    // Buscar en Team Líneas por nombre de colección (cada agente tiene su propia colección)
+    if (dbTL) {
+      const tlCollections = await dbTL.listCollections().toArray();
+      const tlColNames = tlCollections.map(c => c.name);
+      
+      // Buscar colección que coincida con el nombre del agente
+      const matchingCol = tlColNames.find(name => 
+        name.toUpperCase().includes(collectionName) || 
+        collectionName.includes(name.toUpperCase().replace(/_/g, ' ').trim())
+      );
+      
+      if (matchingCol) {
+        const found = await dbTL.collection(matchingCol).find({}).toArray();
+        if (found.length > 0) {
+          allLeads.push(...found.map(l => ({ ...l, _collection: matchingCol, _db: 'team_lineas' })));
+          collectionsFound.push({ db: 'team_lineas', collection: matchingCol, count: found.length });
+        }
+      }
+      
+      // Si no encontramos colección exacta, listar todas las disponibles
+      if (collectionsFound.length === 0) {
+        return res.json({ 
+          success: false, 
+          message: `No se encontró colección para: ${agentName} (buscando: ${collectionName})`,
+          availableCollections: tlColNames,
+          teamLineasAvailable: true
+        });
+      }
+    }
+    
+    if (allLeads.length === 0) {
+      return res.json({ 
+        success: false, 
+        message: 'No se encontraron leads para: ' + agentName,
+        searchedCollections: collectionsFound.length,
+        teamLineasAvailable: !!dbTL
+      });
+    }
+    
+    if (!execute) {
+      return res.json({
+        success: true,
+        message: `Se encontraron ${allLeads.length} leads en la colección "${collectionsFound[0]?.collection}" para "${agentName}". Agrega &execute=true para vincularlos al usuario ${userId}`,
+        count: allLeads.length,
+        collectionsFound,
+        sample: allLeads.slice(0, 5).map(l => ({ 
+          id: l._id.toString(), 
+          nombre: l.nombre || l.name || l.cliente || l.customer_name, 
+          collection: l._collection,
+          db: l._db
+        }))
+      });
+    }
+    
+    // Ejecutar la actualización
+    const { ObjectId } = require('mongodb');
+    const userObjId = new ObjectId(userId);
+    let totalModified = 0;
+    
+    for (const colInfo of collectionsFound) {
+      const targetDb = colInfo.db === 'team_lineas' ? dbTL : db;
+      if (!targetDb) continue;
+      
+      const result = await targetDb.collection(colInfo.collection).updateMany(
+        {},
+        {
+          $set: {
+            userId: userObjId,
+            agente: agentName,
+            updatedAt: new Date()
+          }
+        }
+      );
+      totalModified += result.modifiedCount;
+    }
+    
+    return res.json({
+      success: true,
+      message: `${totalModified} leads vinculados al usuario ${userId}`,
+      modifiedCount: totalModified,
+      collectionsUpdated: collectionsFound
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// TEMPORAL: Cambiar contraseña de un usuario (ELIMINAR DESPUÉS DE USAR)
+// Uso: /api/temp-change-password?search=flores&newpass=ManuFlo26@
+router.get('/temp-change-password', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+    
+    const search = req.query.search || 'manuel';
+    const newpass = req.query.newpass;
+    const bcrypt = require('bcryptjs');
+    
+    // Obtener TODAS las colecciones de la base de datos
+    const allCollections = await db.listCollections().toArray();
+    const collectionNames = allCollections.map(c => c.name);
+    
+    // Buscar usuarios que coincidan en TODAS las colecciones
+    const regex = new RegExp(search, 'i');
+    let allUsers = [];
+    
+    for (const col of collectionNames) {
+      try {
+        const found = await db.collection(col).find({ 
+          $or: [
+            { username: regex }, 
+            { name: regex }, 
+            { nombre: regex }, 
+            { agente: regex },
+            { vendedor: regex },
+            { seller: regex },
+            { agent_name: regex }
+          ] 
+        }).toArray();
+        if (found.length > 0) {
+          allUsers.push(...found.map(u => ({ ...u, _collection: col })));
+        }
+      } catch (e) { /* error en colección */ }
+    }
+    
+    const users = allUsers;
+    
+    if (users.length === 0) {
+      return res.json({ success: false, message: 'No se encontraron usuarios con: ' + search });
+    }
+    
+    if (users.length > 1 && newpass) {
+      return res.json({ 
+        success: false, 
+        message: 'Múltiples usuarios encontrados. Sé más específico.',
+        usuarios: users.map(u => ({ id: u._id.toString(), username: u.username, name: u.name || u.nombre, collection: u._collection }))
+      });
+    }
+    
+    if (!newpass) {
+      return res.json({ 
+        success: true, 
+        message: 'Usuarios encontrados (agrega &newpass=CONTRASEÑA para cambiar)',
+        usuarios: users.map(u => ({ id: u._id.toString(), username: u.username, name: u.name || u.nombre, collection: u._collection }))
+      });
+    }
+    
+    const user = users[0];
+    const hash = await bcrypt.hash(newpass, 10);
+    const collection = user._collection || 'users';
+    await db.collection(collection).updateOne({ _id: user._id }, { $set: { password: hash } });
+    
+    return res.json({ 
+      success: true, 
+      message: 'Contraseña actualizada a: ' + newpass,
+      usuario: { id: user._id.toString(), username: user.username, name: user.name }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Listar usuarios básicos para administración (sin password)
 router.get('/users/admin-list', protect, async (req, res) => {

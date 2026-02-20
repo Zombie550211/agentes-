@@ -1,12 +1,12 @@
 const bcrypt = require('bcryptjs');
 const { MongoClient } = require('mongodb');
+require('dotenv').config();
 
 // Cargar configuración
-let uri;
-try {
-  uri = require('./backend/config').mongoURI;
-} catch (e) {
-  uri = process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error('Error: MONGODB_URI no está definida en las variables de entorno');
+  process.exit(1);
 }
 
 (async () => {
