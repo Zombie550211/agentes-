@@ -4683,17 +4683,20 @@ router.get('/fix-agent-names', async (req, res) => {
 
 // Listar usuarios básicos para administración (sin password)
 router.get('/users/admin-list', protect, async (req, res) => {
+  console.log('[ADMIN-LIST] Endpoint llamado por usuario:', req.user?.username, 'rol:', req.user?.role);
   try {
     const db = getDb();
     if (!db) {
       return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
     }
 
-    const role = (req.user?.role || '').toLowerCase();
-    const allowedAdminRoles = ['admin', 'administrador', 'administrativo', 'administrador general'];
-    if (!allowedAdminRoles.includes(role)) {
+    const role = (req.user?.role || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const isAdmin = role.includes('admin') || role.includes('backoffice');
+    if (!isAdmin) {
+      console.log('[ADMIN-LIST] Acceso denegado para rol:', req.user?.role);
       return res.status(403).json({ success: false, message: 'No autorizado para listar usuarios' });
     }
+    console.log('[ADMIN-LIST] Acceso permitido para rol:', req.user?.role);
 
     const users = await db.collection('users')
       .find({}, { projection: { password: 0 } })
