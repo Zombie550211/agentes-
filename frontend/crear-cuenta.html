@@ -618,7 +618,7 @@
         </div>
 
         <div id="tab-editar" class="user-tab-panel">
-        <section id="editUserSection" style="margin-top: 0; display: none;">
+        <section id="editUserSection" style="margin-top: 0;">
             <h2>Editar rol y equipo de usuario</h2>
             <div class="form-section">
                 <div class="form-row">
@@ -696,7 +696,7 @@
         </div>
 
         <div id="tab-credenciales" class="user-tab-panel">
-        <section id="editCredentialsSection" style="margin-top: 0; display: none;">
+        <section id="editCredentialsSection" style="margin-top: 0;">
             <h2>Editar credenciales de usuario</h2>
             <p class="section-description">Actualiza el nombre de usuario o restablece la contraseña sin eliminar la cuenta existente.</p>
             <div class="form-section">
@@ -841,6 +841,7 @@
         const lineasSubteamGroup = document.getElementById('lineasSubteamGroup');
         const lineasSubteam = document.getElementById('lineasSubteam');
         const editSupervisor = document.getElementById('editSupervisor');
+        const editTeam = document.getElementById('editTeam') || document.getElementById('editSupervisor'); 
         const editLineasSubteamGroup = document.getElementById('editLineasSubteamGroup');
         const editLineasSubteam = document.getElementById('editLineasSubteam');
         const deleteUserSelect = document.getElementById('deleteUserSelect');
@@ -1197,21 +1198,38 @@
 
         async function initEditUserSection() {
             try {
+                console.log('[initEditUserSection] Iniciando...');
                 const meResp = await fetchWithAuth('/api/debug/user', { method: 'GET' });
-                if (!meResp.ok) return;
+                console.log('[initEditUserSection] meResp.ok:', meResp.ok);
+                if (!meResp.ok) {
+                    console.warn('[initEditUserSection] No se pudo obtener usuario actual');
+                    return;
+                }
                 const meData = await meResp.json();
+                console.log('[initEditUserSection] meData:', meData);
                 currentUserId = (meData && meData.tokenUser && (meData.tokenUser.id || meData.tokenUser._id)) || null;
                 const role = (meData && meData.tokenUser && meData.tokenUser.role) || '';
+                console.log('[initEditUserSection] Role detectado:', role);
                 const isAdmin = String(role || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes('admin');
-                if (!isAdmin) return;
+                console.log('[initEditUserSection] isAdmin:', isAdmin);
+                if (!isAdmin) {
+                    console.warn('[initEditUserSection] Usuario no es admin, abortando');
+                    return;
+                }
 
                 if (editUserSection) editUserSection.style.display = 'block';
                 if (editCredentialsSection) editCredentialsSection.style.display = 'block';
 
+                console.log('[initEditUserSection] Obteniendo lista de usuarios...');
                 const agentsResp = await fetchWithAuth('/api/users/admin-list', { method: 'GET' });
+                console.log('[initEditUserSection] agentsResp.ok:', agentsResp.ok);
 
-                if (!agentsResp.ok) return;
+                if (!agentsResp.ok) {
+                    console.warn('[initEditUserSection] No se pudo obtener lista de usuarios');
+                    return;
+                }
                 const agentsData = await agentsResp.json();
+                console.log('[initEditUserSection] agentsData:', agentsData);
                 const agents = (agentsData && agentsData.agents) || [];
 
                 window.__adminUsersCache = agents.map(u => ({ ...u }));
@@ -1601,6 +1619,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', initEditUserSection);
+        // También llamar inmediatamente por si DOMContentLoaded ya pasó
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            console.log('[crear-cuenta] DOM ya listo, llamando initEditUserSection inmediatamente');
+            initEditUserSection();
+        }
 
         function handleCancel() {
             if (confirm('¿Estás seguro de que deseas cancelar? Se perderán los datos ingresados.')) {

@@ -97,6 +97,38 @@
   display: block;
 }
 
+/* Botón de pin para fijar sidebar */
+.sidebar .sidebar-pin-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--sidebar-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sidebar .sidebar-pin-btn:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text);
+}
+
+.sidebar .sidebar-pin-btn.active {
+  background: var(--sidebar-res-glow);
+  color: var(--sidebar-res-accent);
+  transform: rotate(45deg);
+}
+
+.sidebar .sidebar-pin-btn.active:hover {
+  background: rgba(59,130,246,0.15);
+}
+
 /* Avatar edit buttons */
 .sidebar .avatar-edit-btn,
 .sidebar .avatar-remove-btn {
@@ -385,6 +417,7 @@
   opacity: 0.4;
   flex-shrink: 0;
   transition: transform 0.25s ease, opacity 0.18s;
+  display: flex !important;
 }
 
 .sidebar .nav-item.has-submenu.open .chevron-icon {
@@ -404,19 +437,23 @@
 }
 
 .sidebar .submenu {
-  display: block !important;
-  max-height: 300px !important;
-  overflow: visible !important;
+  display: none;
+  max-height: 0;
+  overflow: hidden;
   background: rgba(59,130,246,0.03);
   border-left: 2px solid rgba(59,130,246,0.15);
   margin-left: 20px;
   margin-right: 12px;
   border-radius: 0 0 8px 8px;
-  padding: 4px 0;
+  padding: 0;
+  transition: max-height 0.25s ease, padding 0.25s ease;
 }
 
 .sidebar .submenu.open {
+  display: block;
   max-height: 300px;
+  padding: 4px 0;
+  overflow: visible;
 }
 
 .sidebar .submenu-item {
@@ -525,6 +562,58 @@
 
 .sidebar.collapsed .block-indicator {
   margin: 0;
+}
+
+/* OVERRIDE FINAL: Alinear TODOS los items a la izquierda */
+.sidebar .nav-item,
+.sidebar .btn-sidebar,
+.sidebar a,
+.sidebar .footer-action,
+.sidebar .theme-switcher {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+/* Submenu colapsable de Servicios Móviles */
+.sidebar .nav-block.mov.collapsible .block-header.clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 16px;
+  transition: background 0.18s ease;
+}
+
+.sidebar .nav-block.mov.collapsible .block-header.clickable:hover {
+  background: var(--sidebar-mov-glow);
+}
+
+.sidebar .nav-block.mov.collapsible .block-header .chevron-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+  transition: transform 0.25s ease, opacity 0.18s;
+  color: var(--sidebar-mov-accent);
+  display: flex !important;
+}
+
+.sidebar .nav-block.mov.collapsible .block-header.open .chevron-icon {
+  transform: rotate(180deg);
+  opacity: 0.8;
+  display: flex !important;
+}
+
+.sidebar .moviles-submenu {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.sidebar .moviles-submenu.open {
+  display: block;
+  max-height: 400px;
+  overflow: visible;
 }
 
 /* Responsive */

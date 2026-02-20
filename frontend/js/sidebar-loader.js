@@ -355,19 +355,108 @@
       // Inicializar event listener para el submenu de clientes
       try {
         const clientesToggle = sidebarElement.querySelector('#clientes-toggle');
+        const clientesSubmenu = sidebarElement.querySelector('#clientes-submenu');
         if (clientesToggle) {
-          // Usar capture phase para tener prioridad sobre otros listeners
           clientesToggle.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation(); // Evitar que otros listeners se ejecuten
+            e.stopImmediatePropagation();
             window.toggleClientesSubmenu && window.toggleClientesSubmenu();
             return false;
-          }, true); // true = capture phase
+          }, true);
+          
+          // Abrir automáticamente si estamos en Costumer.html (Lista de Clientes)
+          const currentPath = window.location.pathname.toLowerCase();
+          const isClientesPage = currentPath.includes('costumer') || 
+                                 currentPath.includes('clientes');
+          
+          if (isClientesPage && clientesSubmenu) {
+            clientesSubmenu.classList.add('open');
+            clientesToggle.classList.add('open');
+            console.log('[Sidebar] Submenu clientes abierto automáticamente (página de Lista de Clientes)');
+          }
+          
           console.log('✅ Event listener del submenu clientes inicializado');
         }
       } catch (e) {
         console.warn('Error inicializando submenu clientes:', e);
+      }
+      
+      // Inicializar event listener para el submenu de Servicios Móviles
+      try {
+        const movilesToggle = sidebarElement.querySelector('#moviles-toggle');
+        const movilesSubmenu = sidebarElement.querySelector('#moviles-submenu');
+        if (movilesToggle && movilesSubmenu) {
+          movilesToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            window.toggleMovilesSubmenu && window.toggleMovilesSubmenu();
+            return false;
+          }, true);
+          
+          // Abrir automáticamente si estamos en una página de Servicios Móviles
+          const currentPath = window.location.pathname.toLowerCase();
+          const isMovilesPage = currentPath.includes('team lineas') || 
+                                currentPath.includes('lineas') ||
+                                currentPath.includes('costumer-lineas') ||
+                                currentPath.includes('estadisticas-lineas') ||
+                                currentPath.includes('ranking-lineas') ||
+                                currentPath.includes('comisiones-lineas') ||
+                                currentPath.includes('facturacion-lineas') ||
+                                currentPath.includes('llamadas-ventas-lineas') ||
+                                currentPath.includes('inicio-lineas') ||
+                                currentPath.includes('lead-lineas');
+          
+          if (isMovilesPage) {
+            movilesSubmenu.classList.add('open');
+            movilesToggle.classList.add('open');
+            console.log('[Sidebar] Submenu moviles abierto automáticamente (página de Servicios Móviles)');
+          }
+          
+          console.log('✅ Event listener del submenu moviles inicializado');
+        }
+      } catch (e) {
+        console.warn('Error inicializando submenu moviles:', e);
+      }
+
+      // Inicializar botón de pin para fijar/desfijar sidebar
+      try {
+        const pinBtn = sidebarElement.querySelector('#sidebar-pin-btn');
+        if (pinBtn) {
+          // Verificar si el sidebar está fijado (guardado en localStorage)
+          const isPinned = localStorage.getItem('sidebar-pinned') === 'true';
+          if (isPinned) {
+            document.body.classList.add('sidebar-pinned');
+            document.body.classList.add('show-sidebar');
+            pinBtn.classList.add('active');
+          }
+          
+          pinBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const body = document.body;
+            const isCurrentlyPinned = body.classList.contains('sidebar-pinned');
+            
+            if (isCurrentlyPinned) {
+              // Desfijar
+              body.classList.remove('sidebar-pinned');
+              pinBtn.classList.remove('active');
+              localStorage.setItem('sidebar-pinned', 'false');
+              console.log('[Sidebar] Desfijado');
+            } else {
+              // Fijar
+              body.classList.add('sidebar-pinned');
+              body.classList.add('show-sidebar');
+              pinBtn.classList.add('active');
+              localStorage.setItem('sidebar-pinned', 'true');
+              console.log('[Sidebar] Fijado');
+            }
+          });
+          console.log('✅ Botón de pin del sidebar inicializado');
+        }
+      } catch (e) {
+        console.warn('Error inicializando botón de pin:', e);
       }
 
       // Emitir evento de sidebar cargado
@@ -528,10 +617,13 @@
       <div class="user-info">
         <div class="user-details">
           ${avatarWrapper}
-          <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;flex-direction:column;flex:1;">
             <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
             <span class="user-role" id="user-role">${roleName}</span>
           </div>
+          <button type="button" class="sidebar-pin-btn" id="sidebar-pin-btn" title="Fijar sidebar">
+            <i class="fas fa-thumbtack"></i>
+          </button>
         </div>
       </div>
 
@@ -715,31 +807,38 @@
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
     
-    const residencialItems = [
+    // Sección 1: Principal (sin título) - Inicio, Nuevo Lead, Lista de Clientes
+    const principalItems = [
       { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html' },
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lead.html' },
-      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
+    ];
+    
+    // Sección 2: Estadísticas
+    const estadisticasItems = [
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
-      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/Comisiones.html' },
-      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/Comisiones.html' },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' }
+    ];
+    
+    // Sección 3: Administración
+    const administracionItems = [
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
       { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: '/crear-cuenta.html', adminOnly: true }
     ];
 
+    // Sección 4: Servicios Móviles
     const movilesItems = [
       { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/TEAM LINEAS/INICIO-LINEAS.html' },
       { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/TEAM LINEAS/LEAD-LINEAS.html' },
       { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
-      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' },
-      { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/TEAM LINEAS/COMISIONES-LINEAS.html' },
-      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/TEAM LINEAS/FACTURACION-LINEAS.html', adminOnly: true },
-      { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/TEAM LINEAS/LLAMADAS-VENTAS-LINEAS.html', adminOnly: true }
+      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' }
     ];
 
     const teams = [
@@ -752,16 +851,10 @@
     ];
 
     const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
-    
-    // Determinar qué bloques mostrar según el rol y si pertenece a Team Líneas
-    // Admin y BackOffice: ven ambos bloques
-    // Supervisores/Agentes de Team Líneas (isLineas=true): solo Servicios Móviles
-    // Supervisores/Agentes residenciales (isLineas=false): solo Servicios Residenciales
     const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
     const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
     
-    // Si es supervisor o agente, usar isLineas para determinar qué bloque mostrar
-    // Mostrar bloque residencial si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
+    // Mostrar secciones residenciales si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
     const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
     // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
     const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
@@ -770,51 +863,85 @@
     
     let html = '';
 
-    // Bloque Servicios Residenciales
+    // Helper para renderizar items
+    const renderItem = (item, activeClass = 'active-res') => {
+      if (item.adminOnly && !isAdmin) return '';
+      const isActive = item.key === normalizedActive ? activeClass : '';
+      
+      if (item.hasSubmenu) {
+        const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
+        return `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
+          <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div><div class="submenu" id="clientes-submenu">
+          ${submenuHTML}
+        </div>`;
+      } else {
+        return `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+      }
+    };
+
+    // Secciones Residenciales
     if (showResidencial) {
-      html += '<div class="nav-block res"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Residenciales</span></div>';
-
-      residencialItems.forEach(item => {
-        if (item.adminOnly && !isAdmin) return;
-        const isActive = item.key === normalizedActive ? 'active-res' : '';
-        
-        if (item.hasSubmenu) {
-          const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
-          console.log('[Sidebar] Generando submenu con', teams.length, 'teams');
-          html += `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
-            <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
-            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-          </div><div class="submenu" id="clientes-submenu">
-            ${submenuHTML}
-          </div>`;
-        } else {
-          html += `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-        }
-      });
-
+      // Sección 1: Principal (sin título de sección)
+      html += '<div class="nav-block principal">';
+      principalItems.forEach(item => { html += renderItem(item); });
+      html += '</div>';
+      
+      // Sección 2: Estadísticas
+      html += '<div class="nav-block estadisticas"><div class="block-header"><span class="block-label">Estadísticas</span></div>';
+      estadisticasItems.forEach(item => { html += renderItem(item); });
+      html += '</div>';
+      
+      // Sección 3: Administración
+      html += '<div class="nav-block administracion"><div class="block-header"><span class="block-label">Administración</span></div>';
+      administracionItems.forEach(item => { html += renderItem(item); });
       html += '</div>';
     }
     
-    // Divisor solo si se muestran ambos bloques
-    if (showResidencial && showMoviles) {
-      html += '<div class="block-divider"></div>';
-    }
-    
-    // Bloque Servicios Móviles (Team Líneas)
+    // Sección 4: Servicios Móviles (Team Líneas)
     if (showMoviles) {
-      html += '<div class="nav-block mov"><div class="block-header"><div class="block-indicator"></div><span class="block-label">Servicios Móviles</span></div>';
-
-      movilesItems.forEach(item => {
-        if (item.adminOnly && !isAdmin) return;
-        const isActive = item.key === normalizedActive ? 'active-res' : '';
-        html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-      });
-
-      html += '</div>';
+      // Para Admin y BackOffice: sección colapsable (oculta por defecto)
+      // Para otros usuarios de Líneas: siempre visible
+      const isCollapsible = isAdmin;
+      
+      if (isCollapsible) {
+        html += `<div class="nav-block mov collapsible">
+          <div class="block-header clickable" id="moviles-toggle">
+            <span class="block-label">Servicios Móviles</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="moviles-submenu" id="moviles-submenu">`;
+        movilesItems.forEach(item => {
+          const isActive = item.key === normalizedActive ? 'active-res' : '';
+          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+        });
+        html += '</div></div>';
+      } else {
+        // Para usuarios de Team Líneas: siempre visible
+        html += '<div class="nav-block mov"><div class="block-header"><span class="block-label">Servicios Móviles</span></div>';
+        movilesItems.forEach(item => {
+          const isActive = item.key === normalizedActive ? 'active-res' : '';
+          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+        });
+        html += '</div>';
+      }
     }
     
     return html;
   }
+
+  // Toggle del submenu de Servicios Móviles - definir globalmente
+  window.toggleMovilesSubmenu = function() {
+    console.log('[Sidebar] toggleMovilesSubmenu llamado');
+    const toggle = document.getElementById('moviles-toggle');
+    const submenu = document.getElementById('moviles-submenu');
+    if (!toggle || !submenu) return;
+    const isOpen = submenu.classList.contains('open');
+    submenu.classList.toggle('open', !isOpen);
+    toggle.classList.toggle('open', !isOpen);
+    console.log('[Sidebar] Submenu moviles toggled:', !isOpen ? 'ABIERTO' : 'CERRADO');
+  };
 
   // Toggle del submenu de clientes - definir globalmente
   window.toggleClientesSubmenu = function() {
@@ -945,25 +1072,42 @@
           /* Base sidebar positioning */
           .sidebar { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-width) !important; height: 100vh !important; backface-visibility: hidden; transform: translate3d(0,0,0) !important; will-change: width, transform; z-index: 140 !important; transition: width .14s ease; overflow: hidden; }
 
-          /* ICON-ONLY collapsed mode: reduce width and hide labels */
+          /* ICON-ONLY collapsed mode: reduce width and hide ALL labels */
           body.auto-hide-sidebar .sidebar { width: var(--sidebar-collapsed) !important; }
           body.auto-hide-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar .sidebar .item-label,
+          body.auto-hide-sidebar .sidebar .block-label,
+          body.auto-hide-sidebar .sidebar .block-header,
           body.auto-hide-sidebar .sidebar .user-name,
           body.auto-hide-sidebar .sidebar .user-role,
           body.auto-hide-sidebar .sidebar .stat-label,
-          body.auto-hide-sidebar .sidebar .stat-content { display: none !important; }
+          body.auto-hide-sidebar .sidebar .stat-content,
+          body.auto-hide-sidebar .sidebar .chevron-icon,
+          body.auto-hide-sidebar .sidebar .submenu,
+          body.auto-hide-sidebar .sidebar .moviles-submenu,
+          body.auto-hide-sidebar .sidebar .sidebar-footer-quote,
+          body.auto-hide-sidebar .sidebar .sidebar-pin-btn { display: none !important; }
 
           /* Center icons when collapsed */
-          body.auto-hide-sidebar .sidebar a { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
-          body.auto-hide-sidebar .sidebar a i { margin-right: 0 !important; font-size: 1.15rem; }
+          body.auto-hide-sidebar .sidebar a,
+          body.auto-hide-sidebar .sidebar .nav-item,
+          body.auto-hide-sidebar .sidebar .footer-action { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
+          body.auto-hide-sidebar .sidebar a i,
+          body.auto-hide-sidebar .sidebar .nav-item i,
+          body.auto-hide-sidebar .sidebar .footer-action i { margin-right: 0 !important; font-size: 1.15rem; }
           body.auto-hide-sidebar .sidebar .avatar { width: 44px; height: 44px; margin: 12px auto; }
+          body.auto-hide-sidebar .sidebar .user-info { padding: 12px 8px !important; justify-content: center !important; }
           /* Prevent hover padding shift when collapsed */
-          body.auto-hide-sidebar .sidebar a:hover { padding-left: 0 !important; padding-right: 0 !important; border-left-color: transparent !important; }
+          body.auto-hide-sidebar .sidebar a:hover,
+          body.auto-hide-sidebar .sidebar .nav-item:hover { padding-left: 0 !important; padding-right: 0 !important; border-left-color: transparent !important; }
 
           /* When showing (hover), expand to full width and reveal labels */
           body.auto-hide-sidebar.show-sidebar .sidebar { width: var(--sidebar-width) !important; }
           /* Reveal all user/header/menu sections when expanded */
           body.auto-hide-sidebar.show-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .item-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .block-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .block-header,
           body.auto-hide-sidebar.show-sidebar .sidebar .user-name,
           body.auto-hide-sidebar.show-sidebar .sidebar .user-role,
           body.auto-hide-sidebar.show-sidebar .sidebar .stat-label,
@@ -973,12 +1117,58 @@
           body.auto-hide-sidebar.show-sidebar .sidebar .avatar,
           body.auto-hide-sidebar.show-sidebar .sidebar h3,
           body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-footer-quote { display: block !important; }
+          
+          /* Mostrar chevron icons y botón de pin cuando está expandido */
+          body.auto-hide-sidebar.show-sidebar .sidebar .chevron-icon { display: flex !important; visibility: visible !important; opacity: 0.4 !important; }
+          body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-pin-btn { display: flex !important; visibility: visible !important; }
+          
+          /* IMPORTANTE: Mostrar submenús cuando están abiertos */
+          body.auto-hide-sidebar.show-sidebar .sidebar .submenu.open,
+          body.auto-hide-sidebar.show-sidebar .sidebar .moviles-submenu.open { display: block !important; max-height: 300px !important; overflow: visible !important; padding: 4px 0 !important; }
+          
+          /* IMPORTANTE: Alinear enlaces a la izquierda cuando el sidebar está expandido */
+          body.auto-hide-sidebar.show-sidebar .sidebar a,
+          body.auto-hide-sidebar.show-sidebar .sidebar .nav-item,
+          body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar { 
+            justify-content: flex-start !important; 
+            text-align: left !important;
+            padding-left: 20px !important; 
+            padding-right: 16px !important; 
+          }
 
           /* Adjust main content margin to the collapsed width to avoid layout jump */
           .main-content { margin-left: calc(var(--sidebar-collapsed) + 16px) !important; transition: margin-left .14s ease; }
 
           /* Hover zone to trigger expansion */
           .sidebar-hover-zone { position: fixed !important; left: 0 !important; top: 0 !important; width: calc(var(--sidebar-collapsed) + var(--sidebar-peek)) !important; height: 100vh !important; z-index: 150 !important; pointer-events: auto; }
+
+          /* Sidebar fijado (pinned) - siempre expandido, desactiva auto-hide */
+          body.sidebar-pinned.auto-hide-sidebar .sidebar { width: var(--sidebar-width) !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .menu-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .item-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .block-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .block-header,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-name,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-role { display: block !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .chevron-icon { display: flex !important; visibility: visible !important; opacity: 0.4 !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .sidebar-pin-btn { display: flex !important; visibility: visible !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .submenu.open,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .moviles-submenu.open { display: block !important; max-height: 300px !important; overflow: visible !important; padding: 4px 0 !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar a,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .nav-item,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .footer-action { 
+            justify-content: flex-start !important; 
+            text-align: left !important;
+            padding-left: 20px !important; 
+            padding-right: 16px !important; 
+          }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar a i,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .nav-item i,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .footer-action i { margin-right: 12px !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-info { padding: 24px 20px 20px !important; justify-content: flex-start !important; }
+          body.sidebar-pinned.auto-hide-sidebar .main-content { margin-left: calc(var(--sidebar-width) + 40px) !important; }
+          /* Ocultar la zona de hover cuando está fijado */
+          body.sidebar-pinned .sidebar-hover-zone { display: none !important; }
 
           @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { width: var(--sidebar-width) !important; } .sidebar-hover-zone { display: none !important; } }
           @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar, .main-content { transition: none !important; } }
@@ -1002,8 +1192,15 @@
 
     // Mostrar/Ocultar con un pequeño debounce para fluidez
     let hideTO = null;
-    const show = () => { cancelAnimationFrame(hideTO); BODY.classList.add('show-sidebar'); };
-    const scheduleHide = () => { hideTO = requestAnimationFrame(() => BODY.classList.remove('show-sidebar')); };
+    const show = () => { 
+      cancelAnimationFrame(hideTO); 
+      BODY.classList.add('show-sidebar'); 
+    };
+    const scheduleHide = () => { 
+      // No ocultar si el sidebar está fijado
+      if (BODY.classList.contains('sidebar-pinned')) return;
+      hideTO = requestAnimationFrame(() => BODY.classList.remove('show-sidebar')); 
+    };
 
     zone.addEventListener('mouseenter', show, { passive: true });
     zone.addEventListener('mouseleave', scheduleHide, { passive: true });
