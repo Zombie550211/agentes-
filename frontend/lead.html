@@ -3691,13 +3691,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
           const user = JSON.parse(userStr || '{}');
           const roleLc = (user.role || '').toString().toLowerCase();
-          // Permitir acceso a Supervisores, Administradores y Backoffice
-          const hasAccess = roleLc.includes('supervisor') || 
-                           roleLc.includes('admin') || 
-                           roleLc.includes('backoffice') ||
-                           roleLc === 'administrador' ||
-                           roleLc === 'b.o';
-          if (!hasAccess) return;
+          // Solo administradores pueden asignar agentes
+          const isAdmin = roleLc.includes('admin') || roleLc === 'administrador';
+          if (!isAdmin) return;
 
           const assignWrap = document.getElementById('assignWrapSupervisor');
           const agentAssign = document.getElementById('agentAssign');
