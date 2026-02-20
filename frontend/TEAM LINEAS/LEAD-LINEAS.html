@@ -191,13 +191,13 @@
 
       cantChecks.forEach(ch => ch.addEventListener('change', enforceSingleCantidad));
 
-      // Mostrar selector de agente solo a supervisores y poblar lista
+      // Mostrar selector de agente solo a administradores
       (function initAgentAssign(){
         try{
           const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
           const roleLc = String(user.role||'').toLowerCase();
-          const isSupervisor = roleLc.includes('supervisor');
-          if (!isSupervisor || !assignWrap || !agentAssign) return;
+          const isAdmin = roleLc.includes('admin') || roleLc === 'administrador';
+          if (!isAdmin || !assignWrap || !agentAssign) return;
           const uname = String(user.username||user.name||'').toUpperCase();
           const agentsMap = {
             'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUES','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'],
