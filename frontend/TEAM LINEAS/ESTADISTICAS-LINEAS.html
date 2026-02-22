@@ -769,6 +769,14 @@
       // Agrupar por agente (excluyendo supervisores)
       const agentData = {};
       const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
+
+      const normalizeAgentName = (name) => {
+        return String(name || '')
+          .trim()
+          .replace(/_/g, ' ')
+          .replace(/\s+/g, ' ')
+          .toUpperCase();
+      };
       
       console.log(`[renderTeamData] Procesando ${leads.length} leads para ${teamName}`);
       
@@ -783,7 +791,8 @@
       leads.forEach((lead, index) => {
         // En TEAM_LINEAS, el nombre del agente puede estar en agenteAsignado o _collection
         // nombre_agente contiene el supervisor
-        const agente = lead.agenteAsignado || lead._collection || lead.agenteNombre || lead.agente || 'Sin asignar';
+        const agenteRaw = lead.agenteAsignado || lead._collection || lead.agenteNombre || lead.agente || 'Sin asignar';
+        const agente = normalizeAgentName(agenteRaw) || 'SIN ASIGNAR';
         
         // Log de los primeros 3 leads para debugging
         if (index < 3) {
@@ -791,13 +800,13 @@
             _collection: lead._collection,
             nombre_agente: lead.nombre_agente,
             supervisor: lead.supervisor,
-            agenteUsado: agente
+            agenteUsado: agenteRaw,
+            agenteNormalizado: agente
           });
         }
         
         // Excluir supervisores de las gráficas (por si acaso)
-        const agenteNormalizado = String(agente).trim().toUpperCase();
-        const esSupervisor = supervisores.some(sup => agenteNormalizado.includes(sup));
+        const esSupervisor = supervisores.some(sup => agente.includes(sup));
         
         if (esSupervisor) {
           console.log(`[renderTeamData] Excluyendo supervisor de gráfica: ${agente}`);
@@ -825,10 +834,10 @@
       const ventasPorAgente = {};
       
       leads.forEach(lead => {
-        const agente = lead.agenteAsignado || lead._collection || 'Sin agente';
-        const agenteNormalizado = String(agente).trim().toUpperCase();
+        const agenteRaw = lead.agenteAsignado || lead._collection || 'Sin agente';
+        const agente = normalizeAgentName(agenteRaw) || 'SIN AGENTE';
         const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
-        const esSupervisor = supervisores.some(sup => agenteNormalizado.includes(sup));
+        const esSupervisor = supervisores.some(sup => agente.includes(sup));
         
         if (esSupervisor) return; // Excluir supervisores
         

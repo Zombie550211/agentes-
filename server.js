@@ -689,6 +689,33 @@ app.post('/api/lineas', protect, async (req, res) => {
 
     // Helpers de normalización
     const toUpper = (s) => (s == null ? '' : String(s).trim().toUpperCase());
+    const normalizeCollectionName = (s) => {
+      try {
+        return String(s || '')
+          .trim()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Za-z0-9_\s-]/g, ' ')
+          .replace(/[\s-]+/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .toUpperCase() || 'UNKNOWN';
+      } catch {
+        return String(s || '')
+          .trim()
+          .replace(/[\s-]+/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .toUpperCase() || 'UNKNOWN';
+      }
+    };
+    const normalizeAgentDisplayName = (s) => {
+      return String(s || '')
+        .trim()
+        .replace(/_/g, ' ')
+        .replace(/\s+/g, ' ')
+        .toUpperCase();
+    };
     const digitsOnly = (s) => (s == null ? '' : String(s).replace(/\D+/g, ''));
     const asDate = (s) => {
       if (!s) return null;
@@ -765,10 +792,13 @@ app.post('/api/lineas', protect, async (req, res) => {
     if (user.role.toLowerCase().includes('supervisor') && body.agenteAsignado) {
         targetAgent = body.agenteAsignado;
     }
-    const targetCollectionName = targetAgent.replace(/\s+/g, '_').toUpperCase();
+    const targetCollectionName = normalizeCollectionName(targetAgent);
 
     // Construir documento a insertar
     const now = new Date();
+    const creatorUserId = user?._id || user?.id || user?.userId || null;
+    const creatorDisplay = normalizeAgentDisplayName(username);
+    const assignedDisplay = normalizeAgentDisplayName(targetAgent);
     const doc = {
       team: 'team lineas',
       nombre_cliente: toUpper(body.nombre_cliente),
@@ -786,8 +816,10 @@ app.post('/api/lineas', protect, async (req, res) => {
       ID: String(body.id || '').trim(),
       mercado: mercado.toUpperCase(),
       supervisor: supervisorVal.toUpperCase(),
-      agente: username, // Quien CREA el registro
-      agenteAsignado: targetAgent, // A quien se le ASIGNA el registro
+      userId: creatorUserId,
+      agente: creatorDisplay, // Quien CREA el registro
+      agenteAsignado: assignedDisplay, // A quien se le ASIGNA el registro
+      agenteAsignadoCollection: targetCollectionName,
       creadoEn: now,
       actualizadoEn: now,
       _raw: body

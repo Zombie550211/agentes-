@@ -4744,6 +4744,46 @@ router.get('/temp-check-leads', async (req, res) => {
   }
 });
 
+// TEMPORAL: Buscar usuarios por nombre/username (útil para detectar duplicados)
+// Uso: /api/temp-find-users?search=manuel%20flores
+router.get('/temp-find-users', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const search = String(req.query.search || req.query.q || '').trim();
+    if (!search) {
+      return res.status(400).json({ success: false, message: 'Parámetro requerido: search' });
+    }
+
+    const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rx = new RegExp(safe, 'i');
+
+    const users = await db.collection('users')
+      .find({ $or: [{ username: rx }, { name: rx }] })
+      .project({ username: 1, name: 1, role: 1, team: 1, supervisor: 1, createdAt: 1 })
+      .limit(50)
+      .toArray();
+
+    return res.json({
+      success: true,
+      search,
+      count: users.length,
+      users: users.map(u => ({
+        id: u._id?.toString(),
+        username: u.username,
+        name: u.name,
+        role: u.role,
+        team: u.team,
+        supervisor: u.supervisor,
+        createdAt: u.createdAt
+      }))
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // TEMPORAL: Vincular leads de un agente a un usuario (ELIMINAR DESPUÉS DE USAR)
 router.get('/temp-link-leads', async (req, res) => {
   try {
