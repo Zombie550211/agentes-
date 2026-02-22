@@ -4693,10 +4693,17 @@ router.get('/temp-check-leads', async (req, res) => {
     const dbTL = getDbFor('TEAM_LINEAS');
     const dbMain = getDb();
     
-    // Buscar info del usuario Manuel Flores
+    // Buscar info de un usuario por nombre/username (ej: Manuel Flores, Nancy Lopez)
     let userInfo = null;
     if (dbMain) {
-      const user = await dbMain.collection('users').findOne({ username: /manuel.*flores/i });
+      const userSearch = String(req.query.user || req.query.search || 'manuel flores');
+      const userRegex = new RegExp(userSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const user = await dbMain.collection('users').findOne({
+        $or: [
+          { username: userRegex },
+          { name: userRegex }
+        ]
+      });
       if (user) {
         userInfo = {
           id: user._id?.toString(),
@@ -4748,8 +4755,29 @@ router.get('/temp-link-leads', async (req, res) => {
     const dbTL = getDbFor('TEAM_LINEAS');
     
     const agentName = req.query.agent || 'Manuel Flores';
-    const userId = req.query.userId || '6997bc51785bd0758b9e9fab';
+    let userId = req.query.userId;
     const execute = req.query.execute === 'true';
+
+    // Si no se pasa userId, intentar resolverlo desde la colección users
+    if (!userId) {
+      try {
+        const agentRegex = new RegExp(String(agentName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        const u = await db.collection('users').findOne({
+          $or: [
+            { username: agentRegex },
+            { name: agentRegex }
+          ]
+        });
+        if (u?._id) userId = String(u._id);
+      } catch (_) {}
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: `No se encontró userId para el agente "${agentName}". Pasa ?userId=... o asegúrate que el usuario exista en users.`
+      });
+    }
     
     // Convertir nombre a formato de colección (MANUEL_FLORES)
     const collectionName = agentName.toUpperCase().replace(/\s+/g, '_');
