@@ -2392,9 +2392,17 @@
         
         // Actualizar gráfica 3D de agentes (Highcharts)
         if (agentChart) {
+          const normalizeAgentName = (name) => {
+            return String(name || '')
+              .trim()
+              .replace(/_/g, ' ')
+              .replace(/\s+/g, ' ')
+              .toUpperCase() || 'SIN ASIGNAR';
+          };
           const agentStats = {};
           items.forEach(item => {
-            const agente = item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || 'Sin asignar';
+            const agenteRaw = item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || 'Sin asignar';
+            const agente = normalizeAgentName(agenteRaw);
             const cantLineas = Number(item.cantidad_lineas || 0);
             agentStats[agente] = (agentStats[agente] || 0) + cantLineas;
           });
