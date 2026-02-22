@@ -62,6 +62,15 @@
             background: transparent;
         }
 
+        body.embed .main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        body.embed .sidebar {
+            display: none;
+        }
+
         @media (max-width: 1024px) {
             .main-content {
                 padding: 30px 40px;
@@ -1265,6 +1274,16 @@
     </style>
 </head>
 <body>
+    <script>
+        (function () {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const embedByParam = params.get('embed') === '1';
+                const embedByFrame = window.self !== window.top;
+                if (embedByParam || embedByFrame) document.body.classList.add('embed');
+            } catch (_) {}
+        })();
+    </script>
     <div class="layout">
         <nav class="sidebar sidebar-inicio" data-active="semaforo"></nav>
         <main class="main-content">
