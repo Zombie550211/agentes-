@@ -2020,7 +2020,9 @@ router.get('/leads/kpis', protect, async (req, res) => {
               puntajeMes: {
                 $sum: {
                   $cond: [
-                    { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
+                    // Puntaje mensual debe contar TODAS las ventas del mes por dia_venta, sin importar status.
+                    // Canceladas se reflejan en su KPI separado, pero el puntaje total del mes incluye todas.
+                    true,
                     '$_puntaje',
                     0
                   ]
