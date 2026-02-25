@@ -519,7 +519,7 @@ router.get('/leads', protect, async (req, res) => {
       const monthStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
       const monthEnd = new Date(targetYear, targetMonth - 1, lastDay, 23, 59, 59, 999);
       
-      const dateOrConditions = [
+      const saleDateOrConditions = [
         { dia_venta: { $regex: reYMD.source, $options: 'i' } },
         { dia_venta: { $regex: reYMDSlash.source, $options: 'i' } },
         { dia_venta: { $regex: reDMYSlash.source, $options: 'i' } },
@@ -554,11 +554,19 @@ router.get('/leads', protect, async (req, res) => {
         { '_raw.fechaContratacion': { $regex: reMDYSlash.source, $options: 'i' } },
         // Soportar casos donde dia_venta/fecha_contratacion se guardaron como Date
         { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-        { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
-        { createdAt: { $gte: monthStart, $lte: monthEnd } },
-        { creadoEn: { $gte: monthStart, $lte: monthEnd } },
-        { actualizadoEn: { $gte: monthStart, $lte: monthEnd } }
+        { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } }
       ];
+
+      // Solo usar createdAt/creadoEn/actualizadoEn como fallback si no hay fecha de venta/contratación.
+      const saleDatePresence = [
+        { dia_venta: { $exists: true, $ne: '' } },
+        { fecha_contratacion: { $exists: true, $ne: '' } },
+        { '_raw.dia_venta': { $exists: true, $ne: '' } },
+        { '_raw.fecha_contratacion': { $exists: true, $ne: '' } },
+        { '_raw.diaVenta': { $exists: true, $ne: '' } },
+        { '_raw.fechaContratacion': { $exists: true, $ne: '' } }
+      ];
+      const saleDateMissing = { $nor: saleDatePresence };
 
       // Más variantes de campos de fecha (visto en bases con formatos mixtos)
       const extraDateFields = [
@@ -575,13 +583,13 @@ router.get('/leads', protect, async (req, res) => {
       ];
       const extraPaths = [...extraDateFields, ...extraDateFields.map(f => `_raw.${f}`)];
       for (const p of extraPaths) {
-        dateOrConditions.push({ [p]: { $regex: reYMD.source, $options: 'i' } });
-        dateOrConditions.push({ [p]: { $regex: reYMDSlash.source, $options: 'i' } });
-        dateOrConditions.push({ [p]: { $regex: reDMYSlash.source, $options: 'i' } });
-        dateOrConditions.push({ [p]: { $regex: reDMYDash.source, $options: 'i' } });
-        dateOrConditions.push({ [p]: { $regex: reMDYSlash.source, $options: 'i' } });
+        saleDateOrConditions.push({ [p]: { $regex: reYMD.source, $options: 'i' } });
+        saleDateOrConditions.push({ [p]: { $regex: reYMDSlash.source, $options: 'i' } });
+        saleDateOrConditions.push({ [p]: { $regex: reDMYSlash.source, $options: 'i' } });
+        saleDateOrConditions.push({ [p]: { $regex: reDMYDash.source, $options: 'i' } });
+        saleDateOrConditions.push({ [p]: { $regex: reMDYSlash.source, $options: 'i' } });
         // y por si ese campo es Date
-        dateOrConditions.push({ [p]: { $gte: monthStart, $lte: monthEnd } });
+        saleDateOrConditions.push({ [p]: { $gte: monthStart, $lte: monthEnd } });
       }
 
       // Soportar strings tipo Date.toDateString() (ej: "Thu Jan 01 2026")
@@ -591,12 +599,19 @@ router.get('/leads', protect, async (req, res) => {
         const prefix = String(dateObj.toDateString() || '').trim();
         if (!prefix) continue;
         const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        dateOrConditions.push({ dia_venta: { $regex: `^${esc}`, $options: 'i' } });
-        dateOrConditions.push({ '_raw.dia_venta': { $regex: `^${esc}`, $options: 'i' } });
-        dateOrConditions.push({ '_raw.diaVenta': { $regex: `^${esc}`, $options: 'i' } });
+        saleDateOrConditions.push({ dia_venta: { $regex: `^${esc}`, $options: 'i' } });
+        saleDateOrConditions.push({ '_raw.dia_venta': { $regex: `^${esc}`, $options: 'i' } });
+        saleDateOrConditions.push({ '_raw.diaVenta': { $regex: `^${esc}`, $options: 'i' } });
       }
       
-      const dateQuery = { $or: dateOrConditions };
+      const dateQuery = {
+        $or: [
+          { $or: saleDateOrConditions },
+          { $and: [saleDateMissing, { createdAt: { $gte: monthStart, $lte: monthEnd } }] },
+          { $and: [saleDateMissing, { creadoEn: { $gte: monthStart, $lte: monthEnd } }] },
+          { $and: [saleDateMissing, { actualizadoEn: { $gte: monthStart, $lte: monthEnd } }] }
+        ]
+      };
       andConditions.push(dateQuery);
     }
     // Filtro por rango de fechas (si se proporciona)
@@ -1590,7 +1605,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
 
-    const { month, status, noAutoMonth, agentName, agents, vendedor } = req.query;
+    const { month, status, noAutoMonth, agentName, agents, vendedor, debug } = req.query;
+    const isDebug = String(debug || '') === '1' || String(debug || '').toLowerCase() === 'true';
     let query = {};
     const andConditions = [];
     const baseAndConditions = [];
@@ -1848,6 +1864,92 @@ router.get('/leads/kpis', protect, async (req, res) => {
     let pendientes = 0;
     let puntajeMes = 0;
     let puntajeColchonExtra = 0;
+
+    if (isDebug) {
+      try {
+        const srcName = (unifiedAvailable && unifiedCollectionName) ? unifiedCollectionName : (collectionNamesList && collectionNamesList[0]);
+        const dbgColName = srcName || unifiedCollectionName;
+        const dbgCol = dbgColName ? db.collection(dbgColName) : null;
+        if (dbgCol) {
+          const agentTeamAgg = await dbgCol.aggregate([
+            { $match: querySale },
+            {
+              $addFields: {
+                __agent: {
+                  $ifNull: [
+                    { $ifNull: [
+                      '$agenteNombre',
+                      { $ifNull: [
+                        '$agente',
+                        { $ifNull: [
+                          '$usuario',
+                          { $ifNull: [
+                            '$nombreAgente',
+                            { $ifNull: [
+                              '$vendedor',
+                              { $ifNull: [
+                                '$createdBy',
+                                { $ifNull: ['$creadoPor', { $ifNull: ['$_raw.agenteNombre', { $ifNull: ['$_raw.agente', { $ifNull: ['$_raw.vendedor', ''] }] }] }] }
+                              ] }
+                            ] }
+                          ] }
+                        ] }
+                      ] }
+                    ] },
+                    ''
+                  ]
+                },
+                __team: {
+                  $ifNull: [
+                    '$supervisor',
+                    { $ifNull: ['$team', { $ifNull: ['$equipo', { $ifNull: ['$TEAM', { $ifNull: ['$_raw.supervisor', { $ifNull: ['$_raw.team', { $ifNull: ['$_raw.equipo', 'SIN EQUIPO'] }] }] }] }] }] }
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: {
+                  team: { $toUpper: { $trim: { input: { $toString: '$__team' } } } },
+                  agent: { $trim: { input: { $toString: '$__agent' } } }
+                },
+                ventas: { $sum: 1 }
+              }
+            },
+            { $sort: { '_id.team': 1, ventas: -1, '_id.agent': 1 } }
+          ], { allowDiskUse: true, maxTimeMS: 20_000 }).toArray();
+
+          const teamTotals = new Map();
+          for (const r of (agentTeamAgg || [])) {
+            const t = String(r?._id?.team || 'SIN EQUIPO');
+            const v = Number(r?.ventas || 0) || 0;
+            teamTotals.set(t, (teamTotals.get(t) || 0) + v);
+          }
+
+          console.log('[KPI DEBUG /api/leads/kpis] Params:', {
+            month,
+            status,
+            agentName,
+            agents,
+            vendedor,
+            mercadoRestrict,
+            unifiedAvailable,
+            dbgCollection: dbgColName
+          });
+          console.log('[KPI DEBUG /api/leads/kpis] querySale:', JSON.stringify(querySale));
+
+          const preview = (agentTeamAgg || []).slice(0, 60).map(x => ({
+            team: x?._id?.team,
+            agent: x?._id?.agent,
+            ventas: x?.ventas
+          }));
+          console.log('[KPI DEBUG /api/leads/kpis] Ventas por agente (primeros 60):', preview);
+          console.log('[KPI DEBUG /api/leads/kpis] Totales por team (sumatoria agentes):', Array.from(teamTotals.entries()).sort((a, b) => b[1] - a[1]).map(([team, ventas]) => ({ team, ventas })));
+        }
+      } catch (e) {
+        console.warn('[KPI DEBUG /api/leads/kpis] Error generando debug por agente/team:', e?.message);
+      }
+    }
 
     for (const colName of (collectionNamesList || [])) {
       try {
@@ -5500,6 +5602,26 @@ router.get('/semaforo', protect, async (req, res) => {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
 
+    const parseStatuses = (raw) => {
+      try {
+        if (!raw) return [];
+        const parts = String(raw)
+          .split(',')
+          .map(s => String(s || '').trim())
+          .filter(Boolean);
+        return parts
+          .map(s => s.toUpperCase())
+          .filter(Boolean);
+      } catch (_) {
+        return [];
+      }
+    };
+
+    const allowedStatuses = (() => {
+      const parsed = parseStatuses(req.query?.statuses);
+      return parsed.length ? parsed : [];
+    })();
+
     const toYMD = (d) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -5535,7 +5657,25 @@ router.get('/semaforo', protect, async (req, res) => {
             $cond: [
               { $regexMatch: { input: "$_statusStr", regex: /CANCEL/ } },
               "CANCEL",
-              "$_statusStr"
+              {
+                $cond: [
+                  { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
+                  "COMPLETED",
+                  {
+                    $cond: [
+                      { $regexMatch: { input: "$_statusStr", regex: /ACTIVE/ } },
+                      "ACTIVE",
+                      {
+                        $cond: [
+                          { $regexMatch: { input: "$_statusStr", regex: /PENDIENT|PENDING/ } },
+                          "PENDING",
+                          "$_statusStr"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
             ]
           }
         }
@@ -5552,6 +5692,15 @@ router.get('/semaforo', protect, async (req, res) => {
           }
         }
       },
+      ...(allowedStatuses.length
+        ? [
+          {
+            $match: {
+              _statusNorm: { $in: allowedStatuses }
+            }
+          }
+        ]
+        : []),
       {
         $addFields: {
           _diaParsed: {
@@ -5665,9 +5814,9 @@ router.get('/semaforo', protect, async (req, res) => {
         $group: {
           _id: "$_nameNormLower",
           nombre: { $first: "$_agenteFuente" },
-          ventas: { $sum: { $cond: ["$isCancel", 0, 1] } },
+          ventas: { $sum: 1 },
           puntos: { $sum: "$puntajeEfectivo" },
-          lastSaleDate: { $max: { $cond: ["$isCancel", null, { $ifNull: ["$_diaParsed", "$createdAt"] }] } }
+          lastSaleDate: { $max: { $ifNull: ["$_diaParsed", "$createdAt"] } }
         }
       },
       {
