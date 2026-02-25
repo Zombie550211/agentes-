@@ -35,7 +35,7 @@
         } catch(err) { console.error('date-filter delegated click error', err); }
       });
     </script>
-  <script>
+  <script> 
             function rebuildStickyHead(){ 
               // Función deshabilitada temporalmente para evitar errores de DOM
               // El sticky head no es crÃ­tico para la funcionalidad del filtro
@@ -3017,14 +3017,6 @@
               <option value="high">HIGH</option>
               <option value="na">N/A</option>
             </select>
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Status</label>
-            <select id="edit-status" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
-              <option value="">Seleccionar...</option>
-              <option value="PENDING">PENDING</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="ACTIVE OFICINA">Active Oficina</option>
-              <option value="CANCELED">CANCELED</option>
-            </select>
             <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Sistema</label>
             <select id="edit-sistema" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
               <option value="">Seleccionar...</option>
@@ -4761,6 +4753,19 @@
     function toLocalISO(date) {
       try {
         if (!date) return '';
+        // Si ya viene como YYYY-MM-DD, NO convertirlo a Date (evita corrimiento por UTC)
+        // Ej: new Date('2026-02-25') se interpreta en UTC y en TZ -06 puede volverse 2026-02-24.
+        if (typeof date === 'string') {
+          const s = date.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+            try {
+              const parts = s.split('/').map(n => parseInt(n, 10));
+              const d = parts[0], m = parts[1], y = parts[2];
+              if (y && m && d) return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            } catch (_) {}
+          }
+        }
         const d = date instanceof Date ? date : new Date(date);
         if (isNaN(d)) return '';
         return toISOInTZ(d, BUSINESS_TZ_OFFSET_MIN);
@@ -5088,8 +5093,7 @@
             renderCostumerTable(normalizedLeads);
           }
           
-          // Actualizar los KPIs con los datos del cache
-          updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
+          // Nota: Los KPIs se actualizan desde el flujo de render (renderCostumerTable/renderWithMonthlySeparators)
           
           // Cargar columnas adicionales si están disponibles
           try {
@@ -6024,11 +6028,12 @@
           window.__kpisTotals = null;
         }
 
-        updateSummaryCards((window.__kpiLeadsLast && window.__kpiLeadsLast.length) ? window.__kpiLeadsLast : normalizedLeads);
+        // Nota: Los KPIs se actualizan desde el flujo de render (renderCostumerTable/renderWithMonthlySeparators)
 
         return normalizedLeads;
       } catch (error) {
-        console.error('Error en fetchLeadsAgente:', error);
+        console.error('[fetchLeadsAgente] Error:', error);
+        // Mostrar mensaje de error
         mostrarMensajeSinDatos();
         return [];
       }
@@ -7498,14 +7503,7 @@
           console.warn('[RECUENTO] Error actualizando recuento:', e);
         }
 
-        try {
-          try { window.__kpiLeadsLast = Array.isArray(list) ? list.slice() : []; } catch(_) {}
-          if (typeof updateSummaryCards === 'function') {
-            updateSummaryCards(list);
-          }
-        } catch (e) {
-          console.warn('[renderWithMonthlySeparators] Error actualizando cards:', e);
-        }
+        // Nota: KPIs se actualizan al final con el mismo arreglo 'sorted' que se renderiza
         
         // MOVIDO: Los filtros de Team y Agente ahora se aplican ANTES del filtro de mes
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -7527,6 +7525,15 @@
           const tb = db ? Date.parse(db) : 0;
           return tb - ta; // descendente
         });
+
+        try {
+          try { window.__kpiLeadsLast = Array.isArray(sorted) ? sorted.slice() : []; } catch(_) {}
+          if (typeof updateSummaryCards === 'function') {
+            updateSummaryCards(sorted);
+          }
+        } catch (e) {
+          console.warn('[renderWithMonthlySeparators] Error actualizando cards:', e);
+        }
         
         // Debug: Ver quÃ© datos quedan despuÃ©s del ordenamiento
         if (window.__debugMonthFilter && Array.isArray(sorted)) {
@@ -8459,15 +8466,36 @@
           
           let list = Array.isArray(leadsArray) ? leadsArray.slice() : [];
           if (selectedSupervisor) {
-            const filterName = selectedSupervisor.toLowerCase().trim();
+            const normalizeTeamKey = (v) => {
+              try {
+                return String(v || '')
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/[_\-.]+/g, ' ')
+                  .replace(/\bteam\b/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              } catch (_) {
+                return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim();
+              }
+            };
+
+            const filterName = normalizeTeamKey(selectedSupervisor);
+            const filterCompact = filterName.replace(/\s+/g, '');
             
             console.log('[ADMIN FILTER] Filtrando por:', filterName, '| Total leads:', list.length);
             
             // Filtrar por campo supervisor del lead (comparaciÃ³n directa ya que dropdown tiene mismo valor)
             list = list.filter(l => {
               const leadSup = l?.supervisor || l?._raw?.supervisor || l?.team || l?._raw?.team || '';
-              const leadSupLower = leadSup.toLowerCase().trim();
-              return leadSupLower === filterName;
+              const leadNorm = normalizeTeamKey(leadSup);
+              const leadCompact = leadNorm.replace(/\s+/g, '');
+              if (!leadCompact) return false;
+              if (leadCompact === filterCompact) return true;
+              if (leadNorm.includes(filterName)) return true;
+              if (filterName.includes(leadNorm)) return true;
+              return false;
             });
             
             console.log('[ADMIN FILTER] Leads despuÃ©s de filtro:', list.length);
@@ -8477,7 +8505,9 @@
           console.log('[ADMIN RENDER] Llamando a renderWithMonthlySeparators con', list.length, 'leads');
           console.log('[ADMIN RENDER] Valor actual de #teamFilter:', document.getElementById('teamFilter')?.value || '(vacÃ­o)');
           renderWithMonthlySeparators(list);
-          try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
+          try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){ }
+
+          // Nota: renderWithMonthlySeparators ya aplica filtros finales y actualiza KPIs internamente.
 
         } catch (e) { console.warn('Error en vista admin por TEAM:', e); }
       } else {
@@ -8489,9 +8519,12 @@
 
       // Asegurar que los KPIs siempre se actualicen con los datos renderizados
       try {
-        window.__kpiLeadsLast = Array.isArray(leadsArray) ? leadsArray.slice() : [];
+        const leadsForKpi = (window.__kpiLeadsLast && window.__kpiLeadsLast.length)
+          ? window.__kpiLeadsLast
+          : (Array.isArray(leadsArray) ? leadsArray : []);
+        try { window.__kpiLeadsLast = Array.isArray(leadsForKpi) ? leadsForKpi.slice() : []; } catch (_) {}
         if (typeof updateSummaryCards === 'function') {
-          updateSummaryCards(leadsArray);
+          updateSummaryCards(leadsForKpi);
         }
       } catch (e) {
         console.warn('[renderCostumerTable] Error actualizando KPIs al final:', e);
@@ -8671,11 +8704,12 @@
           const kt = window.__kpisTotals;
           console.log('[updateSummaryCards] ADMIN/SUPER: KPIs del backend disponibles:', kt);
 
-          // Ventas del mes (efectivas) del backend
-          if (typeof kt.ventasEfectivasMes === 'number') {
-            ventasMes = kt.ventasEfectivasMes;
-          } else if (typeof kt.totalMes === 'number' && typeof kt.canceladas === 'number') {
-            ventasMes = Math.max(0, kt.totalMes - kt.canceladas);
+          // Ventas del mes: debe contar TODAS las ventas del mes (sin importar status)
+          // Canceladas se reportan en su KPI separado.
+          if (typeof kt.totalMes === 'number') {
+            ventasMes = kt.totalMes;
+          } else if (typeof kt.ventasEfectivasMes === 'number' && typeof kt.canceladas === 'number') {
+            ventasMes = kt.ventasEfectivasMes + kt.canceladas;
           }
 
           // KPIs de status desde backend (sin paginación)
@@ -8811,14 +8845,14 @@
               console.log('[STATUS DEBUG]', JSON.stringify(debugInfo, null, 2));
             }
 
-            // Ventas hoy / Ventas del mes se mantienen por fecha principal (venta/contrataciÃ³n)
-            if (leadISO && leadISO === todayISO && !isCancel) ventasHoy++;
+            // Ventas hoy: contar TODAS las ventas del día (sin importar status)
+            if (leadISO && leadISO === todayISO) ventasHoy++;
 
             // Ventas del mes: se mantiene por fecha principal (venta/contratación)
             // (no depende de instalación).
             // Si se usan KPIs del backend para ventasMes, este bloque no se ejecuta porque canUseBackendKpis será true y no queremos sobreescribir.
             if (!canUseBackendKpis) {
-              if (inTargetMonthLead && !isCancel) ventasMes++;
+              if (inTargetMonthLead) ventasMes++;
             }
 
             // Logs de conteo (solo cuando realmente se cuenta)
@@ -9420,13 +9454,6 @@
             : raw;
         }
 
-        if (selectId === 'edit-status') {
-          const s = String(raw).toLowerCase().trim();
-          target = (s.includes('cancel') || s.includes('anulad') || s.includes('no instalado')) ? 'CANCELED'
-            : (s.includes('active') || s.includes('complet') || s.includes('install') || s.includes('termin')) ? 'ACTIVE'
-            : raw;
-        }
-
         const want = norm(target);
         for (const opt of Array.from(sel.options)) {
           if (norm(opt.value) === want) { sel.value = opt.value; return; }
@@ -9447,26 +9474,8 @@
       setSelectValue('edit-autopago', getValue('autopago', 'autopay').toString());
       setSelectValue('edit-sistema', getValue('sistema', 'system'));
       setSelectValue('edit-riesgo', getValue('riesgo', 'risk').toString());
-      setSelectValue('edit-status', getValue('status', 'estado').toString());
       setSelectValue('edit-puntaje', getValue('puntaje', 'puntos', 'score', 'puntaje_calculado').toString());
 
-      const statusSelect = document.getElementById('edit-status');
-      if (statusSelect) {
-        statusSelect.onchange = async function(event) {
-          const newStatus = String(event.target.value || '').toLowerCase();
-          const triggerStatuses = ['cancel', 'hold', 'resched', 'repro', 'anulad', 'no instalado'];
-          if (!triggerStatuses.some(s => newStatus.includes(s))) return;
-
-          const clientName = (document.getElementById('edit-nombres').value + ' ' + document.getElementById('edit-apellidos').value).trim();
-          const selected = event.target.value;
-          const reason = prompt(`Â¿CuÃ¡l es el motivo del cambio de status de "${clientName}" a "${selected}"?`);
-          if (reason && reason.trim()) {
-            const commentText = `Status cambiado a ${selected}: ${reason}`;
-            await addSystemComment(leadId, commentText);
-            sendDesktopNotification(`Status de ${clientName} actualizado`, commentText);
-          }
-        };
-      }
 
       function formatDateForInput(dateStr) {
         if (!dateStr) return '';
@@ -10586,7 +10595,6 @@
           riesgo: (document.getElementById('edit-riesgo').value||'').toString().toLowerCase(),
           dia_venta: document.getElementById('edit-dia-venta').value,
           dia_instalacion: document.getElementById('edit-dia-instalacion').value,
-          status: document.getElementById('edit-status').value,
           mercado: document.getElementById('edit-mercado').value,
           supervisor: document.getElementById('edit-supervisor').value,
           comentario: document.getElementById('edit-comentario').value,

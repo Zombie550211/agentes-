@@ -80,7 +80,7 @@ async function obtenerEstadisticasEquipos(req, res) {
 
     // Si es un mes completo, aplicar match simple por prefijo ISO antes de parseos.
     // Esto evita falsos 0 que activan el fallback y nos asegura que costumers (primaryOnly) coincide con Atlas.
-    if (strictMonthPrefix && !isDayOnly) {
+    if (false && strictMonthPrefix && !isDayOnly) {
       try {
         // Incluir también variantes comunes no-ISO (DD/MM/YYYY y DD-MM-YYYY).
         // Ej: 06/01/2026 o 06-01-2026
