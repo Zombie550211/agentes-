@@ -9005,20 +9005,10 @@
           puntajeMensual = 0;
           leads.forEach(l => {
             try {
-              const status = normalizarTexto(l.status || '');
-              const isCancel = status.includes('cancel') || status.includes('anulad');
-              if (isCancel) return;
-              // Active Oficina: para roles agente/vendedor/supervisor NO suma puntaje
-              const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
-              if (__excludeActiveOficinaFromPoints && isActiveOficina) return;
-              const leadISO = getDateFromLead(l);
+              const leadISO = getSaleDateFromLead(l);
               if (!leadISO) return;
               const leadMonth = leadISO.slice(0,7); // YYYY-MM
               if (leadMonth !== selectedMonth) return;
-              // Si el mes seleccionado es el mes actual, solo sumar hasta hoy
-              if (selectedMonth === `${String(yNow).padStart(4,'0')}-${String(mNow).padStart(2,'0')}`) {
-                if (leadISO > todayISOcmp) return;
-              }
               const p = parseFloat(l.puntaje || l.puntaje_calculado || 0) || 0;
               puntajeMensual += p;
             } catch (e) { /* noop */ }
