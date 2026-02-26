@@ -373,6 +373,49 @@ router.get('/leads', protect, async (req, res) => {
         console.log(`[API /leads GLOBAL] Filtro por mercado (rol): ${target}. Antes=${before} Después=${leads.length}`);
       }
 
+      // Permisos: ocultar/limitar "Ventas en reserva" en solicitudes GLOBAL para roles no privilegiados
+      try {
+        const roleRawRes = String(req.user?.role || '');
+        const roleRes = roleRawRes
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice');
+        const isSupervisorRes = roleRes.includes('supervisor');
+        const isAgentRes = !isPrivilegedRes && !isSupervisorRes;
+        if (!isPrivilegedRes) {
+          const userIdRes = String(req.user?.id || req.user?._id || '').trim();
+          const userNameRes = String(req.user?.username || req.user?.name || req.user?.nombre || '').trim();
+          const userTeamRes = String(req.user?.team || '').trim();
+          const normTxt = (s) => String(s || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+          const unameN = normTxt(userNameRes);
+          const uteamN = normTxt(userTeamRes);
+          leads = (leads || []).filter(d => {
+            const st = normTxt(d?.status || d?._raw?.status || '');
+            if (!st.includes('reserva')) return true;
+            if (isAgentRes) {
+              const aid = String(d?.agenteId || d?._raw?.agenteId || '').trim();
+              if (userIdRes && aid && String(userIdRes) === String(aid)) return true;
+              const createdBy = normTxt(d?.createdBy || d?._raw?.createdBy || '');
+              const agenteNombre = normTxt(d?.agenteNombre || d?.agente || d?._raw?.agenteNombre || d?._raw?.agente || '');
+              return !!(unameN && (createdBy === unameN || agenteNombre === unameN));
+            }
+            if (isSupervisorRes) {
+              const t = normTxt(d?.team || d?._raw?.team || '');
+              if (uteamN && t === uteamN) return true;
+              const sup = normTxt(d?.supervisor || d?._raw?.supervisor || '');
+              return !!(unameN && sup === unameN);
+            }
+            return false;
+          });
+        }
+      } catch (_) {}
+
       // Normalizar _id a string para evitar que llegue como objeto BSON al navegador
       leads = (leads || []).map(d => ({
         ...d,
@@ -388,6 +431,67 @@ router.get('/leads', protect, async (req, res) => {
       andConditions.push(mercadoCondition(mercadoRestrict));
       console.log('[API /leads] Restricción por mercado (rol):', mercadoRestrict);
     }
+
+    // ===== Permisos: Ventas en reserva =====
+    // Regla:
+    // - Agente: solo puede ver sus propias reservas
+    // - Supervisor: solo reservas de su team
+    // - Backoffice/Admin: puede ver todas
+    // Se aplica siempre (aunque no venga status=Ventas en reserva) para evitar fugas de datos.
+    try {
+      const roleRawRes = String(req.user?.role || '');
+      const roleRes = roleRawRes
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice');
+      const isSupervisorRes = roleRes.includes('supervisor');
+      const isAgentRes = !isPrivilegedRes && !isSupervisorRes;
+
+      if (!isPrivilegedRes) {
+        const userIdRes = String(req.user?.id || req.user?._id || '').trim();
+        const userNameRes = String(req.user?.username || req.user?.name || req.user?.nombre || '').trim();
+        const userTeamRes = String(req.user?.team || '').trim();
+        const reReserva = /reserva/i;
+
+        const scopeOr = [];
+        if (isAgentRes) {
+          if (userIdRes) {
+            scopeOr.push({ agenteId: userIdRes });
+            scopeOr.push({ 'metadata.agenteId': userIdRes });
+          }
+          if (userNameRes) {
+            scopeOr.push({ createdBy: { $regex: new RegExp(`^${userNameRes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+            scopeOr.push({ agenteNombre: { $regex: new RegExp(`^${userNameRes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+            scopeOr.push({ agente: { $regex: new RegExp(`^${userNameRes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+          }
+        } else if (isSupervisorRes) {
+          if (userTeamRes) {
+            const esc = userTeamRes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            scopeOr.push({ team: { $regex: new RegExp(`^${esc}$`, 'i') } });
+            scopeOr.push({ '_raw.team': { $regex: new RegExp(`^${esc}$`, 'i') } });
+          }
+          if (userNameRes) {
+            const escName = userNameRes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            scopeOr.push({ supervisor: { $regex: new RegExp(`^${escName}$`, 'i') } });
+            scopeOr.push({ '_raw.supervisor': { $regex: new RegExp(`^${escName}$`, 'i') } });
+          }
+        }
+
+        // Si no pudimos construir scope, de forma segura ocultamos reservas
+        const allowedReservaScope = scopeOr.length ? { $or: scopeOr } : { _id: '__no_reserva__' };
+
+        // Query: (no-reserva) OR (reserva AND dentro de scope)
+        andConditions.push({
+          $or: [
+            { status: { $not: reReserva } },
+            { $and: [{ status: { $regex: reReserva } }, allowedReservaScope] }
+          ]
+        });
+      }
+    } catch (_) {}
 
     // Filtro por status (si se proporciona)
     if (status && status.toLowerCase() !== 'todos') {
@@ -1956,7 +2060,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
         const col = db.collection(colName);
         const reCancel = /cancel|anulad|no instalado/;
         const rePending = /pendient|pending/;
-        const reActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b/;
+        const reActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b|\bactive\b|\bactiv[ao]\b/;
+        const reReserva = /reserva/;
         const aggSale = await col.aggregate([
           { $match: querySale },
           {
@@ -1998,11 +2103,24 @@ router.get('/leads/kpis', protect, async (req, res) => {
           {
             $group: {
               _id: null,
-              total: { $sum: 1 },
+              total: {
+                $sum: {
+                  $cond: [
+                    { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
+                    1,
+                    0
+                  ]
+                }
+              },
               canceladas: {
                 $sum: {
                   $cond: [
-                    { $regexMatch: { input: '$_status', regex: reCancel } },
+                    {
+                      $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
+                        { $regexMatch: { input: '$_status', regex: reCancel } }
+                      ]
+                    },
                     1,
                     0
                   ]
@@ -2011,7 +2129,12 @@ router.get('/leads/kpis', protect, async (req, res) => {
               pendientes: {
                 $sum: {
                   $cond: [
-                    { $regexMatch: { input: '$_status', regex: rePending } },
+                    {
+                      $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
+                        { $regexMatch: { input: '$_status', regex: rePending } }
+                      ]
+                    },
                     1,
                     0
                   ]
@@ -2020,9 +2143,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
               puntajeMes: {
                 $sum: {
                   $cond: [
-                    // Puntaje mensual debe contar TODAS las ventas del mes por dia_venta, sin importar status.
-                    // Canceladas se reflejan en su KPI separado, pero el puntaje total del mes incluye todas.
-                    true,
+                    // Puntaje mensual cuenta todas las ventas del mes, excepto las que están en reserva.
+                    { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
                     '$_puntaje',
                     0
                   ]
@@ -2078,7 +2200,12 @@ router.get('/leads/kpis', protect, async (req, res) => {
               activas: {
                 $sum: {
                   $cond: [
-                    { $regexMatch: { input: '$_status', regex: reActive } },
+                    {
+                      $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
+                        { $regexMatch: { input: '$_status', regex: reActive } }
+                      ]
+                    },
                     1,
                     0
                   ]
@@ -2089,6 +2216,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
                   $cond: [
                     {
                       $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
                         { $regexMatch: { input: '$_status', regex: reActive } },
                         { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] }
                       ]
@@ -2103,6 +2231,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
                   $cond: [
                     {
                       $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
                         { $regexMatch: { input: '$_status', regex: reActive } },
                         { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
                         { $eq: ['$_mercado', 'ICON'] }
@@ -2118,6 +2247,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
                   $cond: [
                     {
                       $and: [
+                        { $not: [{ $regexMatch: { input: '$_status', regex: reReserva } }] },
                         { $regexMatch: { input: '$_status', regex: reActive } },
                         { $not: [{ $regexMatch: { input: '$_status', regex: reCancel } }] },
                         { $eq: ['$_mercado', 'BAMO'] }

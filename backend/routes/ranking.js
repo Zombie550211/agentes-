@@ -33,7 +33,7 @@ function buildMonthRange(year, month1to12) {
   return { monthIndex, monthPadded, startOfMonth, startOfNextMonth };
 }
 
-function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false, salesCompletedOnly = false, dateFieldPrimary = 'dia_venta' }) {
+function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = false, sortBy = 'ventas_then_puntos', hardLimit = 200, groupBy = 'agent', pointsCompletedOnly = false, salesCompletedOnly = false, dateFieldPrimary = 'dia_venta', allowedStatuses = null }) {
   const dateFieldPath = '$' + String(dateFieldPrimary || 'dia_venta');
   const sortStage = (() => {
     if (sortBy === 'puntos_then_ventas') return { $sort: { puntos: -1, ventas: -1, nombre: 1 } };
@@ -218,15 +218,32 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
             "CANCEL",
             {
               $cond: [
-                { $regexMatch: { input: "$_statusStr", regex: /PENDIENT/ } },
-                "PENDING",
-                "$_statusStr"
+                { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
+                "COMPLETED",
+                {
+                  $cond: [
+                    { $regexMatch: { input: "$_statusStr", regex: /ACTIVE/ } },
+                    "ACTIVE",
+                    {
+                      $cond: [
+                        { $regexMatch: { input: "$_statusStr", regex: /PENDIENT|PENDING/ } },
+                        "PENDING",
+                        "$_statusStr"
+                      ]
+                    }
+                  ]
+                }
               ]
             }
           ]
         }
       }
     },
+    ...(Array.isArray(allowedStatuses) && allowedStatuses.length ? [{
+      $match: {
+        _statusNorm: { $in: allowedStatuses }
+      }
+    }] : []),
     ...(filterAtt ? [{
       $match: {
         $expr: {
@@ -468,8 +485,26 @@ router.get('/', protect, async (req, res) => {
     }
     // Simple in-memory cache para resultados de ranking por parámetros (se inicializa después de leer req.query)
     if (!global.__rankingCache) global.__rankingCache = new Map();
-    let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt', legacy } = req.query;
+    let { fechaInicio, fechaFin, all, limit: limitParam, debug, skipDate, agente, field = 'createdAt', legacy, statuses } = req.query;
     console.log('[RANKING] Parámetros recibidos:', { fechaInicio, fechaFin, all, limitParam, debug, skipDate, agente, field, legacy });
+
+    const parseStatuses = (raw) => {
+      try {
+        if (!raw) return [];
+        return String(raw)
+          .split(',')
+          .map(s => String(s || '').trim())
+          .filter(Boolean)
+          .map(s => s.toUpperCase());
+      } catch (_) {
+        return [];
+      }
+    };
+
+    const allowedStatuses = (() => {
+      const parsed = parseStatuses(statuses);
+      return parsed.length ? parsed : null;
+    })();
 
     const unifiedCollectionName = 'costumers_unified';
     let unifiedAvailable = false;
@@ -568,7 +603,7 @@ router.get('/', protect, async (req, res) => {
     const allCacheTtl = Number(process.env.RANKING_CACHE_ALL_TTL_MS || 5 * 60 * 1000); // 5min por defecto para all=1
     const CACHE_TTL_MS = useAllCollections ? allCacheTtl : defaultCacheTtl;
 
-    const cacheKey = JSON.stringify({ fechaInicio: startDate, fechaFin: endDate, all: useAllCollections, limitParam, field, agente });
+    const cacheKey = JSON.stringify({ fechaInicio: startDate, fechaFin: endDate, all: useAllCollections, limitParam, field, agente, statuses: allowedStatuses });
     const cachedEntry = global.__rankingCache.get(cacheKey);
     if (cachedEntry && (Date.now() - cachedEntry.ts) < CACHE_TTL_MS && String(debug) !== '1') {
       console.log('[RANKING] ✓ Cache hit:', cacheKey, 'age_ms=', Date.now() - cachedEntry.ts, 'ttl_ms=', CACHE_TTL_MS);
@@ -795,15 +830,32 @@ router.get('/', protect, async (req, res) => {
               "CANCEL",
               {
                 $cond: [
-                  { $regexMatch: { input: "$_statusStr", regex: /PENDIENT/ } },
-                  "PENDING",
-                  "$_statusStr"
+                  { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
+                  "COMPLETED",
+                  {
+                    $cond: [
+                      { $regexMatch: { input: "$_statusStr", regex: /ACTIVE/ } },
+                      "ACTIVE",
+                      {
+                        $cond: [
+                          { $regexMatch: { input: "$_statusStr", regex: /PENDIENT|PENDING/ } },
+                          "PENDING",
+                          "$_statusStr"
+                        ]
+                      }
+                    ]
+                  }
                 ]
               }
             ]
           }
         }
       },
+      ...(Array.isArray(allowedStatuses) && allowedStatuses.length ? [{
+        $match: {
+          _statusNorm: { $in: allowedStatuses }
+        }
+      }] : []),
       // 3.2) marcar canceladas y puntaje efectivo (0 si cancel)
       {
         $addFields: {
@@ -1784,16 +1836,19 @@ router.get('/tabs', protect, async (req, res) => {
     const activationGroup = String(req.query?.activationGroup || req.query?.activationBy || '').trim().toLowerCase();
     const activationGroupBy = activationGroup === 'team' ? 'team' : 'agent';
 
+    const allowedStatuses = req.query?.statuses ? req.query.statuses.split(',').map(s => s.trim()) : [];
+
     const activationPipeline = buildRankingPipeline({
       startOfMonth,
       startOfNextMonth,
       filterAtt: false,
-      sortBy: 'puntos_then_ventas',
+      sortBy: 'ventas_then_puntos',
       hardLimit,
       groupBy: activationGroupBy,
       pointsCompletedOnly: true,
-      salesCompletedOnly: true,
-      dateFieldPrimary: 'dia_instalacion'
+      salesCompletedOnly: false,
+      dateFieldPrimary: 'dia_venta',
+      allowedStatuses
     });
 
     const salesPipeline = buildRankingPipeline({

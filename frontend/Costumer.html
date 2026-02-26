@@ -2511,6 +2511,7 @@
               <option value="active">Active</option>
               <option value="active_oficina">Active Oficina</option>
               <option value="pending">Pending</option>
+              <option value="reserva">Ventas en reserva</option>
               <option value="cancelled">Cancelled</option>
               <option value="hold">Hold</option>
               <option value="rescheduled">Rescheduled</option>
@@ -7253,6 +7254,7 @@
               if (selectedStatus === 'completed') return (s.includes('complet') || s.includes('complete') || s.includes('active') || s.includes('activo'));
               if (selectedStatus === 'active') return (s.includes('active') || s.includes('activo'));
               if (selectedStatus === 'active_oficina') return ((s.includes('active') || s.includes('activo')) && s.includes('oficina'));
+              if (selectedStatus === 'reserva') return (s.includes('reserva'));
               if (selectedStatus === 'hold') return (s.includes('hold') || s.includes('espera'));
               if (selectedStatus === 'rescheduled') return (s.includes('resched') || s.includes('reprogram'));
               return true;
@@ -8750,6 +8752,7 @@
           try {
             // Verificar si el lead tiene status (normalizado)
             const status = normalizarTexto(lead.status);
+            const isReserva = status.includes('reserva');
             const isCancel = (
               status.includes('cancel') ||
               status.includes('anulad') ||
@@ -8796,7 +8799,7 @@
             const isCushion = inPrevMonthLead && inTargetMonthInstall;
             const shouldCountStatusKpi = inTargetMonthLead || isCushion;
             if (!__useBackendStatusKpis) {
-              if (shouldCountStatusKpi) {
+              if (shouldCountStatusKpi && !isReserva) {
                 if (isCancel) {
                   cancelados++;
                 } else {
@@ -8846,13 +8849,13 @@
             }
 
             // Ventas hoy: contar TODAS las ventas del día (sin importar status)
-            if (leadISO && leadISO === todayISO) ventasHoy++;
+            if (!isReserva && leadISO && leadISO === todayISO) ventasHoy++;
 
             // Ventas del mes: se mantiene por fecha principal (venta/contratación)
             // (no depende de instalación).
             // Si se usan KPIs del backend para ventasMes, este bloque no se ejecuta porque canUseBackendKpis será true y no queremos sobreescribir.
             if (!canUseBackendKpis) {
-              if (inTargetMonthLead) ventasMes++;
+              if (!isReserva && inTargetMonthLead) ventasMes++;
             }
 
             // Logs de conteo (solo cuando realmente se cuenta)
@@ -9005,6 +9008,9 @@
           puntajeMensual = 0;
           leads.forEach(l => {
             try {
+              const status = normalizarTexto(l.status || '');
+              const isReserva = status.includes('reserva');
+              if (isReserva) return;
               const leadISO = getSaleDateFromLead(l);
               if (!leadISO) return;
               const leadMonth = leadISO.slice(0,7); // YYYY-MM
@@ -9027,21 +9033,23 @@
         const iconVentas = leads.filter(l => {
           const mercado = String(l.mercado || '').trim().toUpperCase();
           const status = normalizarTexto(l.status || '');
+          const isReserva = status.includes('reserva');
           const isCancel = status.includes('cancel') || status.includes('anulad');
           const leadISO = getDateFromLead(l);
           if (!leadISO) return false;
           const [yL, mL] = leadISO.split('-').map(Number);
-          return mercado === 'ICON' && yL === ySel && mL === mSel && !isCancel;
+          return mercado === 'ICON' && yL === ySel && mL === mSel && !isCancel && !isReserva;
         }).length;
 
         const bamoVentas = leads.filter(l => {
           const mercado = String(l.mercado || '').trim().toUpperCase();
           const status = normalizarTexto(l.status || '');
+          const isReserva = status.includes('reserva');
           const isCancel = status.includes('cancel') || status.includes('anulad');
           const leadISO = getDateFromLead(l);
           if (!leadISO) return false;
           const [yL, mL] = leadISO.split('-').map(Number);
-          return mercado === 'BAMO' && yL === ySel && mL === mSel && !isCancel;
+          return mercado === 'BAMO' && yL === ySel && mL === mSel && !isCancel && !isReserva;
         }).length;
 
         const totalMercados = iconVentas + bamoVentas;
@@ -9076,6 +9084,7 @@
             try {
               const mercado = String(l.mercado || '').trim().toUpperCase();
               const status = normalizarTexto(l.status || '');
+              const isReserva = status.includes('reserva');
               const isCancel = status.includes('cancel') || status.includes('anulad') || status.includes('no instalado');
               const isActive = /\bcompleted\b|\bcompletad[ao]\b|\bterminad[ao]\b|\bactive\b|\bactivo\b/.test(status);
 
@@ -9091,7 +9100,7 @@
               }
 
               const shouldCount = (isAgente3 || !canUseBackendKpis);
-              if (isActive && !isCancel && shouldCount && inTargetMonth) {
+              if (!isReserva && isActive && !isCancel && shouldCount && inTargetMonth) {
                 if (mercado === 'ICON') activasIcon++;
                 if (mercado === 'BAMO') activasBamo++;
               }
@@ -9152,9 +9161,10 @@
         const puntajesPorDia = ultimos7Dias.map(fechaISO => {
           return leads.reduce((sum, lead) => {
             const status = normalizarTexto(lead.status || '');
+            const isReserva = status.includes('reserva');
             const isCancel = /cancel/.test(status);
             const isActiveOficina = ((status.includes('active') || status.includes('activo')) && status.includes('oficina'));
-            if (!isCancel && getDateFromLead(lead) === fechaISO) {
+            if (!isReserva && !isCancel && getDateFromLead(lead) === fechaISO) {
               if (__excludeActiveOficinaFromPoints && isActiveOficina) return sum;
               return sum + (parseFloat(lead.puntaje) || 0);
             }

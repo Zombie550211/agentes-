@@ -1271,6 +1271,129 @@
             .ranking-podium-final .astronaut-info { width: 140px; padding: 8px 10px; }
             .ranking-podium-final .astronaut-score { font-size: 20px; }
         }
+
+        .cuadratura-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .cuadratura-modal.is-open { display: flex; }
+
+        .cuadratura-card {
+            width: 100%;
+            max-width: 980px;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+            overflow: hidden;
+        }
+
+        .cuadratura-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 18px;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #0b1220, #111827);
+            color: #ffffff;
+        }
+
+        .cuadratura-card-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+
+        .cuadratura-card-body { padding: 16px 18px; }
+
+        .cuadratura-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .cuadratura-actions select {
+            min-width: 180px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            font-weight: 600;
+        }
+
+        .cuadratura-kpis {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .cuadratura-kpi {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f9fafb;
+        }
+
+        .cuadratura-kpi .label { color: #6b7280; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .cuadratura-kpi .value { color: #111827; font-weight: 900; font-size: 28px; margin-top: 6px; }
+
+        .cuadratura-lists {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .cuadratura-list {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        .cuadratura-list h4 {
+            margin: 0;
+            padding: 10px 12px;
+            background: #f3f4f6;
+            font-size: 13px;
+            font-weight: 800;
+            color: #111827;
+        }
+
+        .cuadratura-list .body {
+            max-height: 320px;
+            overflow: auto;
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+
+        .cuadratura-row {
+            display: grid;
+            grid-template-columns: 1fr 160px 140px;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+
+        .cuadratura-row:last-child { border-bottom: none; }
+
+        .cuadratura-row .muted { color: #6b7280; font-weight: 600; font-size: 12px; }
+
+        .btn-ghost {
+            border: 1px solid rgba(255,255,255,0.25);
+            background: transparent;
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .btn-ghost:hover { background: rgba(255,255,255,0.08); }
     </style>
 </head>
 <body>
@@ -1300,10 +1423,16 @@
                             </div>
                             <h2 style="margin-top: 15px; font-size: 24px; color: #1e293b; font-weight: 600;">Clasificación del Mes</h2>
                         </div>
-                        <button id="btn-toggle-view" type="button" class="btn-primary">
-                            <i class="fa-solid fa-users"></i>
-                            <span id="btn-toggle-view-text">Ver todos los agentes</span>
-                        </button>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <button id="btn-cuadratura-final" type="button" class="btn-primary">
+                                <i class="fa-solid fa-file-excel"></i>
+                                <span>Cuadratura Final</span>
+                            </button>
+                            <button id="btn-toggle-view" type="button" class="btn-primary">
+                                <i class="fa-solid fa-users"></i>
+                                <span id="btn-toggle-view-text">Ver todos los agentes</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="view-stack" id="view-stack">
@@ -1395,6 +1524,80 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div class="cuadratura-modal" id="cuadratura-modal" aria-hidden="true" hidden>
+        <div class="cuadratura-card" role="dialog" aria-modal="true" aria-labelledby="cuadratura-title">
+            <div class="cuadratura-card-header">
+                <h3 id="cuadratura-title">Cuadratura Final (Excel vs CRM)</h3>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button type="button" class="btn-ghost" id="btn-cuadratura-close">Cerrar</button>
+                </div>
+            </div>
+            <div class="cuadratura-card-body">
+                <div class="cuadratura-actions">
+                    <select id="cuadratura-team-select" style="min-width:220px;"></select>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:800; color:#111827;">
+                        <input type="checkbox" id="cuadratura-include-excluded" />
+                        <span>Incluir excluidos por status</span>
+                    </label>
+                    <input type="file" id="cuadratura-file" accept=".xlsx,.xls" style="display:none;" />
+                    <button type="button" class="btn-primary" id="btn-cuadratura-pick">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Subir Excel</span>
+                    </button>
+                    <button type="button" class="btn-primary" id="btn-cuadratura-run" disabled>
+                        <i class="fa-solid fa-clipboard-check"></i>
+                        <span>Analizar</span>
+                    </button>
+                    <div id="cuadratura-status" style="font-weight:800; color:#111827;"></div>
+                </div>
+
+                <div class="cuadratura-kpis">
+                    <div class="cuadratura-kpi">
+                        <div class="title">Ventas Existentes</div>
+                        <div class="value" id="cuadratura-kpi-existentes">0</div>
+                    </div>
+                    <div class="cuadratura-kpi">
+                        <div class="title">Ventas Faltantes en CRM</div>
+                        <div class="value" id="cuadratura-kpi-faltantes">0</div>
+                    </div>
+                    <div class="cuadratura-kpi">
+                        <div class="title">Ventas Duplicadas en CRM</div>
+                        <div class="value" id="cuadratura-kpi-duplicadas">0</div>
+                    </div>
+                    <div class="cuadratura-kpi">
+                        <div class="title">Extras en CRM</div>
+                        <div class="value" id="cuadratura-kpi-extras">0</div>
+                    </div>
+                </div>
+
+                <div class="cuadratura-section" style="margin-top:12px;">
+                    <div class="cuadratura-section-title">Desglose por TEAM</div>
+                    <div id="cuadratura-team-breakdown"></div>
+                </div>
+
+                <div class="cuadratura-section" style="margin-top:12px;">
+                    <div class="cuadratura-section-title">Diagnóstico</div>
+                    <div id="cuadratura-debug" class="muted" style="font-size:12px; line-height:1.4;"></div>
+                </div>
+
+                <div class="cuadratura-lists">
+                    <div class="cuadratura-list">
+                        <h4>Faltantes en CRM</h4>
+                        <div class="body" id="cuadratura-list-faltantes"></div>
+                    </div>
+                    <div class="cuadratura-list">
+                        <h4>Duplicadas en CRM</h4>
+                        <div class="body" id="cuadratura-list-duplicadas"></div>
+                    </div>
+                    <div class="cuadratura-list">
+                        <h4>Extras en CRM</h4>
+                        <div class="body" id="cuadratura-list-extras"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="tooltip-floating" class="tooltip-floating" aria-hidden="true"></div>
@@ -1648,6 +1851,44 @@
                 }
                 if (url.startsWith('/')) return url;
                 if (/^uploads\//i.test(url)) return `/${url}`;
+                return '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function getCrmSaleDateKey(lead) {
+            try {
+                if (!lead || typeof lead !== 'object') return '';
+                const src = lead?._raw && typeof lead._raw === 'object' ? lead._raw : null;
+                const candidates = [
+                    lead.dia_venta,
+                    lead.diaDeVenta,
+                    lead.dia_de_venta,
+                    lead.fecha_venta,
+                    lead.fechaVenta,
+                    lead.sale_date,
+                    lead.fecha_contratacion,
+                    lead.fechaContratacion,
+                    lead.dia_contratacion,
+                    lead.createdAt,
+                    lead.updatedAt,
+                    src?.dia_venta,
+                    src?.diaDeVenta,
+                    src?.dia_de_venta,
+                    src?.fecha_venta,
+                    src?.fechaVenta,
+                    src?.sale_date,
+                    src?.fecha_contratacion,
+                    src?.fechaContratacion,
+                    src?.dia_contratacion,
+                    src?.createdAt,
+                    src?.updatedAt
+                ];
+                for (const c of candidates) {
+                    const k = normalizeDateKey(c);
+                    if (k) return k;
+                }
                 return '';
             } catch (_) {
                 return '';
@@ -2091,6 +2332,1119 @@
                 return { data: [], meta: null };
             }
         }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.async = false;
+                s.onload = () => resolve(true);
+                s.onerror = () => reject(new Error('No se pudo cargar script: ' + src));
+                document.head.appendChild(s);
+            });
+        }
+
+        async function loadSheetJS() {
+            if (window.XLSX) return window.XLSX;
+            const cdns = [
+                'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+                'https://unpkg.com/xlsx/dist/xlsx.full.min.js'
+            ];
+            for (const src of cdns) {
+                try {
+                    await loadScript(src);
+                    if (window.XLSX) return window.XLSX;
+                } catch (_) {
+                    // intentar siguiente
+                }
+            }
+            throw new Error('No se pudo cargar SheetJS (XLSX).');
+        }
+
+        function normalizePhone(v) {
+            try {
+                const s = String(v || '');
+                const digits = s.replace(/\D+/g, '');
+                if (!digits) return '';
+                // Mantener últimos 10 si trae prefijo
+                if (digits.length > 10) return digits.slice(-10);
+                return digits;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function getCrmPhones(lead) {
+            try {
+                const candidates = [
+                    lead?.telefono_principal,
+                    lead?.telefono,
+                    lead?.phone,
+                    lead?.tel,
+                    lead?.telefono_alterno,
+                    lead?.tel_alterno,
+                    lead?.telefonoAlterno,
+                    lead?.telefono_secundario,
+                    lead?._raw?.telefono_principal,
+                    lead?._raw?.telefono,
+                    lead?._raw?.phone,
+                    lead?._raw?.tel,
+                    lead?._raw?.telefono_alterno,
+                    lead?._raw?.tel_alterno,
+                    lead?._raw?.telefonoAlterno,
+                    lead?._raw?.telefono_secundario
+                ];
+                const out = [];
+                const seen = new Set();
+                for (const v of candidates) {
+                    const p = normalizePhone(v);
+                    if (!p) continue;
+                    if (seen.has(p)) continue;
+                    seen.add(p);
+                    out.push(p);
+                }
+                return out;
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function normalizeAccount(v) {
+            try {
+                const s = String(v || '').trim();
+                if (!s) return '';
+                const digits = s.replace(/\D+/g, '');
+                return digits || '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function normalizeNameLoose(v) {
+            try {
+                return String(v || '')
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-z0-9\s]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function normalizeService(v) {
+            try {
+                let s = String(v || '')
+                    .trim()
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+
+                s = s
+                    .replace(/&/g, ' ')
+                    .replace(/\+/g, ' plus ')
+                    .replace(/[_\-\/]+/g, ' ')
+                    .replace(/\bxfinty\b/g, 'xfinity')
+                    .replace(/\bxfininty\b/g, 'xfinity')
+                    .replace(/\bxifnity\b/g, 'xfinity')
+                    .replace(/\batt\s+t\b/g, 'att')
+                    .replace(/\bat\s*&\s*t\b/g, 'att')
+                    .replace(/\b500\s*mbps\b/g, '500')
+                    .replace(/\b300\s*mbps\b/g, '300')
+                    .replace(/\b1g\b/g, '1g')
+                    .replace(/\bdouble\s*play\b/g, 'double play');
+
+                s = s
+                    .replace(/[^a-z0-9]+/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                if (!s) return '';
+                if (s.includes('xfinity') && (s.includes('500') || s.includes('500mbps') || s.includes('500mb'))) {
+                    return 'xfinity 500 plus';
+                }
+                if (s.includes('xfinity') && s.includes('300')) {
+                    return 'xfinity 300';
+                }
+                return s;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function normalizeDateKey(v) {
+            try {
+                if (!v) return '';
+                const pad2 = (n) => String(n).padStart(2, '0');
+                const fromParts = (y, m, d) => {
+                    const yy = Number(y);
+                    const mm = Number(m);
+                    const dd = Number(d);
+                    if (!yy || !mm || !dd) return '';
+                    return `${yy}-${pad2(mm)}-${pad2(dd)}`;
+                };
+
+                // Mongo/Atlas puede venir como { $date: ... } o como objeto Date-like
+                if (typeof v === 'object' && v !== null) {
+                    try {
+                        if (v.$date) return normalizeDateKey(v.$date);
+                        if (v instanceof Date && !isNaN(v)) return fromParts(v.getFullYear(), v.getMonth() + 1, v.getDate());
+                        if (typeof v.getTime === 'function') {
+                            const t = v.getTime();
+                            if (Number.isFinite(t)) {
+                                const d = new Date(t);
+                                if (!isNaN(d)) return fromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                if (v instanceof Date && !isNaN(v)) {
+                    return fromParts(v.getFullYear(), v.getMonth() + 1, v.getDate());
+                }
+                const s = String(v || '').trim();
+                if (!s) return '';
+
+                // Si ya viene como YYYY-MM-DD...
+                const isoLike = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (isoLike) return `${isoLike[1]}-${isoLike[2]}-${isoLike[3]}`;
+
+                // Excel puede venir como número (serial date)
+                const asNum = Number(s);
+                if (!isNaN(asNum) && asNum > 20000 && asNum < 60000) {
+                    // XLSX date serial (approx) -> JS date
+                    const epoch = new Date(1899, 11, 30);
+                    const d = new Date(epoch.getTime() + asNum * 86400000);
+                    if (!isNaN(d)) return fromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                }
+                // Intentar parse directo
+                const d0 = new Date(s);
+                if (!isNaN(d0)) return fromParts(d0.getFullYear(), d0.getMonth() + 1, d0.getDate());
+                // Intentar formatos dd/mm/yyyy o mm/dd/yyyy
+                const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+                if (m) {
+                    const a = Number(m[1]);
+                    const b = Number(m[2]);
+                    let y = Number(m[3]);
+                    if (y < 100) y += 2000;
+                    // Asumir dd/mm/yyyy si a>12
+                    const day = (a > 12) ? a : b;
+                    const mon = (a > 12) ? b : a;
+                    return fromParts(y, mon, day);
+                }
+                return '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function buildCrmPhoneServiceKey(lead) {
+            const phone = (getCrmPhones(lead)[0] || '');
+            const service = normalizeService(lead?.tipo_servicios || lead?.tipo_servicio || lead?.servicios || lead?.servicios_texto || lead?.service || lead?._raw?.tipo_servicios || lead?._raw?.tipo_servicio || lead?._raw?.servicios || lead?._raw?.servicios_texto);
+            return (phone && service) ? `${phone}__${service}` : '';
+        }
+
+        function buildCrmTeamPhoneKey(lead) {
+            try {
+                const team = getCrmTeam(lead);
+                const phone = (getCrmPhones(lead)[0] || '');
+                return (team && phone) ? `${team}__${phone}` : '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function excelPhoneServiceKey(row) {
+            const phone = normalizePhone(guessField(row, [
+                'Teléfono_principal',
+                'Telefono_principal',
+                'Telefono_Alterno',
+                'Teléfono',
+                'Telefono',
+                'telefono',
+                'telefono_principal',
+                'telefono_alterno',
+                'phone',
+                'tel',
+                'celular',
+                'numero'
+            ]));
+            const service = normalizeService(guessField(row, ['Servicios', 'Tipo _de_servicios', 'Tipo_de_servicios', 'tipo_servicio', 'tipo_servicios', 'servicio', 'service', 'producto', 'Tipo _de servicios']));
+            return (phone && service) ? `${phone}__${service}` : '';
+        }
+
+        function buildExcelTeamPhoneKey(row) {
+            try {
+                const team = getExcelTeam(row);
+                const phone = normalizePhone(guessField(row, [
+                    'Teléfono_principal',
+                    'Telefono_principal',
+                    'Telefono_Alterno',
+                    'Teléfono',
+                    'Telefono',
+                    'telefono',
+                    'telefono_principal',
+                    'telefono_alterno',
+                    'phone',
+                    'tel',
+                    'celular',
+                    'numero'
+                ]));
+                return (team && phone) ? `${team}__${phone}` : '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function serviceLooseMatch(a, b) {
+            const na = normalizeService(a);
+            const nb = normalizeService(b);
+            if (!na || !nb) return false;
+            if (na === nb) return true;
+            if (na.includes(nb) || nb.includes(na)) return true;
+
+            const approxTokenEq = (x, y) => {
+                const t1 = String(x || '').trim();
+                const t2 = String(y || '').trim();
+                if (!t1 || !t2) return false;
+                if (t1 === t2) return true;
+                const a1 = t1;
+                const a2 = t2;
+                const l1 = a1.length;
+                const l2 = a2.length;
+                if (Math.abs(l1 - l2) > 1) return false;
+                if (l1 === l2) {
+                    let dif = 0;
+                    for (let i = 0; i < l1; i++) if (a1[i] !== a2[i]) dif++;
+                    return dif <= 1;
+                }
+                const long = l1 > l2 ? a1 : a2;
+                const short = l1 > l2 ? a2 : a1;
+                for (let i = 0; i < long.length; i++) {
+                    const cand = long.slice(0, i) + long.slice(i + 1);
+                    if (cand === short) return true;
+                }
+                return false;
+            };
+
+            const ta = na.split(' ').filter(Boolean);
+            const tb = nb.split(' ').filter(Boolean);
+            let inter = 0;
+            for (const x of ta) {
+                if (tb.some(y => approxTokenEq(x, y))) inter++;
+            }
+
+            if (inter >= 2) return true;
+            if (inter >= 1 && (na.includes('xfinity') && nb.includes('xfinity'))) return true;
+            if (inter >= 1 && (na.includes('att') && nb.includes('att'))) return true;
+            return false;
+        }
+
+        function getCrmTeam(lead) {
+            try {
+                let t = lead?.supervisor || lead?.team || lead?._raw?.supervisor || lead?._raw?.team || lead?.equipo || lead?._raw?.equipo;
+                let name = String(t || '').trim();
+                // Unificar Santana y Johana
+                if (!name) return 'SIN TEAM';
+                const n = name.toLowerCase();
+                if (n.includes('santana') || n.includes('johana')) return 'SANTANA';
+                // Normalizar Pleitez, Roberto, Marisol, Irania
+                if (n.includes('pleitez')) return 'PLEITEZ';
+                if (n.includes('roberto')) return 'ROBERTO';
+                if (n.includes('marisol')) return 'MARISOL';
+                if (n.includes('irania')) return 'IRANIA';
+                return name.toUpperCase();
+            } catch (_) {
+                return 'SIN TEAM';
+            }
+        }
+
+        function getExcelTeam(row) {
+            try {
+                // En Excel, el TEAM se toma exclusivamente desde la columna Supervisor
+                let t = guessField(row, ['Supervisor', 'supervisor']);
+                let name = String(t || '').trim();
+                if (!name) return 'SIN TEAM';
+                const n = name.toLowerCase();
+                if (n.includes('santana') || n.includes('johana')) return 'SANTANA';
+                if (n.includes('pleitez')) return 'PLEITEZ';
+                if (n.includes('roberto')) return 'ROBERTO';
+                if (n.includes('marisol')) return 'MARISOL';
+                if (n.includes('irania')) return 'IRANIA';
+                return name.toUpperCase();
+            } catch (_) {
+                return 'SIN TEAM';
+            }
+        }
+
+        function getKnownTeamsForCuadratura() {
+            try {
+                const set = new Set();
+                // Equipos del semáforo
+                (Array.isArray(equipos) ? equipos : []).forEach(e => {
+                    const n = String(e?.nombre || '').trim();
+                    if (!n) return;
+                    set.add(getExcelTeam({ Supervisor: n }));
+                });
+                // Asegurar equipos especiales
+                set.add('SANTANA');
+                set.add('PLEITEZ');
+                set.add('ROBERTO');
+                set.add('MARISOL');
+                set.add('IRANIA');
+                set.delete('SIN TEAM');
+                return Array.from(set).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
+            } catch (_) {
+                return ['IRANIA', 'MARISOL', 'PLEITEZ', 'ROBERTO', 'SANTANA'];
+            }
+        }
+
+        function renderTeamBreakdown(container, teamsRows) {
+            if (!container) return;
+            const rows = Array.isArray(teamsRows) ? teamsRows : [];
+            if (!rows.length) {
+                container.innerHTML = '<div class="muted">Sin datos</div>';
+                return;
+            }
+
+            const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            const html = `
+                <div style="width:100%; overflow:auto; border:1px solid rgba(17,24,39,.12); border-radius:12px;">
+                    <table style="width:100%; border-collapse:collapse; min-width:720px;">
+                        <thead>
+                            <tr style="background:#f9fafb; color:#111827; text-align:left;">
+                                <th style="padding:10px 12px; font-weight:900; font-size:12px; border-bottom:1px solid rgba(17,24,39,.12);">TEAM</th>
+                                <th style="padding:10px 12px; font-weight:900; font-size:12px; border-bottom:1px solid rgba(17,24,39,.12); text-align:right;">CRM</th>
+                                <th style="padding:10px 12px; font-weight:900; font-size:12px; border-bottom:1px solid rgba(17,24,39,.12); text-align:right;">Coinciden</th>
+                                <th style="padding:10px 12px; font-weight:900; font-size:12px; border-bottom:1px solid rgba(17,24,39,.12); text-align:right;">Faltantes</th>
+                                <th style="padding:10px 12px; font-weight:900; font-size:12px; border-bottom:1px solid rgba(17,24,39,.12); text-align:right;">Duplicadas CRM</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map((r) => `
+                                <tr>
+                                    <td style="padding:10px 12px; border-bottom:1px solid rgba(17,24,39,.08); font-weight:900;">${esc(r.team)}</td>
+                                    <td style="padding:10px 12px; border-bottom:1px solid rgba(17,24,39,.08); text-align:right; font-weight:900;">${Number(r.crmTotal || 0)}</td>
+                                    <td style="padding:10px 12px; border-bottom:1px solid rgba(17,24,39,.08); text-align:right; font-weight:900;">${Number(r.matches || 0)}</td>
+                                    <td style="padding:10px 12px; border-bottom:1px solid rgba(17,24,39,.08); text-align:right; font-weight:900;">${Number(r.missing || 0)}</td>
+                                    <td style="padding:10px 12px; border-bottom:1px solid rgba(17,24,39,.08); text-align:right; font-weight:900;">${Number(r.crmDup || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function normalizeTeamKey(v) {
+            try {
+                return String(v || '')
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[._\-]+/g, ' ')
+                    .replace(/\bteam\b/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            } catch (_) {
+                return '';
+            }
+        }
+
+        function guessField(row, keys) {
+            if (!row || typeof row !== 'object') return '';
+            for (const k of keys) {
+                if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+                const found = Object.keys(row).find(h => normalizeTeamKey(h) === normalizeTeamKey(k));
+                if (found && row[found] !== undefined && row[found] !== null && String(row[found]).trim() !== '') return row[found];
+            }
+            return '';
+        }
+
+        async function parseExcelFile(file) {
+            await loadSheetJS();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const wb = window.XLSX.read(data, { type: 'array' });
+                        const sheetName = wb.SheetNames && wb.SheetNames[0];
+                        const ws = sheetName ? wb.Sheets[sheetName] : null;
+                        if (!ws) return resolve([]);
+                        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+                        resolve(Array.isArray(rows) ? rows : []);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = (e) => reject(e);
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function buildCrmKey(lead) {
+            const phone = (getCrmPhones(lead)[0] || '');
+            const service = normalizeService(lead?.tipo_servicios || lead?.tipo_servicio || lead?.servicios || lead?.servicios_texto || lead?.service || lead?._raw?.tipo_servicios || lead?._raw?.tipo_servicio || lead?._raw?.servicios || lead?._raw?.servicios_texto);
+            const team = getCrmTeam(lead);
+            return phone ? `${team || 'SIN TEAM'}__${phone}__${service || 'noservice'}` : '';
+        }
+
+        function buildExcelKey(row) {
+            // Excel: analizar campos definidos
+            const phone = normalizePhone(guessField(row, ['Teléfono_principal', 'Telefono_principal']));
+            const service = normalizeService(guessField(row, ['Servicios', 'servicios']));
+            const team = getExcelTeam(row);
+            return phone ? `${team || 'SIN TEAM'}__${phone}__${service || 'noservice'}` : '';
+        }
+
+        function rowToDisplay(row, extra) {
+            const name = String(guessField(row, ['Nombre_cliente', 'nombre_cliente', 'Nombre cliente', 'cliente', 'name', 'nombre']) || '').trim();
+            const phone = normalizePhone(guessField(row, [
+                'Teléfono_principal',
+                'Telefono_principal',
+                'Telefono_Alterno',
+                'Teléfono',
+                'Telefono',
+                'telefono',
+                'telefono_principal',
+                'telefono_alterno',
+                'phone',
+                'tel',
+                'celular',
+                'numero'
+            ]));
+            const service = String(guessField(row, ['Servicios', 'servicios', 'Tipo _de_servicios', 'Tipo_de_servicios', 'tipo_servicio', 'tipo_servicios', 'servicio', 'service', 'producto', 'Tipo _de servicios']) || '').trim();
+            const reason = String(extra?.reason || '').trim();
+            const candidateService = String(extra?.candidateService || '').trim();
+            const candidateName = String(extra?.candidateName || '').trim();
+            const candidateStatus = String(extra?.candidateStatus || '').trim();
+            return { name, phone, service, reason, candidateService, candidateName, candidateStatus };
+        }
+
+        function leadToDisplay(lead) {
+            const name = String(lead?.nombre_cliente || lead?.nombre || lead?.name || lead?._raw?.nombre_cliente || lead?._raw?.nombre || lead?._raw?.name || '').trim();
+            const phone = normalizePhone(lead?.telefono_principal || lead?.telefono || lead?.phone || lead?.tel || lead?._raw?.telefono_principal || lead?._raw?.telefono || lead?._raw?.phone);
+            const service = String(lead?.tipo_servicios || lead?.tipo_servicio || lead?.servicios || lead?.servicios_texto || lead?._raw?.tipo_servicios || lead?._raw?.tipo_servicio || lead?._raw?.servicios || lead?._raw?.servicios_texto || '').trim();
+            return { name, phone, service };
+        }
+
+        function getLeadId(lead) {
+            try {
+                const id = lead?._id || lead?.id;
+                const s = String(id || '').trim();
+                return s;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        async function fetchCrmLeadsFromDate(fechaInicioISO) {
+            const qs = [];
+            const fi = String(fechaInicioISO || '').trim();
+            if (fi) qs.push(`fechaInicio=${encodeURIComponent(fi)}`);
+            // hasta hoy
+            try {
+                const today = new Date();
+                if (!isNaN(today)) qs.push(`fechaFin=${encodeURIComponent(today.toISOString().slice(0, 10))}`);
+            } catch (_) {}
+            qs.push('limit=50000');
+            qs.push('noAutoMonth=true');
+            const url = `/api/leads?${qs.join('&')}`;
+            const resp = await fetchWithAuth(url);
+            if (!resp || !resp.ok) {
+                const raw = resp ? await resp.text() : '';
+                throw new Error('No se pudo cargar leads del CRM: ' + (raw || resp?.status));
+            }
+            const json = await resp.json();
+            const list = Array.isArray(json?.data) ? json.data : (Array.isArray(json?.leads) ? json.leads : []);
+            return Array.isArray(list) ? list : [];
+        }
+
+        async function fetchCrmLeadsForMonth(ym) {
+            const qs = [];
+            if (ym) qs.push(`month=${encodeURIComponent(ym)}`);
+            qs.push('limit=50000');
+            const url = `/api/leads?${qs.join('&')}`;
+            const resp = await fetchWithAuth(url);
+            if (!resp || !resp.ok) {
+                const raw = resp ? await resp.text() : '';
+                throw new Error('No se pudo cargar leads del CRM (mes): ' + (raw || resp?.status));
+            }
+            const json = await resp.json();
+            const list = Array.isArray(json?.data) ? json.data : (Array.isArray(json?.leads) ? json.leads : []);
+            return Array.isArray(list) ? list : [];
+        }
+
+        async function fetchCrmLeadsByPhoneAnyMonth(phone) {
+            const p = normalizePhone(phone);
+            if (!p) return [];
+            const qs = [];
+            qs.push(`telefono=${encodeURIComponent(p)}`);
+            qs.push('limit=50');
+            qs.push('noAutoMonth=true');
+            const url = `/api/leads?${qs.join('&')}`;
+            const resp = await fetchWithAuth(url);
+            if (!resp || !resp.ok) return [];
+            const json = await resp.json();
+            const list = Array.isArray(json?.data) ? json.data : (Array.isArray(json?.leads) ? json.leads : []);
+            return Array.isArray(list) ? list : [];
+        }
+
+        function renderCuadraturaRows(container, rows, mode) {
+            if (!container) return;
+            const list = Array.isArray(rows) ? rows : [];
+            if (list.length === 0) {
+                container.innerHTML = '<div class="muted">Sin resultados</div>';
+                return;
+            }
+            container.innerHTML = '';
+            list.slice(0, 500).forEach(item => {
+                const name = String(item?.name || '').trim() || 'Sin nombre';
+                const phone = String(item?.phone || '').trim();
+                const service = String(item?.service || '').trim() || 'Sin servicio';
+                const reason = String(item?.reason || '').trim();
+                const candSvc = String(item?.candidateService || '').trim();
+                const candName = String(item?.candidateName || '').trim();
+                const candStatus = String(item?.candidateStatus || '').trim();
+                const dupCount = Number(item?._count || 0);
+                const row = document.createElement('div');
+                row.className = 'cuadratura-row';
+                row.innerHTML = `
+                    <div>
+                        <div style="font-weight:900; color:#111827;">${name}</div>
+                        <div class="muted">${service}${reason ? ` • ${reason}` : ''}</div>
+                        ${(mode === 'FALTANTE' && (candSvc || candName || candStatus)) ? `<div class="muted" style="font-size:11px;">CRM: ${candSvc || '—'}${candName ? ` • ${candName}` : ''}${candStatus ? ` • ${candStatus}` : ''}</div>` : ''}
+                    </div>
+                    <div style="font-weight:800;">${phone || '—'}</div>
+                    <div class="muted" style="text-align:right;">${mode}${(mode === 'DUP' && dupCount > 1) ? ` x${dupCount}` : ''}</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        async function runCuadratura({ file, teamFilter, includeExcludedStatuses }) {
+            const statusEl = document.getElementById('cuadratura-status');
+            const kExist = document.getElementById('cuadratura-kpi-existentes');
+            const kMiss = document.getElementById('cuadratura-kpi-faltantes');
+            const kDup = document.getElementById('cuadratura-kpi-duplicadas');
+            const kExtra = document.getElementById('cuadratura-kpi-extras');
+            const listMiss = document.getElementById('cuadratura-list-faltantes');
+            const listDup = document.getElementById('cuadratura-list-duplicadas');
+            const listExtra = document.getElementById('cuadratura-list-extras');
+            const teamBox = document.getElementById('cuadratura-team-breakdown');
+            const debugBox = document.getElementById('cuadratura-debug');
+
+            if (statusEl) statusEl.textContent = 'Leyendo Excel…';
+            const rows = await parseExcelFile(file);
+
+            const tf = String(teamFilter || '').trim();
+            const tfNorm = tf ? String(tf).toUpperCase().trim() : '';
+            const isAllTeams = !tfNorm || tfNorm === 'ALL' || tfNorm === 'TODOS' || tfNorm === 'TODOS LOS TEAM';
+
+            // Mes seleccionado en el semáforo para cuadratura mensual
+            const ym = (() => {
+                try {
+                    const y = selectedMonthDate.getFullYear();
+                    const m = String(selectedMonthDate.getMonth() + 1).padStart(2, '0');
+                    return `${y}-${m}`;
+                } catch (_) {
+                    return '';
+                }
+            })();
+
+            const filteredExcel = (Array.isArray(rows) ? rows : []).filter(r => {
+                const key = buildExcelKey(r);
+                if (!key) return false;
+                if (isAllTeams) return true;
+                return getExcelTeam(r) === tfNorm;
+            });
+
+            if (statusEl) statusEl.textContent = 'Cargando CRM…';
+            const crmLeadsRaw = await fetchCrmLeadsForMonth(ym);
+            // Índice auxiliar: teléfono -> leads del mes (incluyendo cancelados) para diagnóstico
+            const crmByPhoneAnyTeamRaw = new Map();
+            try {
+                for (const l of (crmLeadsRaw || [])) {
+                    const phones = getCrmPhones(l);
+                    for (const p of phones) {
+                        const arr = crmByPhoneAnyTeamRaw.get(p) || [];
+                        arr.push(l);
+                        crmByPhoneAnyTeamRaw.set(p, arr);
+                    }
+                }
+            } catch (_) {}
+            const includeExcluded = !!includeExcludedStatuses;
+            const crmLeadsAll = includeExcluded ? (crmLeadsRaw || []) : (crmLeadsRaw || []).filter(l => {
+                const st = String(l?.status || l?._raw?.status || l?.estado || l?._raw?.estado || '').toLowerCase();
+                if (!st) return true;
+                return !(st.includes('cancel') || st.includes('anulad') || st.includes('no instalado'));
+            });
+
+            // Índice auxiliar: teléfono -> leads del mes (post-filtrado por status) para detectar si existe con otro Supervisor
+            const crmByPhoneAnyTeam = new Map();
+            try {
+                for (const l of (crmLeadsAll || [])) {
+                    const phones = getCrmPhones(l);
+                    for (const p of phones) {
+                        const arr = crmByPhoneAnyTeam.get(p) || [];
+                        arr.push(l);
+                        crmByPhoneAnyTeam.set(p, arr);
+                    }
+                }
+            } catch (_) {}
+
+            const crmLeads = isAllTeams ? crmLeadsAll : crmLeadsAll.filter(l => getCrmTeam(l) === tfNorm);
+
+            const crmByKey = new Map();
+            const crmByPhoneService = new Map();
+            const crmByTeamPhone = new Map();
+            const crmTotalByTeam = new Map();
+            for (const lead of crmLeads) {
+                try {
+                    const t = getCrmTeam(lead);
+                    crmTotalByTeam.set(t, (crmTotalByTeam.get(t) || 0) + 1);
+                } catch (_) {}
+
+                try {
+                    const tp = buildCrmTeamPhoneKey(lead);
+                    if (tp) {
+                        const arr0 = crmByTeamPhone.get(tp) || [];
+                        arr0.push(lead);
+                        crmByTeamPhone.set(tp, arr0);
+                    }
+                } catch (_) {}
+
+                const phones = getCrmPhones(lead);
+                const service = normalizeService(lead?.tipo_servicios || lead?.tipo_servicio || lead?.servicios || lead?.servicios_texto || lead?.service || lead?._raw?.tipo_servicios || lead?._raw?.tipo_servicio || lead?._raw?.servicios || lead?._raw?.servicios_texto);
+                const team = getCrmTeam(lead);
+                for (const phone of phones) {
+                    const key = (phone) ? `${team || 'SIN TEAM'}__${phone}__${service || 'noservice'}` : '';
+                    if (key) {
+                        const arr = crmByKey.get(key) || [];
+                        arr.push(lead);
+                        crmByKey.set(key, arr);
+                    }
+
+                    const ps = (phone && service) ? `${phone}__${service}` : '';
+                    if (ps) {
+                        const arr2 = crmByPhoneService.get(ps) || [];
+                        arr2.push(lead);
+                        crmByPhoneService.set(ps, arr2);
+                    }
+
+                    const tp = (team && phone) ? `${team}__${phone}` : '';
+                    if (tp) {
+                        const arr0 = crmByTeamPhone.get(tp) || [];
+                        arr0.push(lead);
+                        crmByTeamPhone.set(tp, arr0);
+                    }
+                }
+            }
+
+            // Diagnóstico (ya con CRM indexado)
+            try {
+                let withPhone = 0;
+                let withName = 0;
+                let withService = 0;
+                let withKey = 0;
+                const sampleCrmKeys = [];
+
+                for (const l of (crmLeads || [])) {
+                    const phone = normalizePhone(l?.telefono_principal || l?.telefono || l?.phone || l?.tel || l?._raw?.telefono_principal || l?._raw?.telefono || l?._raw?.phone);
+                    const nm = normalizeNameLoose(l?.nombre_cliente || l?.nombre || l?.name || l?._raw?.nombre_cliente || l?._raw?.nombre || l?._raw?.name || '');
+                    const svcRaw = (l?.servicios_texto || l?.servicios || l?.tipo_servicios || l?.tipo_servicio || l?._raw?.servicios_texto || l?._raw?.servicios || l?._raw?.tipo_servicios || l?._raw?.tipo_servicio);
+                    const svc = normalizeService(svcRaw);
+                    if (phone) withPhone += 1;
+                    if (nm) withName += 1;
+                    if (svc) withService += 1;
+                    const key = buildCrmKey(l);
+                    if (phone && svc && key && !key.includes('__noservice')) withKey += 1;
+                    if (sampleCrmKeys.length < 3 && key) sampleCrmKeys.push(key);
+                }
+
+                const sampleExcelKeys = [];
+                for (const r of (filteredExcel || [])) {
+                    const k = buildExcelKey(r);
+                    if (!k) continue;
+                    sampleExcelKeys.push(k);
+                    if (sampleExcelKeys.length >= 3) break;
+                }
+
+                const sampleChecks = sampleExcelKeys.map(k => {
+                    const ok = (crmByKey.get(k) && crmByKey.get(k).length) ? 'SI' : 'NO';
+                    return `${k} => ${ok}`;
+                });
+
+                if (debugBox) {
+                    debugBox.innerHTML = `
+                        <div><b>CRM leads:</b> ${Number(crmLeads.length || 0)}</div>
+                        <div><b>CRM con teléfono:</b> ${withPhone}</div>
+                        <div><b>CRM con nombre (detectado):</b> ${withName}</div>
+                        <div><b>CRM con servicio (detectado):</b> ${withService}</div>
+                        <div><b>CRM con llave completa (team+phone+servicio):</b> ${withKey}</div>
+                        <div style="margin-top:6px;"><b>Ejemplos llaves CRM:</b><br>${(sampleCrmKeys.length ? sampleCrmKeys.join('<br>') : '—')}</div>
+                        <div style="margin-top:6px;"><b>Ejemplos llaves Excel (y si existen en CRM):</b><br>${(sampleChecks.length ? sampleChecks.join('<br>') : '—')}</div>
+                    `;
+                }
+            } catch (_) {
+                if (debugBox) debugBox.textContent = '';
+            }
+
+            // Duplicadas: solo si misma llave team+telefono+servicio+nombre se repite
+            const duplicates = [];
+            const crmDupByTeam = new Map();
+            for (const [key, arr] of crmByKey.entries()) {
+                if (Array.isArray(arr) && arr.length > 1) {
+                    const sample = arr[0];
+                    duplicates.push({ ...leadToDisplay(sample), _key: key, _count: arr.length });
+
+                    try {
+                        const t = getCrmTeam(sample);
+                        crmDupByTeam.set(t, (crmDupByTeam.get(t) || 0) + 1);
+                    } catch (_) {}
+                }
+            }
+
+            const existing = [];
+            const missing = [];
+            const extras = [];
+            const matchedCrmLeadIds = new Set();
+            const teamStats = new Map();
+            const ensureTeam = (team) => {
+                const t = String(team || 'SIN TEAM').trim() || 'SIN TEAM';
+                const cur = teamStats.get(t) || { team: t, crmTotal: 0, matches: 0, missing: 0, crmDup: 0 };
+                teamStats.set(t, cur);
+                return cur;
+            };
+            const seenExcelKeys = new Set();
+            for (const row of filteredExcel) {
+                const key = buildExcelKey(row);
+                if (!key) continue;
+                if (seenExcelKeys.has(key)) continue;
+                seenExcelKeys.add(key);
+
+                const excelTeam = getExcelTeam(row);
+                const st = ensureTeam(excelTeam);
+
+                const match = crmByKey.get(key);
+                if (match && match.length) {
+                    try {
+                        for (const l of match) {
+                            const lid = getLeadId(l);
+                            if (lid) matchedCrmLeadIds.add(lid);
+                        }
+                    } catch (_) {}
+                    existing.push(key);
+                    st.matches += 1;
+                    continue;
+                }
+
+                // Fallback: telefono + servicio (sin cuenta) y validar servicio de forma flexible
+                try {
+                    const psKey = excelPhoneServiceKey(row);
+                    const candidates = psKey ? (crmByPhoneService.get(psKey) || []) : [];
+                    if (candidates.length) {
+                        const excelSvc = guessField(row, ['Servicios', 'Tipo _de_servicios', 'Tipo_de_servicios', 'tipo_servicio', 'tipo_servicios', 'servicio', 'service', 'producto']);
+                        const ok = candidates.some(l => {
+                            const crmSvcA = l?.servicios_texto || l?.servicios || l?.tipo_servicios || l?.tipo_servicio || l?._raw?.servicios_texto || l?._raw?.servicios || l?._raw?.tipo_servicios || l?._raw?.tipo_servicio;
+                            return serviceLooseMatch(excelSvc, crmSvcA);
+                        });
+                        if (ok) {
+                            try {
+                                for (const l of candidates) {
+                                    const lid = getLeadId(l);
+                                    if (lid) matchedCrmLeadIds.add(lid);
+                                }
+                            } catch (_) {}
+                            existing.push(key);
+                            st.matches += 1;
+                            continue;
+                        }
+                    }
+                } catch (_) {}
+
+                // Fallback extra (para typos/variantes de servicio): team+telefono y validar servicio loose
+                try {
+                    const tpKey = buildExcelTeamPhoneKey(row);
+                    const candidatesP = tpKey ? (crmByTeamPhone.get(tpKey) || []) : [];
+                    if (candidatesP.length) {
+                        const excelSvc = guessField(row, ['Servicios', 'Tipo _de_servicios', 'Tipo_de_servicios', 'tipo_servicio', 'tipo_servicios', 'servicio', 'service', 'producto']);
+                        const okP = candidatesP.some(l => {
+                            const crmSvcA = l?.servicios_texto || l?.servicios || l?.tipo_servicios || l?.tipo_servicio || l?._raw?.servicios_texto || l?._raw?.servicios || l?._raw?.tipo_servicios || l?._raw?.tipo_servicio;
+                            if (!serviceLooseMatch(excelSvc, crmSvcA)) return false;
+                            return true;
+                        });
+
+                        if (okP) {
+                            try {
+                                for (const l of candidatesP) {
+                                    const lid = getLeadId(l);
+                                    if (lid) matchedCrmLeadIds.add(lid);
+                                }
+                            } catch (_) {}
+                            existing.push(key);
+                            st.matches += 1;
+                            continue;
+                        }
+                    }
+                } catch (_) {}
+
+                // Diagnóstico de faltante: buscar candidatos por TEAM+teléfono y determinar razón probable
+                let reason = '';
+                let candidateService = '';
+                let candidateName = '';
+                let candidateStatus = '';
+                try {
+                    const tpKey = buildExcelTeamPhoneKey(row);
+                    const candidatesP = tpKey ? (crmByTeamPhone.get(tpKey) || []) : [];
+                    if (!candidatesP.length) {
+                        // Revisar si el teléfono existe en CRM con otro Supervisor
+                        const phoneOnly = normalizePhone(guessField(row, ['Teléfono_principal', 'Telefono_principal']));
+                        const any = phoneOnly ? (crmByPhoneAnyTeam.get(phoneOnly) || []) : [];
+                        if (any.length) {
+                            const sampleAny = any[0];
+                            const otherTeam = getCrmTeam(sampleAny);
+                            reason = `Teléfono existe en CRM pero con otro Supervisor (${otherTeam || '—'})`;
+                            candidateService = String(sampleAny?.servicios_texto || sampleAny?.servicios || sampleAny?.tipo_servicios || sampleAny?.tipo_servicio || sampleAny?._raw?.servicios_texto || sampleAny?._raw?.servicios || sampleAny?._raw?.tipo_servicios || sampleAny?._raw?.tipo_servicio || '').trim();
+                            candidateName = String(sampleAny?.nombre_cliente || sampleAny?.nombre || sampleAny?.name || sampleAny?._raw?.nombre_cliente || sampleAny?._raw?.nombre || sampleAny?._raw?.name || '').trim();
+                            candidateStatus = String(sampleAny?.status || sampleAny?._raw?.status || sampleAny?.estado || sampleAny?._raw?.estado || '').trim();
+                        } else {
+                            const anyRaw = phoneOnly ? (crmByPhoneAnyTeamRaw.get(phoneOnly) || []) : [];
+                            if (anyRaw.length) {
+                                const sampleRaw = anyRaw[0];
+                                const otherTeamRaw = getCrmTeam(sampleRaw);
+                                const stRaw = String(sampleRaw?.status || sampleRaw?._raw?.status || sampleRaw?.estado || sampleRaw?._raw?.estado || '').trim();
+                                reason = `Teléfono existe en CRM pero fue excluido por status (Supervisor: ${otherTeamRaw || '—'})`;
+                                candidateService = String(sampleRaw?.servicios_texto || sampleRaw?.servicios || sampleRaw?.tipo_servicios || sampleRaw?.tipo_servicio || sampleRaw?._raw?.servicios_texto || sampleRaw?._raw?.servicios || sampleRaw?._raw?.tipo_servicios || sampleRaw?._raw?.tipo_servicio || '').trim();
+                                candidateName = String(sampleRaw?.nombre_cliente || sampleRaw?.nombre || sampleRaw?.name || sampleRaw?._raw?.nombre_cliente || sampleRaw?._raw?.nombre || sampleRaw?._raw?.name || '').trim();
+                                candidateStatus = stRaw;
+                            } else {
+                                reason = 'No existe teléfono en CRM para ese Supervisor';
+                            }
+                        }
+                    } else {
+                        const excelSvc = guessField(row, ['Servicios', 'Tipo _de_servicios', 'Tipo_de_servicios', 'tipo_servicio', 'tipo_servicios', 'servicio', 'service', 'producto']);
+                        const excelName = normalizeNameLoose(guessField(row, ['Nombre_cliente', 'nombre_cliente', 'Nombre cliente', 'cliente', 'name', 'nombre']) || '');
+                        const svcOk = candidatesP.some(l => {
+                            const crmSvcA = l?.servicios_texto || l?.servicios || l?.tipo_servicios || l?.tipo_servicio || l?._raw?.servicios_texto || l?._raw?.servicios || l?._raw?.tipo_servicios || l?._raw?.tipo_servicio;
+                            return serviceLooseMatch(excelSvc, crmSvcA);
+                        });
+                        const nameOk = candidatesP.some(l => {
+                            const crmName = normalizeNameLoose(l?.nombre_cliente || l?.nombre || l?.name || l?._raw?.nombre_cliente || l?._raw?.nombre || l?._raw?.name || '');
+                            if (!excelName) return true;
+                            if (!crmName) return true;
+                            return (crmName === excelName) || crmName.includes(excelName) || excelName.includes(crmName);
+                        });
+
+                        const sample = candidatesP[0];
+                        candidateService = String(sample?.servicios_texto || sample?.servicios || sample?.tipo_servicios || sample?.tipo_servicio || sample?._raw?.servicios_texto || sample?._raw?.servicios || sample?._raw?.tipo_servicios || sample?._raw?.tipo_servicio || '').trim();
+                        candidateName = String(sample?.nombre_cliente || sample?.nombre || sample?.name || sample?._raw?.nombre_cliente || sample?._raw?.nombre || sample?._raw?.name || '').trim();
+                        candidateStatus = String(sample?.status || sample?._raw?.status || sample?.estado || sample?._raw?.estado || '').trim();
+
+                        if (!svcOk && !nameOk) reason = 'Servicio y nombre no coinciden con CRM';
+                        else if (!svcOk) reason = 'Servicio no coincide con CRM';
+                        else if (!nameOk) reason = 'Nombre no coincide con CRM';
+                        else reason = 'Llave exacta no coincide (revisar normalización)';
+
+                        try {
+                            console.log('[CUADRATURA][FALTANTE]', {
+                                team: getExcelTeam(row),
+                                excelPhone: normalizePhone(guessField(row, ['Teléfono_principal', 'Telefono_principal'])),
+                                excelServicio: String(excelSvc || ''),
+                                excelNombre: String(guessField(row, ['Nombre_cliente', 'nombre_cliente']) || ''),
+                                reason,
+                                sampleCrm: {
+                                    telefono: normalizePhone(sample?.telefono_principal || sample?.telefono || sample?.phone || sample?.tel),
+                                    servicio: candidateService,
+                                    nombre: candidateName,
+                                    supervisor: getCrmTeam(sample)
+                                }
+                            });
+                        } catch (_) {}
+                    }
+                } catch (_) {}
+
+                missing.push(rowToDisplay(row, { reason, candidateService, candidateName, candidateStatus }));
+                st.missing += 1;
+            }
+
+            try {
+                const seenExtraLeads = new Set();
+                for (const l of (crmLeads || [])) {
+                    const lid = getLeadId(l);
+                    if (!lid) continue;
+                    if (matchedCrmLeadIds.has(lid)) continue;
+                    if (seenExtraLeads.has(lid)) continue;
+                    seenExtraLeads.add(lid);
+                    extras.push({ ...leadToDisplay(l), _key: '', _count: 1 });
+                }
+            } catch (_) {}
+
+            // Completar stats con CRM totals y duplicadas
+            try {
+                for (const [t, n] of crmTotalByTeam.entries()) {
+                    ensureTeam(t).crmTotal = n;
+                }
+                for (const [t, n] of crmDupByTeam.entries()) {
+                    ensureTeam(t).crmDup = n;
+                }
+            } catch (_) {}
+
+            try {
+                const teamsRows = Array.from(teamStats.values())
+                    .filter(r => (Number(r.crmTotal || 0) > 0) || (Number(r.matches || 0) > 0) || (Number(r.missing || 0) > 0) || (Number(r.crmDup || 0) > 0))
+                    .sort((a, b) => (Number(b.crmTotal || 0) - Number(a.crmTotal || 0)) || String(a.team).localeCompare(String(b.team)));
+                renderTeamBreakdown(teamBox, teamsRows);
+            } catch (_) {}
+
+            if (kExist) kExist.textContent = String(existing.length);
+            if (kMiss) kMiss.textContent = String(missing.length);
+            if (kDup) kDup.textContent = String(duplicates.length);
+            if (kExtra) kExtra.textContent = String(extras.length);
+            renderCuadraturaRows(listMiss, missing, 'FALTANTE');
+            renderCuadraturaRows(listDup, duplicates, 'DUP');
+            renderCuadraturaRows(listExtra, extras, 'EXTRA');
+
+            // Enriquecer faltantes (solo los que no aparecen en el mes) buscando por teléfono en todo el CRM
+            try {
+                const needsLookup = (missing || []).filter(x => String(x?.reason || '') === 'No existe teléfono en CRM para ese Supervisor');
+                if (needsLookup.length) {
+                    if (statusEl) statusEl.textContent = `Buscando ${needsLookup.length} teléfonos en CRM (sin filtro de mes)…`;
+                    for (const item of needsLookup.slice(0, 20)) {
+                        try {
+                            const found = await fetchCrmLeadsByPhoneAnyMonth(item?.phone);
+                            if (found && found.length) {
+                                const sample = found[0];
+                                const saleDate = getCrmSaleDateKey(sample);
+                                const sup = getCrmTeam(sample);
+                                const st = String(sample?.status || sample?._raw?.status || sample?.estado || sample?._raw?.estado || '').trim();
+                                item.reason = `Teléfono existe en CRM en otro mes (${saleDate || 'sin fecha'}) (Supervisor: ${sup || '—'})`;
+                                item.candidateService = String(sample?.servicios_texto || sample?.servicios || sample?.tipo_servicios || sample?.tipo_servicio || sample?._raw?.servicios_texto || sample?._raw?.servicios || sample?._raw?.tipo_servicios || sample?._raw?.tipo_servicio || '').trim();
+                                item.candidateName = String(sample?.nombre_cliente || sample?.nombre || sample?.name || sample?._raw?.nombre_cliente || sample?._raw?.nombre || sample?._raw?.name || '').trim();
+                                item.candidateStatus = st;
+                            }
+                        } catch (_) {}
+                    }
+                    renderCuadraturaRows(listMiss, missing, 'FALTANTE');
+                }
+            } catch (_) {}
+
+            if (statusEl) statusEl.textContent = `Listo. Team: ${isAllTeams ? 'TODOS' : tfNorm} | Excel: ${filteredExcel.length} filas | CRM mes ${ym}: ${crmLeads.length} leads`;
+        }
+
+        (function initCuadraturaUI() {
+            const btnOpen = document.getElementById('btn-cuadratura-final');
+            const modal = document.getElementById('cuadratura-modal');
+            const btnClose = document.getElementById('btn-cuadratura-close');
+            const teamSel = document.getElementById('cuadratura-team-select');
+            const includeExcluded = document.getElementById('cuadratura-include-excluded');
+            const fileInput = document.getElementById('cuadratura-file');
+            const btnPick = document.getElementById('btn-cuadratura-pick');
+            const btnRun = document.getElementById('btn-cuadratura-run');
+            if (!btnOpen || !modal || !btnClose || !teamSel || !fileInput || !btnPick || !btnRun || !includeExcluded) return;
+
+            const updateButtonsEnabled = () => {
+                const v = String(teamSel.value || '').trim();
+                const hasTeam = !!v;
+                btnPick.disabled = !hasTeam;
+                btnRun.disabled = !hasTeam || !(fileInput.files && fileInput.files[0]);
+            };
+
+            const open = () => {
+                try { modal.hidden = false; } catch (_) {}
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                try {
+                    const statusEl = document.getElementById('cuadratura-status');
+                    const kExist = document.getElementById('cuadratura-kpi-existentes');
+                    const kMiss = document.getElementById('cuadratura-kpi-faltantes');
+                    const kDup = document.getElementById('cuadratura-kpi-duplicadas');
+                    const listMiss = document.getElementById('cuadratura-list-faltantes');
+                    const listDup = document.getElementById('cuadratura-list-duplicadas');
+                    const teamBox = document.getElementById('cuadratura-team-breakdown');
+                    const debugBox = document.getElementById('cuadratura-debug');
+                    if (statusEl) statusEl.textContent = '';
+                    if (kExist) kExist.textContent = '0';
+                    if (kMiss) kMiss.textContent = '0';
+                    if (kDup) kDup.textContent = '0';
+                    if (listMiss) listMiss.innerHTML = '';
+                    if (listDup) listDup.innerHTML = '';
+                    if (teamBox) teamBox.innerHTML = '';
+                    if (debugBox) debugBox.innerHTML = '';
+                } catch (_) {}
+
+                try {
+                    const teams = getKnownTeamsForCuadratura();
+                    teamSel.innerHTML = '';
+                    const opt0 = document.createElement('option');
+                    opt0.value = '';
+                    opt0.textContent = 'Selecciona team…';
+                    teamSel.appendChild(opt0);
+
+                    const optAll = document.createElement('option');
+                    optAll.value = 'ALL';
+                    optAll.textContent = 'Todos los team';
+                    teamSel.appendChild(optAll);
+
+                    teams.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = String(t);
+                        opt.textContent = String(t);
+                        teamSel.appendChild(opt);
+                    });
+                } catch (_) {}
+
+                try { fileInput.value = ''; } catch (_) {}
+                try { includeExcluded.checked = true; } catch (_) {}
+                updateButtonsEnabled();
+            };
+            const close = () => {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                try { modal.hidden = true; } catch (_) {}
+            };
+
+            btnOpen.addEventListener('click', () => {
+                open();
+                try { fileInput.value = ''; } catch (_) {}
+                try { btnRun.disabled = true; } catch (_) {}
+                try { fileInput.click(); } catch (_) {}
+            });
+            btnClose.addEventListener('click', close);
+            modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+            btnPick.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', () => {
+                updateButtonsEnabled();
+            });
+
+            teamSel.addEventListener('change', () => {
+                updateButtonsEnabled();
+            });
+
+            btnRun.addEventListener('click', async () => {
+                if (!(fileInput.files && fileInput.files[0])) return;
+                const file = fileInput.files[0];
+                btnRun.disabled = true;
+                try {
+                    const teamFilter = String(teamSel.value || '').trim();
+                    if (!teamFilter) return;
+                    await runCuadratura({ file, teamFilter, includeExcludedStatuses: !!includeExcluded.checked });
+                } catch (err) {
+                    const statusEl = document.getElementById('cuadratura-status');
+                    if (statusEl) statusEl.textContent = 'Error: ' + (err?.message || err);
+                    console.warn('[CUADRATURA] Error', err);
+                } finally {
+                    updateButtonsEnabled();
+                }
+            });
+        })();
 
         function statusRank(status) {
             if (status === 'green') return 0;
