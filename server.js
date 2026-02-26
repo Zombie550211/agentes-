@@ -5918,11 +5918,56 @@ app.post('/api/leads', protect, async (req, res) => {
       console.log('[POST /api/leads] Sin asignación explícita, usando usuario actual:', finalAgentName);
     }
 
+    // ===== Ventas en reserva =====
+    // Regla: si el usuario ingresa dia_venta anterior a HOY (en TZ negocio),
+    // se guarda pero NO debe contar como venta. Se marca con status "Ventas en reserva".
+    const BUSINESS_TIMEZONE = 'America/Mexico_City';
+    const toBusinessISO = (value) => {
+      try {
+        if (!value) return '';
+        if (typeof value === 'string') {
+          const s = value.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+            const [dd, mm, yyyy] = s.split('/').map(n => parseInt(n, 10));
+            if (yyyy && mm && dd) return `${String(yyyy).padStart(4,'0')}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+          }
+        }
+        const d = value instanceof Date ? value : new Date(value);
+        if (isNaN(d)) return '';
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: BUSINESS_TIMEZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(d);
+      } catch (_) {
+        return '';
+      }
+    };
+
+    const getDiaVentaRaw = (obj) => {
+      try {
+        if (!obj) return null;
+        return obj.dia_venta || obj.diaVenta || obj.dia || obj.fecha || obj.fecha_lead || obj?._raw?.dia_venta || obj?._raw?.diaVenta || null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const todayISO = toBusinessISO(new Date());
+    const diaVentaISO = toBusinessISO(getDiaVentaRaw(leadData));
+    const shouldGoToReserva = !!(diaVentaISO && todayISO && diaVentaISO < todayISO);
+    const statusToStore = shouldGoToReserva ? 'Ventas en reserva' : (leadData.status || 'PENDING');
+    if (shouldGoToReserva) {
+      console.log('[POST /api/leads] Venta con dia_venta pasado detectada. Marcando como Ventas en reserva.', { diaVentaISO, todayISO });
+    }
+
     // Crear nuevo lead con formato consistente
     const newLead = {
       ...leadData,
       fecha_creacion: new Date(),
-      status: leadData.status || 'PENDING',
+      status: statusToStore,
       creadoEn: new Date(),
       actualizadoEn: new Date(),
       // Agregar campos adicionales con valores por defecto
@@ -5934,6 +5979,7 @@ app.post('/api/leads', protect, async (req, res) => {
       agente: finalAgentName,
       agenteNombre: finalAgentName,
       agenteId: finalAgentId || req.user?.id,
+      team: (targetUser && targetUser.team) ? targetUser.team : (req.user?.team || leadData.team || ''),
       // Si fue asignado por un supervisor, guardar esa información
       asignadoPor: assignedByName || undefined,
       createdBy: req.user?.username, // Quien creó el registro

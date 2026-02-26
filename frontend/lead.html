@@ -1332,6 +1332,7 @@
                 <div class="form-group" data-field="dia_venta">
                   <label for="dia-venta">DÍA DE VENTA</label>
                   <input type="date" id="dia-venta" name="dia_venta" class="form-control" required>
+                  <div id="dia-venta-warning" style="display:none;margin-top:8px;padding:10px 12px;border-radius:8px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-weight:600;"></div>
                 </div>
                 
                 <!-- Día de instalación -->
@@ -2205,8 +2206,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Obtener YYYY-MM-DD en la zona del negocio
         const isoDay = toISOInTZ(fecha, BUSINESS_TZ_OFFSET_MIN);
         // Representar este día a las 12:00 UTC para consistencia
-        const [yy, mm, dd] = isoDay.split('-').map(Number);
-        const dateObj = new Date(Date.UTC(yy, mm - 1, dd, 12, 0, 0));
+        const [ey, em, ed] = isoDay.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(ey, em - 1, ed, 12, 0, 0));
         return { dateObj, isoDay };
       } catch (error) {
         console.error('Error al normalizar fecha (UTC-6):', fechaInput, error);
