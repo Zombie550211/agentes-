@@ -258,7 +258,7 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
         isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
         isAttType: { $regexMatch: { input: "$_tipoServicioKey", regex: /ATT/ } },
         isFrontierType: { $regexMatch: { input: "$_tipoServicioKey", regex: /FRONTIER/ } },
-        isCompleted: { $regexMatch: { input: "$_statusStr", regex: /COMPLET/ } },
+        isCompleted: { $regexMatch: { input: "$_statusStr", regex: /COMPLET|ACTIVE/ } },
         isActiveOficina: { $regexMatch: { input: "$_statusStr", regex: /ACTIVE\s*OFICINA/ } },
         puntajeEfectivo: {
           $cond: [
@@ -266,7 +266,7 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
             0,
             {
               $cond: [
-                pointsCompletedOnly ? { $regexMatch: { input: { $toUpper: "$_statusStr" }, regex: /COMPLET/ } } : true,
+                pointsCompletedOnly ? { $regexMatch: { input: { $toUpper: "$_statusStr" }, regex: /COMPLET|ACTIVE/ } } : true,
                 {
                   $let: {
                     vars: { p: { $toDouble: { $ifNull: ["$_puntajeRaw", 0] } } },
