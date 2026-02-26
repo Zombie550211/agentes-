@@ -2991,12 +2991,12 @@
                   const boolActive = (ld.activated === true || ld.sold === true || ld.isActive === true || ld.vendido === true);
                   const numericActive = (String(ld.activated || ld.sold || ld.isActive || ld.vendido || '').trim() === '1');
                   // Consider as active primarily when status indicates 'completed' (or Spanish variants), or boolean flags are set
-                  const isActive = boolActive || numericActive || /completed|completad|finaliz|vendid|vendido/i.test(rawStatus) || ['completed','complete','done','finalizado','completado','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
+                  const isActive = boolActive || numericActive || /completed|completad|finaliz|vendid|vendido|active|activ[oa]/i.test(rawStatus) || ['completed','complete','done','finalizado','completado','active','activo','activa','activada','activado','vendido','ok','cerrada','cerrado','v'].includes(statusNorm);
                   if (!map[teamName]) map[teamName] = { name: teamName, ICON: 0, ACTIVAS: 0, Total: 0 };
                   map[teamName].Total += 1;
                   // count verified "activas" separately from market ICON counts
                   if (isActive) map[teamName].ACTIVAS += 1;
-                } catch(_){}
+                } catch(_){ }
               });
 
               teamData = Object.keys(map).map(k => ({ name: map[k].name, ICON: Number(map[k].ICON||0), ACTIVAS: Number(map[k].ACTIVAS||0), Total: Number(map[k].Total||0) }));

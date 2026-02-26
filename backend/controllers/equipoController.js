@@ -266,6 +266,8 @@ async function obtenerEstadisticasEquipos(req, res) {
           { $or: [ 
             { $eq: ['$statusNorm', 'completed'] },
             { $eq: ['$statusNorm', 'completado'] },
+            { $eq: ['$statusNorm', 'active'] },
+            { $eq: ['$statusNorm', 'activo'] },
             { $eq: ['$statusNorm', 'finalizado'] },
             { $eq: ['$statusNorm', 'vendido'] },
             { $eq: ['$activated', true] }, 

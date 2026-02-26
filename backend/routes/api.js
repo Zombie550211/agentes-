@@ -2798,7 +2798,10 @@ router.get('/estadisticas/leads-dashboard', protect, async (req, res) => {
           const agentData = await col.find({}).toArray();
           return {
             total: agentData.length,
-            activas: agentData.filter(d => d.status?.toLowerCase().includes('complet')).length
+            activas: agentData.filter(d => {
+              const st = String(d?.status || '').toLowerCase();
+              return st.includes('complet') || st.includes('active') || st.includes('activ');
+            }).length
           };
         });
 
@@ -7126,7 +7129,7 @@ router.get('/comisiones/agentes-lineas', protect, async (req, res) => {
         for (const reg of registros) {
           const status = String(reg.status || '').toLowerCase();
           const isCancelled = status.includes('cancel') || status.includes('anulad');
-          const isCompleted = status.includes('completed') || status.includes('complet');
+          const isCompleted = status.includes('completed') || status.includes('complet') || status.includes('active') || status.includes('activ');
           const isPending = status.includes('pending') || status.includes('pendiente');
 
           if (isCancelled) {
