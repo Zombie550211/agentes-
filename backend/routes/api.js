@@ -6270,7 +6270,7 @@ router.get('/comisiones/agents', protect, async (req, res) => {
                 $match: {
                   _agentName: { $ne: null },
                   _date: { $ne: null },
-                  $expr: { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete)/ } }
+                  $expr: { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete|active|activo|activa)/ } }
                 }
               },
               { $count: 'count' }
@@ -6282,7 +6282,7 @@ router.get('/comisiones/agents', protect, async (req, res) => {
                   _date: { $ne: null },
                   $expr: {
                     $and: [
-                      { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete)/ } },
+                      { $regexMatch: { input: '$_statusLower', regex: /(completed|completado|complete|active|activo|activa)/ } },
                       { $gte: [{ $dateToString: { format: '%Y-%m-%d', date: '$_date' } }, startDate] },
                       { $lte: [{ $dateToString: { format: '%Y-%m-%d', date: '$_date' } }, endDate] }
                     ]
@@ -6329,7 +6329,7 @@ router.get('/comisiones/agents', protect, async (req, res) => {
           _date: { $ne: null },
           $expr: {
             $and: [
-              { $regexMatch: { input: "$_statusLower", regex: /(completed|completado|complete)/ } },
+              { $regexMatch: { input: "$_statusLower", regex: /(completed|completado|complete|active|activo|activa)/ } },
               { $gte: [{ $dateToString: { format: '%Y-%m-%d', date: "$_date" } }, startDate] },
               { $lte: [{ $dateToString: { format: '%Y-%m-%d', date: "$_date" } }, endDate] }
             ]
@@ -6622,10 +6622,10 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
           }
         ]
       };
-      // Siempre permitir match por nombre como fallback (hay registros con agentId válido pero mal asignado).
-      // Esto es clave para que KPIs como PENDING cuadren con la tabla filtrada por agente.
+      // Evitar contaminar por coincidencia flexible de nombre cuando el documento YA tiene un agentId usable.
+      // Solo usar match por nombre como fallback si el doc no trae agentId usable.
       const baseQuery = baseQueryById
-        ? { $or: [ baseQueryById, baseQueryByName ] }
+        ? { $or: [ baseQueryById, { $and: [ noUsableAgentIdInDoc, baseQueryByName ] } ] }
         : baseQueryByName;
       
       const dateQuery = {
@@ -6715,7 +6715,16 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     ventasValidas: {
                       $sum: {
                         $cond: [
-                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                          {
+                            $or: [
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVE'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVA'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADA'] }, -1] }
+                            ]
+                          },
                           1,
                           0
                         ]
@@ -6730,7 +6739,12 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                               { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADA'] }, -1] },
                               { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETADO'] }, -1] },
                               { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADA'] }, -1] },
-                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADO'] }, -1] }
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'TERMINADO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVE'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVA'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADA'] }, -1] }
                             ]
                           },
                           1,
@@ -6759,7 +6773,16 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                     puntosValidos: {
                       $sum: {
                         $cond: [
-                          { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                          {
+                            $or: [
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'COMPLETED'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVE'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVA'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADO'] }, -1] },
+                              { $ne: [{ $indexOfCP: ['$__statusUpper', 'ACTIVADA'] }, -1] }
+                            ]
+                          },
                           { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
                           0
                         ]
@@ -6789,7 +6812,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
                 }
               ],
               cancelled: [
-                { $match: { status: { $regex: 'completed', $options: 'i' } } },
+                { $match: { status: { $regex: 'completed|active|activo|activa', $options: 'i' } } },
                 { $limit: 5 }
               ]
             }
