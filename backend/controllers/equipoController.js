@@ -406,6 +406,7 @@ async function obtenerEstadisticasEquipos(req, res) {
     
     let equiposData = [];
     let usedCollections = [];
+    let usedCollection = null;
     const mergeMap = new Map();
     
     for (const colName of costumersCollections) {
@@ -413,6 +414,7 @@ async function obtenerEstadisticasEquipos(req, res) {
         const arr = await db.collection(colName).aggregate(pipeline).toArray();
         if (Array.isArray(arr) && arr.length > 0) {
           usedCollections.push(colName);
+          if (!usedCollection) usedCollection = colName;
           console.log(`[EQUIPOS DEBUG] Colección "${colName}" devolvió ${arr.length} equipos:`, JSON.stringify(arr));
           for (const r of arr) {
             const key = String(r.TEAM || '').toUpperCase();
@@ -433,6 +435,11 @@ async function obtenerEstadisticasEquipos(req, res) {
     }
     equiposData = Array.from(mergeMap.values()).sort((a,b)=>a.TEAM.localeCompare(b.TEAM));
     console.log('[EQUIPOS] Used collections:', usedCollections.length ? usedCollections : 'none (no matches)');
+
+    // Si por alguna razón no quedó populated (ej. 0 matches), dejarlo como string útil para debug
+    if (!usedCollection) {
+      usedCollection = usedCollections.length ? usedCollections[0] : (costumersCollections[0] || null);
+    }
 
     // Fallback por string exacto si no hubo matches
     let total = equiposData.reduce((acc, r) => acc + (r?.Total || 0), 0);
@@ -822,7 +829,52 @@ async function obtenerEstadisticasEquipos(req, res) {
                 const dateRaw = {
                   $ifNull: [
                     '$dia_venta',
-                    { $ifNull: [ '$fecha_contratacion', { $ifNull: [ '$createdAt', { $ifNull: [ '$creadoEn', '$fecha' ] } ] } ] }
+                    { $ifNull: [
+                      '$_raw.dia_venta',
+                      { $ifNull: [
+                        '$fecha_contratacion',
+                        { $ifNull: [
+                          '$_raw.fecha_contratacion',
+                          { $ifNull: [
+                            '$diaVenta',
+                            { $ifNull: [
+                              '$_raw.diaVenta',
+                              { $ifNull: [
+                                '$fechaVenta',
+                                { $ifNull: [
+                                  '$_raw.fechaVenta',
+                                  { $ifNull: [
+                                    '$fecha_venta',
+                                    { $ifNull: [
+                                      '$_raw.fecha_venta',
+                                      { $ifNull: [
+                                        '$createdAt',
+                                        { $ifNull: [
+                                          '$_raw.createdAt',
+                                          { $ifNull: [
+                                            '$created_at',
+                                            { $ifNull: [
+                                              '$_raw.created_at',
+                                              { $ifNull: [
+                                                '$creadoEn',
+                                                { $ifNull: [
+                                                  '$_raw.creadoEn',
+                                                  { $ifNull: [ '$fecha', '$_raw.fecha' ] }
+                                                ] }
+                                              ] }
+                                            ] }
+                                          ] }
+                                        ] }
+                                      ] }
+                                    ] }
+                                  ] }
+                                ] }
+                              ] }
+                            ] }
+                          ] }
+                        ] }
+                      ] }
+                    ] }
                   ]
                 };
 
@@ -891,7 +943,7 @@ async function obtenerEstadisticasEquipos(req, res) {
                     $match: {
                       $expr: {
                         $or: [
-                          { $regexMatch: { input: '$__statusStr', regex: /COMPLET|FINALIZ|VENDID/ } },
+                          { $regexMatch: { input: '$__statusStr', regex: /COMPLET|FINALIZ|VENDID|ACTIV/ } },
                           { $eq: [ '$activated', true ] },
                           { $eq: [ '$sold', true ] },
                           { $eq: [ '$vendido', true ] }
@@ -921,25 +973,56 @@ async function obtenerEstadisticasEquipos(req, res) {
                   sDate = first;
                   eDate = last;
                 }
-                return { sDate, eDate };
+                // __countWithDateRange usa $lt (fin exclusivo). Asegurar que el fin incluya el día completo.
+                // Si eDate viene como 00:00 del día, sumar 1 día para que el rango cubra ese día.
+                let eDateExclusive = eDate;
+                try {
+                  if (eDateExclusive instanceof Date && !isNaN(eDateExclusive)) {
+                    eDateExclusive = new Date(eDateExclusive.getTime() + 24 * 60 * 60 * 1000);
+                  }
+                } catch (_) {}
+                return { sDate, eDate: eDateExclusive };
               })();
 
               const __lineasDebug = [];
 
               for (const agent of agents) {
                 try {
-                  const colName = __normName(agent.username);
-                  const col = dbTL.collection(colName);
+                  const candidateNames = Array.from(new Set([
+                    __normName(agent.username),
+                    __normName(agent.name),
+                    __normName(agent.nombre),
+                    __normName(agent.fullName)
+                  ].filter(Boolean)));
 
-                  const count = await __countWithDateRange(col, __range.sDate, __range.eDate, false);
-                  const activasCount = await __countWithDateRange(col, __range.sDate, __range.eDate, true);
+                  let usedColName = candidateNames[0] || '';
+                  let count = 0;
+                  let activasCount = 0;
+                  for (const cand of candidateNames) {
+                    try {
+                      const col = dbTL.collection(cand);
+                      const c1 = await __countWithDateRange(col, __range.sDate, __range.eDate, false);
+                      const c2 = await __countWithDateRange(col, __range.sDate, __range.eDate, true);
+                      // Si esta colección tiene datos, quedarnos con ella
+                      if ((c1 || 0) > 0 || (c2 || 0) > 0) {
+                        usedColName = cand;
+                        count = c1;
+                        activasCount = c2;
+                        break;
+                      }
+                      // Mantener el último intento (por si todas dan 0)
+                      usedColName = cand;
+                      count = c1;
+                      activasCount = c2;
+                    } catch (_) {}
+                  }
                   totalVentas += count;
                   ventasActivas += activasCount;
 
                   if (isDebug) {
                     __lineasDebug.push({
                       agent: agent.username,
-                      collection: colName,
+                      collection: usedColName,
                       total: count,
                       activas: activasCount
                     });

@@ -2508,7 +2508,6 @@
             <select id="statusFilter">
               <option value="all">Todos</option>
               <option value="completed">Completed / Active</option>
-              <option value="active">Active</option>
               <option value="active_oficina">Active Oficina</option>
               <option value="pending">Pending</option>
               <option value="reserva">Ventas en reserva</option>
@@ -6254,7 +6253,7 @@
 
     // Helper: normalizar status hacia las 5 opciones y devolver etiqueta capitalizada
     function normalizeStatusLabel(s) {
-      const allowed = ['pending','hold','cancelled','rescheduled','completed','active'];
+      const allowed = ['pending','hold','cancelled','rescheduled','completed'];
       const v = (s || '').toString().trim();
       const lower = v.toLowerCase();
       // Caso especial: Active Oficina (debe mantenerse como etiqueta separada)
@@ -6270,6 +6269,8 @@
           (v.toLowerCase().includes('reprogram') || v.toLowerCase().includes('reagend') || v.toLowerCase().includes('resched') ? 'rescheduled' : null) ||
           (v.toLowerCase().includes('compl') || v.toLowerCase().includes('termin') ? 'completed' : null) ||
           'pending';
+      // No mostrar "Active" como estado separado: se trata igual que Completed
+      if (pick === 'active') return 'Completed';
       return pick.charAt(0).toUpperCase() + pick.slice(1);
     }
 
@@ -6840,13 +6841,11 @@
           <td class="status-col">
             ${editable ? `
               <select class="status-select compact" data-prev="${statusLabel}" onchange="updateLeadStatus(this, '${__id}')">
-                ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active','Active Oficina'].map(opt => `
+                ${['Pending','Hold','Cancelled','Rescheduled','Completed','Active Oficina'].map(opt => `
                   <option value="${opt.toLowerCase()}" ${opt===statusLabel?'selected':''}>${opt}</option>
                 `).join('')}
               </select>
-            ` : `
-              <span class="badge ${statusClass}">${statusLabel}</span>
-            `}
+            ` : `<span class="status-badge ${statusBadge}">${statusLabel}</span>`}
           </td>
           <td>${lead.servicios_texto || lead.servicios || 'N/A'}</td>
           <td>${lead.mercado || 'N/A'}</td>

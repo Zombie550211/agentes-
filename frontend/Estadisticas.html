@@ -1107,12 +1107,11 @@
           // Detener aquí para no seguir procesando con datos vacíos
           return;
         }
-        // Separar TEAM LINEAS a tabla aparte y mantener principal sin LINEA(S)
-        const lineasData = Array.isArray(data.lineas) ? data.lineas.map(r => ({
-          name: r.name || r.TEAM || 'SIN NOMBRE',
-          ICON: parseFloat(r.ICON || 0)
-        })) : [];
-        const lineasTotalICON = typeof data.lineasTotalICON === 'number' ? data.lineasTotalICON : lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
+        // TEAM LINEAS (clientes/líneas) desde TEAM_LINEAS (mismo filtro que ESTADISTICAS-LINEAS, incluye colchón)
+        const lineasTeamAll = await __fetchLineasTeamAll();
+        const lineasData = __buildTeamLineasSummaryFromItemsWithColchon(lineasTeamAll, fechaInicio, fechaFin);
+        const lineasTotalCLIENTES = lineasData.reduce((acc, r) => acc + (r.CLIENTES || 0), 0);
+        const lineasTotalLINEAS = lineasData.reduce((acc, r) => acc + (r.LINEAS || 0), 0);
         const excludeNames = new Set(['TEAM LINEA','TEAM LINEAS']);
         let fallbackTeamData = teamData.filter(t => !excludeNames.has((t.name || '').toUpperCase()));
           // Nota: la verificación de "activas" era realizada en el cliente (consultando /api/leads).
@@ -1385,26 +1384,36 @@
                     </div>
                     <div class="conv-right">
                       <div class="mini-card">
-                        <table class="mini-table">
-                          <thead>
-                            <tr>
-                              <th>TEAM LINEAS</th>
-                              <th>ICON</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${lineasData.map(r => `
-                              <tr>
-                                <td>${r.name}</td>
-                                <td>${r.ICON || 0}</td>
-                              </tr>
-                            `).join('')}
-                            <tr class="total">
-                              <td>TOTAL</td>
-                              <td class="total-icon">${lineasTotalICON}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                        <div style="padding:8px 10px;">
+                          <div style="font-weight:800; text-transform:uppercase; font-size:0.85rem; color:#1f3b63; text-align:center; margin-bottom:6px;">TEAM LINEAS</div>
+                          <div style="display:grid; grid-template-columns: minmax(0, 110px) 64px 64px; gap:6px; font-weight:800; font-size:0.78rem;">
+                            <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">SUPERVISOR</div>
+                            <div style="text-align:center;">CLIENTES</div>
+                            <div style="text-align:center;">LÍNEAS</div>
+                          </div>
+                          <div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">
+                            ${(lineasData || []).map(r => {
+                              const clientes = (r && r.CLIENTES !== undefined) ? (r.CLIENTES || 0) : (r.ICON || 0);
+                              const lineas = (r && r.LINEAS !== undefined) ? (r.LINEAS || 0) : 0;
+                              return `
+                              <div style="display:grid; grid-template-columns: minmax(0, 110px) 64px 64px; gap:6px; align-items:center; border:1px solid #dee2e6; border-radius:8px; padding:6px 8px; background:#fff;">
+                                <div style="text-align:left; font-weight:700; font-size:0.85rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.displayName || r.name}</div>
+                                <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${clientes}</div>
+                                <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${lineas}</div>
+                              </div>`;
+                            }).join('')}
+                            ${(() => {
+                              const totalClientes = (typeof lineasTotalCLIENTES === 'number') ? lineasTotalCLIENTES : (typeof lineasTotalICON === 'number' ? lineasTotalICON : 0);
+                              const totalLineas = (typeof lineasTotalLINEAS === 'number') ? lineasTotalLINEAS : 0;
+                              return `
+                              <div style="display:grid; grid-template-columns: minmax(0, 110px) 64px 64px; gap:6px; align-items:center; border-radius:8px; padding:8px; background:#0b5ed7; color:#fff; font-weight:900;">
+                                <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TOTAL</div>
+                                <div style="display:flex; align-items:center; justify-content:center;">${totalClientes}</div>
+                                <div style="display:flex; align-items:center; justify-content:center;">${totalLineas}</div>
+                              </div>`;
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1519,6 +1528,9 @@
         console.log('Usando datos de prueba para la tabla de conversiÃ³n...');
         
         // Datos de prueba cuando falla la API
+        const lineasData = [];
+        const lineasTotalCLIENTES = 0;
+        const lineasTotalLINEAS = 0;
         const hoy = new Date();
         const fecha = hoy.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
         const fallbackTeamData = [
@@ -1577,26 +1589,28 @@
               ${true ? `
               <div class="conv-right">
                 <div class="mini-card">
-                  <table class="mini-table">
-                    <thead>
-                      <tr>
-                        <th>TEAM LINEAS</th>
-                        <th>ICON</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${lineasData.map(r => `
-                        <tr>
-                          <td>${r.name}</td>
-                          <td>${r.ICON || 0}</td>
-                        </tr>
+                  <div style="padding:8px 10px;">
+                    <div style="font-weight:800; text-transform:uppercase; font-size:0.85rem; color:#1f3b63; text-align:center; margin-bottom:6px;">TEAM LINEAS</div>
+                    <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; font-weight:800; font-size:0.78rem;">
+                      <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">SUPERVISOR</div>
+                      <div style="text-align:center;">CLIENTES</div>
+                      <div style="text-align:center;">LÍNEAS</div>
+                    </div>
+                    <div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">
+                      ${(lineasData || []).map(r => `
+                        <div style="display:grid; grid-template-columns: minmax(0, 110px) 64px 64px; gap:6px; align-items:center; border:1px solid #dee2e6; border-radius:8px; padding:6px 8px; background:#fff;">
+                          <div style="text-align:left; font-weight:700; font-size:0.85rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.displayName || r.name}</div>
+                          <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${r.CLIENTES || 0}</div>
+                          <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${r.LINEAS || 0}</div>
+                        </div>
                       `).join('')}
-                      <tr class="total">
-                        <td>TOTAL</td>
-                        <td class="total-icon">${lineasTotalICON}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      <div style="display:grid; grid-template-columns: minmax(0, 110px) 64px 64px; gap:6px; align-items:center; border-radius:8px; padding:8px; background:#0b5ed7; color:#fff; font-weight:900;">
+                        <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TOTAL</div>
+                        <div style="display:flex; align-items:center; justify-content:center;">${lineasTotalCLIENTES}</div>
+                        <div style="display:flex; align-items:center; justify-content:center;">${lineasTotalLINEAS}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               ` : ''}
@@ -1709,6 +1723,204 @@
       }
       
       return response;
+    }
+
+    async function __fetchLineasTeamAll() {
+      try {
+        const resp = await fetchWithAuth('/api/lineas-team');
+        if (!resp || !resp.ok) return [];
+        const json = await resp.json();
+        return Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function __lineasGetByPath(obj, path) {
+      try { return path.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj); } catch (_) { return undefined; }
+    }
+
+    function __lineasFindFirst(obj, paths) {
+      for (const p of (paths || [])) {
+        const v = __lineasGetByPath(obj, p);
+        if (v !== undefined && v !== null && v !== '') return v;
+      }
+      return undefined;
+    }
+
+    function __lineasParseDateAny(val) {
+      try {
+        if (!val && val !== 0) return null;
+        if (val instanceof Date) return isNaN(val) ? null : val;
+        if (typeof val === 'number') {
+          const d = new Date(val < 1e12 ? val * 1000 : val);
+          return isNaN(d) ? null : d;
+        }
+        const s = String(val).trim();
+        if (!s) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          const [yy, mm, dd] = s.split('-').map(Number);
+          return new Date(yy, mm - 1, dd, 12, 0, 0);
+        }
+        if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) {
+          const [dd, mm, yy] = s.split(/[\/\-]/).map(Number);
+          return new Date(yy, mm - 1, dd, 12, 0, 0);
+        }
+        const d = new Date(s);
+        return isNaN(d) ? null : d;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function __lineasYMD(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function __lineasInRange(d, startYMD, endYMD) {
+      try {
+        if (!d) return false;
+        const cur = __lineasYMD(d);
+        return cur >= startYMD && cur <= endYMD;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function __buildTeamLineasSummaryFromItems(items, startYMD, endYMD) {
+      const bySup = new Map();
+      const displaySupervisor = (supNorm) => {
+        const s = String(supNorm || '').trim().toUpperCase();
+        if (!s) return '';
+        if (s.includes('JONATHAN')) return 'JONATHAN';
+        if (s.includes('LUIS')) return 'LUIS';
+        return s.split(' ')[0] || s;
+      };
+      const datePaths = ['dia_venta','diaVenta','fecha_venta','fechaVenta','fecha','createdAt','creadoEn','_raw.dia_venta','_raw.diaVenta','_raw.fecha_venta','_raw.fechaVenta','_raw.fecha'];
+      const supPaths = ['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team'];
+      for (const it of (items || [])) {
+        const supRaw = __lineasFindFirst(it, supPaths);
+        const sup = String(supRaw || '').trim().toUpperCase();
+        if (!sup) continue;
+        const dVal = __lineasFindFirst(it, datePaths);
+        const dt = __lineasParseDateAny(dVal);
+        if (!__lineasInRange(dt, startYMD, endYMD)) continue;
+        const clientes = 1;
+        const lineas = Number(it?.cantidad_lineas || it?.cantidadLineas || 1) || 1;
+        const cur = bySup.get(sup) || { name: sup, displayName: displaySupervisor(sup), CLIENTES: 0, LINEAS: 0 };
+        cur.CLIENTES += clientes;
+        cur.LINEAS += lineas;
+        bySup.set(sup, cur);
+      }
+      return Array.from(bySup.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    }
+
+    function __buildTeamLineasSummaryFromItemsWithColchon(items, monthStartYMD, monthEndYMD) {
+      // Replica la lógica de ESTADISTICAS-LINEAS (colchón):
+      // - Venta del mes actual (dia_venta en rango)
+      // - O venta del mes anterior + instalación en mes actual
+      const [yy, mm] = String(monthStartYMD || '').split('-').map(Number);
+      if (!yy || !mm) return [];
+      const prev = new Date(yy, mm - 2, 1, 12, 0, 0);
+      const prevYear = prev.getFullYear();
+      const prevMonth = prev.getMonth() + 1;
+      const prevDays = new Date(prevYear, prevMonth, 0).getDate();
+      const prevStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+      const prevEnd = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
+
+      const normalizeYMD = (s) => {
+        let v = String(s || '').trim();
+        if (!v) return '';
+        if (v.includes('/')) {
+          const parts = v.split('/');
+          if (parts.length === 3) {
+            v = `${parts[2]}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
+          }
+        }
+        return v;
+      };
+      const normalizeSupervisor = (sup) => {
+        const s = String(sup || '').trim().toUpperCase();
+        if (!s) return '';
+        if (s.includes('JONATHAN')) return 'JONATHAN F';
+        if (s.includes('LUIS')) return 'LUIS G';
+        return s;
+      };
+      const displaySupervisor = (supNorm) => {
+        if (supNorm === 'JONATHAN F') return 'JONATHAN';
+        if (supNorm === 'LUIS G') return 'LUIS';
+        return String(supNorm || '').split(' ')[0] || String(supNorm || '');
+      };
+
+      const bySup = new Map();
+      for (const it of (items || [])) {
+        const dv = normalizeYMD(it?.dia_venta || it?.diaVenta || it?._raw?.dia_venta || it?._raw?.diaVenta || it?.fecha_venta || it?.fechaVenta || it?._raw?.fecha_venta || it?._raw?.fechaVenta || '');
+        const di = normalizeYMD(it?.dia_instalacion || it?.diaInstalacion || it?._raw?.dia_instalacion || it?._raw?.diaInstalacion || it?.fecha_instalacion || it?.fechaInstalacion || it?._raw?.fecha_instalacion || it?._raw?.fechaInstalacion || '');
+
+        // Igual que ESTADISTICAS-LINEAS: si no tiene dia_venta, excluir
+        if (!dv) continue;
+
+        const ventaMesActual = dv >= monthStartYMD && dv <= monthEndYMD;
+        const ventaMesAnterior = dv >= prevStart && dv <= prevEnd;
+        const instalacionMesActual = !!(di && di >= monthStartYMD && di <= monthEndYMD);
+        const esColchon = ventaMesAnterior && instalacionMesActual;
+        if (!(ventaMesActual || esColchon)) continue;
+
+        const sup = normalizeSupervisor(it?.supervisor || it?.Supervisor || it?.TEAM || it?.team || it?.equipo || it?.grupo || it?.department || it?.team_name || it?.Team);
+        if (!sup) continue;
+        if (sup !== 'JONATHAN F' && sup !== 'LUIS G') continue;
+
+        const lineas = Number(it?.cantidad_lineas || it?.cantidadLineas || 1) || 1;
+        const cur = bySup.get(sup) || { name: sup, displayName: displaySupervisor(sup), CLIENTES: 0, LINEAS: 0 };
+        cur.CLIENTES += 1;
+        cur.LINEAS += lineas;
+        bySup.set(sup, cur);
+      }
+      return Array.from(bySup.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    }
+
+    function __buildTeamLineasSummaryFromItemsCostumerLineas(items, dateFrom, dateTo) {
+      // Replica la lógica de filtro por fecha en TEAM LINEAS/COSTUMER-LINEAS.html:
+      // - Usa dia_venta string
+      // - Normaliza DD/MM/YYYY => YYYY-MM-DD
+      // - Si dia_venta está vacío, NO excluye aunque dateFrom/dateTo estén seteadas
+      const bySup = new Map();
+      const normalizeSupervisor = (sup) => {
+        const s = String(sup || '').trim().toUpperCase();
+        if (!s) return '';
+        if (s.includes('JONATHAN')) return 'JONATHAN F';
+        if (s.includes('LUIS')) return 'LUIS G';
+        return s;
+      };
+      const displaySupervisor = (supNorm) => {
+        if (supNorm === 'JONATHAN F') return 'JONATHAN';
+        if (supNorm === 'LUIS G') return 'LUIS';
+        return String(supNorm || '').split(' ')[0] || String(supNorm || '');
+      };
+      for (const it of (items || [])) {
+        let diaVenta = String(it?.dia_venta || it?.diaVenta || it?._raw?.dia_venta || it?._raw?.diaVenta || '').trim();
+        if (diaVenta && diaVenta.includes('/')) {
+          const parts = diaVenta.split('/');
+          if (parts.length === 3) {
+            diaVenta = `${parts[2]}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
+          }
+        }
+        if (dateFrom && diaVenta && diaVenta < dateFrom) continue;
+        if (dateTo && diaVenta && diaVenta > dateTo) continue;
+
+        const sup = normalizeSupervisor(it?.supervisor || it?.Supervisor || it?.TEAM || it?.team || it?.equipo || it?.grupo || it?.department || it?.team_name || it?.Team);
+        if (!sup) continue;
+        // En el recuadro solo interesan los 2 supervisores de Team Líneas
+        if (sup !== 'JONATHAN F' && sup !== 'LUIS G') continue;
+
+        const clientes = 1;
+        const lineas = Number(it?.cantidad_lineas || it?.cantidadLineas || 1) || 1;
+        const cur = bySup.get(sup) || { name: sup, CLIENTES: 0, LINEAS: 0 };
+        cur.CLIENTES += clientes;
+        cur.LINEAS += lineas;
+        bySup.set(sup, cur);
+      }
+      return Array.from(bySup.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     }
     
     function renderVentasPorEquipoChart(teamData) {
@@ -4241,6 +4453,7 @@
           if (aggResp && aggResp.ok) {
             const dj = await aggResp.json();
             console.log('[DÍA] Respuesta del backend:', dj);
+            try { console.log('[DÍA] lineas length:', Array.isArray(dj && dj.lineas) ? dj.lineas.length : 'no-array'); } catch(_){ }
             if (dj && dj.success) {
               // Procesar datos principales
               if (Array.isArray(dj.data) && dj.data.length) {
@@ -4269,6 +4482,14 @@
                   console.log('[ESTADISTICAS][TEAM LINEAS][DEBUG][DÍA] agents:', dj.debug.teamLineasAgents);
                 }
               } catch (_) {}
+            }
+          }
+          if (aggResp && !aggResp.ok) {
+            try {
+              const txt = await aggResp.text();
+              console.warn('[DÍA] Backend no ok:', aggResp.status, txt && txt.slice ? txt.slice(0, 400) : txt);
+            } catch(_) {
+              console.warn('[DÍA] Backend no ok:', aggResp.status);
             }
           }
         } catch(err) { console.error('[DÍA] Error en fetch principal:', err); }
@@ -4511,26 +4732,36 @@
             </div>
             <div class="conv-right">
               <div class="mini-card">
-                <table class="mini-table">
-                  <thead>
-                    <tr>
-                      <th>TEAM LINEAS</th>
-                      <th>ICON</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${(lineasData || []).map(r => `
-                      <tr>
-                        <td>${r.name}</td>
-                        <td>${r.ICON || 0}</td>
-                      </tr>
-                    `).join('')}
-                    <tr class="total">
-                      <td>TOTAL</td>
-                      <td class="total-icon">${lineasTotalICON}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div style="padding:8px 10px;">
+                  <div style="font-weight:800; text-transform:uppercase; font-size:0.85rem; color:#1f3b63; text-align:center; margin-bottom:6px;">TEAM LINEAS</div>
+                  <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; font-weight:800; font-size:0.78rem;">
+                    <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">SUPERVISOR</div>
+                    <div style="text-align:center;">CLIENTES</div>
+                    <div style="text-align:center;">LÍNEAS</div>
+                  </div>
+                  <div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">
+                    ${(lineasData || []).map(r => {
+                      const clientes = (r && r.CLIENTES !== undefined) ? (r.CLIENTES || 0) : (r.ICON || 0);
+                      const lineas = (r && r.LINEAS !== undefined) ? (r.LINEAS || 0) : 0;
+                      return `
+                      <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; align-items:center; border:1px solid #dee2e6; border-radius:8px; padding:6px 8px; background:#fff;">
+                        <div style="text-align:left; font-weight:700; font-size:0.85rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</div>
+                        <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${clientes}</div>
+                        <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${lineas}</div>
+                      </div>`;
+                    }).join('')}
+                    ${(() => {
+                      const totalClientes = (typeof lineasTotalCLIENTES === 'number') ? lineasTotalCLIENTES : (typeof lineasTotalICON === 'number' ? lineasTotalICON : 0);
+                      const totalLineas = (typeof lineasTotalLINEAS === 'number') ? lineasTotalLINEAS : 0;
+                      return `
+                      <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; align-items:center; border-radius:8px; padding:8px; background:#0b5ed7; color:#fff; font-weight:900;">
+                        <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TOTAL</div>
+                        <div style="display:flex; align-items:center; justify-content:center;">${totalClientes}</div>
+                        <div style="display:flex; align-items:center; justify-content:center;">${totalLineas}</div>
+                      </div>`;
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -4823,7 +5054,19 @@
         const y = effective.getFullYear();
         const m = String(effective.getMonth()+1).padStart(2,'0');
         const d = String(effective.getDate()).padStart(2,'0');
-        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day`;
+        const debugSuffix = (new URLSearchParams(location.search).get('debug') === '1') ? '&debug=1' : '';
+        const qs = `fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&scope=day${debugSuffix}`;
+        let lineasDataFromBackend = [];
+        // TEAM LINEAS real: clientes/líneas desde TEAM_LINEAS
+        try {
+          console.log('[DÍA] Solicitando datos TEAM_LINEAS a: /api/lineas-team');
+          const all = await __fetchLineasTeamAll();
+          lineasDataFromBackend = __buildTeamLineasSummaryFromItems(all, `${y}-${m}-${d}`, `${y}-${m}-${d}`);
+          console.log('[DÍA] TEAM_LINEAS clientes/líneas:', lineasDataFromBackend);
+        } catch (e) {
+          console.warn('[DÍA] Error obteniendo TEAM_LINEAS:', e?.message || e);
+          lineasDataFromBackend = [];
+        }
         // Construir SIEMPRE desde /api/leads con ventana [00:00, +1 día 09:30]
         let dayData = [];
         const startLocal = new Date(effective.getFullYear(), effective.getMonth(), effective.getDate(), 0, 0, 0, 0);
@@ -4899,11 +5142,13 @@
         inDay.forEach(l => { const name = teamNameOf(l); if (!teamMap.has(name)) teamMap.set(name, { name, ICON:0, BAMO:0, Total:0, Puntaje:0 }); const agg = teamMap.get(name); agg.Total += 1; const mk = mercadoOf(l); if (mk.includes('ICON')) agg.ICON += 1; else if (mk.includes('BAMO')) agg.BAMO += 1; agg.Puntaje += puntajeOf(l); });
         dayData = Array.from(teamMap.values());
 
-        // Separar LINEAS para panel derecho y excluirlas de la tabla principal
-        const isLinea = (n) => /LINEA/i.test(String(n || ''));
-        const lineasData = dayData.filter(t => isLinea(t.name)).map(r => ({ name: r.name, ICON: r.ICON || 0 }));
-        const lineasTotalICON = lineasData.reduce((acc, r) => acc + (r.ICON || 0), 0);
-        const excludeNames = new Set(dayData.filter(t => isLinea(t.name)).map(t => String(t.name).toUpperCase()));
+        // Separar TEAM LINEAS para panel derecho y excluirlo de la tabla principal
+        const lineasData = (lineasDataFromBackend && lineasDataFromBackend.length)
+          ? lineasDataFromBackend
+          : [];
+        const lineasTotalCLIENTES = lineasData.reduce((acc, r) => acc + (r.CLIENTES || 0), 0);
+        const lineasTotalLINEAS = lineasData.reduce((acc, r) => acc + (r.LINEAS || 0), 0);
+        const excludeNames = new Set(lineasData.map(t => String(t.name).toUpperCase()));
         let mainData = dayData.filter(t => !excludeNames.has(String(t.name).toUpperCase()));
 
         // Completar equipos y fijar orden (siempre todos los equipos)
@@ -4967,26 +5212,28 @@
                 </div>
                 <div class="conv-right">
                   <div class="mini-card">
-                    <table class="mini-table">
-                      <thead>
-                        <tr>
-                          <th>TEAM LINEAS</th>
-                          <th>ICON</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div style="padding:8px 10px;">
+                      <div style="font-weight:800; text-transform:uppercase; font-size:0.85rem; color:#1f3b63; text-align:center; margin-bottom:6px;">TEAM LINEAS</div>
+                      <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; font-weight:800; font-size:0.78rem;">
+                        <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">SUPERVISOR</div>
+                        <div style="text-align:center;">CLIENTES</div>
+                        <div style="text-align:center;">LÍNEAS</div>
+                      </div>
+                      <div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">
                         ${(lineasData || []).map(r => `
-                          <tr>
-                            <td>${r.name}</td>
-                            <td>${r.ICON || 0}</td>
-                          </tr>
+                          <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; align-items:center; border:1px solid #dee2e6; border-radius:8px; padding:6px 8px; background:#fff;">
+                            <div style="text-align:left; font-weight:700; font-size:0.85rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</div>
+                            <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${r.CLIENTES || 0}</div>
+                            <div style="display:flex; align-items:center; justify-content:center; font-weight:800;">${r.LINEAS || 0}</div>
+                          </div>
                         `).join('')}
-                        <tr class="total">
-                          <td>TOTAL</td>
-                          <td class="total-icon">${lineasTotalICON}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        <div style="display:grid; grid-template-columns: minmax(0, 1fr) 64px 64px; gap:6px; align-items:center; border-radius:8px; padding:8px; background:#0b5ed7; color:#fff; font-weight:900;">
+                          <div style="text-align:left; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">TOTAL</div>
+                          <div style="display:flex; align-items:center; justify-content:center;">${lineasTotalCLIENTES}</div>
+                          <div style="display:flex; align-items:center; justify-content:center;">${lineasTotalLINEAS}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
