@@ -363,7 +363,7 @@
               <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                 <i class="fas fa-users mr-1"></i> Team
               </label>
-              <select id="teamFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'" onchange="applyAndRender()">
+              <select id="teamFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
                 <option value="">Todos los Teams</option>
                 <option value="JONATHAN F">Team Jonathan</option>
                 <option value="LUIS G">Team Luis</option>
@@ -487,7 +487,7 @@
           const statusContainer = document.getElementById('status-filter-container');
           const agentContainer = document.getElementById('agent-filter-container');
           if (statusContainer) statusContainer.style.display = 'none';
-          if (agentContainer) agentContainer.style.display = 'none';
+          if (agentContainer) agentContainer.style.display = '';
         } catch (_) {}
       }
 
@@ -743,6 +743,7 @@
       const STATUS_ENDPOINT = '/api/lineas-team/status'; // Ajustar si tu ruta es distinta
       const STATUS_METHOD = 'PUT';
       const STATUS_OPTIONS = [
+        { val: 'active', label: 'Active' },
         { val: 'pending', label: 'Pending' },
         { val: 'hold', label: 'Hold' },
         { val: 'cancelled', label: 'Cancelled' },
@@ -762,6 +763,102 @@
       }
 
       function normalizeDigits(v){ return String(v||'').replace(/\D+/g,''); }
+
+      function normalizeTeamKey(v) {
+        const raw = String(v || '').trim().toUpperCase();
+        if (!raw) return 'SIN TEAM';
+        const cleaned = raw
+          .replace(/[\.\t\r\n]+/g, ' ')
+          .replace(/[^A-Z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (!cleaned) return 'SIN TEAM';
+        if (cleaned.includes('JONATHAN')) return 'JONATHAN F';
+        if (cleaned.includes('LUIS')) return 'LUIS G';
+        return cleaned;
+      }
+
+      function extractLineStatus(item, i) {
+        if (!item) return '';
+        const ls = item.lineas_status;
+        if (ls) {
+          if (Array.isArray(ls)) {
+            return ls[i] ?? ls[i + 1] ?? '';
+          }
+          if (typeof ls === 'object') {
+            return ls[i] ?? ls[String(i)] ?? ls[i + 1] ?? ls[String(i + 1)] ?? '';
+          }
+        }
+        return '';
+      }
+
+      function getAgentRaw(it) {
+        return it?.agenteAsignado || it?.agenteNombre || it?.agente || it?._collectionName || '';
+      }
+
+      function normalizeAgentKey(v) {
+        return String(v || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      }
+
+      function populateAgentFilterFromItems(items) {
+        const agentFilter = document.getElementById('agentFilter');
+        if (!agentFilter) return;
+        const teamFilter = document.getElementById('teamFilter');
+        const selectedTeam = teamFilter ? String(teamFilter.value || '').trim().toUpperCase() : '';
+
+        const set = new Set();
+        (Array.isArray(items) ? items : []).forEach(it => {
+          if (selectedTeam) {
+            const sup = String(it?.supervisor || it?.team || it?.Team || it?.SUPERVISOR || '').trim().toUpperCase();
+            if (!sup.includes(selectedTeam)) return;
+          }
+          const key = normalizeAgentKey(getAgentRaw(it));
+          if (key) set.add(key);
+        });
+
+        const prev = String(agentFilter.value || '');
+        agentFilter.innerHTML = '<option value="">Todos</option>' +
+          Array.from(set).sort((a, b) => a.localeCompare(b)).map(a => `<option value="${a}">${a}</option>`).join('');
+
+        if (prev && Array.from(agentFilter.options).some(o => o.value === prev)) {
+          agentFilter.value = prev;
+        }
+      }
+
+      function toYMDFromAnyDate(v){
+        const s0 = String(v || '').trim();
+        if (!s0) return '';
+        const s = s0.slice(0, 32);
+        const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+        const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+        const m3 = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+        if (m3) return `${m3[3]}-${m3[2].padStart(2,'0')}-${m3[1].padStart(2,'0')}`;
+        const d = new Date(s0);
+        if (!isNaN(d)) {
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${d.getFullYear()}-${mm}-${dd}`;
+        }
+        return '';
+      }
+
+      function sortOldToNew(items){
+        const arr = Array.isArray(items) ? items : [];
+        arr.sort((a, b) => {
+          const aKey = toYMDFromAnyDate(a?.dia_venta) || toYMDFromAnyDate(a?.createdAt) || toYMDFromAnyDate(a?.fecha_contratacion) || '';
+          const bKey = toYMDFromAnyDate(b?.dia_venta) || toYMDFromAnyDate(b?.createdAt) || toYMDFromAnyDate(b?.fecha_contratacion) || '';
+          if (!aKey && !bKey) return 0;
+          if (!aKey) return 1; // sin fecha al final
+          if (!bKey) return -1;
+          if (aKey < bKey) return -1;
+          if (aKey > bKey) return 1;
+          return 0;
+        });
+        return arr;
+      }
 
       async function fetchData(){
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -865,6 +962,8 @@
         let sup = '';
         if (!sup && defaultSupervisor) sup = defaultSupervisor;
 
+        const selectedTeamKey = qteam ? normalizeTeamKey(qteam) : '';
+
         return items.filter(it=>{
           if (query) {
             const blob = [
@@ -896,7 +995,10 @@
                           String(it.agente||'').toUpperCase().includes(qagent))) return false;
           
           // Filtro por Team (supervisor)
-          if (qteam && !String(it.supervisor||'').toUpperCase().includes(qteam)) return false;
+          if (selectedTeamKey) {
+            const itemTeamKey = normalizeTeamKey(it.supervisor || it.team || it.Team || it.SUPERVISOR || '');
+            if (itemTeamKey !== selectedTeamKey) return false;
+          }
           
           // Filtro por status de línea (busca en el array de lines o en status general)
           if (qlineStatus) {
@@ -906,7 +1008,7 @@
             if (!hasMatchingLine && !generalStatus.includes(qlineStatus)) return false;
           }
           
-          // Filtro por rango de fechas (dia_venta) - ahora siempre aplica (mes actual por defecto)
+          // Filtro por rango de fechas (dia_venta) - solo aplica si el usuario selecciona fechas
           let diaVenta = it.dia_venta || '';
           // Normalizar formato de fecha a YYYY-MM-DD para comparación correcta
           if (diaVenta && diaVenta.includes('/')) {
@@ -1052,16 +1154,18 @@
               const lineasNotas = it.lineas_notas || {};
               const notas = lineasNotas[i] || [];
               
-              console.log(`Cliente ${it.nombre_cliente}, Línea ${i}:`, {
-                telefono: telefono,
-                servicio: servicio,
-                notas: notas,
-                notasLength: notas.length
-              });
+              // console.log(`Cliente ${it.nombre_cliente}, Línea ${i}:`, {
+              //   telefono: telefono,
+              //   servicio: servicio,
+              //   notas: notas,
+              //   notasLength: notas.length
+              // });
               
               // Obtener status de esta línea específica
-              const lineasStatus = it.lineas_status || {};
-              const lineStatus = lineasStatus[i] || 'PENDING';
+              let lineStatus = extractLineStatus(it, i);
+              if (!lineStatus && Array.isArray(lines) && lines[i] && lines[i].status) lineStatus = lines[i].status;
+              if (!lineStatus && Number(cant || 0) === 1 && it.status) lineStatus = it.status;
+              lineStatus = String(lineStatus || 'PENDING').toUpperCase();
               
               // Determinar badge de status de línea
               let lineStatusBadge = '';
@@ -1644,7 +1748,7 @@
             
             // Obtener datos del cliente antes del try para usarlo en el catch
             const clientData = allItems.find(item => (item._id || item.id) === clientId);
-            const previousStatus = clientData?.lineas_status?.[lineIndex] || 'PENDING';
+            const previousStatus = (clientData ? (extractLineStatus(clientData, lineIndex) || clientData?.lines?.[lineIndex]?.status || (Number(clientData?.cantidad_lineas || 0) === 1 ? clientData?.status : '')) : '') || 'PENDING';
             
             try {
               const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -1672,7 +1776,11 @@
                 if (!clientData.lineas_status) {
                   clientData.lineas_status = {};
                 }
+                // Guardar en 0-based y 1-based para evitar discrepancias de índice
                 clientData.lineas_status[lineIndex] = newStatus;
+                clientData.lineas_status[String(lineIndex)] = newStatus;
+                clientData.lineas_status[lineIndex + 1] = newStatus;
+                clientData.lineas_status[String(lineIndex + 1)] = newStatus;
               }
               
               showNotification(`Status de línea ${lineIndex + 1} actualizado a ${newStatus}`, 'success');
@@ -2332,49 +2440,313 @@
         let lineasActivas = 0;
         let lineasPendientes = 0;
         let cantidadLineas = 0;
+
+        let lineasCompleted = 0;
+        let lineasOtros = 0;
+        let inferredFromClientStatus = 0;
+        let multiLineMissingLineStatus = 0;
+        const samplesMissing = [];
+        const byTeam = new Map();
+        const statusHistByTeam = new Map();
+        const nonActiveSamplesByTeam = new Map();
+        const activeSamplesByTeam = new Map();
+        const rawTeamCounts = new Map();
+        const mismatchesJonathan = [];
         
-        console.log('=== DEBUG KPIs ===');
-        console.log('Total ventas (leads):', cantidadVentas);
+        console.log('=== DEBUG KPIs (LINEAS) ===');
+        console.log('Total ventas (clientes):', cantidadVentas);
         
         items.forEach((item, index) => {
-          const cantLineas = item.cantidad_lineas || 1;
+          const cantFromField = Number(item.cantidad_lineas || 0) || 0;
+          const cantFromLines = Array.isArray(item.lines) ? item.lines.length : 0;
+          const cantFromPhones = Array.isArray(item.telefonos) ? item.telefonos.length : 0;
+          const cantLineas = Math.max(cantFromField, cantFromLines, cantFromPhones, 1);
           cantidadLineas += cantLineas;
           
           // Debug: Ver estructura de datos del primer item
           if (index === 0) {
             console.log('Estructura del primer item:', {
               cantidad_lineas: item.cantidad_lineas,
+              lines_len: Array.isArray(item.lines) ? item.lines.length : 0,
+              telefonos_len: Array.isArray(item.telefonos) ? item.telefonos.length : 0,
               lineas_status: item.lineas_status,
               lineas_status_type: typeof item.lineas_status,
               lineas_status_isArray: Array.isArray(item.lineas_status)
             });
           }
+
+          const clientStatusUpper = String(item.status || '').toUpperCase();
+          const hasLineasStatus = !!item.lineas_status;
+          const rawTeam = String(item.supervisor || item.team || item.Team || item.SUPERVISOR || '').trim();
+          const teamKey = normalizeTeamKey(rawTeam);
+          if (rawTeam) rawTeamCounts.set(rawTeam, (rawTeamCounts.get(rawTeam) || 0) + 1);
+          if (!byTeam.has(teamKey)) {
+            byTeam.set(teamKey, {
+              team: teamKey,
+              clientes: 0,
+              lineas_total: 0,
+              lineas_active: 0,
+              lineas_pending: 0,
+              lineas_completed: 0,
+              lineas_otros: 0,
+              inferred_line_status_from_client_status: 0,
+              multi_line_missing_lineas_status: 0
+            });
+          }
+          const teamAgg = byTeam.get(teamKey);
+          teamAgg.clientes += 1;
+          teamAgg.lineas_total += cantLineas;
+
+          if (!statusHistByTeam.has(teamKey)) statusHistByTeam.set(teamKey, new Map());
+          if (!nonActiveSamplesByTeam.has(teamKey)) nonActiveSamplesByTeam.set(teamKey, []);
+          if (!activeSamplesByTeam.has(teamKey)) activeSamplesByTeam.set(teamKey, []);
+
+          if (cantLineas >= 2 && !hasLineasStatus) {
+            multiLineMissingLineStatus++;
+            teamAgg.multi_line_missing_lineas_status += 1;
+            if (samplesMissing.length < 10) {
+              samplesMissing.push({
+                cliente: item.nombre_cliente,
+                id: item.ID || item.id || item._id,
+                cantidad_lineas: cantLineas,
+                status_cliente: clientStatusUpper
+              });
+            }
+          }
           
           // Contar líneas por status individual
+          let activeByCurrentLogic = 0;
+          const linesArr = Array.isArray(item.lines) ? item.lines : [];
           for (let i = 0; i < cantLineas; i++) {
             let lineStatus = 'PENDING'; // Default
-            
-            if (item.lineas_status) {
-              if (Array.isArray(item.lineas_status)) {
-                lineStatus = item.lineas_status[i] || 'PENDING';
-              } else if (typeof item.lineas_status === 'object') {
-                lineStatus = item.lineas_status[i] || 'PENDING';
+
+            const isActiveLikeStatus = (stUpper) => (
+              stUpper === 'ACTIVE' ||
+              stUpper === 'ACTIVA' ||
+              stUpper.includes('ACTIV') ||
+              stUpper === 'COMPLETED' ||
+              stUpper.includes('COMPLET') ||
+              stUpper.includes('FINALIZ')
+            );
+
+            // Regla de negocio: si el lead tiene 1 sola línea, el STATUS del cliente representa el estado de esa línea.
+            // Esto evita que un lineas_status legacy (p.ej. PENDING) contradiga un STATUS real (p.ej. ACTIVE).
+            if (cantLineas === 1 && i === 0) {
+              const clientUpper = String(clientStatusUpper || '').toUpperCase();
+              if (clientUpper) {
+                lineStatus = clientUpper;
               }
             }
-            
+
+            // Fuente de verdad #1: item.lines[i].status (lo que ves en el UI de líneas asociadas)
+            const directLineStatus = String(linesArr?.[i]?.status || '').trim();
+            if (directLineStatus) {
+              lineStatus = directLineStatus;
+            } else {
+              // Respaldo: lineas_status (legacy)
+              const extracted = extractLineStatus(item, i);
+              if (extracted) {
+                const extractedUpper = String(extracted).toUpperCase();
+                // Si es 1 línea y el cliente es ACTIVE-like, preferimos el status del cliente.
+                if (cantLineas === 1 && isActiveLikeStatus(String(clientStatusUpper || '').toUpperCase())) {
+                  lineStatus = clientStatusUpper;
+                  inferredFromClientStatus++;
+                  teamAgg.inferred_line_status_from_client_status += 1;
+                } else {
+                  lineStatus = extracted;
+                }
+              } else if (cantLineas === 1 && clientStatusUpper) {
+                inferredFromClientStatus++;
+                teamAgg.inferred_line_status_from_client_status += 1;
+              }
+            }
+
             const statusUpper = String(lineStatus).toUpperCase();
-            if (statusUpper === 'ACTIVE') {
+            // Histograma de status (raw) por team
+            try {
+              const key = statusUpper || 'VACIO';
+              const teamHist = statusHistByTeam.get(teamKey);
+              teamHist.set(key, (teamHist.get(key) || 0) + 1);
+            } catch (_) {}
+
+            const isActiveLike = isActiveLikeStatus(statusUpper);
+
+            if (isActiveLike) {
+              activeByCurrentLogic++;
               lineasActivas++;
-            } else if (statusUpper === 'PENDING') {
+              teamAgg.lineas_active += 1;
+              const arr = activeSamplesByTeam.get(teamKey);
+              if (arr && arr.length < 30) {
+                arr.push({
+                  team: teamKey,
+                  status: statusUpper,
+                  cliente: item.nombre_cliente,
+                  id: item.ID || item.id || item._id,
+                  lineIndex: i,
+                  cantidad_lineas: cantLineas,
+                  supervisor_raw: rawTeam,
+                  agenteAsignado: item.agenteAsignado,
+                  agenteNombre: item.agenteNombre,
+                  agente: item.agente,
+                  collection: item._collectionName,
+                  status_cliente: clientStatusUpper
+                });
+              }
+            } else if (statusUpper === 'PENDING' || statusUpper === 'PENDIENTE') {
               lineasPendientes++;
+              teamAgg.lineas_pending += 1;
+              // Guardar muestras no-ACTIVE para diagnóstico (cap a 20 por team)
+              const arr = nonActiveSamplesByTeam.get(teamKey);
+              if (arr && arr.length < 20) {
+                arr.push({
+                  team: teamKey,
+                  status: statusUpper,
+                  cliente: item.nombre_cliente,
+                  id: item.ID || item.id || item._id,
+                  lineIndex: i,
+                  cantidad_lineas: cantLineas,
+                  supervisor_raw: rawTeam,
+                  agenteAsignado: item.agenteAsignado,
+                  agenteNombre: item.agenteNombre,
+                  agente: item.agente,
+                  collection: item._collectionName,
+                  status_cliente: clientStatusUpper
+                });
+              }
+            } else {
+              lineasOtros++;
+              teamAgg.lineas_otros += 1;
+              const arr = nonActiveSamplesByTeam.get(teamKey);
+              if (arr && arr.length < 20) {
+                arr.push({
+                  team: teamKey,
+                  status: statusUpper || 'VACIO',
+                  cliente: item.nombre_cliente,
+                  id: item.ID || item.id || item._id,
+                  lineIndex: i,
+                  cantidad_lineas: cantLineas,
+                  supervisor_raw: rawTeam,
+                  agenteAsignado: item.agenteAsignado,
+                  agenteNombre: item.agenteNombre,
+                  agente: item.agente,
+                  collection: item._collectionName,
+                  status_cliente: clientStatusUpper
+                });
+              }
+            }
+          }
+
+          if (teamKey === 'JONATHAN F') {
+            let activeByLines = 0;
+            if (Array.isArray(item.lines) && item.lines.length) {
+              for (let i = 0; i < cantLineas; i++) {
+                const st = String(item.lines?.[i]?.status || '').toUpperCase();
+                if (!st) continue;
+                if (st === 'ACTIVE' || st === 'ACTIVA' || st.includes('ACTIV') || st === 'COMPLETED' || st.includes('COMPLET') || st.includes('FINALIZ')) {
+                  activeByLines++;
+                }
+              }
+            } else if (cantLineas === 1) {
+              const st = clientStatusUpper;
+              if (st && (st === 'ACTIVE' || st === 'ACTIVA' || st.includes('ACTIV') || st === 'COMPLETED' || st.includes('COMPLET') || st.includes('FINALIZ'))) {
+                activeByLines = 1;
+              }
+            }
+
+            if (activeByLines !== activeByCurrentLogic) {
+              if (mismatchesJonathan.length < 80) {
+                mismatchesJonathan.push({
+                  id: item.ID || item.id || item._id,
+                  cliente: item.nombre_cliente,
+                  supervisor_raw: rawTeam,
+                  cantLineas,
+                  active_by_lines: activeByLines,
+                  active_by_current: activeByCurrentLogic,
+                  status_cliente: clientStatusUpper,
+                  lines_statuses: Array.isArray(item.lines) ? item.lines.slice(0, 6).map(l => String(l?.status || '').toUpperCase()) : [],
+                  lineas_status: item.lineas_status
+                });
+              }
             }
           }
         });
-        
-        console.log('Cantidad de Ventas:', cantidadVentas);
-        console.log('Cantidad de Líneas:', cantidadLineas);
-        console.log('Líneas Activas:', lineasActivas);
-        console.log('Líneas Pendientes:', lineasPendientes);
+
+        const resumen = {
+          clientes: cantidadVentas,
+          lineas_total: cantidadLineas,
+          lineas_active: lineasActivas,
+          lineas_pending: lineasPendientes,
+          lineas_completed: lineasCompleted,
+          lineas_otros: lineasOtros,
+          inferred_line_status_from_client_status: inferredFromClientStatus,
+          multi_line_missing_lineas_status: multiLineMissingLineStatus
+        };
+        console.log('KPIs (resumen):', resumen);
+        if (samplesMissing.length) console.table(samplesMissing);
+        if (mismatchesJonathan.length) {
+          console.log('=== DEBUG MISMATCH JONATHAN (lines vs current extraction) ===');
+          console.table(mismatchesJonathan.slice(0, 80));
+        }
+
+        // Logs separados por team/supervisor
+        try {
+          const teamsArr = Array.from(byTeam.values())
+            .sort((a, b) => (b.lineas_active - a.lineas_active) || (b.lineas_total - a.lineas_total) || a.team.localeCompare(b.team));
+          console.log('=== DEBUG KPIs (LINEAS) POR TEAM ===');
+          console.table(teamsArr);
+        } catch (e) {
+          console.warn('No se pudo imprimir tabla por team:', e?.message);
+        }
+
+        try {
+          const rawArr = Array.from(rawTeamCounts.entries())
+            .map(([raw, clientes]) => ({ raw, normalized: normalizeTeamKey(raw), clientes }))
+            .sort((a, b) => (b.clientes - a.clientes) || a.normalized.localeCompare(b.normalized) || a.raw.localeCompare(b.raw));
+          console.log('=== DEBUG TEAM RAW -> NORMALIZED ===');
+          console.table(rawArr.slice(0, 50));
+        } catch (e) {
+          console.warn('No se pudo imprimir debug team raw:', e?.message);
+        }
+
+        // Histograma de status por team: ayuda a detectar estados que deberían contarse como ACTIVE.
+        try {
+          console.log('=== DEBUG STATUS HIST POR TEAM (TOP) ===');
+          Array.from(statusHistByTeam.entries()).forEach(([team, hist]) => {
+            const top = Array.from(hist.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 15)
+              .map(([status, count]) => ({ team, status, count }));
+            console.table(top);
+          });
+        } catch (e) {
+          console.warn('No se pudo imprimir histograma por team:', e?.message);
+        }
+
+        // Muestras por team de líneas NO-ACTIVE (cap 20)
+        try {
+          console.log('=== DEBUG MUESTRAS NO-ACTIVE POR TEAM ===');
+          Array.from(nonActiveSamplesByTeam.entries()).forEach(([team, arr]) => {
+            if (arr && arr.length) {
+              console.log(`Team ${team} - muestras (${arr.length})`);
+              console.table(arr);
+            }
+          });
+        } catch (e) {
+          console.warn('No se pudo imprimir muestras no-active:', e?.message);
+        }
+
+        // Muestras por team de líneas ACTIVE-like (cap 30)
+        try {
+          console.log('=== DEBUG MUESTRAS ACTIVE POR TEAM ===');
+          Array.from(activeSamplesByTeam.entries()).forEach(([team, arr]) => {
+            if (arr && arr.length) {
+              console.log(`Team ${team} - active samples (${arr.length})`);
+              console.table(arr);
+            }
+          });
+        } catch (e) {
+          console.warn('No se pudo imprimir muestras active:', e?.message);
+        }
         
         // Actualizar KPIs en el DOM
         document.getElementById('kpi-cantidad-ventas').textContent = cantidadVentas;
@@ -2422,6 +2794,8 @@
       
       async function load(){
         allItems = await fetchData();
+        sortOldToNew(allItems);
+        populateAgentFilterFromItems(allItems);
         const filteredItems = applyFilters(allItems);
         updateKPIs(filteredItems);
         renderTable(filteredItems);
@@ -2482,6 +2856,7 @@
         updateLeadCounter(filtered.length);
       });
       if (teamFilter) teamFilter.addEventListener('change', ()=> {
+        populateAgentFilterFromItems(allItems);
         const filtered = applyFilters(allItems);
         updateKPIs(filtered);
         renderTable(filtered);
@@ -2520,6 +2895,47 @@
       });
       if (excelFileInput) excelFileInput.addEventListener('change', handleExcelAnalysis);
 
+      async function bulkCompletedToActive() {
+        const list = applyFilters(allItems);
+        const targets = (Array.isArray(list) ? list : []).filter(it => String(it?.status || '').toLowerCase() === 'completed');
+        if (!targets.length) {
+          showNotification('No hay leads con STATUS COMPLETED en la vista actual.', 'error');
+          return;
+        }
+
+        const ok = await showConfirm(
+          'Convertir COMPLETED a ACTIVE',
+          `Se van a convertir <strong>${targets.length}</strong> leads de <strong>COMPLETED</strong> a <strong>ACTIVE</strong>.<br><br>¿Deseas continuar?`
+        );
+        if (!ok) return;
+
+        let done = 0;
+        let failed = 0;
+        const toId = (it) => String(it?._id || it?.id || it?.ID || '').trim();
+
+        for (const it of targets) {
+          const id = toId(it);
+          if (!id) { failed++; continue; }
+          try {
+            const res = await fetch(STATUS_ENDPOINT, {
+              method: STATUS_METHOD,
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id, status: 'active' })
+            });
+            if (!res.ok) failed++;
+            else done++;
+          } catch (_) {
+            failed++;
+          }
+        }
+
+        if (failed) showNotification(`Finalizado: ${done} actualizados, ${failed} con error.`, 'error');
+        else showNotification(`Finalizado: ${done} leads convertidos a ACTIVE.`, 'success');
+
+        await load();
+      }
+
       // Detect supervisor por usuario y marcar por defecto (solo para supervisores)
       let defaultSupervisor = '';
       let agentsList = [];
@@ -2542,16 +2958,35 @@
           
           // Poblar filtro de agentes si es supervisor
           if (agentFilter && agentsList.length > 0) {
-            agentFilter.innerHTML = '<option value="">AGENTE: Todos</option>' + 
-              agentsList.map(a => `<option value="${a}">${a}</option>`).join('');
+            const allowed = new Set(agentsList.map(a => normalizeAgentKey(a)));
+            const current = new Set();
+            (Array.isArray(allItems) ? allItems : []).forEach(it => {
+              const key = normalizeAgentKey(getAgentRaw(it));
+              if (key) current.add(key);
+            });
+            const merged = Array.from(new Set([...allowed, ...current])).sort((a, b) => a.localeCompare(b));
+            agentFilter.innerHTML = '<option value="">Todos</option>' +
+              merged.map(a => `<option value="${a}">${a}</option>`).join('');
           }
         }
-      } catch {}
-      // Prefiltro aplicado en applyFilters sin mostrar controles
+      } catch (_) {}
 
       // Toggle filters panel
       // No hay panel de filtros
       buildHeaders();
+
+      try {
+        const adminActions = document.getElementById('admin-actions');
+        if (adminActions) {
+          adminActions.style.display = 'flex';
+          const btn = document.createElement('button');
+          btn.id = 'btn-bulk-completed-active';
+          btn.className = 'w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition';
+          btn.innerHTML = '<i class="fas fa-bolt mr-2"></i>COMPLETED ➜ ACTIVE (vista actual)';
+          btn.addEventListener('click', bulkCompletedToActive);
+          adminActions.appendChild(btn);
+        }
+      } catch (_) {}
 
       // Guardar cambios de STATUS (delegado)
       const tbody = document.getElementById('costumer-tbody');
