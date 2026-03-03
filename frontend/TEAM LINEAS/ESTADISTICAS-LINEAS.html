@@ -676,7 +676,47 @@
       return s.toUpperCase();
     }
 
+    function __isActiveLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return (
+        s === 'ACTIVE' ||
+        s === 'ACTIVA' ||
+        s.includes('ACTIV') ||
+        s === 'COMPLETED' ||
+        s.includes('COMPLET') ||
+        s.includes('FINALIZ')
+      );
+    }
+
+    function __isPendingLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return s === 'PENDING' || s === 'PENDIENTE';
+    }
+
+    function __isCancelledLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return s === 'CANCELLED' || s === 'CANCELADA' || s === 'CANCELADO';
+    }
+
+    function __getLineCount(lead) {
+      const fromField = Number(lead?.cantidad_lineas || 0) || 0;
+      const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
+      const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
+      return Math.max(fromField, fromLines, fromPhones, 1);
+    }
+
     function __getLineStatus(lead, idx) {
+      // Regla: si es 1 sola línea, el status del lead manda
+      try {
+        const lineCount = __getLineCount(lead);
+        if (lineCount === 1) {
+          const global = lead?.status ?? lead?.STATUS ?? lead?.estado;
+          const norm = __lineasStatNormalizeStatus(global);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      // Multi-línea: preferir lineas_status (suele ser la fuente más confiable en TEAM_LINEAS)
       try {
         const ls = lead?.lineas_status || lead?.lineasStatus || lead?.lineasStatusMap || null;
         if (ls && Object.prototype.hasOwnProperty.call(ls, idx)) {
@@ -691,6 +731,7 @@
         }
       } catch (_) {}
 
+      // Fallback: lead.lines[idx].status/estado
       try {
         const lines = Array.isArray(lead?.lines) ? lead.lines : (Array.isArray(lead?.lineas) ? lead.lineas : null);
         const row = lines && lines[idx] ? lines[idx] : null;
@@ -719,7 +760,7 @@
       let totalVentasLineas = 0; // Total de líneas sin importar status
       
       allLeads.forEach(lead => {
-        const cantidadLineas = lead.cantidad_lineas || 1;
+        const cantidadLineas = __getLineCount(lead);
         const statusGlobal = (lead.status || '').toLowerCase();
         
         totalVentasLineas += cantidadLineas;
@@ -731,9 +772,9 @@
 
         for (let i = 0; i < cantidadLineas; i++) {
           const lineStatus = __getLineStatus(lead, i);
-          if (lineStatus === 'ACTIVE') totalLineasActivas++;
-          else if (lineStatus === 'PENDING') totalLineasPendientes++;
-          else if (lineStatus === 'CANCELLED') totalLineasCanceladas++;
+          if (__isActiveLikeStatus(lineStatus)) totalLineasActivas++;
+          else if (__isPendingLikeStatus(lineStatus)) totalLineasPendientes++;
+          else if (__isCancelledLikeStatus(lineStatus)) totalLineasCanceladas++;
         }
       });
       
@@ -879,14 +920,14 @@
       let ventasLineas = 0;
       
       leads.forEach(lead => {
-        const cantidadLineas = lead.cantidad_lineas || 1;
+        const cantidadLineas = __getLineCount(lead);
         ventasLineas += cantidadLineas;
 
         for (let i = 0; i < cantidadLineas; i++) {
           const lineStatus = __getLineStatus(lead, i);
-          if (lineStatus === 'ACTIVE') lineasActivas++;
-          else if (lineStatus === 'PENDING') lineasPendientes++;
-          else if (lineStatus === 'CANCELLED') lineasCanceladas++;
+          if (__isActiveLikeStatus(lineStatus)) lineasActivas++;
+          else if (__isPendingLikeStatus(lineStatus)) lineasPendientes++;
+          else if (__isCancelledLikeStatus(lineStatus)) lineasCanceladas++;
         }
       });
       
