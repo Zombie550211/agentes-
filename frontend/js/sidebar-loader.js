@@ -11,6 +11,8 @@
     'home': 'inicio',
     'dashboard': 'inicio',
     'admin': 'inicio',
+    'premios': 'premios',
+    'premio': 'premios',
     'comisiones': 'comisiones',
     'comision': 'comisiones',
     'archivos': 'multimedia',
@@ -191,6 +193,7 @@
       if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
 
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/premios\.html?$/.test(path)) return 'premios';
       if (/comision/.test(path)) return 'comisiones';
       if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/rankingagente\.html?$/.test(path)) return 'rankings';
@@ -725,6 +728,7 @@
       { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: 'Premios.html', roles: allRoles },
       { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: 'TEAM LINEAS/COSTUMER-LINEAS.html', roles: adminBackofficeRoles },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: 'TEAM LINEAS/ESTADISTICAS-LINEAS.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'rankingAgente.html', roles: allRoles },
@@ -819,6 +823,7 @@
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/Premios.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/Comisiones.html' },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' }
