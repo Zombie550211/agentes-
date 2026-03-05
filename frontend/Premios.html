@@ -3,194 +3,380 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tabla de Premios</title>
+  <title>Premios — Febrero</title>
 
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    :root {
-      --gold: #D4AF37;
-      --gold-light: #F0D060;
-      --dark: #0f0f0f;
-      --dark-2: #1a1a1a;
-      --dark-3: #242424;
-      --silver: #C0C0C0;
-    }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: var(--dark);
-      font-family: 'Montserrat', sans-serif;
+      background: #F4F5F7;
+      font-family: 'Inter', sans-serif;
       min-height: 100vh;
       padding: 0;
     }
 
     .layout { display: flex; min-height: 100vh; }
     .sidebar { flex: 0 0 auto; }
-    .main-content { flex: 1; overflow-y: auto; }
-
-    .page-wrap {
-      min-height: 100vh;
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 40px 20px;
     }
 
-    .container {
+    .page {
       width: 100%;
-      max-width: 760px;
+      max-width: 860px;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
-      animation: fadeDown 0.7s ease both;
+    .header-banner {
+      background: #1B2A4A;
+      border-radius: 20px 20px 0 0;
+      padding: 36px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeDown 0.6s ease both;
     }
 
-    .header h1 {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 3rem;
-      letter-spacing: 4px;
-      color: var(--gold);
-      text-shadow: 0 0 30px rgba(212,175,55,0.4);
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
-    .header p {
-      color: #888;
-      font-size: 0.85rem;
+    .brand-icon {
+      width: 46px;
+      height: 46px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .brand-text .company {
+      font-size: 0.65rem;
       letter-spacing: 3px;
       text-transform: uppercase;
-      margin-top: 6px;
+      color: rgba(255,255,255,0.45);
     }
 
-    .prize-card {
-      background: var(--dark-2);
-      border: 1px solid #2e2e2e;
-      border-radius: 12px;
-      margin-bottom: 20px;
+    .brand-text .doc-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .header-right {
+      text-align: right;
+    }
+
+    .period-label {
+      font-size: 0.65rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .period-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .main-card {
+      background: #fff;
+      border-radius: 0 0 20px 20px;
+      box-shadow: 0 20px 60px rgba(27,42,74,0.1);
       overflow: hidden;
-      animation: fadeUp 0.6s ease both;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      animation: fadeUp 0.7s ease 0.1s both;
     }
 
-    .prize-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 40px rgba(212,175,55,0.15);
-    }
-
-    .prize-card:nth-child(1) { animation-delay: 0.1s; }
-    .prize-card:nth-child(2) { animation-delay: 0.25s; }
-
-    .card-header {
-      padding: 14px 24px;
-      background: linear-gradient(90deg, #1e1e1e, #2a2a2a);
-      border-bottom: 1px solid #2e2e2e;
+    .section-label {
+      padding: 20px 48px;
+      background: #F8F9FC;
+      border-bottom: 1px solid #EAECF2;
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .card-header .icon { font-size: 1.1rem; }
-
-    .card-header span {
-      font-size: 0.72rem;
-      letter-spacing: 2px;
+    .section-label span {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 3px;
       text-transform: uppercase;
-      color: #888;
-      font-weight: 600;
+      color: #8A94A6;
     }
 
-    .prize-banner {
-      padding: 18px 24px;
+    .section-label .line {
+      flex: 1;
+      height: 1px;
+      background: #EAECF2;
+    }
+
+    .prizes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .prize-block {
+      padding: 40px 48px;
+      position: relative;
+      transition: background 0.2s ease;
+    }
+
+    .prize-block:hover { background: #FAFBFF; }
+
+    .prize-block:first-child {
+      border-right: 1px solid #EAECF2;
+    }
+
+    .prize-block::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 48px;
+      width: 40px;
+      height: 3px;
+      border-radius: 0 0 4px 4px;
+    }
+
+    .prize-block.first::before { background: #C9972A; }
+    .prize-block.second::before { background: #1B2A4A; }
+
+    .rank-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
-    .prize-banner .prize-label {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.6rem;
+    .rank-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
       letter-spacing: 2px;
-      line-height: 1.1;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 100px;
     }
 
-    .prize-banner.gold .prize-label { color: var(--gold); }
-    .prize-banner.silver .prize-label { color: var(--silver); }
+    .prize-block.first .rank-badge {
+      background: #FEF4DC;
+      color: #C9972A;
+    }
+
+    .prize-block.second .rank-badge {
+      background: #EEF1F8;
+      color: #1B2A4A;
+    }
+
+    .rank-icon { font-size: 1.1rem; }
 
     .prize-amount {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 2.6rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 4rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -2px;
+      margin-bottom: 6px;
+    }
+
+    .prize-block.first .prize-amount { color: #C9972A; }
+    .prize-block.second .prize-amount { color: #1B2A4A; }
+
+    .prize-desc {
+      font-size: 0.75rem;
+      color: #8A94A6;
       letter-spacing: 1px;
-      white-space: nowrap;
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-bottom: 28px;
     }
 
-    .prize-banner.gold .prize-amount {
-      color: var(--gold-light);
-      text-shadow: 0 0 20px rgba(212,175,55,0.5);
-    }
-
-    .prize-banner.silver .prize-amount {
-      color: var(--silver);
-      text-shadow: 0 0 20px rgba(192,192,192,0.4);
-    }
-
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, #2e2e2e, transparent);
-      margin: 0 24px;
-    }
-
-    .winner-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
+    .winner-chip {
+      display: inline-flex;
       align-items: center;
-      gap: 16px;
-      padding: 16px 24px;
+      gap: 10px;
+      background: #F4F5F7;
+      border: 1px solid #EAECF2;
+      border-radius: 100px;
+      padding: 8px 14px 8px 8px;
     }
 
-    .winner-name {
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
       font-weight: 700;
-      font-size: 0.95rem;
-      color: #f0f0f0;
+      color: #fff;
+    }
+
+    .prize-block.first .avatar { background: #C9972A; }
+    .prize-block.second .avatar { background: #1B2A4A; }
+
+    .winner-name-chip {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #2D3A52;
+    }
+
+    .table-section {
+      border-top: 1px solid #EAECF2;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 12px 48px;
+      background: #F8F9FC;
+      border-bottom: 1px solid #EAECF2;
+    }
+
+    .table-header span {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #8A94A6;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 18px 48px;
+      align-items: center;
+      border-bottom: 1px solid #F0F1F5;
+      transition: background 0.15s ease;
+    }
+
+    .table-row:hover { background: #FAFBFF; }
+
+    .table-row:last-child { border-bottom: none; }
+
+    .row-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1B2A4A;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .row-rank-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .table-row:nth-child(1) .row-rank-dot { background: #C9972A; }
+    .table-row:nth-child(2) .row-rank-dot { background: #1B2A4A; }
+
+    .row-cell {
+      font-size: 0.82rem;
+      color: #5A6478;
+      font-weight: 400;
+    }
+
+    .row-cell.amount {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .table-row:nth-child(1) .row-cell.amount { color: #C9972A; }
+    .table-row:nth-child(2) .row-cell.amount { color: #1B2A4A; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: #E8F5EE;
+      color: #2D8A55;
+    }
+
+    .status-pill::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #2D8A55;
+    }
+
+    .card-footer {
+      padding: 18px 48px;
+      background: #F8F9FC;
+      border-top: 1px solid #EAECF2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 0 0 20px 20px;
+    }
+
+    .footer-note {
+      font-size: 0.7rem;
+      color: #8A94A6;
       letter-spacing: 0.5px;
     }
 
-    .badge {
-      font-size: 0.7rem;
-      font-weight: 600;
+    .total-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .total-label {
+      font-size: 0.65rem;
+      font-weight: 700;
       letter-spacing: 2px;
       text-transform: uppercase;
-      padding: 4px 10px;
-      border-radius: 20px;
-      border: 1px solid;
+      color: #8A94A6;
     }
 
-    .badge.gold { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.08); }
-    .badge.silver { color: var(--silver); border-color: var(--silver); background: rgba(192,192,192,0.08); }
-
-    .amount-cell {
+    .total-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
       font-weight: 700;
-      font-size: 1rem;
+      color: #1B2A4A;
     }
-
-    .amount-cell.gold { color: var(--gold-light); }
-    .amount-cell.silver { color: var(--silver); }
 
     @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-20px); }
+      from { opacity: 0; transform: translateY(-16px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(24px); }
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      .prizes-grid { grid-template-columns: 1fr; }
+      .prize-block:first-child { border-right: none; border-bottom: 1px solid #EAECF2; }
+      .header-banner, .prize-block, .table-header, .table-row, .card-footer { padding-left: 24px; padding-right: 24px; }
+      .prize-block::before { left: 24px; }
+      .table-header, .table-row { grid-template-columns: 2fr 1fr 1fr; }
+      .table-header span:last-child, .row-cell:last-child { display: none; }
     }
   </style>
 </head>
@@ -199,49 +385,100 @@
     <nav class="sidebar sidebar-inicio" data-active="premios"></nav>
 
     <main class="main-content">
-      <div class="page-wrap">
-        <div class="container">
+      <div class="page">
 
-          <div class="header">
-            <h1>🏆 Tabla de Premios</h1>
-            <p>Promo del 01 al 28 de Febrero</p>
+        <div class="header-banner">
+          <div class="brand">
+            <div class="brand-icon">�</div>
+            <div class="brand-text">
+              <div class="company">Equipo de Ventas</div>
+              <div class="doc-title">Reconocimiento de Desempeño</div>
+            </div>
+          </div>
+          <div class="header-right">
+            <div class="period-label">Período de evaluación</div>
+            <div class="period-value">Promo Febrero 2026</div>
+          </div>
+        </div>
+
+        <div class="main-card">
+
+          <div class="section-label">
+            <span>Premios por mayor venta</span>
+            <div class="line"></div>
           </div>
 
-          <div class="prize-card">
-            <div class="card-header">
-              <span class="icon">🥇</span>
-              <span>Primer lugar — Mayor venta en Febrero</span>
-            </div>
-            <div class="prize-banner gold">
-              <div class="prize-label">Premio al<br>Team #1</div>
+          <div class="prizes-grid">
+
+            <div class="prize-block first">
+              <div class="rank-row">
+                <div class="rank-badge">1er Lugar</div>
+                <span class="rank-icon">🏆</span>
+              </div>
               <div class="prize-amount">$500</div>
+              <div class="prize-desc">Premio en viáticos</div>
+              <div class="winner-chip">
+                <div class="avatar">RV</div>
+                <div class="winner-name-chip">Roberto Velásquez</div>
+              </div>
             </div>
-            <div class="divider"></div>
-            <div class="winner-row">
-              <div class="winner-name">Roberto Velásquez</div>
-              <div class="badge gold">Viáticos</div>
-              <div class="amount-cell gold">$500.00</div>
+
+            <div class="prize-block second">
+              <div class="rank-row">
+                <div class="rank-badge">2do Lugar</div>
+                <span class="rank-icon">🥈</span>
+              </div>
+              <div class="prize-amount">$200</div>
+              <div class="prize-desc">Premio en viáticos</div>
+              <div class="winner-chip">
+                <div class="avatar">GS</div>
+                <div class="winner-name-chip">Guadalupe Santana</div>
+              </div>
             </div>
+
           </div>
 
-          <div class="prize-card">
-            <div class="card-header">
-              <span class="icon">🥈</span>
-              <span>Segundo lugar — Mayor venta en Febrero</span>
+          <div class="table-section">
+
+            <div class="table-header">
+              <span>Colaborador</span>
+              <span>Categoría</span>
+              <span>Monto</span>
+              <span>Estado</span>
             </div>
-            <div class="prize-banner silver">
-              <div class="prize-label">Premio al<br>Team #2</div>
-              <div class="prize-amount">$200</div>
+
+            <div class="table-row">
+              <div class="row-name">
+                <div class="row-rank-dot"></div>
+                Roberto Velásquez
+              </div>
+              <div class="row-cell">Viáticos</div>
+              <div class="row-cell amount">$500.00</div>
+              <div class="row-cell"><span class="status-pill">Asignado</span></div>
             </div>
-            <div class="divider"></div>
-            <div class="winner-row">
-              <div class="winner-name">Guadalupe Santana</div>
-              <div class="badge silver">Viáticos</div>
-              <div class="amount-cell silver">$200.00</div>
+
+            <div class="table-row">
+              <div class="row-name">
+                <div class="row-rank-dot"></div>
+                Guadalupe Santana
+              </div>
+              <div class="row-cell">Viáticos</div>
+              <div class="row-cell amount">$200.00</div>
+              <div class="row-cell"><span class="status-pill">Asignado</span></div>
+            </div>
+
+          </div>
+
+          <div class="card-footer">
+            <div class="footer-note">Promo del 01 al 28 de Febrero · Generado automáticamente</div>
+            <div class="total-block">
+              <div class="total-label">Total premiado</div>
+              <div class="total-value">$700.00</div>
             </div>
           </div>
 
         </div>
+
       </div>
     </main>
   </div>
