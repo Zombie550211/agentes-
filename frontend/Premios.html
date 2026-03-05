@@ -127,6 +127,33 @@
       background: #EAECF2;
     }
 
+    .section-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-add {
+      appearance: none;
+      border: 1px solid #D7DDEA;
+      background: #fff;
+      color: #1B2A4A;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover {
+      background: #FAFBFF;
+      border-color: #C9D2E6;
+    }
+
     .prizes-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -137,6 +164,30 @@
       padding: 40px 48px;
       position: relative;
       transition: background 0.2s ease;
+    }
+
+    .prize-remove {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      border: 1px solid #EAECF2;
+      background: #fff;
+      color: #8A94A6;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .prize-remove:hover {
+      background: #FAFBFF;
+      color: #1B2A4A;
     }
 
     .prize-block:hover { background: #FAFBFF; }
@@ -360,6 +411,123 @@
       color: #1B2A4A;
     }
 
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: 100%;
+      max-width: 540px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 18px;
+      background: #F8F9FC;
+      border-bottom: 1px solid #EAECF2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-title {
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #1B2A4A;
+    }
+
+    .modal-close {
+      appearance: none;
+      border: 1px solid #EAECF2;
+      background: #fff;
+      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      color: #8A94A6;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-body {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .field label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #8A94A6;
+    }
+
+    .field input,
+    .field select {
+      border: 1px solid #D7DDEA;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      color: #1B2A4A;
+      background: #fff;
+    }
+
+    .modal-footer {
+      padding: 14px 18px;
+      background: #fff;
+      border-top: 1px solid #EAECF2;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn {
+      appearance: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border: 1px solid #D7DDEA;
+      background: #fff;
+      color: #1B2A4A;
+    }
+
+    .btn.primary {
+      background: #1B2A4A;
+      border-color: #1B2A4A;
+      color: #fff;
+    }
+
     @keyframes fadeDown {
       from { opacity: 0; transform: translateY(-16px); }
       to { opacity: 1; transform: translateY(0); }
@@ -406,37 +574,12 @@
           <div class="section-label">
             <span>Premios por mayor venta</span>
             <div class="line"></div>
+            <div class="section-actions">
+              <button class="btn-add" id="btnOpenPremioModal" type="button">Agregar premio</button>
+            </div>
           </div>
 
-          <div class="prizes-grid">
-
-            <div class="prize-block first">
-              <div class="rank-row">
-                <div class="rank-badge">1er Lugar</div>
-                <span class="rank-icon">🏆</span>
-              </div>
-              <div class="prize-amount">$500</div>
-              <div class="prize-desc">Premio en viáticos</div>
-              <div class="winner-chip">
-                <div class="avatar">RV</div>
-                <div class="winner-name-chip">Roberto Velásquez</div>
-              </div>
-            </div>
-
-            <div class="prize-block second">
-              <div class="rank-row">
-                <div class="rank-badge">2do Lugar</div>
-                <span class="rank-icon">🥈</span>
-              </div>
-              <div class="prize-amount">$200</div>
-              <div class="prize-desc">Premio en viáticos</div>
-              <div class="winner-chip">
-                <div class="avatar">GS</div>
-                <div class="winner-name-chip">Guadalupe Santana</div>
-              </div>
-            </div>
-
-          </div>
+          <div class="prizes-grid" id="prizesGrid"></div>
 
           <div class="table-section">
 
@@ -447,25 +590,7 @@
               <span>Estado</span>
             </div>
 
-            <div class="table-row">
-              <div class="row-name">
-                <div class="row-rank-dot"></div>
-                Roberto Velásquez
-              </div>
-              <div class="row-cell">Viáticos</div>
-              <div class="row-cell amount">$500.00</div>
-              <div class="row-cell"><span class="status-pill">Asignado</span></div>
-            </div>
-
-            <div class="table-row">
-              <div class="row-name">
-                <div class="row-rank-dot"></div>
-                Guadalupe Santana
-              </div>
-              <div class="row-cell">Viáticos</div>
-              <div class="row-cell amount">$200.00</div>
-              <div class="row-cell"><span class="status-pill">Asignado</span></div>
-            </div>
+            <div id="tableRows"></div>
 
           </div>
 
@@ -473,7 +598,7 @@
             <div class="footer-note">Promo del 01 al 28 de Febrero · Generado automáticamente</div>
             <div class="total-block">
               <div class="total-label">Total premiado</div>
-              <div class="total-value">$700.00</div>
+              <div class="total-value" id="totalValue">$0.00</div>
             </div>
           </div>
 
@@ -483,8 +608,252 @@
     </main>
   </div>
 
+  <div class="modal-backdrop" id="premioModal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div class="modal-title">Agregar premio</div>
+        <button class="modal-close" id="btnClosePremioModal" type="button">×</button>
+      </div>
+      <form id="premioForm">
+        <div class="modal-body">
+          <div class="field">
+            <label for="premioTipo">Tipo</label>
+            <select id="premioTipo" name="tipo" required>
+              <option value="first">1er Lugar</option>
+              <option value="second">2do Lugar</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="premioMonto">Monto (USD)</label>
+            <input id="premioMonto" name="monto" type="number" step="0.01" min="0" value="0" required>
+          </div>
+          <div class="field full">
+            <label for="premioCategoria">Categoría</label>
+            <input id="premioCategoria" name="categoria" type="text" value="Viáticos" required>
+          </div>
+          <div class="field">
+            <label for="premioIniciales">Iniciales</label>
+            <input id="premioIniciales" name="iniciales" type="text" maxlength="4" placeholder="RV" required>
+          </div>
+          <div class="field">
+            <label for="premioNombre">Nombre</label>
+            <input id="premioNombre" name="nombre" type="text" placeholder="Roberto Velásquez" required>
+          </div>
+          <div class="field full">
+            <label for="premioDesc">Descripción</label>
+            <input id="premioDesc" name="descripcion" type="text" value="Premio en viáticos" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" id="btnCancelPremio" type="button">Cancelar</button>
+          <button class="btn primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="js/sidebar-loader.js"></script>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const STORAGE_KEY = 'premios.items.v1';
+
+      const defaultItems = [
+        {
+          id: 'default-1',
+          tipo: 'first',
+          nombre: 'Roberto Velásquez',
+          iniciales: 'RV',
+          categoria: 'Viáticos',
+          descripcion: 'Premio en viáticos',
+          monto: 500
+        },
+        {
+          id: 'default-2',
+          tipo: 'second',
+          nombre: 'Guadalupe Santana',
+          iniciales: 'GS',
+          categoria: 'Viáticos',
+          descripcion: 'Premio en viáticos',
+          monto: 200
+        }
+      ];
+
+      function safeJsonParse(raw, fallback) {
+        try { return JSON.parse(raw); } catch (_) { return fallback; }
+      }
+
+      function loadItems() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = safeJsonParse(raw, null);
+        if (Array.isArray(parsed)) return parsed;
+        return defaultItems.slice();
+      }
+
+      function saveItems(items) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
+
+      function money(n) {
+        const num = Number(n || 0);
+        return '$' + num.toFixed(2);
+      }
+
+      function moneyShort(n) {
+        const num = Number(n || 0);
+        if (Number.isFinite(num)) return '$' + (Math.round(num) === num ? String(num) : String(num));
+        return '$0';
+      }
+
+      function rankBadgeText(tipo) {
+        return tipo === 'first' ? '1er Lugar' : '2do Lugar';
+      }
+
+      function rankIcon(tipo) {
+        return tipo === 'first' ? '🏆' : '🥈';
+      }
+
+      function render() {
+        const prizesGrid = document.getElementById('prizesGrid');
+        const tableRows = document.getElementById('tableRows');
+        const totalValue = document.getElementById('totalValue');
+        if (!prizesGrid || !tableRows || !totalValue) return;
+
+        const items = loadItems();
+        prizesGrid.innerHTML = '';
+        tableRows.innerHTML = '';
+
+        let total = 0;
+
+        items.forEach((item) => {
+          const tipo = item.tipo === 'first' ? 'first' : 'second';
+          const monto = Number(item.monto || 0);
+          total += monto;
+
+          const block = document.createElement('div');
+          block.className = 'prize-block ' + tipo;
+          block.setAttribute('data-id', item.id);
+          block.innerHTML = `
+            <button class="prize-remove" type="button" aria-label="Eliminar">×</button>
+            <div class="rank-row">
+              <div class="rank-badge">${rankBadgeText(tipo)}</div>
+              <span class="rank-icon">${rankIcon(tipo)}</span>
+            </div>
+            <div class="prize-amount">${moneyShort(monto)}</div>
+            <div class="prize-desc">${String(item.descripcion || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div class="winner-chip">
+              <div class="avatar">${String(item.iniciales || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+              <div class="winner-name-chip">${String(item.nombre || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            </div>
+          `;
+          prizesGrid.appendChild(block);
+
+          const row = document.createElement('div');
+          row.className = 'table-row';
+          row.innerHTML = `
+            <div class="row-name">
+              <div class="row-rank-dot"></div>
+              ${String(item.nombre || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+            </div>
+            <div class="row-cell">${String(item.categoria || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div class="row-cell amount">${money(monto)}</div>
+            <div class="row-cell"><span class="status-pill">Asignado</span></div>
+          `;
+          tableRows.appendChild(row);
+        });
+
+        totalValue.textContent = money(total);
+
+        prizesGrid.querySelectorAll('.prize-remove').forEach((btn) => {
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            const parent = btn.closest('.prize-block');
+            const id = parent ? parent.getAttribute('data-id') : null;
+            if (!id) return;
+            const next = loadItems().filter(x => String(x.id) !== String(id));
+            saveItems(next);
+            render();
+          });
+        });
+      }
+
+      function openModal() {
+        const modal = document.getElementById('premioModal');
+        if (!modal) return;
+        modal.classList.add('open');
+      }
+
+      function closeModal() {
+        const modal = document.getElementById('premioModal');
+        if (!modal) return;
+        modal.classList.remove('open');
+      }
+
+      function uid() {
+        try {
+          if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        } catch (_) {}
+        return 'p-' + String(Date.now()) + '-' + String(Math.floor(Math.random() * 100000));
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        render();
+
+        const btnOpen = document.getElementById('btnOpenPremioModal');
+        const btnClose = document.getElementById('btnClosePremioModal');
+        const btnCancel = document.getElementById('btnCancelPremio');
+        const modal = document.getElementById('premioModal');
+        const form = document.getElementById('premioForm');
+
+        if (btnOpen) btnOpen.addEventListener('click', openModal);
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+        if (modal) {
+          modal.addEventListener('click', function (e) {
+            if (e.target === modal) closeModal();
+          });
+        }
+
+        if (form) {
+          form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const tipo = String(form.tipo.value || 'first');
+            const monto = Number(form.monto.value || 0);
+            const categoria = String(form.categoria.value || '').trim();
+            const iniciales = String(form.iniciales.value || '').trim().toUpperCase();
+            const nombre = String(form.nombre.value || '').trim();
+            const descripcion = String(form.descripcion.value || '').trim();
+
+            if (!categoria || !iniciales || !nombre || !descripcion) return;
+
+            const items = loadItems();
+            items.push({
+              id: uid(),
+              tipo: (tipo === 'second' ? 'second' : 'first'),
+              nombre,
+              iniciales,
+              categoria,
+              descripcion,
+              monto: Number.isFinite(monto) ? monto : 0
+            });
+            saveItems(items);
+            closeModal();
+            form.reset();
+            document.getElementById('premioTipo').value = 'first';
+            document.getElementById('premioMonto').value = '0';
+            document.getElementById('premioCategoria').value = 'Viáticos';
+            document.getElementById('premioDesc').value = 'Premio en viáticos';
+            render();
+          });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

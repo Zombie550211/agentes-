@@ -358,6 +358,13 @@
     let currentMonth = new Date().getMonth() + 1; // 1-12
 
     // Funciones de utilidad para manejo de fechas
+    const __urlParams = (() => {
+      try { return new URLSearchParams(window.location.search || ''); } catch (_) { return new URLSearchParams(); }
+    })();
+    const __rangeFrom = String(__urlParams.get('from') || '').trim();
+    const __rangeTo = String(__urlParams.get('to') || '').trim();
+    const __rangeTeam = String(__urlParams.get('team') || '').trim();
+
     function getMonthName(month) {
       const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -372,7 +379,8 @@
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
       const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-      document.getElementById('date-range-display').textContent = `${startDate} al ${endDate}`;
+      const hasRange = !!(__rangeFrom && __rangeTo);
+      document.getElementById('date-range-display').textContent = hasRange ? `${__rangeFrom} al ${__rangeTo}` : `${startDate} al ${endDate}`;
     }
 
     function goToPreviousMonth() {
@@ -404,9 +412,10 @@
     }
 
     function filterLeadsByMonth(leads) {
-      const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const hasRange = !!(__rangeFrom && __rangeTo);
+      const startDate = hasRange ? __rangeFrom : `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-      const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      const endDate = hasRange ? __rangeTo : `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
       
       // Calcular rango del mes anterior para el "colchón"
       const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -415,10 +424,10 @@
       const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
       const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
       
-      console.log(`[filterLeadsByMonth] Filtrando por rango MES ACTUAL: ${startDate} a ${endDate}`);
+      console.log(`[filterLeadsByMonth] Filtrando por rango: ${startDate} a ${endDate}`);
       console.log(`[filterLeadsByMonth] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
       console.log(`[filterLeadsByMonth] Total de leads a filtrar: ${leads.length}`);
-      console.log(`[filterLeadsByMonth] LÓGICA: Incluir ventas del mes anterior con instalación en mes actual`);
+      console.log(`[filterLeadsByMonth] LÓGICA: ${hasRange ? 'RANGO EXPLÍCITO (sin colchón)' : 'Incluir ventas del mes anterior con instalación en mes actual'}`);
       
       let sinFecha = 0;
       let fueraRango = 0;
@@ -441,7 +450,7 @@
         // Caso 2: COLCHÓN - Venta del mes anterior CON instalación en mes actual
         const ventaMesAnterior = diaVenta >= prevStartDate && diaVenta <= prevEndDate;
         const instalacionMesActual = diaInstalacion && diaInstalacion >= startDate && diaInstalacion <= endDate;
-        const esColchon = ventaMesAnterior && instalacionMesActual;
+        const esColchon = !hasRange && ventaMesAnterior && instalacionMesActual;
         
         if (ventaMesActual) {
           dentroRango++;
@@ -456,6 +465,112 @@
       });
       
       console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} ventas del mes actual, ${colchonCount} ventas colchón (mes anterior con instalación actual), ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
+
+      try {
+        const normalizeSupervisor = (sup) => {
+          const s = String(sup || '').trim().toUpperCase();
+          if (s.includes('JONATHAN')) return 'JONATHAN F';
+          if (s.includes('LUIS')) return 'LUIS G';
+          return s || 'SIN SUPERVISOR';
+        };
+
+        const getLineCount = (lead) => {
+          try {
+            const fromField = Number(lead?.cantidad_lineas || 0) || 0;
+            const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
+            const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
+            return Math.max(fromField, fromLines, fromPhones, 1);
+          } catch (_) {
+            return 1;
+          }
+        };
+        const sumLines = (arr) => {
+          try { return (arr || []).reduce((a, l) => a + getLineCount(l), 0); } catch (_) { return 0; }
+        };
+
+        const monthLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          return dv >= startDate && dv <= endDate;
+        });
+        const colchonLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          const di = l.dia_instalacion || l.fecha_instalacion || '';
+          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+        });
+
+        const toRow = (l) => ({
+          id: l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente,
+          dia_venta: l.dia_venta || l.fecha_venta,
+          dia_instalacion: l.dia_instalacion || l.fecha_instalacion,
+          supervisor: normalizeSupervisor(l.supervisor),
+          agente: l.agenteAsignado || l._collection,
+          status: l.status
+        });
+
+        const splitByTeam = (arr) => {
+          const out = { 'JONATHAN F': [], 'LUIS G': [], 'OTROS': [] };
+          (arr || []).forEach(l => {
+            const sup = normalizeSupervisor(l.supervisor);
+            if (sup === 'JONATHAN F') out['JONATHAN F'].push(l);
+            else if (sup === 'LUIS G') out['LUIS G'].push(l);
+            else out['OTROS'].push(l);
+          });
+          return out;
+        };
+
+        const monthByTeam = splitByTeam(monthLeads);
+        const colchonByTeam = splitByTeam(colchonLeads);
+
+        console.groupCollapsed(`[filterLeadsByMonth] LISTADO MES ACTUAL (${monthLeads.length})`);
+        console.log('[MES ACTUAL] Conteo por team:', {
+          'JONATHAN F': monthByTeam['JONATHAN F'].length,
+          'LUIS G': monthByTeam['LUIS G'].length,
+          'OTROS': monthByTeam['OTROS'].length
+        });
+        console.log('[MES ACTUAL] Líneas por team:', {
+          'JONATHAN F': sumLines(monthByTeam['JONATHAN F']),
+          'LUIS G': sumLines(monthByTeam['LUIS G']),
+          'OTROS': sumLines(monthByTeam['OTROS'])
+        });
+        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - JONATHAN F (${monthByTeam['JONATHAN F'].length})`);
+        console.table(monthByTeam['JONATHAN F'].map(toRow));
+        console.groupEnd();
+        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - LUIS G (${monthByTeam['LUIS G'].length})`);
+        console.table(monthByTeam['LUIS G'].map(toRow));
+        console.groupEnd();
+        if (monthByTeam['OTROS'].length) {
+          console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - OTROS (${monthByTeam['OTROS'].length})`);
+          console.table(monthByTeam['OTROS'].map(toRow));
+          console.groupEnd();
+        }
+        console.groupEnd();
+
+        console.groupCollapsed(`[filterLeadsByMonth] LISTADO COLCHÓN (${colchonLeads.length})`);
+        console.log('[COLCHÓN] Conteo por team:', {
+          'JONATHAN F': colchonByTeam['JONATHAN F'].length,
+          'LUIS G': colchonByTeam['LUIS G'].length,
+          'OTROS': colchonByTeam['OTROS'].length
+        });
+        console.log('[COLCHÓN] Líneas por team:', {
+          'JONATHAN F': sumLines(colchonByTeam['JONATHAN F']),
+          'LUIS G': sumLines(colchonByTeam['LUIS G']),
+          'OTROS': sumLines(colchonByTeam['OTROS'])
+        });
+        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - JONATHAN F (${colchonByTeam['JONATHAN F'].length})`);
+        console.table(colchonByTeam['JONATHAN F'].map(toRow));
+        console.groupEnd();
+        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - LUIS G (${colchonByTeam['LUIS G'].length})`);
+        console.table(colchonByTeam['LUIS G'].map(toRow));
+        console.groupEnd();
+        if (colchonByTeam['OTROS'].length) {
+          console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - OTROS (${colchonByTeam['OTROS'].length})`);
+          console.table(colchonByTeam['OTROS'].map(toRow));
+          console.groupEnd();
+        }
+        console.groupEnd();
+      } catch (e) {
+        console.warn('[filterLeadsByMonth] No se pudo imprimir listado mes/colchón:', e?.message);
+      }
       
       // Log específico para KARLA_RODRIGUEZ
       const karlaLeads = filtered.filter(l => {
@@ -492,6 +607,31 @@
       }
       
       return filtered;
+    }
+
+    function __dedupeLeads(leads) {
+      try {
+        const byId = new Map();
+        let dup = 0;
+        (Array.isArray(leads) ? leads : []).forEach(l => {
+          const key = String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || l?._raw?._id || '').trim();
+          if (!key) {
+            // Si no hay ID, mantener el registro (no se puede deduplicar)
+            byId.set(Symbol('noid'), l);
+            return;
+          }
+          if (byId.has(key)) {
+            dup++;
+            return;
+          }
+          byId.set(key, l);
+        });
+        const out = Array.from(byId.values());
+        if (dup > 0) console.warn('[__dedupeLeads] Duplicados detectados y removidos:', dup, '=>', out.length);
+        return out;
+      } catch (_) {
+        return Array.isArray(leads) ? leads : [];
+      }
     }
 
     // Datos mock iniciales (reemplazar con datos reales después)
@@ -566,8 +706,9 @@
         console.log('[loadEstadisticas] Distribución TOTAL de leads por supervisor (todos los meses):', supervisoresAntes);
         console.log('[loadEstadisticas] Leads por agente de LUIS G (TODOS los meses):', agentesPorSupervisor['LUIS G']);
         
-        // Filtrar por mes seleccionado usando dia_venta
-        const leads = filterLeadsByMonth(allLeads);
+        // Filtrar por mes/rango seleccionado usando dia_venta
+        let leads = filterLeadsByMonth(allLeads);
+        leads = __dedupeLeads(leads);
         console.log(`[loadEstadisticas] Leads filtrados para ${getMonthName(currentMonth)} ${currentYear}:`, leads.length);
         
         // Mostrar distribución DESPUÉS del filtrado mensual
@@ -612,15 +753,67 @@
         };
 
         // Filtrar leads por supervisor específico de Team Líneas
-        const team1Leads = leads.filter(l => {
+        const normalizedTeamParam = (() => {
+          const s = String(__rangeTeam || '').trim().toUpperCase();
+          if (!s) return '';
+          if (s.includes('JONATHAN')) return 'JONATHAN F';
+          if (s.includes('LUIS')) return 'LUIS G';
+          return s;
+        })();
+
+        let team1Leads = leads.filter(l => {
           const sup = normalizeSupervisor(l.supervisor);
           return sup === 'JONATHAN F';
         });
 
-        const team2Leads = leads.filter(l => {
+        let team2Leads = leads.filter(l => {
           const sup = normalizeSupervisor(l.supervisor);
           return sup === 'LUIS G';
         });
+
+        team1Leads = __dedupeLeads(team1Leads);
+        team2Leads = __dedupeLeads(team2Leads);
+
+        // Diagnóstico: identificar si hay "extras" en teams vs (mes actual + colchón) por ID
+        try {
+          const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+          const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+          const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+          const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
+          const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+          const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
+          const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
+          const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
+
+          const getId = (l) => String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || '').trim();
+          const bucketMonth = (l) => {
+            const dv = l.dia_venta || l.fecha_venta || '';
+            return dv >= startDate && dv <= endDate;
+          };
+          const bucketColchon = (l) => {
+            const dv = l.dia_venta || l.fecha_venta || '';
+            const di = l.dia_instalacion || l.fecha_instalacion || '';
+            return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+          };
+
+          const inBuckets = (l) => bucketMonth(l) || bucketColchon(l);
+          const jonExtra = team1Leads.filter(l => !inBuckets(l));
+          const luisExtra = team2Leads.filter(l => !inBuckets(l));
+          if (jonExtra.length || luisExtra.length) {
+            console.warn('[loadEstadisticas][diagnostico] Leads en team pero fuera de buckets mes/colchón (revisar formato de fechas):', {
+              jonExtra: jonExtra.length,
+              luisExtra: luisExtra.length
+            });
+            if (jonExtra.length) console.table(jonExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
+            if (luisExtra.length) console.table(luisExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
+          }
+        } catch (_) {}
+
+        // Si viene ?team=..., limitar la pantalla a ese team para comparar con COSTUMER-LINEAS
+        if (normalizedTeamParam) {
+          if (normalizedTeamParam === 'JONATHAN F') team2Leads = [];
+          if (normalizedTeamParam === 'LUIS G') team1Leads = [];
+        }
 
         console.log('[loadEstadisticas] Team JONATHAN F:', team1Leads.length, 'leads');
         console.log('[loadEstadisticas] Team LUIS G:', team2Leads.length, 'leads');
@@ -663,7 +856,7 @@
         }
         
         // Actualizar KPIs globales (suma de ambos teams)
-        updateGlobalKPIs([...team1Leads, ...team2Leads]);
+        updateGlobalKPIs(__dedupeLeads([...team1Leads, ...team2Leads]));
 
       } catch (error) {
         console.error('[loadEstadisticas] Error fatal:', error);
