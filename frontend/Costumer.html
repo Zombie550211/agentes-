@@ -55,7 +55,7 @@
         try {
           const lid = (typeof extractLeadId === 'function') ? String(extractLeadId(lead) || '').trim() : '';
           if (!(/^[a-fA-F0-9]{24}$/).test(lid)) {
-            alert('âŒ Este registro no tiene un ID vÃ¡lido. Para evitar sobrescrituras/duplicados, no se permite editarlo.');
+            alert('❌ Este registro no tiene un ID válido. Para evitar sobrescrituras/duplicados, no se permite editarlo.');
             return null;
           }
         } catch (_) {}
@@ -72,18 +72,27 @@
       }
     };
 
-    window.eliminarLeadKey = async function(key) {
+    window.eliminarLeadKey = async function(key, lead){
       try {
-        if (!key) { alert('Error: No se proporcionó clave local'); return false; }
-        const map = (window.__leadKeyMap instanceof Map) ? window.__leadKeyMap : null;
-        if (!map) { console.warn('eliminarLeadKey: no hay mapa de leads locales'); return false; }
-        const lead = map.get(key);
-        if (!lead) { alert('Error: No se encontró el registro local'); return false; }
-        const id = (typeof getLeadId === 'function') ? getLeadId(lead) : (lead?._id?.$oid || lead?._id || lead?.id || '');
-        const cleanId = String(id || '').trim();
+        // Helper function to resolve ID from lead object
+        const eliminarLeadResolveId = (k, l) => {
+          if (!k && l) {
+            // Try to extract ID from lead object
+            const id = l._id || l.id || l.leadId;
+            if (id) return String(id);
+            // Try nested _raw
+            if (l._raw) {
+              const rawId = l._raw._id || l._raw.id;
+              if (rawId) return String(rawId);
+            }
+          }
+          return String(k || '').trim();
+        };
+
+        const cleanId = eliminarLeadResolveId(key, lead);
         if (!cleanId) {
           try {
-            const keys = Object.keys(lead || {});
+            const keys = lead ? Object.keys(lead) : [];
             const rawKeys = Object.keys((lead && lead._raw) || {});
             let preview = '';
             try {
@@ -101,10 +110,10 @@
             try { window.__lastDeleteDiag = diag; } catch (_) {}
             console.error('[eliminarLeadKey] No se pudo resolver ID', diag);
           } catch (_) {}
-          alert('Error: ID de registro no vÃ¡lido. Abre consola (F12) y ejecuta: copy(window.__lastDeleteDiag) y pÃ©gamelo aquÃ­.');
+          alert('Error: ID de registro no válido. Abre consola (F12) y ejecuta: copy(window.__lastDeleteDiag) y pégamelo aquí.');
           return false;
         }
-        if (typeof window.eliminarLead !== 'function') { alert('Error: funciÃ³n eliminarLead no disponible'); return false; }
+        if (typeof window.eliminarLead !== 'function') { alert('Error: función eliminarLead no disponible'); return false; }
         await window.eliminarLead(cleanId);
         return true;
       } catch (e) {
@@ -158,7 +167,7 @@
     <script>
       function maskPin(v){
         const s = String(v || '');
-        return s ? 'â€¢'.repeat(Math.min(4, s.length)) : '';
+        return s ? '•'.repeat(Math.min(4, s.length)) : '';
       }
       function serviciosResumen(l){
         const arr = Array.isArray(l.telefonos) ? l.telefonos : [];
@@ -175,7 +184,7 @@
         return l.servicios_texto || l.tipo_servicios || l.servicios || l.producto || '';
       }
     // normDate ahora se carga desde js/date-formatter.js
-    function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÃ“N','DÃA DE VENTA','DÃA DE INSTALACIÃ“N','STATUS','CANTIDAD DE LÃNEAS','TELÉFONOS DE LAS LÃNEAS','ID','SUPERVISOR','MERCADO']; }
+    function teamHeader(){ return ['NOMBRE CLIENTE','TELÉFONO PRINCIPAL','NÚMERO DE CUENTA','AUTOPAGO','PIN DE SEGURIDAD','DIRECCIÓN','DÍA DE VENTA','DÍA DE INSTALACIÓN','STATUS','CANTIDAD DE LÍNEAS','TELÉFONOS DE LAS LÍNEAS','ID','SUPERVISOR','MERCADO']; }
     // NormalizaciónÃ³n de nombres de agente (alias -> canónico)
     function __normStrAgent(s){
       try {
@@ -2042,6 +2051,76 @@
         border: 1px solid #d1d5db;
     }
 
+    .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+    .topbar{height:56px;background:#fff;border-bottom:1px solid #E5E7EB;padding:0 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .tb-left{display:flex;align-items:center;gap:14px;}
+    .tb-title{font-size:1.05rem;font-weight:700;color:#111827;letter-spacing:-.3px;}
+    .tb-sub{font-size:.7rem;color:#9CA3AF;margin-top:1px;}
+    .live{display:flex;align-items:center;gap:5px;font-size:.68rem;font-weight:600;color:#16A34A;}
+    .live-dot{width:6px;height:6px;border-radius:50%;background:#16A34A;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .tb-right{display:flex;align-items:center;gap:8px;}
+    .srch{display:flex;align-items:center;gap:7px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;padding:7px 13px;transition:all .2s;}
+    .srch:focus-within{background:#fff;border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.08);}
+    .srch input{background:none;border:none;outline:none;font-family:inherit;font-size:.78rem;color:#111827;width:260px;max-width:38vw;}
+    .srch input::placeholder{color:#9CA3AF;}
+    .btn{height:34px;padding:0 13px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;font-family:inherit;font-size:.75rem;font-weight:600;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s;}
+    .btn:hover{background:#F9FAFB;border-color:#D1D5DB;}
+    .btn.primary{background:#2563EB;border-color:#2563EB;color:#fff;font-weight:700;}
+    .btn.primary:hover{background:#1D4ED8;}
+    .content{flex:1;overflow-y:auto;padding:22px 24px;display:flex;flex-direction:column;gap:20px;min-height:0;}
+    .content::-webkit-scrollbar{width:4px;}
+    .content::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:4px;}
+    .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+    .kpi{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px 20px 16px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+    .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:12px 0 0 12px;}
+    .kpi.k1::before{background:#16A34A;}
+    .kpi.k2::before{background:#2563EB;}
+    .kpi.k3::before{background:#0891B2;}
+    .kpi.k4::before{background:#D97706;}
+    .kpi.k5::before{background:#DC2626;}
+    .kpi.k6::before{background:#7C3AED;}
+    .kpi.k7::before{background:#DB2777;}
+    .kpi.k8::before{background:#059669;}
+    .kpi.k9::before{background:#1D4ED8;}
+    .kpi.k10::before{background:#B45309;}
+    .kpi-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+    .kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+    .ki1{background:#F0FDF4;}.ki2{background:#EFF6FF;}.ki3{background:#ECFEFF;}.ki4{background:#FFFBEB;}.ki5{background:#FEF2F2;}.ki6{background:#F5F3FF;}.ki7{background:#FDF2F8;}.ki8{background:#ECFDF5;}.ki9{background:#EFF6FF;}.ki10{background:#FFFBEB;}
+    .kpi-val{font-size:2.1rem;font-weight:800;color:#111827;letter-spacing:-1.5px;line-height:1;margin-bottom:5px;}
+    .kpi-lbl{font-size:.73rem;font-weight:600;color:#6B7280;}
+    .tpanel{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 8px rgba(17,24,39,.05);}
+    .fbar{padding:14px 18px;border-bottom:1px solid #F3F4F6;background:#FAFAFA;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+    .ftitle{font-size:.82rem;font-weight:800;color:#111827;}
+    .tscroll{overflow-x:auto;}
+    .pag{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid #F3F4F6;background:#FAFAFA;gap:12px;flex-wrap:wrap;}
+    .fsel{height:34px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;font-family:inherit;font-size:.75rem;font-weight:600;color:#374151;padding:0 10px;outline:none;}
+    .fsel:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.08);}
+    .chipbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .chip{height:26px;padding:0 10px;border-radius:999px;border:1px solid #E5E7EB;background:#fff;font-size:.7rem;font-weight:800;color:#374151;cursor:pointer;line-height:24px;}
+    .chip:hover{background:#F9FAFB;}
+    .chip.is-active{background:#2563EB;border-color:#2563EB;color:#fff;}
+    .chip.dot::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+    .chip.dot.pending::before{background:#F59E0B;}
+    .chip.dot.active::before{background:#10B981;}
+    .chip.dot.cancelled::before{background:#EF4444;}
+    .chip.dot.all::before{background:#94A3B8;}
+
+    .tpanel .costumer-table{border-collapse:separate !important;border-spacing:0 8px !important;width:100%;}
+    .tpanel .costumer-table thead th{position:sticky;top:0;z-index:5;background:#FAFAFA;border-bottom:1px solid #EEF2F7 !important;color:#6B7280;font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;padding:10px 12px;white-space:nowrap;}
+    .tpanel .costumer-table tbody tr{background:#fff;box-shadow:0 1px 8px rgba(17,24,39,.06);}
+    .tpanel .costumer-table tbody td{padding:10px 12px;border-bottom:none !important;color:#111827;font-size:.75rem;vertical-align:middle;white-space:nowrap;}
+    .tpanel .costumer-table tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px;}
+    .tpanel .costumer-table tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px;}
+    .tpanel .costumer-table tbody tr:hover td{background:#F8FAFF !important;}
+    .tpanel .costumer-table tbody td:last-child{text-align:center;}
+
+    .tpanel .costumer-table .action-btn{height:26px;min-width:26px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;color:#374151;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 8px;font-size:.72rem;font-weight:800;}
+    .tpanel .costumer-table .action-btn:hover{background:#F9FAFB;border-color:#D1D5DB;}
+    .tpanel .costumer-table .action-btn i{font-size:.85rem;}
+    @media(max-width:1100px){.kpi-row{grid-template-columns:repeat(2,1fr);} .srch input{width:180px;}}
+    @media(max-width:640px){.kpi-row{grid-template-columns:1fr;} .topbar{padding:0 14px;} .content{padding:16px 14px;}}
+
   </style>
 <body>
   <div class="layout">
@@ -2122,8 +2201,8 @@
                         ${visibleTeams.map((team, idx) => `
                             <li>
                                 <button class="btn btn-sidebar team-toggle" data-idx="${idx}" data-team-name="${team.name}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; cursor:pointer; border:none; color:inherit;">
-                                    <span><span class="nav-icon" style="width:14px; margin-right:8px; display:inline-block; text-align:center;">ðŸ‘¥</span>${team.name}</span>
-                                    <span class="chevron" style="font-size:0.8em; color:#94a3b8;">â–¶</span>
+                                    <span><span class="nav-icon" style="width:14px; margin-right:8px; display:inline-block; text-align:center;">👥</span>${team.name}</span>
+                                    <span class="chevron" style="font-size:0.8em; color:#94a3b8;">▶</span>
                                 </button>
                                 <ul id="team-list-${idx}" style="display:none; list-style:none; padding-left:14px; margin-top:2px;">
                                     ${team.agents.map(agent => `
@@ -2251,15 +2330,15 @@
                                 if (otherUl !== ul) {
                                     otherUl.style.display = 'none';
                                     const otherBtn = container.querySelector(`.team-toggle[data-idx="${otherUl.id.replace('team-list-','')}"]`);
-                                    if(otherBtn) otherBtn.querySelector('.chevron').textContent = 'â–¶';
+                                    if(otherBtn) otherBtn.querySelector('.chevron').textContent = '▶';
                                 }
                             });
                             
                             ul.style.display = 'block';
-                            chev.textContent = 'â–¼';
+                            chev.textContent = '▼';
                         } else {
                             ul.style.display = 'none';
-                            chev.textContent = 'â–¶';
+                            chev.textContent = '▶';
                         }
                     });
                 });
@@ -2287,174 +2366,46 @@
       });
     </script>
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <!-- Tarjetas de Resumen -->
-      <div class="summary-cards-container">
-        <!-- Ventas Hoy -->
-        <div class="summary-card sales-today">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-shopping-cart"></i>
-              </div>
-              <h3 class="card-title">Ventas Hoy</h3>
-            </div>
-            <div class="card-value" id="costumer-ventas-hoy">0</div>
-            <div class="card-footer">
-              <i class="fas fa-calendar-day"></i> Actualizado ahora
-            </div>
+    <main class="main main-content">
+      <div class="topbar costumer-table-header">
+        <div class="tb-left">
+          <div>
+            <div class="tb-title">Lista de Clientes</div>
+            <div class="tb-sub" id="costumer-top-sub">CRM · registros</div>
           </div>
+          <div class="live"><span class="live-dot"></span> En vivo</div>
         </div>
-
-        <!-- Ventas del Mes -->
-        <div class="summary-card sales-month">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-chart-line"></i>
-              </div>
-              <h3 class="card-title">Ventas del Mes</h3>
-            </div>
-            <div class="card-value" id="costumer-ventas-mes">0</div>
-            <div class="card-footer">
-              <i class="fas fa-calendar-alt"></i> Mes actual
-            </div>
+        <div class="tb-right costumer-table-actions">
+          <div class="srch">
+            🔍 <input id="costumer-search" class="costumer-filter-input" type="text" placeholder="Buscar cliente, teléfono, ZIP, cuenta..." />
           </div>
-        </div>
-        <div class="summary-card sales-month">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-bolt"></i>
-              </div>
-              <h3 class="card-title">Ventas Activas</h3>
-            </div>
-            <div class="card-value" id="costumer-ventas-activas">0</div>
-            <div class="card-footer">
-              <i class="fas fa-check-circle"></i> Mes seleccionado
-            </div>
-          </div>
-        </div>        <!-- Pendientes -->
-        <div class="summary-card pending">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-clock"></i>
-              </div>
-              <h3 class="card-title">Pendientes</h3>
-            </div>
-            <div class="card-value" id="costumer-pendientes">0</div>
-            <div class="card-footer">
-              <i class="fas fa-info-circle"></i> Por atender
-            </div>
-          </div>
-        </div>
-
-        <!-- Cancelados -->
-        <div class="summary-card cancelled">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-times-circle"></i>
-              </div>
-              <h3 class="card-title">Cancelados</h3>
-            </div>
-            <div class="card-value" id="costumer-cancelados">0</div>
-            <div class="card-footer">
-              <i class="fas fa-exclamation-triangle"></i> Este mes
-            </div>
-          </div>
-        </div>
-
-        <!-- Puntaje Mensual (NUEVO) -->
-        <div class="summary-card points-monthly">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-star"></i>
-              </div>
-              <h3 class="card-title">Puntaje Mensual</h3>
-            </div>
-            <div class="card-value" id="costumer-puntaje-mensual">0</div>
-            <div class="card-footer">
-              <i class="fas fa-check"></i> Vendidas
-            </div>
-          </div>
-        </div>
-
-        <!-- VENTAS ICON (NUEVO) -->
-        <div class="summary-card icon-market">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-map-marker-alt"></i>
-              </div>
-              <h3 class="card-title">VENTAS ICON</h3>
-            </div>
-            <div class="card-value" id="costumer-icon-ventas">0</div>
-            <div class="card-footer">
-              <i class="fas fa-percentage"></i> <span id="costumer-icon-percent">0%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- VENTAS BAMO (NUEVO) -->
-        <div class="summary-card bamo-market">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-bullseye"></i>
-              </div>
-              <h3 class="card-title">VENTAS BAMO</h3>
-            </div>
-            <div class="card-value" id="costumer-bamo-ventas">0</div>
-            <div class="card-footer">
-              <i class="fas fa-percentage"></i> <span id="costumer-bamo-percent">0%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- ACTIVAS ICON (NUEVO) -->
-        <div class="summary-card icon-market">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-check-circle"></i>
-              </div>
-              <h3 class="card-title">ACTIVAS ICON</h3>
-            </div>
-            <div class="card-value" id="costumer-activas-icon">0</div>
-            <div class="card-footer">
-              <i class="fas fa-chart-line"></i> Ventas activas
-            </div>
-          </div>
-        </div>
-
-        <!-- ACTIVAS BAMO (NUEVO) -->
-        <div class="summary-card bamo-market">
-          <div class="card-content">
-            <div class="card-header">
-              <div class="card-icon">
-                <i class="fas fa-check-circle"></i>
-              </div>
-              <h3 class="card-title">ACTIVAS BAMO</h3>
-            </div>
-            <div class="card-value" id="costumer-activas-bamo">0</div>
-            <div class="card-footer">
-              <i class="fas fa-chart-line"></i> Ventas activas
-            </div>
-          </div>
+          <button class="btn" id="enable-notifications-btn" title="Activar Notificaciones">🔔</button>
+          <button class="btn" id="toggle-compact" title="Vista compacta">🧾 Compacto</button>
+          <button class="btn" id="refresh-table" title="Refrescar">🔄 Refrescar</button>
         </div>
       </div>
 
-      <!-- Tabla de Clientes -->
-      <div class="costumer-table-container compact">
-        <div class="costumer-table-header">
-          <h2 class="costumer-table-title">Lista de Clientes</h2>
-          <div class="costumer-table-actions">
-            <input type="text" class="costumer-filter-input" id="costumer-search" placeholder="Buscar cliente...">
-            <select id="serviceFilter" class="costumer-filter-input" style="min-width: 140px;">
+      <div class="content">
+        <div class="kpi-row">
+          <div class="kpi k1"><div class="kpi-header"><div class="kpi-icon ki1">🛒</div></div><div class="kpi-val" id="costumer-ventas-hoy">0</div><div class="kpi-lbl">Ventas Hoy</div></div>
+          <div class="kpi k2"><div class="kpi-header"><div class="kpi-icon ki2">📈</div></div><div class="kpi-val" id="costumer-ventas-mes">0</div><div class="kpi-lbl">Ventas del Mes</div></div>
+          <div class="kpi k3"><div class="kpi-header"><div class="kpi-icon ki3">⚡</div></div><div class="kpi-val" id="costumer-ventas-activas">0</div><div class="kpi-lbl">Ventas Activas</div></div>
+          <div class="kpi k4"><div class="kpi-header"><div class="kpi-icon ki4">⏳</div></div><div class="kpi-val" id="costumer-pendientes">0</div><div class="kpi-lbl">Pendientes</div></div>
+          <div class="kpi k5"><div class="kpi-header"><div class="kpi-icon ki5">🚫</div></div><div class="kpi-val" id="costumer-cancelados">0</div><div class="kpi-lbl">Cancelados</div></div>
+        </div>
+
+        <div class="tpanel costumer-table-container compact">
+          <div class="fbar">
+            <span class="ftitle">Registro de Clientes</span>
+
+            <div class="chipbar" id="quickStatusChips">
+              <button type="button" class="chip dot all is-active" data-status="all">Todos</button>
+              <button type="button" class="chip dot pending" data-status="pending">Pending</button>
+              <button type="button" class="chip dot active" data-status="completed">Active</button>
+              <button type="button" class="chip dot cancelled" data-status="cancelled">Cancelled</button>
+            </div>
+
+            <select id="serviceFilter" class="fsel costumer-filter-input" title="Servicio">
               <option value="">Todos los servicios</option>
               <option value="ATT">ATT (Todos)</option>
               <option value="DIRECTV">DIRECTV (Todos)</option>
@@ -2477,8 +2428,8 @@
               <option value="VIVINT">VIVINT</option>
               <option value="MOBILITY">MOBILITY</option>
             </select>
-            <label for="monthFilter">Mes</label>
-            <select id="monthFilter">
+
+            <select id="monthFilter" class="fsel costumer-filter-input" title="Mes">
               <option value="" selected>Todos los meses</option>
               <option value="2025-12">Diciembre 2025</option>
               <option value="2025-11">Noviembre 2025</option>
@@ -2489,24 +2440,21 @@
               <option value="2025-06">Junio 2025</option>
               <option value="2025-05">Mayo 2025</option>
             </select>
-            <label for="teamFilter">Team</label>
-            <select id="teamFilter" style="min-width: 120px;">
+
+            <select id="teamFilter" class="fsel costumer-filter-input" title="Team" style="min-width: 140px;">
               <option value="">Todos los teams</option>
               <option value="Oficina" selected>Oficina</option>
             </select>
-            <label for="agentFilter">Agente</label>
-            <select id="agentFilter" style="min-width: 140px;">
-              <option value="">Todos los agentes</option>
-            </select>
-            <label for="mercadoFilter">Mercado</label>
-            <select id="mercadoFilter" style="min-width: 120px;">
+
+            <select id="agentFilter" class="fsel costumer-filter-input" title="Agente" style="min-width: 160px;"><option value="">Todos los agentes</option></select>
+
+            <select id="mercadoFilter" class="fsel costumer-filter-input" title="Mercado" style="min-width: 140px;">
               <option value="">Todos los mercados</option>
               <option value="ICON">ICON</option>
               <option value="BAMO">BAMO</option>
             </select>
-            <!-- Botones 'Limpiar' y 'Recargar' removidos por solicitud -->
-            <label for="statusFilter">Status</label>
-            <select id="statusFilter">
+
+            <select id="statusFilter" class="fsel costumer-filter-input" title="Status" style="min-width: 160px;">
               <option value="all">Todos</option>
               <option value="completed">Completed / Active</option>
               <option value="active_oficina">Active Oficina</option>
@@ -2516,113 +2464,134 @@
               <option value="hold">Hold</option>
               <option value="rescheduled">Rescheduled</option>
             </select>
-            <label for="dateFrom">Desde</label>
-            <input id="dateFrom" type="date" class="costumer-filter-input" style="min-width:150px;" />
-            <label for="dateTo">Hasta</label>
-            <input id="dateTo" type="date" class="costumer-filter-input" style="min-width:150px;" />
-            <button id="btnClearDates" class="action-btn" title="Limpiar fechas" style="background:#64748b;">
-              <i class="fas fa-times"></i>
-            </button>
-            <label for="recuentoCount">Recuento</label>
-            <input id="recuentoCount" class="costumer-filter-input" type="text" value="0" readonly style="width: 90px; text-align: center; font-weight: 700;" />
-            <button id="scroll-left" class="action-btn" title="Desplazar a la izquierda">
-              <i class="fas fa-angle-double-left"></i>
-            </button>
-            <button id="scroll-right" class="action-btn" title="Desplazar a la derecha">
-              <i class="fas fa-angle-double-right"></i>
-            </button>
 
-            <button id="refresh-table" class="action-btn" title="Refrescar">
-              <i class="fas fa-sync-alt"></i>
-            </button>
-            <!-- BotÂ¨Â®n para alternar ver todos/mis clientes (solo visible para admin/supervisor/backoffice) -->
-            <button id="toggle-forceall" class="action-btn" title="Ver todos" style="display:none">
-              <i class="fas fa-users"></i>
-            </button>
-            <!-- BotÃ³n para actualizaciÃ³n masiva desde Excel (solo Admin/Backoffice) -->
-            <button id="bulk-excel-btn" class="action-btn" title="Actualizar status desde Excel" style="display:none; margin-left:6px;">
-              <i class="fas fa-file-excel" style="color:#1f8a22;"></i>
-            </button>
-            <!-- BotÃ³n temporal para debug de colores -->
-            <!-- BotÃ³n de debug removido -->
-            <!-- BotÃ³n para activar notificaciones -->
-            <button id="enable-notifications-btn" class="action-btn" title="Activar Notificaciones" style="margin-left:6px; background:#6366f1; color:white;">
-              <i class="fas fa-bell"></i>
-            </button>
+            <input id="dateFrom" type="date" class="fsel costumer-filter-input" style="min-width: 150px;" />
+            <input id="dateTo" type="date" class="fsel costumer-filter-input" style="min-width: 150px;" />
+
+            <button id="btnClearDates" class="btn" type="button" title="Limpiar fechas">✕ Fechas</button>
+
+            <input id="recuentoCount" class="fsel costumer-filter-input" type="text" value="0" readonly style="width: 90px; text-align: center; font-weight: 800;" />
+
+            <button id="scroll-left" class="btn" type="button" title="Desplazar a la izquierda">«</button>
+            <button id="scroll-right" class="btn" type="button" title="Desplazar a la derecha">»</button>
+
+            <button id="toggle-forceall" class="btn" type="button" title="Ver todos" style="display:none">👥 Ver todos</button>
+            <button id="bulk-excel-btn" class="btn" type="button" title="Actualizar status desde Excel" style="display:none">📄 Excel</button>
           </div>
-        </div>
-        
-        <div class="table-responsive">
-          <table class="costumer-table">
-            <thead>
-              <tr>
-                <th>Nombre cliente</th>
-                <th>Tel&eacute;fono principal</th>
-                <th>Tel&eacute;fono alterno</th>
-                <th>N&uacute;mero de cuenta</th>
-                <th>Autopago</th>
-                <th>Direcci&oacute;n</th>
-                <th>Tipo de servicios</th>
-                <th>Sistema</th>
-                <th>Riesgo</th>
-                <th style="white-space:nowrap;">D&iacute;a de venta <button id="filterDiaVenta" class="date-filter-btn" data-field="dia_venta" data-lskey="costumer_datefilter_dia_venta" title="Filtrar por DÃ­a de venta" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">â–¾</button></th>
-                <th style="white-space:nowrap;">D&iacute;a de instalaci&oacute;n <button id="filterDiaInstalacion" class="date-filter-btn" data-field="dia_instalacion" data-lskey="costumer_datefilter_dia_instalacion" title="Filtrar por DÃ­a de instalaciÃ³n" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">â–¾</button></th>
-                <th>Status</th>
-                <th>Servicios</th>
-                <th>Mercado</th>
-                <th>Supervisor</th>
-                <th>Comentario</th>
-                <th>Motivo llamada</th>
-                <th>ZIP CODE</th>
-                <th>Puntaje</th>
-                <th>Acci&oacute;n</th>
-              </tr>
-            </thead>
-            <tbody id="costumer-tbody">
-              <!-- Las filas se llenarÂ¨Â¢n dinÂ¨Â¢micamente con JavaScript -->
-            </tbody>
-          </table>
-        </div>
-        <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
-        <!-- Controles de paginaciÃ³n -->
-        <div id="paginationControls">
-          <div>
-            <label for="pageSizeSelect">Por pÃ¡gina</label>
-            <select id="pageSizeSelect">
-              <option value="50">50</option>
-              <option value="100" selected>100</option>
-              <option value="200">200</option>
-              <option value="500">500</option>
-              <option value="1000">1000</option>
-              <option value="99999">Todos</option>
-            </select>
+
+          <div class="tscroll">
+            <table class="costumer-table">
+              <thead>
+                <tr>
+                  <th>Nombre cliente</th>
+                  <th>Teléfono principal</th>
+                  <th>Teléfono alterno</th>
+                  <th>Número de cuenta</th>
+                  <th>Autopago</th>
+                  <th>Dirección</th>
+                  <th>Tipo de servicios</th>
+                  <th>Sistema</th>
+                  <th>Riesgo</th>
+                  <th style="white-space:nowrap;">Día de venta <button id="filterDiaVenta" class="date-filter-btn" data-field="dia_venta" data-lskey="costumer_datefilter_dia_venta" title="Filtrar por Día de venta" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">▾</button></th>
+                  <th style="white-space:nowrap;">Día de instalación <button id="filterDiaInstalacion" class="date-filter-btn" data-field="dia_instalacion" data-lskey="costumer_datefilter_dia_instalacion" title="Filtrar por Día de instalación" style="border:none;background:transparent;padding:2px 6px;margin-left:6px;cursor:pointer;">▾</button></th>
+                  <th>Status</th>
+                  <th>Servicios</th>
+                  <th>Mercado</th>
+                  <th>Supervisor</th>
+                  <th>Comentario</th>
+                  <th>Motivo llamada</th>
+                  <th>ZIP CODE</th>
+                  <th>Puntaje</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="costumer-tbody"></tbody>
+            </table>
           </div>
-          <button id="toggleMonthsBtn" class="action-btn" title="Ver todo / Solo 2 meses" style="min-width:140px;">Solo 2 meses</button>
-          <button id="pagePrev" class="action-btn" title="PÃ¡gina anterior"><i class="fas fa-chevron-left"></i></button>
-          <span id="pageInfo">PÃ¡gina 1</span>
-          <button id="pageNext" class="action-btn" title="PÃ¡gina siguiente"><i class="fas fa-chevron-right"></i></button>
+
+          <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="width:1px;height:1px;"></div></div>
+
+          <div id="paginationControls" class="pag">
+            <div>
+              <label for="pageSizeSelect" style="font-size:.72rem;color:#6B7280;">Por página</label>
+              <select id="pageSizeSelect" class="fsel">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="99999">Todos</option>
+              </select>
+            </div>
+            <button id="toggleMonthsBtn" class="btn" type="button" style="min-width:140px;">Solo 2 meses</button>
+            <div id="pageInfo" style="font-size:.72rem;color:#6B7280;">Página 1</div>
+            <div style="display:flex; gap:6px;">
+              <button id="pagePrev" class="btn" type="button" title="Página anterior">‹</button>
+              <button id="pageNext" class="btn" type="button" title="Página siguiente">›</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
-
   <!-- Modal para Comentarios -->
+
+  <script>
+    (function(){
+      const init = () => {
+        try {
+          const chipWrap = document.getElementById('quickStatusChips');
+          const statusSel = document.getElementById('statusFilter');
+          if (!chipWrap || !statusSel) return;
+
+          const setActive = (val) => {
+            try {
+              chipWrap.querySelectorAll('.chip').forEach(b => b.classList.remove('is-active'));
+              const btn = chipWrap.querySelector(`.chip[data-status="${CSS && CSS.escape ? CSS.escape(val) : val}"]`);
+              if (btn) btn.classList.add('is-active');
+            } catch (_) {}
+          };
+
+          chipWrap.addEventListener('click', (e) => {
+            const btn = e.target && (e.target.closest ? e.target.closest('.chip') : null);
+            if (!btn) return;
+            const v = String(btn.getAttribute('data-status') || '').trim();
+            if (!v) return;
+            statusSel.value = v;
+            try { statusSel.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {
+              try { const ev = document.createEvent('Event'); ev.initEvent('change', true, true); statusSel.dispatchEvent(ev); } catch (_) {}
+            }
+            setActive(v);
+          });
+
+          if (!statusSel.__chipsBound) {
+            statusSel.__chipsBound = true;
+            statusSel.addEventListener('change', () => setActive(String(statusSel.value || 'all')));
+          }
+          setActive(String(statusSel.value || 'all'));
+        } catch (_) {}
+      };
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+    })();
+  </script>
 
   <!-- Modal: Bulk Excel -> Status Update -->
   <div id="bulkExcelModal" class="modal" aria-hidden="true">
     <div class="bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="bulkExcelTitle">
       <div class="bulk-header">
         <h3 id="bulkExcelTitle">Actualizar status desde Excel</h3>
-        <button id="bulkExcelClose" class="action-btn" title="Cerrar" aria-label="Cerrar">âœ•</button>
+        <button id="bulkExcelClose" class="action-btn" title="Cerrar" aria-label="Cerrar">✕</button>
       </div>
       <div class="bulk-body">
         <div class="bulk-left">
           <label><strong>Archivo (.xlsx / .xls / .csv)</strong></label>
           <input id="bulkExcelFile" type="file" accept=".xlsx,.xls,.csv" />
-          <p class="hint">El parser se ejecuta en el navegador. Acepta encabezados comunes (por ejemplo: <em>AGENTE</em>, <em>Nombre cliente</em>, <em>TelÃ©fono principal</em>, <em>TelÃ©fono Alterno</em>, <em>Status</em>). Se intentarÃ¡ emparejar por <strong>telefono_principal</strong> (normalizado) y si no hay match por <strong>nombre_cliente</strong> (case-insensitive). AdemÃ¡s, el valor <strong>ACTIVE</strong> se normaliza y se tratarÃ¡ como <strong>COMPLETED</strong>.</p>
+          <p class="hint">El parser se ejecuta en el navegador. Acepta encabezados comunes (por ejemplo: <em>AGENTE</em>, <em>Nombre cliente</em>, <em>Teléfono principal</em>, <em>Teléfono Alterno</em>, <em>Status</em>). Se intentará emparejar por <strong>telefono_principal</strong> (normalizado) y si no hay match por <strong>nombre_cliente</strong> (case-insensitive). Además, el valor <strong>ACTIVE</strong> se normaliza y se tratará como <strong>COMPLETED</strong>.</p>
           <div class="checks">
-            <label><input type="checkbox" id="bulkDryRun" checked /> Hacer dry-run (previsualizaciÃ³n) antes de aplicar</label>
-            <label><input type="checkbox" id="bulkSaveSnapshot" checked /> Guardar snapshot/auditorÃ­a en servidor</label>
+            <label><input type="checkbox" id="bulkDryRun" checked /> Hacer dry-run (previsualización) antes de aplicar</label>
+            <label><input type="checkbox" id="bulkSaveSnapshot" checked /> Guardar snapshot/auditoría en servidor</label>
           </div>
           <div class="bulk-actions">
             <button id="bulkParseBtn" class="btn-secondary">Cargar y previsualizar</button>
@@ -2801,24 +2770,89 @@
     #editarModal .note-card {
       background: #fff;
       border: 1px solid #e5e7eb;
-      border-left: 3px solid #10b981;
-      border-radius: 8px;
-      padding: 12px 15px;
-      padding-right: 70px;
-      margin-bottom: 10px;
+      border-left: 4px solid #10b981;
+      border-radius: 10px;
+      padding: 18px;
       font-size: 13px;
       color: #374151;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-      overflow-wrap: break-word;
       max-width: 100%;
       line-height: 1.5;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      transition: all 0.2s;
     }
+    
+    #editarModal .note-card:hover {
+      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+      border-left-color: #3b82f6;
+    }
+    
+    #editarModal .note-card .note-title {
+      font-weight: 700;
+      color: #fff;
+      font-size: 1rem;
+      margin: 0;
+      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
+      padding: 8px 12px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+    }
+    
+    #editarModal .note-card .note-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-wrap: break-word;
+      white-space: normal;
+      color: #4b5563;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    
+    #editarModal .note-card .note-meta {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    #editarModal .note-card .note-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+    
+    #editarModal .note-card .btn-view {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    #editarModal .note-card .btn-view:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+    }
+    
     #editarModal .note-card .note-actions {
-      position: absolute;
-      top: 8px;
-      right: 8px;
       display: flex;
       gap: 6px;
     }
@@ -2888,226 +2922,1463 @@
       background-size: 16px !important;
       padding-right: 32px !important;
     }
+
+    #editarModal .lead-modal {
+      background: #ffffff;
+      border-radius: 22px;
+      box-shadow: 0 40px 100px rgba(15,23,42,0.2), 0 8px 30px rgba(15,23,42,0.1);
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    #editarModal .lead-modal-header {
+      background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #editarModal .lead-modal-header::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+      pointer-events:none;
+    }
+
+    #editarModal .lead-header-left {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      position:relative;
+      z-index:1;
+    }
+
+    #editarModal .lead-header-icon {
+      width:44px;
+      height:44px;
+      border-radius:12px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 1.15rem;
+      color:#fff;
+      backdrop-filter: blur(8px);
+    }
+
+    #editarModal .lead-header-title {
+      color:#fff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    #editarModal .lead-header-sub {
+      color: rgba(255,255,255,.55);
+      font-size: .68rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    #editarModal .lead-header-right {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      position:relative;
+      z-index:1;
+    }
+
+    #editarModal .lead-status-pill {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      padding: 5px 12px;
+      border-radius: 100px;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+
+    #editarModal .lead-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34D399;
+      box-shadow: 0 0 6px #34D399;
+    }
+
+    #editarModal .lead-status-label {
+      font-size: .67rem;
+      font-weight: 800;
+      color: rgba(255,255,255,.85);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #editarModal .lead-id-pill {
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.2);
+      color:#fff;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 5px 14px;
+      border-radius: 100px;
+      white-space: nowrap;
+      backdrop-filter: blur(8px);
+    }
+
+    #editarModal .lead-close-btn {
+      width:32px;
+      height:32px;
+      border-radius: 9px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      color: rgba(255,255,255,.85);
+      cursor: pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: .95rem;
+      transition: background .2s;
+    }
+
+    #editarModal .lead-close-btn:hover { background: rgba(255,255,255,.22); }
+
+    #editarModal .lead-tabbar {
+      display:flex;
+      align-items:center;
+      gap:2px;
+      padding: 0 28px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    #editarModal .lead-tab {
+      padding: 13px 16px;
+      font-size: .77rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor:pointer;
+      border:none;
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      display:flex;
+      align-items:center;
+      gap: 6px;
+      transition: all .15s;
+      font-family: inherit;
+    }
+
+    #editarModal .lead-tab:hover { color: #334155; }
+    #editarModal .lead-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+    #editarModal .lead-unsaved {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      font-size: .67rem;
+      font-weight: 800;
+      color: #f59e0b;
+    }
+
+    #editarModal .lead-unsaved.visible { display: flex; }
+
+    #editarModal .lead-unsaved-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #f59e0b;
+      animation: pulse 1.4s ease infinite;
+    }
+
+    #editarModal .lead-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      padding: 18px 20px;
+      background: #f8fafc;
+    }
+
+    #editarModal .lead-col {
+      padding: 20px 20px 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(15,23,42,0.03);
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+    }
+
+    #editarModal .lead-col:last-child { border-right: none; }
+
+    #editarModal .lead-col-bottom-bar {
+      height: 3px;
+      border-radius: 0 0 3px 3px;
+      margin: auto -20px -18px;
+      margin-top: auto;
+    }
+
+    #editarModal .lead-col[data-tab="cliente"] .lead-col-bottom-bar { background: linear-gradient(90deg,#2563EB,#60A5FA); }
+    #editarModal .lead-col[data-tab="servicios"] .lead-col-bottom-bar { background: linear-gradient(90deg,#10B981,#34D399); }
+    #editarModal .lead-col[data-tab="admin"] .lead-col-bottom-bar { background: linear-gradient(90deg,#F59E0B,#FCD34D); }
+
+    #editarModal .lead-col-header {
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      margin-bottom: 22px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    #editarModal .lead-col-icon {
+      width:30px;
+      height:30px;
+      border-radius: 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: .95rem;
+    }
+
+    #editarModal .lead-col-icon.blue { background: #EFF6FF; }
+    #editarModal .lead-col-icon.green { background: #F0FDF4; }
+    #editarModal .lead-col-icon.amber { background: #FFFBEB; }
+
+    #editarModal .lead-col-title {
+      font-size: .65rem;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    #editarModal .lead-field { margin-bottom: 16px; }
+
+    #editarModal .lead-field-label {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 5px;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+    }
+
+    #editarModal .lead-required-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #F43F5E;
+      display: inline-block;
+      margin-left: 4px;
+    }
+
+    #editarModal .lead-input,
+    #editarModal .lead-select,
+    #editarModal .lead-textarea {
+      width: 100%;
+      padding: 9px 13px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: .84rem;
+      color: #0f172a;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+      appearance: none;
+    }
+
+    #editarModal .lead-input:focus,
+    #editarModal .lead-select:focus,
+    #editarModal .lead-textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+      background: #ffffff;
+    }
+
+    #editarModal .lead-input::placeholder,
+    #editarModal .lead-textarea::placeholder { color: #94A3B8; }
+
+    #editarModal .lead-textarea { resize: none; min-height: 72px; line-height: 1.5; }
+
+    #editarModal .lead-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    #editarModal .lead-sep {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 16px 0;
+    }
+
+    #editarModal .lead-mini-section {
+      font-size: .62rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #94A3B8;
+      margin-bottom: 12px;
+      margin-top: 4px;
+    }
+
+    #editarModal .lead-footer {
+      padding: 16px 28px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    #editarModal .lead-btn-cancel {
+      padding: 9px 20px;
+      border-radius: 10px;
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      color: #334155;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    #editarModal .lead-btn-cancel:hover { border-color:#94A3B8; background: #f8fafc; }
+
+    #editarModal .lead-btn-save {
+      padding: 9px 22px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg,#1D4ED8,#2563EB);
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 800;
+      color:#fff;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      transition: all .2s;
+      box-shadow: 0 2px 10px rgba(37,99,235,.25);
+    }
+
+    #editarModal .lead-btn-save:hover {
+      background: linear-gradient(135deg,#1E40AF,#1D4ED8);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37,99,235,.35);
+    }
+
+    @media(max-width:700px){
+      #editarModal .lead-columns { grid-template-columns: 1fr; }
+      #editarModal .lead-col { border-right:none; border-bottom: 1px solid #e2e8f0; }
+    }
+
+    #editarModal .notes-section {
+      border-top: 2px solid #e5e7eb;
+    }
+
+    #editarModal .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0 0;
+      gap: 12px;
+    }
+
+    #editarModal .notes-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #editarModal .notes-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    #editarModal .notes-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    #editarModal .notes-count {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #dbeafe;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+    }
+
+    #editarModal .refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    #editarModal .refresh-btn:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #334155;
+    }
+
+    #editarModal .filter-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 0 0;
+    }
+
+    #editarModal .fpill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      background: transparent;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    #editarModal .fpill:hover {
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    #editarModal .fpill.active {
+      background: #eff6ff;
+      border-color: #dbeafe;
+      color: #2563eb;
+    }
+
+    #editarModal .fpill .fc {
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 999px;
+    }
+
+    #editarModal .fpill.active .fc {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+
+    #editarModal .compose-wrap {
+      padding: 14px 0 0;
+    }
+
+    #editarModal .compose-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+
+    #editarModal .compose-box:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      background: #fff;
+    }
+
+    #editarModal .compose-ta {
+      width: 100%;
+      min-height: 110px;
+      padding: 14px 16px 10px;
+      border: none;
+      outline: none;
+      resize: vertical;
+      background: transparent;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #0f172a;
+    }
+
+    #editarModal .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
+      gap: 10px;
+    }
+
+    #editarModal .tools {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    #editarModal .tool {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    #editarModal .tool:hover {
+      background: #eff6ff;
+      border-color: #dbeafe;
+      color: #2563eb;
+    }
+
+    #editarModal .add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #10b981;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    #editarModal .add-btn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    #editarModal .feed {
+      padding: 14px 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    #editarModal .feed::-webkit-scrollbar { width: 6px; }
+    #editarModal .feed::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 999px; }
+
+    /* Modern modal styles (interpolate with existing) */
+    .lead-modal {
+      width: 920px;
+      max-width: 95vw;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(17,24,39,.15);
+      overflow: hidden;
+      animation: modalIn 0.3s cubic-bezier(0.16,1,0.3,1);
+      margin: auto;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .lead-modal-header {
+      background: linear-gradient(135deg,#1D4ED8,#2563EB);
+      padding: 18px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .lead-header-left { display: flex; align-items: center; gap: 12px; }
+    .lead-header-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: rgba(255,255,255,.15);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .lead-header-title { font-size: 1rem; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+    .lead-header-sub { font-size: 0.65rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.55); margin-top: 2px; }
+    .lead-header-right { display: flex; align-items: center; gap: 8px; }
+    .lead-id-pill {
+      font-size: 0.65rem; font-weight: 700; padding: 4px 10px; border-radius: 7px;
+      background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.25);
+    }
+    .lead-status-pill {
+      font-size: 0.65rem; font-weight: 700; padding: 4px 10px; border-radius: 7px;
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(16,185,129,.2); color: #6EE7B7; border: 1px solid rgba(16,185,129,.3);
+    }
+    .lead-status-dot { width: 5px; height: 5px; border-radius: 50%; background: #34D399; }
+    .lead-close-btn {
+      width: 30px; height: 30px; border-radius: 7px; border: none;
+      background: rgba(255,255,255,.12); color: rgba(255,255,255,.7);
+      cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .lead-close-btn:hover { background: rgba(255,255,255,.22); color: #fff; }
+    .lead-tabbar {
+      display: flex; border-bottom: 1.5px solid #E5E7EB;
+      padding: 0 24px; background: #FAFAFA;
+    }
+    .lead-tab {
+      padding: 13px 16px; font-size: 0.78rem; font-weight: 600; color: #6B7280;
+      cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent;
+      margin-bottom: -1.5px; display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .lead-tab:hover { color: #374151; }
+    .lead-tab.active { color: #2563EB; border-bottom-color: #2563EB; }
+    .lead-columns {
+      padding: 22px 24px;
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 20px; 
+      align-items: start;
+    }
+    .lead-col {
+      background: #F9FAFB; border: 1.5px solid #E5E7EB;
+      border-radius: 11px; padding: 18px;
+    }
+    .lead-col-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .lead-col-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
+    .lead-col-icon.blue { background: #EFF6FF; color: #2563EB; }
+    .lead-col-icon.green { background: #F0FDF4; color: #10B981; }
+    .lead-col-title {
+      font-size: 0.82rem; font-weight: 700; color: #111827;
+    }
+    .lead-field { 
+      margin-bottom: 16px; 
+    }
+    .lead-field:last-child { margin-bottom: 0; }
+    .lead-row { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 12px; 
+      margin-bottom: 16px; 
+    }
+    .lead-row:last-child { margin-bottom: 0; }
+    .lead-field-label {
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+      color: #9CA3AF; margin-bottom: 5px;
+    }
+    .lead-input {
+      width: 100%; 
+      padding: 10px 14px;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; color: #111827;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .lead-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .lead-select {
+      width: 100%; 
+      padding: 10px 14px;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; color: #111827;
+      outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      padding-right: 32px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .lead-select:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .lead-textarea {
+      width: 100%; 
+      padding: 10px 14px;
+      background: #fff; border: 1.5px solid #E5E7EB; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; color: #111827;
+      outline: none; resize: vertical; min-height: 80px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .lead-textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .lead-readonly {
+      width: 100%; 
+      padding: 10px 14px;
+      background: #F3F4F6; border: 1.5px solid #E5E7EB; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; color: #374151; font-weight: 500;
+    }
+    .lead-sep {
+      height: 1px; background: #E5E7EB; margin: 14px 0;
+    }
+    .lead-mini-section { margin-top: 14px; }
+    .lead-footer {
+      padding: 14px 24px; border-top: 1.5px solid #E5E7EB;
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      background: #FAFAFA;
+    }
+    .lead-btn-cancel {
+      padding: 8px 18px; border-radius: 8px; border: 1.5px solid #E5E7EB;
+      background: #fff; font-family: inherit; font-size: 0.78rem; font-weight: 600;
+      color: #374151; cursor: pointer; transition: all 0.15s;
+    }
+    .lead-btn-cancel:hover { background: #F3F4F6; border-color: #D1D5DB; }
+    .lead-btn-save {
+      padding: 8px 20px; border-radius: 8px; border: none;
+      background: #2563EB; font-family: inherit; font-size: 0.78rem; font-weight: 700;
+      color: #fff; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: all 0.15s;
+    }
+    .lead-btn-save:hover { background: #1D4ED8; box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+
+    /* Notes section styles (from template) */
+    .notes-section {
+      border-top: 1.5px solid #E5E7EB;
+      margin-top: 0;
+    }
+    .notes-header {
+      padding: 14px 24px; background: #F9FAFB; border-bottom: 1px solid #E5E7EB;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notes-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; font-weight: 700; color: #111827;
+    }
+    .notes-count {
+      font-size: 0.62rem; font-weight: 700;
+      background: #2563EB; color: #fff;
+      padding: 2px 8px; border-radius: 100px;
+    }
+    .btn-refresh {
+      font-size: 0.7rem; font-weight: 600; color: #6B7280; border: none; background: none;
+      cursor: pointer; display: flex; align-items: center; gap: 5px; transition: color 0.15s;
+    }
+    .btn-refresh:hover { color: #2563EB; }
+    .notes-filters {
+      padding: 10px 24px; border-bottom: 1px solid #F3F4F6;
+      display: flex; align-items: center; gap: 6px; background: #fff;
+    }
+    .nfchip {
+      padding: 4px 12px; border-radius: 100px;
+      border: 1.5px solid #E5E7EB; background: #fff;
+      font-family: inherit; font-size: 0.68rem; font-weight: 600;
+      color: #6B7280; cursor: pointer; transition: all 0.12s;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .nfchip:hover { border-color: #D1D5DB; color: #111827; }
+    .nfchip.active { background: #EFF6FF; border-color: #BFDBFE; color: #2563EB; }
+    .nfchip .cnt {
+      font-size: 0.58rem; background: #F3F4F6; color: #9CA3AF;
+      padding: 0px 5px; border-radius: 100px;
+    }
+    .nfchip.active .cnt { background: #DBEAFE; color: #2563EB; }
+    .compose-box {
+      padding: 16px 24px; background: #fff; border-bottom: 1px solid #F3F4F6;
+    }
+    .compose-input {
+      width: 100%; padding: 11px 14px;
+      background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 9px;
+      font-family: inherit; font-size: 0.78rem; color: #111827;
+      outline: none; resize: none; min-height: 60px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .compose-input:focus { background: #fff; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .compose-input::placeholder { color: #9CA3AF; }
+    .compose-actions {
+      margin-top: 10px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .compose-tools { display: flex; gap: 6px; }
+    .ctool {
+      width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid #E5E7EB;
+      background: #fff; color: #9CA3AF; cursor: pointer; font-size: 0.8rem;
+      display: flex; align-items: center; justify-content: center; transition: all 0.12s;
+    }
+    .ctool:hover { border-color: #2563EB; color: #2563EB; background: #EFF6FF; }
+    .btn-addnote {
+      padding: 7px 16px; border-radius: 8px; border: none;
+      background: #10B981; font-family: inherit; font-size: 0.73rem; font-weight: 700;
+      color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .btn-addnote:hover { background: #059669; box-shadow: 0 4px 10px rgba(16,185,129,.3); }
+    .notes-feed { padding: 16px 24px; background: #F9FAFB; min-height: 80px; }
+    .no-notes {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px 20px;
+      font-size: 0.85rem;
+      color: #9CA3AF;
+      font-weight: 500;
+    }
+    
+    .no-notes-icon {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: 10px;
+    }
+    
+    .no-notes-text {
+      display: block;
+    }
+
+    /* NEW MODAL STYLES */
+    .modal {
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      max-width: 1100px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .modal-avatar {
+      width: 40px;
+      height: 40px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .modal-subtitle {
+      font-size: 0.8rem;
+      opacity: 0.85;
+      margin: 4px 0 0;
+    }
+
+    .modal-close {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      padding: 0;
+    }
+
+    .modal-close:hover {
+      background: rgba(255,255,255,0.25);
+      transform: scale(1.05);
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px 24px;
+      margin-bottom: 28px;
+      align-items: start;
+    }
+
+    .section-label {
+      grid-column: span 3;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748B;
+      margin: 12px 0 8px 0;
+      padding-top: 12px;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .section-label:first-child {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .field label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+      min-height: 18px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      padding: 11px 12px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: #111827;
+      background: #F9FAFB;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      min-height: 40px;
+      flex: 1;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: #3B82F6;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.08);
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder {
+      color: #9CA3AF;
+    }
+
+    .notes-section {
+      border-top: 2px solid #E5E7EB;
+      margin-top: 12px;
+      padding-top: 20px;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #E5E7EB;
+    }
+
+    .notes-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: #111827;
+      font-size: 0.95rem;
+    }
+
+    .notes-title-icon {
+      font-size: 1.2rem;
+    }
+
+    .notes-count {
+      background: #EF4444;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 0.65rem;
+      font-weight: 700;
+    }
+
+    .btn-refresh {
+      background: none;
+      border: none;
+      color: #6B7280;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.2s;
+      padding: 0;
+    }
+
+    .btn-refresh:hover {
+      color: #3B82F6;
+    }
+
+    .btn-refresh .spin {
+      display: inline-block;
+      transition: transform 0.3s;
+    }
+
+    .btn-refresh:active .spin {
+      transform: rotate(180deg);
+    }
+
+    .compose-box {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #F9FAFB;
+      border-radius: 10px;
+      border: 1px solid #E5E7EB;
+    }
+
+    .compose-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+
+    .compose-input-wrapper {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .compose-input {
+      padding: 12px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: #111827;
+      background: white;
+      resize: vertical;
+      min-height: 70px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .compose-input:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.08);
+    }
+
+    .compose-input::placeholder {
+      color: #9CA3AF;
+    }
+
+    .compose-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+
+    .compose-tools {
+      display: flex;
+      gap: 6px;
+    }
+
+    .ctool {
+      width: 32px;
+      height: 32px;
+      border: 1.5px solid #E5E7EB;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .ctool:hover {
+      border-color: #3B82F6;
+      background: #EFF6FF;
+      color: #3B82F6;
+    }
+
+    .btn-addnote {
+      padding: 8px 16px;
+      background: #10B981;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-addnote:hover {
+      background: #059669;
+      box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+    }
+
+    .notes-feed {
+      padding: 16px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
+    }
+
+    #edit-notes-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
+      width: 100%;
+    }
+
+    .no-notes {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 32px 16px;
+      color: #9CA3AF;
+      font-size: 0.85rem;
+    }
+
+    .no-notes-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .no-notes-text {
+      display: block;
+    }
+
+    .modal-footer {
+      background: #F9FAFB;
+      border-top: 1px solid #E5E7EB;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .btn-cancel {
+      padding: 10px 20px;
+      background: white;
+      border: 1.5px solid #D1D5DB;
+      border-radius: 8px;
+      color: #374151;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+
+    .btn-cancel:hover {
+      border-color: #9CA3AF;
+      background: #F3F4F6;
+    }
+
+    .btn-save {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+
+    .btn-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(37,99,235,0.3);
+    }
+
+    .btn-save-icon {
+      font-size: 0.9rem;
+    }
   </style>
-  <div id="editarModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(59, 130, 246, 0.75) 50%, rgba(14, 165, 233, 0.7) 100%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow: auto; padding: 40px;">
-    <div style="position: relative; margin: 0 auto; width: calc(100% - 80px); max-width: none; height: calc(100vh - 80px); background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 30%, #7dd3fc 100%); border-radius: 24px; padding: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.4); display: flex; flex-direction: column; overflow: hidden;">
-      <!-- Contenedor blanco interno con formulario -->
-      <div class="edit-modal-card" style="background: white; border-radius: 18px; padding: 30px; flex: 1; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);">
-        <!-- Header con ID del lead -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
-              <i class="fas fa-user-edit" style="color: white; font-size: 20px;"></i>
-            </div>
-            <div>
-              <h3 id="edit-lead-title" style="margin: 0; font-size: 22px; font-weight: 800; color: #1e293b;">
-                Editar Lead <span id="edit-lead-id-display" style="color: #3b82f6; font-weight: 600;">#00000</span>
-              </h3>
-              <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">Modifica los datos del cliente</p>
-            </div>
-          </div>
-          <button onclick="cerrarModalEdicion()" style="background: #f1f5f9; border: 1px solid #e2e8f0; width: 40px; height: 40px; border-radius: 10px; font-size: 22px; cursor: pointer; color: #64748b; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#ef4444'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">&times;</button>
-        </div>
-        
-        <input type="hidden" id="edit-id">
-        
-        <!-- Grid compacto 3 columnas -->  
-        <div class="edit-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; font-size: 13px; align-items: stretch;">
-          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
-            <div class="edit-section-title" style="margin-bottom: 15px;">Datos del cliente</div>
-            <label style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Teléfono</label>
-            <input type="tel" id="edit-telefono" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Teléfono Alterno</label>
-            <input type="tel" id="edit-telefono-alt" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Nombres</label>
-            <input type="text" id="edit-nombres" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Apellidos</label>
-            <input type="text" id="edit-apellidos" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Dirección</label>
-            <input type="text" id="edit-direccion" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">ZIP</label>
-            <input type="text" id="edit-zip-code" style="width: 100%; max-width: 120px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-          </div>
-          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
-            <div class="edit-section-title" style="margin-bottom: 15px;">Servicios</div>
-            <label for="edit-tipo-servicios" style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Tipo de Servicios</label>
-            <select id="edit-tipo-servicios" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block; margin: 0 0 8px;">
-              <option value="">Elige</option>
-              <option value="att">ATT</option>
-              <option value="directv">DIRECTV</option>
-              <option value="frontier">FRONTIER</option>
-              <option value="spectrum">SPECTRUM</option>
-              <option value="wow">WOW</option>
-              <option value="altafiber">ALTAFIBER</option>
-              <option value="windstream">WINDSTREAM</option>
-              <option value="hughesnet">HUGHESNET</option>
-              <option value="viasat">VIASAT</option>
-              <option value="consolidate">CONSOLIDATE</option>
-              <option value="centurylink">CENTURYLINK</option>
-              <option value="metronet">METRONET</option>
-              <option value="ziply">ZIPLY FIBER</option>
-              <option value="hawaiian">HAWAIIAN</option>
-              <option value="double-play">DOUBLE PLAY</option>
-              <option value="vivint">VIVINT</option>
-              <option value="brightspeed">BRIGHTSPEED</option>
-              <option value="mobility">MOBILITY</option>
-              <option value="sim-mobility">SIM MOBILITY</option>
-              <option value="earthlink">EARTHLINK</option>
-              <option value="xfinity">XFINITY</option>
-              <option value="optimum">OPTIMUM</option>
-            </select>
-            <label for="edit-servicios" style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Servicios</label>
-            <select id="edit-servicios" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block; margin: 0 0 8px;">
-              <option value="">Elige</option>
-              <option value="video-directv-internet">VIDEO DIRECTV VIA INTERNET</option>
-              <option value="video-directv-satelite">VIDEO DIRECTV VIA SATELITE</option>
-              <option value="att-air">ATT AIR</option>
-              <option value="att-18-25-mb">ATT 18 - 25 MB</option>
-              <option value="att-50-100-mb">ATT 50 - 100 MB</option>
-              <option value="att-100-fibra">ATT 100 FIBRA</option>
-              <option value="att-300-500-mb">ATT 300 - 500 MB</option>
-              <option value="att-1g-plus">ATT 1G+</option>
-              <option value="mobility-spectrum">MOBILITY SPECTRUM</option>
-              <option value="sim-spectrum">SIM SPECTRUM</option>
-              <option value="frontier-200-mb">FRONTIER 200 MB</option>
-              <option value="frontier-500-mb">FRONTIER 500 MB</option>
-              <option value="frontier-1g">FRONTIER 1G</option>
-              <option value="frontier-2g-plus">FRONTIER 2G+</option>
-              <option value="spectrum-500">SPECTRUM 500</option>
-              <option value="spectrum-1g">SPECTRUM 1G</option>
-              <option value="spectrum-2g">SPECTRUM 2G</option>
-              <option value="internet-wow">INTERNET WOW</option>
-              <option value="internet-altafiber">INTERNET ALTA FIBER</option>
-              <option value="internet-windstream">INTERNET WINDSTREAM</option>
-              <option value="internet-hughesnet">INTERNET HUGHESNET</option>
-              <option value="internet-viasat">INTERNET VIASAT</option>
-              <option value="internet-consolidate">INTERNET CONSOLIDATE</option>
-              <option value="internet-consolidate-2g">INTERNET CONSOLIDATE 2G</option>
-              <option value="internet-consolidate-1g">INTERNET CONSOLIDATE 1G</option>
-              <option value="internet-consolidate-300m">INTERNET CONSOLIDATE 300M</option>
-              <option value="internet-consolidate-100m">INTERNET CONSOLIDATE 100M</option>
-              <option value="internet-centurylink">INTERNET CENTURYLINK</option>
-              <option value="internet-metronet">INTERNET METRONET</option>
-              <option value="internet-ziply-fiber">INTERNET ZIPLY FIBER</option>
-              <option value="internet-hawaiian">INTERNET HAWAIIAN</option>
-              <option value="video-select-spectrum">VIDEO SELECT SPECTRUM</option>
-              <option value="double-play-spectrum">DOUBLE PLAY SPECTRUM</option>
-              <option value="brightspeed-10-100">BRIGHTSPEED 10-100MBPS</option>
-              <option value="brightspeed-100-900">BRIGHTSPEED 100-900MBPS</option>
-              <option value="internet-optimum">INTERNET OPTIMUM</option>
-              <option value="internet-earthlink">INTERNET EARTHLINK</option>
-              <option value="xfinity-double-play">XFINITY DOUBLE PLAY</option>
-              <option value="xfinity-100-299">XFINITY 100 - 299 MBPS</option>
-              <option value="xfinity-300">XFINITY 300MBPS</option>
-              <option value="xfinity-500-plus">XFINITY 500MBPS+</option>
-              <option value="xfinity-ultimate-tv">XFINITY ULTIMATE TV</option>
-              <option value="xfinity-unlimited-voip">XFINITY UNLIMITED VOIP</option>
-            </select>
-            
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Autopago</label>
-            <select id="edit-autopago" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-              <option value="">Seleccionar...</option>
-              <option value="SI">Sí</option>
-              <option value="NO">No</option>
-            </select>
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Riesgo</label>
-            <select id="edit-riesgo" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
-              <option value="">Elige</option>
-              <option value="low">LOW</option>
-              <option value="medium">MEDIUM</option>
-              <option value="high">HIGH</option>
-              <option value="na">N/A</option>
-            </select>
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Sistema</label>
-            <select id="edit-sistema" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; display:block;">
-              <option value="">Seleccionar...</option>
-              <option value="SARA">SARA</option>
-              <option value="N/A">N/A</option>
-            </select>
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Puntaje</label>
-            <select id="edit-puntaje" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-              <option value="">Elige puntaje</option>
-              <option value="1.5">1.5</option>
-              <option value="1.25">1.25</option>
-              <option value="1.0">1.0</option>
-              <option value="0.95">0.95</option>
-              <option value="0.75">0.75</option>
-              <option value="0.70">0.70</option>
-              <option value="0.50">0.50</option>
-              <option value="0.35">0.35</option>
-              <option value="0.25">0.25</option>
-            </select>
-          </div>
-          <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 20px;">
-            <div class="edit-section-title" style="margin-bottom: 15px;">Administrativo</div>
-            <label style="display: block; margin-bottom: 6px; color: #111; font-weight: 600;">Mercado</label>
-            <input type="text" id="edit-mercado" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Representante</label>
-            <input type="text" id="edit-representante" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Sup</label>
-            <input type="text" id="edit-supervisor" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Fecha de Venta</label>
-            <input type="date" id="edit-dia-venta" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Fecha de Instalación</label>
-            <input type="date" id="edit-dia-instalacion" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">ACCOUNT</label>
-            <input type="text" id="edit-numero-cuenta" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Motivo de llamada</label>
-            <input type="text" id="edit-motivo-llamada" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;">
-            <label style="display: block; margin: 14px 0 6px; color: #111; font-weight: 600;">Comentario</label>
-            <textarea id="edit-comentario" style="width: 100%; min-height: 70px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff;"></textarea>
+
+  <!-- MODAL WRAPPER -->
+  <div id="editarModal-wrapper" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow:auto;">
+    <div class="modal" id="editarModal">
+
+      <!-- HEADER -->
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-avatar">✏️</div>
+          <div>
+            <div class="modal-title">Editar Lead <span id="modal-lead-id">#A6C9</span></div>
+            <div class="modal-subtitle">Modifica los datos del cliente</div>
           </div>
         </div>
-        <div class="edit-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-          <button onclick="cerrarModalEdicion()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Cancelar</button>
-          <button onclick="guardarCambiosLead()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: none; padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(59, 130, 246, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(59, 130, 246, 0.4)'">
-            <i class="fas fa-save" style="margin-right: 8px;"></i>Guardar cambios
-          </button>
-        </div>
-        <!-- SecciÃ³n de Notas / Historial (dentro del contenedor principal) -->
-        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
-          <h4 style="margin: 0 0 15px; font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
-            <span><i class="fas fa-sticky-note" style="margin-right: 8px; color: #10b981;"></i>Notas e Historial</span>
-            <button onclick="refrescarNotasLead()" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" title="Recargar notas del servidor">
-              <i class="fas fa-sync-alt"></i> Refrescar
-            </button>
-          </h4>
-          <!-- Input para nueva nota -->
-          <div style="position: relative; margin-bottom: 15px;">
-            <textarea id="edit-nueva-nota" placeholder="Agregar nueva nota..." style="width: 100%; padding: 15px; padding-right: 130px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; min-height: 150px; resize: vertical; background: #f9fafb; font-family: inherit; line-height: 1.5; box-sizing: border-box;"></textarea>
-            <button onclick="agregarNotaCliente()" style="position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
-              <i class="fas fa-plus"></i> Agregar Nota
-            </button>
-            <!-- Botones para adjuntar archivos -->
-            <div style="position: absolute; bottom: 10px; left: 10px; display: flex; gap: 8px;">
-              <input type="file" id="note-image-input" accept="image/*" style="display: none;" onchange="previewNoteAttachment(this, 'image')" />
-              <input type="file" id="note-audio-input" accept="audio/*" style="display: none;" onchange="previewNoteAttachment(this, 'audio')" />
-              <button type="button" onclick="document.getElementById('note-image-input').click()" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#3b82f6'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'" title="Adjuntar imagen">
-                <i class="fas fa-image"></i> Imagen
-              </button>
-              <button type="button" onclick="document.getElementById('note-audio-input').click()" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#8b5cf6'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'" title="Adjuntar audio">
-                <i class="fas fa-microphone"></i> Audio
-              </button>
-            </div>
-          </div>
-          <!-- Vista previa de archivos adjuntos -->
-          <div id="note-attachments-preview" style="display: none; margin-bottom: 15px; padding: 10px; background: #f1f5f9; border-radius: 8px; border: 1px dashed #cbd5e1;">
-            <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 600;">
-              <i class="fas fa-paperclip"></i> Archivos adjuntos:
-            </div>
-            <div id="note-attachments-list" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
-          </div>
-          <!-- Contenedor de notas dinÃ¡mico -->
-          <div id="edit-notes-list" style="max-height: none; overflow-y: visible; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb;">
-            <!-- Las notas se cargarÃ¡n aquÃ­ dinámicamente -->
-          </div>
-        </div>
+        <button class="modal-close" onclick="cerrarModal()">✕</button>
       </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+
+        <!-- FIELDS GRID -->
+        <div class="fields-grid">
+
+          <div class="section-label col-span-3">Datos del Cliente</div>
+
+          <div class="field">
+            <label>Teléfono</label>
+            <input type="tel" id="edit-telefono" placeholder="Teléfono principal" />
+          </div>
+          <div class="field">
+            <label>Teléfono Alterno</label>
+            <input type="tel" id="edit-telefono-alt" placeholder="—" />
+          </div>
+          <div class="field">
+            <label>Nombres</label>
+            <input type="text" id="edit-nombres" placeholder="Nombres" />
+          </div>
+
+          <div class="field">
+            <label>Apellidos</label>
+            <input type="text" id="edit-apellidos" placeholder="Apellidos" />
+          </div>
+          <div class="field">
+            <label>Dirección</label>
+            <input type="text" id="edit-direccion" placeholder="Dirección completa" />
+          </div>
+
+          <div class="field">
+            <label>ZIP</label>
+            <input type="text" id="edit-zip-code" placeholder="Código ZIP" />
+          </div>
+
+          <div class="section-label col-span-3">Servicios</div>
+
+          <div class="field">
+            <label>Tipo de Servicios</label>
+            <select id="edit-tipo-servicios">
+              <option>VIVINT</option>
+              <option>ADT</option>
+              <option>Ring</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Servicios</label>
+            <select id="edit-servicios">
+              <option>vivint</option>
+              <option>security</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Autopago</label>
+            <select id="edit-autopago">
+              <option>Sí</option>
+              <option>No</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Riesgo</label>
+            <select id="edit-riesgo">
+              <option>N/A</option>
+              <option>Bajo</option>
+              <option>Alto</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Sistema</label>
+            <select id="edit-sistema">
+              <option>na</option>
+              <option>panel</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Puntaje</label>
+            <select id="edit-puntaje">
+              <option>1.5</option>
+              <option>2.0</option>
+              <option>3.0</option>
+            </select>
+          </div>
+
+          <div class="section-label col-span-3">Administrativo</div>
+
+          <div class="field">
+            <label>Mercado</label>
+            <input type="text" id="edit-mercado" placeholder="Mercado" />
+          </div>
+          <div class="field">
+            <label>Representante</label>
+            <input type="text" id="edit-representante" placeholder="Representante" />
+          </div>
+          <div class="field">
+            <label>Sup</label>
+            <input type="text" id="edit-sup" placeholder="Supervisor" />
+          </div>
+
+          <div class="field">
+            <label>Fecha de Venta</label>
+            <input type="date" id="edit-dia-venta" />
+          </div>
+          <div class="field">
+            <label>Fecha de Instalación</label>
+            <input type="date" id="edit-dia-instalacion" />
+          </div>
+          <div class="field">
+            <label>ACCOUNT</label>
+            <input type="text" id="edit-numero-cuenta" placeholder="Número de cuenta" />
+          </div>
+
+          <div class="field">
+            <label>Motivo de Llamada</label>
+            <input type="text" id="edit-motivo-llamada" placeholder="Motivo" />
+          </div>
+          <div class="field">
+            <label>Comentario</label>
+            <textarea id="edit-comentario" placeholder="Comentario adicional…"></textarea>
+          </div>
+
+        </div><!-- /fields-grid -->
+
+        <!-- NOTAS SECTION -->
+        <div class="notes-section">
+
+          <div class="notes-header">
+            <div class="notes-title">
+              <div class="notes-title-icon">🗒️</div>
+              Notas e Historial
+              <span class="notes-count" id="notes-count-badge">0</span>
+            </div>
+            <button class="btn-refresh" onclick="refrescarNotasLead()">
+              <span class="spin">↻</span> Refrescar
+            </button>
+          </div>
+
+          <div class="compose-box">
+            <div class="compose-label">Nueva nota</div>
+            <div class="compose-input-wrapper">
+              <input type="text" id="edit-nota-tema" placeholder="Tema de la nota (ej: Llamada de seguimiento, Acuerdo de precios...)" style="width: 100%; padding: 11px 12px; border: 1.5px solid #E5E7EB; border-radius: 8px; font-size: 0.85rem; font-family: inherit; color: #111827; background: #F9FAFB; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s;" />
+              <textarea class="compose-input" id="edit-nueva-nota" placeholder="Escribe una nota sobre este lead…"></textarea>
+              <div class="compose-footer">
+                <div class="compose-tools">
+                  <button type="button" class="ctool" title="Foto" onclick="document.getElementById('note-image-input').click()">📷</button>
+                  <button type="button" class="ctool" title="Audio" onclick="document.getElementById('note-audio-input').click()">🎵</button>
+                  <input type="file" id="note-image-input" accept="image/*" style="display:none;" />
+                  <input type="file" id="note-audio-input" accept="audio/*" style="display:none;" />
+                </div>
+                <button class="btn-addnote" onclick="agregarNotaCliente()">＋ Agregar nota</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="notes-feed">
+            <div id="edit-notes-list">
+              <div class="no-notes">
+                <div class="no-notes-icon">📝</div>
+                <span class="no-notes-text">Sin notas aún</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /notes-section -->
+
+      </div><!-- /modal-body -->
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn-save" onclick="guardarCambiosLead()">
+          <span class="btn-save-icon">💾</span>
+          Guardar cambios
+        </button>
+      </div>
+
     </div>
-  </div>
+
+  </div><!-- /editarModal-wrapper -->
 
   <!-- Scripts -->
   <script>
+    // Modal Functions
+    function abrirModal(leadData = {}) {
+      const wrapper = document.getElementById('editarModal-wrapper');
+      if (wrapper) {
+        wrapper.style.display = 'flex';
+        // Cargar datos del lead si existen
+        if (leadData.id) {
+          document.getElementById('modal-lead-id').textContent = '#' + leadData.id;
+          document.getElementById('edit-telefono').value = leadData.telefono || '';
+          document.getElementById('edit-nombres').value = leadData.nombres || '';
+          document.getElementById('edit-apellidos').value = leadData.apellidos || '';
+          document.getElementById('edit-direccion').value = leadData.direccion || '';
+          document.getElementById('edit-zip').value = leadData.zip || '';
+        }
+      }
+    }
+
+    function cerrarModal() {
+      const wrapper = document.getElementById('editarModal-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+    }
+
+    function guardarCambiosLead() {
+      console.log('Guardando cambios del lead...');
+      // Aquí va la lógica para guardar
+      cerrarModal();
+    }
+
+    function refrescarNotasLead() {
+      console.log('Refrescando notas...');
+      // Aquí va la lógica para cargar las notas
+    }
+
+    // Cierra el modal al hacer click en el fondo (wrapper)
+    document.getElementById('editarModal-wrapper')?.addEventListener('click', (e) => {
+      if (e.target.id === 'editarModal-wrapper') cerrarModal();
+    });
+
     // Helper: obtener leads por agentId desde backend (fallback para vista Supervisor)
     // Cache global de leads por agente para evitar reconsultas
     if (!window.__agentLeadsCache) window.__agentLeadsCache = new Map();
@@ -4086,7 +5357,7 @@
         const updatePageInfo = () => {
           const p = Number(window.__apiPage || window.__page || 1) || 1;
           const totalPages = Number(window.__totalPages || 1) || 1;
-          if (pageInfoEl) pageInfoEl.textContent = `PÃ¡gina ${p} de ${totalPages}`;
+          if (pageInfoEl) pageInfoEl.textContent = `Página ${p} de ${totalPages}`;
           if (prevBtn) prevBtn.disabled = p <= 1;
           if (nextBtn) nextBtn.disabled = p >= totalPages;
         };
@@ -5331,7 +6602,7 @@
           const nextBtn = document.getElementById('pageNext');
           const p = Number(window.__apiPage || window.__page || 1) || 1;
           const totalPages = Number(window.__totalPages || 1) || 1;
-          if (pageInfoEl) pageInfoEl.textContent = `PÃ¡gina ${p} de ${totalPages}`;
+          if (pageInfoEl) pageInfoEl.textContent = `Página ${p} de ${totalPages}`;
           if (prevBtn) prevBtn.disabled = p <= 1;
           if (nextBtn) nextBtn.disabled = p >= totalPages;
         } catch (_) {}
@@ -7549,25 +8820,38 @@
         let lastKey = '';
         console.log('[RENDER FINAL] A punto de renderizar', sorted.length, 'items. Supervisores:', 
           [...new Set(sorted.map(x => x?.supervisor || x?._raw?.supervisor || '(vacÃ­o)'))].join(', '));
-        sorted.forEach(item => {
-          const iso = getDateFromLead(item);
-          let key = 'Sin fecha';
-          let title = 'Sin fecha â€” Clientes';
-          if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-            const [y, m] = iso.split('-').map(Number);
-            key = `${y}-${('0'+m).slice(-2)}`;
-            title = `${monthNames[(m||1)-1]} ${y} â€” Clientes`;
+        sorted.forEach((item, idx) => {
+          try {
+            const iso = getDateFromLead(item);
+            let key = 'Sin fecha';
+            let title = 'Sin fecha â€” Clientes';
+            if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+              const [y, m] = iso.split('-').map(Number);
+              key = `${y}-${('0'+m).slice(-2)}`;
+              title = `${monthNames[(m||1)-1]} ${y} â€” Clientes`;
+            }
+            if (key !== lastKey) {
+              lastKey = key;
+              const sep = document.createElement('tr');
+              sep.className = 'costumer-month-separator';
+              sep.innerHTML = `<td colspan="21" style="background:#e2e8f0;font-weight:700;border-left:4px solid #1976d2;padding:12px 18px;color:#0f172a;">${title}</td>`;
+              tbodyLoc.appendChild(sep);
+            }
+            appendLeadRow(item);
+          } catch (e) {
+            try {
+              console.warn('[renderWithMonthlySeparators] Error renderizando item idx=', idx, {
+                id: (typeof getLeadId === 'function') ? getLeadId(item) : (item?._id || item?.id || item?.id_cliente),
+                nombre: item?.nombre_cliente,
+                status: item?.status,
+                dia_venta: item?.dia_venta || item?.fecha_contratacion || item?._raw?.dia_venta
+              }, e);
+            } catch (_) {
+              console.warn('[renderWithMonthlySeparators] Error renderizando item idx=', idx, e);
+            }
           }
-          if (key !== lastKey) {
-            lastKey = key;
-            const sep = document.createElement('tr');
-            sep.className = 'costumer-month-separator';
-            sep.innerHTML = `<td colspan="21" style="background:#e2e8f0;font-weight:700;border-left:4px solid #1976d2;padding:12px 18px;color:#0f172a;">${title}</td>`;
-            tbodyLoc.appendChild(sep);
-          }
-          appendLeadRow(item);
         });
-        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){}
+        try { if (window.rebuildStickyHead) window.rebuildStickyHead(); } catch(_){ }
 
         // Debug visual: comprobar que se aÃ±adieron filas y mostrar propiedades del primer registro
         setTimeout(() => {
@@ -9247,8 +10531,8 @@
           return;
         }
         const leadId = String(id || '').trim();
-        if (!leadId) { alert('ID invÃ¡lido'); return; }
-        if (!confirm('Â¿Seguro que deseas eliminar este lead? Esta acciÃ³n no se puede deshacer.')) return;
+        if (!leadId) { alert('ID inválido'); return; }
+        if (!confirm('¿Seguro que deseas eliminar este lead? Esta acción no se puede deshacer.')) return;
 
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = { 'Accept': 'application/json' };
@@ -9334,8 +10618,10 @@
     }
 
     function abrirModalEdicion(lead, forcedId) {
+      const wrapper = document.getElementById('editarModal-wrapper');
       const modal = document.getElementById('editarModal');
-      if (!modal) return;
+      
+      if (!modal && !wrapper) return;
 
       const leadId = (() => {
         try {
@@ -9372,14 +10658,8 @@
         }
       } catch (_) {}
 
-      const idDisplayEl = document.getElementById('edit-lead-id-display');
-      if (idDisplayEl) {
-        try {
-          idDisplayEl.textContent = leadId ? `#${formatLeadIdShort(leadId)}` : '#----';
-        } catch (_) {
-          idDisplayEl.textContent = leadId ? `#${String(leadId).slice(0, 6)}` : '#----';
-        }
-      }
+      try { window.clearLeadUnsaved && window.clearLeadUnsaved(); } catch (_) {}
+      try { window.initLeadUnsavedTracking && window.initLeadUnsavedTracking(); } catch (_) {}
 
       function getValue(...keys) {
         for (const k of keys) {
@@ -9509,6 +10789,8 @@
           } else {
             list.innerHTML = '<p style="color: #9ca3af; text-align: center; padding: 20px;">Sin notas</p>';
           }
+          try { window.updateNoteCounts && window.updateNoteCounts(); } catch (_) {}
+          try { __resetNotasFilterToAll(); } catch (_) {}
         }
       } catch (_) {}
 
@@ -9516,7 +10798,56 @@
         const textarea = document.getElementById('edit-nueva-nota');
         if (textarea) textarea.value = '';
       } catch (_) {}
+
+      try {
+        const btn = document.querySelector('#editarModal .lead-tabbar .lead-tab.active')
+          || document.querySelector('#editarModal .lead-tabbar .lead-tab');
+        window.setLeadTab && window.setLeadTab(btn, 'cliente');
+      } catch (_) {}
+
+      // Abrir el nuevo modal si existe el wrapper (DESPUÉS de llenar los campos)
+      if (wrapper) {
+        wrapper.style.display = 'flex';
+        const leadIdEl = document.getElementById('modal-lead-id');
+        if (leadIdEl && leadId) {
+          leadIdEl.textContent = '#' + ((() => {
+            try { return formatLeadIdShort(leadId); } catch (_) { return String(leadId).slice(0, 6); }
+          })());
+        }
+        return; // No ejecutar el código antiguo del navegador modal
+      }
+
+      // Fallback para modal antiguo (no usado)
+      const idDisplayEl = document.getElementById('edit-lead-id-display');
+      if (idDisplayEl) {
+        try {
+          idDisplayEl.textContent = leadId ? `#${formatLeadIdShort(leadId)}` : '#----';
+        } catch (_) {
+          idDisplayEl.textContent = leadId ? `#${String(leadId).slice(0, 6)}` : '#----';
+        }
+      }
+
+      try {
+        const pill = document.getElementById('edit-lead-pill');
+        if (pill) pill.textContent = leadId ? `#${formatLeadIdShort(leadId)}` : '#----';
+      } catch (_) {
+        try {
+          const pill = document.getElementById('edit-lead-pill');
+          if (pill) pill.textContent = leadId ? `#${String(leadId).slice(0, 6)}` : '#----';
+        } catch (_) {}
+      }
+
       modal.style.display = 'block';
+    }
+
+    // Aliases para compatibilidad con el nuevo modal
+    function cerrarModalEdicion() {
+      cerrarModal();
+    }
+
+    function previewNoteAttachment(input, type) {
+      // Placeholder para preview de archivos adjuntos
+      console.log('Preview attachment:', type, input.files[0]);
     }
 
     (function initSocketIO() {
@@ -9774,6 +11105,18 @@
       const div = document.createElement('div');
       div.className = 'note-card';
       div.dataset.noteIndex = index;
+
+      try {
+        let type = 'note';
+        const atts = Array.isArray(note?.attachments) ? note.attachments : [];
+        if (atts.length) {
+          const t0 = String(atts[0]?.type || '').toLowerCase().trim();
+          if (t0 === 'image' || t0 === 'audio' || t0 === 'video') type = t0;
+        }
+        div.dataset.type = type;
+      } catch (_) {
+        div.dataset.type = 'note';
+      }
       
       const noteText = note.text || note.comentario || (typeof note === 'string' ? note : '');
       const author = note.author || '';
@@ -9880,16 +11223,207 @@
       ` : '';
       
       div.innerHTML = `
-        <span class="note-text">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</span>
+        ${(note.tema || note.subject || note.title) ? `<div class="note-title">${(note.tema || note.subject || note.title).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+        <div class="note-text">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>
+        <div class="note-meta">
+          <span><i class="fas fa-user" style="margin-right: 3px;"></i>${author || 'Usuario'}</span>
+          ${date ? `<span><i class="fas fa-clock" style="margin-right: 3px;"></i>${date}</span>` : ''}
+        </div>
+        <div class="note-footer">
+          <button class="btn-view" onclick="verComentarioCompleto(${index})" title="Ver comentario completo">
+            <i class="fas fa-eye" style="font-size: 10px;"></i> Ver
+          </button>
+          ${actionsHtml}
+        </div>
         ${attachmentsHtml}
-        ${metaInfo}
         ${editInfo}
-        ${actionsHtml}
       `;
-      // Inicializar controles de audio despuÃ©s de insertar en DOM
+      // Inicializar controles de audio después de insertar en DOM
       setTimeout(() => initAudioPlayers(div), 100);
       return div;
     }
+
+    window.verComentarioCompleto = function(noteIndex) {
+      try {
+        // Obtener la nota del lead actual
+        const notas = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
+        const note = notas[noteIndex];
+        
+        if (!note) {
+          alert('No se encontró la nota');
+          return;
+        }
+        
+        const textoCompleto = note.text || note.comentario || '';
+        const tema = note.tema || note.subject || note.title || 'Sin tema';
+        const author = note.author || 'Usuario';
+        const date = note.at ? new Date(note.at).toLocaleString() : '';
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0,0,0,0.5);
+          z-index: 2000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+          background: white;
+          border-radius: 12px;
+          padding: 24px;
+          max-width: 600px;
+          width: 100%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        `;
+
+        content.innerHTML = `
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 8px; color: #111827; font-size: 1.1rem; font-weight: 700;">📌 ${tema.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 12px;">
+              <span><i class="fas fa-user" style="margin-right: 4px;"></i>${author}</span>
+              ${date ? `<span style="margin-left: 12px;"><i class="fas fa-clock" style="margin-right: 4px;"></i>${date}</span>` : ''}
+            </div>
+            <div style="background: #f9fafb; border-radius: 8px; padding: 16px; color: #374151; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;">
+              ${textoCompleto.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          <button onclick="this.closest('div[style*=fixed]').remove()" style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            width: 100%;
+            transition: all 0.2s;
+          " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+            Cerrar
+          </button>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        modal.onclick = (e) => {
+          if (e.target === modal) modal.remove();
+        };
+      } catch (e) {
+        console.error('Error en verComentarioCompleto:', e);
+        alert('Error al abrir el comentario: ' + (e?.message || e));
+      }
+    };
+
+    window.filterNotas = function(type, btn) {
+      try {
+        document.querySelectorAll('#editarModal .fpill').forEach(p => p.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        const list = document.getElementById('edit-notes-list');
+        if (!list) return;
+        list.querySelectorAll('.note-card').forEach(card => {
+          const t = String(card.dataset.type || 'note');
+          card.style.display = (type === 'all' || t === type) ? '' : 'none';
+        });
+      } catch (_) {}
+    };
+
+    window.updateNoteCounts = function() {
+      try {
+        const list = document.getElementById('edit-notes-list');
+        if (!list) return;
+        const cards = Array.from(list.querySelectorAll('.note-card'));
+        const countAll = cards.length;
+        const countBy = (t) => cards.filter(c => String(c.dataset.type || 'note') === t).length;
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = String(val); };
+        setText('notesCount', countAll);
+        setText('fc-all', countAll);
+        setText('fc-note', countBy('note'));
+        setText('fc-image', countBy('image'));
+        setText('fc-audio', countBy('audio'));
+        setText('fc-video', countBy('video'));
+      } catch (_) {}
+    };
+
+    function __getActiveNotasFilterType() {
+      try {
+        const active = document.querySelector('#editarModal .fpill.active');
+        if (!active) return 'all';
+        const onclick = String(active.getAttribute('onclick') || '');
+        const m = onclick.match(/filterNotas\('\s*([^']+)\s*'/i);
+        return (m && m[1]) ? String(m[1]) : 'all';
+      } catch (_) {
+        return 'all';
+      }
+    }
+
+    function __applyNotasFilter(type) {
+      try {
+        const list = document.getElementById('edit-notes-list');
+        if (!list) return;
+        list.querySelectorAll('.note-card').forEach(card => {
+          const t = String(card.dataset.type || 'note');
+          card.style.display = (type === 'all' || t === type) ? '' : 'none';
+        });
+      } catch (_) {}
+    }
+
+    function __resetNotasFilterToAll() {
+      try {
+        const btnAll = document.querySelector('#editarModal .fpill[onclick*="filterNotas(\'all\'"]');
+        if (btnAll) {
+          document.querySelectorAll('#editarModal .fpill').forEach(p => p.classList.remove('active'));
+          btnAll.classList.add('active');
+        }
+        __applyNotasFilter('all');
+      } catch (_) {}
+    }
+
+    window.setLeadTab = function(btn, tabKey) {
+      try {
+        document.querySelectorAll('#editarModal .lead-tab').forEach(t => t.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+      } catch (_) {}
+    };
+
+    window.markLeadUnsaved = function() {
+      try {
+        const badge = document.getElementById('unsavedBadge');
+        if (badge) badge.classList.add('visible');
+      } catch (_) {}
+    };
+
+    window.clearLeadUnsaved = function() {
+      try {
+        const badge = document.getElementById('unsavedBadge');
+        if (badge) badge.classList.remove('visible');
+      } catch (_) {}
+    };
+
+    window.initLeadUnsavedTracking = function() {
+      try {
+        const modal = document.getElementById('editarModal');
+        if (!modal) return;
+        const inputs = modal.querySelectorAll('input, select, textarea');
+        inputs.forEach(el => {
+          if (el && !el.__unsavedBound) {
+            el.__unsavedBound = true;
+            el.addEventListener('input', window.markLeadUnsaved);
+            el.addEventListener('change', window.markLeadUnsaved);
+          }
+        });
+      } catch (_) {}
+    };
     
     // Inicializar reproductores de audio con barra de progreso
     function initAudioPlayers(container) {
@@ -10267,8 +11801,20 @@
           console.log('[NOTA] Archivos subidos:', uploadedAttachments.length);
         }
         
-        // Crear nota con archivos adjuntos (URLs de GridFS)
+        // Obtener tema de la nota
+        const temaInput = document.getElementById('edit-nota-tema');
+        const tema = (temaInput?.value || '').trim();
+        
+        // Validar que tenga tema
+        if (!tema) {
+          alert('Por favor escribe un tema para la nota');
+          temaInput?.focus();
+          return;
+        }
+        
+        // Crear nota con archivos adjuntos (URLs de GridFS) y tema
         const newNote = { 
+          tema: tema,
           text: text || '(Archivo adjunto)', 
           author, 
           at: new Date().toISOString(),
@@ -10279,8 +11825,9 @@
         const current = (window.__currentEditingLead && (window.__currentEditingLead.notas || window.__currentEditingLead.notes)) || [];
         const notas = Array.isArray(current) ? [newNote, ...current] : [newNote];
 
-        // Limpiar textarea
+        // Limpiar inputs
         if (textarea) textarea.value = '';
+        if (temaInput) temaInput.value = '';
 
         // Guardar en backend usando PUT
         let ok = false; let lastTxt = '';
@@ -10323,6 +11870,8 @@
               }
               // Limpiar archivos adjuntos
               clearNoteAttachments();
+              try { window.updateNoteCounts && window.updateNoteCounts(); } catch (_) {}
+              try { __resetNotasFilterToAll(); } catch (_) {}
               console.log('[NOTA] Nota guardada exitosamente');
               // NotificaciÃ³n de Windows
               const clientName = window.__currentEditingLead?.nombre_cliente || window.__currentEditingLead?.nombre || 'Cliente';
@@ -10404,6 +11953,12 @@
           } else {
             list.innerHTML = '<p style="color: #9ca3af; text-align: center; padding: 20px;">Sin notas</p>';
           }
+
+          try { window.updateNoteCounts && window.updateNoteCounts(); } catch (_) {}
+          try {
+            const currentFilter = __getActiveNotasFilterType();
+            __applyNotasFilter(currentFilter);
+          } catch (_) {}
           
           // Actualizar lead actual en memoria
           if (window.__currentEditingLead) {
@@ -10517,7 +12072,7 @@
         return;
       }
       const modalEl = document.getElementById('editarModal');
-      const saveBtnEl = modalEl ? (modalEl.querySelector('.edit-actions button:last-of-type') || null) : null;
+      const saveBtnEl = modalEl ? (modalEl.querySelector('.lead-footer .lead-btn-save') || null) : null;
       const setSaving = (v) => { try { window.__savingLead = !!v; if (saveBtnEl) saveBtnEl.disabled = !!v; } catch(e){} };
       setSaving(true);
       const curLead = window.__currentEditingLead || {};
@@ -10805,6 +12360,7 @@
                   throw new Error('Error al actualizar lead encontrado: ' + (t || putResp.status));
                 }
                 alert('âœ… Registro actualizado exitosamente (coincidencia encontrada)');
+                try { window.clearLeadUnsaved && window.clearLeadUnsaved(); } catch (_) {}
                 cerrarModalEdicion();
                 location.reload();
                 return;
@@ -10854,6 +12410,7 @@
                             throw new Error('Error al actualizar la coincidencia: ' + (put2txt || putResp2.status));
                           }
                           alert('âœ… Registro actualizado exitosamente (coincidencia)');
+                          try { window.clearLeadUnsaved && window.clearLeadUnsaved(); } catch (_) {}
                           cerrarModalEdicion();
                           location.reload();
                           return;
@@ -10885,6 +12442,7 @@
                 throw new Error('Error al crear el registro: ' + (postTxt || postResp.status));
               }
               alert('âœ… Registro creado exitosamente');
+              try { window.clearLeadUnsaved && window.clearLeadUnsaved(); } catch (_) {}
               cerrarModalEdicion();
               location.reload();
               return;
@@ -10901,6 +12459,7 @@
         }
 
         alert('âœ… Registro actualizado exitosamente');
+        try { window.clearLeadUnsaved && window.clearLeadUnsaved(); } catch (_) {}
         cerrarModalEdicion();
 
         location.reload();
