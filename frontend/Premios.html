@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabla de Premios</title>
+
+  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --gold: #D4AF37;
+      --gold-light: #F0D060;
+      --dark: #0f0f0f;
+      --dark-2: #1a1a1a;
+      --dark-3: #242424;
+      --silver: #C0C0C0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--dark);
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { flex: 0 0 auto; }
+    .main-content { flex: 1; overflow-y: auto; }
+
+    .page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    .header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 4px;
+      color: var(--gold);
+      text-shadow: 0 0 30px rgba(212,175,55,0.4);
+    }
+
+    .header p {
+      color: #888;
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    .prize-card {
+      background: var(--dark-2);
+      border: 1px solid #2e2e2e;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      animation: fadeUp 0.6s ease both;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .prize-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 40px rgba(212,175,55,0.15);
+    }
+
+    .prize-card:nth-child(1) { animation-delay: 0.1s; }
+    .prize-card:nth-child(2) { animation-delay: 0.25s; }
+
+    .card-header {
+      padding: 14px 24px;
+      background: linear-gradient(90deg, #1e1e1e, #2a2a2a);
+      border-bottom: 1px solid #2e2e2e;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-header .icon { font-size: 1.1rem; }
+
+    .card-header span {
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .prize-banner {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .prize-banner .prize-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+      line-height: 1.1;
+    }
+
+    .prize-banner.gold .prize-label { color: var(--gold); }
+    .prize-banner.silver .prize-label { color: var(--silver); }
+
+    .prize-amount {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.6rem;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    .prize-banner.gold .prize-amount {
+      color: var(--gold-light);
+      text-shadow: 0 0 20px rgba(212,175,55,0.5);
+    }
+
+    .prize-banner.silver .prize-amount {
+      color: var(--silver);
+      text-shadow: 0 0 20px rgba(192,192,192,0.4);
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #2e2e2e, transparent);
+      margin: 0 24px;
+    }
+
+    .winner-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 24px;
+    }
+
+    .winner-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #f0f0f0;
+      letter-spacing: 0.5px;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+
+    .badge.gold { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.08); }
+    .badge.silver { color: var(--silver); border-color: var(--silver); background: rgba(192,192,192,0.08); }
+
+    .amount-cell {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .amount-cell.gold { color: var(--gold-light); }
+    .amount-cell.silver { color: var(--silver); }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="premios"></nav>
+
+    <main class="main-content">
+      <div class="page-wrap">
+        <div class="container">
+
+          <div class="header">
+            <h1>🏆 Tabla de Premios</h1>
+            <p>Promo del 01 al 28 de Febrero</p>
+          </div>
+
+          <div class="prize-card">
+            <div class="card-header">
+              <span class="icon">🥇</span>
+              <span>Primer lugar — Mayor venta en Febrero</span>
+            </div>
+            <div class="prize-banner gold">
+              <div class="prize-label">Premio al<br>Team #1</div>
+              <div class="prize-amount">$500</div>
+            </div>
+            <div class="divider"></div>
+            <div class="winner-row">
+              <div class="winner-name">Roberto Velásquez</div>
+              <div class="badge gold">Viáticos</div>
+              <div class="amount-cell gold">$500.00</div>
+            </div>
+          </div>
+
+          <div class="prize-card">
+            <div class="card-header">
+              <span class="icon">🥈</span>
+              <span>Segundo lugar — Mayor venta en Febrero</span>
+            </div>
+            <div class="prize-banner silver">
+              <div class="prize-label">Premio al<br>Team #2</div>
+              <div class="prize-amount">$200</div>
+            </div>
+            <div class="divider"></div>
+            <div class="winner-row">
+              <div class="winner-name">Guadalupe Santana</div>
+              <div class="badge silver">Viáticos</div>
+              <div class="amount-cell silver">$200.00</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+</body>
+</html>
