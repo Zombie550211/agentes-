@@ -60,8 +60,10 @@
               <th>VENTAS<br>POR DIA</th>
               <th>VALOR<br>DE VENTA</th>
               <th>GARAY</th>
-              <th>VENTAS<br>POR DIA</th>
-              <th>VALOR<br>DE VENTA</th>
+              <th>CLIENTE<br>POR DIA</th>
+              <th>TOTAL DE<br>LINEAS</th>
+              <th>VALOR<br>POR VENTA</th>
+              <th>VALOR<br>POR LINEA</th>
               <th>TITO</th>
               <th>VENTAS<br>POR DIA</th>
               <th>VALOR<br>DE VENTA</th>
@@ -93,6 +95,8 @@
           <div id="total-col-15"></div>
           <div id="total-col-16"></div>
           <div id="total-col-17"></div>
+          <div id="total-col-18"></div>
+          <div id="total-col-19"></div>
         </div>
       </div>
       <div class="tabla-paginacion" style="display: none;">
@@ -124,8 +128,10 @@
                   <th>VENTAS<br>POR DIA</th>
                   <th>VALOR<br>DE VENTA</th>
                   <th>GARAY</th>
-                  <th>VENTAS<br>POR DIA</th>
-                  <th>VALOR<br>DE VENTA</th>
+                  <th>CLIENTE<br>POR DIA</th>
+                  <th>TOTAL DE<br>LINEAS</th>
+                  <th>VALOR<br>POR VENTA</th>
+                  <th>VALOR<br>POR LINEA</th>
                   <th>TITO</th>
                   <th>VENTAS<br>POR DIA</th>
                   <th>VALOR<br>DE VENTA</th>
@@ -322,7 +328,8 @@ function toFechaKey(fecha) {
   } catch { return String(fecha || ''); }
 }
 
-const columnasConSigno = [1,3,4,6,7,9,10,12,13,15,17];
+// Columnas que usan formato moneda: ALEXIS(1,3), ALEJANDRO(4,6), GARAY(7,10,11), TITO(12,14), TOTAL(15,17,19)
+const columnasConSigno = [1,3,4,6,7,10,11,12,14,15,17,19];
 
 function addMoneySign(val) {
   if (val === "" || isNaN(val)) return "";
@@ -381,8 +388,47 @@ async function fetchFacturacionMes(mes, ano) {
 
 function buscarCamposPorFecha(fecha) {
   const key = toFechaKey(fecha);
-  const campos = datosFacturacionIndex[key];
-  return Array.isArray(campos) ? campos : Array(17).fill('');
+  const camposAntiguos = datosFacturacionIndex[key];
+  
+  if (!Array.isArray(camposAntiguos)) {
+    return Array(19).fill('');
+  }
+  
+  // Si ya tiene 19 campos, es la estructura nueva
+  if (camposAntiguos.length === 19) {
+    return camposAntiguos;
+  }
+  
+  // Si tiene 17 campos, es la estructura antigua, hacer mapping a 19 campos
+  if (camposAntiguos.length === 17) {
+    const nuevos = Array(19).fill('');
+    
+    // Copiar ALEXIS (0-2) y ALEJANDRO (3-5) y GARAY monto (6) sin cambios
+    for (let i = 0; i <= 6; i++) {
+      nuevos[i] = camposAntiguos[i] || '';
+    }
+    
+    // GARAY: los antiguos campos 7-8 (ventas, valor) ahora son cliente/día y total líneas
+    nuevos[7] = camposAntiguos[7] || '';  // Antiguo "ventas garay" → nuevo "cliente por día"
+    nuevos[8] = camposAntiguos[8] || '';  // Antiguo "valor garay" → nuevo "total líneas"
+    // Campos 9-10 quedan vacíos (se calculan automáticamente)
+    
+    // TITO: desplazado +2 (de 9-11 a 11-13)
+    nuevos[11] = camposAntiguos[9] || '';
+    nuevos[12] = camposAntiguos[10] || '';
+    nuevos[13] = camposAntiguos[11] || '';
+    
+    // TOTALES: desplazado +2 (de 12-16 a 14-18)
+    nuevos[14] = camposAntiguos[12] || '';
+    nuevos[15] = camposAntiguos[13] || '';
+    nuevos[16] = camposAntiguos[14] || '';
+    nuevos[17] = camposAntiguos[15] || '';
+    nuevos[18] = camposAntiguos[16] || '';
+    
+    return nuevos;
+  }
+  
+  return Array(19).fill('');
 }
 
 async function renderTablaDias(mes, ano) {
@@ -391,7 +437,7 @@ async function renderTablaDias(mes, ano) {
   const numDias = daysInMonth(ano, mes);
   for (let i = 0; i < numDias; i++) {
     const tr = document.createElement("tr");
-    for (let c = 0; c < 18; c++) {
+    for (let c = 0; c < 20; c++) {
       const td = document.createElement("td");
       if (c === 0) {
         td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
@@ -404,7 +450,7 @@ async function renderTablaDias(mes, ano) {
         if (columnasConSigno.includes(c) && val !== "") {
           val = addMoneySign(removeMoneySign(val));
         }
-        if (c === 14 && val !== "") {
+        if (c === 16 && val !== "") {
           val = parseInt(removeMoneySign(val), 10) || 0;
           val = val.toLocaleString('en-US');
         }
@@ -414,6 +460,8 @@ async function renderTablaDias(mes, ano) {
       tr.appendChild(td);
     }
     excelBody.appendChild(tr);
+    // Recalcular la fila para llenar columnas calculadas (VALOR POR VENTA, VALOR POR LINEA)
+    recalcularFila(tr);
   }
   applyAlejandroVisibility();
   // Ocultar botones de paginación ya que mostramos todo el mes
@@ -461,31 +509,36 @@ function recalcularFila(tr) {
   const ventasAlejandro = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
   tds[6].textContent = ventasAlejandro > 0 ? (alejandro / ventasAlejandro).toFixed(2) : "";
 
+  // GARAY: ahora en 7,8,9,10,11
   const garay = parseFloat(tds[7].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasGaray = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[9].textContent = ventasGaray > 0 ? (garay / ventasGaray).toFixed(2) : "";
+  const clientePorDiaGaray = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const totalLineasGaray = parseFloat(tds[9].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[10].textContent = clientePorDiaGaray > 0 ? (garay / clientePorDiaGaray).toFixed(2) : "";
+  tds[11].textContent = totalLineasGaray > 0 ? (garay / totalLineasGaray).toFixed(2) : "";
 
-  const tito = parseFloat(tds[10].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasTito = parseFloat(tds[11].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[12].textContent = ventasTito > 0 ? (tito / ventasTito).toFixed(2) : "";
+  // TITO: ahora en 12,13,14
+  const tito = parseFloat(tds[12].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const ventasTito = parseFloat(tds[13].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  tds[14].textContent = ventasTito > 0 ? (tito / ventasTito).toFixed(2) : "";
 
   const totalDia = alexis + alejandro + garay + tito;
-  tds[13].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
+  tds[15].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
 
-  const totalVentas = ventasAlexis + ventasAlejandro + ventasGaray + ventasTito;
-  tds[14].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
+  const totalVentas = ventasAlexis + ventasAlejandro + clientePorDiaGaray + ventasTito;
+  tds[16].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
 
-  tds[15].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
+  tds[17].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
 
-  const puntos = parseFloat(tds[16].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const puntos = parseFloat(tds[18].textContent.replace(/[^0-9.-]/g, "")) || 0;
 
-  tds[17].textContent = (puntos > 0) ? (totalDia / puntos).toFixed(2) : "";
+  tds[19].textContent = (puntos > 0) ? (totalDia / puntos).toFixed(2) : "";
 }
 
 excelBody.addEventListener('input', function(e) {
   const td = e.target;
   const tr = td.parentElement;
-  if (td.cellIndex !== 0 && ![3,6,9,12,13,14,15,17].includes(td.cellIndex)) {
+  // No recalcular si es FECHA o si es una columna calculada automáticamente (3,6,10,11,14,15,16,17,19)
+  if (td.cellIndex !== 0 && ![3,6,10,11,14,15,16,17,19].includes(td.cellIndex)) {
     recalcularFila(tr);
     renderFilaTotalesFacturacion();
     actualizarTotalesPorMesLocales();
@@ -506,12 +559,13 @@ async function guardarTodoFacturacion() {
       let txt = td.textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      if ((txt === "" || isNaN(Number(txt))) && idx !== 14 && idx !== 15) txt = "";
+      // No vaciar campos calculados (índices dentro de campos: 2,5,9,10,13,14,15,16,18)
+      if ((txt === "" || isNaN(Number(txt))) && ![2,5,9,10,13,14,15,16,18].includes(idx)) txt = "";
       return txt;
     });
-    // Asegurar exactamente 17 campos (excluyendo la columna FECHA)
-    while (campos.length < 17) campos.push("");
-    if (campos.length > 17) campos.length = 17;
+    // Asegurar exactamente 19 campos (excluyendo la columna FECHA)
+    while (campos.length < 19) campos.push("");
+    if (campos.length > 19) campos.length = 19;
 
     if (campos.some(val => val !== "")) {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -543,7 +597,7 @@ async function guardarTodoFacturacion() {
 }
 
 function renderFilaTotalesFacturacion() {
-  const numCols = 18;
+  const numCols = 20;
   const totales = Array(numCols).fill(0);
 
   const filas = Array.from(excelBody.querySelectorAll('tr'));
@@ -554,7 +608,7 @@ function renderFilaTotalesFacturacion() {
       totales[i] += val;
     });
   });
-  // Recalcular totales de VALOR DE VENTA como (Total Monto)/(Total Ventas)
+  // Recalcular totales de VALOR DE VENTA
   // ALEXIS: cols 1 (monto), 2 (ventas) -> 3 (valor de venta)
   if (totales[2] > 0) {
     totales[3] = totales[1] / totales[2];
@@ -567,35 +621,41 @@ function renderFilaTotalesFacturacion() {
   } else {
     totales[6] = 0;
   }
-  // GARAY: cols 7 (monto), 8 (ventas) -> 9 (valor de venta)
+  // GARAY: cols 7 (monto), 8 (cliente/día) -> 10 (valor por venta)
   if (totales[8] > 0) {
-    totales[9] = totales[7] / totales[8];
+    totales[10] = totales[7] / totales[8];
   } else {
-    totales[9] = 0;
+    totales[10] = 0;
   }
-  // TITO: cols 10 (monto), 11 (ventas) -> 12 (valor de venta)
-  if (totales[11] > 0) {
-    totales[12] = totales[10] / totales[11];
+  // GARAY: cols 7 (monto), 9 (total lineas) -> 11 (valor por línea)
+  if (totales[9] > 0) {
+    totales[11] = totales[7] / totales[9];
   } else {
-    totales[12] = 0;
+    totales[11] = 0;
   }
-  // TOTAL GENERAL: cols 13 (total del día), 14 (total ventas) -> 15 (valor venta total)
-  if (totales[14] > 0) {
-    totales[15] = totales[13] / totales[14];
+  // TITO: cols 12 (monto), 13 (ventas) -> 14 (valor de venta)
+  if (totales[13] > 0) {
+    totales[14] = totales[12] / totales[13];
   } else {
-    totales[15] = 0;
+    totales[14] = 0;
   }
-  // CPA PUNTOS: cols 13 (total del día), 16 (puntos) -> 17 (CPA puntos)
+  // TOTAL GENERAL: cols 15 (total del día), 16 (total ventas) -> 17 (valor venta total)
   if (totales[16] > 0) {
-    totales[17] = totales[13] / totales[16];
+    totales[17] = totales[15] / totales[16];
   } else {
     totales[17] = 0;
+  }
+  // CPA PUNTOS: cols 15 (total del día), 18 (puntos) -> 19 (CPA puntos)
+  if (totales[18] > 0) {
+    totales[19] = totales[15] / totales[18];
+  } else {
+    totales[19] = 0;
   }
   for (let i = 1; i < numCols; i++) {
     const el = document.getElementById('total-col-' + i);
     if (!el) continue;
-    // Para las columnas VALOR DE VENTA y CPA PUNTOS usar truncado exacto
-    if (i === 3 || i === 6 || i === 9 || i === 12 || i === 15 || i === 17) {
+    // Para las columnas VALOR DE VENTA CALCULADAS usar truncado exacto
+    if (i === 3 || i === 6 || i === 10 || i === 11 || i === 14 || i === 17 || i === 19) {
       el.textContent = formatMoneyTrunc(totales[i]);
       continue;
     }
@@ -610,7 +670,7 @@ function renderFilaTotalesFacturacion() {
 
 function actualizarTotalesPorMesLocales() {
   const mesActual = parseInt(filtroMes.value, 10) - 1;
-  const total = parseFloat(document.getElementById('total-col-13').textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const total = parseFloat(document.getElementById('total-col-15').textContent.replace(/[^0-9.-]/g, "")) || 0;
   totalesPorMesLocales[mesActual] = total;
 }
 
@@ -711,7 +771,7 @@ async function renderTablaCompleta(mes, ano) {
   const numDias = daysInMonth(ano, mes);
   for (let i = 0; i < numDias; i++) {
     const tr = document.createElement("tr");
-    for (let c = 0; c < 18; c++) {
+    for (let c = 0; c < 20; c++) {
       const td = document.createElement("td");
       if (c === 0) {
         td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
