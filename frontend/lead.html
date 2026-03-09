@@ -951,9 +951,13 @@
     
     // Validar campos requeridos
     const required = [
-      'nombre-cliente', 'telefono-principal', 'telefono_2', 'direccion', 'zip-code',
-      'servicios', 'tipo-servicio', 'numero-cuenta', 'mercado', 'autopago', 'sistema',
-      'riesgo', 'dia-venta', 'dia-instalacion', 'supervisor', 'agentAssign'
+      'nombre-cliente',
+      'telefono-principal',
+      'direccion',
+      'servicios',
+      'tipo-servicio',
+      'riesgo',
+      'dia-venta'
     ];
     
     const empty = required.filter(id => !document.getElementById(id).value.trim());
@@ -974,7 +978,7 @@
       numero_cuenta: document.getElementById('numero-cuenta').value.trim(),
       mercado: document.getElementById('mercado').value.trim(),
       motivo_llamada: Array.from(document.querySelectorAll('.chip.active')).map(c => (c.dataset.value || c.textContent.trim())).join(', '),
-      status: document.querySelector('.radio-btn.checked input').value || 'PENDING',
+      status: (document.querySelector('.radio-btn.checked input')?.value) || 'PENDING',
       autopago: document.getElementById('autopago').value.trim(),
       sistema: document.getElementById('sistema').value.trim(),
       riesgo: document.getElementById('riesgo').value.trim(),
@@ -994,11 +998,13 @@
 
     try {
       // Enviar POST a /api/leads
+      const token = (localStorage.getItem('token') || '').trim();
       const response = await fetch('/api/leads', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
         },
         body: JSON.stringify(data)
       });
