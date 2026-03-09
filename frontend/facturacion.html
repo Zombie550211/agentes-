@@ -4,209 +4,674 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Facturación</title>
-  <link rel="stylesheet" href="css/theme.css" />
-  <!-- Sidebar CSS -->
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <!-- Font Awesome para iconos del sidebar compartido -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <!-- CSS de sidebar unificado -->
   <link rel="stylesheet" href="css/sidebar-shared.css">
-  <link rel="stylesheet" href="css/facturacion-styles.css">
-  <!-- Chart.js y Datalabels plugin primero -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────────────── */
+    :root {
+      --bg:        #f5f7fa;
+      --surface:   #ffffff;
+      --card:      #ffffff;
+      --border:    #dde2f0;
+      --accent:    #2563eb;
+      --accent2:   #ef4444;
+      --text:      #1f2937;
+      --muted:     #9ca3af;
+      --positive:  #10b981;
+      --header-h:  72px;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────────── */
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .central-container {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── TOPBAR ──────────────────────────────────────────────────── */
+    .topbar {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      gap: 24px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .topbar::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent) 0%, transparent 60%);
+    }
+
+    .topbar-title {
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-title .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ─── FILTERS ─────────────────────────────────────────────────── */
+    .filters-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-item label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .filter-item select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 6px 28px 6px 12px;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300e5ff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border-color .2s;
+    }
+
+    .filter-item select:hover,
+    .filter-item select:focus {
+      border-color: var(--accent);
+    }
+
+    /* ─── SAVE BUTTON ─────────────────────────────────────────────── */
+    .btn-save {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-head);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-save:hover {
+      background: #1e40af;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37,99,235,0.3);
+    }
+
+    .btn-save:active { transform: translateY(0); }
+
+    /* ─── TABLE WRAPPER ────────────────────────────────────────────── */
+    .table-section {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 0 24px 12px;
+      min-height: 0;
+    }
+
+    .table-scroll {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .table-scroll::-webkit-scrollbar-track { background: transparent; }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── TABLE ────────────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    /* Group headers */
+    .group-header-row th {
+      background: var(--bg);
+      padding: 6px 8px;
+      font-family: var(--font-head);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .group-header-row .gh-alexis   { color: #0891b2; border-bottom-color: #0891b2; }
+    .group-header-row .gh-alejandro{ color: #dc2626; border-bottom-color: #dc2626; }
+    .group-header-row .gh-garay    { color: #7c3aed; border-bottom-color: #7c3aed; }
+    .group-header-row .gh-tito     { color: #059669; border-bottom-color: #059669; }
+    .group-header-row .gh-total    { color: #ca8a04; border-bottom-color: #ca8a04; }
+
+    thead tr:not(.group-header-row) th {
+      background: var(--surface);
+      padding: 8px 6px;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    /* Sticky group header */
+    .group-header-row th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(30,37,53,0.6);
+      transition: background .15s;
+    }
+
+    tbody tr:hover { background: rgba(37,99,235,0.04); }
+
+    tbody tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+    tbody tr:nth-child(even):hover { background: rgba(37,99,235,0.06); }
+
+    tbody td {
+      padding: 5px 8px;
+      text-align: right;
+      color: var(--text);
+      font-size: 12px;
+      white-space: nowrap;
+      min-width: 72px;
+      outline: none;
+      transition: background .1s;
+    }
+
+    tbody td:first-child {
+      text-align: left;
+      color: var(--muted);
+      font-size: 11px;
+      min-width: 100px;
+      position: sticky;
+      left: 0;
+      background: var(--card);
+      z-index: 1;
+      padding-left: 12px;
+      border-right: 1px solid var(--border);
+    }
+
+    tbody tr:hover td:first-child { background: var(--surface); }
+
+    tbody td[contenteditable="true"]:focus {
+      background: rgba(37,99,235,0.08);
+      box-shadow: inset 0 0 0 1px rgba(37,99,235,0.4);
+      color: #1f2937;
+    }
+
+    /* Color-coded columns by group */
+    /* Alexis: cols 1-3 */
+    tbody td:nth-child(2),
+    tbody td:nth-child(3),
+    tbody td:nth-child(4) { color: #0891b2; }
+
+    /* Alejandro: cols 4-6 */
+    tbody td:nth-child(5),
+    tbody td:nth-child(6),
+    tbody td:nth-child(7) { color: #dc2626; }
+
+    /* Garay: cols 7-11 */
+    tbody td:nth-child(8),
+    tbody td:nth-child(9),
+    tbody td:nth-child(10),
+    tbody td:nth-child(11),
+    tbody td:nth-child(12) { color: #7c3aed; }
+
+    /* Tito: cols 12-14 */
+    tbody td:nth-child(13),
+    tbody td:nth-child(14),
+    tbody td:nth-child(15) { color: #059669; }
+
+    /* Totales: cols 15-19 */
+    tbody td:nth-child(16),
+    tbody td:nth-child(17),
+    tbody td:nth-child(18),
+    tbody td:nth-child(19),
+    tbody td:nth-child(20) { color: #ca8a04; }
+
+    /* ─── TOTALS ROW ───────────────────────────────────────────────── */
+    .totals-row {
+      background: var(--surface) !important;
+      border-top: 1px solid var(--border) !important;
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+    }
+
+    .totals-row td {
+      font-weight: 500;
+      color: var(--accent) !important;
+      padding: 7px 8px;
+      font-size: 11px;
+    }
+
+    .totals-row td:first-child {
+      font-family: var(--font-head);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent) !important;
+      background: var(--surface);
+    }
+
+    /* ─── CHART SECTION ────────────────────────────────────────────── */
+    .chart-section {
+      height: 220px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 32px 12px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .chart-label {
+      font-family: var(--font-head);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .chart-canvas-wrap {
+      height: 150px;
+    }
+
+    /* ─── MODAL ────────────────────────────────────────────────────── */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-bg.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow: auto;
+      position: relative;
+      width: 1200px;
+    }
+
+    .modal-title {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: var(--border);
+      border: none;
+      color: var(--text);
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s;
+    }
+
+    .modal-close-btn:hover { background: var(--accent2); }
+
+    .modal-table-container { overflow: auto; }
+
+    /* ─── TOAST ────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--card);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      box-shadow: 0 8px 32px rgba(37,99,235,0.15);
+      z-index: 9999;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all .35s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* ─── ANIMATIONS ───────────────────────────────────────────────── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    tbody tr {
+      animation: fadeIn .15s ease both;
+    }
+
+    /* Stagger first 15 rows */
+    tbody tr:nth-child(1)  { animation-delay: .02s }
+    tbody tr:nth-child(2)  { animation-delay: .04s }
+    tbody tr:nth-child(3)  { animation-delay: .06s }
+    tbody tr:nth-child(4)  { animation-delay: .08s }
+    tbody tr:nth-child(5)  { animation-delay: .10s }
+    tbody tr:nth-child(6)  { animation-delay: .12s }
+    tbody tr:nth-child(7)  { animation-delay: .14s }
+    tbody tr:nth-child(8)  { animation-delay: .16s }
+
+  </style>
 </head>
 <body>
 <div class="layout">
   <!-- Sidebar compartido -->
   <nav class="sidebar sidebar-inicio" data-active="facturacion"></nav>
+
   <main class="main-content">
     <div class="central-container">
-      <!-- Cabecera de filtros -->
-      <div class="header-reportes">
-        <div class="filtros-reportes">
-          <label for="filtroMes">Mes:</label>
-          <select id="filtroMes">
-            <option value="1">Enero</option>
-            <option value="2">Febrero</option>
-            <option value="3">Marzo</option>
-            <option value="4">Abril</option>
-            <option value="5">Mayo</option>
-            <option value="6">Junio</option>
-            <option value="7">Julio</option>
-            <option value="8">Agosto</option>
-            <option value="9">Septiembre</option>
-            <option value="10">Octubre</option>
-            <option value="11">Noviembre</option>
-            <option value="12">Diciembre</option>
-          </select>
-          <label for="filtroAno">Año:</label>
-          <select id="filtroAno"></select>
+
+      <!-- ── TOPBAR ── -->
+      <div class="topbar">
+        <div class="topbar-title">
+          <span class="dot"></span>
+          Facturación
         </div>
-        <div class="titulo-reportes">Facturación</div>
-      </div>
-      <div class="tabla-expand-btn" style="display: none;">
-        <button id="btnExpandirTabla" onclick="abrirModalTabla()">Expandir tabla</button>
-      </div>
-      <div class="tabla-excel-editable">
-        <table id="tablaExcel">
-          <thead>
-            <tr>                        
-              <th>FECHA</th>
-              <th>ALEXIS</th>
-              <th>VENTAS<br>POR DIA</th>
-              <th>VALOR<br>DE VENTA</th>
-              <th>ALEJANDRO</th>
-              <th>VENTAS<br>POR DIA</th>
-              <th>VALOR<br>DE VENTA</th>
-              <th>GARAY</th>
-              <th>CLIENTE<br>POR DIA</th>
-              <th>TOTAL DE<br>LINEAS</th>
-              <th>VALOR<br>POR VENTA</th>
-              <th>VALOR<br>POR LINEA</th>
-              <th>TITO</th>
-              <th>VENTAS<br>POR DIA</th>
-              <th>VALOR<br>DE VENTA</th>
-              <th>TOTAL<br>DEL DIA</th>
-              <th>TOTAL<br>VENTAS</th>
-              <th>VALOR<br>VENTA</th>
-              <th>PUNTOS</th>
-              <th>CPA<br>PUNTOS</th>
-            </tr>
-          </thead>
-          <tbody id="excelBody"></tbody>
-        </table>
-        <div class="fila-totales-fija" id="filaTotalesFacturacion">
-          <div>TOTALES</div>
-          <div id="total-col-1"></div>
-          <div id="total-col-2"></div>
-          <div id="total-col-3"></div>
-          <div id="total-col-4"></div>
-          <div id="total-col-5"></div>
-          <div id="total-col-6"></div>
-          <div id="total-col-7"></div>
-          <div id="total-col-8"></div>
-          <div id="total-col-9"></div>
-          <div id="total-col-10"></div>
-          <div id="total-col-11"></div>
-          <div id="total-col-12"></div>
-          <div id="total-col-13"></div>
-          <div id="total-col-14"></div>
-          <div id="total-col-15"></div>
-          <div id="total-col-16"></div>
-          <div id="total-col-17"></div>
-          <div id="total-col-18"></div>
-          <div id="total-col-19"></div>
-        </div>
-      </div>
-      <div class="tabla-paginacion" style="display: none;">
-        <button onclick="prevBlock()" id="btnUp">&#8593; Arriba</button>
-        <button onclick="nextBlock()" id="btnDown">Abajo &#8595;</button>
-      </div>
-      <div class="grafica-reporte">
-        <h3>Total de gastos por mes</h3>
-        <div class="grafica-scroll-x">
-          <canvas id="graficaGastosMes" width="1200" height="260"></canvas>
-        </div>
-        <div class="facturacion-toolbar">
-          <button id="btnGuardarFacturacion">Guardar</button>
-        </div>
-      </div>
-      <div class="modal-bg" id="modalTablaCompleta">
-        <div class="modal-content">
-          <button class="modal-close-btn" onclick="cerrarModalTabla()">&times;</button>
-          <div class="modal-title">Tabla completa de facturación del mes</div>
-          <div class="modal-table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>FECHA</th>
-                  <th>ALEXIS</th>
-                  <th>VENTAS<br>POR DIA</th>
-                  <th>VALOR<br>DE VENTA</th>
-                  <th>ALEJANDRO</th>
-                  <th>VENTAS<br>POR DIA</th>
-                  <th>VALOR<br>DE VENTA</th>
-                  <th>GARAY</th>
-                  <th>CLIENTE<br>POR DIA</th>
-                  <th>TOTAL DE<br>LINEAS</th>
-                  <th>VALOR<br>POR VENTA</th>
-                  <th>VALOR<br>POR LINEA</th>
-                  <th>TITO</th>
-                  <th>VENTAS<br>POR DIA</th>
-                  <th>VALOR<br>DE VENTA</th>
-                  <th>TOTAL<br>DEL DIA</th>
-                  <th>TOTAL<br>VENTAS</th>
-                  <th>VALOR<br>VENTA</th>
-                  <th>PUNTOS</th>
-                  <th>CPA<br>PUNTOS</th>
-                </tr>
-              </thead>
-              <tbody id="modalTablaBody"></tbody>
-            </table>
+
+        <div class="filters-group">
+          <div class="filter-item">
+            <label for="filtroMes">Mes</label>
+            <select id="filtroMes">
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
           </div>
+          <div class="filter-item">
+            <label for="filtroAno">Año</label>
+            <select id="filtroAno"></select>
+          </div>
+          <button class="btn-save" id="btnGuardarFacturacion">
+            <i class="fas fa-save"></i> Guardar
+          </button>
         </div>
       </div>
-    </div>
+
+      <!-- ── TABLE SECTION ── -->
+      <div class="table-section">
+        <div class="table-scroll">
+          <table id="tablaExcel">
+            <thead>
+              <!-- Group labels row -->
+              <tr class="group-header-row">
+                <th></th>
+                <th colspan="3" class="gh-alexis">Alexis</th>
+                <th colspan="3" class="gh-alejandro">Alejandro</th>
+                <th colspan="5" class="gh-garay">Garay</th>
+                <th colspan="3" class="gh-tito">Tito</th>
+                <th colspan="5" class="gh-total">Total</th>
+              </tr>
+              <!-- Column labels row -->
+              <tr>
+                <th>Fecha</th>
+                <th>Monto</th>
+                <th>Ventas/día</th>
+                <th>Valor venta</th>
+                <th>Monto</th>
+                <th>Ventas/día</th>
+                <th>Valor venta</th>
+                <th>Monto</th>
+                <th>Cliente/día</th>
+                <th>Total líneas</th>
+                <th>Valor/venta</th>
+                <th>Valor/línea</th>
+                <th>Monto</th>
+                <th>Ventas/día</th>
+                <th>Valor venta</th>
+                <th>Total día</th>
+                <th>Total ventas</th>
+                <th>Valor venta</th>
+                <th>Puntos</th>
+                <th>CPA puntos</th>
+              </tr>
+            </thead>
+            <tbody id="excelBody"></tbody>
+            <tfoot>
+              <tr class="totals-row" id="filaTotalesFacturacion">
+                <td>TOTALES</td>
+                <td id="total-col-1"></td>
+                <td id="total-col-2"></td>
+                <td id="total-col-3"></td>
+                <td id="total-col-4"></td>
+                <td id="total-col-5"></td>
+                <td id="total-col-6"></td>
+                <td id="total-col-7"></td>
+                <td id="total-col-8"></td>
+                <td id="total-col-9"></td>
+                <td id="total-col-10"></td>
+                <td id="total-col-11"></td>
+                <td id="total-col-12"></td>
+                <td id="total-col-13"></td>
+                <td id="total-col-14"></td>
+                <td id="total-col-15"></td>
+                <td id="total-col-16"></td>
+                <td id="total-col-17"></td>
+                <td id="total-col-18"></td>
+                <td id="total-col-19"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── CHART SECTION ── -->
+      <div class="chart-section">
+        <div class="chart-label">Total facturado por mes</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="graficaGastosMes"></canvas>
+        </div>
+      </div>
+
+    </div><!-- /central-container -->
   </main>
 </div>
-<!-- Loader del sidebar y datos de usuario -->
+
+<!-- Modal tabla completa -->
+<div class="modal-bg" id="modalTablaCompleta">
+  <div class="modal-content">
+    <button class="modal-close-btn" onclick="cerrarModalTabla()">&times;</button>
+    <div class="modal-title">Tabla completa del mes</div>
+    <div class="modal-table-container">
+      <table>
+        <thead>
+          <tr class="group-header-row">
+            <th></th>
+            <th colspan="3" class="gh-alexis">Alexis</th>
+            <th colspan="3" class="gh-alejandro">Alejandro</th>
+            <th colspan="5" class="gh-garay">Garay</th>
+            <th colspan="3" class="gh-tito">Tito</th>
+            <th colspan="5" class="gh-total">Total</th>
+          </tr>
+          <tr>
+            <th>Fecha</th>
+            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
+            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
+            <th>Monto</th><th>Cliente/día</th><th>Total líneas</th><th>Valor/venta</th><th>Valor/línea</th>
+            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
+            <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
+          </tr>
+        </thead>
+        <tbody id="modalTablaBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<!-- Scripts -->
 <script src="js/sidebar-loader.js"></script>
 <script src="/js/logout-handler.js"></script>
 <script src="js/user-info.js"></script>
+
 <script>
-  // ========== PRECALENTAMIENTO DE FACTURACIÓN (FAST PATH) ==========
-  function tryLoadFromPrecachedFacturacion() {
-    try {
-      const storedData = sessionStorage.getItem('facturacionData');
-      const storedTimestamp = sessionStorage.getItem('facturacionTimestamp');
-      
-      if (!storedData || !storedTimestamp) {
-        console.log('[PRECACHE-FACTURACION] ℹ️ Sin datos en caché, usando API');
-        return null;
-      }
-
-      const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
-      const TTL = 5 * 60 * 1000;
-      
-      if (cacheAge > TTL) {
-        console.log(`[PRECACHE-FACTURACION] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s)`);
-        sessionStorage.removeItem('facturacionData');
-        sessionStorage.removeItem('facturacionTimestamp');
-        return null;
-      }
-
-      const data = JSON.parse(storedData);
-      console.log('[PRECACHE-FACTURACION] ✅ Usando datos cacheados:', {
-        facturacionData: data.facturacionData?.length || 0,
-        ingresosSummary: !!data.ingresosSummary,
-        age: `${Math.round(cacheAge/1000)}s`
-      });
-
-      return { success: true, data: data, fromCache: true, loadTime: 0 };
-    } catch (e) {
-      console.warn('[PRECACHE-FACTURACION] ⚠️ Error procesando caché:', e?.message);
+/* =====================================================================
+   PRECACHE & AUTH
+   ===================================================================== */
+function tryLoadFromPrecachedFacturacion() {
+  try {
+    const storedData = sessionStorage.getItem('facturacionData');
+    const storedTimestamp = sessionStorage.getItem('facturacionTimestamp');
+    if (!storedData || !storedTimestamp) return null;
+    const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
+    if (cacheAge > 5 * 60 * 1000) {
+      sessionStorage.removeItem('facturacionData');
+      sessionStorage.removeItem('facturacionTimestamp');
       return null;
     }
-  }
+    const data = JSON.parse(storedData);
+    return { success: true, data, fromCache: true, loadTime: 0 };
+  } catch (e) { return null; }
+}
 
-  window.addEventListener('facturacionPreheated', (event) => {
-    console.log('[FACTURACION-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
-    sessionStorage.setItem('facturacionData', JSON.stringify(event.detail));
-    window.__precachedFacturacionData = event.detail;
-  });
-</script>
+window.addEventListener('facturacionPreheated', (event) => {
+  sessionStorage.setItem('facturacionData', JSON.stringify(event.detail));
+  window.__precachedFacturacionData = event.detail;
+});
 
-<script>
+/* =====================================================================
+   AUTH GUARD
+   ===================================================================== */
 (async function guardAdmin() {
   try {
-    // Intentar cargar datos del caché primero
     const cachedFacturacion = tryLoadFromPrecachedFacturacion();
-    if (cachedFacturacion) {
-      console.log('[FACTURACION-INIT] ⚡ FAST PATH: Usando facturación data precacheado');
-      window.__precachedFacturacionData = cachedFacturacion.data;
-    }
-    
+    if (cachedFacturacion) window.__precachedFacturacionData = cachedFacturacion.data;
+
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -214,223 +679,176 @@
     if (!res.ok) throw new Error('No autenticado');
     const data = await res.json();
     const role = (data?.user?.role || '').toLowerCase();
-    const allowed = ['admin','administrador'];
-    if (!allowed.includes(role)) {
+    if (!['admin','administrador'].includes(role)) {
       alert('Acceso denegado: solo administradores.');
       window.location.href = '/';
-      return;
     }
   } catch (e) {
     window.location.href = '/login.html';
-    return;
   }
 })();
-// Registrar plugin de datalabels (compatibilidad de nombres globales)
+
+/* Registrar datalabels */
 try {
   const DL = window.ChartDataLabels || window.ChartjsPluginDatalabels;
-  if (DL && window.Chart) {
-    Chart.register(DL);
-    console.log('Plugin Datalabels registrado correctamente');
-  } else {
-    console.warn('Plugin Datalabels no encontrado - etiquetas podrían no mostrarse');
-  }
-} catch(e) { console.warn('No se pudo registrar ChartDataLabels', e); }
+  if (DL && window.Chart) Chart.register(DL);
+} catch(e) {}
 
-// Logout manejado por el botón del sidebar compartido vía sidebar-loader.js
-const filtroMes = document.getElementById("filtroMes");
-const filtroAno = document.getElementById("filtroAno");
-const excelBody = document.getElementById("excelBody");
-const btnUp = document.getElementById('btnUp');
-const btnDown = document.getElementById('btnDown');
+/* =====================================================================
+   GLOBALS
+   ===================================================================== */
+const filtroMes  = document.getElementById("filtroMes");
+const filtroAno  = document.getElementById("filtroAno");
+const excelBody  = document.getElementById("excelBody");
 const btnGuardar = document.getElementById('btnGuardarFacturacion');
 
 let totalesPorMesLocales = Array(12).fill(0);
-
-(function(){
-  const yearNow = (new Date()).getFullYear();
-  let anos = '';
-  for (let y = yearNow - 2; y <= yearNow + 1; y++) {
-    anos += `<option value="${y}">${y}</option>`;
-  }
-  filtroAno.innerHTML = anos;
-  filtroMes.value = (new Date()).getMonth() + 1;
-  filtroAno.value = yearNow;
-})();
-
-function daysInMonth(year, month) {
-  return new Date(year, month, 0).getDate();
-}
-
-let currentMonth = parseInt(filtroMes.value, 10);
-let currentYear = parseInt(filtroAno.value, 10);
-let datosFacturacionMes = [];
+let currentBlock  = 0; // FIX: variable was missing in original code
+let currentMonth;
+let currentYear;
+let datosFacturacionMes   = [];
 let datosFacturacionIndex = {};
 
-function setColumnVisibility(tableEl, colIndex, show) {
-  try {
-    if (!tableEl) return;
-    const cells = tableEl.querySelectorAll(`tr > *:nth-child(${colIndex})`);
-    cells.forEach((el) => {
-      el.style.display = show ? '' : 'none';
-    });
-  } catch (_) {}
-}
+/* Populate year selector */
+(function(){
+  const yearNow = new Date().getFullYear();
+  let anos = '';
+  for (let y = yearNow - 2; y <= yearNow + 1; y++) anos += `<option value="${y}">${y}</option>`;
+  filtroAno.innerHTML = anos;
+  filtroMes.value = new Date().getMonth() + 1;
+  filtroAno.value = yearNow;
+  currentMonth = parseInt(filtroMes.value, 10);
+  currentYear  = parseInt(filtroAno.value, 10);
+})();
 
-function applyAlejandroVisibility() {
-  try {
-    const month = parseInt(filtroMes.value, 10);
-    const show = (Number(month) >= 2);
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
 
-    const mainTable = document.getElementById('tablaExcel');
-    setColumnVisibility(mainTable, 5, show);
-    setColumnVisibility(mainTable, 6, show);
-    setColumnVisibility(mainTable, 7, show);
-
-    const modalTable = document.querySelector('#modalTablaCompleta table');
-    setColumnVisibility(modalTable, 5, show);
-    setColumnVisibility(modalTable, 6, show);
-    setColumnVisibility(modalTable, 7, show);
-
-    const tot4 = document.getElementById('total-col-4');
-    const tot5 = document.getElementById('total-col-5');
-    const tot6 = document.getElementById('total-col-6');
-    if (tot4) tot4.style.display = show ? '' : 'none';
-    if (tot5) tot5.style.display = show ? '' : 'none';
-    if (tot6) tot6.style.display = show ? '' : 'none';
-  } catch (_) {}
-}
-
-// Normalizador de fecha a clave dd/mm/yyyy
 function toFechaKey(fecha) {
   try {
     if (!fecha) return '';
     const s = String(fecha).trim();
-    // Si ya viene dd/mm/yyyy
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-    // yyyy-mm-dd o yyyy/mm/dd
     let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
-    if (m) {
-      const yy = parseInt(m[1], 10), mm = parseInt(m[2], 10), dd = parseInt(m[3], 10);
-      return String(dd).padStart(2,'0') + '/' + String(mm).padStart(2,'0') + '/' + String(yy);
-    }
-    // dd/mm/yyyy o mm/dd/yyyy -> Date intent
+    if (m) return `${m[3].padStart(2,'0')}/${m[2].padStart(2,'0')}/${m[1]}`;
     const d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-    }
-    // Como fallback intentar dd/m/yyyy o d/m/yyyy
+    if (!isNaN(d.getTime()))
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m) {
-      const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
-      return String(dd).padStart(2,'0') + '/' + String(mm).padStart(2,'0') + '/' + String(yy);
-    }
+    if (m) return `${String(parseInt(m[1])).padStart(2,'0')}/${String(parseInt(m[2])).padStart(2,'0')}/${m[3]}`;
     return s;
   } catch { return String(fecha || ''); }
 }
 
-// Columnas que usan formato moneda: ALEXIS(1,3), ALEJANDRO(4,6), GARAY(7,10,11), TITO(12,14), TOTAL(15,17,19)
+/* Columns that display currency symbol: indices are 1-based td.cellIndex */
 const columnasConSigno = [1,3,4,6,7,10,11,12,14,15,17,19];
 
 function addMoneySign(val) {
   if (val === "" || isNaN(val)) return "";
-  let num = parseFloat(val);
-  let options = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  return "$" + num.toLocaleString('en-US', options);
+  return "$" + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
 function removeMoneySign(val) {
   if (typeof val !== "string") return val;
   return val.replace(/[^0-9.]/g, '');
 }
 
-// Truncado exacto a 2 decimales (sin redondeo) y formato moneda
 function truncateTo2(n) {
   if (!isFinite(n)) return 0;
   return Math.trunc(n * 100) / 100;
 }
+
 function formatMoneyTrunc(n) {
   const t = truncateTo2(Number(n) || 0);
   return "$" + t.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* =====================================================================
+   COLUMN VISIBILITY (Alejandro - only from Feb onwards)
+   ===================================================================== */
+function setColumnVisibility(tableEl, colIndex, show) {
+  if (!tableEl) return;
+  tableEl.querySelectorAll(`tr > *:nth-child(${colIndex})`).forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+function applyAlejandroVisibility() {
+  const show = parseInt(filtroMes.value, 10) >= 2;
+  const mainTable  = document.getElementById('tablaExcel');
+  const modalTable = document.querySelector('#modalTablaCompleta table');
+  [5,6,7].forEach(c => {
+    setColumnVisibility(mainTable, c, show);
+    setColumnVisibility(modalTable, c, show);
+  });
+  ['total-col-4','total-col-5','total-col-6'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  });
+}
+
+/* =====================================================================
+   DATA FETCH & MAP
+   ===================================================================== */
 async function fetchFacturacionMes(mes, ano) {
   try {
-    const url = `/api/facturacion/${ano}/${String(mes).padStart(2, '0')}`;
+    const url = `/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`;
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(url, { method: 'GET', headers, credentials: 'include' });
-    if (!res.ok) {
-      console.warn('Facturación: respuesta no OK', res.status, res.statusText);
-    }
-    const data = await res.json().catch(() => (null));
-    // Soportar diferentes formas de respuesta del backend: { ok, data }, array directo, o { result }
+    const res  = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+    const data = await res.json().catch(() => null);
     let arr = [];
-    if (data && data.ok && Array.isArray(data.data)) {
-      arr = data.data;
-    } else if (Array.isArray(data)) {
-      arr = data;
-    } else if (data && Array.isArray(data.result)) {
-      arr = data.result;
-    }
-    datosFacturacionMes = arr;
-    // Construir índice por fecha normalizada
+    if (data?.ok && Array.isArray(data.data))          arr = data.data;
+    else if (Array.isArray(data))                       arr = data;
+    else if (data && Array.isArray(data.result))        arr = data.result;
+    datosFacturacionMes   = arr;
     datosFacturacionIndex = {};
     for (const fila of datosFacturacionMes) {
       const key = toFechaKey(fila?.fecha);
       if (key) datosFacturacionIndex[key] = Array.isArray(fila?.campos) ? fila.campos : [];
     }
   } catch (e) {
-    console.error('Error obteniendo facturación del mes:', e);
-    datosFacturacionMes = [];
+    console.error('Error cargando facturación:', e);
+    datosFacturacionMes   = [];
     datosFacturacionIndex = {};
   }
 }
 
 function buscarCamposPorFecha(fecha) {
-  const key = toFechaKey(fecha);
-  const camposAntiguos = datosFacturacionIndex[key];
-  
-  if (!Array.isArray(camposAntiguos)) {
-    return Array(19).fill('');
-  }
-  
-  // Si ya tiene 19 campos, es la estructura nueva
-  if (camposAntiguos.length === 19) {
-    return camposAntiguos;
-  }
-  
-  // Si tiene 17 campos, es la estructura antigua, hacer mapping a 19 campos
+  const camposAntiguos = datosFacturacionIndex[toFechaKey(fecha)];
+  if (!Array.isArray(camposAntiguos)) return Array(19).fill('');
+  if (camposAntiguos.length === 19) return camposAntiguos;
   if (camposAntiguos.length === 17) {
     const nuevos = Array(19).fill('');
-    
-    // Copiar ALEXIS (0-2) y ALEJANDRO (3-5) y GARAY monto (6) sin cambios
-    for (let i = 0; i <= 6; i++) {
-      nuevos[i] = camposAntiguos[i] || '';
-    }
-    
-    // GARAY: los antiguos campos 7-8 (ventas, valor) ahora son cliente/día y total líneas
-    nuevos[7] = camposAntiguos[7] || '';  // Antiguo "ventas garay" → nuevo "cliente por día"
-    nuevos[8] = camposAntiguos[8] || '';  // Antiguo "valor garay" → nuevo "total líneas"
-    // Campos 9-10 quedan vacíos (se calculan automáticamente)
-    
-    // TITO: desplazado +2 (de 9-11 a 11-13)
+    for (let i = 0; i <= 6; i++) nuevos[i] = camposAntiguos[i] || '';
+    nuevos[7]  = camposAntiguos[7] || '';
+    nuevos[8]  = camposAntiguos[8] || '';
     nuevos[11] = camposAntiguos[9] || '';
     nuevos[12] = camposAntiguos[10] || '';
     nuevos[13] = camposAntiguos[11] || '';
-    
-    // TOTALES: desplazado +2 (de 12-16 a 14-18)
     nuevos[14] = camposAntiguos[12] || '';
     nuevos[15] = camposAntiguos[13] || '';
     nuevos[16] = camposAntiguos[14] || '';
     nuevos[17] = camposAntiguos[15] || '';
     nuevos[18] = camposAntiguos[16] || '';
-    
     return nuevos;
   }
-  
   return Array(19).fill('');
 }
 
+/* =====================================================================
+   RENDER TABLE
+   ===================================================================== */
 async function renderTablaDias(mes, ano) {
   await fetchFacturacionMes(mes, ano);
   excelBody.innerHTML = "";
@@ -440,40 +858,124 @@ async function renderTablaDias(mes, ano) {
     for (let c = 0; c < 20; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        td.textContent = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
         td.contentEditable = false;
       } else {
-        const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        const fecha  = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
         const campos = buscarCamposPorFecha(fecha);
         let val = campos[c-1] ?? '';
-
-        if (columnasConSigno.includes(c) && val !== "") {
-          val = addMoneySign(removeMoneySign(val));
-        }
-        if (c === 16 && val !== "") {
-          val = parseInt(removeMoneySign(val), 10) || 0;
-          val = val.toLocaleString('en-US');
-        }
+        if (columnasConSigno.includes(c) && val !== "") val = addMoneySign(removeMoneySign(val));
+        if (c === 16 && val !== "") val = (parseInt(removeMoneySign(val), 10) || 0).toLocaleString('en-US');
         td.textContent = val;
         td.contentEditable = true;
       }
       tr.appendChild(td);
     }
     excelBody.appendChild(tr);
-    // Recalcular la fila para llenar columnas calculadas (VALOR POR VENTA, VALOR POR LINEA)
     recalcularFila(tr);
   }
   applyAlejandroVisibility();
-  // Ocultar botones de paginación ya que mostramos todo el mes
-  btnUp.style.display = 'none';
-  btnDown.style.display = 'none';
   renderFilaTotalesFacturacion();
   actualizarTotalesPorMesLocales();
 }
 
+/* =====================================================================
+   ROW CALCULATION  (FIX: calculated cols now show $ consistently)
+   ===================================================================== */
+function recalcularFila(tr) {
+  const tds = Array.from(tr.children);
+  const raw = i => parseFloat(tds[i].textContent.replace(/[^0-9.-]/g, "")) || 0;
+
+  const alexis         = raw(1);
+  const ventasAlexis   = raw(2);
+  tds[3].textContent   = ventasAlexis > 0 ? formatMoneyTrunc(alexis / ventasAlexis) : "";
+
+  const alejandro      = raw(4);
+  const ventasAlejandro= raw(5);
+  tds[6].textContent   = ventasAlejandro > 0 ? formatMoneyTrunc(alejandro / ventasAlejandro) : "";
+
+  const garay           = raw(7);
+  const clientePorDia   = raw(8);
+  const totalLineas     = raw(9);
+  tds[10].textContent   = clientePorDia > 0 ? formatMoneyTrunc(garay / clientePorDia) : "";
+  tds[11].textContent   = totalLineas   > 0 ? formatMoneyTrunc(garay / totalLineas)   : "";
+
+  const tito           = raw(12);
+  const ventasTito     = raw(13);
+  tds[14].textContent  = ventasTito > 0 ? formatMoneyTrunc(tito / ventasTito) : "";
+
+  const totalDia       = alexis + alejandro + garay + tito;
+  tds[15].textContent  = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
+
+  const totalVentas    = ventasAlexis + ventasAlejandro + clientePorDia + ventasTito;
+  tds[16].textContent  = totalVentas > 0 ? totalVentas.toLocaleString('en-US') : "";
+
+  tds[17].textContent  = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
+
+  const puntos         = raw(18);
+  tds[19].textContent  = puntos > 0 ? formatMoneyTrunc(totalDia / puntos) : "";
+}
+
+excelBody.addEventListener('input', function(e) {
+  const td = e.target;
+  const tr = td.parentElement;
+  const calculatedCols = [3,6,10,11,14,15,16,17,19];
+  if (td.cellIndex !== 0 && !calculatedCols.includes(td.cellIndex)) {
+    recalcularFila(tr);
+    renderFilaTotalesFacturacion();
+    actualizarTotalesPorMesLocales();
+    actualizarGrafica();
+  }
+});
+
+/* =====================================================================
+   TOTALS ROW
+   ===================================================================== */
+function renderFilaTotalesFacturacion() {
+  const numCols = 20;
+  const totales = Array(numCols).fill(0);
+
+  Array.from(excelBody.querySelectorAll('tr')).forEach(tr => {
+    Array.from(tr.children).forEach((td, i) => {
+      if (i === 0) return;
+      totales[i] += parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    });
+  });
+
+  // Recalculate ratios
+  totales[3]  = totales[2]  > 0 ? totales[1]  / totales[2]  : 0;
+  totales[6]  = totales[5]  > 0 ? totales[4]  / totales[5]  : 0;
+  totales[10] = totales[8]  > 0 ? totales[7]  / totales[8]  : 0;
+  totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
+  totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
+  totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0;
+  totales[19] = totales[18] > 0 ? totales[15] / totales[18] : 0;
+
+  for (let i = 1; i < numCols; i++) {
+    const el = document.getElementById('total-col-' + i);
+    if (!el) continue;
+    if ([3,6,10,11,14,17,19].includes(i)) {
+      el.textContent = formatMoneyTrunc(totales[i]);
+    } else if (columnasConSigno.includes(i)) {
+      el.textContent = addMoneySign(totales[i]);
+    } else {
+      el.textContent = Number.isFinite(totales[i]) ? totales[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+    }
+  }
+}
+
+function actualizarTotalesPorMesLocales() {
+  const mesActual = parseInt(filtroMes.value, 10) - 1;
+  const total = parseFloat(document.getElementById('total-col-15')?.textContent?.replace(/[^0-9.-]/g, "")) || 0;
+  totalesPorMesLocales[mesActual] = total;
+}
+
+/* =====================================================================
+   FILTER CHANGE
+   ===================================================================== */
 function updateTableByFilters() {
   currentMonth = parseInt(filtroMes.value, 10);
-  currentYear = parseInt(filtroAno.value, 10);
+  currentYear  = parseInt(filtroAno.value, 10);
   renderTablaDias(currentMonth, currentYear);
   applyAlejandroVisibility();
   actualizarGrafica();
@@ -482,75 +984,17 @@ function updateTableByFilters() {
 filtroMes.addEventListener('change', updateTableByFilters);
 filtroAno.addEventListener('change', updateTableByFilters);
 
-function nextBlock() {
-  const numDias = daysInMonth(currentYear, currentMonth);
-  if ((currentBlock + 1) * 16 < numDias) {
-    currentBlock++;
-    renderTablaDias(currentMonth, currentYear, currentBlock);
-    actualizarGrafica();
-  }
-}
-function prevBlock() {
-  if (currentBlock > 0) {
-    currentBlock--;
-    renderTablaDias(currentMonth, currentYear, currentBlock);
-    actualizarGrafica();
-  }
-}
-
-function recalcularFila(tr) {
-  const tds = Array.from(tr.children);
-
-  const alexis = parseFloat(tds[1].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasAlexis = parseFloat(tds[2].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[3].textContent = ventasAlexis > 0 ? (alexis / ventasAlexis).toFixed(2) : "";
-
-  const alejandro = parseFloat(tds[4].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasAlejandro = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[6].textContent = ventasAlejandro > 0 ? (alejandro / ventasAlejandro).toFixed(2) : "";
-
-  // GARAY: ahora en 7,8,9,10,11
-  const garay = parseFloat(tds[7].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const clientePorDiaGaray = parseFloat(tds[8].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const totalLineasGaray = parseFloat(tds[9].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[10].textContent = clientePorDiaGaray > 0 ? (garay / clientePorDiaGaray).toFixed(2) : "";
-  tds[11].textContent = totalLineasGaray > 0 ? (garay / totalLineasGaray).toFixed(2) : "";
-
-  // TITO: ahora en 12,13,14
-  const tito = parseFloat(tds[12].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  const ventasTito = parseFloat(tds[13].textContent.replace(/[^0-9.-]/g, "")) || 0;
-  tds[14].textContent = ventasTito > 0 ? (tito / ventasTito).toFixed(2) : "";
-
-  const totalDia = alexis + alejandro + garay + tito;
-  tds[15].textContent = totalDia > 0 ? totalDia.toFixed(2) : "";
-
-  const totalVentas = ventasAlexis + ventasAlejandro + clientePorDiaGaray + ventasTito;
-  tds[16].textContent = totalVentas > 0 ? totalVentas.toFixed(2) : "";
-
-  tds[17].textContent = (totalVentas > 0) ? (totalDia / totalVentas).toFixed(2) : "";
-
-  const puntos = parseFloat(tds[18].textContent.replace(/[^0-9.-]/g, "")) || 0;
-
-  tds[19].textContent = (puntos > 0) ? (totalDia / puntos).toFixed(2) : "";
-}
-
-excelBody.addEventListener('input', function(e) {
-  const td = e.target;
-  const tr = td.parentElement;
-  // No recalcular si es FECHA o si es una columna calculada automáticamente (3,6,10,11,14,15,16,17,19)
-  if (td.cellIndex !== 0 && ![3,6,10,11,14,15,16,17,19].includes(td.cellIndex)) {
-    recalcularFila(tr);
-    renderFilaTotalesFacturacion();
-    actualizarTotalesPorMesLocales();
-    actualizarGrafica();
-  }
-});
-
+/* =====================================================================
+   SAVE
+   ===================================================================== */
 btnGuardar.addEventListener('click', guardarTodoFacturacion);
 
 async function guardarTodoFacturacion() {
+  btnGuardar.disabled = true;
+  btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
   const filas = Array.from(document.querySelectorAll('#excelBody tr'));
   let guardados = 0, errores = 0;
+
   for (const tr of filas) {
     recalcularFila(tr);
     const tds = Array.from(tr.children);
@@ -559,15 +1003,13 @@ async function guardarTodoFacturacion() {
       let txt = td.textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      // No vaciar campos calculados (índices dentro de campos: 2,5,9,10,13,14,15,16,18)
       if ((txt === "" || isNaN(Number(txt))) && ![2,5,9,10,13,14,15,16,18].includes(idx)) txt = "";
       return txt;
     });
-    // Asegurar exactamente 19 campos (excluyendo la columna FECHA)
     while (campos.length < 19) campos.push("");
     if (campos.length > 19) campos.length = 19;
 
-    if (campos.some(val => val !== "")) {
+    if (campos.some(v => v !== "")) {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -581,191 +1023,109 @@ async function guardarTodoFacturacion() {
       try {
         if (res.ok) {
           const data = await res.json();
-          ok = (data && (data.ok === true || data.success === true));
-          // Si no trae bandera, pero es 2xx, considerar como éxito
-          if (ok === false && res.status >= 200 && res.status < 300) ok = true;
+          ok = data?.ok === true || data?.success === true || (res.status >= 200 && res.status < 300);
         }
-      } catch (_) { /* ignorar parseo */ }
+      } catch (_) {}
       if (ok) guardados++; else errores++;
     }
   }
-  await renderTablaDias(currentMonth, currentYear, currentBlock);
+
+  await renderTablaDias(currentMonth, currentYear);
   actualizarTotalesPorMesLocales();
   actualizarGrafica();
   renderFilaTotalesFacturacion();
-  alert(`Guardados: ${guardados}. Errores: ${errores}`);
+
+  btnGuardar.disabled = false;
+  btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+  showToast(`✓ Guardados: ${guardados}${errores ? ` · Errores: ${errores}` : ''}`);
 }
 
-function renderFilaTotalesFacturacion() {
-  const numCols = 20;
-  const totales = Array(numCols).fill(0);
-
-  const filas = Array.from(excelBody.querySelectorAll('tr'));
-  filas.forEach(tr => {
-    Array.from(tr.children).forEach((td, i) => {
-      if (i === 0) return;
-      const val = parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
-      totales[i] += val;
-    });
-  });
-  // Recalcular totales de VALOR DE VENTA
-  // ALEXIS: cols 1 (monto), 2 (ventas) -> 3 (valor de venta)
-  if (totales[2] > 0) {
-    totales[3] = totales[1] / totales[2];
-  } else {
-    totales[3] = 0;
-  }
-  // ALEJANDRO: cols 4 (monto), 5 (ventas) -> 6 (valor de venta)
-  if (totales[5] > 0) {
-    totales[6] = totales[4] / totales[5];
-  } else {
-    totales[6] = 0;
-  }
-  // GARAY: cols 7 (monto), 8 (cliente/día) -> 10 (valor por venta)
-  if (totales[8] > 0) {
-    totales[10] = totales[7] / totales[8];
-  } else {
-    totales[10] = 0;
-  }
-  // GARAY: cols 7 (monto), 9 (total lineas) -> 11 (valor por línea)
-  if (totales[9] > 0) {
-    totales[11] = totales[7] / totales[9];
-  } else {
-    totales[11] = 0;
-  }
-  // TITO: cols 12 (monto), 13 (ventas) -> 14 (valor de venta)
-  if (totales[13] > 0) {
-    totales[14] = totales[12] / totales[13];
-  } else {
-    totales[14] = 0;
-  }
-  // TOTAL GENERAL: cols 15 (total del día), 16 (total ventas) -> 17 (valor venta total)
-  if (totales[16] > 0) {
-    totales[17] = totales[15] / totales[16];
-  } else {
-    totales[17] = 0;
-  }
-  // CPA PUNTOS: cols 15 (total del día), 18 (puntos) -> 19 (CPA puntos)
-  if (totales[18] > 0) {
-    totales[19] = totales[15] / totales[18];
-  } else {
-    totales[19] = 0;
-  }
-  for (let i = 1; i < numCols; i++) {
-    const el = document.getElementById('total-col-' + i);
-    if (!el) continue;
-    // Para las columnas VALOR DE VENTA CALCULADAS usar truncado exacto
-    if (i === 3 || i === 6 || i === 10 || i === 11 || i === 14 || i === 17 || i === 19) {
-      el.textContent = formatMoneyTrunc(totales[i]);
-      continue;
-    }
-
-    if (columnasConSigno.includes(i)) {
-      el.textContent = addMoneySign(totales[i]);
-    } else {
-      el.textContent = (Number.isFinite(totales[i]) ? totales[i] : 0).toFixed(2);
-    }
-  }
-}
-
-function actualizarTotalesPorMesLocales() {
-  const mesActual = parseInt(filtroMes.value, 10) - 1;
-  const total = parseFloat(document.getElementById('total-col-15').textContent.replace(/[^0-9.-]/g, "")) || 0;
-  totalesPorMesLocales[mesActual] = total;
-}
-
-// Agrega una línea divisora al final de cada grupo de cuenta
-
-
+/* =====================================================================
+   CHART
+   ===================================================================== */
 let grafica;
+
 async function actualizarGrafica() {
   try {
-    const ano = parseInt(filtroAno.value, 10);
+    const ano   = parseInt(filtroAno.value, 10);
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const resp = await fetch(`/api/facturacion/anual/${ano}`, { headers, credentials: 'include' });
+    const resp  = await fetch(`/api/facturacion/anual/${ano}`, { headers, credentials: 'include' });
     let totalesPorMes = Array(12).fill(0);
     if (resp.ok) {
-      const data = await resp.json().catch(() => (null));
-      if (data && data.ok && Array.isArray(data.totalesPorMes)) {
+      const data = await resp.json().catch(() => null);
+      if (data?.ok && Array.isArray(data.totalesPorMes))
         totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
-      }
-    } else {
-      console.error('Error al obtener datos anuales:', resp.status, resp.statusText);
-      // Mostrar mensaje al usuario o usar datos por defecto
-      alert('Error cargando gráfica: verifica la conexión o permisos.');
     }
-
-    // Debugging: Log the data to console
-    console.log('Datos para gráfica (totalesPorMes):', totalesPorMes);
 
     if (grafica) grafica.destroy();
     const ctx = document.getElementById('graficaGastosMes').getContext('2d');
+
     grafica = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: [
-          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-        ],
+        labels: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
         datasets: [{
-          label: "",
           data: totalesPorMes,
-          backgroundColor: "rgba(40,181,232,0.70)",
-          borderColor: "#1e293b",
-          borderWidth: 2,
-          borderRadius: 8,
+          backgroundColor: totalesPorMes.map((v, i) =>
+            i === (currentMonth - 1) ? 'rgba(0,229,255,0.85)' : 'rgba(0,229,255,0.25)'
+          ),
+          borderColor: 'transparent',
+          borderRadius: 6,
           datalabels: {
-            anchor: 'end',
-            align: 'end',
-            offset: -28,
-            color: '#0b2447',
-            font: { weight: '800', size: 14 },
-            formatter: function(value) {
-              if (!value || Number(value) === 0) return '';
-              return "$" + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
+            anchor: 'end', align: 'end', offset: -28,
+            color: '#94a3b8',
+            font: { family: "'DM Mono', monospace", weight: '500', size: 11 },
+            formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ''
           }
         }]
       },
       options: {
         plugins: {
           legend: { display: false },
-          title: { display: false },
-          datalabels: { 
-            display: function(ctx){
-              try { return Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0; } catch(_) { return false; }
-            }
+          datalabels: {
+            display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0
           }
         },
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 60 } },
+        layout: { padding: { top: 36 } },
         scales: {
           x: {
-            grid: { display: false, drawBorder: false },
-            ticks: { display: true, color: "#204052", font: { weight: "bold", size: 15 } }
+            grid: { display: false },
+            ticks: { color: "#4a5568", font: { family: "'DM Mono', monospace", size: 11 } },
+            border: { display: false }
           },
           y: {
-            grid: { display: false, drawBorder: false },
-            ticks: { display: false }
+            grid: { display: false },
+            ticks: { display: false },
+            border: { display: false }
           }
         }
       }
     });
-    console.log('Gráfica creada con datos:', totalesPorMes);
   } catch (e) {
-    console.error('Error actualizando gráfica anual:', e);
+    console.error('Error gráfica anual:', e);
   }
 }
+
+/* =====================================================================
+   MODAL
+   ===================================================================== */
 function cerrarModalTabla() {
   document.getElementById('modalTablaCompleta').classList.remove('active');
   document.body.style.overflow = "";
 }
+
+function abrirModalTabla() {
+  renderTablaCompleta(currentMonth, currentYear);
+  document.getElementById('modalTablaCompleta').classList.add('active');
+  document.body.style.overflow = "hidden";
+}
+
 async function renderTablaCompleta(mes, ano) {
   await fetchFacturacionMes(mes, ano);
-
   const modalBody = document.getElementById("modalTablaBody");
   modalBody.innerHTML = "";
   const numDias = daysInMonth(ano, mes);
@@ -774,9 +1134,9 @@ async function renderTablaCompleta(mes, ano) {
     for (let c = 0; c < 20; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        td.textContent = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
       } else {
-        const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+        const fecha  = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
         const campos = buscarCamposPorFecha(fecha);
         td.textContent = campos[c-1] ?? '';
       }
@@ -787,6 +1147,9 @@ async function renderTablaCompleta(mes, ano) {
   applyAlejandroVisibility();
 }
 
+/* =====================================================================
+   INIT
+   ===================================================================== */
 window.addEventListener('DOMContentLoaded', async () => {
   await renderTablaDias(currentMonth, currentYear);
   actualizarTotalesPorMesLocales();
@@ -794,7 +1157,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderFilaTotalesFacturacion();
   applyAlejandroVisibility();
 });
-
 </script>
 </body>
 </html>

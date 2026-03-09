@@ -15,7 +15,7 @@ router.get('/ranking-raw', protect, async (req, res) => {
     if (!agente) return res.status(400).json({ success: false, message: 'Missing agente param' });
 
     const collInfos = await db.listCollections().toArray();
-    const targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || /^costumers_/i.test(n) || /^costumers$/i.test(n));
+    const targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)|^customers_unified/i.test(n) || /^costumers_/i.test(n) || /^costumers$/i.test(n));
     if (!targetColls.includes('costumers')) targetColls.unshift('costumers');
 
     const results = [];

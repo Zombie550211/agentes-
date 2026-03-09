@@ -399,7 +399,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       ? [unifiedCollectionName]
       : (usePrimaryOnly
           ? (allCollectionNames.includes('costumers') ? ['costumers'] : [])
-          : allCollectionNames.filter(name => /^costumers(_|$)/i.test(name))
+          : allCollectionNames.filter(name => /^costumers(_|$)|^customers_unified/i.test(name))
         );
     
     console.log(`[EQUIPOS] Agregando de ${costumersCollections.length} colecciones ${useUnifiedAsSource ? '(costumers_unified)' : (usePrimaryOnly ? '(solo costumers)' : 'costumers*')}`);
@@ -618,7 +618,7 @@ async function obtenerEstadisticasEquipos(req, res) {
       // 2) Construir lista completa de equipos conocidos desde TODAS las colecciones costumers*
       const allCollectionsForTeams = await db.listCollections().toArray();
       const allCollectionNamesForTeams = allCollectionsForTeams.map(c => c.name);
-      const costumersCollectionsForTeams = allCollectionNamesForTeams.filter(name => /^costumers(_|$)/i.test(name));
+      const costumersCollectionsForTeams = allCollectionNamesForTeams.filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
       const allTeamsSet = new Set();
 
       for (const colName of costumersCollectionsForTeams) {
@@ -730,7 +730,7 @@ async function obtenerEstadisticasEquipos(req, res) {
           const monthCollectionNames = monthCollections.map(c => c.name);
           const costumersMonthCollections = usePrimaryOnly
             ? (monthCollectionNames.includes('costumers') ? ['costumers'] : [])
-            : monthCollectionNames.filter(name => /^costumers(_|$)/i.test(name));
+            : monthCollectionNames.filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
           
           const monthMergeMap = new Map();
           for (const colName of costumersMonthCollections) {
