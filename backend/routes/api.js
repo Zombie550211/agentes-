@@ -19,7 +19,7 @@ async function __getCostumersCollectionsCached(db) {
   }
 
   const collections = await db.listCollections({}, { nameOnly: true }).toArray();
-  const names = (collections || []).map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+  const names = (collections || []).map(c => c.name).filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
   __costumersCollectionsCache = { ts: now, names };
   return names;
 }
@@ -348,7 +348,7 @@ router.get('/leads', protect, async (req, res) => {
       // Siempre agregar de todas las colecciones
       const collections = await db.listCollections().toArray();
       const collectionNames = collections.map(c => c.name);
-      const costumersCollections = collectionNames.filter(name => /^costumers(_|$)/i.test(name));
+      const costumersCollections = collectionNames.filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
       
       for (const colName of costumersCollections) {
         try {
@@ -1252,7 +1252,7 @@ router.get('/leads', protect, async (req, res) => {
     let collectionNamesList = unifiedAvailableFinal
       ? [unifiedCollectionName]
       : allNames
-          .filter(n => /^costumers(_|$)/i.test(n));
+          .filter(n => /^costumers(_|$)|^customers_unified/i.test(n));
 
     // Para supervisores: limitar a colecciones de sus agentes (equipo) SOLO cuando no hay colección unificada
     if (isSupervisor && !unifiedAvailableFinal) {
@@ -1957,7 +1957,7 @@ router.get('/leads/kpis', protect, async (req, res) => {
 
     const collectionNamesList = unifiedAvailable
       ? [unifiedCollectionName]
-      : allNames.filter(n => /^costumers(_|$)/i.test(n));
+      : allNames.filter(n => /^costumers(_|$)|^customers_unified/i.test(n));
 
     let total = 0;
     let canceladas = 0;
@@ -2576,7 +2576,7 @@ router.get('/leads/collection-counts', protect, async (req, res) => {
     const query = andConditions.length ? { $and: andConditions } : {};
 
     const collections = await db.listCollections().toArray();
-    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
+    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)|^customers_unified/i.test(n));
     const result = {};
 
     for (const n of names) {
@@ -2652,7 +2652,7 @@ router.get('/leads/collection-counts-public', async (req, res) => {
     const query = andConditions.length ? { $and: andConditions } : {};
 
     const collections = await db.listCollections().toArray();
-    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n));
+    const names = collections.map(c => c.name).filter(n => /^costumers(_|$)|^customers_unified/i.test(n));
     const result = {};
     for (const n of names) {
       try { result[n] = await db.collection(n).countDocuments(query); } catch (e) { result[n] = { error: e.message }; }
@@ -2912,7 +2912,7 @@ router.put('/leads/:id/status', protect, authorize('Administrador','Backoffice')
     if (!updated && (!preferUnified || !unifiedAvailable)) {
       // Search other collections matching costumers*
       const collections = await db.listCollections().toArray();
-      const colNames = collections.map(c => c.name).filter(name => /^costumers(_|$)/i.test(name));
+      const colNames = collections.map(c => c.name).filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
       for (const colName of colNames) {
         try {
           const col = db.collection(colName);
@@ -3068,7 +3068,7 @@ router.get('/leads/:id', protect, async (req, res, next) => {
           $addFields: {
             // Usar el valor más reciente de agenteNombre que se guardó en PUT
             // Si tiene el campo actualizado, usarlo. Si no, usar fallback.
-            agenteNombre: { $coalesce: [ '$agenteNombre', { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agente' ] },
+            agenteNombre: { $ifNull: [ '$agenteNombre', { $ifNull: [ { $arrayElemAt: ['$agenteDetails.username', 0] }, '$agente' ] } ] },
             // Limpiar el campo antiguo 'representante' para evitar confusión
             representante: '$$REMOVE',
             supervisor: { $ifNull: [ '$supervisor', { $arrayElemAt: ['$supervisorDetails.username', 0] } ] }
@@ -3143,6 +3143,31 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
     // Remover campos que no deben actualizarse
     delete updateData._id;
     delete updateData.id;
+
+    // Normalizar fechas (deben ser YYYY-MM-DD)
+    const dateFields = ['dia_venta', 'dia_instalacion', 'fecha_contratacion'];
+    for (const field of dateFields) {
+      if (updateData[field] && typeof updateData[field] === 'string') {
+        const val = updateData[field].trim();
+        // Si es YYYY-MM-DD, déjalo tal cual
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          // Si tiene otro formato, intenta normalizarlo
+          // Pero si es vacío, límpialo
+          if (!val) {
+            updateData[field] = '';
+          } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+            // DD/MM/YYYY → YYYY-MM-DD
+            const [d, m, y] = val.split('/');
+            updateData[field] = `${y}-${m}-${d}`;
+          } else if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+            // DD-MM-YYYY → YYYY-MM-DD
+            const [d, m, y] = val.split('-');
+            updateData[field] = `${y}-${m}-${d}`;
+          }
+          // Si no coincide con ningún patrón reconocido, dejarlo como está (puede ser input incompleto)
+        }
+      }
+    }
 
     // SOLUCIÓN DEFINITIVA: Guardar el representante en TODOS los posibles nombres de campo
     // para asegurar que funciona sin importar qué nombre use el sistema
@@ -3441,7 +3466,7 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
           const collection = db.collection(updatedCollection || 'costumers');
           const lead = await collection.findOne(matchedFilter || (objId ? { _id: objId } : { _id: recordId }));
           if (lead) {
-            const ownerId = lead.agenteId || lead.agente || lead.odigo || lead.createdBy;
+            const ownerId = lead.createdBy || lead.registeredBy || lead.usuario || lead.user || lead.owner || lead.agenteId || lead.agente || lead.odigo;
             const clientName = lead.nombre_cliente || lead.nombre || 'Cliente';
             const author = req.user?.username || req.user?.name || 'Usuario';
             const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
@@ -5585,8 +5610,8 @@ router.get('/debug/search-lead/:id', protect, async (req, res) => {
     console.log('[DEBUG SEARCH] Colecciones disponibles:', colNames);
 
     // Buscar en todas las colecciones (costumers* primero, luego otras)
-    const costumerCols = colNames.filter(name => /^costumers(_|$)/i.test(name));
-    const otherCols = colNames.filter(name => !/^costumers(_|$)/i.test(name) && name !== 'users');
+    const costumerCols = colNames.filter(name => /^costumers(_|$)|^customers_unified/i.test(name));
+    const otherCols = colNames.filter(name => !/^costumers(_|$)|^customers_unified/i.test(name) && name !== 'users');
     const searchOrder = [...costumerCols, ...otherCols];
 
     for (const colName of searchOrder) {

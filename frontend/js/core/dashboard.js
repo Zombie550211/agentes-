@@ -28,14 +28,15 @@
       const uname = (user?.username||'').toString().trim();
       const role = (user?.role||'').toString().trim().toLowerCase();
       // 1) intento base
-      const useAgentParam = ['agente','agent'].includes(role);
-      const r = await fetch('/api/leads' + (useAgentParam && uname?`?agente=${encodeURIComponent(uname)}`:''), { credentials: 'include', headers: authHeaders() });
+      // Para el dashboard de inicio: KPIs del mes deben ser globales incluso para agentes.
+      // Las métricas personales se calculan aparte en el frontend (o vienen en /api/init-dashboard).
+      const r = await fetch('/api/leads', { credentials: 'include', headers: authHeaders() });
       if(!r.ok) throw new Error('leads fetch error');
       const j = await r.json();
       const arr = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : (Array.isArray(j?.leads) ? j.leads : []));
       if(arr.length){ console.log('[dashboard] leads mes actual:', arr.length); return arr; }
       // Fallback: intentar sin filtro de fecha (diagnóstico)
-      const r2 = await fetch('/api/leads?skipDate=1' + (uname?`&agente=${encodeURIComponent(uname)}`:''), { credentials: 'include', headers: authHeaders() });
+      const r2 = await fetch('/api/leads?skipDate=1', { credentials: 'include', headers: authHeaders() });
       if(r2.ok){ const j2 = await r2.json(); const arr2 = Array.isArray(j2)?j2:(Array.isArray(j2?.data)?j2.data:(Array.isArray(j2?.leads)?j2.leads:[])); console.warn('[dashboard] fallback skipDate=1, leads:', arr2.length); return arr2; }
       return arr;
     }catch(e){ console.error('[dashboard] fetchMonthLeads error:', e?.message); return []; }
@@ -131,14 +132,21 @@
       const isAgent = ['agente','agent'].includes(role);
 
       let totalPoints = 0;
-      // Solo agentes: actualizar KPIs propios. Para admins/BO/supervisor, Inicio maneja los totales.
+      // KPIs globales del mes (panel de métricas del mes)
+      updateText('kpi-ventas', String(leads.length));
+      totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
+      updateText('kpi-puntos', totalPoints.toFixed(0));
+      updateText('kpi-team', pickBestTeam(leads) || '-');
+      updateText('kpi-seller', pickBestSellerFromRanking(ranking));
+
+      // Métricas personales (hero)
       if (isAgent) {
-        updateText('month-sales-count', String(leads.length));
-        totalPoints = leads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
-        updateText('month-points-total', totalPoints.toFixed(2));
-        const bestTeam = pickBestTeam(leads);
-        updateText('best-team-name', bestTeam || '-');
-        updateText('best-seller-name', pickBestSellerFromRanking(ranking));
+        const uname = (user?.username||'').toString().trim();
+        const norm = (s) => (s==null?'':String(s)).trim().toLowerCase();
+        const myLeads = leads.filter(l => norm(l.agenteNombre || l.agente || l.usuario || '') === norm(uname));
+        const myPoints = myLeads.reduce((acc,l)=> acc + toNum(l.puntaje || l.Puntaje || l.points || l.score || 0), 0);
+        updateText('hkpi-ventas', String(myLeads.length));
+        updateText('hkpi-puntos', myPoints > 0 ? String(Math.round(myPoints)) : '0');
       }
 
       console.log('[dashboard] KPIs cargados:', { ventas: leads.length, puntos: totalPoints });

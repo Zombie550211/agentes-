@@ -970,7 +970,7 @@ router.get('/', protect, async (req, res) => {
       // Si solicitan 'all=1', buscar todas las colecciones que empiecen por 'costumers' (incluye variantes por agente)
       try {
         const collInfos = await db.listCollections().toArray();
-        let targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || /^costumers_/i.test(n));
+        let targetColls = collInfos.map(c => c.name).filter(n => /^costumers(_|$)|^customers_unified/i.test(n) || /^costumers_/i.test(n));
         if (!targetColls.includes('costumers')) targetColls.unshift('costumers');
         console.log('[RANKING] Colecciones candidatas para ALL:', targetColls);
 

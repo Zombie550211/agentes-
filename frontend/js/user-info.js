@@ -40,6 +40,35 @@
       const userData = await getUserCached();
       const user = userData.user || userData;
 
+      try {
+        const displayName = (user?.name || user?.fullName || user?.displayName || user?.username || '').toString().trim() || 'Usuario';
+        const roleText = (user?.role || user?.rol || '').toString().trim() || 'Rol';
+        const roleMap = {
+          admin: 'Administrador',
+          administrador: 'Administrador',
+          administradora: 'Administrador',
+          supervisor: 'Supervisor',
+          agente: 'Agente',
+          agent: 'Agente',
+          backoffice: 'Backoffice',
+          bo: 'Backoffice'
+        };
+        const roleLabel = roleMap[roleText.toLowerCase()] || roleText;
+
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setText('user-name', displayName);
+        setText('topbar-user-name', displayName);
+        setText('hero-name', displayName);
+        setText('user-role', roleLabel);
+        setText('topbar-user-role', roleLabel);
+
+        const initials = displayName.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase() || 'U';
+        const avatarEl = document.querySelector('.user-avatar');
+        if (avatarEl && avatarEl.tagName !== 'IMG') {
+          avatarEl.textContent = initials;
+        }
+      } catch (_) {}
+
       // Obtener ventas del mes actual
       const now = new Date();
       const year = now.getFullYear();
@@ -92,6 +121,10 @@
   // Inicializar cuando el sidebar se cargue
   document.addEventListener('sidebar:loaded', () => {
     setTimeout(loadUserStats, 500);
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadUserStats, 150);
   });
 
   // Exportar función para uso externo

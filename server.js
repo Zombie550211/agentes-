@@ -507,7 +507,7 @@ async function refreshInitDashboardCache(_db) {
     };
 
     if (!_db) _db = getDb();
-    const leads = await _db.collection('costumers')
+    const leads = await _db.collection('costumers_unified')
       .find(filter)
       .project(projection)
       .sort({ dia_venta: -1 })
@@ -547,7 +547,7 @@ async function refreshInitDashboardCache(_db) {
     const chartTeams = Object.entries(agentMap)
       .map(([nombre, count]) => ({ nombre, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 50);
 
     const chartProductos = Object.entries(productMap)
       .map(([servicio, count]) => ({ servicio, count }))
@@ -1783,7 +1783,7 @@ app.get('/api/crm/debug-fields', async (req, res) => {
 
     // Buscar un documento de prueba
     const collections = await database.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name).filter(name => /^costumers/i.test(name));
+    const collectionNames = collections.map(c => c.name).filter(name => /^costumers|^customers_unified/i.test(name));
     
     let sampleDoc = null;
     let sourceCollection = null;
@@ -1862,7 +1862,7 @@ app.get('/api/debug/ingrid-score', async (req, res) => {
     ];
     
     const results = {};
-    const collections = ['costumers', 'costumers_692e09'];
+    const collections = ['costumers_unified'];
     
     for (const colName of collections) {
       try {
@@ -2584,7 +2584,11 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     const user = req.user;
     const username = user?.username || '';
     const userRole = (user?.role || '').toLowerCase();
-    const isAdminOrBackoffice = ['admin', 'administrator', 'administrador', 'administradora', 'backoffice', 'bo', 'supervisor'].some(r => userRole.includes(r));
+    const isAdmin = ['admin', 'administrator', 'administrador', 'administradora'].some(r => userRole.includes(r));
+    const isBackoffice = ['backoffice', 'bo'].some(r => userRole.includes(r));
+    const isSupervisor = userRole.includes('supervisor');
+    const isAgent = userRole.includes('agente') || userRole.includes('agent');
+    const isAdminOrBackoffice = isAdmin || isBackoffice;
 
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -2592,33 +2596,63 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     const monthStart = new Date(currentYear, currentMonth, 1);
     const monthEnd = new Date(currentYear, currentMonth + 1, 1);
 
-    console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole})`);
+    console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole}) [Admin:${isAdmin} BO:${isBackoffice} Sup:${isSupervisor} Agent:${isAgent}]`);
 
-    // Return cached response immediately when available (fast path)
-    try {
-      const cached = global.initDashboardCache && global.initDashboardCache.data;
-      const updatedAt = global.initDashboardCache && global.initDashboardCache.updatedAt;
-      if (cached) {
-        const age = Date.now() - (updatedAt || 0);
-        if (age < INIT_DASHBOARD_TTL) {
-          console.log(`[INIT-DASHBOARD] Devolviendo cache (age ${age}ms)`);
-          return res.json(cached);
-        }
-        // Si la cache existe pero está stale, devolvemos la cache STALE de inmediato
-        console.log(`[INIT-DASHBOARD] Devolviendo cache STALE (age ${age}ms) y refrescando en background`);
-        res.json(cached);
-        // refrescar en background sin bloquear la respuesta
-        (async () => {
-          try { await refreshInitDashboardCache(); } catch (e) { console.warn('[INIT-DASHBOARD] background refresh failed', e); }
-        })();
-        return;
-      }
-    } catch (e) {
-      console.warn('[INIT-DASHBOARD] Error leyendo cache:', e);
+    // Mapeo de supervisor -> agentes (igual al que se usa en otros lugares)
+    const AGENT_TO_SUP = new Map([
+      ['josue renderos','irania serrano'], ['tatiana ayala','irania serrano'], ['giselle diaz','irania serrano'],
+      ['miguel nunez','irania serrano'], ['roxana martinez','irania serrano'], ['irania serrano','irania serrano'],
+      ['abigail galdamez','bryan pleitez'], ['alexander rivera','bryan pleitez'], ['diego mejia','bryan pleitez'],
+      ['evelin garcia','bryan pleitez'], ['fabricio panameno','bryan pleitez'], ['luis chavarria','bryan pleitez'],
+      ['steven varela','bryan pleitez'],
+      ['cindy flores','roberto velasquez'], ['daniela bonilla','roberto velasquez'], ['francisco aguilar','roberto velasquez'],
+      ['levy ceren','roberto velasquez'], ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
+      ['nelson ceren','roberto velasquez'],
+      ['anderson guzman','randal martinez'], ['carlos grande','randal martinez'], ['guadalupe santana','randal martinez'],
+      ['julio chavez','randal martinez'], ['priscila hernandez','randal martinez'], ['riquelmi torres','randal martinez']
+    ]);
+
+    const norm = (s) => {
+      try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');} catch { return ''; }
+    };
+
+    // Obtener lista de agentes que supervisa este usuario (si es supervisor)
+    let supervisorAgents = [];
+    if (isSupervisor) {
+      const normalizedUsername = norm(username);
+      supervisorAgents = Array.from(AGENT_TO_SUP.entries())
+        .filter(([agent, supervisor]) => norm(supervisor) === normalizedUsername)
+        .map(([agent]) => agent);
+      console.log(`[INIT-DASHBOARD] Supervisor '${username}' supervisa ${supervisorAgents.length} agentes: ${supervisorAgents.slice(0, 3).join(', ')}...`);
     }
 
-    // OPTIMIZACIÓN: Buscar por múltiples campos de fecha del mes actual
-    // Algunos registros usan 'dia_venta', otros 'fecha_contratacion', 'creadoEn', 'createdAt' o 'fecha'
+    // Definir qué usuarios son considerados en los datos
+    // Nota:
+    // - KPIs del panel "Métricas del mes" y el widget "Ranking del mes" deben ser GLOBALES para agentes.
+    // - El HERO debe seguir mostrando métricas PERSONALES.
+    let usersForData = [];
+    if (isAdminOrBackoffice) {
+      // Admin/Backoffice: incluir TODOS (sin filtrar)
+      usersForData = null; // null = sin filtrar
+    } else if (isSupervisor) {
+      // Supervisor: incluir solo sus agentes
+      usersForData = supervisorAgents;
+    } else if (isAgent) {
+      // Agente: KPIs/RANKING globales
+      usersForData = null;
+    }
+
+    // Función para crear filtro de usuario según rol
+    const createUserFilter = () => {
+      if (!usersForData) return {}; // Admin/BO: sin filtro de usuario
+      const userNames = usersForData.map(u => norm(u));
+      return { $or: [
+        { agenteNombre: { $in: usersForData } },
+        { agente: { $in: usersForData } },
+        { usuario: { $in: usersForData } }
+      ]};
+    };
+
     const dateConditions = [
       { dia_venta: { $gte: monthStart, $lt: monthEnd } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
@@ -2627,82 +2661,143 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       { fecha: { $gte: monthStart, $lt: monthEnd } }
     ];
 
-    let filter;
-    if (isAdminOrBackoffice) {
-      filter = { $or: dateConditions };
-    } else {
-      const userMatch = { $or: [ { agenteNombre: username }, { agente: username }, { usuario: username } ] };
-      filter = { $and: [ { $or: dateConditions }, userMatch ] };
-    }
+    const userFilter = createUserFilter();
+    const filter = userFilter && Object.keys(userFilter).length > 0 
+      ? { $and: [ { $or: dateConditions }, userFilter ] }
+      : { $or: dateConditions };
 
-    // Usar projection para traer SOLO los campos necesarios
     const projection = {
-      _id: 1,
-      agenteNombre: 1,
-      agente: 1,
-      usuario: 1,
-      servicios: 1,
-      puntaje: 1,
-      status: 1,
-      dia_venta: 1,
-      creadoEn: 1,
-      createdAt: 1,
-      fecha_contratacion: 1,
-      fecha: 1
+      _id: 1, agenteNombre: 1, agente: 1, usuario: 1, servicios: 1, tipo_servicios: 1,
+      puntaje: 1, status: 1, dia_venta: 1, creadoEn: 1, createdAt: 1,
+      fecha_contratacion: 1, fecha: 1, nombre_cliente: 1
     };
 
     // Una sola query optimizada
-    const leads = await db.collection('costumers')
+    const leads = await db.collection('costumers_unified')
       .find(filter)
       .project(projection)
       .sort({ dia_venta: -1 })
-      .limit(2000)  // Reducido a 2000 del mes actual (no 10,000 históricos)
+      .limit(20000)
       .toArray();
 
-    console.log(`[INIT-DASHBOARD] 📊 Registros obtenidos: ${leads.length}`);
+    console.log(`[INIT-DASHBOARD] 📊 Registros obtenidos (filtro de usuario aplicado): ${leads.length}`);
 
-    // CÁLCULOS RÁPIDOS (datos ya filtrados por mes)
+    // CÁLCULOS DE KPIs (del usuario logueado o su equipo)
+    const totalPuntos = leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0);
     const kpis = {
       ventas: leads.length,
-      puntos: leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0),
+      puntos: totalPuntos,
       mayor_vendedor: '-',
+      mejor_team: '-',
       canceladas: leads.filter(l => (l.status || '').toLowerCase().includes('cancel')).length,
       pendientes: leads.filter(l => (l.status || '').toLowerCase().includes('pend')).length
     };
 
-    // Mejor vendedor rápido (solo si admin)
-    if (isAdminOrBackoffice && leads.length > 0) {
-      const agents = {};
+    // Mejor vendedor (agente con MÁS PUNTOS del mes)
+    if (leads.length > 0) {
+      const agentPuntos = {};
       leads.forEach(l => {
         const agent = l.agenteNombre || l.agente || '-';
-        agents[agent] = (agents[agent] || 0) + 1;
+        agentPuntos[agent] = (agentPuntos[agent] || 0) + parseFloat(l.puntaje || 0);
       });
-      const top = Object.entries(agents).sort((a, b) => b[1] - a[1])[0];
-      kpis.mayor_vendedor = top ? top[0] : '-';
+      const topAgent = Object.entries(agentPuntos).sort((a, b) => b[1] - a[1])[0];
+      kpis.mayor_vendedor = topAgent ? topAgent[0] : '-';
+      
+      console.log(`[INIT-DASHBOARD] Top agentes por puntos:`, Object.entries(agentPuntos).sort((a, b) => b[1] - a[1]).slice(0, 3));
     }
 
-    // Gráficos rápidos (top 5)
+    // Mejor team (team con MÁS PUNTOS del mes)
+    // TODOS ven el mejor team del mes (no solo su team)
+    if (leads.length > 0) {
+      // Obtener todos los agentes del mes con sus teams
+      const allLeadsForTeams = await db.collection('costumers_unified')
+        .find({ $or: dateConditions })
+        .project({ agenteNombre: 1, agente: 1, usuario: 1, puntaje: 1, team: 1 })
+        .toArray();
+      
+      // Mapear agente -> team usando datos de usuarios
+      const agentTeamMap = new Map();
+      const users = await db.collection('users').find({}).toArray();
+      users.forEach(u => {
+        if (u.username) {
+          agentTeamMap.set(norm(u.username), u.team || 'Sin equipo');
+        }
+      });
+      
+      const teamPuntos = {};
+      allLeadsForTeams.forEach(l => {
+        const agent = l.agenteNombre || l.agente || l.usuario || '-';
+        const team = agentTeamMap.get(norm(agent)) || 'Sin equipo';
+        teamPuntos[team] = (teamPuntos[team] || 0) + parseFloat(l.puntaje || 0);
+      });
+      
+      const topTeam = Object.entries(teamPuntos).sort((a, b) => b[1] - a[1])[0];
+      kpis.mejor_team = topTeam ? topTeam[0] : '-';
+      
+      console.log(`[INIT-DASHBOARD] Top teams por puntos:`, Object.entries(teamPuntos).sort((a, b) => b[1] - a[1]).slice(0, 3));
+    }
+
+    // Gráficos
     const agentMap = {};
     const productMap = {};
+    let agentsWithData = 0, productsWithData = 0;
+    
     leads.forEach(lead => {
       const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
+      if (agent && agent !== 'Sin asignar') agentsWithData++;
       agentMap[agent] = (agentMap[agent] || 0) + 1;
 
-      const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
+      let services = lead.servicios || lead.tipo_servicios || [];
+      if (typeof services === 'string') services = [services];
+      else if (!Array.isArray(services)) services = [];
+      
       services.forEach(s => {
-        if (s) productMap[s] = (productMap[s] || 0) + 1;
+        if (s) { productsWithData++; productMap[s] = (productMap[s] || 0) + 1; }
       });
     });
 
     const chartTeams = Object.entries(agentMap)
       .map(([nombre, count]) => ({ nombre, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 50);
 
     const chartProductos = Object.entries(productMap)
       .map(([servicio, count]) => ({ servicio, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+
+    // DATOS PERSONALES DEL USUARIO LOGUEADO (para hero section)
+    let userPersonalStats = { ventasPersonales: 0, puntosPersonales: 0, posicionRanking: '-', nombreUsuario: user?.name || username };
+
+    // Para agentes y supervisores: calcular stats del usuario logueado dentro de la data global (o del equipo)
+    if (!isAdminOrBackoffice) {
+      const userLeads = leads.filter(l => norm(l.agenteNombre || l.agente || l.usuario || '') === norm(username));
+      userPersonalStats.ventasPersonales = userLeads.length;
+      userPersonalStats.puntosPersonales = Math.round(userLeads.reduce((sum, l) => sum + parseFloat(l.puntaje || 0), 0) * 100) / 100;
+    }
+
+    // Calcular ranking del usuario logueado si es agente
+    if (isAgent && !isAdminOrBackoffice) {
+      // Obtener todos los agentes del mes con sus puntos
+      const allLeads = await db.collection('costumers_unified')
+        .find({ $or: dateConditions })
+        .project({ agenteNombre: 1, agente: 1, puntaje: 1 })
+        .toArray();
+
+      const agentStats = {};
+      allLeads.forEach(l => {
+        const agent = l.agenteNombre || l.agente || '-';
+        if (!agentStats[agent]) agentStats[agent] = 0;
+        agentStats[agent] += parseFloat(l.puntaje || 0);
+      });
+
+      const ranking = Object.entries(agentStats)
+        .map(([name, pts]) => ({ name, pts }))
+        .sort((a, b) => b.pts - a.pts);
+
+      const userPos = ranking.findIndex(r => norm(r.name) === norm(username)) + 1;
+      userPersonalStats.posicionRanking = userPos > 0 ? `#${userPos}/${ranking.length}` : '-';
+    }
 
     const elapsed = Date.now() - startTime;
     console.log(`[INIT-DASHBOARD] ✅ Completado en ${elapsed}ms`);
@@ -2714,28 +2809,28 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       user: {
         username: user?.username,
         role: user?.role,
-        team: user?.team || 'Sin equipo'
+        team: user?.team || 'Sin equipo',
+        name: user?.name || username
       },
       kpis: kpis,
       userStats: {
-        ventasUsuario: kpis.ventas,
-        puntosUsuario: kpis.puntos,
+        ventasUsuario: userPersonalStats.ventasPersonales,
+        puntosUsuario: userPersonalStats.puntosPersonales,
         equipoUsuario: user?.team || 'Sin equipo'
       },
+      userPersonalStats: userPersonalStats,
       chartTeams: chartTeams,
       chartProductos: chartProductos,
-      isAdminOrBackoffice: isAdminOrBackoffice,
+      isAdmin: isAdmin,
+      isBackoffice: isBackoffice,
+      isSupervisor: isSupervisor,
+      isAgent: isAgent,
+      roleInfo: {
+        supervisorAgents: isSupervisor ? supervisorAgents : [],
+        viewAllUsers: isAdminOrBackoffice
+      },
       monthYear: `${currentMonth + 1}/${currentYear}`
     };
-
-    // Guardar en cache y notificar
-    try {
-      global.initDashboardCache.data = response;
-      global.initDashboardCache.updatedAt = Date.now();
-      if (global.broadcastDashboardUpdate) global.broadcastDashboardUpdate({ kpis, chartTeams, chartProductos, timestamp: response.timestamp });
-    } catch (e) {
-      console.warn('[INIT-DASHBOARD] Error guardando cache:', e);
-    }
 
     res.json(response);
 
@@ -2749,6 +2844,202 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     });
   }
 });
+
+/**
+ * ACTIVITY LOGGING HELPER
+ * Registra todas las actividades de los usuarios en la colección 'activities'
+ */
+async function logActivity(db, activityType, leadId, leadClientName, actorUsername, actorRole, description, additionalData = {}) {
+  try {
+    const activity = {
+      activity_type: activityType, // "Venta cerrada", "Cambio de Status", "Nota agregada", etc.
+      lead_id: leadId,
+      lead_client_name: leadClientName,
+      actor_username: actorUsername,
+      actor_role: actorRole,
+      description: description,
+      timestamp: new Date(),
+      ...additionalData
+    };
+    
+    await db.collection('activities').insertOne(activity);
+    console.log(`[ACTIVITY-LOG] ${activityType} registrada para ${leadClientName}`);
+  } catch (error) {
+    console.warn(`[ACTIVITY-LOG] Error registrando actividad:`, error.message);
+  }
+}
+
+// Obtener actividad reciente (desde la colección activities)
+app.get('/api/recent-activity', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    const user = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'administrator', 'administrador', 'administradora'].some(r => userRole.includes(r));
+    const isBackoffice = ['backoffice', 'bo'].some(r => userRole.includes(r));
+    const isSupervisor = userRole.includes('supervisor');
+    const isAgent = userRole.includes('agente') || userRole.includes('agent');
+    const isAdminOrBackoffice = isAdmin || isBackoffice;
+
+    const norm = (s) => {
+      try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');} catch { return ''; }
+    };
+
+    // Mapeo de supervisor -> agentes
+    const AGENT_TO_SUP = new Map([
+      ['josue renderos','irania serrano'], ['tatiana ayala','irania serrano'], ['giselle diaz','irania serrano'],
+      ['miguel nunez','irania serrano'], ['roxana martinez','irania serrano'], ['irania serrano','irania serrano'],
+      ['abigail galdamez','bryan pleitez'], ['alexander rivera','bryan pleitez'], ['diego mejia','bryan pleitez'],
+      ['evelin garcia','bryan pleitez'], ['fabricio panameno','bryan pleitez'], ['luis chavarria','bryan pleitez'],
+      ['steven varela','bryan pleitez'],
+      ['cindy flores','roberto velasquez'], ['daniela bonilla','roberto velasquez'], ['francisco aguilar','roberto velasquez'],
+      ['levy ceren','roberto velasquez'], ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
+      ['nelson ceren','roberto velasquez'],
+      ['anderson guzman','randal martinez'], ['carlos grande','randal martinez'], ['guadalupe santana','randal martinez'],
+      ['julio chavez','randal martinez'], ['priscila hernandez','randal martinez'], ['riquelmi torres','randal martinez']
+    ]);
+
+    // Obtener agentes que supervisa (si es supervisor)
+    let supervisorAgents = [];
+    if (isSupervisor) {
+      const normalizedUsername = norm(username);
+      supervisorAgents = Array.from(AGENT_TO_SUP.entries())
+        .filter(([agent, supervisor]) => norm(supervisor) === normalizedUsername)
+        .map(([agent]) => agent);
+    }
+
+    // Definir usuarios visibles según rol
+    let usersForData = [];
+    if (isAdminOrBackoffice) {
+      usersForData = null; // Sin filtro
+    } else if (isSupervisor) {
+      usersForData = supervisorAgents;
+    } else if (isAgent) {
+      usersForData = [username];
+    }
+
+    // Crear filtro de usuario
+    let userFilter = {};
+    if (usersForData) {
+      userFilter = { $or: [
+        { agenteNombre: { $in: usersForData } },
+        { agente: { $in: usersForData } },
+        { usuario: { $in: usersForData } }
+      ]};
+    }
+
+    // Obtener últimos 50 leads, ordenados por fecha de creación más reciente
+    const now = new Date();
+    const lastDays = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Últimos 30 días
+    
+    const dateFilter = {
+      $or: [
+        { creadoEn: { $gte: lastDays } },
+        { createdAt: { $gte: lastDays } },
+        { dia_venta: { $gte: lastDays } },
+        { fecha_contratacion: { $gte: lastDays } },
+        { fecha: { $gte: lastDays } }
+      ]
+    };
+
+    const filter = usersForData ? { $and: [dateFilter, userFilter] } : dateFilter;
+
+    const activities = await db.collection('costumers_unified')
+      .find(filter)
+      .sort({ creadoEn: -1, createdAt: -1, dia_venta: -1 })
+      .limit(50)
+      .project({
+        _id: 1,
+        nombre_cliente: 1,
+        agenteNombre: 1,
+        agente: 1,
+        usuario: 1,
+        status: 1,
+        servicios: 1,
+        tipo_servicios: 1,
+        puntaje: 1,
+        creadoEn: 1,
+        createdAt: 1,
+        dia_venta: 1,
+        tipo_actividad: 1
+      })
+      .toArray();
+
+    // Transformar a formato de actividad más legible
+    const formatted = activities.map((lead, idx) => {
+      const agent = lead.agenteNombre || lead.agente || lead.usuario || '—';
+      const clientName = lead.nombre_cliente || 'Cliente sin nombre';
+      const services = Array.isArray(lead.servicios) ? lead.servicios[0] : 
+                      lead.tipo_servicios || 'Servicio general';
+      const status = (lead.status || '').toLowerCase();
+      
+      // Determinar tipo de actividad basado en status
+      let activityType = 'Nuevo';
+      if (status.includes('cerr') || status.includes('complet')) {
+        activityType = 'Venta cerrada';
+      } else if (status.includes('pend')) {
+        activityType = 'Seguimiento';
+      } else if (status.includes('cancel')) {
+        activityType = 'Cancelación';
+      } else if (status.includes('susp') || status.includes('soport')) {
+        activityType = 'Soporte';
+      } else if (status.includes('edit') || status.includes('modif')) {
+        activityType = 'Edición';
+      }
+
+      const dateCreated = lead.creadoEn || lead.createdAt || lead.dia_venta || new Date();
+      const timeAgo = getTimeAgo(dateCreated);
+
+      return {
+        id: lead._id,
+        nombre_cliente: clientName,
+        agente: agent,
+        servicio: services,
+        tipo_actividad: activityType,
+        status: status,
+        fecha: dateCreated,
+        tiempo_relativo: timeAgo
+      };
+    });
+
+    res.json({
+      success: true,
+      data: formatted
+    });
+
+  } catch (error) {
+    console.error('[RECENT-ACTIVITY] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cargar actividad reciente',
+      error: error.message
+    });
+  }
+});
+
+// Función auxiliar para calcular tiempo relativo
+function getTimeAgo(date) {
+  if (!(date instanceof Date) || isNaN(date)) {
+    return 'Hace poco';
+  }
+  
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Hace segundos';
+  if (diffMins < 60) return `Hace ${diffMins} min`;
+  if (diffHours < 24) return `Hace ${diffHours} h`;
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return date.toLocaleDateString('es-ES');
+}
 
 // Pre-calentar datos de TODAS las páginas del mes actual para carga instantánea post-login
 // Retorna: dashboard, customers, leads, rankings, estadísticas (solo mes actual)
@@ -2792,7 +3083,7 @@ app.get('/api/init-all-pages', protect, async (req, res) => {
     // 2. CUSTOMERS para Costumer.html (primeros 200 del mes actual, proyección ligera)
     let customers = [];
     try {
-      const custColl = db.collection('costumers');
+      const custColl = db.collection('costumers_unified');
       const custFilter = { $or: dateConditions };
       customers = await custColl.find(custFilter)
         .project({
@@ -2996,7 +3287,7 @@ app.get('/api/init-estadisticas', protect, async (req, res) => {
     // 2. Agentes con estadísticas (para conversion table y rankings)
     let agentsData = [];
     try {
-      const costumersColl = db.collection('costumers');
+      const costumersColl = db.collection('costumers_unified');
       const custFilter = { $or: dateConditions };
       const agg = await costumersColl.aggregate([
         { $match: custFilter },
@@ -3055,7 +3346,7 @@ app.get('/api/init-estadisticas', protect, async (req, res) => {
     // 4. Resumen rápido por estado
     let statusSummary = {};
     try {
-      const custColl = db.collection('costumers');
+      const custColl = db.collection('costumers_unified');
       const custFilter = { $or: dateConditions };
       const statusAgg = await custColl.aggregate([
         { $match: custFilter },
@@ -3133,7 +3424,7 @@ app.get('/api/init-rankings', protect, async (req, res) => {
     // 1. Ranking del MES ACTUAL (para mostrar Top 3) - buscar en costumers por rango de fecha
     let currentMonthRanking = [];
     try {
-      const custColl = db.collection('costumers');
+      const custColl = db.collection('costumers_unified');
       
       // Buscar en costumers por rango de fecha del mes actual
       const rankingData = await custColl.find({
@@ -3180,7 +3471,7 @@ app.get('/api/init-rankings', protect, async (req, res) => {
     let monthlyRankings = {};
     try {
       // Buscar SOLO en la colección principal 'costumers' para evitar duplicados de agentes en colecciones individuales
-      const costumersColl = db.collection('costumers');
+      const costumersColl = db.collection('costumers_unified');
       const months = [];
       for (let i = 0; i < 6; i++) {
         const d = new Date(currentYear, currentMonth - i, 1);
@@ -3404,7 +3695,7 @@ app.get('/api/init-facturacion', protect, async (req, res) => {
     // Datos de facturación
     let facturacionData = [];
     try {
-      const custColl = db.collection('costumers');
+      const custColl = db.collection('costumers_unified');
       facturacionData = await custColl.find({ $or: dateConditions })
         .project({
           _id: 1,
@@ -3428,7 +3719,7 @@ app.get('/api/init-facturacion', protect, async (req, res) => {
     // Resumen de ingresos
     let ingresosSummary = { total: 0, completadas: 0 };
     try {
-      const agg = await db.collection('costumers').aggregate([
+      const agg = await db.collection('costumers_unified').aggregate([
         { $match: { $or: dateConditions } },
         { $group: {
           _id: null,
@@ -3592,6 +3883,166 @@ app.post('/api/auth/test-token', (req, res) => {
     return res.json({ success: true, token, payload });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DEV ENDPOINT: Poblar datos de prueba (SOLO LOCALHOST)
+// ═══════════════════════════════════════════════════════════
+app.post('/api/dev/populate-test-data', async (req, res) => {
+  try {
+    // Solo permitir desde localhost
+    const originIp = req.ip || req.connection?.remoteAddress || '';
+    if (!(originIp === '::1' || originIp === '127.0.0.1')) {
+      return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
+    }
+    
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Database not connected' });
+    
+    // 1. Crear usuario de prueba si no existe
+    const users = db.collection('users');
+    let testUser = await users.findOne({ username: 'test.agent' });
+    
+    if (!testUser) {
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      await users.insertOne({
+        username: 'test.agent',
+        password: hashedPassword,
+        name: 'Agente Test',
+        email: 'test@example.com',
+        role: 'agente',
+        team: 'Test',
+        createdAt: new Date(),
+        verified: true
+      });
+      testUser = { username: 'test.agent' };
+    }
+    
+    // 2. Crear leads de prueba
+    const costumers = db.collection('costumers_unified');
+    const existingLeads = await costumers.countDocuments({ agenteNombre: 'test.agent' });
+    
+    if (existingLeads === 0) {
+      const testLeads = [
+        {
+          nombre: 'María López',
+          teléfono: '1234567890',
+          email: 'maria@example.com',
+          agenteNombre: 'test.agent',
+          servicios: ['Internet 100MB'],
+          sistema: 'SARA',
+          tipo_servicio: 'Internet Hogar',
+          puntaje: 1,
+          status: 'vendido',
+          fecha_creacion: new Date(),
+          fecha_venta: new Date()
+        },
+        {
+          nombre: 'Carlos Pérez',
+          teléfono: '9876543210',
+          email: 'carlos@example.com',
+          agenteNombre: 'test.agent',
+          servicios: ['TV Premium'],
+          sistema: 'N/A',
+          tipo_servicio: 'TV',
+          puntaje: 0.75,
+          status: 'vendido',
+          fecha_creacion: new Date(),
+          fecha_venta: new Date()
+        },
+        {
+          nombre: 'Ana Torres',
+          teléfono: '5551234567',
+          email: 'ana@example.com',
+          agenteNombre: 'test.agent',
+          servicios: ['Combo 200MB'],
+          sistema: 'SARA',
+          tipo_servicio: 'Combo',
+          puntaje: 1.5,
+          status: 'vendido',
+          fecha_creacion: new Date(),
+          fecha_venta: new Date()
+        }
+      ];
+      
+      await costumers.insertMany(testLeads);
+    }
+    
+    return res.json({
+      success: true,
+      message: 'Test data populated',
+      user: testUser.username,
+      leads: await costumers.countDocuments({ agenteNombre: 'test.agent' })
+    });
+  } catch (error) {
+    console.error('[DEV] Error populating test data:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// DEV ENDPOINT: Asignar TODOS los leads reales al usuario admin
+// ═══════════════════════════════════════════════════════════
+app.post('/api/dev/assign-real-leads-to-admin', async (req, res) => {
+  try {
+    // Solo permitir desde localhost
+    const originIp = req.ip || req.connection?.remoteAddress || '';
+    if (!(originIp === '::1' || originIp === '127.0.0.1')) {
+      return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
+    }
+    
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Database not connected' });
+    
+    const costumers = db.collection('costumers_unified');
+    
+    // 1. Contar leads actuales sin agente
+    const leadsWithoutAgent = await costumers.countDocuments({ 
+      agenteNombre: { $exists: false } 
+    });
+    const leadsWithAgent = await costumers.countDocuments({ agenteNombre: { $exists: true } });
+    const totalLeads = await costumers.countDocuments();
+    
+    // 2. Asignar TODOS los leads sin agente a 'admin' (o actualizar los que ya tienen agente)
+    const result = await costumers.updateMany(
+      {},  // Actualizar TODOS los documentos
+      { $set: { agenteNombre: 'admin' } }
+    );
+    
+    // 3. Contar nuevamente para verificar
+    const finalCount = await costumers.countDocuments({ agenteNombre: 'admin' });
+    
+    // 4. Obtener estadísticas
+    const stats = await costumers.aggregate([
+      { $match: { agenteNombre: 'admin' } },
+      {
+        $group: {
+          _id: null,
+          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'vendido'] }, 1, 0] } },
+          totalPuntos: { $sum: '$puntaje' },
+          totalLeads: { $sum: 1 }
+        }
+      }
+    ]).toArray();
+    
+    return res.json({
+      success: true,
+      message: 'All leads assigned to admin',
+      before: {
+        totalLeads,
+        leadsWithoutAgent,
+        leadsWithAgent
+      },
+      after: {
+        totalLeadsForAdmin: finalCount,
+        modifiedCount: result.modifiedCount
+      },
+      stats: stats.length > 0 ? stats[0] : { totalVentas: 0, totalPuntos: 0, totalLeads: 0 }
+    });
+  } catch (error) {
+    console.error('[DEV] Error assigning leads:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -3969,17 +4420,21 @@ app.post('/api/upload', protect, (req, res, next) => {
         });
         fileUrl = result.secure_url;
         cloudinaryPublicId = result.public_id;
+        source = 'cloudinary';
         // Borrar archivo local tras subir a Cloudinary
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
       } catch (e) {
-        if ((requiresCloudinary || categoryLower === 'employees-of-month') && hasCloudinary) {
+        // En desarrollo, permitir fallback a storage local incluso para employees-of-month
+        const shouldFallbackToLocal = !isProduction || categoryLower !== 'marketing';
+        
+        if (requiresCloudinary && !shouldFallbackToLocal) {
+          // En producción para marketing, fallar si Cloudinary no funciona
           if (req.file && fs.existsSync(req.file.path)) {
             try { fs.unlinkSync(req.file.path); } catch (_) {}
           }
-          // En producción se silencian logs informativos; usar error para que se vea en Render.
-          console.error(`[UPLOAD] Cloudinary falló para ${categoryLower}:`, {
+          console.error(`[UPLOAD] Cloudinary falló para ${categoryLower} en producción:`, {
             message: e?.message,
             name: e?.name,
             http_code: e?.http_code,
@@ -4001,12 +4456,16 @@ app.post('/api/upload', protect, (req, res, next) => {
           });
         }
 
-        console.error('[UPLOAD] Cloudinary falló (fallback a local):', {
+        // En desarrollo o si es permitido, usar storage local
+        console.warn(`[UPLOAD] Cloudinary falló para ${categoryLower}, usando storage local:`, {
           message: e?.message,
           name: e?.name,
           http_code: e?.http_code,
-          code: e?.code
+          code: e?.code,
+          isProduction,
+          shouldFallbackToLocal
         });
+        source = 'local'; // Mantener fileUrl como local
       }
     }
     // Guardar información en la base de datos (Mongo nativo)
@@ -4615,6 +5074,27 @@ app.post('/api/leads/:id/comentarios', protect, async (req, res) => {
       updatedAt: now
     };
     const result = await db.collection('Vcomments').insertOne(doc);
+    
+    // REGISTRAR ACTIVIDAD: Nota agregada
+    try {
+      const lead = await db.collection('costumers_unified').findOne({ _id: leadObjectId });
+      const clientName = lead?.nombre_cliente || 'Sin nombre';
+      const noteSnippet = doc.texto.length > 50 ? doc.texto.substring(0, 50) + '...' : doc.texto;
+      
+      await logActivity(
+        db,
+        'Nota agregada',
+        leadObjectId,
+        clientName,
+        req.user?.username || 'Sistema',
+        req.user?.role || 'Usuario',
+        `Nota agregada a ${clientName}: "${noteSnippet}"`,
+        { note_content: doc.texto, note_author: doc.autor }
+      );
+    } catch (actErr) {
+      console.warn('[ACTIVITY-LOG] Error logging note activity:', actErr.message);
+    }
+    
     return res.status(201).json({
       success: true,
       message: 'Comentario creado',
@@ -4708,7 +5188,7 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
     const capitalized = status.charAt(0).toUpperCase() + status.slice(1);
 
     // Intentar actualización por etapas para evitar rarezas con $or
-    const coll = db.collection('costumers');
+    const coll = db.collection('costumers_unified');
     let result = null;
 
     // 1) Intentar por _id:ObjectId si es válido
@@ -4765,6 +5245,21 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
           console.log('[PUT /api/leads/:id/status] updateOne resultado:', { matchedCount: upd.matchedCount, modifiedCount: upd.modifiedCount, acknowledged: upd.acknowledged });
           if (upd.matchedCount > 0) {
             console.log('[PUT /api/leads/:id/status] updateOne aplicó cambios, devolviendo éxito');
+            
+            // REGISTRAR ACTIVIDAD: Cambio de Status (fallback path)
+            if (result && result.value) {
+              await logActivity(
+                db,
+                'Cambio de Status',
+                leadObjectId || id,
+                result.value.nombre_cliente || 'Sin nombre',
+                req.user?.username || 'Sistema',
+                req.user?.role || 'Backoffice',
+                `Status de ${result.value.nombre_cliente} cambiado a ${capitalized}`,
+                { old_status: result.value.status, new_status: capitalized }
+              );
+            }
+            
             return res.json({ success: true, message: 'Status actualizado correctamente (fallback updateOne)', data: { id, status: capitalized } });
           }
         }
@@ -4775,10 +5270,166 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
 
+    // REGISTRAR ACTIVIDAD: Cambio de Status
+    const oldStatus = result.value?.status || 'Desconocido';
+    await logActivity(
+      db,
+      'Cambio de Status',
+      result.value?._id || id,
+      result.value?.nombre_cliente || 'Sin nombre',
+      req.user?.username || 'Sistema',
+      req.user?.role || 'Backoffice',
+      `Status de ${result.value?.nombre_cliente || 'Cliente'} cambiado de ${oldStatus} a ${capitalized}`,
+      { old_status: oldStatus, new_status: capitalized }
+    );
+
     return res.json({ success: true, message: 'Status actualizado correctamente', data: { id, status: capitalized } });
   } catch (error) {
     console.error('Error al actualizar status del lead:', error);
     return res.status(500).json({ success: false, message: 'Error al actualizar el status', error: error.message });
+  }
+});
+
+// PUT /api/leads/:id - Actualizar información completa del lead
+app.put('/api/leads/:id', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID del lead requerido' });
+    }
+
+    if (!updateData || Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
+    }
+
+    // Limpiar campos undefined
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
+      }
+    });
+
+    // Agregar timestamp de actualización
+    updateData.actualizado_en = new Date();
+    updateData.actualizado_por = req.user?.username || 'Sistema';
+
+    console.log(`[PUT /api/leads/:id] ID: ${id}, Actualizando campos:`, Object.keys(updateData));
+
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Base de datos no disponible' });
+    }
+
+    // Intentar convertir ID a ObjectId si es válido
+    let leadObjectId = null;
+    try {
+      leadObjectId = new ObjectId(id);
+    } catch (e) {
+      console.log('[PUT /api/leads/:id] ID no es ObjectId válido, buscando como string');
+    }
+
+    // Buscar y actualizar en colecciones (intentar en orden: leads, costumers, customers)
+    const collectionNames = ['leads', 'costumers', 'customers'];
+    let updated = false;
+
+    for (const collName of collectionNames) {
+      try {
+        const collection = db.collection(collName);
+        
+        // Intentar actualizar por _id (ObjectId)
+        if (leadObjectId) {
+          const result = await collection.findOneAndUpdate(
+            { _id: leadObjectId },
+            { $set: updateData },
+            { returnDocument: 'after' }
+          );
+          
+          if (result.value) {
+            console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (ObjectId)`);
+            updated = true;
+
+            // REGISTRAR ACTIVIDAD
+            await logActivity(
+              db,
+              'Edición de Lead',
+              result.value._id,
+              result.value.nombre_cliente || 'Sin nombre',
+              req.user?.username || 'Sistema',
+              req.user?.role || 'Backoffice',
+              `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
+              { campos: Object.keys(updateData), valores_previos: {} }
+            );
+
+            return res.json({ success: true, message: 'Lead actualizado correctamente', data: result.value });
+          }
+        }
+
+        // Intentar actualizar por _id (string)
+        const resultStr = await collection.findOneAndUpdate(
+          { _id: id },
+          { $set: updateData },
+          { returnDocument: 'after' }
+        );
+
+        if (resultStr.value) {
+          console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (string ID)`);
+          updated = true;
+
+          // REGISTRAR ACTIVIDAD
+          await logActivity(
+            db,
+            'Edición de Lead',
+            resultStr.value._id,
+            resultStr.value.nombre_cliente || 'Sin nombre',
+            req.user?.username || 'Sistema',
+            req.user?.role || 'Backoffice',
+            `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
+            { campos: Object.keys(updateData) }
+          );
+
+          return res.json({ success: true, message: 'Lead actualizado correctamente', data: resultStr.value });
+        }
+
+        // Intentar actualizar por id (campo alternativo)
+        const resultAlt = await collection.findOneAndUpdate(
+          { id: id },
+          { $set: updateData },
+          { returnDocument: 'after' }
+        );
+
+        if (resultAlt.value) {
+          console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (id field)`);
+          updated = true;
+
+          // REGISTRAR ACTIVIDAD
+          await logActivity(
+            db,
+            'Edición de Lead',
+            resultAlt.value._id || id,
+            resultAlt.value.nombre_cliente || 'Sin nombre',
+            req.user?.username || 'Sistema',
+            req.user?.role || 'Backoffice',
+            `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
+            { campos: Object.keys(updateData) }
+          );
+
+          return res.json({ success: true, message: 'Lead actualizado correctamente', data: resultAlt.value });
+        }
+      } catch (e) {
+        console.warn(`[PUT /api/leads/:id] Error en colección "${collName}":`, e.message);
+      }
+    }
+
+    if (!updated) {
+      console.warn(`[PUT /api/leads/:id] Lead no encontrado con ID: ${id}`);
+      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    }
+
+  } catch (error) {
+    console.error('[PUT /api/leads/:id] Error al actualizar lead:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el lead', error: error.message });
   }
 });
 
@@ -4799,6 +5450,8 @@ app.get('/api/customers', protect, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const userRole = (req.user?.role || '').toLowerCase();
     const isAdminOrBO = userRole === 'administrador' || userRole === 'backoffice' || userRole === 'admin';
+    const isSupervisor = userRole === 'supervisor' || userRole.includes('supervisor');
+    
     // Administradores pueden ver hasta 10,000 registros, otros hasta 500
     const maxLimit = isAdminOrBO ? 10000 : 500;
     const limit = Math.min(parseInt(req.query.limit) || 200, maxLimit);
@@ -4806,907 +5459,98 @@ app.get('/api/customers', protect, async (req, res) => {
     const fechaInicio = req.query.fechaInicio ? new Date(req.query.fechaInicio) : null;
     const fechaFin = req.query.fechaFin ? new Date(req.query.fechaFin) : null;
 
-    console.log(`Parámetros - Página: ${page}, Límite: ${limit}, Saltar: ${skip}`);
+    console.log(`[/api/customers] Parámetros - Usuario: ${req.user?.username}, Rol: ${userRole}, Página: ${page}, Límite: ${limit}`);
 
-    // Verificar colecciones disponibles
-    const collections = await db.listCollections().toArray();
-    console.log('Colecciones disponibles en crmagente:', collections.map(c => c.name));
-
-    // ===== PARA ADMIN/BACKOFFICE: AGREGAR DE TODAS LAS COLECCIONES =====
-    const shouldAggregateAll = isAdminOrBO && !req.query.agenteId && !req.query.agentId;
+    // ===== TODOS: LEER DE costumers_unified =====
+    const unifiedCollection = 'costumers_unified';
     
-    if (shouldAggregateAll) {
-      console.log('[INFO] Admin/Backoffice: agregando de TODAS las colecciones costumers*');
-      
-      // Obtener todas las colecciones costumers*
-      const costumersCollections = collections
-        .map(c => c.name)
-        .filter(name => /^costumers(_|$)/i.test(name));
-      
-      console.log(`[INFO] Colecciones a agregar: ${costumersCollections.length}`);
-      
-      let allCustomers = [];
-      
-      // Construir query base (sin filtros de agente)
-      let baseQuery = {};
-      
-      // Aplicar filtros de fecha si existen
-      if (fechaInicio && fechaFin) {
-        baseQuery.creadoEn = {
-          $gte: fechaInicio,
-          $lte: fechaFin
-        };
-      } else if (fechaInicio) {
-        baseQuery.creadoEn = { $gte: fechaInicio };
-      } else if (fechaFin) {
-        baseQuery.creadoEn = { $lte: fechaFin };
-      }
-      
-      // Aplicar filtros adicionales del query
-      if (req.query.status) {
-        baseQuery.status = req.query.status;
-      }
-      
-      console.log('[DEBUG] Query base para agregación:', JSON.stringify(baseQuery, null, 2));
-      
-      // Consultar cada colección
-      for (const colName of costumersCollections) {
-        try {
-          const docs = await db.collection(colName).find(baseQuery).toArray();
-          if (docs.length > 0) {
-            console.log(`[INFO] ${colName}: ${docs.length} documentos`);
-            allCustomers = allCustomers.concat(docs);
-          }
-        } catch (colErr) {
-          console.warn(`[WARN] Error consultando ${colName}:`, colErr.message);
-        }
-      }
-      
-      console.log(`[INFO] Total documentos agregados: ${allCustomers.length}`);
-      
-      // Ordenar y aplicar paginación
-      const sortField = req.query.sortBy || 'creadoEn';
-      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-      
-      allCustomers.sort((a, b) => {
-        const aVal = a[sortField];
-        const bVal = b[sortField];
-        
-        if (aVal instanceof Date && bVal instanceof Date) {
-          return sortOrder * (aVal.getTime() - bVal.getTime());
-        }
-        
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortOrder * aVal.localeCompare(bVal);
-        }
-        
-        return sortOrder * ((aVal || 0) - (bVal || 0));
-      });
-      
-      // Aplicar paginación
-      const paginatedCustomers = allCustomers.slice(skip, skip + limit);
-      
-      console.log('Enviando respuesta con', paginatedCustomers.length, 'clientes');
-      return res.json({
-        success: true,
-        data: paginatedCustomers,
-        total: allCustomers.length,
-        page,
-        limit,
-        aggregatedFromCollections: costumersCollections.length
-      });
-    }
-
-    // ===== PARA SUPERVISOR: AGREGAR DE COLECCIONES DE SUS AGENTES =====
-    const isSupervisor = userRole === 'supervisor' || userRole.includes('supervisor');
-    const shouldAggregateSupervisor = isSupervisor && !req.query.agenteId && !req.query.agentId;
+    // Construir query base
+    let baseQuery = {};
     
-    if (shouldAggregateSupervisor) {
-      console.log('[INFO] Supervisor: agregando de colecciones de sus agentes');
-      
-      const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-      const supervisorUsername = String(req.user?.username || '').trim();
-      const supervisorName = String(req.user?.name || req.user?.nombre || req.user?.fullName || '').trim();
-      const supervisorTeam = String(req.user?.team || '').trim();
-      
-      // 1. Obtener agentes asignados al supervisor
-      let agentIds = [];
-      let agentCollections = new Set();
-      
-      try {
-        // Buscar usuarios que tengan este supervisor asignado
-        let supOid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch {}
-
-        const supNameCandidates = [supervisorUsername, supervisorName].filter(v => v && String(v).trim().length > 0);
-        const supNameRegex = supNameCandidates.length ? new RegExp(supNameCandidates.map(s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i') : null;
-
-        const or = [
-          { supervisorId: currentUserId },
-          ...(supOid ? [{ supervisorId: supOid }] : [])
-        ];
-        if (supNameRegex) {
-          or.push({ supervisor: { $regex: supNameRegex } });
-          or.push({ supervisorName: { $regex: supNameRegex } });
-          or.push({ manager: { $regex: supNameRegex } });
-        }
-        if (supervisorTeam) {
-          or.push({ team: supervisorTeam });
-        }
-
-        const agentes = await db.collection('users').find({ $or: or }).toArray();
-        
-        console.log(`[INFO] Supervisor: encontrados ${agentes.length} agentes asignados`);
-        
-        // 2. Para cada agente, resolver su colección mapeada
-        const uc = db.collection('user_collections');
-        for (const agente of agentes) {
-          const agenteId = agente._id?.toString?.() || String(agente._id);
-          agentIds.push(agenteId);
-          
-          try {
-            const mapping = await uc.findOne({ $or: [ { ownerId: agenteId }, { ownerId: agente._id } ] });
-            if (mapping && mapping.collectionName) {
-              agentCollections.add(mapping.collectionName);
-              console.log(`[INFO] Agente ${agenteId} -> colección: ${mapping.collectionName}`);
-            }
-          } catch (e) {
-            console.warn(`[WARN] Error resolviendo colección para agente ${agenteId}:`, e?.message);
-          }
-        }
-
-        // 3. Si no hay mapeos, intentar resolver por nombre de usuario (costumers_<username>) solo si existe
-        if (agentCollections.size === 0 && agentes.length) {
-          const sanitize = (s) => String(s || '').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-          for (const agente of agentes) {
-            const uname = sanitize(agente?.username || agente?.name || agente?.nombre || '');
-            if (!uname) continue;
-            const proposed = `costumers_${uname}`;
-            try {
-              const exists = (await db.listCollections({ name: proposed }).toArray()).length > 0;
-              if (exists) {
-                agentCollections.add(proposed);
-                console.log(`[INFO] Agente ${uname} -> colección detectada: ${proposed}`);
-              }
-            } catch (_) {}
-          }
-        }
-      } catch (e) {
-        console.warn('[WARN] Error obteniendo agentes del supervisor:', e?.message);
-      }
-      
-      if (agentCollections.size === 0) {
-        console.log('[WARN] Supervisor no tiene agentes asignados o no se encontraron colecciones');
-        return res.json({
-          success: true,
-          data: [],
-          total: 0,
-          page,
-          limit,
-          message: 'El supervisor no tiene agentes asignados'
-        });
-      }
-      
-      console.log(`[INFO] Colecciones a consultar para supervisor: ${Array.from(agentCollections).join(', ')}`);
-      
-      let allCustomers = [];
-      
-      // Construir query base
-      let baseQuery = {};
-      
-      // Aplicar filtros de fecha si existen
-      if (fechaInicio && fechaFin) {
-        baseQuery.creadoEn = {
-          $gte: fechaInicio,
-          $lte: fechaFin
-        };
-      } else if (fechaInicio) {
-        baseQuery.creadoEn = { $gte: fechaInicio };
-      } else if (fechaFin) {
-        baseQuery.creadoEn = { $lte: fechaFin };
-      }
-      
-      // Aplicar filtros adicionales
-      if (req.query.status) {
-        baseQuery.status = req.query.status;
-      }
-      
-      console.log('[DEBUG] Query base para supervisor:', JSON.stringify(baseQuery, null, 2));
-      
-      // Consultar cada colección del supervisor
-      for (const colName of agentCollections) {
-        try {
-          const docs = await db.collection(colName).find(baseQuery).toArray();
-          if (docs.length > 0) {
-            console.log(`[INFO] ${colName}: ${docs.length} documentos`);
-            allCustomers = allCustomers.concat(docs);
-          }
-        } catch (colErr) {
-          console.warn(`[WARN] Error consultando ${colName}:`, colErr.message);
-        }
-      }
-      
-      console.log(`[INFO] Total documentos agregados para supervisor: ${allCustomers.length}`);
-      
-      // Ordenar y aplicar paginación
-      const sortField = req.query.sortBy || 'creadoEn';
-      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-      
-      allCustomers.sort((a, b) => {
-        const aVal = a[sortField];
-        const bVal = b[sortField];
-        
-        if (aVal instanceof Date && bVal instanceof Date) {
-          return sortOrder * (aVal.getTime() - bVal.getTime());
-        }
-        
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortOrder * aVal.localeCompare(bVal);
-        }
-        
-        return sortOrder * ((aVal || 0) - (bVal || 0));
-      });
-      
-      // Aplicar paginación
-      const paginatedCustomers = allCustomers.slice(skip, skip + limit);
-      
-      console.log('Enviando respuesta con', paginatedCustomers.length, 'clientes (supervisor)');
-      return res.json({
-        success: true,
-        data: paginatedCustomers,
-        total: allCustomers.length,
-        page,
-        limit,
-        aggregatedFromCollections: agentCollections.size
-      });
-    }
-
-    // Default collection name is 'costumers'. However this project stores per-agent
-    // collections like 'costumers_<agent>' and keeps a mapping in 'user_collections'.
-    // Prefer a mapped collection when available for the requested agent.
-    let collectionName = 'costumers';
-    console.log(`Intentando acceder a la colección (default): ${collectionName}`);
-
-    try {
-      // If the request comes from an authenticated user who is an agent, try to
-      // resolve their collection from the user_collections mapping.
-      const uc = db.collection('user_collections');
-      // Helper to fetch mapping by ownerId (string or ObjectId)
-      const resolveMappingById = async (id) => {
-        if (!id) return null;
-        const idStr = String(id);
-        const m = await uc.findOne({ $or: [ { ownerId: idStr }, { ownerId: { $in: [idStr] } }, { ownerId: id } ] });
-        return m && m.collectionName ? m.collectionName : null;
+    // Aplicar filtros de fecha si existen
+    if (fechaInicio && fechaFin) {
+      baseQuery.creadoEn = {
+        $gte: fechaInicio,
+        $lte: fechaFin
       };
-
-      // If agent explicitly requested via query ?agenteId or ?agentId, honor mapping for that id
-      const agenteIdParamRaw = (req.query.agenteId || req.query.agentId || '').toString().trim();
-      if (agenteIdParamRaw) {
-        const mapped = await resolveMappingById(agenteIdParamRaw);
-        if (mapped) {
-          collectionName = mapped;
-          console.log('[INFO] Using mapped collection for agenteId param:', collectionName);
-        }
-      }
-
-      // If authenticated agent (role contains 'agente' or matches known agent roles), prefer their mapping
-      if (req.user) {
-        const roleLower = (req.user.role || '').toLowerCase();
-        if (roleLower.includes('agente') || roleLower.includes('agent') || roleLower.includes('lineas-agentes')) {
-          const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-          const mapped = await resolveMappingById(currentUserId);
-          if (mapped) {
-            collectionName = mapped;
-            console.log('[INFO] Using mapped collection for current user:', collectionName);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[WARN] Could not resolve user_collections mapping:', e?.message);
+    } else if (fechaInicio) {
+      baseQuery.creadoEn = { $gte: fechaInicio };
+    } else if (fechaFin) {
+      baseQuery.creadoEn = { $lte: fechaFin };
     }
     
-    // Verificar si la colección existe
-    const collectionExists = collections.some(c => c.name === collectionName);
-    if (!collectionExists) {
-      console.error(`La colección "${collectionName}" no existe en la base de datos crmagente`);
-      return res.status(404).json({
-        success: false,
-        message: `La colección "${collectionName}" no existe en la base de datos`,
-        availableCollections: collections.map(c => c.name)
-      });
+    // Aplicar filtros adicionales del query
+    if (req.query.status) {
+      baseQuery.status = req.query.status;
     }
-    
-    const customersCollection = db.collection(collectionName);
-    
-    // Construir el filtro de consulta
-    let query = {};
-    const forceAllRaw = String(req.query.forceAll || 'false').toLowerCase();
-    const forceAll = forceAllRaw === 'true' || forceAllRaw === '1';
 
-    // Reglas de negocio de visibilidad:
-    // - Agent: NUNCA puede ver "todos". Ignorar forceAll y filtrar por su propio agenteId.
-    // - Supervisor: NUNCA puede ver "todos". Ignorar forceAll y filtrar por su equipo (agentes asignados a su supervisorId).
-    // - Admin/Backoffice: pueden ver todos (sin filtro) y no necesitan forceAll.
-    if (req.user) {
+    // Filtrar por usuario si NO es admin/backoffice
+    if (!isAdminOrBO) {
+      const currentUsername = (req.user?.username || '').trim();
       const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-      const role = req.user?.role || '';
-      console.log(`[DEBUG] Usuario autenticado - ID: ${currentUserId}, Rol: "${role}", Rol original: "${req.user.role}", forceAll=${forceAll}`);
-      console.log(`[DEBUG] ¿Es supervisor? role === 'supervisor': ${role === 'supervisor'}, includes: ${role.includes('supervisor')}`);
-
-      // Lista de posibles campos de asignación de agente en los documentos (IDs)
-      const agentFieldCandidates = [
-        'agenteId', 'agente_id', 'idAgente', 'agentId',
-        'createdBy', 'creadoPor', 'creado_por',
-        'ownerId', 'owner_id',
-        'assignedId', 'assigned_to_id', 'assigned_toId',
-        'salesAgentId', 'registeredById'
-      ];
-
-      if (role === 'Agentes' || role === 'Lineas-Agentes') {
-        // Aplicar SIEMPRE filtro por su propio ID en múltiples variantes de campo
-        let oid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) oid = new ObjectId(currentUserId); } catch {}
-        const bothTypes = oid ? { $in: [currentUserId, oid] } : currentUserId;
-        const idOr = agentFieldCandidates.map(f => ({ [f]: bothTypes }));
-
-        // Fallback adicional por nombres del agente en campos de texto (case-insensitive)
-        const nameCandidatesRaw = [req.user?.username, req.user?.name, req.user?.nombre, req.user?.fullName]
-          .filter(v => typeof v === 'string' && v.trim().length > 0)
-          .map(v => v.trim());
-        const seen = new Set();
-        const nameCandidates = nameCandidatesRaw.filter(n => { const k = n.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-        const normalize = (s) => s.replace(/\s+/g, ' ').trim();
-        const regexes = nameCandidates.map(n => {
-          try {
-            const escaped = normalize(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            // Coincidencia flexible (insensible a mayúsculas/minúsculas)
-            return new RegExp(escaped, 'i');
-          } catch { return null; }
-        }).filter(Boolean);
-        // Solo campos explícitos de agente para evitar sobre-inclusión
-        const textFields = [
-          'agente', 'agent', 'agenteNombre', 'agentName',
-          'nombre_agente', 'agente_nombre'
-        ];
-        // Además, recopilar nombres reales en documentos que ya coinciden por ID (distinct)
-        let dynamicNameRegexes = [];
-        try {
-          const baseMatch = { $or: idOr };
-          const distinctPromises = textFields.map(f => db.collection('costumers').distinct(f, baseMatch));
-          const distinctResults = await Promise.allSettled(distinctPromises);
-          const fromDb = [];
-          for (const r of distinctResults) {
-            if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-              for (const v of r.value) {
-                if (typeof v === 'string' && v.trim()) fromDb.push(v.trim());
-              }
-            }
-          }
-          const merged = [...nameCandidates, ...fromDb];
-          const uniq = Array.from(new Set(merged.map(s => normalize(s).toLowerCase())));
-          dynamicNameRegexes = uniq.map(k => {
-            try { return new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); } catch { return null; }
-          }).filter(Boolean);
-        } catch {}
-        const allRegexes = (dynamicNameRegexes.length ? dynamicNameRegexes : regexes);
-        const nameOrSimple = allRegexes.length ? textFields.map(f => ({ [f]: { $in: allRegexes } })) : [];
-
-        // Condición: solo aceptar coincidencia por NOMBRE si no hay IDs establecidos (evitar traer de otros agentes)
-        const idFields = ['agenteId','agente_id','idAgente','agentId','createdBy','creadoPor','creado_por','ownerId','assignedId'];
-        const idEmptyOrMissing = {
-          $and: idFields.map(f => ({ $or: [ { [f]: { $exists: false } }, { [f]: null }, { [f]: '' } ] }))
-        };
-        const nameAndIfNoIds = (nameOrSimple.length ? { $and: [ { $or: nameOrSimple }, idEmptyOrMissing ] } : null);
-
-        query.$or = nameAndIfNoIds ? [...idOr, nameAndIfNoIds] : [...idOr];
-        console.log('[DEBUG] Rol agent: forceAll ignorado. Filtro por IDs aplicado en:', agentFieldCandidates, ' y fallback por nombre en campos:', textFields, ' names:', nameCandidates);
-      } else if (role === 'supervisor' || role.includes('supervisor')) {
-        // Ver solo los de su equipo (soportar ObjectId y string) SIEMPRE
-        // 1) Intentar por IDs de agentes que tengan supervisorId = currentUserId (string u ObjectId)
-        let supOid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) supOid = new ObjectId(currentUserId); } catch {}
-        const agentes = await db.collection('users').find({
-          $or: [
-            { supervisorId: currentUserId },
-            ...(supOid ? [{ supervisorId: supOid }] : [])
-          ]
-        }).toArray();
-        const agentesIds = agentes.map(a => a._id).filter(Boolean);
-        // Incluir también el propio ID del supervisor por si tiene asignaciones directas
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) agentesIds.push(new ObjectId(currentUserId)); } catch {}
-        const bothTypesArray = [];
-        agentesIds.forEach(id => { bothTypesArray.push(id, id.toString()); });
-        const idInFilter = bothTypesArray.length ? { $in: bothTypesArray } : null;
-
-        // 2) Fallback adicional por campos de texto de supervisor y/o nombre del supervisor en documentos
-        //    Esto cubre casos donde los usuarios-agente no tienen supervisorId poblado en la colección users.
-        const supNameCandidatesRaw = [req.user?.username, req.user?.name, req.user?.nombre, req.user?.fullName]
-          .filter(v => typeof v === 'string' && v.trim().length > 0)
-          .map(v => v.trim());
-        const seenSup = new Set();
-        const supNameCandidates = supNameCandidatesRaw.filter(n => { const k = n.toLowerCase(); if (seenSup.has(k)) return false; seenSup.add(k); return true; });
-        const normalize = (s) => s.replace(/\s+/g, ' ').trim();
-        // Agregar variantes: partes del nombre (nombre, apellido) para coincidir con "ROBERTO" cuando el user es "Roberto Velasquez"
-        const allSupVariants = [];
-        supNameCandidates.forEach(n => {
-          allSupVariants.push(n);
-          n.split(/\s+/).filter(p => p.length > 2).forEach(p => allSupVariants.push(p));
-        });
-        console.log('[DEBUG] Supervisor variantes de búsqueda:', allSupVariants);
-        const supRegexes = allSupVariants.map(n => {
-          try {
-            const escaped = normalize(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            return new RegExp(escaped, 'i');
-          } catch { return null; }
-        }).filter(Boolean);
-        const supervisorTextFields = ['supervisor','team','teamName','supervisorName','supervisor_nombre','supervisorNombre'];
-        const supervisorTextOr = supRegexes.length ? supervisorTextFields.map(f => ({ [f]: { $in: supRegexes } })) : [];
-
-        // 2b) Fallback por NOMBRES DE LOS AGENTES DEL EQUIPO en campos de texto de agente
-        //     Útil cuando los documentos solo guardan nombre del agente y no ID.
-        const agentTextFields = [
-          'agente','agent','agenteNombre','agentName','nombre_agente','agente_nombre','createdByName',
-          'vendedor','seller','salesAgent','nombreAgente','ejecutivo',
-          'asignadoA','asignado_a','assignedTo','assigned_to',
-          'usuario','owner','registeredBy','ownerName'
-        ];
-        const agentNameCandidatesRaw = [];
-        try {
-          for (const a of agentes) {
-            const vals = [a?.username, a?.name, a?.nombre, a?.fullName].filter(v => typeof v === 'string' && v.trim());
-            vals.forEach(v => agentNameCandidatesRaw.push(v.trim()));
-          }
-        } catch {}
-        // Si no encontramos nombres por users, intentar derivarlos desde la colección costumers
-        if (agentNameCandidatesRaw.length === 0 && supRegexes.length) {
-          try {
-            const supOr = { $or: supervisorTextFields.map(f => ({ [f]: { $in: supRegexes } })) };
-            const namesFromCostumers = new Set();
-            for (const f of agentTextFields) {
-              try {
-                const vals = await db.collection('costumers').distinct(f, supOr);
-                (vals || []).forEach(v => { if (typeof v === 'string' && v.trim()) namesFromCostumers.add(v.trim()); });
-              } catch {}
-            }
-            if (namesFromCostumers.size) {
-              agentNameCandidatesRaw.push(...Array.from(namesFromCostumers));
-            }
-          } catch {}
-        }
-        const seenAgent = new Set();
-        const agentNameCandidates = agentNameCandidatesRaw.filter(n => { const k = normalize(n).toLowerCase(); if (seenAgent.has(k)) return false; seenAgent.add(k); return true; });
-        const agentNameRegexes = agentNameCandidates.map(n => {
-          try { return new RegExp(normalize(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); } catch { return null; }
-        }).filter(Boolean);
-        const agentNamesTextOr = agentNameRegexes.length ? agentTextFields.map(f => ({ [f]: { $in: agentNameRegexes } })) : [];
-
-        // 3) Construir query.$or combinando ID de agentes (si existe) y fallback por supervisor en texto (si existe)
-        const orConds = [];
-        // Diagnóstico: si ?debug=1, contar por sub-condición antes de fijar query.$or
-        const debugFlag = (req.query && (req.query.debug === '1' || req.query.debug === 'true'));
-        if (debugFlag) {
-          try {
-            const baseQuery = { ...query };
-            delete baseQuery.$or;
-            const col = db.collection('costumers');
-            console.log('[DEBUG] Supervisor diag - agentesIds (bothTypesArray):', (bothTypesArray||[]).map(x=>x.toString()));
-            console.log('[DEBUG] Supervisor diag - supNameCandidates:', supNameCandidates);
-            console.log('[DEBUG] Supervisor diag - agentNameCandidates:', agentNameCandidates);
-            if (idInFilter) {
-              const idsOr = agentFieldCandidates.map(f => ({ [f]: idInFilter }));
-              const c1 = await col.countDocuments({ ...baseQuery, $or: idsOr });
-              console.log('[DEBUG] Subcuenta supervisor - IDs de agentes coincide:', c1);
-            }
-            if (supervisorTextOr.length) {
-              const c2 = await col.countDocuments({ ...baseQuery, $or: supervisorTextOr });
-              console.log('[DEBUG] Subcuenta supervisor - Texto de supervisor coincide:', c2);
-            }
-            if (agentNamesTextOr.length) {
-              const c3 = await col.countDocuments({ ...baseQuery, $or: agentNamesTextOr });
-              console.log('[DEBUG] Subcuenta supervisor - Nombres de agentes coincide:', c3);
-            }
-          } catch (e) {
-            console.warn('[WARN] Error en diagnóstico supervisor (?debug=1):', e?.message);
-          }
-        }
-        if (idInFilter) {
-          orConds.push(...agentFieldCandidates.map(f => ({ [f]: idInFilter })));
-        }
-        if (supervisorTextOr.length) {
-          orConds.push(...supervisorTextOr);
-        }
-        if (agentNamesTextOr.length) {
-          orConds.push(...agentNamesTextOr);
-        }
-        // Si por algún motivo no hay condiciones, asegurar que no devuelva todo (forzar none)
-        query.$or = orConds.length ? orConds : [{ _id: null }];
-        console.log('[DEBUG] Rol supervisor: forceAll ignorado. Filtro aplicado. IDs agentes:', bothTypesArray.map(x=>x.toString()), ' | Campos supervisor:', supervisorTextFields, ' | Nombres sup:', supNameCandidates, ' | Campos agente:', agentTextFields, ' | Nombres agentes:', agentNameCandidates);
-      } else {
-        // Solo roles privilegiados ven todo; para cualquier otro rol, filtrar por su propio ID
-        const privileged = ['administrador','admin','backoffice'];
-        if (privileged.includes(role)) {
-          console.log('[DEBUG] Rol privilegiado: sin filtro por agenteId');
-        } else {
-          // Filtro estricto por ID del usuario
-          let oid = null;
-          try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) oid = new ObjectId(currentUserId); } catch {}
-          const bothTypes = oid ? { $in: [currentUserId, oid] } : currentUserId;
-          const agentFieldCandidates = [
-            'agenteId','agente_id','idAgente','agentId','createdBy','creadoPor','creado_por','ownerId','assignedId'
+      
+      if (isSupervisor) {
+        // Supervisor: obtener sus agentes y filtrar por ellos
+        const agentes = await db.collection('users')
+          .find({ 
+            supervisor: { $regex: new RegExp(currentUsername, 'i') },
+            role: { $not: { $regex: /admin/i } }
+          })
+          .toArray();
+        
+        const agenteNames = agentes.map(a => (a.username || a.name || '').trim()).filter(Boolean);
+        if (agenteNames.length > 0) {
+          baseQuery.$or = [
+            { agenteNombre: { $in: agenteNames } },
+            { agente: { $in: agenteNames } },
+            { usuario: { $in: agenteNames } }
           ];
-          query.$or = agentFieldCandidates.map(f => ({ [f]: bothTypes }));
-          console.log('[DEBUG] Rol no privilegiado: aplicando filtro propio por ID en campos:', agentFieldCandidates);
+          console.log(`[/api/customers] Supervisor ${currentUsername}: filtrando por ${agenteNames.length} agentes`);
         }
-      }
-
-      console.log(`[DEBUG] Filtro aplicado:`, JSON.stringify(query, null, 2));
-    }
-    
-    // Filtro por agenteId directo si se especifica via query ?agenteId=
-    // Alias: aceptar también ?agentId=
-    const agenteIdParamRaw = (req.query.agenteId || req.query.agentId || '').toString().trim();
-    if (agenteIdParamRaw) {
-      console.log('[DEBUG] Parámetro agenteId recibido:', agenteIdParamRaw);
-      if (req.user && (role === 'agentes' || role === 'lineas-agentes' || role === 'agent')) {
-        // Un agente siempre se filtra a sí mismo 
-        const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-        // Mantener restricción propia, ignorando el parámetro explícito
-        let oid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) oid = new ObjectId(currentUserId); } catch {}
-        const bothTypes = oid ? { $in: [currentUserId, oid] } : currentUserId;
-        const agentFieldCandidates = ['agenteId', 'agente_id', 'idAgente', 'agentId', 'createdBy', 'creadoPor', 'creado_por', 'ownerId', 'assignedId'];
-        query.$or = agentFieldCandidates.map(f => ({ [f]: bothTypes }));
-        console.log('[DEBUG] Rol agent + agenteId param: se aplica filtro propio en múltiples campos');
       } else {
-        // Soportar ObjectId y string
-        let oid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(agenteIdParamRaw)) oid = new ObjectId(agenteIdParamRaw); } catch {}
-        const bothTypes = oid ? { $in: [oid, agenteIdParamRaw] } : agenteIdParamRaw;
-        const agentFieldCandidates = ['agenteId', 'agente_id', 'idAgente', 'agentId', 'createdBy', 'creadoPor', 'creado_por', 'ownerId', 'assignedId'];
-        const paramOr = agentFieldCandidates.map(f => ({ [f]: bothTypes }));
-        // Regla: si el usuario es supervisor, honrar SIEMPRE el agenteId explícito y además incluir filtro por NOMBRE del agente
-        if (userRole === 'supervisor') {
-          let nameOr = [];
-          try {
-            const usersColl = db.collection('users');
-            const idsToTry = [];
-            if (oid) idsToTry.push(oid);
-            // Si recibimos cadena válida tipo ObjectId, agregarla
-            try { if (!oid && ObjectId.isValid(agenteIdParamRaw)) idsToTry.push(new ObjectId(agenteIdParamRaw)); } catch {}
-            let candidateUsers = [];
-            if (idsToTry.length) {
-              candidateUsers = await usersColl.find({ _id: { $in: idsToTry } }).project({ username:1, name:1, nombre:1, fullName:1 }).toArray();
-            }
-            const names = new Set();
-            candidateUsers.forEach(u => {
-              [u?.username, u?.name, u?.nombre, u?.fullName].forEach(v => { if (v && String(v).trim()) names.add(String(v).trim()); });
-            });
-            // Considerar también el propio agenteId en texto (algunos documentos guardan el id como string en campos de texto)
-            if (String(agenteIdParamRaw).trim()) names.add(String(agenteIdParamRaw).trim());
-            const textFields = ['agente','agent','agenteNombre','agentName','nombreAgente','vendedor','seller','salesAgent','asignadoA','assignedTo','usuario','owner','registeredBy','ownerName'];
-            const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\]/g,'\\]');
-            const stripDiacritics = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu,'');
-            const collapse = (s) => stripDiacritics(String(s)).replace(/\s+/g,'').replace(/[^\p{L}\p{N}]/gu,'');
-            const makeVariants = (raw) => {
-              const base = String(raw).trim();
-              if (!base) return [];
-              const noDiac = stripDiacritics(base);
-              const collapsed = collapse(base);
-              // patrón con espacios opcionales entre palabras
-              const spaceOptional = noDiac.replace(/\s+/g, '\\s*');
-              return [base, noDiac, collapsed, spaceOptional];
-            };
-            const namesWithVariants = new Set();
-            for (const n of names) {
-              makeVariants(n).forEach(v => namesWithVariants.add(v));
-            }
-            const regexes = [...namesWithVariants].map(n => { try { return new RegExp(escapeRe(n), 'i'); } catch { return null; } }).filter(Boolean);
-            nameOr = regexes.length ? textFields.map(f => ({ [f]: { $in: regexes } })) : [];
-          } catch (e) {
-            console.warn('[DEBUG] No se pudieron resolver nombres para agenteId (fallback solo IDs):', e?.message);
-          }
-          query.$or = nameOr.length ? [...paramOr, ...nameOr] : paramOr;
-          console.log('[DEBUG] Rol supervisor + agenteId param: filtro por IDs y nombres aplicado.');
-        } else {
-          // Para otros roles, intentar intersección si ya existe filtro previo
-          if (query.$or && Array.isArray(query.$or) && query.$or.length) {
-            const allowed = [];
-            query.$or.forEach(cond => {
-              const k = Object.keys(cond)[0];
-              const v = cond[k];
-              if (v && v.$in) allowed.push(...v.$in.map(x=>x.toString()));
-            });
-            const candidates = Array.isArray(bothTypes.$in) ? bothTypes.$in.map(x=>x.toString()) : [bothTypes.toString()];
-            const overlap = candidates.some(x => allowed.includes(x));
-            query.$or = overlap ? paramOr : [{ _id: new ObjectId('000000000000000000000000') }];
-          } else {
-            query.$or = paramOr;
-          }
-        }
+        // Agente normal: solo sus propios leads
+        baseQuery.$or = [
+          { agenteNombre: currentUsername },
+          { agente: currentUsername },
+          { usuario: currentUsername }
+        ];
+        console.log(`[/api/customers] Agente ${currentUsername}: filtrando por usuario actual`);
       }
     }
 
-    // Filtro adicional por agente si se especifica via query ?agente=
-    let agenteParam = (req.query.agente || '').toString().trim();
-    // Aceptar parámetros alternos de nombre y unificarlos en agenteParam
-    if (!agenteParam) {
-      const altNameKeys = ['agenteNombre','nombreAgente','agent','agentName','vendedor','salesAgent','asignadoA','assignedTo','usuario','owner','registeredBy','ownerName'];
-      for (const k of altNameKeys) {
-        const v = (req.query[k] || '').toString().trim();
-        if (v) { agenteParam = v; break; }
-      }
-    }
-    if (!agenteIdParamRaw && agenteParam) {
-      console.log('[DEBUG] Parámetro agente recibido:', agenteParam);
-      // Si el usuario autenticado es 'agent', forzamos su propio ID y omitimos el parámetro
-      if (req.user && (role === 'agentes' || role === 'lineas-agentes' || role === 'agent')) {
-        console.log('[DEBUG] Rol agent: ignorando parámetro agente y usando su propio ID con filtro tolerante');
-        const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-        // Construir filtro robusto por múltiples campos de ID con soporte string y ObjectId
-        let oid = null;
-        try { if (/^[a-fA-F0-9]{24}$/.test(currentUserId)) oid = new ObjectId(currentUserId); } catch {}
-        const bothTypes = oid ? { $in: [currentUserId, oid] } : currentUserId;
-        const agentFieldCandidates = ['agenteId', 'agente_id', 'idAgente', 'agentId', 'createdBy', 'creadoPor', 'creado_por', 'ownerId', 'assignedId'];
-        const idOr = agentFieldCandidates.map(f => ({ [f]: bothTypes }));
+    console.log(`[/api/customers] Query final:`, JSON.stringify(baseQuery, null, 2));
 
-        // Fallback por nombre SOLO si todos los campos de ID del documento están vacíos/ausentes
-        const nameCandidatesRaw = [req.user?.username, req.user?.name, req.user?.nombre, req.user?.email]
-          .filter(v => typeof v === 'string' && v.trim().length > 0)
-          .map(v => v.trim());
-        const unique = new Set();
-        const nameCandidates = nameCandidatesRaw.filter(n => { const k = n.toLowerCase(); if (unique.has(k)) return false; unique.add(k); return true; });
-        const regexes = nameCandidates.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
-        const textFields = ['agente', 'agent', 'agenteNombre', 'agentName'];
-        const nameOrSimple = regexes.length ? textFields.map(f => ({ [f]: { $in: regexes } })) : [];
-        const idEmptyOrMissing = { $and: agentFieldCandidates.map(f => ({ $or: [ { [f]: { $exists: false } }, { [f]: null }, { [f]: '' } ] })) };
-        const nameAndIfNoIds = (nameOrSimple.length ? { $and: [ { $or: nameOrSimple }, idEmptyOrMissing ] } : null);
-
-        query.$or = nameAndIfNoIds ? [...idOr, nameAndIfNoIds] : [...idOr];
-        console.log('[DEBUG] Filtro agent aplicado (IDs + fallback por nombre si faltan IDs)');
-      } else {
-        // Intentar resolver por ObjectId válido
-        let resolvedId = null;
-        let resolvedIds = null; // soporte para múltiples coincidencias por nombre
-        try {
-          if (/^[a-fA-F0-9]{24}$/.test(agenteParam)) {
-            resolvedId = new ObjectId(agenteParam);
-          }
-        } catch {}
-        // Si no es ObjectId, resolver por nombre/username en colección users
-        if (!resolvedId) {
-          try {
-            const safe = agenteParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const rx = new RegExp(safe, 'i');
-            const usuarios = await db.collection('users').find({
-              $or: [
-                { username: rx },
-                { name: rx },
-                { nombre: rx },
-                { fullName: rx }
-              ]
-            }, { projection: { _id: 1 } }).toArray();
-            if (usuarios.length > 0) {
-              resolvedIds = usuarios.map(u => u._id);
-              console.log(`[DEBUG] Coincidencias de usuarios para agente="${agenteParam}":`, resolvedIds.map(x => x.toString()));
-            }
-          } catch (e) {
-            console.warn('[WARN] Error buscando usuarios por regex para agente:', e?.message);
-          }
-        }
-        // Si se pudo resolver a uno o varios IDs, filtrar por agenteId
-        if (resolvedId || (resolvedIds && resolvedIds.length)) {
-          const ids = resolvedIds && resolvedIds.length ? resolvedIds : [resolvedId];
-          const bothTypesArray = [];
-          ids.forEach(id => { bothTypesArray.push(id, id.toString()); });
-          const bothTypes = { $in: bothTypesArray };
-          if (query.agenteId && query.agenteId.$in) {
-            const allowed = query.agenteId.$in.map(x => x.toString());
-            const overlap = bothTypesArray.some(x => allowed.includes(x.toString()));
-            if (overlap) {
-              query.agenteId = bothTypes;
-            } else {
-              query.agenteId = new ObjectId('000000000000000000000000');
-            }
-          } else {
-            query.agenteId = bothTypes;
-          }
-          console.log('[DEBUG] Filtro por agenteId aplicado (ids encontrados):', bothTypesArray.map(x=>x.toString()));
-        } else {
-          // Como fallback, filtrar por campos de texto presentes en costumers
-          // con coincidencia PARCIAL (case-insensitive)
-          const safe = agenteParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const containsCI = new RegExp(safe, 'i');
-          query.$or = [
-            { agente: containsCI },
-            { agent: containsCI },
-            { agenteNombre: containsCI },
-            { agentName: containsCI }
-          ];
-          console.log('[DEBUG] Filtro por nombre de agente (texto, partial, i) aplicado:', agenteParam);
-        }
-      }
-    }
-
-    // Aplicar filtro por rango de fechas si viene en la query (usar campo 'creadoEn')
-    if (fechaInicio || fechaFin) {
-      query.creadoEn = {};
-      if (fechaInicio) {
-        query.creadoEn.$gte = fechaInicio;
-      }
-      if (fechaFin) {
-        const finDia = new Date(fechaFin);
-        finDia.setHours(23, 59, 59, 999);
-        query.creadoEn.$lte = finDia;
-      }
-    }
-
-    // Obtener el total de documentos para la paginación
-    // Log detallado del query final y parámetros recibidos para diagnóstico
-    try {
-      console.log('[DEBUG] req.query recibido en /api/customers:', JSON.stringify(req.query));
-      console.log('[DEBUG] Query final a usar en MongoDB:', JSON.stringify(query));
-    } catch { /* noop */ }
-    const total = await customersCollection.countDocuments(query);
-    console.log(`Total de documentos en la colección: ${total}`);
+    // Contar total de documentos que coinciden con el filtro
+    const total = await db.collection(unifiedCollection).countDocuments(baseQuery);
     
-    // Consulta con paginación y orden dinámico (por defecto: creadoEn desc)
-    const rawSortBy = (req.query.sortBy || '').toString().trim();
-    const rawOrder = (req.query.order || 'desc').toString().trim().toLowerCase();
-    const allowedSortFields = {
-      creadoEn: 'creadoEn',
-      actualizadoEn: 'actualizadoEn',
-      dia_venta: 'dia_venta',
-      fecha_contratacion: 'fecha_contratacion',
-      fecha: 'fecha',
-      status: 'status',
-      puntaje: 'puntaje',
-      riesgo: 'riesgo',
-      agenteNombre: 'agenteNombre',
-      agente: 'agente',
-      agenteId: 'agenteId'
-    };
-    const sortField = allowedSortFields[rawSortBy] || 'creadoEn';
-    const sortDir = rawOrder === 'asc' ? 1 : -1;
-    const sortSpec = { [sortField]: sortDir };
-    console.log('[DEBUG] Orden aplicándose:', sortSpec);
-
-    const customers = await customersCollection
-      .find(query)
-      .sort(sortSpec)
+    // Obtener documentos con paginación
+    const sortField = req.query.sortBy || 'creadoEn';
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    
+    const customers = await db.collection(unifiedCollection)
+      .find(baseQuery)
+      .sort({ [sortField]: sortOrder })
       .skip(skip)
       .limit(limit)
       .toArray();
-
-    console.log(`Documentos encontrados: ${customers.length}`);
-    if (customers.length > 0) {
-      console.log('Primer documento de ejemplo:', JSON.stringify(customers[0], null, 2));
-    }
-
-    // Helpers de enriquecimiento
-    const norm = (s) => {
-      try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');} catch { return ''; }
-    };
-    const AGENT_TO_SUP = new Map([
-      // TEAM IRANIA
-      ['josue renderos','irania serrano'],
-      ['tatiana ayala','irania serrano'],
-      ['giselle diaz','irania serrano'],
-      ['miguel nunez','irania serrano'],
-      ['roxana martinez','irania serrano'],
-      ['irania serrano','irania serrano'],
-      // TEAM BRYAN PLEITEZ
-      ['abigail galdamez','bryan pleitez'],
-      ['alexander rivera','bryan pleitez'],
-      ['diego mejia','bryan pleitez'],
-      ['evelin garcia','bryan pleitez'],
-      ['fabricio panameno','bryan pleitez'],
-      ['luis chavarria','bryan pleitez'],
-      ['steven varela','bryan pleitez'],
-      // TEAM ROBERTO VELASQUEZ
-      ['cindy flores','roberto velasquez'],
-      ['daniela bonilla','roberto velasquez'],
-      ['francisco aguilar','roberto velasquez'],
-      ['levy ceren','roberto velasquez'],
-      ['lisbeth cortez','roberto velasquez'],
-      ['lucia ferman','roberto velasquez'],
-      ['nelson ceren','roberto velasquez'],
-      // TEAM RANDAL MARTINEZ
-      ['anderson guzman','randal martinez'],
-      ['carlos grande','randal martinez'],
-      ['guadalupe santana','randal martinez'],
-      ['julio chavez','randal martinez'],
-      ['priscila hernandez','randal martinez'],
-      ['riquelmi torres','randal martinez']
-    ]);
-    const inferSupervisorByAgent = (agentName) => {
-      const key = norm(agentName);
-      return key ? (AGENT_TO_SUP.get(key) || '') : '';
-    };
-    const extractZipFromAddress = (addr) => {
-      try {
-        const s = String(addr || '');
-        const m = s.match(/\b(\d{5})(?:-\d{4})?\b(?!.*\b\d{5}\b)/); // último ZIP de 5 dígitos
-        return m ? m[1] : '';
-      } catch { return ''; }
-    };
-    const getByPath = (obj, path) => {
-      try { return path.split('.').reduce((o, k) => (o && o[k] !== undefined && o[k] !== null) ? o[k] : undefined, obj); } catch { return undefined; }
-    };
-    const firstOf = (obj, paths) => {
-      for (const p of paths) {
-        const v = p.includes('.') ? getByPath(obj, p) : (obj ? obj[p] : undefined);
-        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
-      }
-      return undefined;
-    };
-    const enrichMode = (req.query.enrich === '1' || req.query.enrich === 'true');
-
-    const mappedCustomers = customers.map(customer => {
-      const sistemaVal = firstOf(customer, [
-        'sistema','system','sistema_operativo','platform','plataforma',
-        '_raw.sistema','_raw.system','_raw.platform','_raw.plataforma'
-      ]);
-      const mapped = {
-        ...customer,
-        sistema: (sistemaVal && String(sistemaVal).trim()) ? sistemaVal : 'N/A'
-      };
-
-      // Normalizar booleanos para visualización
-      if (typeof mapped.autopago === 'boolean') {
-        mapped.autopago = mapped.autopago ? 'Sí' : 'No';
-      }
-
-      // Enriquecimientos finales opcionales (solo si enrich=1)
-      if (enrichMode) {
-        if ((!mapped.supervisor || mapped.supervisor === '') && mapped.agenteNombre) {
-          const sup = inferSupervisorByAgent(mapped.agenteNombre);
-          if (sup) mapped.supervisor = sup;
-        }
-        if ((!mapped.zip_code || mapped.zip_code === '') && mapped.direccion) {
-          const zip = extractZipFromAddress(mapped.direccion);
-          if (zip) mapped.zip_code = zip;
-        }
-      }
-
-      return mapped;
-    });
     
-    // Construir respuesta (con debug opcional enriquecido)
-    const debugMode = (req.query.debug === '1' || req.query.debug === 'true');
-    const sampleCount = Math.min(mappedCustomers.length, 3);
-    const samples = debugMode ? customers.slice(0, sampleCount) : [];
-    const enrich = (req.query.enrich === '1' || req.query.enrich === 'true');
-
-    const response = {
+    console.log(`[/api/customers] Devolviendo ${customers.length} de ${total} documentos`);
+    
+    return res.json({
       success: true,
-      leads: mappedCustomers,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-      message: 'Datos de clientes cargados correctamente',
-      debug: debugMode ? {
-        collection: collectionName,
-        database: db.databaseName,
-        totalDocuments: total,
-        documentsReturned: mappedCustomers.length,
-        availableCollections: collections.map(c => c.name),
-        sampleOriginalKeys: samples.map((s, i) => ({ idx: i, keys: Object.keys(s) })),
-        sampleMappedKeys: mappedCustomers.slice(0, sampleCount).map((m, i) => ({ idx: i, keys: Object.keys(m) })),
-        sampleOriginalDocs: samples,
-        sampleMappedDocs: mappedCustomers.slice(0, sampleCount),
-        enrich
-      } : undefined
-    };
-    
-    console.log('Enviando respuesta con', mappedCustomers.length, 'clientes');
-    res.json(response);
+      data: customers,
+      total: total,
+      page: page,
+      limit: limit,
+      source: unifiedCollection
+    });
+
   } catch (error) {
-    console.error('Error al obtener clientes:', error);
-    res.status(500).json({
+    console.error('[/api/customers] Error:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Error al cargar los clientes',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: 'Error al obtener customers',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
     });
   }
 });
@@ -5715,7 +5559,41 @@ app.get('/api/customers', protect, async (req, res) => {
 app.get('/api/customers/agents-summary', protect, async (req, res) => {
   try {
     if (!db) await connectToMongoDB();
-    const coll = db.collection('costumers');
+    const coll = db.collection('costumers_unified');
+    // Agrupar por agenteId y agenteNombre para ver cuántos clientes tiene cada agente
+    const pipeline = [
+      {
+        $group: {
+          _id: { id: '$agenteId', nombre: '$agenteNombre' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ];
+    const rows = await coll.aggregate(pipeline).toArray();
+    // También recolectar valores de campos alternos por si los datos usan otras llaves
+    const distintos = {
+      agente: await coll.distinct('agente'),
+      agent: await coll.distinct('agent'),
+      agenteNombre: await coll.distinct('agenteNombre'),
+      agentName: await coll.distinct('agentName')
+    };
+    return res.json({
+      success: true,
+      summary: rows.map(r => ({ agenteId: r._id.id || null, agenteNombre: r._id.nombre || null, count: r.count })),
+      distincts: distintos
+    });
+  } catch (e) {
+    console.error('[agents-summary] error:', e);
+    return res.status(500).json({ success: false, message: 'Error generando resumen de agentes', error: e.message });
+  }
+});
+
+// Resumen de agentes disponibles en la data de clientes (diagnóstico)
+app.get('/api/customers/agents-summary', protect, async (req, res) => {
+  try {
+    if (!db) await connectToMongoDB();
+    const coll = db.collection('costumers_unified');
     // Agrupar por agenteId y agenteNombre para ver cuántos clientes tiene cada agente
     const pipeline = [
       {
@@ -6277,6 +6155,34 @@ app.post('/api/leads', protect, async (req, res) => {
     const result = await db.collection(unifiedCollectionName).insertOne(newLead);
     console.log('Lead creado exitosamente en costumers_unified con ID:', result.insertedId);
 
+    // REGISTRAR ACTIVIDAD: Detectar tipo de actividad
+    const finalAgent = newLead.agenteNombre || newLead.agente || newLead.usuario || 'Sistema';
+    const creatorUsername = req.user?.username || 'Sistema';
+    const creatorRole = req.user?.role || 'Usuario';
+    
+    // Determinar si es venta ingresada o solo un lead creado
+    const diaventa = newLead.dia_venta ? new Date(newLead.dia_venta) : null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isVentaIngresada = diaventa && new Date(diaventa).getTime() >= today.getTime() && 
+                             (newLead.status && (newLead.status.toLowerCase().includes('complet') || newLead.status.toLowerCase().includes('cerr') || newLead.status.toLowerCase().includes('venta')));
+    
+    const activityType = isVentaIngresada ? 'Venta ingresada' : 'Lead creado';
+    const activityDescription = isVentaIngresada 
+      ? `Venta ingresada — ${newLead.nombre_cliente} por ${creatorUsername}`
+      : `Lead de ${newLead.nombre_cliente} creado y asignado a ${finalAgent}`;
+    
+    await logActivity(
+      db,
+      activityType,
+      result.insertedId,
+      newLead.nombre_cliente || 'Sin nombre',
+      creatorUsername,
+      creatorRole,
+      activityDescription,
+      { agente_asignado: finalAgent, tipo_servicio: newLead.tipo_servicio, status: newLead.status }
+    );
+
     return res.status(201).json({
       success: true,
       message: 'Lead creado exitosamente',
@@ -6582,6 +6488,89 @@ function startServer(port) {
   // Hacer io disponible globalmente
   app.set('io', io);
   global.io = io;
+
+  // ============================================
+  // ENDPOINT: Populate leads with sample data
+  // ============================================
+  app.post('/api/populate-leads', protect, authorize('Administrador', 'admin', 'administrador', 'backoffice'), async (req, res) => {
+    try {
+      if (!isConnected()) {
+        return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
+      }
+      if (!db) db = getDb();
+
+      const agents = [
+        'Irania Serrano',
+        'Roberto Velasquez',
+        'Marisol Beltran',
+        'Bryan Pleitez',
+        'Johana',
+        'Randal Martinez'
+      ];
+
+      const services = [
+        'ATT 18-25 MB',
+        'ATT 50-100 MB', 
+        'ATT 100 FIBRA',
+        'ATT 300',
+        'DIRECTV Cable + Internet',
+        'XFINITY Gigabit',
+        'SPECTRUM 500 MB',
+        'FRONTIER FIBER',
+        'HUGHES NET',
+        'VIASAT'
+      ];
+
+      // Find leads without agenteNombre
+      const leadsToUpdate = await db.collection('costumers_unified').find({
+        $or: [
+          { agenteNombre: { $exists: false } },
+          { agenteNombre: null },
+          { agenteNombre: { $eq: '' } }
+        ]
+      }).toArray();
+
+      console.log(`[POPULATE] Found ${leadsToUpdate.length} leads to update`);
+
+      let updated = 0;
+      for (let i = 0; i < leadsToUpdate.length; i++) {
+        const lead = leadsToUpdate[i];
+        
+        // Assign random agent
+        lead.agenteNombre = agents[Math.floor(Math.random() * agents.length)];
+        
+        // Assign random service if missing
+        if (!lead.servicios || lead.servicios === '' || lead.servicios === null) {
+          lead.servicios = services[Math.floor(Math.random() * services.length)];
+        }
+        
+        // Update in database
+        await db.collection('costumers_unified').updateOne(
+          { _id: lead._id },
+          { $set: { agenteNombre: lead.agenteNombre, servicios: lead.servicios } }
+        );
+        updated++;
+      }
+
+      console.log(`[POPULATE] Updated ${updated} leads`);
+
+      // Clear cache so new data is reflected
+      global.initDashboardCache = { data: null, updatedAt: 0 };
+
+      return res.json({
+        success: true,
+        message: `${updated} leads updated with agent names and services`,
+        updated: updated
+      });
+    } catch (error) {
+      console.error('[POPULATE] Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error populating leads',
+        error: error.message
+      });
+    }
+  });
 
   // Pre-warm init-dashboard cache once server is ready and schedule periodic refreshes
   (async () => {

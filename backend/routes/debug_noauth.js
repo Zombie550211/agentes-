@@ -45,7 +45,7 @@ router.get('/leads', async (req, res) => {
       console.log('[DEBUG_NOAUTH] Found agents count:', agentes.length);
 
       const uc = db.collection('user_collections');
-      const allCollections = (await db.listCollections().toArray()).map(c => c.name).filter(n => /^costumers(_|$)/i.test(n) || n === 'costumers');
+      const allCollections = (await db.listCollections().toArray()).map(c => c.name).filter(n => /^costumers(_|$)|^customers_unified/i.test(n) || n === 'costumers');
       const collSet = new Set();
 
       for (const a of agentes) {
@@ -104,7 +104,7 @@ router.get('/db-stats', async (req, res) => {
     const list = await db.listCollections().toArray();
     const names = list.map(c => c.name);
     const unifiedExists = names.includes('costumers_unified');
-    const costumers = names.filter(n => /^costumers(_|$)/i.test(n));
+    const costumers = names.filter(n => /^costumers(_|$)|^customers_unified/i.test(n));
 
     const out = {
       success: true,
