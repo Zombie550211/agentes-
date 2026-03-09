@@ -36,6 +36,34 @@
     }
   }
 
+  function isAdminUser() {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const role = String(userData.role || '').toLowerCase().trim();
+      return role === 'admin';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  (function(){
+    const applyRoleVisibility = () => {
+      try {
+        const field = document.getElementById('agent-assign-field');
+        if (!field) return;
+        if (isAdminUser()) return;
+        field.style.display = 'none';
+        const sel = document.getElementById('agentAssign');
+        if (sel) { sel.value = ''; sel.disabled = true; }
+      } catch (e) {}
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyRoleVisibility);
+    } else {
+      applyRoleVisibility();
+    }
+  })();
+
   if (isTeamLineasUser() && !window.location.pathname.endsWith('LEAD-LINEAS.html')) {
     window.location.replace('/TEAM LINEAS/LEAD-LINEAS.html');
   }
@@ -694,7 +722,7 @@
               <option value="N/A">N/A</option>
             </select>
           </div>
-          <div class="field s4">
+          <div class="field s4" id="agent-assign-field">
             <label style="display:flex;justify-content:space-between;align-items:center;">
               <span>Asignación de Agente</span>
               <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;">Agentes Disponibles: [Lista...]</span>
