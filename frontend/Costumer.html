@@ -1804,8 +1804,35 @@
       return `${y}-${m}-${da}`;
     })();
 
+    const normalizeStatus = (sv) => {
+      const s = String(sv ?? '').trim();
+      if (!s) return 'pending';
+      const l = s.toLowerCase();
+      if (l === 'pending' || l === 'pendiente' || l === 'pendientes') return 'pending';
+      if (l === 'reserva' || l === 'reserved' || l === 'reservation') return 'reserva';
+      if (l === 'cancelled' || l === 'canceled' || l === 'cancelado' || l === 'cancelada' || l === 'cancelados' || l === 'canceladas') return 'cancelled';
+      if (l === 'hold' || l === 'en hold' || l === 'pausado' || l === 'pausa') return 'hold';
+      if (l === 'rescheduled' || l === 'reagendado' || l === 'reagendada' || l === 'reprogramado' || l === 'reprogramada') return 'rescheduled';
+      if (l === 'active_oficina' || (l.includes('active') && l.includes('oficina')) || (l.includes('act') && l.includes('oficina'))) return 'active_oficina';
+      if (l === 'active' || l === 'activo' || l === 'activa' || l === 'activas' || l === 'activos') return 'active';
+      if (l === 'completed' || l === 'complete' || l === 'completado' || l === 'completada' || l === 'cerrado' || l === 'cerrada') return 'completed';
+      // fuzzy fallbacks
+      if (l.includes('pend')) return 'pending';
+      if (l.includes('cancel')) return 'cancelled';
+      if (l.includes('reser')) return 'reserva';
+      if (l.includes('reagend') || l.includes('reprogram') || l.includes('resched')) return 'rescheduled';
+      if (l.includes('hold')) return 'hold';
+      if (l.includes('active') || l.includes('activo')) return 'active';
+      if (l.includes('complete') || l.includes('complet')) return 'completed';
+      return l;
+    };
+
     return (Array.isArray(items) ? items : []).map((it, idx) => {
       const raw = it?._raw && typeof it._raw === 'object' ? it._raw : null;
+      const statusSrc =
+        it?.status ?? it?.estado ?? it?.state ??
+        raw?.status ?? raw?.estado ?? raw?.state ??
+        raw?.Status ?? it?.Status;
       const lead = {
         _id:             String(it?._id || it?.id || `tmp-${idx}`),
         _raw:            it,
@@ -1820,7 +1847,7 @@
         riesgo:          it?.riesgo          || '',
         dia_venta:       it?.dia_venta       || it?.saleDate       || '',
         dia_instalacion: it?.dia_instalacion || it?.installDate    || '',
-        status:          (it?.status || 'pending').toLowerCase(),
+        status:          normalizeStatus(statusSrc),
         servicios:       it?.servicios       || '',
         mercado:         it?.mercado         || '',
         supervisor:      it?.team            || it?.supervisor     || raw?.team || raw?.supervisor || '',
@@ -2100,27 +2127,59 @@
     const today = `${year}-${month}-${day}`;
     const monthStr = `${year}-${month}`;
     const kpiMonth = (document.getElementById('monthFilter')?.value || '').trim() || monthStr;
-    
-    // Filtrar SOLO datos del mes actual (EXCLUYENDO "reserva")
-    const thisMonth = __allLeadsData.filter(l => {
-      const fechaRef = l.dia_venta || l.dia_instalacion || '';
-      return fechaRef.startsWith(kpiMonth) && l.status !== 'reserva';
+
+    const svc     = (document.getElementById('serviceFilter')?.value || '').trim();
+    const team    = (document.getElementById('teamFilter')?.value || '').trim();
+    const agent   = (document.getElementById('agentFilter')?.value || '').trim();
+    const mercado = (document.getElementById('mercadoFilter')?.value || '').trim();
+    const from    = (document.getElementById('dateFrom')?.value || '').trim();
+    const to      = (document.getElementById('dateTo')?.value || '').trim();
+
+    const hasRange = !!(from && to);
+    const fromD = hasRange ? new Date(from) : null;
+    const toD   = hasRange ? new Date(to + 'T23:59:59') : null;
+
+    const inKpiWindow = (lead) => {
+      const fechaRef = lead?.dia_venta || lead?.dia_instalacion || '';
+      if (!fechaRef) return false;
+      if (hasRange) {
+        const dt = new Date(fechaRef);
+        if (isNaN(dt)) return false;
+        return dt >= fromD && dt <= toD;
+      }
+      return String(fechaRef).startsWith(kpiMonth);
+    };
+
+    // Base de KPIs: por mes (default) o por rango (si se selecciona)
+    // y respetando filtros principales (servicio / team / agente / mercado)
+    const baseAll = __allLeadsData.filter(l => {
+      if (!l) return false;
+      if (!inKpiWindow(l)) return false;
+      if (svc && !String(l.servicios || '').toUpperCase().includes(svc.toUpperCase())) return false;
+      if (team && !String(l.supervisor || '').includes(team)) return false;
+      if (agent && !String(l.agente || '').includes(agent)) return false;
+      if (mercado && String(l.mercado || '') !== mercado) return false;
+      return true;
     });
-    
-    // Ventas de hoy (sin reserva)
-    const hoy = thisMonth.filter(l => (l.dia_venta||'').startsWith(today) && l.status !== 'reserva').length;
-    
-    // Ventas activas/completadas (sin reserva)
-    const activas = thisMonth.filter(l => ['completed','active','active_oficina'].includes(l.status)).length;
-    
-    // Pendientes (sin reserva)
-    const pend = __allLeadsData.filter(l => l.status === 'pending').length;
-    
+
+    // Para KPIs por status, excluimos reservas
+    const base = baseAll.filter(l => l.status !== 'reserva');
+
+    // Ventas de hoy (solo aplica naturalmente cuando el rango/mes incluye hoy)
+    const hoy = base.filter(l => (l.dia_venta || '').startsWith(today)).length;
+
+    // Ventas activas/completadas
+    const activas = base.filter(l => ['completed','active','active_oficina'].includes(l.status)).length;
+
+    // Pendientes
+    const pend = base.filter(l => l.status === 'pending').length;
+
     // Cancelados
-    const cancel = thisMonth.filter(l => l.status === 'cancelled').length;
+    const cancel = base.filter(l => l.status === 'cancelled').length;
     
     set('costumer-ventas-hoy',     hoy);
-    set('costumer-ventas-mes',     thisMonth.length);
+    set('costumer-ventas-mes',     baseAll.length);
+
     set('costumer-ventas-activas', activas);
     set('costumer-pendientes',     pend);
     set('costumer-cancelados',     cancel);
