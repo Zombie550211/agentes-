@@ -6098,7 +6098,13 @@ router.get('/users/agents', protect, async (req, res) => {
       .project({ 
         username: 1, 
         name: 1, 
+        nombre: 1,
+        fullName: 1,
+        email: 1,
         role: 1, 
+        rol: 1,
+        roles: 1,
+        cargo: 1,
         team: 1, 
         supervisor: 1, 
         supervisorName: 1, 
@@ -6127,6 +6133,99 @@ router.get('/users/agents', protect, async (req, res) => {
     });
   } catch (error) {
     console.error('[API /users/agents] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route GET /api/leads/months
+ * @desc Obtener lista de meses (YYYY-MM) disponibles según fechas en leads
+ * @access Private
+ */
+router.get('/leads/months', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
+
+    const { legacy } = req.query || {};
+    const preferUnified = String(legacy) !== '1';
+    const unifiedCollectionName = 'costumers_unified';
+    const unifiedAvailable = await __collectionExists(db, unifiedCollectionName);
+    const colName = (preferUnified && unifiedAvailable) ? unifiedCollectionName : 'costumers';
+
+    const limit = Math.min(120, Math.max(1, parseInt(req.query.limit) || 60));
+    const sample = Math.min(50000, Math.max(500, parseInt(req.query.sample) || 20000));
+
+    const monthKeyFromAnyDate = (v) => {
+      if (v == null) return '';
+      // Date
+      if (v instanceof Date && !isNaN(v)) {
+        const y = v.getFullYear();
+        const m = String(v.getMonth() + 1).padStart(2, '0');
+        return `${y}-${m}`;
+      }
+      const s = String(v || '').trim();
+      if (!s) return '';
+      // YYYY-MM-DD or YYYY-MM
+      if (/^\d{4}-\d{2}/.test(s)) return s.slice(0, 7);
+      // YYYY/MM/DD
+      if (/^\d{4}\/\d{2}/.test(s)) return s.slice(0, 7).replace('/', '-');
+      // DD/MM/YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const parts = s.split('/');
+        const y = parts[2];
+        const m = parts[1];
+        return `${y}-${m}`;
+      }
+      // DD-MM-YYYY
+      if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
+        const parts = s.split('-');
+        const y = parts[2];
+        const m = parts[1];
+        return `${y}-${m}`;
+      }
+      // Date string fallback
+      try {
+        const d = new Date(s);
+        if (!isNaN(d)) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          return `${y}-${m}`;
+        }
+      } catch (_) {}
+      return '';
+    };
+
+    const cursor = db.collection(colName)
+      .find({}, { projection: { dia_venta: 1, diaVenta: 1, fecha_contratacion: 1, fechaContratacion: 1, createdAt: 1, creadoEn: 1, _raw: 1 } })
+      .sort({ _id: -1 })
+      .limit(sample);
+
+    const set = new Set();
+    for await (const doc of cursor) {
+      const raw = (doc && doc._raw && typeof doc._raw === 'object') ? doc._raw : null;
+      const candidates = [
+        doc?.dia_venta,
+        doc?.diaVenta,
+        doc?.fecha_contratacion,
+        doc?.fechaContratacion,
+        raw?.dia_venta,
+        raw?.diaVenta,
+        raw?.fecha_contratacion,
+        raw?.fechaContratacion,
+        doc?.createdAt,
+        doc?.creadoEn
+      ];
+      for (const c of candidates) {
+        const ym = monthKeyFromAnyDate(c);
+        if (/^\d{4}-\d{2}$/.test(ym)) set.add(ym);
+      }
+    }
+
+    const months = Array.from(set).sort((a, b) => b.localeCompare(a)).slice(0, limit);
+    return res.json({ success: true, data: months, months, source: colName, count: months.length, sample });
+  } catch (error) {
+    console.error('[API /leads/months] Error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
