@@ -416,11 +416,10 @@
     .costumer-table thead th:nth-child(13) { width: 8%; }  /* Servicios */
     .costumer-table thead th:nth-child(14) { width: 6%; }  /* Mercado */
     .costumer-table thead th:nth-child(15) { width: 7%; }  /* Supervisor */
-    .costumer-table thead th:nth-child(16) { width: 8%; }  /* Comentario */
-    .costumer-table thead th:nth-child(17) { width: 8%; }  /* Motivo llamada */
-    .costumer-table thead th:nth-child(18) { width: 6%; }  /* ZIP */
-    .costumer-table thead th:nth-child(19) { width: 6%; }  /* Puntaje */
-    .costumer-table thead th:nth-child(20) { width: 5%; }  /* Acción */
+    .costumer-table thead th:nth-child(16) { width: 8%; }  /* Motivo llamada */
+    .costumer-table thead th:nth-child(17) { width: 6%; }  /* ZIP */
+    .costumer-table thead th:nth-child(18) { width: 6%; }  /* Puntaje */
+    .costumer-table thead th:nth-child(19) { width: 5%; }  /* Acción */
     
     .costumer-table tbody td:nth-child(2),
     .costumer-table tbody td:nth-child(3) { min-width: 100px; }
@@ -591,10 +590,7 @@
       cursor:pointer; box-shadow:0 2px 8px rgba(108,71,255,.3);
       transition:all .12s; display:inline-flex; align-items:center; gap:5px;
     }
-    .btn-save:hover { background:var(--a-dark); box-shadow:0 4px 16px rgba(108,71,255,.4); }
-    .btn-save:disabled { opacity:.6; cursor:not-allowed; }
-
-    .ghost-filters { display:none; }
+    .btn-save:hover { background:var(--a-dark); box-shadow:0 4px 14px rgba(108,71,255,.4); }
 
     /* DATE RANGE PICKER */
     .drp-trigger {
@@ -1130,7 +1126,6 @@
               <th>Servicios</th>
               <th>Mercado</th>
               <th>Supervisor</th>
-              <th>Comentario</th>
               <th>Motivo llamada</th>
               <th>ZIP</th>
               <th>Puntaje</th>
@@ -1292,12 +1287,6 @@
         <div class="field">
           <label>Motivo Llamada</label>
           <input type="text" id="edit-motivo" placeholder="Motivo de la llamada"/>
-        </div>
-        <div class="field col-span-3">
-          <label>Comentario</label>
-          <textarea id="edit-comentario" rows="3"
-            placeholder="Notas o comentarios adicionales…"
-            style="resize:vertical;min-height:72px;font-family:var(--f);font-size:.8rem;color:var(--ink-1);background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r2);padding:8px 10px;outline:none;width:100%;transition:all .12s;"></textarea>
         </div>
       </div>
 
@@ -1754,7 +1743,7 @@
     const token = AUTH.check();
     if (!token) return [];
 
-    const res = await AUTH.secureFetch('/api/leads?limit=5000');
+    const res = await AUTH.secureFetch('/api/leads?limit=5000&noAutoMonth=true');
     if (!res) return [];
 
     try {
@@ -1768,6 +1757,34 @@
       console.error('❌ fetchLeads parse:', err);
       showToast('Error al procesar datos', 'error');
       return [];
+    }
+  }
+
+  async function fetchUsersForFilters() {
+    const token = AUTH.check();
+    if (!token) return null;
+    const res = await AUTH.secureFetch('/api/users/agents');
+    if (!res) return null;
+    try {
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.agents || data?.data || [];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function fetchMonthsForFilters() {
+    const token = AUTH.check();
+    if (!token) return null;
+    const res = await AUTH.secureFetch('/api/leads/months?limit=120');
+    if (!res) return null;
+    try {
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.months || data?.data || [];
+    } catch (_) {
+      return null;
     }
   }
 
@@ -1788,6 +1805,7 @@
     })();
 
     return (Array.isArray(items) ? items : []).map((it, idx) => {
+      const raw = it?._raw && typeof it._raw === 'object' ? it._raw : null;
       const lead = {
         _id:             String(it?._id || it?.id || `tmp-${idx}`),
         _raw:            it,
@@ -1805,8 +1823,8 @@
         status:          (it?.status || 'pending').toLowerCase(),
         servicios:       it?.servicios       || '',
         mercado:         it?.mercado         || '',
-        supervisor:      it?.supervisor      || it?.team           || '',
-        comentario:      it?.comentario      || '',
+        supervisor:      it?.team            || it?.supervisor     || raw?.team || raw?.supervisor || '',
+        agente:          it?.agenteNombre    || it?.agente         || raw?.agenteNombre || raw?.agente || it?.createdBy || it?.creadoPor || raw?.createdBy || raw?.creadoPor || '',
         motivo_llamada:  it?.motivo_llamada  || '',
         zip_code:        it?.zip_code        || it?.zip            || '',
         puntaje:         it?.puntaje         ?? '',
@@ -1818,10 +1836,10 @@
 
   function renderCostumerTable(items) {
     __allLeadsData = normalizeLeads(items || []);
+    try { window.__allLeadsData = __allLeadsData; } catch (_) {}
     currentPage = 1;
     applyFilters();
     updateKPIs();
-    renderTableRows();
     // Actualizar opciones de filtros con datos reales
     if (typeof window._refreshFilterOptions === 'function') {
       setTimeout(window._refreshFilterOptions, 0);
@@ -1861,12 +1879,12 @@
     const to      = val('dateTo');
 
     __filteredLeads = __allLeadsData.filter(lead => {
-      if (search && !['nombre_cliente','telefono','numero_cuenta','zip_code','comentario']
+      if (search && !['nombre_cliente','telefono','numero_cuenta','zip_code']
             .some(f => String(lead[f]||'').toUpperCase().includes(search))) return false;
 
       if (svc && !String(lead.servicios||'').toUpperCase().includes(svc.toUpperCase())) return false;
       if (team   && !String(lead.supervisor||'').includes(team)) return false;
-      if (agent  && !String(lead.supervisor||'').includes(agent)) return false;
+      if (agent  && !String(lead.agente||'').includes(agent)) return false;
       if (mercado && lead.mercado !== mercado) return false;
 
       if (activeStatusTab && activeStatusTab !== 'all') {
@@ -1899,6 +1917,10 @@
 
     currentPage = 1;
     renderTableRows();
+    // Actualizar opciones de filtros con datos reales
+    if (typeof window._refreshFilterOptions === 'function') {
+      setTimeout(window._refreshFilterOptions, 0);
+    }
   }
 
   const STATUS_CFG = {
@@ -1945,9 +1967,9 @@
     try {
       // Si es formato YYYY-MM-DD, parsear localmente sin conversión de timezone
       if (/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
-        const [y, m, day] = d.trim().split('-');
+        const [y,m,d] = d.trim().split('-');
         // Crear date usando zona horaria local DIRECTAMENTE
-        const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(day));
+        const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
         return date.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
       }
       // Para otros formatos, intenta parsearlo
@@ -1968,7 +1990,7 @@
     const paged = __filteredLeads.slice(start, start + ps);
 
     if (paged.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>`;
     } else {
       tbody.innerHTML = paged.map(lead => {
         const lid = typeof lead._id === 'object' ? lead._id.toString() : String(lead._id);
@@ -1994,7 +2016,6 @@
           ${cell(escHTML(lead.servicios))}
           ${cell(escHTML(lead.mercado))}
           ${cell(escHTML(lead.supervisor))}
-          ${cell(`<span style="max-width:140px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(lead.comentario)}">${escHTML(lead.comentario)}</span>`)}
           ${cell(escHTML(lead.motivo_llamada))}
           ${cell(`<span class="mono">${escHTML(lead.zip_code)}</span>`)}
           ${cell(lead.puntaje !== '' ? `<span style="font-family:var(--f-mono);font-size:.72rem;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r1);padding:2px 6px;${lead.puntaje >= 80 ? 'color:var(--go)' : lead.puntaje >= 50 ? 'color:var(--warn)' : 'color:var(--stop)'}">${lead.puntaje}</span>` : '—')}
@@ -2217,7 +2238,6 @@
     setSelectValueSafe('edit-status', normalizeStatus(getV(['status','Status','estado','state'])));
     setV('edit-supervisor',      getV(['supervisor','team','TEAM','equipo','grupo','department','team_name','Team']));
     setV('edit-motivo',          getV(['motivo_llamada','motivo','reason','motivoLlamada']));
-    setV('edit-comentario',      getV(['comentario','comment','notes']));
 
     const idSpan = document.getElementById('modal-lead-id');
     if (idSpan) idSpan.textContent = '#' + String(leadId).slice(-4).toUpperCase();
@@ -2263,7 +2283,6 @@
     lead.status          = val('edit-status');
     lead.supervisor      = val('edit-supervisor');
     lead.motivo_llamada  = val('edit-motivo');
-    lead.comentario      = val('edit-comentario');
 
     const saveBtn = document.querySelector('.btn-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Guardando…'; }
@@ -2350,7 +2369,6 @@
         title: 'Team / Supervisor', searchable: true,
         options: [
           { value: '', label: 'Todos los teams', dot: 'var(--ink-4)' },
-          { value: 'Oficina', label: 'Oficina', dot: 'var(--info)' },
         ]
       },
       {
@@ -2372,7 +2390,6 @@
         title: 'Mes', searchable: false,
         options: [
           { value: '', label: 'Todos los meses', dot: 'var(--ink-4)' },
-          { value: '2025-12', label: 'Dic 2025', dot: 'var(--a)' },
         ]
       },
     ];
@@ -2511,14 +2528,163 @@
 
     // Expose method to update month options dynamically from data
     window._refreshFilterOptions = function() {
-      if (!window.__allLeadsData?.length) return;
+      const leadsData = Array.isArray(window.__allLeadsData) ? window.__allLeadsData : [];
+      const monthsFromApi = Array.isArray(window.__monthsForFilters) ? window.__monthsForFilters : [];
+
+      const uniqSorted = (arr) => [...new Set((arr || []).map(v => String(v || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+
+      const monthKeyFromAnyDate = (v) => {
+        const s = String(v || '').trim();
+        if (!s) return '';
+        // YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 7);
+        // YYYY/MM/DD
+        if (/^\d{4}\/\d{2}\/\d{2}/.test(s)) return s.slice(0, 7).replace('/', '-');
+        // DD/MM/YYYY
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+          const [d, m, y] = s.split('/');
+          return `${y}-${m}`;
+        }
+        // DD-MM-YYYY
+        if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
+          const [d, m, y] = s.split('-');
+          return `${y}-${m}`;
+        }
+        // Date string fallback
+        try {
+          const d = new Date(s);
+          if (!isNaN(d)) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            return `${y}-${m}`;
+          }
+        } catch (_) {}
+        return '';
+      };
+
+      const users = Array.isArray(window.__usersForFilters) ? window.__usersForFilters : [];
+      const roleNorm = (r) => String(r || '').toLowerCase();
+      const isSupervisorUser = (u) => /supervisor/.test(roleNorm(u?.role)) || roleNorm(u?.role) === 'supervisor';
+      const isAgentUser = (u) => {
+        const r = roleNorm(u?.role || u?.rol || u?.cargo || '');
+        if (!r) return false;
+        if (/admin|administrador|backoffice/.test(r)) return false;
+        if (/supervisor/.test(r)) return false;
+        return /agente|agentes|agent/.test(r);
+      };
+
+      const agentsFromUsers = uniqSorted(
+        users
+          .filter(isAgentUser)
+          .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
+      );
+
+      const canonTeamLabel = (v) => {
+        const s = String(v || '').trim();
+        if (!s) return '';
+        const up = s
+          .toUpperCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        // Remove prefix TEAM / TEAM_
+        const noTeam = up.replace(/^TEAM\s+/, '').trim();
+        // If looks like full name (e.g. BRYAN PLEITEZ), use last token as canonical supervisor label
+        const parts = noTeam.split(' ').filter(Boolean);
+        if (parts.length >= 2) return parts[parts.length - 1];
+        return noTeam;
+      };
+
+      const ALLOWED_TEAMS = ['JOHANA','IRANIA','MARISOL','ROBERTO','PLEITEZ'];
+      const mapToAllowedTeam = (v) => {
+        const k = canonTeamLabel(v);
+        if (!k) return '';
+        if (ALLOWED_TEAMS.includes(k)) return k;
+        const alias = {
+          BELTRAN: 'MARISOL',
+          VELASQUEZ: 'ROBERTO',
+          SERRANO: 'IRANIA'
+        };
+        return alias[k] || '';
+      };
+
+      // Rebuild team options from supervisors/users and/or lead data
+      const teamCfg = FILTER_CFG.find(c => c.tokenId === 'token-team');
+      const supervisorsFromUsers = uniqSorted(
+        users
+          .filter(isSupervisorUser)
+          .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
+      ).map(mapToAllowedTeam).filter(Boolean);
+
+      const teamsFromLeads = uniqSorted(
+        (leadsData || []).map(l => l?.team || l?.supervisor || l?.equipo || l?._raw?.team || l?._raw?.supervisor || '')
+      ).map(mapToAllowedTeam).filter(Boolean);
+
+      const teams = uniqSorted([ ...supervisorsFromUsers, ...teamsFromLeads ]);
+      if (teamCfg) {
+        teamCfg.options = [
+          { value: '', label: 'Todos los teams', dot: 'var(--ink-4)' },
+          ...teams.map(t => ({ value: t, label: t, dot: 'var(--warn)' }))
+        ];
+      }
+
+      const teamSel = document.getElementById('teamFilter');
+      if (teamSel && teamCfg) {
+        const cur = teamSel.value;
+        teamSel.innerHTML = teamCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+        teamSel.value = cur;
+      }
+
+      // Rebuild service options from real data
+      const svcCfg = FILTER_CFG.find(c => c.tokenId === 'token-service');
+      const extractServices = (v) => {
+        const s = String(v || '').trim();
+        if (!s) return [];
+        return s
+          .split(/[\/|,;]+/g)
+          .map(x => String(x || '').trim())
+          .filter(Boolean);
+      };
+      const servicesFromLeads = uniqSorted(
+        (leadsData || []).flatMap(l => extractServices(l?.servicios || l?.servicio || l?._raw?.servicios || l?._raw?.servicio))
+      ).map(s => s.toUpperCase());
+      const baseServices = ['ATT','DIRECTV','SPECTRUM'];
+      const services = uniqSorted([ ...baseServices, ...servicesFromLeads ]);
+      if (svcCfg) {
+        svcCfg.options = [
+          { value: '', label: 'Todos los servicios', dot: 'var(--ink-4)' },
+          ...services.map(s => ({ value: s, label: s, dot: 'var(--a)' }))
+        ];
+      }
+      const svcSel = document.getElementById('serviceFilter');
+      if (svcSel && svcCfg) {
+        const cur = svcSel.value;
+        svcSel.innerHTML = svcCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+        svcSel.value = cur;
+      }
 
       // Rebuild month options from real data
       const monthCfg = FILTER_CFG.find(c => c.tokenId === 'token-month');
-      const months = [...new Set(__allLeadsData
-        .map(l => (l.dia_venta || l.dia_instalacion || '').slice(0,7))
-        .filter(Boolean)
-      )].sort().reverse();
+      let months = [];
+      try {
+        months = (monthsFromApi && monthsFromApi.length)
+          ? monthsFromApi.slice()
+          : [...new Set((leadsData || [])
+              .map(l => {
+                const raw = l && (l._raw || l.raw || l.__raw) ? (l._raw || l.raw || l.__raw) : null;
+                return monthKeyFromAnyDate(l.dia_venta) ||
+                       monthKeyFromAnyDate(l.dia_instalacion) ||
+                       monthKeyFromAnyDate(raw?.fecha_contratacion) ||
+                       monthKeyFromAnyDate(raw?.dia_venta) ||
+                       monthKeyFromAnyDate(raw?.diaVenta) ||
+                       monthKeyFromAnyDate(raw?.fechaContratacion);
+              })
+              .filter(Boolean)
+            )].sort().reverse();
+      } catch (_) {
+        months = [];
+      }
 
       const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
       monthCfg.options = [
@@ -2536,13 +2702,14 @@
         sel.value = cur;
       }
 
-      // Rebuild agent options from real supervisors
+      // Rebuild agent options from real agents
       const agentCfg = FILTER_CFG.find(c => c.tokenId === 'token-agent');
-      const agents = [...new Set(__allLeadsData.map(l => l.supervisor).filter(Boolean))].sort();
+      const agents = agentsFromUsers.length ? agentsFromUsers : uniqSorted(leadsData.map(l => l.agente));
       agentCfg.options = [
         { value: '', label: 'Todos los agentes', dot: 'var(--ink-4)' },
         ...agents.map(a => ({ value: a, label: a, dot: 'var(--info)' }))
       ];
+
       const agSel = document.getElementById('agentFilter');
       if (agSel) {
         const cur = agSel.value;
@@ -2672,6 +2839,14 @@
     }
 
     // 4. Cargar datos
+    try {
+      const users = await fetchUsersForFilters();
+      if (Array.isArray(users)) window.__usersForFilters = users;
+    } catch (_) {}
+    try {
+      const months = await fetchMonthsForFilters();
+      if (Array.isArray(months)) window.__monthsForFilters = months;
+    } catch (_) {}
     const leads = await fetchLeads();
     renderCostumerTable(leads);
 
