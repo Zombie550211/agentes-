@@ -57,6 +57,7 @@ body {
   font-family: 'Outfit', sans-serif;
   color: var(--text);
   background: var(--bg);
+
   background-image:
     radial-gradient(ellipse 80% 55% at 5%  -5%,  rgba(99,102,241,.22) 0%, transparent 60%),
     radial-gradient(ellipse 55% 50% at 95%  8%,  rgba(16,185,129,.15) 0%, transparent 55%),
@@ -207,7 +208,7 @@ body {
 }
 .hkpi:hover { background: #fff; transform: translateY(-4px) rotateX(8deg) rotateZ(-1deg); box-shadow: 0 12px 32px rgba(37,99,235,.18), 0 4px 12px rgba(0,0,0,.12); }
 .hkpi-glow { position: absolute; inset: 0; background: radial-gradient(circle at 50% 130%, var(--c, rgba(37,99,235,.10)) 0%, transparent 65%); }
-.hkpi-val { font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--text); position: relative; z-index: 1; line-height: 1; }
+.hkpi-val { font-family: Arial, sans-serif; font-size: 1.15rem; font-weight: 400; color: var(--text); position: relative; z-index: 1; line-height: 1; }
 .hkpi-lbl { font-size: .55rem; color: var(--t2); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; position: relative; z-index: 1; }
 
 /* ══════════════════════════════════════
@@ -226,8 +227,9 @@ body {
   padding: 11px 8px 9px;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   cursor: pointer; text-decoration: none; color: var(--text);
-  transition: all .25s cubic-bezier(0.23, 1, 0.320, 1); position: relative; overflow: hidden;
+  transition: all .25s cubic-bezier(0.23, 1, 0.320, 1);
   transform-style: preserve-3d; perspective: 1200px;
+  position: relative; overflow: hidden;
 }
 .sc::before {
   content: ''; position: absolute; inset: 0;
@@ -249,7 +251,7 @@ body {
    SHARED PANEL
 ══════════════════════════════════════ */
 .main-row {
-  display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 7px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
   animation: up .4s .10s ease both;
   overflow: hidden;
 }
@@ -303,7 +305,7 @@ body {
   font-size: 12px; color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.13);
 }
 .mcard-body { flex: 1; min-width: 0; }
-.mcard-val { font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--text); line-height: 1; }
+.mcard-val { font-family: Arial, sans-serif; font-size: 1.15rem; font-weight: 400; color: var(--text); line-height: 1; }
 .mcard-val.sm { font-size: .80rem; line-height: 1.25; }
 .mcard-lbl { font-size: .62rem; color: var(--t2); margin-top: 1px; }
 .badge { font-size: .58rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -461,7 +463,7 @@ body {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 .main-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .bot-row {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
@@ -479,8 +481,10 @@ body {
   /* 3-col shortcuts */
   .sc-grid  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   /* 2-col main row */
-  .main-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .main-row > :last-child { grid-column: span 2; }
+  .main-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .main-row > :last-child { grid-column: auto; }
   /* stack bot row */
   .bot-row  { grid-template-columns: 1fr; }
   /* switch to scroll */
@@ -665,12 +669,6 @@ body {
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Actividad -->
-    <div class="gpanel">
-      <div class="ph"><i class="fas fa-bolt"></i><span class="ph-title">Actividad reciente</span><a href="#" class="ph-link">Ver todo →</a></div>
-      <div class="act-list" id="activity-list"></div>
     </div>
 
     <!-- Ranking -->
@@ -920,7 +918,7 @@ async function loadDashboardData(user) {
         }
       }, 100);
       
-      loadRecentActivity();
+      // loadRecentActivity();
       renderRanking(dashboardData.chartTeams);
       
       setTimeout(async () => {
@@ -1261,10 +1259,43 @@ async function loadProductsFromAPI() {
     const json = await res.json();
     const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
     
+    const normalizeProduct = (val) => {
+      let k = String(val || '').trim();
+      if (!k) return 'SIN PRODUCTO';
+      try { k = k.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
+      k = k.replace(/[-_]/g, ' ');
+      k = k.replace(/\s+/g, ' ').trim().toUpperCase();
+      k = k.replace(/&/g, '');
+      k = k.replace(/\bXFINTY\b/g, 'XFINITY');
+      k = k.replace(/\bAT\s*T\b/g, 'ATT');
+      k = k.replace(/\bAT\s+T\b/g, 'ATT');
+      k = k.replace(/\bATT\s+AIR\b/g, 'ATT AIR');
+      k = k.replace(/\bXFINITY\s+500\s*PLUS\b/g, 'XFINITY 500 PLUS');
+      k = k.replace(/\bINTERNET\s+EARTHLINK\b/g, 'INTERNET EARTHLINK');
+      // Separar productos compuestos ATT
+      if (k.includes('ATT 300-500') || k.includes('ATT 300 500')) {
+        return 'ATT 300';
+      }
+      if (k.includes('ATT 500') && !k.includes('ATT 300-500') && !k.includes('ATT 300 500')) {
+        return 'ATT 500';
+      }
+      // Separar XFINITY por velocidad
+      if (k.includes('XFINITY 1G') || k.includes('XFINITY 1000')) {
+        return 'XFINITY 1G';
+      }
+      if (k.includes('XFINITY 500') && !k.includes('XFINITY 500 PLUS')) {
+        return 'XFINITY 500';
+      }
+      if (k.includes('XFINITY 300')) {
+        return 'XFINITY 300';
+      }
+      return k || 'SIN PRODUCTO';
+    };
+
     const counts = {};
     leads.forEach(l => {
       const prod = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || l.service || l.servicio || 'SIN PRODUCTO';
-      const key = prod ? String(prod).replace(/[-_]/g, ' ').toUpperCase() : 'SIN PRODUCTO';
+      const key = normalizeProduct(prod);
       counts[key] = (counts[key] || 0) + 1;
     });
     
