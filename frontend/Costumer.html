@@ -1462,14 +1462,6 @@
     }
     html += '</div>';
     wrap.innerHTML = html;
-    wrap.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', e => { e.stopPropagation(); handleNav(btn.dataset.action); });
-    });
-    wrap.querySelectorAll('.drp-day[data-date]').forEach(cell => {
-      cell.addEventListener('click', () => handleDayClick(cell.dataset.date));
-      cell.addEventListener('mouseenter', () => { hoverDate = parseISO(cell.dataset.date); renderBoth(); });
-      cell.addEventListener('mouseleave', () => { hoverDate = null; renderBoth(); });
-    });
   }
 
   function renderBoth() {
@@ -1542,6 +1534,42 @@
     renderBoth();
   }
   function closePicker() { popover.classList.remove('open'); hoverDate = null; }
+
+  // Event delegation para calendarios - clicks en días y navegación
+  document.getElementById('drpCal1')?.addEventListener('click', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    const nav = e.target.closest('[data-action]');
+    if (day) { e.stopPropagation(); handleDayClick(day.dataset.date); }
+    else if (nav) { e.stopPropagation(); handleNav(nav.dataset.action); }
+  });
+  
+  document.getElementById('drpCal2')?.addEventListener('click', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    const nav = e.target.closest('[data-action]');
+    if (day) { e.stopPropagation(); handleDayClick(day.dataset.date); }
+    else if (nav) { e.stopPropagation(); handleNav(nav.dataset.action); }
+  });
+
+  // Hover effects para preview de rango
+  document.getElementById('drpCal1')?.addEventListener('mouseenter', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    if (day) { hoverDate = parseISO(day.dataset.date); renderBoth(); }
+  }, true);
+  
+  document.getElementById('drpCal1')?.addEventListener('mouseleave', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    if (day) { hoverDate = null; renderBoth(); }
+  }, true);
+  
+  document.getElementById('drpCal2')?.addEventListener('mouseenter', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    if (day) { hoverDate = parseISO(day.dataset.date); renderBoth(); }
+  }, true);
+  
+  document.getElementById('drpCal2')?.addEventListener('mouseleave', e => {
+    const day = e.target.closest('.drp-day[data-date]');
+    if (day) { hoverDate = null; renderBoth(); }
+  }, true);
 
   trigger?.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? closePicker() : openPicker(); });
   document.getElementById('drpClose')?.addEventListener('click', closePicker);
