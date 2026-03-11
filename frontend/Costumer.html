@@ -1850,7 +1850,7 @@
         status:          normalizeStatus(statusSrc),
         servicios:       it?.servicios       || '',
         mercado:         it?.mercado         || '',
-        supervisor:      it?.team            || it?.supervisor     || raw?.team || raw?.supervisor || '',
+        supervisor:      it?.SUPERVISOR      || it?.supervisor     || raw?.SUPERVISOR || raw?.supervisor || it?.team || raw?.team || '',
         agente:          it?.agenteNombre    || it?.agente         || raw?.agenteNombre || raw?.agente || it?.createdBy || it?.creadoPor || raw?.createdBy || raw?.creadoPor || '',
         motivo_llamada:  it?.motivo_llamada  || '',
         zip_code:        it?.zip_code        || it?.zip            || '',
@@ -1910,7 +1910,7 @@
             .some(f => String(lead[f]||'').toUpperCase().includes(search))) return false;
 
       if (svc && !String(lead.servicios||'').toUpperCase().includes(svc.toUpperCase())) return false;
-      if (team   && !String(lead.supervisor||'').includes(team)) return false;
+      if (team   && !String(lead.supervisor||'').toUpperCase().includes(team.toUpperCase())) return false;
       if (agent  && !String(lead.agente||'').includes(agent)) return false;
       if (mercado && lead.mercado !== mercado) return false;
 
@@ -2156,7 +2156,7 @@
       if (!l) return false;
       if (!inKpiWindow(l)) return false;
       if (svc && !String(l.servicios || '').toUpperCase().includes(svc.toUpperCase())) return false;
-      if (team && !String(l.supervisor || '').includes(team)) return false;
+      if (team && !String(l.supervisor || '').toUpperCase().includes(team.toUpperCase())) return false;
       if (agent && !String(l.agente || '').includes(agent)) return false;
       if (mercado && String(l.mercado || '') !== mercado) return false;
       return true;

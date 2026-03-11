@@ -145,7 +145,7 @@
     .kpi-badge.dn{background:var(--red-bg);color:var(--red)}
     .kpi-badge.nu{background:var(--navy-100);color:var(--text-3)}
 
-    .kpi-val{font-family:var(--font-d);font-size:2rem;font-weight:700;color:var(--text-1);letter-spacing:-.03em;line-height:1}
+    .kpi-val{font-family:Arial, sans-serif;font-size:2rem;font-weight:400;color:var(--text-1);letter-spacing:-.03em;line-height:1}
     .kpi-lbl{font-size:.72rem;color:var(--text-3);margin-top:3px}
     .kpi-prog{height:3px;background:var(--bg-alt);border-radius:99px;overflow:hidden;margin-top:2px}
     .kpi-prog-bar{height:100%;border-radius:99px;transition:width 1.1s cubic-bezier(.22,1,.36,1)}
@@ -242,7 +242,7 @@
     /* ── Filter strip ─────────────── */
     .filt-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 13px;background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--r1);margin-bottom:14px}
     .filt-lbl{font-size:.7rem;font-weight:500;color:var(--text-3);white-space:nowrap}
-    .filt-sel{background:var(--bg-card);border:1px solid var(--border-md);color:var(--text-1);border-radius:var(--r1);padding:3px 9px;font-family:var(--font-b);font-size:.73rem;height:27px;cursor:pointer;outline:none;transition:border-color var(--dur) var(--ease)}
+    .filt-sel{background:var(--bg-card);border:1px solid var(--border-md);color:var(--text-1);border-radius:var(--r1);padding:3px 9px;font-family:var(--font-b);font-size:.73rem;min-width:178px;cursor:pointer;outline:none;transition:border-color var(--dur) var(--ease)}
     .filt-sel:focus{border-color:var(--navy-500);box-shadow:0 0 0 3px rgba(42,64,128,.09)}
     .filt-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border:none;border-radius:var(--r1);font-family:var(--font-b);font-size:.7rem;font-weight:600;cursor:pointer;height:27px;transition:all var(--dur) var(--ease)}
     .fb-primary{background:var(--navy-700);color:#fff}
@@ -566,7 +566,7 @@
     </div>
     <div class="mb">
       <table class="mod-table" id="day-detail-table">
-        <thead><tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th><th>Fecha</th></tr></thead>
+        <thead><tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -588,7 +588,7 @@
     </div>
     <div class="mb">
       <table class="mod-table" id="month-detail-table">
-        <thead><tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th><th>Fecha</th></tr></thead>
+        <thead><tr><th>Equipo</th><th>Agente</th><th>Servicio</th><th>Mercado</th><th>Puntaje</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -626,6 +626,25 @@ function mostrarNotificacion(msg,tipo='success'){
   n.innerHTML=`<i class="fas ${tipo==='success'?'fa-check-circle':'fa-exclamation-triangle'}"></i>${msg}`;
   document.body.appendChild(n);setTimeout(()=>n.classList.add('show'),70);
   setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),320);},3200);
+}
+
+function __canonTeamLabel(v){
+  const s=String(v||'').trim();
+  if(!s) return '';
+  const up=s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const noTeam=up.replace(/^TEAM\s+/, '').trim();
+  const parts=noTeam.split(' ').filter(Boolean);
+  if(parts.length>=2) return parts[parts.length-1];
+  return noTeam;
+}
+
+function __mapToAllowedTeam(v){
+  const k=__canonTeamLabel(v);
+  if(!k) return '';
+  const ALLOWED=['JOHANA','IRANIA','MARISOL','ROBERTO','PLEITEZ'];
+  if(ALLOWED.includes(k)) return k;
+  const alias={BELTRAN:'MARISOL',VELASQUEZ:'ROBERTO',SERRANO:'IRANIA'};
+  return alias[k] || '';
 }
 
 async function __fetchLineasTeamAll(){
@@ -757,7 +776,7 @@ async function loadServicePivotDay(targetDate){
     const json=await resp.json();const all=Array.isArray(json)?json:(Array.isArray(json.data)?json.data:(Array.isArray(json.leads)?json.leads:[]));
     const gP=(o,p)=>{try{return p.split('.').reduce((a,k)=>(a&&a[k]!==undefined?a[k]:undefined),o);}catch(_){return undefined;}};
     const nD=val=>{if(!val)return'';const s=String(val).trim();if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);if(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}/.test(s)){const p=s.split(/[\/\-]/);return`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;}return'';};
-    const tgt=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,flds=['dia_venta','diaVenta','fecha_venta','fechaVenta','saleDate','sale_date','_raw.dia_venta','_raw.diaVenta','_raw.fecha_venta','_raw.fechaVenta'];
+    const tgt=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,flds=['dia_venta','diaVenta','fecha_venta','fechaVenta','saleDate','sale_date','_raw.dia_venta','_raw.fecha_venta','_raw.saleDate','_raw.sale_date'];
     const inDay=all.filter(l=>{for(const f of flds){const r=gP(l,f);if(nD(r)===tgt)return true;}return false;});
     window.__servicePivotDayLeads=inDay;window.__servicePivotDayDate=new Date(y,m,d,12,0,0);
     renderDailyServicePivot(inDay);
@@ -780,7 +799,7 @@ async function renderConversionTable(root){
     let url=`/api/equipos/estadisticas?fechaInicio=${fi}&fechaFin=${ff}`;
     try{const u=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'null');if((u?.role||'').toLowerCase().match(/agent|agente/))url+='&forceAll=1';}catch(_){}
     const resp=await fetchWithAuth(url);
-    if(resp&&resp.ok){const j=await resp.json();if(j.success&&Array.isArray(j.data)&&j.data.length)td=j.data.map(e=>({name:e.TEAM||e.team||'Sin equipo',ICON:parseFloat(e.ICON||0),ACTIVAS:parseFloat(e.ACTIVAS||0),BAMO:parseFloat(e.BAMO||0),Total:parseFloat(e.Total||0),Puntaje:parseFloat(e.Puntaje||0)}));}
+    if(resp&&resp.ok){const j=await resp.json();td=j.data.map(e=>({name:e.TEAM||e.team||'Sin equipo',ICON:parseFloat(e.ICON||0),ACTIVAS:parseFloat(e.ACTIVAS||0),BAMO:parseFloat(e.BAMO||0),Total:parseFloat(e.Total||0),Puntaje:parseFloat(e.Puntaje||0)}));}
     const la=await __fetchLineasTeamAll();ld=__buildTeamLineasSummaryFromItemsWithColchon(la,fi,ff);
 
     const ORDER=['Pleitez','Roberto','Marisol','Johana','Irania','JONATHAN F','LUIS G'],norm=s=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase();
@@ -802,12 +821,20 @@ async function renderConversionTable(root){
 
     const gP=(o,p)=>{try{return p.split('.').reduce((a,k)=>(a&&a[k]!==undefined?a[k]:undefined),o);}catch(_){return undefined;}};
     const fF=(o,ps)=>{for(const p of ps){const v=gP(o,p);if(v!==undefined&&v!==null&&v!=='')return v;}return undefined;};
-    const tnOf=l=>(fF(l,['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team'])||'').toString().trim()||'Sin equipo';
+    const tnOf=l=>{
+      const rawTeam=(fF(l,[
+        'SUPERVISOR','supervisor','Supervisor',
+        '_raw.SUPERVISOR','_raw.supervisor','_raw.Supervisor',
+        'TEAM','team','equipo','grupo','department','team_name','Team'
+      ])||'').toString().trim();
+      const mapped=__mapToAllowedTeam(rawTeam);
+      return mapped || (rawTeam||'Sin equipo');
+    };
     const nrAg=l=>(fF(l,['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor'])||'').toString().trim();
     const nrSv=l=>{const r=fF(l,['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);return Array.isArray(r)?r.map(s=>String(s).trim()).filter(Boolean).join(', '):(r?String(r):'').trim();};
     const mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase();
-    const ptOf=l=>{const p=fF(l,['puntaje','score','puntos','_raw.puntaje','_raw.score','_raw.puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
-    const crP=['dia_venta','diaVenta','fecha_contratacion','fechaContratacion','creadoEn','fecha_creacion','fechaCreacion','createdAt','created_at','createdon','createdOn','fecha','_raw.dia_venta','_raw.fecha_contratacion','_raw.createdAt','_raw.creadoEn'];
+    const ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
+    const crP=['dia_venta','diaVenta','fecha_contratacion','fechaContratacion','_raw.dia_venta','_raw.fecha_contratacion'];
 
     window.MonthDetailRows={
       rango:mesT,
@@ -828,14 +855,15 @@ async function renderConversionTable(root){
 async function loadDayData(){
   const container=document.getElementById('ventas-dia-card');if(!container||!checkAuth())return;
   container.innerHTML='<div class="loading-st"><div class="spinner"></div><span>Cargando...</span></div>';
+
   const uP=new URLSearchParams(location.search),dP=uP.get('d');let eff;
   if(dP&&/^\d{4}-\d{2}-\d{2}$/.test(dP)){const[y,m,d]=dP.split('-').map(Number);eff=new Date(y,m-1,d,12,0,0);}
   else{const now=new Date(),bc=(now.getHours()<9)||(now.getHours()===9&&now.getMinutes()<30);eff=new Date(now);if(bc)eff.setDate(eff.getDate()-1);}
   const y=eff.getFullYear(),m=String(eff.getMonth()+1).padStart(2,'0'),d=String(eff.getDate()).padStart(2,'0');
   const dT=`${d}/${m}/${eff.getFullYear()}`;document.getElementById('dia-title').textContent=`Ventas del día (${dT})`;
-  const toYMD=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-  const nD=delta=>{const b=new Date(eff);b.setDate(b.getDate()+delta);const p=new URLSearchParams(location.search);p.set('d',toYMD(b));location.search=p.toString();};
-  document.getElementById('day-prev-alt').onclick=()=>nD(-1);document.getElementById('day-next-alt').onclick=()=>nD(1);
+
+  document.getElementById('day-prev-alt').onclick=()=>{const d=new Date(eff);d.setDate(d.getDate()-1);location.href=`?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+  document.getElementById('day-next-alt').onclick=()=>{const d=new Date(eff);d.setDate(d.getDate()+1);location.href=`?d=${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
   try{
     const sL=new Date(eff.getFullYear(),eff.getMonth(),eff.getDate(),0,0,0),eX=uP.has('d')?new Date(eff.getFullYear(),eff.getMonth(),eff.getDate()+1,0,0,0):new Date(eff.getFullYear(),eff.getMonth(),eff.getDate()+1,9,30,0);
     const lR=await fetchWithAuth(`/api/leads?fechaInicio=${y}-${m}-${d}&fechaFin=${y}-${m}-${d}&skipDate=1&t=${Date.now()}`);if(!lR)return;
@@ -847,7 +875,15 @@ async function loadDayData(){
     const ymd=`${y}-${m}-${d}`,dmy=`${d}/${m}/${y}`,sD=dt=>dt&&dt>=sL&&dt<eX,isSD=val=>{if(!val&&val!==0)return false;if(val instanceof Date)return sD(val);if(typeof val==='number')return sD(new Date(val<1e12?val*1000:val));const s=String(val).trim();if(!s)return false;if(s===ymd||s===dmy)return true;return sD(tryD(s));};
     const inDay=leads.filter(l=>{const v=fF(l,crP);return isSD(v);});
     window.__servicePivotDayLeads=inDay;window.__servicePivotDayDate=new Date(y,Number(m)-1,Number(d),12,0,0);renderDailyServicePivot(inDay);
-    const tMap=new Map(),tnOf=l=>(fF(l,['supervisor','Supervisor','TEAM','team','equipo','grupo','department','team_name','Team'])||'').toString().trim()||'Sin equipo',mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase(),ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
+    const tMap=new Map(),tnOf=l=>{
+      const rawTeam=(fF(l,[
+        'SUPERVISOR','supervisor','Supervisor',
+        '_raw.SUPERVISOR','_raw.supervisor','_raw.Supervisor',
+        'TEAM','team','equipo','grupo','department','team_name','Team'
+      ])||'').toString().trim();
+      const mapped=__mapToAllowedTeam(rawTeam);
+      return mapped || (rawTeam||'Sin equipo');
+    },mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase(),ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
     inDay.forEach(l=>{const n=tnOf(l);if(!tMap.has(n))tMap.set(n,{name:n,ICON:0,BAMO:0,Total:0,Puntaje:0});const ag=tMap.get(n);ag.Total++;const mk=mkOf(l);if(mk.includes('ICON'))ag.ICON++;else if(mk.includes('BAMO'))ag.BAMO++;ag.Puntaje+=ptOf(l);});
     let dd=Array.from(tMap.values());const la=await __fetchLineasTeamAll(),ld=__buildTeamLineasSummaryFromItemsWithColchon(la,`${y}-${m}-${d}`,`${y}-${m}-${d}`),lnms=new Set(ld.map(l=>String(l.name).toUpperCase()));
     dd=dd.filter(t=>!lnms.has(String(t.name).toUpperCase()));
@@ -866,16 +902,16 @@ let __mChart=null;
 document.getElementById('btn-flip-monthly').addEventListener('click',()=>{
   const w=document.getElementById('month-flip-wrap'),show=w.classList.toggle('show-chart');
   if(show){const rows=window.MonthDisplayRows||[];try{if(__mChart)__mChart.destroy();}catch(_){}
-    __mChart=Highcharts.chart('monthly-team-chart-wrap',{chart:{type:'column',options3d:{enabled:true,alpha:10,beta:0,depth:50},backgroundColor:'transparent',style:{fontFamily:'Outfit,sans-serif'}},title:{text:null},xAxis:{categories:rows.map(r=>r.name)},yAxis:{title:{text:null},gridLineColor:'var(--border)',allowDecimals:false},tooltip:{shared:true},legend:{itemStyle:{color:'var(--text-2)',fontFamily:'Outfit,sans-serif'}},plotOptions:{column:{depth:35,dataLabels:{enabled:true,style:{fontWeight:'bold',textOutline:'none',color:'var(--text-3)',fontSize:'10px'}},borderWidth:0,borderRadius:3}},series:[{name:'Ventas',data:rows.map(r=>Number(r.Total||0)),color:'#0f1c3f'},{name:'Puntaje',data:rows.map(r=>Number(r.Puntaje||0)),color:'#c9a84c'}]});}
-  else{try{if(__mChart){__mChart.destroy();__mChart=null;}}catch(_){}}
+    __mChart=Highcharts.chart('monthly-team-chart-wrap',{chart:{type:'column',options3d:{enabled:true,alpha:10,beta:0,depth:50},backgroundColor:'transparent',style:{fontFamily:'Outfit,sans-serif'}},title:{text:null},xAxis:{categories:rows.map(r=>r.name)},yAxis:{title:{text:null},gridLineColor:'var(--border)',allowDecimals:false},tooltip:{shared:true},legend:{itemStyle:{color:'var(--text-2)',fontFamily:'Outfit,sans-serif'}},plotOptions:{column:{depth:35,dataLabels:{enabled:true,style:{fontWeight:'bold',textOutline:'none',color:'var(--text-3)',fontSize:'10px'}},borderWidth:0,borderRadius:3}},series:[{name:'Ventas',data:rows.map(r=>Number(r.Total||0)),color:'#0f1c3f'},{name:'Puntaje',data:rows.map(r=>Number(r.Puntaje||0)),color:'#c9a84c'}]});
+  }else{try{if(__mChart){__mChart.destroy();__mChart=null;}}catch(_){}}
 });
 
 let __dChart=null;
 document.getElementById('btn-flip-day').addEventListener('click',()=>{
   const w=document.getElementById('day-flip-wrap'),show=w.classList.toggle('show-chart');
   if(show){const rows=window.DayDisplayRows||[];try{if(__dChart)__dChart.destroy();}catch(_){}
-    __dChart=Highcharts.chart('daily-team-chart-wrap',{chart:{type:'column',options3d:{enabled:true,alpha:10,beta:0,depth:50},backgroundColor:'transparent',style:{fontFamily:'Outfit,sans-serif'}},title:{text:null},xAxis:{categories:rows.map(r=>r.name)},yAxis:{title:{text:null},gridLineColor:'var(--border)',allowDecimals:false},tooltip:{shared:true},legend:{itemStyle:{color:'var(--text-2)',fontFamily:'Outfit,sans-serif'}},plotOptions:{column:{depth:35,dataLabels:{enabled:true,style:{fontWeight:'bold',textOutline:'none',color:'var(--text-3)',fontSize:'10px'}},borderWidth:0,borderRadius:3}},series:[{name:'Ventas',data:rows.map(r=>Number(r.Total||0)),color:'#1a7fa8'},{name:'Puntaje',data:rows.map(r=>Number(r.Puntaje||0)),color:'#1a8a5a'}]});}
-  else{try{if(__dChart){__dChart.destroy();__dChart=null;}}catch(_){}}
+    __dChart=Highcharts.chart('daily-team-chart-wrap',{chart:{type:'column',options3d:{enabled:true,alpha:10,beta:0,depth:50},backgroundColor:'transparent',style:{fontFamily:'Outfit,sans-serif'}},title:{text:null},xAxis:{categories:rows.map(r=>r.name)},yAxis:{title:{text:null},gridLineColor:'var(--border)',allowDecimals:false},tooltip:{shared:true},legend:{itemStyle:{color:'var(--text-2)',fontFamily:'Outfit,sans-serif'}},plotOptions:{column:{depth:35,dataLabels:{enabled:true,style:{fontWeight:'bold',textOutline:'none',color:'var(--text-3)',fontSize:'10px'}},borderWidth:0,borderRadius:3}},series:[{name:'Ventas',data:rows.map(r=>Number(r.Total||0)),color:'#1a7fa8'},{name:'Puntaje',data:rows.map(r=>Number(r.Puntaje||0)),color:'#1a8a5a'}]});
+  }else{try{if(__dChart){__dChart.destroy();__dChart=null;}}catch(_){}}
 });
 
 let productsChartRef=null,currentProductsDate=new Date();
@@ -889,7 +925,22 @@ async function loadProductsChart(){
   try{
     const resp=await fetchWithAuth(`/api/leads?fechaInicio=${fmt(s)}&fechaFin=${fmt(e)}&limit=5000&offset=0`);if(!resp||!resp.ok){showNoPD();return;}
     const json=await resp.json();const leads=Array.isArray(json)?json:(Array.isArray(json.data)?json.data:(Array.isArray(json.leads)?json.leads:[]));
-    const counts={};leads.forEach(l=>{const p=l.servicios_texto||l.tipo_servicios||l.tipo_servicio||l.servicios||l.producto||l.product||l.service||l.servicio||'SIN PRODUCTO';const k=p?String(p).replace(/[-_]/g,' ').toUpperCase():'SIN PRODUCTO';counts[k]=(counts[k]||0)+1;});
+    const normalizeProduct=(val)=>{
+      let k=String(val||'').trim();
+      if(!k) return 'SIN PRODUCTO';
+      k=k.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      k=k.replace(/[-_]/g,' ');
+      k=k.replace(/\s+/g,' ').trim().toUpperCase();
+      k=k.replace(/&/g,'');
+      k=k.replace(/\bXFINTY\b/g,'XFINITY');
+      k=k.replace(/\bAT\s*T\b/g,'ATT');
+      k=k.replace(/\bAT\s+T\b/g,'ATT');
+      k=k.replace(/\bATT\s+AIR\b/g,'ATT AIR');
+      k=k.replace(/\bXFINITY\s+500\s*PLUS\b/g,'XFINITY 500 PLUS');
+      k=k.replace(/\bINTERNET\s+EARTHLINK\b/g,'INTERNET EARTHLINK');
+      return k || 'SIN PRODUCTO';
+    };
+    const counts={};leads.forEach(l=>{const p=l.servicios_texto||l.tipo_servicios||l.tipo_servicio||l.servicios||l.producto||l.product||l.service||l.servicio||'SIN PRODUCTO';const k=normalizeProduct(p);counts[k]=(counts[k]||0)+1;});
     const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!entries.length){showNoPD();return;}
     const PAL=['#0f1c3f','#1a7fa8','#c9a84c','#1a8a5a','#3654a0','#c0392b','#d4850a','#8e44ad'];
     try{if(productsChartRef)productsChartRef.destroy();}catch(_){}
