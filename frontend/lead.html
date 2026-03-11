@@ -875,8 +875,15 @@
   // Sistema de Scoring
   if (!window.ScoringSystem) {
     window.ScoringSystem = {
-      calculateScore: function(serviceKey, riskLevel) {
+      calculateScore: function(serviceKey, riskLevel, tipoServicio) {
         if (!serviceKey) return 0;
+        
+        // Regla especial: XFINITY + DOUBLE PLAY = 1.0
+        const isXfinity = serviceKey === 'XFINITY 300' || serviceKey === 'XFINITY 500' || serviceKey === 'XFINITY 1G';
+        if (isXfinity && tipoServicio === 'DOUBLE PLAY') {
+          return 1.0;
+        }
+        
         const serviceConfig = SCORING_TABLE[serviceKey];
         if (!serviceConfig) return 0;
         if (serviceConfig.base !== undefined) return serviceConfig.base;
@@ -899,11 +906,12 @@
   function calcScore() {
     const svc = selServicio.value;
     const riesgo = selRiesgo.value;
+    const tipoServicio = selTipoServicio.value;
     if (!svc || !riesgo) {
       gaugeLabel.textContent = '--'; scoreNum.textContent = '--';
       gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)'; return;
     }
-    const score = window.ScoringSystem.calculateScore(svc, riesgo);
+    const score = window.ScoringSystem.calculateScore(svc, riesgo, tipoServicio);
     gaugeLabel.textContent = score; scoreNum.textContent = score;
     // Normalizar puntaje para visualización (0-100)
     const normalized = Math.round((score / 1.5) * 100);
@@ -929,6 +937,7 @@
     calcScore();
   });
   selRiesgo.addEventListener('change', calcScore);
+  selTipoServicio.addEventListener('change', calcScore);
 
   // Toggle chips
   function toggleChip(el) {
