@@ -1001,19 +1001,37 @@ async function guardarTodoFacturacion() {
     recalcularFila(tr);
     const tds = Array.from(tr.children);
     const fecha = tds[0].textContent.trim();
-    const campos = tds.slice(1).map((td, idx) => {
-      // No guardar columnas calculadas (índices en array campos: 2,5,9,10,13,14,15,16,18)
-      const calculatedIndices = [2, 5, 9, 10, 13, 14, 15, 16, 18];
-      if (calculatedIndices.includes(idx)) return "";
-      
-      let txt = td.textContent.trim();
+    
+    // Backend espera 17 campos, frontend tiene 19
+    // Mapeo: [0-8] Alexis/Alejandro/Garay(3), [9-11] Tito, [12-16] Totales
+    // Frontend: [0-8] igual, [9-10] Garay extras (omitir), [11-13] Tito, [14] calc (omitir), [15-18] Totales, [19] calc (omitir)
+    const campos17 = [];
+    
+    // 0-8: Alexis (0-2), Alejandro (3-5), Garay primeros 3 (6-8)
+    for (let i = 0; i <= 8; i++) {
+      let txt = tds[i+1].textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      if ((txt === "" || isNaN(Number(txt))) && ![2,5,9,10,13,14,15,16,18].includes(idx)) txt = "";
-      return txt;
-    });
-    while (campos.length < 19) campos.push("");
-    if (campos.length > 19) campos.length = 19;
+      campos17.push(txt);
+    }
+    
+    // 9-11: Tito (frontend idx 11-13)
+    for (let i = 11; i <= 13; i++) {
+      let txt = tds[i+1].textContent.trim();
+      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
+      if (txt.includes(",")) txt = txt.replace(/,/g, "");
+      campos17.push(txt);
+    }
+    
+    // 12-16: Totales (frontend idx 15-18, omitir 19)
+    for (let i = 15; i <= 18; i++) {
+      let txt = tds[i+1].textContent.trim();
+      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
+      if (txt.includes(",")) txt = txt.replace(/,/g, "");
+      campos17.push(txt);
+    }
+    
+    const campos = campos17;
 
     if (campos.some(v => v !== "")) {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
