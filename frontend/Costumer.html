@@ -1951,7 +1951,7 @@
     
     // Determinar si el usuario puede ver todos los leads
     const isAdminOrBackoffice = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
-    const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes';
+    const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes' || userRole === 'vendedor' || userRole === 'vendedores';
     const isSupervisor = userRole === 'supervisor' || userRole === 'supervisores';
 
     let filtered = __allLeadsData.filter(lead => {
@@ -2711,7 +2711,7 @@
         if (!r) return false;
         if (/admin|administrador|backoffice/.test(r)) return false;
         if (/supervisor/.test(r)) return false;
-        return /agente|agentes|agent/.test(r);
+        return /agente|agentes|agent|vendedor|vendedores|seller/.test(r);
       };
 
       const agentsFromUsers = uniqSorted(
