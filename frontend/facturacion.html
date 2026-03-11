@@ -907,7 +907,7 @@ function recalcularFila(tr) {
   const totalDia       = alexis + alejandro + garay + tito;
   tds[15].textContent  = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
 
-  const totalVentas    = ventasAlexis + ventasAlejandro + clientePorDia + ventasTito;
+  const totalVentas    = ventasAlexis + ventasAlejandro + ventasTito;
   tds[16].textContent  = totalVentas > 0 ? totalVentas.toLocaleString('en-US') : "";
 
   tds[17].textContent  = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
@@ -948,6 +948,8 @@ function renderFilaTotalesFacturacion() {
   totales[10] = totales[8]  > 0 ? totales[7]  / totales[8]  : 0;
   totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
   totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
+  // Total ventas: solo sumar Ventas/día (excluir Cliente/día de Garay col 8)
+  totales[16] = totales[2] + totales[5] + totales[13];
   totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0;
   totales[19] = totales[18] > 0 ? totales[15] / totales[18] : 0;
 
@@ -1000,6 +1002,10 @@ async function guardarTodoFacturacion() {
     const tds = Array.from(tr.children);
     const fecha = tds[0].textContent.trim();
     const campos = tds.slice(1).map((td, idx) => {
+      // No guardar columnas calculadas (índices en array campos: 2,5,9,10,13,14,15,16,18)
+      const calculatedIndices = [2, 5, 9, 10, 13, 14, 15, 16, 18];
+      if (calculatedIndices.includes(idx)) return "";
+      
       let txt = td.textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
