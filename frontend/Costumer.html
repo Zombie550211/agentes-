@@ -410,8 +410,8 @@
     .costumer-table thead th:nth-child(7) { width: 8%; }   /* Tipo servicio */
     .costumer-table thead th:nth-child(8) { width: 6%; }   /* Sistema */
     .costumer-table thead th:nth-child(9) { width: 5%; }   /* Riesgo */
-    .costumer-table thead th:nth-child(10) { width: 8%; }  /* Día venta */
-    .costumer-table thead th:nth-child(11) { width: 8%; }  /* Día instalación */
+    .costumer-table thead th:nth-child(10) { width: 10%; }  /* Día venta */
+    .costumer-table thead th:nth-child(11) { width: 10%; }  /* Día instalación */
     .costumer-table thead th:nth-child(12) { width: 7%; }  /* Status */
     .costumer-table thead th:nth-child(13) { width: 8%; }  /* Servicios */
     .costumer-table thead th:nth-child(14) { width: 6%; }  /* Mercado */
@@ -1434,6 +1434,7 @@
 
   function renderCal(containerId, year, month, navPrev, navNext) {
     const wrap = document.getElementById(containerId);
+    console.log(`[CAL] renderCal(${containerId}), wrap:`, wrap);
     if(!wrap) return;
     let html = `<div class="drp-nav">
       <button class="drp-nav-btn" data-action="${navPrev}">‹</button>
@@ -1462,6 +1463,32 @@
     }
     html += '</div>';
     wrap.innerHTML = html;
+    
+    const navBtns = wrap.querySelectorAll('[data-action]');
+    const days = wrap.querySelectorAll('.drp-day[data-date]');
+    console.log(`[CAL] ${containerId}: ${navBtns.length} botones nav, ${days.length} días`);
+    
+    navBtns.forEach(btn => {
+      btn.addEventListener('click', e => { 
+        console.log('[CAL] Nav click:', btn.dataset.action);
+        e.stopPropagation(); 
+        handleNav(btn.dataset.action); 
+      });
+    });
+    days.forEach(cell => {
+      cell.addEventListener('click', () => { 
+        console.log('[CAL] Day click:', cell.dataset.date);
+        handleDayClick(cell.dataset.date);
+      });
+      cell.addEventListener('mouseenter', () => { 
+        hoverDate = parseISO(cell.dataset.date);
+        updateDisplay();
+      });
+      cell.addEventListener('mouseleave', () => { 
+        hoverDate = null;
+        updateDisplay();
+      });
+    });
   }
 
   function renderBoth() {
@@ -1534,42 +1561,6 @@
     renderBoth();
   }
   function closePicker() { popover.classList.remove('open'); hoverDate = null; }
-
-  // Event delegation para calendarios - clicks en días y navegación
-  document.getElementById('drpCal1')?.addEventListener('click', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    const nav = e.target.closest('[data-action]');
-    if (day) { e.stopPropagation(); handleDayClick(day.dataset.date); }
-    else if (nav) { e.stopPropagation(); handleNav(nav.dataset.action); }
-  });
-  
-  document.getElementById('drpCal2')?.addEventListener('click', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    const nav = e.target.closest('[data-action]');
-    if (day) { e.stopPropagation(); handleDayClick(day.dataset.date); }
-    else if (nav) { e.stopPropagation(); handleNav(nav.dataset.action); }
-  });
-
-  // Hover effects para preview de rango
-  document.getElementById('drpCal1')?.addEventListener('mouseenter', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    if (day) { hoverDate = parseISO(day.dataset.date); renderBoth(); }
-  }, true);
-  
-  document.getElementById('drpCal1')?.addEventListener('mouseleave', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    if (day) { hoverDate = null; renderBoth(); }
-  }, true);
-  
-  document.getElementById('drpCal2')?.addEventListener('mouseenter', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    if (day) { hoverDate = parseISO(day.dataset.date); renderBoth(); }
-  }, true);
-  
-  document.getElementById('drpCal2')?.addEventListener('mouseleave', e => {
-    const day = e.target.closest('.drp-day[data-date]');
-    if (day) { hoverDate = null; renderBoth(); }
-  }, true);
 
   trigger?.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? closePicker() : openPicker(); });
   document.getElementById('drpClose')?.addEventListener('click', closePicker);
@@ -1832,6 +1823,26 @@
       return `${y}-${m}-${da}`;
     })();
 
+    const normalizeSupervisor = (sv) => {
+      const s = String(sv ?? '').trim();
+      if (!s) return '';
+      const upper = s.toUpperCase();
+      
+      // Mapeo de nombres completos a formas cortas
+      if (upper.includes('BRYAN') && upper.includes('PLEITEZ')) return 'PLEITEZ';
+      if (upper.includes('IRANIA') && upper.includes('SERRANO')) return 'IRANIA';
+      if (upper.includes('MARISOL') && upper.includes('BELTRAN')) return 'MARISOL';
+      if (upper.includes('ROBERTO') && upper.includes('VELASQUEZ')) return 'ROBERTO';
+      if (upper.includes('JOHANA')) return 'JOHANA';
+      
+      // Si ya es una forma corta conocida, devolverla
+      if (upper === 'PLEITEZ' || upper === 'IRANIA' || upper === 'MARISOL' || 
+          upper === 'ROBERTO' || upper === 'JOHANA') return upper;
+      
+      // Devolver el valor original si no coincide con ningún patrón
+      return s;
+    };
+
     const normalizeStatus = (sv) => {
       const s = String(sv ?? '').trim();
       if (!s) return 'pending';
@@ -1878,7 +1889,7 @@
         status:          normalizeStatus(statusSrc),
         servicios:       it?.servicios       || '',
         mercado:         it?.mercado         || '',
-        supervisor:      it?.SUPERVISOR      || it?.supervisor     || raw?.SUPERVISOR || raw?.supervisor || it?.team || raw?.team || '',
+        supervisor:      normalizeSupervisor(it?.supervisor || it?.SUPERVISOR || raw?.supervisor || raw?.SUPERVISOR || it?.team || raw?.team || ''),
         agente:          it?.agenteNombre    || it?.agente         || raw?.agenteNombre || raw?.agente || it?.createdBy || it?.creadoPor || raw?.createdBy || raw?.creadoPor || '',
         motivo_llamada:  it?.motivo_llamada  || '',
         zip_code:        it?.zip_code        || it?.zip            || '',
@@ -1933,7 +1944,30 @@
     const from    = val('dateFrom');
     const to      = val('dateTo');
 
-    __filteredLeads = __allLeadsData.filter(lead => {
+    // Obtener datos del usuario actual para filtrado por rol
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const userRole = (userData.role || '').toLowerCase();
+    const userName = userData.nombre || userData.name || userData.username || '';
+    
+    // Determinar si el usuario puede ver todos los leads
+    const isAdminOrBackoffice = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
+    const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes';
+    const isSupervisor = userRole === 'supervisor' || userRole === 'supervisores';
+
+    let filtered = __allLeadsData.filter(lead => {
+      // Filtrado por rol PRIMERO
+      if (!isAdminOrBackoffice) {
+        if (isAgent) {
+          // Agentes solo ven sus propios leads
+          const leadAgent = (lead.agente || '').trim();
+          if (leadAgent !== userName) return false;
+        } else if (isSupervisor) {
+          // Supervisores solo ven leads de su equipo
+          const leadSupervisor = (lead.supervisor || '').trim();
+          if (leadSupervisor !== userName) return false;
+        }
+      }
+      // Admin y Backoffice ven todos (no hay filtro adicional por rol)
       if (search && !['nombre_cliente','telefono','numero_cuenta','zip_code']
             .some(f => String(lead[f]||'').toUpperCase().includes(search))) return false;
 
@@ -1970,6 +2004,14 @@
       return true;
     });
 
+    // Ordenar de más reciente a más viejo por dia_venta o dia_instalacion
+    __filteredLeads = filtered.sort((a, b) => {
+      const dateA = a.dia_venta || a.dia_instalacion || '';
+      const dateB = b.dia_venta || b.dia_instalacion || '';
+      // Orden descendente (más reciente primero)
+      return dateB.localeCompare(dateA);
+    });
+
     currentPage = 1;
     renderTableRows();
     // Actualizar opciones de filtros con datos reales
@@ -1996,19 +2038,30 @@
 
   /* Inline status select — reemplaza el badge con un <select> estilizado */
   function statusCellHTML(leadId, currentStatus) {
+    // Verificar si el usuario es admin o backoffice
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const role = (userData.role || '').toLowerCase();
+    const isAdminOrBackoffice = role === 'admin' || role === 'backoffice' || role === 'administrador';
+    
+    // Si no es admin/backoffice, mostrar solo el badge sin dropdown
+    if (!isAdminOrBackoffice) {
+      return badgeHTML(currentStatus);
+    }
+    
     // Asegurar que leadId es string
     const leadIdStr = typeof leadId === 'object' ? leadId.toString() : String(leadId);
     const cfg = STATUS_CFG[currentStatus] || { cls: 'badge-hold' };
+    
+    // Nuevas opciones: Pending, Completed, Cancelled, Hold, Oficina, Reserva
     const opts = [
       { value: 'pending',       label: 'Pending'        },
-      { value: 'completed',     label: 'Active'         },
-      { value: 'active',        label: 'Active Alt'     },
-      { value: 'active_oficina',label: 'Act. Oficina'   },
-      { value: 'reserva',       label: 'En Reserva'        },
+      { value: 'completed',     label: 'Completed'      },
       { value: 'cancelled',     label: 'Cancelled'      },
       { value: 'hold',          label: 'Hold'           },
-      { value: 'rescheduled',   label: 'Rescheduled'    },
+      { value: 'active_oficina',label: 'Oficina'        },
+      { value: 'reserva',       label: 'Reserva'        },
     ].map(o => `<option value="${o.value}"${o.value === currentStatus ? ' selected' : ''}>${o.label}</option>`).join('');
+    
     return `<select
       class="status-inline-select ${cfg.cls}"
       data-lead-id="${leadIdStr}"
@@ -2667,47 +2720,18 @@
           .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
       );
 
-      const canonTeamLabel = (v) => {
-        const s = String(v || '').trim();
-        if (!s) return '';
-        const up = s
-          .toUpperCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        // Remove prefix TEAM / TEAM_
-        const noTeam = up.replace(/^TEAM\s+/, '').trim();
-        // If looks like full name (e.g. BRYAN PLEITEZ), use last token as canonical supervisor label
-        const parts = noTeam.split(' ').filter(Boolean);
-        if (parts.length >= 2) return parts[parts.length - 1];
-        return noTeam;
-      };
-
-      const ALLOWED_TEAMS = ['JOHANA','IRANIA','MARISOL','ROBERTO','PLEITEZ'];
-      const mapToAllowedTeam = (v) => {
-        const k = canonTeamLabel(v);
-        if (!k) return '';
-        if (ALLOWED_TEAMS.includes(k)) return k;
-        const alias = {
-          BELTRAN: 'MARISOL',
-          VELASQUEZ: 'ROBERTO',
-          SERRANO: 'IRANIA'
-        };
-        return alias[k] || '';
-      };
-
       // Rebuild team options from supervisors/users and/or lead data
+      // Usar nombres completos directamente sin transformaciones
       const teamCfg = FILTER_CFG.find(c => c.tokenId === 'token-team');
       const supervisorsFromUsers = uniqSorted(
         users
           .filter(isSupervisorUser)
           .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
-      ).map(mapToAllowedTeam).filter(Boolean);
+      ).filter(Boolean);
 
       const teamsFromLeads = uniqSorted(
-        (leadsData || []).map(l => l?.team || l?.supervisor || l?.equipo || l?._raw?.team || l?._raw?.supervisor || '')
-      ).map(mapToAllowedTeam).filter(Boolean);
+        (leadsData || []).map(l => l?.supervisor || l?.team || l?.equipo || l?._raw?.supervisor || l?._raw?.team || '')
+      ).filter(Boolean);
 
       const teams = uniqSorted([ ...supervisorsFromUsers, ...teamsFromLeads ]);
       if (teamCfg) {
