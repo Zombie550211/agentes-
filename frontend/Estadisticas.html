@@ -665,8 +665,8 @@ function __buildTeamLineasSummaryFromItemsWithColchon(items,monthStartYMD,monthE
     if(!dv)continue;
     const iC=dv>=monthStartYMD&&dv<=monthEndYMD,iP=dv>=pS&&dv<=pE,insC=!!(di&&di>=monthStartYMD&&di<=monthEndYMD);
     if(!(iC||(iP&&insC)))continue;
-    const sup=ns(it?.supervisor||it?.Supervisor||it?.TEAM||it?.team||it?.equipo||it?.grupo||it?.department||it?.team_name||it?.Team);
-    if(!sup||!(sup==='JONATHAN F'||sup==='LUIS G'))continue;
+    const sup=ns(it?.supervisor||it?.Supervisor||it?.TEAM||it?.team||it?.equipo||it?.grupo||it?.department||it?.team_name||it?.Team||it?._collectionName);
+    if(!sup)continue;
     const l=Number(it?.cantidad_lineas||it?.cantidadLineas||1)||1;
     const cur=byS.get(sup)||{name:sup,displayName:ds(sup),CLIENTES:0,LINEAS:0};cur.CLIENTES++;cur.LINEAS+=l;byS.set(sup,cur);
   }
