@@ -1068,6 +1068,7 @@
           <button type="button" class="stab all is-active" data-status="all">Todos</button>
           <button type="button" class="stab pending"       data-status="pending">Pending</button>
           <button type="button" class="stab active"        data-status="completed">Active</button>
+          <button type="button" class="stab oficina"       data-status="oficina">Oficina</button>
           <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
         </div>
 
@@ -1272,8 +1273,7 @@
           <select id="edit-status">
             <option value="pending">Pending</option>
             <option value="completed">Active / Completed</option>
-            <option value="active">Active</option>
-            <option value="active_oficina">Active Oficina</option>
+            <option value="oficina">Oficina</option>
             <option value="reserva">En Reserva</option>
             <option value="cancelled">Cancelled</option>
             <option value="hold">Hold</option>
@@ -1852,7 +1852,7 @@
       if (l === 'cancelled' || l === 'canceled' || l === 'cancelado' || l === 'cancelada' || l === 'cancelados' || l === 'canceladas') return 'cancelled';
       if (l === 'hold' || l === 'en hold' || l === 'pausado' || l === 'pausa') return 'hold';
       if (l === 'rescheduled' || l === 'reagendado' || l === 'reagendada' || l === 'reprogramado' || l === 'reprogramada') return 'rescheduled';
-      if (l === 'active_oficina' || (l.includes('active') && l.includes('oficina')) || (l.includes('act') && l.includes('oficina'))) return 'active_oficina';
+      if (l === 'oficina' || l === 'active_oficina' || (l.includes('active') && l.includes('oficina')) || (l.includes('act') && l.includes('oficina'))) return 'oficina';
       if (l === 'active' || l === 'activo' || l === 'activa' || l === 'activas' || l === 'activos') return 'active';
       if (l === 'completed' || l === 'complete' || l === 'completado' || l === 'completada' || l === 'cerrado' || l === 'cerrada') return 'completed';
       // fuzzy fallbacks
@@ -1905,7 +1905,6 @@
     try { window.__allLeadsData = __allLeadsData; } catch (_) {}
     currentPage = 1;
     applyFilters();
-    updateKPIs();
     // Actualizar opciones de filtros con datos reales
     if (typeof window._refreshFilterOptions === 'function') {
       setTimeout(window._refreshFilterOptions, 0);
@@ -1962,7 +1961,7 @@
     };
     
     // Determinar si el usuario puede ver todos los leads
-    const isAdminOrBackoffice = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
+    const isAdminOrBackoffice = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador' || userRole === 'rol_icon' || userRole === 'rol_bamo';
     const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes' || userRole === 'vendedor' || userRole === 'vendedores';
     const isSupervisor = userRole === 'supervisor' || userRole === 'supervisores';
     
@@ -1970,6 +1969,12 @@
     const normalizedUserName = normalizeSupervisorName(userName);
 
     let filtered = __allLeadsData.filter(lead => {
+      // Excluir ventas con status 'oficina' de los conteos de agentes y supervisores
+      // Estas ventas no cuentan para nadie
+      if (!isAdminOrBackoffice && lead.status === 'oficina') {
+        return false;
+      }
+      
       // Filtrado por rol PRIMERO
       if (!isAdminOrBackoffice) {
         if (isAgent) {
@@ -2030,6 +2035,7 @@
 
     currentPage = 1;
     renderTableRows();
+    updateKPIs();
     // Actualizar opciones de filtros con datos reales
     if (typeof window._refreshFilterOptions === 'function') {
       setTimeout(window._refreshFilterOptions, 0);
@@ -2039,7 +2045,7 @@
   const STATUS_CFG = {
     completed:     { label:'Active',       cls:'badge-active'    },
     active:        { label:'Active',       cls:'badge-active'    },
-    active_oficina:{ label:'Act. Oficina', cls:'badge-active'    },
+    oficina:       { label:'Oficina',      cls:'badge-active'    },
     pending:       { label:'Pending',      cls:'badge-pending'   },
     reserva:       { label:'Reserva',      cls:'badge-pending'   },
     cancelled:     { label:'Cancelled',    cls:'badge-cancelled' },
@@ -2057,7 +2063,7 @@
     // Verificar si el usuario es admin o backoffice
     const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
     const role = (userData.role || '').toLowerCase();
-    const isAdminOrBackoffice = role === 'admin' || role === 'backoffice' || role === 'administrador';
+    const isAdminOrBackoffice = role === 'admin' || role === 'backoffice' || role === 'administrador' || role === 'rol_icon' || role === 'rol_bamo';
     
     // Si no es admin/backoffice, mostrar solo el badge sin dropdown
     if (!isAdminOrBackoffice) {
@@ -2074,7 +2080,7 @@
       { value: 'completed',     label: 'Completed'      },
       { value: 'cancelled',     label: 'Cancelled'      },
       { value: 'hold',          label: 'Hold'           },
-      { value: 'active_oficina',label: 'Oficina'        },
+      { value: 'oficina',       label: 'Oficina'        },
       { value: 'reserva',       label: 'Reserva'        },
     ].map(o => `<option value="${o.value}"${o.value === currentStatus ? ' selected' : ''}>${o.label}</option>`).join('');
     
@@ -2233,31 +2239,27 @@
     const from    = (document.getElementById('dateFrom')?.value || '').trim();
     const to      = (document.getElementById('dateTo')?.value || '').trim();
 
-    // Base de KPIs: usar __filteredLeads (los mismos datos que la tabla)
-    // Esto asegura que los KPIs coincidan exactamente con lo que se muestra en la tabla
+    // Base de KPIs: filtrar __filteredLeads para SOLO mostrar ventas del mes actual
     const baseAll = __filteredLeads.filter(l => {
       if (!l) return false;
-      
-      // SOLO ventas del mes actual
       const diaVenta = l?.dia_venta || '';
-      if (!diaVenta || !String(diaVenta).startsWith(currentMonthStr)) return false;
-      
-      return true;
+      // Solo ventas del mes actual
+      return diaVenta && String(diaVenta).startsWith(currentMonthStr);
     });
 
-    // Para KPIs por status, excluir reservas
-    const base = baseAll.filter(l => l.status !== 'reserva');
+    // Para KPIs por status, excluir reservas y oficina (son para apartar ventas)
+    const base = baseAll.filter(l => l && l.status !== 'reserva' && l.status !== 'oficina');
 
     // Ventas de hoy
     const hoy = base.filter(l => (l.dia_venta || '').startsWith(today)).length;
 
-    // Ventas activas/completadas (solo mes actual)
-    const activas = base.filter(l => ['completed','active','active_oficina'].includes(l.status)).length;
+    // Ventas activas/completadas (NO incluir oficina - es solo para apartar)
+    const activas = base.filter(l => ['completed','active'].includes(l.status)).length;
 
-    // Pendientes (solo mes actual)
+    // Pendientes
     const pend = base.filter(l => l.status === 'pending').length;
 
-    // Cancelados (solo mes actual)
+    // Cancelados
     const cancel = base.filter(l => l.status === 'cancelled').length;
     
     set('costumer-ventas-hoy',     hoy);
@@ -2321,13 +2323,13 @@
       const l = s.toLowerCase();
       if (l === 'active') return 'active';
       if (l === 'completed') return 'completed';
-      if (l === 'active_oficina') return 'active_oficina';
+      if (l === 'oficina' || l === 'active_oficina') return 'oficina';
       if (l === 'reserva') return 'reserva';
       if (l === 'cancelled') return 'cancelled';
       if (l === 'hold') return 'hold';
       if (l === 'rescheduled') return 'rescheduled';
       // if backend sends labels like "Active / Completed" or similar
-      if (l.includes('active') && l.includes('oficina')) return 'active_oficina';
+      if (l.includes('active') && l.includes('oficina')) return 'oficina';
       if (l.includes('active') || l.includes('complete')) return 'completed';
       if (l.includes('cancel')) return 'cancelled';
       if (l.includes('resched')) return 'rescheduled';
@@ -2450,7 +2452,6 @@
 
     cerrarModal();
     applyFilters();
-    updateKPIs();
   }
 
   function showToast(msg, type = 'ok') {
