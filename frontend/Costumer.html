@@ -1950,8 +1950,16 @@
 
     // Obtener datos del usuario actual para filtrado por rol
     const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-    const userRole = (userData.role || '').toLowerCase();
-    const userName = userData.nombre || userData.name || userData.username || '';
+    const userRole = (userData.role || userData.rol || '').toLowerCase();
+    const userName = (userData.nombre || userData.name || userData.username || '').trim();
+    const userUsername = (userData.username || '').trim();
+    
+    // Debug completo
+    console.log('[FILTER DEBUG] userData completo:', userData);
+    console.log('[FILTER DEBUG] userRole:', userRole);
+    console.log('[FILTER DEBUG] userName:', userName);
+    console.log('[FILTER DEBUG] userUsername:', userUsername);
+    console.log('[FILTER DEBUG] Total leads antes de filtrar:', __allLeadsData.length);
     
     // Normalizar el nombre del supervisor para comparación
     const normalizeSupervisorName = (name) => {
@@ -1985,7 +1993,22 @@
         if (isAgent) {
           // Agentes solo ven sus propios leads
           const leadAgent = (lead.agente || '').trim();
-          if (leadAgent !== userName) return false;
+          
+          // Debug para INGRID
+          if (userName.toUpperCase().includes('INGRID') || userUsername.toUpperCase().includes('INGRID') || leadAgent.toUpperCase().includes('INGRID')) {
+            console.log('[FILTER DEBUG INGRID]', {
+              userName,
+              userUsername,
+              leadAgent,
+              matchName: leadAgent === userName,
+              matchUsername: leadAgent === userUsername,
+              leadId: lead._id,
+              leadCliente: lead.nombre_cliente
+            });
+          }
+          
+          // Comparar con nombre completo O con username
+          if (leadAgent !== userName && leadAgent !== userUsername) return false;
         } else if (isSupervisor) {
           // Supervisores solo ven leads de su equipo
           // Normalizar el supervisor del lead para comparación
@@ -2067,7 +2090,7 @@
   function statusCellHTML(leadId, currentStatus) {
     // Verificar si el usuario es admin o backoffice
     const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-    const role = (userData.role || '').toLowerCase();
+    const role = (userData.role || userData.rol || '').toLowerCase();
     const isAdminOrBackoffice = role === 'admin' || role === 'backoffice' || role === 'administrador' || role === 'rol_icon' || role === 'rol_bamo';
     
     // Si no es admin/backoffice, mostrar solo el badge sin dropdown
@@ -2493,356 +2516,6 @@
     syncWidth();
   })();
 
-  document.getElementById('toggle-compact')?.addEventListener('click', function(){
-    const table = document.querySelector('.costumer-table');
-    if(!table) return;
-    const compact = table.classList.toggle('compact-mode');
-    this.textContent = compact ? '⊞ Normal' : '⊞ Compacto';
-  });
-
-  /* ═══════════════════════════════════════════════════
-     CUSTOM FILTER DROPDOWN ENGINE
-     Reemplaza los select nativos con dropdowns estilizados
-  ═══════════════════════════════════════════════════ */
-  (function initFilterDropdowns() {
-    // Configuración de cada filtro
-    const FILTER_CFG = [
-      {
-        tokenId: 'token-service', selectId: 'serviceFilter', labelId: 'tv-service',
-        title: 'Tipo de Servicio', searchable: false,
-        options: [
-          { value: '', label: 'Todos los servicios', dot: 'var(--ink-4)' },
-          { value: 'ATT',      label: 'ATT',      dot: '#00A8E0' },
-          { value: 'DIRECTV',  label: 'DIRECTV',  dot: '#FF6900' },
-          { value: 'SPECTRUM', label: 'SPECTRUM', dot: '#6C47FF' },
-        ]
-      },
-      {
-        tokenId: 'token-team', selectId: 'teamFilter', labelId: 'tv-team',
-        title: 'Team / Supervisor', searchable: true,
-        options: [
-          { value: '', label: 'Todos los teams', dot: 'var(--ink-4)' },
-        ]
-      },
-      {
-        tokenId: 'token-agent', selectId: 'agentFilter', labelId: 'tv-agent',
-        title: 'Agente', searchable: true,
-        options: [] // se puebla dinámicamente desde los datos
-      },
-      {
-        tokenId: 'token-mercado', selectId: 'mercadoFilter', labelId: 'tv-mercado',
-        title: 'Mercado', searchable: false,
-        options: [
-          { value: '', label: 'Todos los mercados', dot: 'var(--ink-4)' },
-          { value: 'ICON', label: 'ICON', dot: 'var(--go)' },
-          { value: 'BAMO', label: 'BAMO', dot: 'var(--warn)' },
-        ]
-      },
-      {
-        tokenId: 'token-month', selectId: 'monthFilter', labelId: 'tv-month',
-        title: 'Mes', searchable: false,
-        options: [
-          { value: '', label: 'Todos los meses', dot: 'var(--ink-4)' },
-        ]
-      },
-    ];
-
-    const dropdowns = {}; // map tokenId → { panel, cfg, currentVal }
-
-    function buildPanel(cfg) {
-      const panel = document.createElement('div');
-      panel.className = 'fdd';
-      panel.id = 'fdd-' + cfg.tokenId.replace('token-','');
-      panel.innerHTML = `
-        <div class="fdd-header">
-          <div class="fdd-title">${cfg.title}</div>
-          ${cfg.searchable ? `
-          <div class="fdd-search-wrap">
-            <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
-              <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M14 14l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-            <input class="fdd-search" placeholder="Buscar…" autocomplete="off" spellcheck="false"/>
-          </div>` : ''}
-        </div>
-        <div class="fdd-list"></div>
-        <div class="fdd-footer">
-          <button class="fdd-clear">✕ Limpiar filtro</button>
-        </div>
-      `;
-      document.body.appendChild(panel);
-
-      // search
-      const searchInput = panel.querySelector('.fdd-search');
-      if (searchInput) {
-        searchInput.addEventListener('input', () => renderOpts(cfg.tokenId, searchInput.value));
-        searchInput.addEventListener('click', e => e.stopPropagation());
-      }
-
-      // clear
-      panel.querySelector('.fdd-clear').addEventListener('click', e => {
-        e.stopPropagation();
-        selectOpt(cfg.tokenId, '', 'Todos');
-        closeAll();
-      });
-
-      // close on click outside
-      document.addEventListener('click', e => {
-        if (!panel.contains(e.target)) closePanel(cfg.tokenId);
-      }, true);
-
-      dropdowns[cfg.tokenId] = { panel, cfg, currentVal: '' };
-      return panel;
-    }
-
-    function renderOpts(tokenId, search = '') {
-      const { panel, cfg, currentVal } = dropdowns[tokenId];
-      const list = panel.querySelector('.fdd-list');
-      const q = search.toLowerCase();
-      const opts = cfg.options.filter(o => !q || o.label.toLowerCase().includes(q));
-      list.innerHTML = opts.map(o => `
-        <div class="fdd-opt${o.value === currentVal ? ' selected' : ''}" data-value="${o.value}" data-label="${o.label}">
-          <span class="opt-dot" style="background:${o.dot || 'var(--ink-4)'}"></span>
-          ${o.label}
-          ${o.count != null ? `<span class="opt-count">${o.count}</span>` : ''}
-        </div>
-      `).join('');
-      list.querySelectorAll('.fdd-opt').forEach(el => {
-        el.addEventListener('click', e => {
-          e.stopPropagation();
-          selectOpt(tokenId, el.dataset.value, el.dataset.label);
-          closeAll();
-        });
-      });
-    }
-
-    function selectOpt(tokenId, value, label) {
-      const { cfg } = dropdowns[tokenId];
-      dropdowns[tokenId].currentVal = value;
-
-      // sync hidden select
-      const sel = document.getElementById(cfg.selectId);
-      if (sel) { sel.value = value; }
-
-      // update token label
-      const lbl = document.getElementById(cfg.labelId);
-      if (lbl) lbl.textContent = value ? label : 'Todos';
-
-      // mark token active
-      const tok = document.getElementById(tokenId);
-      if (tok) tok.classList.toggle('active', !!value);
-
-      applyFiltersDebounced();
-    }
-
-    function openPanel(tokenId) {
-      closeAll(tokenId);
-      const { panel, cfg } = dropdowns[tokenId];
-      const tok = document.getElementById(tokenId);
-      if (!tok) return;
-
-      // position below token
-      const rect = tok.getBoundingClientRect();
-      panel.style.top  = (rect.bottom + 5) + 'px';
-      panel.style.left = Math.min(rect.left, window.innerWidth - 250) + 'px';
-
-      panel.classList.add('open');
-      tok.classList.add('open');
-      renderOpts(tokenId);
-
-      // focus search if present
-      const s = panel.querySelector('.fdd-search');
-      if (s) { s.value = ''; setTimeout(() => s.focus(), 60); }
-    }
-
-    function closePanel(tokenId) {
-      const d = dropdowns[tokenId];
-      if (!d) return;
-      d.panel.classList.remove('open');
-      const tok = document.getElementById(tokenId);
-      if (tok) tok.classList.remove('open');
-    }
-
-    function closeAll(except = null) {
-      Object.keys(dropdowns).forEach(id => { if (id !== except) closePanel(id); });
-    }
-
-    // Build panels and wire token clicks
-    FILTER_CFG.forEach(cfg => {
-      buildPanel(cfg);
-      const tok = document.getElementById(cfg.tokenId);
-      if (!tok) return;
-      tok.addEventListener('click', e => {
-        e.stopPropagation();
-        const isOpen = dropdowns[cfg.tokenId].panel.classList.contains('open');
-        isOpen ? closePanel(cfg.tokenId) : openPanel(cfg.tokenId);
-      });
-    });
-
-    // Expose method to update month options dynamically from data
-    window._refreshFilterOptions = function() {
-      const leadsData = Array.isArray(window.__allLeadsData) ? window.__allLeadsData : [];
-      const monthsFromApi = Array.isArray(window.__monthsForFilters) ? window.__monthsForFilters : [];
-
-      const uniqSorted = (arr) => [...new Set((arr || []).map(v => String(v || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-
-      const monthKeyFromAnyDate = (v) => {
-        const s = String(v || '').trim();
-        if (!s) return '';
-        // YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 7);
-        // YYYY/MM/DD
-        if (/^\d{4}\/\d{2}\/\d{2}/.test(s)) return s.slice(0, 7).replace('/', '-');
-        // DD/MM/YYYY
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-          const [d, m, y] = s.split('/');
-          return `${y}-${m}`;
-        }
-        // DD-MM-YYYY
-        if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
-          const [d, m, y] = s.split('-');
-          return `${y}-${m}`;
-        }
-        // Date string fallback
-        try {
-          const d = new Date(s);
-          if (!isNaN(d)) {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            return `${y}-${m}`;
-          }
-        } catch (_) {}
-        return '';
-      };
-
-      const users = Array.isArray(window.__usersForFilters) ? window.__usersForFilters : [];
-      const roleNorm = (r) => String(r || '').toLowerCase();
-      const isSupervisorUser = (u) => /supervisor/.test(roleNorm(u?.role)) || roleNorm(u?.role) === 'supervisor';
-      const isAgentUser = (u) => {
-        const r = roleNorm(u?.role || u?.rol || u?.cargo || '');
-        if (!r) return false;
-        if (/admin|administrador|backoffice/.test(r)) return false;
-        if (/supervisor/.test(r)) return false;
-        return /agente|agentes|agent|vendedor|vendedores|seller/.test(r);
-      };
-
-      const agentsFromUsers = uniqSorted(
-        users
-          .filter(isAgentUser)
-          .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
-      );
-
-      // Rebuild team options from supervisors/users and/or lead data
-      // Usar nombres completos directamente sin transformaciones
-      const teamCfg = FILTER_CFG.find(c => c.tokenId === 'token-team');
-      const supervisorsFromUsers = uniqSorted(
-        users
-          .filter(isSupervisorUser)
-          .map(u => u?.nombre || u?.name || u?.username || u?.user || '')
-      ).filter(Boolean);
-
-      const teamsFromLeads = uniqSorted(
-        (leadsData || []).map(l => l?.supervisor || l?.team || l?.equipo || l?._raw?.supervisor || l?._raw?.team || '')
-      ).filter(Boolean);
-
-      const teams = uniqSorted([ ...supervisorsFromUsers, ...teamsFromLeads ]);
-      if (teamCfg) {
-        teamCfg.options = [
-          { value: '', label: 'Todos los teams', dot: 'var(--ink-4)' },
-          ...teams.map(t => ({ value: t, label: t, dot: 'var(--warn)' }))
-        ];
-      }
-
-      const teamSel = document.getElementById('teamFilter');
-      if (teamSel && teamCfg) {
-        const cur = teamSel.value;
-        teamSel.innerHTML = teamCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
-        teamSel.value = cur;
-      }
-
-      // Rebuild service options from real data
-      const svcCfg = FILTER_CFG.find(c => c.tokenId === 'token-service');
-      const extractServices = (v) => {
-        const s = String(v || '').trim();
-        if (!s) return [];
-        return s
-          .split(/[\/|,;]+/g)
-          .map(x => String(x || '').trim())
-          .filter(Boolean);
-      };
-      const servicesFromLeads = uniqSorted(
-        (leadsData || []).flatMap(l => extractServices(l?.servicios || l?.servicio || l?._raw?.servicios || l?._raw?.servicio))
-      ).map(s => s.toUpperCase());
-      const baseServices = ['ATT','DIRECTV','SPECTRUM'];
-      const services = uniqSorted([ ...baseServices, ...servicesFromLeads ]);
-      if (svcCfg) {
-        svcCfg.options = [
-          { value: '', label: 'Todos los servicios', dot: 'var(--ink-4)' },
-          ...services.map(s => ({ value: s, label: s, dot: 'var(--a)' }))
-        ];
-      }
-      const svcSel = document.getElementById('serviceFilter');
-      if (svcSel && svcCfg) {
-        const cur = svcSel.value;
-        svcSel.innerHTML = svcCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
-        svcSel.value = cur;
-      }
-
-      // Rebuild month options from real data
-      const monthCfg = FILTER_CFG.find(c => c.tokenId === 'token-month');
-      let months = [];
-      try {
-        months = (monthsFromApi && monthsFromApi.length)
-          ? monthsFromApi.slice()
-          : [...new Set((leadsData || [])
-              .map(l => {
-                const raw = l && (l._raw || l.raw || l.__raw) ? (l._raw || l.raw || l.__raw) : null;
-                return monthKeyFromAnyDate(l.dia_venta) ||
-                       monthKeyFromAnyDate(l.dia_instalacion) ||
-                       monthKeyFromAnyDate(raw?.fecha_contratacion) ||
-                       monthKeyFromAnyDate(raw?.dia_venta) ||
-                       monthKeyFromAnyDate(raw?.diaVenta) ||
-                       monthKeyFromAnyDate(raw?.fechaContratacion);
-              })
-              .filter(Boolean)
-            )].sort().reverse();
-      } catch (_) {
-        months = [];
-      }
-
-      const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-      monthCfg.options = [
-        { value: '', label: 'Todos los meses', dot: 'var(--ink-4)' },
-        ...months.map(m => {
-          const [y, mo] = m.split('-');
-          return { value: m, label: `${MONTH_NAMES[+mo-1]} ${y}`, dot: 'var(--a)' };
-        })
-      ];
-      // Also update the hidden select
-      const sel = document.getElementById('monthFilter');
-      if (sel) {
-        const cur = sel.value;
-        sel.innerHTML = monthCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
-        sel.value = cur;
-      }
-
-      // Rebuild agent options from real agents
-      const agentCfg = FILTER_CFG.find(c => c.tokenId === 'token-agent');
-      const agents = agentsFromUsers.length ? agentsFromUsers : uniqSorted(leadsData.map(l => l.agente));
-      agentCfg.options = [
-        { value: '', label: 'Todos los agentes', dot: 'var(--ink-4)' },
-        ...agents.map(a => ({ value: a, label: a, dot: 'var(--info)' }))
-      ];
-
-      const agSel = document.getElementById('agentFilter');
-      if (agSel) {
-        const cur = agSel.value;
-        agSel.innerHTML = agentCfg.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
-        agSel.value = cur;
-      }
-    };
-  })();
-
   document.addEventListener('DOMContentLoaded', () => {
 
     function initSocketNotifications() {
@@ -2870,6 +2543,19 @@
     }
 
     initSocketNotifications();
+
+    // Ocultar filtros innecesarios para agentes
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const userRole = (userData.role || '').toLowerCase();
+    const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes' || userRole === 'vendedor' || userRole === 'vendedores';
+    
+    if (isAgent) {
+      // Ocultar filtros de Team y Agente para agentes
+      const tokenTeam = document.getElementById('token-team');
+      const tokenAgent = document.getElementById('token-agent');
+      if (tokenTeam) tokenTeam.style.display = 'none';
+      if (tokenAgent) tokenAgent.style.display = 'none';
+    }
 
     document.getElementById('costumer-search')?.addEventListener('input', applyFiltersDebounced);
 
@@ -2921,6 +2607,30 @@
 
     ['dateFrom','dateTo'].forEach(id => {
       document.getElementById(id)?.addEventListener('change', applyFiltersDebounced);
+    });
+
+    // Inicializar dropdowns de filtros (tokens)
+    document.querySelectorAll('.token[data-fdd]').forEach(token => {
+      const select = token.querySelector('select');
+      if (!select) return;
+      
+      // Hacer que el token abra el select al hacer clic
+      token.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'SELECT') {
+          select.focus();
+          select.click();
+        }
+      });
+      
+      // Actualizar el valor visual cuando cambia el select
+      select.addEventListener('change', () => {
+        const valSpan = token.querySelector('.token-val');
+        if (valSpan) {
+          const selectedOption = select.options[select.selectedIndex];
+          valSpan.textContent = selectedOption.text;
+        }
+        applyFiltersDebounced();
+      });
     });
 
     document.addEventListener('keydown', e => {
