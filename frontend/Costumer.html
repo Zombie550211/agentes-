@@ -1949,10 +1949,25 @@
     const userRole = (userData.role || '').toLowerCase();
     const userName = userData.nombre || userData.name || userData.username || '';
     
+    // Normalizar el nombre del supervisor para comparación
+    const normalizeSupervisorName = (name) => {
+      const s = String(name || '').trim().toUpperCase();
+      if (!s) return '';
+      if (s.includes('BRYAN') || s.includes('PLEITEZ')) return 'PLEITEZ';
+      if (s.includes('IRANIA') || s.includes('SERRANO')) return 'IRANIA';
+      if (s.includes('MARISOL') || s.includes('BELTRAN')) return 'MARISOL';
+      if (s.includes('ROBERTO') || s.includes('VELASQUEZ')) return 'ROBERTO';
+      if (s.includes('JOHANA')) return 'JOHANA';
+      return s;
+    };
+    
     // Determinar si el usuario puede ver todos los leads
     const isAdminOrBackoffice = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
     const isAgent = userRole === 'agente' || userRole === 'agent' || userRole === 'agentes' || userRole === 'vendedor' || userRole === 'vendedores';
     const isSupervisor = userRole === 'supervisor' || userRole === 'supervisores';
+    
+    // Normalizar el nombre del usuario supervisor
+    const normalizedUserName = normalizeSupervisorName(userName);
 
     let filtered = __allLeadsData.filter(lead => {
       // Filtrado por rol PRIMERO
@@ -1963,8 +1978,9 @@
           if (leadAgent !== userName) return false;
         } else if (isSupervisor) {
           // Supervisores solo ven leads de su equipo
-          const leadSupervisor = (lead.supervisor || '').trim();
-          if (leadSupervisor !== userName) return false;
+          // Normalizar el supervisor del lead para comparación
+          const leadSupervisor = normalizeSupervisorName(lead.supervisor || '');
+          if (leadSupervisor !== normalizedUserName) return false;
         }
       }
       // Admin y Backoffice ven todos (no hay filtro adicional por rol)
@@ -2206,9 +2222,9 @@
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     const today = `${year}-${month}-${day}`;
-    const monthStr = `${year}-${month}`;
-    const kpiMonth = (document.getElementById('monthFilter')?.value || '').trim() || monthStr;
+    const currentMonthStr = `${year}-${month}`;
 
+    // Obtener filtros activos
     const svc     = (document.getElementById('serviceFilter')?.value || '').trim();
     const team    = (document.getElementById('teamFilter')?.value || '').trim();
     const agent   = (document.getElementById('agentFilter')?.value || '').trim();
@@ -2216,46 +2232,44 @@
     const from    = (document.getElementById('dateFrom')?.value || '').trim();
     const to      = (document.getElementById('dateTo')?.value || '').trim();
 
-    const hasRange = !!(from && to);
-    const fromD = hasRange ? new Date(from) : null;
-    const toD   = hasRange ? new Date(to + 'T23:59:59') : null;
-
-    const inKpiWindow = (lead) => {
-      const fechaRef = lead?.dia_venta || lead?.dia_instalacion || '';
-      if (!fechaRef) return false;
-      if (hasRange) {
-        const dt = new Date(fechaRef);
-        if (isNaN(dt)) return false;
-        return dt >= fromD && dt <= toD;
-      }
-      return String(fechaRef).startsWith(kpiMonth);
-    };
-
-    // Base de KPIs: por mes (default) o por rango (si se selecciona)
-    // y respetando filtros principales (servicio / team / agente / mercado)
+    // Base de KPIs: SOLO mes actual (sin colchón) + respetando filtros activos
     const baseAll = __allLeadsData.filter(l => {
       if (!l) return false;
-      if (!inKpiWindow(l)) return false;
+      
+      // SOLO ventas del mes actual
+      const diaVenta = l?.dia_venta || '';
+      if (!diaVenta || !String(diaVenta).startsWith(currentMonthStr)) return false;
+      
+      // Aplicar filtros activos (dinámicos)
       if (svc && !String(l.servicios || '').toUpperCase().includes(svc.toUpperCase())) return false;
       if (team && !String(l.supervisor || '').toUpperCase().includes(team.toUpperCase())) return false;
       if (agent && !String(l.agente || '').includes(agent)) return false;
       if (mercado && String(l.mercado || '') !== mercado) return false;
+      
+      // Aplicar filtro de rango de fechas si está activo
+      if (from && to) {
+        const ref = l.dia_venta || l.dia_instalacion;
+        if (!ref) return false;
+        const dt = new Date(ref);
+        if (dt < new Date(from) || dt > new Date(to + 'T23:59:59')) return false;
+      }
+      
       return true;
     });
 
-    // Para KPIs por status, excluimos reservas
+    // Para KPIs por status, excluir reservas
     const base = baseAll.filter(l => l.status !== 'reserva');
 
-    // Ventas de hoy (solo aplica naturalmente cuando el rango/mes incluye hoy)
+    // Ventas de hoy
     const hoy = base.filter(l => (l.dia_venta || '').startsWith(today)).length;
 
-    // Ventas activas/completadas
+    // Ventas activas/completadas (solo mes actual)
     const activas = base.filter(l => ['completed','active','active_oficina'].includes(l.status)).length;
 
-    // Pendientes
+    // Pendientes (solo mes actual)
     const pend = base.filter(l => l.status === 'pending').length;
 
-    // Cancelados
+    // Cancelados (solo mes actual)
     const cancel = base.filter(l => l.status === 'cancelled').length;
     
     set('costumer-ventas-hoy',     hoy);
