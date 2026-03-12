@@ -1924,18 +1924,24 @@ router.get('/leads/kpis', protect, async (req, res) => {
           return out;
         };
 
-        const prevSaleOr = [
-          ...buildPrevDateOr(['dia_venta', 'fecha_contratacion', 'diaVenta', 'fechaVenta', 'fecha_venta', 'fechaDeVenta', 'saleDate', 'sale_date']),
-          { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } },
-          { creadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } },
-          { actualizadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } }
-        ];
+        // COLCHÓN: solo dia_venta en mes ANTERIOR (sin createdAt/creadoEn para evitar doble conteo)
+        const prevSaleOr = buildPrevDateOr(['dia_venta', 'fecha_contratacion', 'diaVenta', 'fechaVenta', 'fecha_venta', 'fechaDeVenta', 'saleDate', 'sale_date']);
 
         __colchonApplicable = !(status && String(status).toLowerCase() !== 'todos');
         if (__colchonApplicable) {
+          // Agregar filtro de status COMPLETED al colchón
+          const statusCompletedCondition = {
+            $or: [
+              { status: { $regex: /^completed$/i } },
+              { estatus: { $regex: /^completed$/i } },
+              { estado: { $regex: /^completed$/i } },
+              { _raw: { status: { $regex: /^completed$/i } } }
+            ]
+          };
+          
           queryColchon = baseAndConditions.length
-            ? { $and: [...baseAndConditions, { $or: prevSaleOr }, { $or: installDateOrConditions }] }
-            : { $and: [{ $or: prevSaleOr }, { $or: installDateOrConditions }] };
+            ? { $and: [...baseAndConditions, { $or: prevSaleOr }, { $or: installDateOrConditions }, statusCompletedCondition] }
+            : { $and: [{ $or: prevSaleOr }, { $or: installDateOrConditions }, statusCompletedCondition] };
         }
       } catch (_) {
         queryColchon = null;
@@ -6769,28 +6775,32 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
       };
 
       // Query para el "colchón": ventas del mes anterior con instalación en mes actual
+      // COLCHÓN = dia_venta en MES ANTERIOR + dia_instalacion en MES ACTUAL
       const colchonQuery = {
         $and: [
           baseQuery,
           {
+            // Fecha de venta DEBE estar en el mes ANTERIOR
             $or: [
               { dia_venta: { $gte: prevStartDate, $lte: prevEndDate } },
-              { fecha_contratacion: { $gte: prevStartDate, $lte: prevEndDate } },
-              // Soportar fechas como Date
-              { creadoEn: { $gte: prevMonthStart, $lte: prevMonthEnd } },
-              { createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd } },
-              // Soportar fechas como string ISO
-              { creadoEn: { $gte: prevStartIso, $lte: prevEndIso } },
-              { createdAt: { $gte: prevStartIso, $lte: prevEndIso } },
-              { fecha_creacion: { $gte: prevStartIso, $lte: prevEndIso } },
-              { fechaCreacion: { $gte: prevStartIso, $lte: prevEndIso } }
+              { fecha_contratacion: { $gte: prevStartDate, $lte: prevEndDate } }
             ]
           },
           {
+            // Fecha de instalación DEBE estar en el mes ACTUAL
             $or: [
               { dia_instalacion: { $gte: startDate, $lte: endDate } },
               { fecha_instalacion: { $gte: startDate, $lte: endDate } }
             ]
+          },
+          {
+            // SOLO contar ventas con status COMPLETED (excluir oficina, cancelled, pending, hold)
+            $expr: {
+              $eq: [
+                { $toUpper: { $ifNull: ['$status', ''] } },
+                'COMPLETED'
+              ]
+            }
           }
         ]
       };
@@ -7035,6 +7045,7 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
         .toArray();
 
       // Buscar también el "colchón" (ventas del mes anterior con instalación en mes actual)
+      // Ya filtramos por status COMPLETED en colchonQuery, así que solo contamos y sumamos
       const colchonData = await db.collection('costumers_unified')
         .aggregate([
           {
@@ -7043,22 +7054,15 @@ router.get('/comisiones/agentes-mes', protect, async (req, res) => {
           {
             $group: {
               _id: null,
-              colchonVentas: {
-                $sum: {
-                  $cond: [
-                    { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
-                    1,
-                    0
-                  ]
-                }
-              },
+              colchonVentas: { $sum: 1 },
               colchonPuntos: {
                 $sum: {
-                  $cond: [
-                    { $eq: [{ $toUpper: '$status' }, 'COMPLETED'] },
-                    { $convert: { input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, to: 'double', onError: 0, onNull: 0 } },
-                    0
-                  ]
+                  $convert: { 
+                    input: { $ifNull: ['$puntaje', { $ifNull: ['$puntos', 0] }] }, 
+                    to: 'double', 
+                    onError: 0, 
+                    onNull: 0 
+                  }
                 }
               }
             }
