@@ -2224,35 +2224,23 @@
     const today = `${year}-${month}-${day}`;
     const currentMonthStr = `${year}-${month}`;
 
-    // Obtener filtros activos
+    // Obtener filtros activos (TODOS los filtros, igual que applyFilters)
     const svc     = (document.getElementById('serviceFilter')?.value || '').trim();
     const team    = (document.getElementById('teamFilter')?.value || '').trim();
     const agent   = (document.getElementById('agentFilter')?.value || '').trim();
     const mercado = (document.getElementById('mercadoFilter')?.value || '').trim();
+    const monthFilter = (document.getElementById('monthFilter')?.value || '').trim();
     const from    = (document.getElementById('dateFrom')?.value || '').trim();
     const to      = (document.getElementById('dateTo')?.value || '').trim();
 
-    // Base de KPIs: SOLO mes actual (sin colchón) + respetando filtros activos
-    const baseAll = __allLeadsData.filter(l => {
+    // Base de KPIs: usar __filteredLeads (los mismos datos que la tabla)
+    // Esto asegura que los KPIs coincidan exactamente con lo que se muestra en la tabla
+    const baseAll = __filteredLeads.filter(l => {
       if (!l) return false;
       
       // SOLO ventas del mes actual
       const diaVenta = l?.dia_venta || '';
       if (!diaVenta || !String(diaVenta).startsWith(currentMonthStr)) return false;
-      
-      // Aplicar filtros activos (dinámicos)
-      if (svc && !String(l.servicios || '').toUpperCase().includes(svc.toUpperCase())) return false;
-      if (team && !String(l.supervisor || '').toUpperCase().includes(team.toUpperCase())) return false;
-      if (agent && !String(l.agente || '').includes(agent)) return false;
-      if (mercado && String(l.mercado || '') !== mercado) return false;
-      
-      // Aplicar filtro de rango de fechas si está activo
-      if (from && to) {
-        const ref = l.dia_venta || l.dia_instalacion;
-        if (!ref) return false;
-        const dt = new Date(ref);
-        if (dt < new Date(from) || dt > new Date(to + 'T23:59:59')) return false;
-      }
       
       return true;
     });
