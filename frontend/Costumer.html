@@ -983,6 +983,11 @@
             <span class="cls-val" id="costumer-cancelados">0</span>
             <span class="cls-lbl">cancel.</span>
           </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--ink-3)"></span>
+            <span class="cls-val" id="costumer-oficina">0</span>
+            <span class="cls-lbl">oficina</span>
+          </div>
         </div>
 
         <div class="cmd-actions">
@@ -2262,12 +2267,16 @@
     // Cancelados
     const cancel = base.filter(l => l.status === 'cancelled').length;
     
+    // Oficina (ventas apartadas)
+    const oficina = baseAll.filter(l => l.status === 'oficina').length;
+    
     set('costumer-ventas-hoy',     hoy);
     set('costumer-ventas-mes',     baseAll.length);
 
     set('costumer-ventas-activas', activas);
     set('costumer-pendientes',     pend);
     set('costumer-cancelados',     cancel);
+    set('costumer-oficina',        oficina);
   }
 
   function set(id, val) {

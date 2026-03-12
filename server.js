@@ -81,6 +81,7 @@ const { protect, authorize } = require('./backend/middleware/auth');
 
 // Importar rutas
 const authRoutes = require('./backend/routes/auth');
+const forgotPasswordRoutes = require('./backend/routes/auth-forgot-password');
 const apiRoutes = require('./backend/routes/api');
 const rankingRoutes = require('./backend/routes/ranking');
 const equipoRoutes = require('./backend/routes/equipoRoutes');
@@ -1911,6 +1912,7 @@ app.get('/api/debug/ingrid-score', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', forgotPasswordRoutes);
 app.use('/api/facturacion', facturacionRoutes);
 app.use('/api/facturacion-lineas', facturacionLineasRoutes);
 app.use('/api/llamadas-ventas-lineas', llamadasVentasLineasRoutes);

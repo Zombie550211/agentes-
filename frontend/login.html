@@ -1,775 +1,1321 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM Login - Connecting</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Script de inicialización del dashboard (carga optimizada) -->
-    <script src="js/dashboard-init.js" defer></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Agente — Acceso</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="js/dashboard-init.js" defer></script>
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            background: url('images/podioazul.png') center/cover no-repeat fixed, #000;
-        }
+  <style>
+    /* ═══════════════════════════════════════
+       DESIGN TOKENS — LIGHT EDITORIAL
+    ═══════════════════════════════════════ */
+    :root {
+      --bg:          #f5f2ed;
+      --surface:     #ffffff;
+      --surface2:    #faf8f5;
+      --border:      #e8e3db;
+      --border-hi:   #d5cfc5;
+      --accent:      #c0392b;
+      --accent-deep: #962d22;
+      --accent-dim:  rgba(192,57,43,0.08);
+      --text:        #1c1917;
+      --text-2:      #6b6560;
+      --text-3:      #b8b2aa;
+      --danger:      #c0392b;
+      --danger-dim:  rgba(192,57,43,0.08);
+      --success:     #1a7a4a;
+      --success-dim: rgba(26,122,74,0.09);
+      --warn:        #b45309;
+      --warn-dim:    rgba(180,83,9,0.09);
+      --info:        #1e5fa8;
+      --info-dim:    rgba(30,95,168,0.09);
+      --serif:       'Playfair Display', Georgia, serif;
+      --mono:        'DM Mono', 'Courier New', monospace;
+      --radius:      5px;
+      --transition:  0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-sm:   0 1px 3px rgba(28,25,23,0.08), 0 1px 2px rgba(28,25,23,0.04);
+      --shadow-md:   0 4px 16px rgba(28,25,23,0.10), 0 2px 6px rgba(28,25,23,0.06);
+    }
 
-        /* Video de fondo */
-        #video-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-            z-index: -2;
-        }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* Overlay oscuro sobre el video de fondo */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: -1;
-        }
+    html, body {
+      height: 100%;
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
 
-        .login-container {
-            position: relative;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 1200px;
-            padding: 0 2rem;
-        }
+    /* ─── BACKGROUND ─── */
+    .bg-image { position: fixed; inset: 0; background: var(--bg); z-index: 0; }
+    .bg-image::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+    .bg-image::after {
+      content: '';
+      position: absolute; top: -15%; left: -10%;
+      width: 55vw; height: 55vw; border-radius: 50%;
+      background: radial-gradient(circle, rgba(192,57,43,0.05) 0%, transparent 65%);
+      pointer-events: none;
+    }
 
-        .left-section {
-            flex: 1;
-            color: white;
-            padding-right: 4rem;
-        }
+    /* ─── PAGE GRID ─── */
+    .page {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 460px; height: 100vh;
+    }
 
-        .logo-section {
-            display: flex;
-            align-items: center;
-            margin-bottom: 2rem;
-            margin-left: -1rem;
-        }
+    /* ─── LEFT PANEL ─── */
+    .left-panel {
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 52px 60px; border-right: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .left-panel::before {
+      content: ''; position: absolute; top: 0; right: 0; width: 1px; height: 100%;
+      background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+      opacity: 0.2;
+    }
+    .geo-accent {
+      position: absolute; top: -60px; left: -60px;
+      width: 320px; height: 320px;
+      border: 1px solid rgba(192,57,43,0.07); border-radius: 50%; pointer-events: none;
+    }
+    .geo-accent::after {
+      content: ''; position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px;
+      border: 1px solid rgba(192,57,43,0.04); border-radius: 50%;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; animation: fadeUp 0.6s var(--transition) both; }
+    .brand-logo {
+      width: 42px; height: 42px; border: 1px solid rgba(192,57,43,0.25);
+      border-radius: var(--radius); display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 18px; background: var(--accent-dim);
+      flex-shrink: 0; box-shadow: var(--shadow-sm);
+    }
+    .brand-name { font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+    .brand-sub  { font-size: 10px; color: var(--text-2); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+    .hero { animation: fadeUp 0.7s 0.1s var(--transition) both; }
+    .hero-eyebrow {
+      font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
+    }
+    .hero-eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--accent); opacity: 0.5; }
+    .hero-title {
+      font-family: var(--serif); font-size: clamp(36px, 4vw, 58px); font-weight: 900;
+      line-height: 1.05; letter-spacing: -0.02em; color: var(--text); margin-bottom: 28px;
+    }
+    .hero-title em { font-style: italic; color: var(--accent); }
+    .hero-quote {
+      font-size: 13px; font-weight: 300; color: var(--text-2); line-height: 1.7;
+      max-width: 380px; border-left: 2px solid rgba(192,57,43,0.25); padding-left: 20px;
+    }
+    .left-footer { display: flex; gap: 40px; animation: fadeUp 0.7s 0.2s var(--transition) both; }
+    .stat-value { font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+    .stat-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-2); margin-top: 2px; }
 
-        .logo {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 1rem;
-            font-size: 2rem;
-            font-weight: bold;
-            color: white;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
+    /* ─── RIGHT PANEL ─── */
+    .right-panel {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 40px 48px; background: var(--surface);
+      position: relative; overflow-y: auto;
+      box-shadow: -8px 0 32px rgba(28,25,23,0.06);
+    }
+    .right-panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-deep), var(--accent));
+      opacity: 0.7;
+    }
 
-        .logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-        }
+    /* ════════════════════════════════════════════
+       PANEL / STEP VISIBILITY — REGLA CRÍTICA
+       .fp-panel usa display:none por defecto.
+       Solo .fp-panel.active se muestra.
+       Esto GARANTIZA que los pasos no se apilen.
+    ════════════════════════════════════════════ */
+    .main-panel          { display: none; }
+    .main-panel.active   { display: block; }
+    .fp-panel            { display: none !important; }
+    .fp-panel.active     { display: block !important; animation: fadeUp 0.3s var(--transition) both; }
 
-        .brand-text {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: white;
-        }
+    /* ─── FORM HEADER ─── */
+    .form-header { margin-bottom: 28px; }
+    .form-tag {
+      display: inline-flex; align-items: center; gap: 7px; font-size: 9px; font-weight: 500;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--accent);
+      background: var(--accent-dim); border: 1px solid rgba(192,57,43,0.18);
+      border-radius: 2px; padding: 5px 10px; margin-bottom: 16px;
+    }
+    .form-tag i { font-size: 9px; }
+    .form-title {
+      font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px;
+    }
+    .form-subtitle { font-size: 12px; font-weight: 300; color: var(--text-2); line-height: 1.6; }
 
-        .main-title {
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            line-height: 1.1;
-        }
+    /* ─── ALERT ─── */
+    .alert {
+      display: none; align-items: center; gap: 10px; padding: 11px 14px;
+      border-radius: var(--radius); font-size: 12px; margin-bottom: 18px; line-height: 1.4;
+    }
+    .alert.show { display: flex; animation: fadeUp 0.25s var(--transition) both; }
+    .alert i { font-size: 13px; flex-shrink: 0; }
+    .alert-success { background: var(--success-dim); border: 1px solid rgba(26,122,74,0.2);  color: var(--success); }
+    .alert-danger  { background: var(--danger-dim);  border: 1px solid rgba(192,57,43,0.2); color: var(--danger); }
+    .alert-warning { background: var(--warn-dim);    border: 1px solid rgba(180,83,9,0.2);  color: var(--warn); }
+    .alert-info    { background: var(--info-dim);    border: 1px solid rgba(30,95,168,0.2); color: var(--info); }
 
-        .subtitle {
-            font-size: 1.1rem;
-            margin-bottom: 3rem;
-            opacity: 0.9;
-        }
+    /* ─── FIELDS ─── */
+    .field { margin-bottom: 18px; }
+    .field-label {
+      display: block; font-size: 10px; font-weight: 500; letter-spacing: 1.8px;
+      text-transform: uppercase; color: var(--text-2); margin-bottom: 7px;
+    }
+    .input-wrap { position: relative; }
+    .input-wrap .fi {
+      position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: var(--text-3); pointer-events: none; transition: color var(--transition);
+    }
+    .ctrl {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-family: var(--mono);
+      font-size: 13px; padding: 12px 14px 12px 42px; outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+      letter-spacing: 0.3px;
+    }
+    .ctrl::placeholder { color: var(--text-3); font-weight: 300; }
+    .ctrl:focus {
+      border-color: var(--accent); background: var(--surface);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .input-wrap:focus-within .fi { color: var(--accent); }
+    .pw-wrap .ctrl { padding-right: 44px; }
+    .pw-toggle {
+      position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--text-3);
+      font-size: 13px; padding: 4px; transition: color var(--transition); line-height: 1;
+    }
+    .pw-toggle:hover { color: var(--text-2); }
 
-        .quote {
-            font-size: 1.2rem;
-            font-weight: 600;
-            line-height: 1.4;
-        }
+    /* ─── FORM OPTIONS ─── */
+    .form-options {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;
+    }
+    .remember-label {
+      display: flex; align-items: center; gap: 9px; cursor: pointer;
+      font-size: 11px; color: var(--text-2); user-select: none;
+    }
+    .remember-label input[type="checkbox"] { display: none; }
+    .custom-check {
+      width: 16px; height: 16px; border: 1.5px solid var(--border-hi); border-radius: 3px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 9px; color: transparent; background: var(--surface2);
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .remember-label:hover .custom-check { border-color: var(--accent); }
 
-        .quote .highlight {
-            background: linear-gradient(135deg, #00d4ff, #0099cc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 800;
-            font-size: 1.3em;
-            letter-spacing: 0.02em;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        }
+    .forgot-link {
+      font-size: 11px; color: var(--text-2); cursor: pointer; background: none;
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 12px;
+      background: var(--surface2); font-family: var(--mono);
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: all var(--transition);
+    }
+    .forgot-link:hover {
+      color: var(--accent); border-color: var(--accent);
+      background: var(--surface); box-shadow: 0 0 0 2px var(--accent-dim);
+    }
 
-        .right-section {
-            flex: 0 0 400px;
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 3rem 2.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+    /* ─── BUTTONS ─── */
+    .btn-submit {
+      width: 100%; padding: 14px 20px; background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius); font-family: var(--mono);
+      font-size: 12px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-submit:hover:not(:disabled) {
+      background: var(--accent-deep); transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(192,57,43,0.25);
+    }
+    .btn-submit:active:not(:disabled) { transform: translateY(0); box-shadow: var(--shadow-sm); }
+    .btn-submit:disabled { background: var(--border-hi); color: var(--text-3); cursor: not-allowed; box-shadow: none; }
 
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: none; flex-shrink: 0;
+    }
+    .btn-submit.loading .spinner { display: block; }
+    .btn-submit.loading .btn-text { opacity: 0.8; }
 
-        .login-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 0.5rem;
-        }
+    /* ─── BACK LINK ─── */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 7px; font-size: 11px;
+      color: var(--text-2); cursor: pointer; background: none; border: none;
+      padding: 0; font-family: var(--mono); transition: color var(--transition); margin-bottom: 22px;
+    }
+    .back-link:hover { color: var(--accent); }
 
-        .login-subtitle {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.95rem;
-        }
+    /* ─── STEPPER ─── */
+    .step-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+    .step {
+      display: flex; align-items: center; gap: 6px; font-size: 10px;
+      letter-spacing: 0.5px; color: var(--text-3);
+    }
+    .step-num {
+      width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .step.active .step-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .step.done   .step-num { background: var(--success); border-color: var(--success); color: #fff; }
+    .step.active           { color: var(--text); font-weight: 500; }
+    .step-line { flex: 1; height: 1px; background: var(--border); }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
+    /* ─── CODE DIGITS ─── */
+    .code-inputs { display: flex; gap: 8px; margin-bottom: 4px; }
+    .code-digit {
+      flex: 1; text-align: center; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-family: var(--serif);
+      font-size: 22px; font-weight: 700; padding: 14px 4px; outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      caret-color: var(--accent);
+    }
+    .code-digit:focus  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); background: var(--surface); }
+    .code-digit.filled { border-color: rgba(192,57,43,0.35); color: var(--accent); }
 
-        .form-label {
-            display: block;
-            color: white;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
+    /* ─── RESEND ROW ─── */
+    .resend-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 10px; margin-bottom: 18px; font-size: 11px; color: var(--text-3);
+    }
+    .resend-btn {
+      background: none; border: none; cursor: pointer; font-family: var(--mono);
+      font-size: 11px; color: var(--accent); padding: 0;
+    }
+    .resend-btn:disabled { color: var(--text-3); cursor: default; }
 
-        .input-wrapper {
-            position: relative;
-        }
+    /* ─── STRENGTH ─── */
+    .strength-bars { display: flex; gap: 4px; margin-bottom: 5px; }
+    .strength-bars span { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: background 0.25s; }
+    .strength-label { font-size: 10px; color: var(--text-3); margin-bottom: 16px; }
 
-        .input-icon {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: rgba(0, 0, 0, 0.5);
-            font-size: 1.1rem;
-        }
+    /* ─── SUCCESS ─── */
+    .success-state { text-align: center; padding: 20px 0; }
+    .success-icon {
+      width: 56px; height: 56px; border-radius: 50%; background: var(--success-dim);
+      border: 1.5px solid rgba(26,122,74,0.2); display: flex; align-items: center;
+      justify-content: center; margin: 0 auto 20px; font-size: 22px; color: var(--success);
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .success-title { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .success-desc  { font-size: 12px; color: var(--text-2); line-height: 1.7; margin-bottom: 24px; }
 
-        .form-input {
-            width: 100%;
-            padding: 1rem 1rem 1rem 3rem;
-            background: #e5e7eb;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            color: #374151;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
+    /* ─── FOOTER ─── */
+    .terms-row {
+      text-align: center; font-size: 10px; color: var(--text-3); line-height: 1.6; margin-top: 18px;
+    }
+    .terms-row a { color: var(--text-2); text-decoration: none; border-bottom: 1px solid var(--border); transition: color var(--transition), border-color var(--transition); }
+    .terms-row a:hover { color: var(--accent); border-color: rgba(192,57,43,0.3); }
+    .status-bar {
+      display: flex; align-items: center; gap: 8px; margin-top: 24px; padding-top: 18px;
+      border-top: 1px solid var(--border); font-size: 10px; color: var(--text-3);
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+      box-shadow: 0 0 6px rgba(26,122,74,0.4); flex-shrink: 0; animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-        .form-input::placeholder {
-            color: #9ca3af;
-        }
+    /* ─── LOCK BADGE ─── */
+    .lock-badge {
+      display: none; align-items: center; gap: 7px; font-size: 11px;
+      color: var(--warn); background: var(--warn-dim); border: 1px solid rgba(180,83,9,0.2);
+      border-radius: var(--radius); padding: 8px 12px; margin-bottom: 14px;
+    }
+    .lock-badge.show { display: flex; }
 
-        .form-input:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
-            background: #f3f4f6;
-        }
+    /* ─── ANIMATIONS ─── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
-        .login-button {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-        }
-
-        .login-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
-            background: linear-gradient(135deg, #7c3aed, #2563eb);
-        }
-
-        .login-button:active {
-            transform: translateY(0);
-        }
-
-        .terms-text {
-            text-align: center;
-            margin-top: 1.5rem;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .terms-link {
-            color: #00d4ff;
-            text-decoration: none;
-        }
-
-        .terms-link:hover {
-            text-decoration: underline;
-        }
-
-        .form-options {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .remember-me {
-            display: flex;
-            align-items: center;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .remember-me input[type="checkbox"] {
-            margin-right: 0.5rem;
-            accent-color: #00d4ff;
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .remember-me label {
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .forgot-link {
-            color: #00d4ff;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .forgot-link:hover {
-            text-decoration: underline;
-            color: #33e0ff;
-        }
-
-        /* Alertas */
-        .alert {
-            padding: 0.75rem 1rem;
-            margin-bottom: 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            display: none;
-        }
-
-        .alert-success {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-
-        .alert-danger {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .alert-warning {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .alert-info {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .login-container {
-                flex-direction: column;
-                padding: 1rem;
-            }
-
-            .left-section {
-                padding-right: 0;
-                margin-bottom: 2rem;
-                text-align: center;
-            }
-
-            .main-title {
-                font-size: 2rem;
-            }
-
-            .right-section {
-                flex: none;
-                width: 100%;
-                max-width: 400px;
-                padding: 2rem 1.5rem;
-            }
-
-            .form-options {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.75rem;
-            }
-        }
-    </style>
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      html, body { overflow: auto; }
+      .page { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+      .left-panel { padding: 40px 32px 36px; border-right: none; border-bottom: 1px solid var(--border); }
+      .left-panel::before { display: none; }
+      .hero-title  { font-size: 36px; }
+      .left-footer { gap: 28px; }
+      .right-panel { padding: 40px 32px; box-shadow: none; justify-content: flex-start; }
+    }
+    @media (max-width: 480px) {
+      .left-panel  { padding: 28px 24px; }
+      .right-panel { padding: 28px 20px; }
+      .hero-title  { font-size: 28px; }
+      .left-footer { flex-direction: column; gap: 16px; }
+      .form-options { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .code-inputs  { gap: 6px; }
+      .code-digit   { font-size: 18px; padding: 11px 2px; }
+    }
+  </style>
 </head>
-<body>
-    <!-- Fondo estático: imagen "nocheestrellada" -->
 
-    <div class="login-container">
-        <!-- Sección izquierda con logo y texto -->
-        <div class="left-section">
-            <div class="logo-section">
-                <div class="logo"><img src="images/logoconnecting.png" alt="logoconnecting"></div>
-                <div class="brand-text">Connecting</div>
-            </div>
-            
-            <h1 class="main-title">Inicia Sesion</h1>
-            <p class="subtitle">Inicia Sesion con tu ID</p>
-            
-            <div class="quote">
-                "LA DISCIPLINA VENCE AL TALENTO,<br>
-                <span class="highlight">CUANDO EL TALENTO NO TIENE DISCIPLINA."</span>
-            </div>
+<body>
+  <div class="bg-image"></div>
+
+  <div class="page">
+    <!-- ════════════════ LEFT PANEL ════════════════ -->
+    <div class="left-panel">
+      <div class="geo-accent"></div>
+      <div class="brand">
+        <div class="brand-logo"><i class="fas fa-shield-halved"></i></div>
+        <div>
+          <div class="brand-name">Connecting</div>
+          <div class="brand-sub">CRM Platform</div>
         </div>
-        
-        <!-- Sección derecha con formulario -->
-        <div class="right-section">
-            <div class="login-header">
-                <h2 class="login-title">Inicia Sesion</h2>
-                <p class="login-subtitle">Inicia Sesion con tu ID</p>
-            </div>
-            
-            <div id="message" class="alert"></div>
-            
-            <form id="loginForm" autocomplete="off">
-                <div class="form-group">
-                    <label class="form-label">Nombre de usuario</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" id="username" class="form-input" placeholder="Ingresa tu usuario" required>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" id="password" class="form-input" placeholder="Ingresa tu contraseña" required>
-                    </div>
-                </div>
-                
-                <div class="form-options">
-                    <div class="remember-me">
-                        <input type="checkbox" id="remember" name="remember">
-                        <label for="remember">Recordar sesión</label>
-                    </div>
-                    <a href="forgot-password.html" class="forgot-link">¿Olvidaste tu contraseña?</a>
-                </div>
-                
-                <button type="submit" class="login-button">
-                    Iniciar Sesion
-                </button>
-            </form>
-            
-            <div class="terms-text">
-                By registering you with our <a href="#" class="terms-link">Terms and Conditions</a>
-            </div>
-        </div>
+      </div>
+      <div class="hero">
+        <div class="hero-eyebrow">Sistema de gestión</div>
+        <h1 class="hero-title">Tu panel de<br><em>control</em>,<br>tu ventaja.</h1>
+        <p class="hero-quote">"La disciplina vence al talento,<br>cuando el talento no tiene disciplina."</p>
+      </div>
+      <div class="left-footer">
+        <div><div class="stat-value">CRM</div><div class="stat-label">Plataforma</div></div>
+        <div><div class="stat-value">24/7</div><div class="stat-label">Disponibilidad</div></div>
+        <div><div class="stat-value">v2.0</div><div class="stat-label">Versión</div></div>
+      </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('loginForm').addEventListener('submit', handleLogin);
-            
-            // Configurar imagen de fondo con fallbacks
-            const setBg = (url) => {
-                document.body.style.background = `url('${url}') center/cover no-repeat fixed`;
-            };
-            const candidates = [
-                'images/nocheestrellada.jpg',
-                'images/nocheestrellada.png',
-                'images/podioazul.png'
-            ];
-            (function tryLoad(i = 0) {
-                if (i >= candidates.length) return;
-                const img = new Image();
-                img.onload = () => setBg(candidates[i]);
-                img.onerror = () => tryLoad(i + 1);
-                img.src = candidates[i];
-            })();
+    <!-- ════════════════ RIGHT PANEL ════════════════ -->
+    <div class="right-panel">
+
+      <!-- ══ PANEL LOGIN ══ -->
+      <div class="main-panel active" id="mainLogin">
+
+        <div class="form-header">
+          <div class="form-tag"><i class="fas fa-circle-dot"></i> Acceso seguro</div>
+          <h2 class="form-title">Iniciar sesión</h2>
+          <p class="form-subtitle">Ingresa tus credenciales para continuar</p>
+        </div>
+
+        <div id="alertLogin" class="alert" role="alert" aria-live="polite">
+          <i id="alertLoginIcon" class="fas fa-circle-info"></i>
+          <span id="alertLoginText"></span>
+        </div>
+
+        <div id="lockBadge" class="lock-badge">
+          <i class="fas fa-triangle-exclamation"></i>
+          <span id="lockText"></span>
+        </div>
+
+        <form id="loginForm" novalidate autocomplete="on">
+          <div class="field">
+            <label class="field-label" for="username">Usuario</label>
+            <div class="input-wrap">
+              <input class="ctrl" type="text" id="username" name="username"
+                placeholder="Ingresa tu usuario" autocomplete="username" required>
+              <i class="fas fa-at fi"></i>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="password">Contraseña</label>
+            <div class="input-wrap pw-wrap">
+              <input class="ctrl" type="password" id="password" name="password"
+                placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+              <i class="fas fa-lock fi"></i>
+              <button type="button" class="pw-toggle" id="pwToggle" aria-label="Mostrar u ocultar contraseña">
+                <i class="fas fa-eye" id="pwIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-options">
+            <label class="remember-label">
+              <input type="checkbox" id="rememberMe" name="rememberMe">
+              <span class="custom-check" id="checkVis"><i class="fas fa-check"></i></span>
+              Recordar sesión
+            </label>
+            <button type="button" class="forgot-link" id="btnShowForgot">
+              <i class="fas fa-key"></i> ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <div class="spinner" id="loginSpinner"></div>
+            <span class="btn-text">Iniciar sesión</span>
+          </button>
+        </form>
+
+        <div class="terms-row">
+          Al iniciar sesión aceptas nuestros
+          <a href="#">Términos de uso</a> y <a href="#">Política de privacidad</a>.
+        </div>
+        <div class="status-bar">
+          <div class="status-dot"></div>
+          Conexión segura · Servidor activo
+        </div>
+      </div><!-- /mainLogin -->
+
+
+      <!-- ══ PANEL FORGOT PASSWORD ══ -->
+      <div class="main-panel" id="mainForgot">
+
+        <button type="button" class="back-link" id="btnBack">
+          <i class="fas fa-arrow-left"></i> Volver al inicio de sesión
+        </button>
+
+        <!-- Stepper -->
+        <div class="step-indicator" id="stepperWrap">
+          <div class="step active" id="step1"><div class="step-num" id="snum1">1</div><span>Usuario</span></div>
+          <div class="step-line"></div>
+          <div class="step" id="step2"><div class="step-num" id="snum2">2</div><span>Verificar</span></div>
+          <div class="step-line"></div>
+          <div class="step" id="step3"><div class="step-num" id="snum3">3</div><span>Nueva clave</span></div>
+        </div>
+
+        <!-- Alert del forgot (compartida entre pasos) -->
+        <div id="alertForgot" class="alert" role="alert" aria-live="polite">
+          <i id="alertForgotIcon" class="fas fa-circle-info"></i>
+          <span id="alertForgotText"></span>
+        </div>
+
+        <!-- ─── PASO 1: Usuario ─── -->
+        <div class="fp-panel active" id="fp1">
+          <div class="form-header">
+            <div class="form-tag"><i class="fas fa-user-slash"></i> Recuperar acceso</div>
+            <h2 class="form-title">¿Olvidaste tu<br><em style="color:var(--accent);font-style:italic;">contraseña?</em></h2>
+            <p class="form-subtitle">
+              Ingresa tu nombre de usuario. Si existe en el sistema, enviaremos un código
+              de 6 dígitos al correo electrónico registrado en tu cuenta.
+            </p>
+          </div>
+          <form id="frmFP1" novalidate autocomplete="off">
+            <div class="field">
+              <label class="field-label" for="fpUser">Nombre de usuario</label>
+              <div class="input-wrap">
+                <input class="ctrl" type="text" id="fpUser" placeholder="Tu username"
+                  autocomplete="off" spellcheck="false" maxlength="60">
+                <i class="fas fa-at fi"></i>
+              </div>
+            </div>
+            <button type="submit" class="btn-submit" id="btnFP1">
+              <div class="spinner" id="spFP1"></div>
+              <span class="btn-text"><i class="fas fa-paper-plane" style="margin-right:6px"></i>Enviar código al correo</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- ─── PASO 2: Código ─── -->
+        <div class="fp-panel" id="fp2">
+          <div class="form-header">
+            <div class="form-tag"><i class="fas fa-envelope-open-text"></i> Código enviado</div>
+            <h2 class="form-title">Verifica tu<br><em style="color:var(--accent);font-style:italic;">identidad</em></h2>
+            <p class="form-subtitle" id="fpCodeHint">
+              Ingresa el código de 6 dígitos enviado al correo asociado a tu cuenta.
+            </p>
+          </div>
+          <form id="frmFP2" novalidate autocomplete="off">
+            <div class="field">
+              <label class="field-label">Código de verificación</label>
+              <div class="code-inputs" id="codeInputsWrap">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="0">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="1">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="2">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="3">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="4">
+                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="5">
+              </div>
+              <div class="resend-row">
+                <span id="timerLabel">Reenviar en <strong id="timerCount">60</strong>s</span>
+                <button type="button" class="resend-btn" id="btnResend" disabled>Reenviar código</button>
+              </div>
+            </div>
+            <button type="submit" class="btn-submit" id="btnFP2">
+              <div class="spinner" id="spFP2"></div>
+              <span class="btn-text">Verificar código</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- ─── PASO 3: Nueva contraseña ─── -->
+        <div class="fp-panel" id="fp3">
+          <div class="form-header">
+            <div class="form-tag"><i class="fas fa-key"></i> Último paso</div>
+            <h2 class="form-title">Nueva<br><em style="color:var(--accent);font-style:italic;">contraseña</em></h2>
+            <p class="form-subtitle">Elige una contraseña segura de al menos 8 caracteres.</p>
+          </div>
+          <form id="frmFP3" novalidate autocomplete="off">
+            <div class="field">
+              <label class="field-label" for="fpNewPw">Nueva contraseña</label>
+              <div class="input-wrap pw-wrap">
+                <input class="ctrl" type="password" id="fpNewPw"
+                  placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+                <i class="fas fa-lock fi"></i>
+                <button type="button" class="pw-toggle" id="tglNew"><i class="fas fa-eye" id="icoNew"></i></button>
+              </div>
+            </div>
+            <div class="strength-bars">
+              <span id="sb1"></span><span id="sb2"></span><span id="sb3"></span><span id="sb4"></span>
+            </div>
+            <div class="strength-label" id="strengthLabel"></div>
+            <div class="field">
+              <label class="field-label" for="fpConfPw">Confirmar contraseña</label>
+              <div class="input-wrap pw-wrap">
+                <input class="ctrl" type="password" id="fpConfPw"
+                  placeholder="Repite la contraseña" autocomplete="new-password">
+                <i class="fas fa-lock fi"></i>
+                <button type="button" class="pw-toggle" id="tglConf"><i class="fas fa-eye" id="icoConf"></i></button>
+              </div>
+            </div>
+            <button type="submit" class="btn-submit" id="btnFP3">
+              <div class="spinner" id="spFP3"></div>
+              <span class="btn-text">Cambiar contraseña</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- ─── PASO 4: Éxito ─── -->
+        <div class="fp-panel" id="fp4">
+          <div class="success-state">
+            <div class="success-icon"><i class="fas fa-check"></i></div>
+            <div class="success-title">¡Contraseña actualizada!</div>
+            <p class="success-desc">
+              Tu contraseña fue cambiada exitosamente.<br>
+              Puedes iniciar sesión con tus nuevas credenciales.
+            </p>
+            <button type="button" class="btn-submit" id="btnGoLogin">
+              <i class="fas fa-arrow-right"></i>
+              <span>Ir al inicio de sesión</span>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /mainForgot -->
+
+    </div><!-- /right-panel -->
+  </div><!-- /page -->
+
+
+  <script>
+  /* ═══════════════════════════════════════════════════════════════
+     CRM LOGIN — Script único en IIFE (sin variables globales)
+     
+     FLUJO FORGOT PASSWORD:
+       Paso 1 → El usuario ingresa su username.
+                 El servidor busca el email en la BD.
+                 Si existe → envía código por email (desde dperez@directvdeals.net).
+                 Si no existe → respuesta genérica (seguridad: no revelar si el user existe).
+       Paso 2 → El usuario ingresa el código de 6 dígitos.
+                 El servidor valida: código correcto + no expirado (10 min) + max 5 intentos.
+                 Si válido → devuelve resetToken de un solo uso.
+       Paso 3 → El usuario elige nueva contraseña.
+                 Se envía username + resetToken + newPassword.
+                 El servidor invalida el token tras el primer uso.
+       Paso 4 → Pantalla de éxito.
+     
+     SEGURIDAD:
+       • Sanitización de username (solo chars permitidos) antes de enviar.
+       • Max 5 intentos de código → fuerza vuelta al paso 1.
+       • resetToken de un solo uso (el servidor lo invalida al usarlo).
+       • Token de sesión en sessionStorage por defecto; localStorage solo si "Recordar sesión".
+       • Bloqueo temporal del botón de login tras 5 intentos fallidos (30s).
+       • Respuesta genérica en paso 1 (no revela si el usuario existe).
+  ═══════════════════════════════════════════════════════════════ */
+  (function () {
+    'use strict';
+
+    /* ──────────────────────────────────────
+       HELPERS — URL params
+    ────────────────────────────────────── */
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name) || '';
+    }
+
+    /* ──────────────────────────────────────
+       HELPERS — Alert (reutiliza nodo existente)
+    ────────────────────────────────────── */
+    const ALERT_MAP = {
+      success: ['alert-success', 'fa-circle-check'],
+      danger:  ['alert-danger',  'fa-circle-xmark'],
+      warning: ['alert-warning', 'fa-triangle-exclamation'],
+      info:    ['alert-info',    'fa-circle-info'],
+    };
+
+    function showAlert(boxId, iconId, textId, msg, type) {
+      const [cls, ico] = ALERT_MAP[type] || ALERT_MAP.info;
+      const box  = document.getElementById(boxId);
+      const icon = document.getElementById(iconId);
+      const text = document.getElementById(textId);
+      box.className    = `alert show ${cls}`;
+      icon.className   = `fas ${ico}`;
+      text.textContent = msg;
+    }
+
+    function clearAlert(boxId) {
+      const el = document.getElementById(boxId);
+      if (el) el.className = 'alert';
+    }
+
+    /* ──────────────────────────────────────
+       HELPERS — Panel / Step switcher
+
+       main-panel : login ↔ forgot (top level)
+       fp-panel   : sub-pasos del forgot (1,2,3,4)
+                    Usan display:none !important por CSS,
+                    solo .active tiene display:block !important
+    ────────────────────────────────────── */
+    function showMainPanel(id) {
+      document.querySelectorAll('.main-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function showForgotStep(n) {
+      // Ocultar todos los pasos
+      document.querySelectorAll('.fp-panel').forEach(p => p.classList.remove('active'));
+      // Mostrar solo el paso pedido
+      document.getElementById('fp' + n).classList.add('active');
+      // Actualizar stepper
+      updateStepper(n);
+      // Ocultar stepper en paso 4 (éxito)
+      document.getElementById('stepperWrap').style.display = n === 4 ? 'none' : '';
+    }
+
+    function updateStepper(active) {
+      [1, 2, 3].forEach(function (i) {
+        var item = document.getElementById('step' + i);
+        var num  = document.getElementById('snum' + i);
+        item.classList.remove('active', 'done');
+        if (i < active) {
+          item.classList.add('done');
+          num.innerHTML = '<i class="fas fa-check" style="font-size:9px"></i>';
+        } else {
+          num.textContent = i;
+          if (i === active) item.classList.add('active');
+        }
+      });
+    }
+
+    /* ──────────────────────────────────────
+       HELPERS — Botón de carga
+    ────────────────────────────────────── */
+    function setLoading(btnId, spId, on) {
+      var btn = document.getElementById(btnId);
+      var sp  = document.getElementById(spId);
+      btn.disabled = on;
+      btn.classList.toggle('loading', on);
+      sp.style.display = on ? 'block' : 'none';
+    }
+
+    /* ──────────────────────────────────────
+       MENSAJE INICIAL POR URL
+    ────────────────────────────────────── */
+    var urlMsg = getParam('message');
+    if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
+
+    /* ──────────────────────────────────────
+       TOGGLE CONTRASEÑA — LOGIN
+    ────────────────────────────────────── */
+    document.getElementById('pwToggle').addEventListener('click', function () {
+      var inp = document.getElementById('password');
+      var ico = document.getElementById('pwIcon');
+      var show = inp.type === 'password';
+      inp.type      = show ? 'text' : 'password';
+      ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+
+    /* ──────────────────────────────────────
+       CHECKBOX "RECORDAR SESIÓN"
+       
+       El input nativo está oculto (display:none en CSS).
+       .custom-check refleja visualmente el estado.
+       
+       FIX DOBLE:
+         1. cbRemember.addEventListener('change') → 
+            se dispara cuando el <label> hace toggle nativo.
+         2. checkVis.addEventListener('click') → 
+            por si el usuario hace click directo en el cuadrito.
+    ────────────────────────────────────── */
+    var cbRemember = document.getElementById('rememberMe');
+    var checkVis   = document.getElementById('checkVis');
+
+    function syncCheck() {
+      var on = cbRemember.checked;
+      checkVis.style.background  = on ? 'var(--accent)' : '';
+      checkVis.style.borderColor = on ? 'var(--accent)' : '';
+      checkVis.style.color       = on ? '#fff' : 'transparent';
+    }
+
+    cbRemember.addEventListener('change', syncCheck);
+    checkVis.addEventListener('click', function () {
+      cbRemember.checked = !cbRemember.checked;
+      syncCheck();
+    });
+    syncCheck(); // estado inicial
+
+    /* ──────────────────────────────────────
+       PANEL SWITCHER — login ↔ forgot
+    ────────────────────────────────────── */
+    document.getElementById('btnShowForgot').addEventListener('click', function () {
+      showMainPanel('mainForgot');
+      clearAlert('alertForgot');
+      resetForgot();
+    });
+
+    document.getElementById('btnBack').addEventListener('click', function () {
+      showMainPanel('mainLogin');
+      clearAlert('alertLogin');
+      resetForgot();
+    });
+
+    document.getElementById('btnGoLogin').addEventListener('click', function () {
+      showMainPanel('mainLogin');
+      resetForgot();
+    });
+
+    /* ──────────────────────────────────────
+       ESTADO INTERNO DEL FLUJO FORGOT
+       Variables locales, NO en storage.
+       El resetToken solo viaja en memoria.
+    ────────────────────────────────────── */
+    var _fpUser       = '';   // username ingresado en paso 1
+    var _resetToken   = '';   // token de un solo uso del servidor (paso 2 → paso 3)
+    var _codeAttempts = 0;    // intentos en paso 2
+    var MAX_ATTEMPTS  = 5;
+
+    function resetForgot() {
+      _fpUser = ''; _resetToken = ''; _codeAttempts = 0;
+      document.getElementById('fpUser').value  = '';
+      document.getElementById('fpNewPw').value = '';
+      document.getElementById('fpConfPw').value = '';
+      document.querySelectorAll('.code-digit').forEach(function (d) {
+        d.value = ''; d.classList.remove('filled');
+      });
+      clearAlert('alertForgot');
+      stopTimer();
+      // Resetear barras de fortaleza
+      ['sb1','sb2','sb3','sb4'].forEach(function (id) {
+        document.getElementById(id).style.background = '';
+      });
+      document.getElementById('strengthLabel').textContent = '';
+      showForgotStep(1);
+    }
+
+    /* ──────────────────────────────────────
+       TOGGLES — Forgot paso 3
+    ────────────────────────────────────── */
+    function makePwToggle(btnId, inputId, iconId) {
+      document.getElementById(btnId).addEventListener('click', function () {
+        var inp  = document.getElementById(inputId);
+        var ico  = document.getElementById(iconId);
+        var show = inp.type === 'password';
+        inp.type      = show ? 'text' : 'password';
+        ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+      });
+    }
+    makePwToggle('tglNew',  'fpNewPw',  'icoNew');
+    makePwToggle('tglConf', 'fpConfPw', 'icoConf');
+
+    /* ──────────────────────────────────────
+       INDICADOR DE FORTALEZA
+    ────────────────────────────────────── */
+    document.getElementById('fpNewPw').addEventListener('input', function () {
+      var pw = this.value;
+      var score = 0;
+      if (pw.length >= 8)           score++;
+      if (/[A-Z]/.test(pw))        score++;
+      if (/[0-9]/.test(pw))        score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+      var colors = ['', '#e05252', '#e0a052', '#52a0c0', '#1a7a4a'];
+      var labels = ['', 'Débil', 'Regular', 'Buena', 'Fuerte'];
+
+      ['sb1','sb2','sb3','sb4'].forEach(function (id, i) {
+        document.getElementById(id).style.background =
+          pw.length && i < score ? colors[score] : 'var(--border)';
+      });
+      var lbl = document.getElementById('strengthLabel');
+      lbl.textContent = pw.length ? (labels[score] || '') : '';
+      lbl.style.color = pw.length ? (colors[score] || '') : '';
+    });
+
+    /* ──────────────────────────────────────
+       CODE DIGIT INPUTS
+    ────────────────────────────────────── */
+    var codeDigits = Array.from(document.querySelectorAll('.code-digit'));
+
+    codeDigits.forEach(function (inp, idx) {
+      inp.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '').slice(-1);
+        this.classList.toggle('filled', this.value !== '');
+        if (this.value && idx < codeDigits.length - 1) codeDigits[idx + 1].focus();
+      });
+
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace' && !this.value && idx > 0) {
+          codeDigits[idx - 1].value = '';
+          codeDigits[idx - 1].classList.remove('filled');
+          codeDigits[idx - 1].focus();
+        }
+      });
+
+      // Pegar código completo
+      inp.addEventListener('paste', function (e) {
+        e.preventDefault();
+        var pasted = (e.clipboardData || window.clipboardData)
+          .getData('text').replace(/\D/g, '').slice(0, 6);
+        pasted.split('').forEach(function (ch, i) {
+          if (codeDigits[i]) { codeDigits[i].value = ch; codeDigits[i].classList.add('filled'); }
+        });
+        codeDigits[Math.min(pasted.length, codeDigits.length - 1)].focus();
+      });
+    });
+
+    function getCode() { return codeDigits.map(function (d) { return d.value; }).join(''); }
+
+    /* ──────────────────────────────────────
+       TIMER DE REENVÍO
+    ────────────────────────────────────── */
+    var _timerID = null;
+
+    function startTimer(sec) {
+      sec = sec || 60;
+      var btnR  = document.getElementById('btnResend');
+      var label = document.getElementById('timerLabel');
+      var count = document.getElementById('timerCount');
+      btnR.disabled = true;
+      label.style.display = 'inline';
+      count.textContent = sec;
+      var rem = sec;
+      _timerID = setInterval(function () {
+        rem--;
+        count.textContent = rem;
+        if (rem <= 0) { stopTimer(); btnR.disabled = false; label.style.display = 'none'; }
+      }, 1000);
+    }
+
+    function stopTimer() { clearInterval(_timerID); _timerID = null; }
+
+    /* ══════════════════════════════════════════════════════
+       FORGOT — PASO 1: Enviar código por email
+       
+       Endpoint esperado: POST /api/auth/forgot-password
+       Body:   { username: string }
+       Server: 
+         1. Busca el username en la BD.
+         2. Si existe → genera código de 6 dígitos, 
+            lo guarda con expiración de 10 min,
+            envía email DESDE dperez@directvdeals.net
+            AL correo del usuario en la BD.
+         3. SIEMPRE responde 200 con mensaje genérico
+            (no revelar si el usuario existe).
+         4. Response opcional: { maskedEmail: "u***@dominio.com" }
+    ══════════════════════════════════════════════════════ */
+    document.getElementById('frmFP1').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearAlert('alertForgot');
+
+      var uname = document.getElementById('fpUser').value.trim();
+
+      // Validación: longitud mínima
+      if (!uname || uname.length < 3) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Ingresa un nombre de usuario válido (mínimo 3 caracteres).', 'warning');
+        return;
+      }
+
+      // Sanitización: solo caracteres seguros para username
+      if (!/^[a-zA-Z0-9._@-]{3,60}$/.test(uname)) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'El usuario contiene caracteres no permitidos.', 'warning');
+        return;
+      }
+
+      setLoading('btnFP1', 'spFP1', true);
+
+      try {
+        var res  = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: uname })
         });
 
-        function getUrlParameter(name) {
-            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-            const results = regex.exec(location.search);
-            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        var ct   = res.headers.get('content-type') || '';
+        var data = ct.includes('application/json') ? await res.json() : {};
+
+        // Guardar username (se usa en pasos siguientes)
+        _fpUser = uname;
+
+        // Mostrar correo enmascarado si el servidor lo devuelve
+        if (data && data.maskedEmail) {
+          document.getElementById('fpCodeHint').innerHTML =
+            'Código enviado a <strong>' + data.maskedEmail + '</strong>. ' +
+            'Revisa también tu bandeja de spam.';
+        } else {
+          document.getElementById('fpCodeHint').textContent =
+            'Si el usuario existe en el sistema, recibirás un código en el correo ' +
+            'registrado. Revisa también la bandeja de spam.';
         }
 
-        const urlMessage = getUrlParameter('message');
-        if (urlMessage) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = decodeURIComponent(urlMessage);
-            messageDiv.className = 'alert alert-info';
-            messageDiv.style.display = 'block';
+        setLoading('btnFP1', 'spFP1', false);
+        showForgotStep(2);
+        startTimer(60);
+        codeDigits[0].focus();
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          '¡Código enviado! Revisa tu correo electrónico.', 'success');
+
+      } catch (err) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Error de conexión. Inténtalo de nuevo.', 'danger');
+        setLoading('btnFP1', 'spFP1', false);
+      }
+    });
+
+    /* ──────────────────────────────────────
+       REENVIAR CÓDIGO
+    ────────────────────────────────────── */
+    document.getElementById('btnResend').addEventListener('click', async function () {
+      this.disabled = true;
+      clearAlert('alertForgot');
+      try {
+        var res  = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _fpUser })
+        });
+        var ct   = res.headers.get('content-type') || '';
+        var data = ct.includes('json') ? await res.json() : {};
+        if (!res.ok) throw new Error((data && data.message) || 'Error al reenviar.');
+        startTimer(60);
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Código reenviado. Revisa tu correo.', 'info');
+      } catch (err) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          err.message || 'No se pudo reenviar. Inténtalo más tarde.', 'danger');
+        this.disabled = false;
+      }
+    });
+
+    /* ══════════════════════════════════════════════════════
+       FORGOT — PASO 2: Verificar código
+       
+       Endpoint: POST /api/auth/verify-reset-code
+       Body:     { username, code }
+       Server:
+         • Verifica que el código sea correcto.
+         • Verifica que no haya expirado (10 min).
+         • Verifica que no se hayan superado los intentos (server-side).
+         • Si OK → devuelve resetToken (token de un solo uso, firmado/guardado en BD).
+         • Si falla → responde con error descriptivo.
+    ══════════════════════════════════════════════════════ */
+    document.getElementById('frmFP2').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearAlert('alertForgot');
+
+      var code = getCode();
+      if (code.length < 6) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Ingresa los 6 dígitos del código.', 'warning');
+        return;
+      }
+
+      // Rate limiting client-side (el servidor también lo hace)
+      _codeAttempts++;
+      if (_codeAttempts > MAX_ATTEMPTS) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Demasiados intentos. Por seguridad debes solicitar un nuevo código.', 'danger');
+        setTimeout(function () {
+          _codeAttempts = 0;
+          showForgotStep(1);
+          clearAlert('alertForgot');
+          document.getElementById('fpUser').focus();
+        }, 3000);
+        return;
+      }
+
+      setLoading('btnFP2', 'spFP2', true);
+
+      try {
+        var res  = await fetch('/api/auth/verify-reset-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: _fpUser, code: code })
+        });
+
+        var ct   = res.headers.get('content-type') || '';
+        var data = ct.includes('json') ? await res.json() : {};
+
+        if (!res.ok) {
+          var left = MAX_ATTEMPTS - _codeAttempts;
+          var errMsg = (data && data.message) ? data.message : 'Código incorrecto o expirado.';
+          if (left > 0) errMsg += ' Te quedan ' + left + ' intento' + (left !== 1 ? 's' : '') + '.';
+          throw new Error(errMsg);
         }
 
-        async function handleLogin(event) {
-            event.preventDefault();
-            
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const rememberMe = document.getElementById('remember').checked;
-            const redirectUrl = getUrlParameter('redirect') || '/inicio.html';
-            
-            if (!username || !password) {
-                const messageDiv = document.getElementById('message');
-                messageDiv.textContent = 'Por favor ingrese nombre de usuario y contraseña';
-                messageDiv.className = 'alert alert-warning';
-                messageDiv.style.display = 'block';
-                return;
+        // ✅ Código correcto → guardar resetToken en memoria
+        _resetToken = (data && data.resetToken) ? data.resetToken : '';
+        stopTimer();
+
+        // Limpiar dígitos
+        codeDigits.forEach(function (d) { d.value = ''; d.classList.remove('filled'); });
+
+        setLoading('btnFP2', 'spFP2', false);
+        showForgotStep(3);
+        clearAlert('alertForgot');
+        document.getElementById('fpNewPw').focus();
+
+      } catch (err) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          err.message || 'Error de verificación.', 'danger');
+        // Limpiar dígitos para re-intento
+        codeDigits.forEach(function (d) { d.value = ''; d.classList.remove('filled'); });
+        codeDigits[0].focus();
+        setLoading('btnFP2', 'spFP2', false);
+      }
+    });
+
+    /* ══════════════════════════════════════════════════════
+       FORGOT — PASO 3: Nueva contraseña
+       
+       Endpoint: POST /api/auth/reset-password
+       Body:     { username, resetToken, newPassword }
+       Server:
+         • Verifica que el resetToken sea válido y no haya sido usado.
+         • Actualiza la contraseña en la BD (con hash bcrypt).
+         • Invalida el resetToken (lo marca como usado).
+         • Responde con success.
+    ══════════════════════════════════════════════════════ */
+    document.getElementById('frmFP3').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearAlert('alertForgot');
+
+      // Guard: sin token no puede avanzar (manipulación manual del DOM)
+      if (!_resetToken) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Sesión de recuperación inválida. Reinicia el proceso desde el paso 1.', 'danger');
+        setTimeout(function () { showForgotStep(1); clearAlert('alertForgot'); }, 3000);
+        return;
+      }
+
+      var newPw  = document.getElementById('fpNewPw').value;
+      var confPw = document.getElementById('fpConfPw').value;
+
+      if (newPw.length < 8) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'La contraseña debe tener al menos 8 caracteres.', 'warning');
+        return;
+      }
+      if (newPw !== confPw) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'Las contraseñas no coinciden.', 'danger');
+        return;
+      }
+      // Requisito mínimo de fortaleza
+      if (!/[A-Z]/.test(newPw) || !/[0-9]/.test(newPw)) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          'La contraseña debe tener al menos una mayúscula y un número.', 'warning');
+        return;
+      }
+
+      setLoading('btnFP3', 'spFP3', true);
+
+      try {
+        var res  = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username:    _fpUser,
+            resetToken:  _resetToken,
+            newPassword: newPw
+          })
+        });
+
+        var ct   = res.headers.get('content-type') || '';
+        var data = ct.includes('json') ? await res.json() : {};
+
+        if (!res.ok) throw new Error((data && data.message) || 'No se pudo cambiar la contraseña.');
+
+        _resetToken = ''; // Invalidar localmente también
+        setLoading('btnFP3', 'spFP3', false);
+        showForgotStep(4);
+
+      } catch (err) {
+        showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
+          err.message || 'Error al cambiar la contraseña.', 'danger');
+        setLoading('btnFP3', 'spFP3', false);
+      }
+    });
+
+    /* ──────────────────────────────────────
+       PRECARGA EN BACKGROUND (preheatPages)
+    ────────────────────────────────────── */
+    function safeStore(key, val) {
+      try {
+        sessionStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+      } catch (e) {
+        try {
+          ['estadisticasData','rankingsData','multimediaData','facturacionData']
+            .forEach(function (k) { sessionStorage.removeItem(k); });
+          sessionStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+        } catch (_) { /* sin espacio, silencioso */ }
+      }
+    }
+
+    async function preheatOne(label, url, h, sk, tsk, pick) {
+      try {
+        var r = await fetch(url, { method: 'GET', headers: h, credentials: 'include' });
+        if (!r.ok) return;
+        var d = await r.json();
+        if (!d.success) return;
+        safeStore(sk, pick ? pick(d) : d);
+        if (tsk && d.timestamp) safeStore(tsk, d.timestamp);
+        window.dispatchEvent(new CustomEvent(label + 'Preheated', { detail: pick ? pick(d) : d }));
+      } catch (_) { /* no bloquea */ }
+    }
+
+    function preheatPages(token) {
+      var h = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+      preheatOne('dashboard',    '/api/init-dashboard',    h, 'dashboardData',    null,                    function (d) { return d; });
+      preheatOne('allPages',     '/api/init-all-pages',    h, 'allPagesData',     'allPagesTimestamp',     function (d) { return d.data; });
+      preheatOne('estadisticas', '/api/init-estadisticas', h, 'estadisticasData', 'estadisticasTimestamp', function (d) { return d.data; });
+      preheatOne('rankings',     '/api/init-rankings',     h, 'rankingsData',     'rankingsTimestamp',     function (d) { return d.data; });
+      preheatOne('lead',         '/api/init-lead',         h, 'leadData',         'leadTimestamp',         function (d) { return d.data; });
+      preheatOne('facturacion',  '/api/init-facturacion',  h, 'facturacionData',  'facturacionTimestamp',  function (d) { return d.data; });
+      preheatOne('multimedia',   '/api/init-multimedia',   h, 'multimediaData',   'multimediaTimestamp',   function (d) { return d.data; });
+    }
+
+    /* ──────────────────────────────────────
+       LOGIN SUBMIT
+    ────────────────────────────────────── */
+    var loginAttempts = 0;
+    var loginLocked   = false;
+    var lockTimerID   = null;
+    var MAX_LOGIN_ATTEMPTS = 5;
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      clearAlert('alertLogin');
+
+      if (loginLocked) {
+        showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText',
+          'Demasiados intentos fallidos. Espera antes de continuar.', 'danger');
+        return;
+      }
+
+      var username    = document.getElementById('username').value.trim();
+      var password    = document.getElementById('password').value;
+      var rememberMe  = cbRemember.checked;
+      var redirectUrl = getParam('redirect') || '/inicio.html';
+
+      if (!username || !password) {
+        showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText',
+          'Por favor ingresa tu usuario y contraseña.', 'warning');
+        return;
+      }
+
+      setLoading('submitBtn', 'loginSpinner', true);
+      showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', 'Verificando credenciales…', 'info');
+
+      try {
+        var res = await fetch('/api/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ username: username, password: password })
+        });
+
+        var ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json'))
+          throw new Error('El servidor devolvió una respuesta inesperada.');
+
+        var data = await res.json();
+        if (!res.ok || !data.success)
+          throw new Error((data && data.message) || 'Credenciales inválidas.');
+
+        // ✅ Login correcto → resetear contador
+        loginAttempts = 0;
+        var badge = document.getElementById('lockBadge');
+        badge.classList.remove('show');
+
+        // Token: sessionStorage (pestaña) o localStorage (persistente)
+        var storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('token', data.token);
+
+        var userInfo = {
+          id:          data.user && data.user.id,
+          username:    data.user && data.user.username,
+          name:        data.user && data.user.username,
+          role:        (data.user && data.user.role) || 'user',
+          team:        data.user && data.user.team,
+          supervisor:  data.user && data.user.supervisor,
+          permissions: (data.user && data.user.permissions) || []
+        };
+        storage.setItem('user', JSON.stringify(userInfo));
+
+        // Enriquecer sin bloquear
+        fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (vd) {
+            if (vd && vd.user)
+              storage.setItem('user', JSON.stringify(Object.assign({}, userInfo, vd.user)));
+          }).catch(function () {});
+
+        showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText',
+          '¡Acceso concedido! Redirigiendo…', 'success');
+
+        preheatPages(data.token);
+        setTimeout(function () { window.location.replace(redirectUrl); }, 500);
+
+      } catch (err) {
+        loginAttempts++;
+        setLoading('submitBtn', 'loginSpinner', false);
+
+        var msg = 'Error de conexión. Verifica tu internet e intenta de nuevo.';
+        if (err.message.includes('Failed to fetch'))             msg = 'No se pudo conectar al servidor.';
+        else if (err.message.toLowerCase().includes('too many')) msg = 'Demasiados intentos. Espera unos minutos.';
+        else if (err.message)                                    msg = err.message;
+
+        showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', msg, 'danger');
+
+        // Bloqueo temporal tras MAX intentos
+        if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+          loginLocked = true;
+          var badge   = document.getElementById('lockBadge');
+          var lockTxt = document.getElementById('lockText');
+          badge.classList.add('show');
+          var sec = 30;
+          lockTxt.textContent = 'Cuenta bloqueada temporalmente. Espera ' + sec + 's.';
+          lockTimerID = setInterval(function () {
+            sec--;
+            lockTxt.textContent = 'Cuenta bloqueada temporalmente. Espera ' + sec + 's.';
+            if (sec <= 0) {
+              clearInterval(lockTimerID);
+              loginLocked = false;
+              loginAttempts = 0;
+              badge.classList.remove('show');
             }
-            
-            const submitBtn = document.querySelector('.login-button');
-            const originalText = submitBtn.textContent;
-            
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Iniciando sesión...';
-            
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = 'Verificando credenciales...';
-            messageDiv.className = 'alert alert-info';
-            messageDiv.style.display = 'block';
-            
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const contentType = response.headers.get('content-type');
-                let data;
-
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'El servidor devolvió una respuesta inesperada.');
-                }
-
-                if (response.ok && data.success) {
-                    const userInfo = {
-                        id: data.user?.id,
-                        username: data.user?.username,
-                        name: data.user?.username,
-                        role: data.user?.role || 'user',
-                        team: data.user?.team,
-                        supervisor: data.user?.supervisor,
-                        permissions: data.user?.permissions || []
-                    };
-
-                    // Guardar tanto token como información del usuario
-                    const storage = rememberMe ? localStorage : sessionStorage;
-                    storage.setItem('token', data.token);
-                    storage.setItem('user', JSON.stringify(userInfo));
-                    
-                    console.log('[LOGIN] Token guardado:', data.token.substring(0, 20) + '...');
-                    console.log('[LOGIN] Usuario guardado:', userInfo);
-
-                    // Intentar obtener info completa del servidor (avatar, fileId) y actualizar almacenamiento
-                    try {
-                      const vs = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
-                      if (vs && vs.ok) {
-                        try {
-                          const vdata = await vs.json();
-                          if (vdata && vdata.user) {
-                            const merged = Object.assign({}, userInfo, vdata.user);
-                            storage.setItem('user', JSON.stringify(merged));
-                            console.log('[LOGIN] Información de usuario actualizada con datos del servidor', merged);
-                          }
-                        } catch(e) {
-                          console.warn('[LOGIN] No se pudo parsear respuesta de verify-server', e);
-                        }
-                      }
-                    } catch(e) {
-                      console.warn('[LOGIN] verify-server request failed', e);
-                    }
-
-                    messageDiv.textContent = '¡Inicio de sesión exitoso! Redirigiendo...';
-                    messageDiv.className = 'alert alert-success';
-
-                    // ⚡ PRECARGA EN BACKGROUND: No esperar (no await) para que el usuario navegue inmediatamente
-                    // Mientras el usuario ve la página, los datos se cargan en segundo plano
-                    const preheatPages = async () => {
-                      try {
-                        console.log('[LOGIN-PREHEAT] 🔥 Iniciando precalentamiento de datos...');
-                        
-                        const token = data.token;
-                        const headers = {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        };
-
-                        // 1. Precalentar dashboard (KPIs)
-                        fetch('/api/init-dashboard', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('dashboardData', JSON.stringify(d));
-                              console.log('[LOGIN-PREHEAT] ✅ Dashboard cacheado en sessionStorage');
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Dashboard error:', e?.message));
-
-                        // 2. Precalentar TODAS las páginas (customers, leads, stats, rankings del mes actual)
-                        fetch('/api/init-all-pages', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              const userId = d.user?._id || d.user?.id || 'unknown';
-                              sessionStorage.setItem('allPagesData', JSON.stringify(d.data));
-                              sessionStorage.setItem('allPagesTimestamp', d.timestamp);
-                              sessionStorage.setItem('allPagesUserId', String(userId));
-                              console.log('[LOGIN-PREHEAT] ✅ Todas las páginas cacheadas:', {
-                                customers: d.data?.customers?.length || 0,
-                                leads: d.data?.leads?.length || 0,
-                                rankings: d.data?.rankings?.length || 0,
-                                stats: Object.keys(d.data?.stats || {}).length
-                              });
-                              // Emitir evento para que las páginas sepan que hay datos frescos
-                              window.dispatchEvent(new CustomEvent('allPagesPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ All-pages error:', e?.message));
-
-                        // 3. Precalentar ESTADÍSTICAS (datos específicos para gráficos)
-                        fetch('/api/init-estadisticas', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('estadisticasData', JSON.stringify(d.data));
-                              sessionStorage.setItem('estadisticasTimestamp', d.timestamp);
-                              console.log('[LOGIN-PREHEAT] ✅ Estadísticas cacheadas:', {
-                                teamsData: d.data?.teamsData?.length || 0,
-                                agentsData: d.data?.agentsData?.length || 0,
-                                leadsChartData: d.data?.leadsChartData?.length || 0,
-                                statusSummary: Object.keys(d.data?.statusSummary || {}).length
-                              });
-                              // Emitir evento para que Estadísticas.html sepa que hay datos frescos
-                              window.dispatchEvent(new CustomEvent('estadisticasPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Estadísticas error:', e?.message));
-
-                        // 4. Precalentar RANKINGS (datos del top 3 y ranking del mes)
-                        fetch('/api/init-rankings', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('rankingsData', JSON.stringify(d.data));
-                              sessionStorage.setItem('rankingsTimestamp', d.timestamp);
-                              console.log('[LOGIN-PREHEAT] ✅ Rankings cacheados:', {
-                                currentMonthRanking: d.data?.currentMonthRanking?.length || 0,
-                                topThree: !!d.data?.topThree,
-                                monthlyRankings: Object.keys(d.data?.monthlyRankings || {}).length
-                              });
-                              // Emitir evento para que Ranking y Promociones.html sepa que hay datos frescos
-                              window.dispatchEvent(new CustomEvent('rankingsPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Rankings error:', e?.message));
-
-                        // 5. Precalentar LEADS
-                        fetch('/api/init-lead', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('leadData', JSON.stringify(d.data));
-                              sessionStorage.setItem('leadTimestamp', d.timestamp);
-                              console.log('[LOGIN-PREHEAT] ✅ Leads cacheados:', {
-                                leadsData: d.data?.leadsData?.length || 0,
-                                statusSummary: Object.keys(d.data?.statusSummary || {}).length
-                              });
-                              window.dispatchEvent(new CustomEvent('leadPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Lead error:', e?.message));
-
-                        // 6. Precalentar FACTURACIÓN
-                        fetch('/api/init-facturacion', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('facturacionData', JSON.stringify(d.data));
-                              sessionStorage.setItem('facturacionTimestamp', d.timestamp);
-                              console.log('[LOGIN-PREHEAT] ✅ Facturación cacheada:', {
-                                facturacionData: d.data?.facturacionData?.length || 0,
-                                ingresosSummary: !!d.data?.ingresosSummary
-                              });
-                              window.dispatchEvent(new CustomEvent('facturacionPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Facturación error:', e?.message));
-
-                        // 7. Precalentar MULTIMEDIA
-                        fetch('/api/init-multimedia', { 
-                          method: 'GET',
-                          headers: headers, 
-                          credentials: 'include' 
-                        })
-                          .then(r => r.json())
-                          .then(d => {
-                            if (d.success) {
-                              sessionStorage.setItem('multimediaData', JSON.stringify(d.data));
-                              sessionStorage.setItem('multimediaTimestamp', d.timestamp);
-                              console.log('[LOGIN-PREHEAT] ✅ Multimedia cacheado:', {
-                                multimediaData: d.data?.multimediaData?.length || 0,
-                                typeSummary: Object.keys(d.data?.typeSummary || {}).length
-                              });
-                              window.dispatchEvent(new CustomEvent('multimediaPreheated', { detail: d.data }));
-                            }
-                          })
-                          .catch(e => console.warn('[LOGIN-PREHEAT] ⚠️ Multimedia error:', e?.message));
-
-                      } catch (e) {
-                        console.warn('[LOGIN-PREHEAT] ⚠️ Precalentamiento fallido (no bloquea):', e?.message);
-                      }
-                    };
-
-                    // Iniciar precarga en background SIN esperar
-                    preheatPages();
-
-                    let finalRedirectUrl = getUrlParameter('redirect') || '/inicio.html';
-
-                    setTimeout(() => {
-                        window.location.replace(finalRedirectUrl);
-                    }, 500);
-
-                } else {
-                    throw new Error(data.message || 'Credenciales inválidas');
-                }
-
-            } catch (error) {
-                let errorMessage = 'Error de conexión. Verifica tu conexión e intenta de nuevo.';
-
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
-                } else if (error.message.includes('Too many requests')) {
-                    errorMessage = 'Has realizado demasiados intentos. Por favor, espera unos minutos.';
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-
-                messageDiv.textContent = errorMessage;
-                messageDiv.className = 'alert alert-danger';
-
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                
-                document.getElementById('username').focus();
-            }
+          }, 1000);
+        } else if (loginAttempts >= 3) {
+          var left2  = MAX_LOGIN_ATTEMPTS - loginAttempts;
+          var badge2 = document.getElementById('lockBadge');
+          var lTxt   = document.getElementById('lockText');
+          badge2.classList.add('show');
+          lTxt.textContent = left2 + ' intento' + (left2 !== 1 ? 's' : '') + ' restante' + (left2 !== 1 ? 's' : '') + ' antes del bloqueo.';
         }
-        
-        async function forgotPassword() {
-            const email = prompt('Por favor ingrese su dirección de correo electrónico para restablecer su contraseña:');
-            
-            if (!email) {
-                return; // Usuario canceló
-            }
-            
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = 'Enviando solicitud de restablecimiento...';
-            messageDiv.className = 'alert alert-info';
-            messageDiv.style.display = 'block';
-            
-            try {
-                const response = await fetch('/api/auth/forgot-password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ email })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    messageDiv.textContent = 'Se ha enviado un correo con instrucciones para restablecer tu contraseña.';
-                    messageDiv.className = 'alert alert-success';
-                } else {
-                    throw new Error(data.message || 'Error al procesar la solicitud');
-                }
-            } catch (error) {
-                console.error('Error al solicitar restablecimiento de contraseña:', error);
-                messageDiv.textContent = error.message || 'Error al procesar la solicitud. Intente nuevamente más tarde.';
-                messageDiv.className = 'alert alert-danger';
-            }
-        }
-    </script>
+
+        document.getElementById('username').focus();
+      }
+    });
+
+  })(); // fin IIFE
+  </script>
 </body>
 </html>
