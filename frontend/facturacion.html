@@ -262,7 +262,7 @@
 
     tbody td {
       padding: 5px 8px;
-      text-align: right;
+      text-align: center;
       color: var(--text);
       font-size: 12px;
       white-space: nowrap;
@@ -332,9 +332,6 @@
     .totals-row {
       background: var(--surface) !important;
       border-top: 1px solid var(--border) !important;
-      position: sticky;
-      bottom: 0;
-      z-index: 2;
     }
 
     .totals-row td {
@@ -342,6 +339,7 @@
       color: var(--accent) !important;
       padding: 7px 8px;
       font-size: 11px;
+      text-align: center;
     }
 
     .totals-row td:first-child {
@@ -631,11 +629,25 @@
           </tr>
           <tr>
             <th>Fecha</th>
-            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
-            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
-            <th>Monto</th><th>Cliente/día</th><th>Total líneas</th><th>Valor/venta</th><th>Valor/línea</th>
-            <th>Monto</th><th>Ventas/día</th><th>Valor venta</th>
-            <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
+            <th>Monto</th>
+            <th>Ventas/día</th>
+            <th>Valor venta</th>
+            <th>Monto</th>
+            <th>Ventas/día</th>
+            <th>Valor venta</th>
+            <th>Monto</th>
+            <th>Cliente/día</th>
+            <th>Total líneas</th>
+            <th>Valor/venta</th>
+            <th>Valor/línea</th>
+            <th>Monto</th>
+            <th>Ventas/día</th>
+            <th>Valor venta</th>
+            <th>Total día</th>
+            <th>Total ventas</th>
+            <th>Valor venta</th>
+            <th>Puntos</th>
+            <th>CPA puntos</th>
           </tr>
         </thead>
         <tbody id="modalTablaBody"></tbody>
@@ -920,7 +932,7 @@ function recalcularFila(tr) {
   const totalDia       = alexis + alejandro + garay + tito;
   tds[15].textContent  = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
 
-  const totalVentas    = ventasAlexis + ventasAlejandro + ventasTito;
+  const totalVentas    = ventasAlexis + ventasAlejandro + clientePorDia + ventasTito;
   tds[16].textContent  = totalVentas > 0 ? totalVentas.toLocaleString('en-US') : "";
 
   tds[17].textContent  = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
@@ -951,23 +963,22 @@ function renderFilaTotalesFacturacion() {
   Array.from(excelBody.querySelectorAll('tr')).forEach(tr => {
     Array.from(tr.children).forEach((td, i) => {
       if (i === 0) return; // Saltar columna de fecha
-      // Excluir columnas calculadas que NO deben sumarse
-      const columnasExcluidas = [3, 6, 9, 10, 11, 14, 15, 16, 17, 19];
+      // Excluir solo columnas calculadas que NO deben sumarse
+      const columnasExcluidas = [3, 6, 9, 11, 14, 15, 16, 17, 19];
       if (columnasExcluidas.includes(i)) return;
       totales[i] += parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
     });
   });
 
-  // Recalculate ratios
+  // Recalculate ratios and totals
   totales[3]  = totales[2]  > 0 ? totales[1]  / totales[2]  : 0;
   totales[6]  = totales[5]  > 0 ? totales[4]  / totales[5]  : 0;
-  totales[10] = totales[8]  > 0 ? totales[7]  / totales[8]  : 0;
+  totales[9]  = 0; // Total líneas NO se suma
   totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
   totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
   totales[15] = totales[1] + totales[4] + totales[7] + totales[12]; // Total día
-  // Total ventas: sumar Ventas/día + Cliente/día de Garay (col 8)
-  totales[16] = totales[2] + totales[5] + totales[8] + totales[13];
-  totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0;
+  totales[16] = totales[2] + totales[5] + totales[8] + totales[13]; // Total ventas
+  totales[17] = totales[10]; // Valor venta = suma de col 10
   totales[19] = totales[18] > 0 ? totales[15] / totales[18] : 0;
 
   for (let i = 1; i < numCols; i++) {
