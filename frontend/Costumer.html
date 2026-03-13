@@ -1814,7 +1814,17 @@
     const token = AUTH.check();
     if (!token) return [];
 
-    const res = await AUTH.secureFetch('/api/leads?limit=5000&noAutoMonth=true');
+    // SOLO cargar leads de los últimos 15 días para mejorar rendimiento
+    const now = new Date();
+    const fifteenDaysAgo = new Date(now);
+    fifteenDaysAgo.setDate(now.getDate() - 15);
+    
+    const fechaFin = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const fechaInicio = `${fifteenDaysAgo.getFullYear()}-${String(fifteenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(fifteenDaysAgo.getDate()).padStart(2, '0')}`;
+    
+    const url = `/api/leads?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}&limit=1000`;
+
+    const res = await AUTH.secureFetch(url);
     if (!res) return [];
 
     try {

@@ -964,7 +964,7 @@ function renderFilaTotalesFacturacion() {
     Array.from(tr.children).forEach((td, i) => {
       if (i === 0) return; // Saltar columna de fecha
       // Excluir solo columnas calculadas que NO deben sumarse
-      const columnasExcluidas = [3, 6, 9, 11, 14, 15, 16, 17, 19];
+      const columnasExcluidas = [3, 6, 11, 14, 15, 16, 17, 19];
       if (columnasExcluidas.includes(i)) return;
       totales[i] += parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
     });
@@ -973,7 +973,7 @@ function renderFilaTotalesFacturacion() {
   // Recalculate ratios and totals
   totales[3]  = totales[2]  > 0 ? totales[1]  / totales[2]  : 0;
   totales[6]  = totales[5]  > 0 ? totales[4]  / totales[5]  : 0;
-  totales[9]  = 0; // Total líneas NO se suma
+  // totales[9] se suma normalmente (Total del lineas de GARAY)
   totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
   totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
   totales[15] = totales[1] + totales[4] + totales[7] + totales[12]; // Total día
