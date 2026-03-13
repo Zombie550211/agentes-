@@ -950,7 +950,10 @@ function renderFilaTotalesFacturacion() {
 
   Array.from(excelBody.querySelectorAll('tr')).forEach(tr => {
     Array.from(tr.children).forEach((td, i) => {
-      if (i === 0) return;
+      if (i === 0) return; // Saltar columna de fecha
+      // Excluir columnas calculadas que NO deben sumarse
+      const columnasExcluidas = [3, 6, 9, 10, 11, 14, 15, 16, 17, 19];
+      if (columnasExcluidas.includes(i)) return;
       totales[i] += parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
     });
   });
@@ -961,8 +964,9 @@ function renderFilaTotalesFacturacion() {
   totales[10] = totales[8]  > 0 ? totales[7]  / totales[8]  : 0;
   totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
   totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
-  // Total ventas: solo sumar Ventas/día (excluir Cliente/día de Garay col 8)
-  totales[16] = totales[2] + totales[5] + totales[13];
+  totales[15] = totales[1] + totales[4] + totales[7] + totales[12]; // Total día
+  // Total ventas: sumar Ventas/día + Cliente/día de Garay (col 8)
+  totales[16] = totales[2] + totales[5] + totales[8] + totales[13];
   totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0;
   totales[19] = totales[18] > 0 ? totales[15] / totales[18] : 0;
 
