@@ -861,11 +861,11 @@ function buscarCamposPorFecha(fecha) {
     nuevos[11] = camposAntiguos[9] || '';
     nuevos[12] = camposAntiguos[10] || '';
     nuevos[13] = camposAntiguos[11] || '';
-    nuevos[14] = camposAntiguos[12] || '';
-    nuevos[15] = camposAntiguos[13] || '';
-    nuevos[16] = camposAntiguos[14] || '';
-    nuevos[17] = camposAntiguos[15] || '';
-    nuevos[18] = camposAntiguos[16] || '';
+    nuevos[15] = camposAntiguos[12] || ''; // Total día
+    nuevos[16] = camposAntiguos[13] || ''; // Total ventas
+    nuevos[17] = camposAntiguos[14] || ''; // Valor venta
+    nuevos[18] = camposAntiguos[15] || ''; // Puntos
+    // nuevos[19] = CPA puntos (calculado, no se carga del backend)
     return nuevos;
   }
   return Array(19).fill('');
@@ -1051,13 +1051,20 @@ async function guardarTodoFacturacion() {
       campos17.push(txt);
     }
     
-    // 12-16: Totales (frontend idx 15-18, omitir 19)
-    for (let i = 15; i <= 18; i++) {
+    // 12-15: Totales (frontend idx 15-17: Total día, Total ventas, Valor venta)
+    for (let i = 15; i <= 17; i++) {
       let txt = tds[i+1].textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
       campos17.push(txt);
     }
+    
+    // 16: Puntos (frontend col 18 = tds[19] porque tds incluye col 0 de fecha)
+    let puntos = tds[19].textContent.trim();
+    if (puntos.startsWith("$")) puntos = puntos.replace(/[^0-9.\-]/g, "");
+    if (puntos.includes(",")) puntos = puntos.replace(/,/g, "");
+    campos17.push(puntos);
+    // NO guardar CPA puntos (col 19 = tds[20]) porque es calculado
     
     const campos = campos17;
 
