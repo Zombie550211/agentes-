@@ -794,9 +794,21 @@ async function fetchTeamStats(ym) {
   } catch(e) { return null; }
 }
 
-function aggregateByAgent(leads) {
+function aggregateByAgent(leads, filterStatus, filterMonth) {
   var map = {};
   leads.forEach(function(l) {
+    // Filtrar por status solo si se especifica (para Ranking de Activación)
+    if (filterStatus) {
+      var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
+      if (status !== 'completed' && status !== 'active') return;
+    }
+    
+    // Filtrar por mes de dia_venta si se especifica (para Ranking de Ventas - excluir colchón)
+    if (filterMonth) {
+      var diaVenta = String(getField(l, ['dia_venta','saleDate']) || '').trim();
+      if (!diaVenta || !diaVenta.startsWith(filterMonth)) return;
+    }
+    
     var name  = String(getField(l, ['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor','nombre']) || '').trim() || 'Sin nombre';
     var team  = String(getField(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo']) || '').trim();
     var pts   = parseFloat(getField(l, ['puntaje','score','puntos']) || 0) || 0;
@@ -812,9 +824,15 @@ function aggregateByAgent(leads) {
   return Object.values(map);
 }
 
-function aggregateByTeam(leads) {
+function aggregateByTeam(leads, filterStatus) {
   var map = {};
   leads.forEach(function(l) {
+    // Filtrar por status solo si se especifica (para Ranking de Activación)
+    if (filterStatus) {
+      var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
+      if (status !== 'completed' && status !== 'active') return;
+    }
+    
     var team = String(getField(l, ['supervisor','Supervisor','TEAM','team','equipo','grupo']) || 'Sin equipo').trim();
     var pts  = parseFloat(getField(l, ['puntaje','score','puntos']) || 0) || 0;
     if (!map[team]) map[team] = { name: team, ventas: 0, puntos: 0 };
@@ -837,11 +855,11 @@ async function loadActivation(force) {
       if (stats) { rows = stats.sort(function(a,b){ return b.ventas - a.ventas; }); }
       else {
         var leads = await fetchLeadsForMonth(ym);
-        rows = aggregateByTeam(leads).sort(function(a,b){ return b.ventas - a.ventas; });
+        rows = aggregateByTeam(leads, true).sort(function(a,b){ return b.ventas - a.ventas; });
       }
     } else {
       var leads2 = await fetchLeadsForMonth(ym);
-      rows = aggregateByAgent(leads2).sort(function(a,b){ return b.ventas - a.ventas; });
+      rows = aggregateByAgent(leads2, true, null).sort(function(a,b){ return b.ventas - a.ventas; });
     }
     var lbl = currentScope === 'team' ? 'equipos' : 'agentes';
     setMeta('meta-activation', rows.length + ' ' + lbl + ' · ' + ym);
@@ -862,7 +880,7 @@ async function loadSales(force) {
   try {
     var ym    = getMonth();
     var leads = await fetchLeadsForMonth(ym);
-    var rows  = aggregateByAgent(leads)
+    var rows  = aggregateByAgent(leads, false, ym)
       .filter(function(r){ return r.ventas > 0; })
       .sort(function(a,b){ return b.puntos - a.puntos || b.ventas - a.ventas; });
     setMeta('meta-sales', rows.length + ' agentes · ' + ym);
@@ -883,7 +901,7 @@ async function loadATT(force) {
   try {
     var ym    = getMonth();
     var leads = await fetchLeadsForMonth(ym);
-    var rows  = aggregateByAgent(leads)
+    var rows  = aggregateByAgent(leads, false, null)
       .filter(function(r){ return r.att > 0 || r.frontier > 0; })
       .sort(function(a,b){ return (b.att + b.frontier) - (a.att + a.frontier) || b.puntos - a.puntos; });
     if (!rows.length) {
