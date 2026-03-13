@@ -1011,6 +1011,11 @@
             <span class="cls-val" id="costumer-reserva">0</span>
             <span class="cls-lbl">reserva</span>
           </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--accent)"></span>
+            <span class="cls-val" id="costumer-colchon">0</span>
+            <span class="cls-lbl">colchón</span>
+          </div>
         </div>
 
         <div class="cmd-actions">
@@ -1096,6 +1101,7 @@
           <button type="button" class="stab all is-active" data-status="all">Todos</button>
           <button type="button" class="stab pending"       data-status="pending">Pending</button>
           <button type="button" class="stab active"        data-status="completed">Active</button>
+          <button type="button" class="stab colchon"       data-status="colchon">Colchón</button>
           <button type="button" class="stab oficina"       data-status="oficina">Oficina</button>
           <button type="button" class="stab reserva"       data-status="reserva">Reserva</button>
           <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
@@ -1316,6 +1322,23 @@
         <div class="field">
           <label>Motivo Llamada</label>
           <input type="text" id="edit-motivo" placeholder="Motivo de la llamada"/>
+        </div>
+
+        <!-- Botón Liberar de Reserva (solo visible si was_reserva = true) -->
+        <div class="field col-span-3" id="liberar-reserva-container" style="display:none;margin-top:8px;padding:12px;background:var(--warn-bg);border:2px solid var(--warn);border-radius:var(--r3);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="flex:1;">
+              <div style="font-size:.8rem;font-weight:700;color:var(--warn);margin-bottom:4px;">⚠️ Venta Reservada</div>
+              <div style="font-size:.72rem;color:var(--ink-3);line-height:1.4;">
+                Esta venta fue marcada como reserva y <strong>NO cuenta para ningún agente</strong>. 
+                Para reasignarla y que cuente, haz click en "Liberar de Reserva".
+              </div>
+            </div>
+            <button type="button" class="btn" onclick="liberarDeReserva()" 
+              style="background:var(--warn);color:#fff;font-weight:700;padding:8px 16px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,152,0,.3);">
+              🔓 Liberar de Reserva
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2142,8 +2165,21 @@
       if (mercado && lead.mercado !== mercado) return false;
 
       if (activeStatusTab && activeStatusTab !== 'all') {
-        if (activeStatusTab === 'completed' && !['completed','active'].includes(lead.status)) return false;
-        else if (activeStatusTab !== 'completed' && lead.status !== activeStatusTab) return false;
+        if (activeStatusTab === 'colchon') {
+          const d = new Date();
+          const currentMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const diaVenta = lead.dia_venta || '';
+          const diaInstalacion = lead.dia_instalacion || '';
+          const status = lead.status || '';
+          if (status === 'reserva' || status === 'oficina') return false;
+          if (status !== 'completed' && status !== 'active') return false;
+          if (!diaInstalacion || !diaInstalacion.startsWith(currentMonthStr)) return false;
+          if (!diaVenta || diaVenta.startsWith(currentMonthStr)) return false;
+        } else if (activeStatusTab === 'completed' && !['completed','active'].includes(lead.status)) {
+          return false;
+        } else if (activeStatusTab !== 'completed' && activeStatusTab !== 'colchon' && lead.status !== activeStatusTab) {
+          return false;
+        }
       }
 
       if (month) {
@@ -2413,6 +2449,19 @@
     // Reserva (ventas en reserva)
     const reserva = baseAll.filter(l => l.status === 'reserva').length;
     
+    // Colchón (ventas en colchón)
+    const colchon = __filteredLeads.filter(l => {
+      if (!l) return false;
+      const diaVenta = l.dia_venta || '';
+      const diaInstalacion = l.dia_instalacion || '';
+      const status = l.status || '';
+      if (status === 'reserva' || status === 'oficina') return false;
+      if (status !== 'completed' && status !== 'active') return false;
+      if (!diaInstalacion || !diaInstalacion.startsWith(currentMonthStr)) return false;
+      if (!diaVenta || diaVenta.startsWith(currentMonthStr)) return false;
+      return true;
+    }).length;
+    
     set('costumer-ventas-hoy',     hoy);
     set('costumer-ventas-mes',     base.length);
 
@@ -2421,6 +2470,7 @@
     set('costumer-cancelados',     cancel);
     set('costumer-oficina',        oficina);
     set('costumer-reserva',        reserva);
+    set('costumer-colchon',        colchon);
   }
 
   function set(id, val) {
@@ -2439,6 +2489,49 @@
   }
 
   /* ── MODAL EDITAR ── */
+  // Función para liberar una venta de reserva (resetear was_reserva = false)
+  async function liberarDeReserva() {
+    const leadId = val('edit-lead-id');
+    const lead = __allLeadsData.find(l => l._id === leadId);
+    if (!lead) {
+      showToast('Lead no encontrado', 'error');
+      return;
+    }
+
+    const confirmed = confirm(
+      '¿Estás seguro de liberar esta venta de reserva?\n\n' +
+      'Al liberarla, la venta VOLVERÁ A CONTAR para el agente asignado.\n' +
+      'Recuerda cambiar el agente si es necesario antes de guardar.'
+    );
+    
+    if (!confirmed) return;
+
+    // Resetear was_reserva en memoria
+    lead.was_reserva = false;
+
+    // Ocultar el banner de advertencia
+    const container = document.getElementById('liberar-reserva-container');
+    if (container) container.style.display = 'none';
+
+    // Actualizar en el servidor
+    try {
+      const res = await AUTH.secureFetch('/api/leads/' + leadId, {
+        method: 'PUT',
+        body: JSON.stringify({ was_reserva: false })
+      });
+      if (res && res.ok) {
+        showToast('✅ Venta liberada de reserva. Ahora SÍ cuenta para el agente.', 'ok');
+        updateKPIs();
+      } else if (res) {
+        showToast('No se pudo liberar en servidor (liberado localmente)', 'warn');
+      }
+    } catch (e) {
+      console.error('Error liberando reserva:', e);
+      showToast('Venta liberada localmente ✓', 'ok');
+    }
+  }
+  window.liberarDeReserva = liberarDeReserva;
+
   function editLead(leadId) {
     const lead = __allLeadsData.find(l => l._id === leadId);
     if (!lead) { showToast('Lead no encontrado', 'error'); return; }
@@ -2539,6 +2632,15 @@
 
     const idSpan = document.getElementById('modal-lead-id');
     if (idSpan) idSpan.textContent = '#' + String(leadId).slice(-4).toUpperCase();
+
+    // Mostrar/ocultar el banner de "Liberar de Reserva" según status o was_reserva
+    const liberarContainer = document.getElementById('liberar-reserva-container');
+    if (liberarContainer) {
+      const currentStatus = normalizeStatus(getV(['status','Status','estado','state']));
+      const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
+      const isReserva = currentStatus === 'reserva' || wasReserva;
+      liberarContainer.style.display = isReserva ? 'block' : 'none';
+    }
 
     document.getElementById('editarModal-wrapper').style.display = 'flex';
     // Scroll al inicio del modal al abrirlo
