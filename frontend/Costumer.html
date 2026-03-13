@@ -197,8 +197,24 @@
     .token.active .token-label { color: var(--a); opacity:.7; }
     .token.active .token-chevron { color: var(--a); }
 
-    /* hidden native selects still used for filter logic */
-    .token select { display: none; }
+    /* Selects posicionados sobre los tokens para hacerlos funcionales */
+    .token select {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .token .token-label,
+    .token .token-val,
+    .token .token-chevron {
+      position: relative;
+      z-index: 1;
+      pointer-events: none;
+    }
 
     /* Dropdown panel */
     .fdd {
@@ -301,6 +317,7 @@
     .stab.all::before      { background:var(--a); }
     .stab.pending::before  { background:var(--warn); }
     .stab.active::before   { background:var(--go); }
+    .stab.reserva::before  { background:var(--info); }
     .stab.cancelled::before{ background:var(--stop); }
     .stab:hover { background:var(--sheet-3); color:var(--ink-1); }
     .stab.is-active { background:var(--sheet); border-color:var(--line-1); color:var(--ink-1); font-weight:700; box-shadow: var(--sh-1); }
@@ -455,6 +472,7 @@
       transition:all .1s;
     }
     .rab:hover { background:var(--a-bg); border-color:var(--a-line); color:var(--a); }
+    .rab.delete-btn:hover { background:var(--stop-bg); border-color:var(--stop-ln); color:var(--stop); }
 
     .mono { font-family:var(--f-mono); font-size:.71rem; color:var(--ink-4); }
 
@@ -988,6 +1006,11 @@
             <span class="cls-val" id="costumer-oficina">0</span>
             <span class="cls-lbl">oficina</span>
           </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--info)"></span>
+            <span class="cls-val" id="costumer-reserva">0</span>
+            <span class="cls-lbl">reserva</span>
+          </div>
         </div>
 
         <div class="cmd-actions">
@@ -1074,6 +1097,7 @@
           <button type="button" class="stab pending"       data-status="pending">Pending</button>
           <button type="button" class="stab active"        data-status="completed">Active</button>
           <button type="button" class="stab oficina"       data-status="oficina">Oficina</button>
+          <button type="button" class="stab reserva"       data-status="reserva">Reserva</button>
           <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
         </div>
 
@@ -1873,10 +1897,6 @@
 
     return (Array.isArray(items) ? items : []).map((it, idx) => {
       const raw = it?._raw && typeof it._raw === 'object' ? it._raw : null;
-      const statusSrc =
-        it?.status ?? it?.estado ?? it?.state ??
-        raw?.status ?? raw?.estado ?? raw?.state ??
-        raw?.Status ?? it?.Status;
       const lead = {
         _id:             String(it?._id || it?.id || `tmp-${idx}`),
         _raw:            it,
@@ -1891,7 +1911,7 @@
         riesgo:          it?.riesgo          || '',
         dia_venta:       it?.dia_venta       || it?.saleDate       || '',
         dia_instalacion: it?.dia_instalacion || it?.installDate    || '',
-        status:          normalizeStatus(statusSrc),
+        status:          normalizeStatus(it?.status || it?.estado || it?.state),
         servicios:       it?.servicios       || '',
         mercado:         it?.mercado         || '',
         supervisor:      normalizeSupervisor(it?.supervisor || it?.SUPERVISOR || raw?.supervisor || raw?.SUPERVISOR || it?.team || raw?.team || ''),
@@ -1915,6 +1935,102 @@
       setTimeout(window._refreshFilterOptions, 0);
     }
   }
+
+  // Función para actualizar dinámicamente las opciones de los filtros
+  window._refreshFilterOptions = function() {
+    if (!__allLeadsData || __allLeadsData.length === 0) return;
+
+    // Extraer valores únicos de cada campo
+    const tiposServicio = new Set();
+    const equipos = new Set();
+    const agentes = new Set();
+    const mercados = new Set();
+    const meses = new Set();
+
+    __allLeadsData.forEach(lead => {
+      // Usar tipo_servicio en lugar de servicios para evitar duplicados de descripciones largas
+      if (lead.tipo_servicio) tiposServicio.add(lead.tipo_servicio);
+      if (lead.supervisor) equipos.add(lead.supervisor);
+      if (lead.agente) agentes.add(lead.agente);
+      if (lead.mercado) mercados.add(lead.mercado);
+      if (lead.dia_venta) {
+        const mes = lead.dia_venta.substring(0, 7); // YYYY-MM
+        meses.add(mes);
+      }
+    });
+
+    // Actualizar select de Servicio (usando tipo_servicio)
+    const serviceFilter = document.getElementById('serviceFilter');
+    if (serviceFilter) {
+      const currentValue = serviceFilter.value;
+      serviceFilter.innerHTML = '<option value="">Todos</option>';
+      Array.from(tiposServicio).sort().forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        serviceFilter.appendChild(opt);
+      });
+      serviceFilter.value = currentValue;
+    }
+
+    // Actualizar select de Team
+    const teamFilter = document.getElementById('teamFilter');
+    if (teamFilter) {
+      const currentValue = teamFilter.value;
+      teamFilter.innerHTML = '<option value="">Todos</option>';
+      Array.from(equipos).sort().forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        teamFilter.appendChild(opt);
+      });
+      teamFilter.value = currentValue;
+    }
+
+    // Actualizar select de Agente
+    const agentFilter = document.getElementById('agentFilter');
+    if (agentFilter) {
+      const currentValue = agentFilter.value;
+      agentFilter.innerHTML = '<option value="">Todos</option>';
+      Array.from(agentes).sort().forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        agentFilter.appendChild(opt);
+      });
+      agentFilter.value = currentValue;
+    }
+
+    // Actualizar select de Mercado
+    const mercadoFilter = document.getElementById('mercadoFilter');
+    if (mercadoFilter) {
+      const currentValue = mercadoFilter.value;
+      mercadoFilter.innerHTML = '<option value="">Todos</option>';
+      Array.from(mercados).sort().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        mercadoFilter.appendChild(opt);
+      });
+      mercadoFilter.value = currentValue;
+    }
+
+    // Actualizar select de Mes
+    const monthFilter = document.getElementById('monthFilter');
+    if (monthFilter) {
+      const currentValue = monthFilter.value;
+      monthFilter.innerHTML = '<option value="">Todos</option>';
+      Array.from(meses).sort().reverse().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        const [year, month] = m.split('-');
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        opt.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+        monthFilter.appendChild(opt);
+      });
+      monthFilter.value = currentValue;
+    }
+  };
 
   function val(id) { return (document.getElementById(id)?.value || '').trim(); }
 
@@ -2020,7 +2136,7 @@
       if (search && !['nombre_cliente','telefono','numero_cuenta','zip_code']
             .some(f => String(lead[f]||'').toUpperCase().includes(search))) return false;
 
-      if (svc && !String(lead.servicios||'').toUpperCase().includes(svc.toUpperCase())) return false;
+      if (svc && !String(lead.tipo_servicio||'').toUpperCase().includes(svc.toUpperCase())) return false;
       if (team   && !String(lead.supervisor||'').toUpperCase().includes(team.toUpperCase())) return false;
       if (agent  && !String(lead.agente||'').includes(agent)) return false;
       if (mercado && lead.mercado !== mercado) return false;
@@ -2158,6 +2274,7 @@
             ${escHTML(lead.nombre_cliente)}
             <span class="row-actions" style="margin-left:6px;">
               <button class="rab" onclick="editLead('${lid}')" title="Editar">✎</button>
+              <button class="rab delete-btn" onclick="deleteLead('${lid}')" title="Eliminar">✕</button>
             </span>
           </td>
           ${cell(lead.telefono ? `<span class='mono'>${escHTML(lead.telefono)}</span>` : '—')}
@@ -2293,13 +2410,17 @@
     // Oficina (ventas apartadas)
     const oficina = baseAll.filter(l => l.status === 'oficina').length;
     
+    // Reserva (ventas en reserva)
+    const reserva = baseAll.filter(l => l.status === 'reserva').length;
+    
     set('costumer-ventas-hoy',     hoy);
-    set('costumer-ventas-mes',     baseAll.length);
+    set('costumer-ventas-mes',     base.length);
 
     set('costumer-ventas-activas', activas);
     set('costumer-pendientes',     pend);
     set('costumer-cancelados',     cancel);
     set('costumer-oficina',        oficina);
+    set('costumer-reserva',        reserva);
   }
 
   function set(id, val) {
@@ -2486,12 +2607,49 @@
     applyFilters();
   }
 
+  async function deleteLead(leadId) {
+    const lead = __allLeadsData.find(l => l._id === leadId);
+    if (!lead) {
+      showToast('Lead no encontrado', 'error');
+      return;
+    }
+
+    const clientName = lead.nombre_cliente || 'este cliente';
+    const confirmed = confirm(`¿Estás seguro de eliminar a ${clientName}?\n\nEsta acción no se puede deshacer.`);
+    
+    if (!confirmed) return;
+
+    try {
+      const res = await AUTH.secureFetch('/api/leads/' + leadId, {
+        method: 'DELETE'
+      });
+      
+      if (res && res.ok) {
+        showToast('Cliente eliminado correctamente ✓', 'ok');
+        
+        const index = __allLeadsData.findIndex(l => l._id === leadId);
+        if (index !== -1) {
+          __allLeadsData.splice(index, 1);
+        }
+        
+        applyFilters();
+      } else if (res) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.message || 'No se pudo eliminar el cliente', 'error');
+      }
+    } catch (e) {
+      console.error('Error eliminando lead:', e);
+      showToast('Error al eliminar el cliente', 'error');
+    }
+  }
+  window.deleteLead = deleteLead;
+
   function showToast(msg, type = 'ok') {
     const t = document.createElement('div');
     t.textContent = msg;
     Object.assign(t.style, {
       position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
-      background: type === 'ok' ? 'var(--go)' : 'var(--stop)',
+      background: type === 'ok' ? 'var(--go)' : type === 'error' ? 'var(--stop)' : 'var(--warn)',
       color:'#fff', padding:'10px 22px', borderRadius:'var(--rf)',
       fontSize:'.8rem', fontWeight:'700', zIndex:'9999',
       boxShadow:'0 4px 16px rgba(0,0,0,.15)'
