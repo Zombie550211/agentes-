@@ -1,0 +1,20 @@
+// Comandos para ejecutar en mongosh o MongoDB Compass
+
+// 1. Conectar a la base de datos
+use crmagente
+
+// 2. Ver cuántos leads tienen status 'active'
+db.costumers.countDocuments({ status: 'active' })
+
+// 3. Ver algunos ejemplos
+db.costumers.find({ status: 'active' }).limit(5).pretty()
+
+// 4. EJECUTAR LA ACTUALIZACIÓN (copia y pega este comando completo)
+db.costumers.updateMany(
+  { status: 'active' },
+  { $set: { status: 'completed' } }
+)
+
+// 5. Verificar que se actualizaron
+db.costumers.countDocuments({ status: 'active' })
+db.costumers.countDocuments({ status: 'completed' })

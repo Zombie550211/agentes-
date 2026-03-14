@@ -1,0 +1,37 @@
+// Script MongoDB para actualizar status 'active' a 'completed'
+// Ejecutar en MongoDB Compass o mongosh
+
+// 1. Usar la base de datos correcta
+use('crmagente');
+
+// 2. Contar cuántos leads tienen status 'active'
+print('=== ANTES DE LA ACTUALIZACIÓN ===');
+const countBefore = db.costumers.countDocuments({ status: 'active' });
+print(`Leads con status "active": ${countBefore}`);
+
+// Mostrar algunos ejemplos
+print('\nEjemplos de leads a actualizar:');
+db.costumers.find({ status: 'active' }).limit(5).forEach(lead => {
+  print(`  - ${lead.nombre_cliente || lead.clientName || 'SIN NOMBRE'} (${lead._id})`);
+});
+
+// 3. Actualizar todos los leads con status 'active' a 'completed'
+print('\n=== EJECUTANDO ACTUALIZACIÓN ===');
+const result = db.costumers.updateMany(
+  { status: 'active' },
+  { $set: { status: 'completed' } }
+);
+
+print(`\nResultado:`);
+print(`  - Documentos encontrados: ${result.matchedCount}`);
+print(`  - Documentos actualizados: ${result.modifiedCount}`);
+
+// 4. Verificar después de la actualización
+print('\n=== DESPUÉS DE LA ACTUALIZACIÓN ===');
+const countAfter = db.costumers.countDocuments({ status: 'active' });
+const countCompleted = db.costumers.countDocuments({ status: 'completed' });
+
+print(`Leads con status "active" restantes: ${countAfter}`);
+print(`Total de leads con status "completed": ${countCompleted}`);
+
+print('\n✅ Actualización completada');

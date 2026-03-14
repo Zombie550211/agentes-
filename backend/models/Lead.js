@@ -32,7 +32,8 @@ const leadSchema = new mongoose.Schema({
   creadoPor: String,
   agenteNombre: String,
   ownerId: String,
-  registeredById: mongoose.Schema.Types.ObjectId
+  registeredById: mongoose.Schema.Types.ObjectId,
+  was_reserva: { type: Boolean, default: false }
 });
 
 // Índices para mejorar el rendimiento de las consultas

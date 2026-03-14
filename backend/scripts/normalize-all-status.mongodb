@@ -1,0 +1,90 @@
+// Script para normalizar TODOS los valores de status a minúsculas y en inglés
+
+use('crmagente');
+
+print('=== NORMALIZANDO STATUS EN LA BASE DE DATOS ===\n');
+
+// 1. Ver estado actual
+print('Estado ANTES de la normalización:');
+db.costumers.aggregate([
+  { $group: { _id: "$status", count: { $sum: 1 } } },
+  { $sort: { count: -1 } }
+]).forEach(item => {
+  print(`  "${item._id}": ${item.count}`);
+});
+
+print('\n=== EJECUTANDO NORMALIZACIONES ===\n');
+
+// 2. Normalizar 'Completed' (mayúscula) -> 'completed'
+const r1 = db.costumers.updateMany(
+  { status: 'Completed' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'Completed' -> 'completed': ${r1.modifiedCount} documentos`);
+
+// 3. Normalizar 'Pending' (mayúscula) -> 'pending'
+const r2 = db.costumers.updateMany(
+  { status: 'Pending' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'Pending' -> 'pending': ${r2.modifiedCount} documentos`);
+
+// 4. Normalizar 'PENDIENTE' (mayúsculas) -> 'pending'
+const r3 = db.costumers.updateMany(
+  { status: 'PENDIENTE' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'PENDIENTE' -> 'pending': ${r3.modifiedCount} documentos`);
+
+// 5. Normalizar 'pendiente' (español) -> 'pending'
+const r4 = db.costumers.updateMany(
+  { status: 'pendiente' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'pendiente' -> 'pending': ${r4.modifiedCount} documentos`);
+
+// 6. Normalizar 'activo' (español) -> 'completed'
+const r5 = db.costumers.updateMany(
+  { status: 'activo' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'activo' -> 'completed': ${r5.modifiedCount} documentos`);
+
+// 7. Normalizar 'vendido' (español) -> 'completed'
+const r6 = db.costumers.updateMany(
+  { status: 'vendido' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'vendido' -> 'completed': ${r6.modifiedCount} documentos`);
+
+// 8. Normalizar 'N/A' -> 'pending'
+const r7 = db.costumers.updateMany(
+  { status: 'N/A' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'N/A' -> 'pending': ${r7.modifiedCount} documentos`);
+
+// 9. Normalizar vacíos -> 'pending'
+const r8 = db.costumers.updateMany(
+  { status: '' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ '' (vacío) -> 'pending': ${r8.modifiedCount} documentos`);
+
+// 10. Ver estado DESPUÉS
+print('\n=== Estado DESPUÉS de la normalización ===');
+db.costumers.aggregate([
+  { $group: { _id: "$status", count: { $sum: 1 } } },
+  { $sort: { count: -1 } }
+]).forEach(item => {
+  print(`  "${item._id}": ${item.count}`);
+});
+
+print('\n✅ Normalización completada');
+print('\nAhora todos los status deberían estar en minúsculas y en inglés:');
+print('  - completed (ventas activas/completadas)');
+print('  - pending (pendientes)');
+print('  - cancelled (canceladas)');
+print('  - hold (en espera)');
+print('  - oficina (apartadas en oficina)');
+print('  - reserva (en reserva)');

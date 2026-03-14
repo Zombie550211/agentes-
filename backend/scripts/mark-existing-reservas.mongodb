@@ -1,0 +1,43 @@
+// Script para marcar was_reserva = true en ventas con dia_venta ANTERIOR a la fecha actual
+// REGLA: Las ventas con dia_venta de días/meses anteriores NO cuentan para nadie (son reservas)
+
+use('dashboard');
+
+// Obtener fecha actual (medianoche)
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+
+print(`\n📅 Fecha actual: ${todayStr}`);
+
+// Contar cuántas ventas tienen dia_venta anterior a hoy
+const countAnterior = db.costumers.countDocuments({ 
+  dia_venta: { $exists: true, $ne: null, $lt: todayStr }
+});
+print(`\n📊 Ventas con dia_venta anterior a hoy: ${countAnterior}`);
+
+// Marcar was_reserva = true en todas las ventas con dia_venta < hoy
+const result = db.costumers.updateMany(
+  { 
+    dia_venta: { $exists: true, $ne: null, $lt: todayStr }
+  },
+  { $set: { was_reserva: true } }
+);
+
+print(`\n✅ Actualizado: ${result.modifiedCount} documentos`);
+print(`   Matched: ${result.matchedCount}`);
+
+// Verificar el resultado
+const verified = db.costumers.countDocuments({ was_reserva: true });
+print(`\n🔍 Verificación: ${verified} ventas marcadas con was_reserva = true`);
+
+// Mostrar algunos ejemplos
+print('\n📋 Ejemplos de ventas marcadas (dia_venta anterior):');
+db.costumers.find(
+  { was_reserva: true },
+  { nombre_cliente: 1, status: 1, dia_venta: 1, agente: 1, was_reserva: 1 }
+).limit(10).forEach(doc => {
+  print(`  - ${doc.nombre_cliente} | dia_venta: ${doc.dia_venta} | Status: ${doc.status} | Agente: ${doc.agente || 'N/A'}`);
+});
+
+print('\n✅ Script completado');
