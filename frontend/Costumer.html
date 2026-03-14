@@ -2441,15 +2441,6 @@
       return;
     }
 
-    // BLOQUEAR cambio de status si la venta está en reserva
-    const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
-    if (wasReserva) {
-      showToast('⚠️ Esta venta está en RESERVA. Debes liberarla primero desde el modal de edición.', 'error');
-      // Revertir al status anterior
-      selectEl.value = lead.status;
-      return;
-    }
-
     const oldStatus = lead.status;
     lead.status = newStatus;
 
@@ -2786,36 +2777,8 @@
       }
     }
 
-    // Bloquear selector de status y agente si was_reserva = true
-    const statusSelect = document.getElementById('edit-status');
-    const agenteSelect = document.getElementById('edit-agente');
-    if (wasReserva) {
-      if (statusSelect) {
-        statusSelect.disabled = true;
-        statusSelect.style.opacity = '0.5';
-        statusSelect.style.cursor = 'not-allowed';
-        statusSelect.title = 'Debes liberar esta venta de reserva antes de cambiar el status';
-      }
-      if (agenteSelect) {
-        agenteSelect.disabled = true;
-        agenteSelect.style.opacity = '0.5';
-        agenteSelect.style.cursor = 'not-allowed';
-        agenteSelect.title = 'Debes liberar esta venta de reserva antes de cambiar el agente';
-      }
-    } else {
-      if (statusSelect) {
-        statusSelect.disabled = false;
-        statusSelect.style.opacity = '1';
-        statusSelect.style.cursor = '';
-        statusSelect.title = '';
-      }
-      if (agenteSelect) {
-        agenteSelect.disabled = false;
-        agenteSelect.style.opacity = '1';
-        agenteSelect.style.cursor = '';
-        agenteSelect.title = '';
-      }
-    }
+    // NO bloquear selectores - permitir cambiar status libremente
+    // Las ventas con was_reserva=true simplemente no contarán en rankings hasta liberación
 
     document.getElementById('editarModal-wrapper').style.display = 'flex';
     // Scroll al inicio del modal al abrirlo

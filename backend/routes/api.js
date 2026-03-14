@@ -3186,6 +3186,37 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       updateData.representante = repValue;  // Mantener original también
     }
 
+    // REGLA CRÍTICA: Si dia_venta < fecha actual → status = 'reserva' Y was_reserva = true
+    // Las ventas con dia_venta de días/meses anteriores NO cuentan para nadie (son reservas)
+    // Solo el botón "Liberar de Reserva" puede resetear was_reserva = false
+    if (updateData.dia_venta) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalizar a medianoche
+      const diaVenta = new Date(updateData.dia_venta);
+      diaVenta.setHours(0, 0, 0, 0);
+      
+      // Si dia_venta es anterior a hoy, asignar status reserva y marcar permanentemente
+      if (diaVenta < today) {
+        updateData.status = 'reserva';  // Asignar status reserva automáticamente
+        updateData.was_reserva = true;  // Marcar permanentemente
+      }
+      // Si dia_venta es hoy o futuro, NO tocar el status ni was_reserva
+      // IMPORTANTE: No resetear was_reserva aquí, solo el botón "Liberar" puede hacerlo
+    }
+
+    // NUEVA REGLA: Si el status cambia manualmente a 'reserva', establecer was_reserva = true
+    // Esto asegura que CUALQUIER venta marcada como reserva quede bloqueada hasta liberación
+    if (updateData.status && updateData.status.toLowerCase() === 'reserva') {
+      updateData.was_reserva = true;
+    }
+
+    // IMPORTANTE: Si se está liberando explícitamente (was_reserva = false), permitirlo
+    // Esto solo debe venir del botón "Liberar de Reserva" con asignación de agente
+    if (updateData.was_reserva === false) {
+      // Permitir la liberación - no hacer nada adicional
+      // El frontend ya debe haber asignado el agente correspondiente
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
     }

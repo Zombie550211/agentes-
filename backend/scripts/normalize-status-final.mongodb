@@ -1,0 +1,79 @@
+// Script FINAL para normalizar todos los status
+// Basado en los valores EXACTOS encontrados en la base de datos
+
+use('crmagente');
+
+print('=== NORMALIZANDO TODOS LOS STATUS ===\n');
+
+// 1. 'Pending' -> 'pending'
+const r1 = db.costumers.updateMany(
+  { status: 'Pending' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'Pending' -> 'pending': ${r1.modifiedCount} documentos`);
+
+// 2. 'Completed' -> 'completed'
+const r2 = db.costumers.updateMany(
+  { status: 'Completed' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'Completed' -> 'completed': ${r2.modifiedCount} documentos`);
+
+// 3. 'pendiente' -> 'pending'
+const r3 = db.costumers.updateMany(
+  { status: 'pendiente' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'pendiente' -> 'pending': ${r3.modifiedCount} documentos`);
+
+// 4. 'PENDIENTE' -> 'pending'
+const r4 = db.costumers.updateMany(
+  { status: 'PENDIENTE' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'PENDIENTE' -> 'pending': ${r4.modifiedCount} documentos`);
+
+// 5. 'activo' -> 'completed'
+const r5 = db.costumers.updateMany(
+  { status: 'activo' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'activo' -> 'completed': ${r5.modifiedCount} documentos`);
+
+// 6. 'vendido' -> 'completed'
+const r6 = db.costumers.updateMany(
+  { status: 'vendido' },
+  { $set: { status: 'completed' } }
+);
+print(`✓ 'vendido' -> 'completed': ${r6.modifiedCount} documentos`);
+
+// 7. 'N/A' -> 'pending'
+const r7 = db.costumers.updateMany(
+  { status: 'N/A' },
+  { $set: { status: 'pending' } }
+);
+print(`✓ 'N/A' -> 'pending': ${r7.modifiedCount} documentos`);
+
+// 8. Vacíos -> 'pending'
+const r8 = db.costumers.updateMany(
+  { $or: [{ status: '' }, { status: null }, { status: { $exists: false } }] },
+  { $set: { status: 'pending' } }
+);
+print(`✓ Vacíos/null -> 'pending': ${r8.modifiedCount} documentos`);
+
+// Total actualizado
+const total = r1.modifiedCount + r2.modifiedCount + r3.modifiedCount + r4.modifiedCount + 
+              r5.modifiedCount + r6.modifiedCount + r7.modifiedCount + r8.modifiedCount;
+
+print(`\n📊 TOTAL ACTUALIZADO: ${total} documentos\n`);
+
+// Ver resultado final
+print('=== RESULTADO FINAL ===');
+db.costumers.aggregate([
+  { $group: { _id: "$status", count: { $sum: 1 } } },
+  { $sort: { count: -1 } }
+]).forEach(item => {
+  print(`  "${item._id}": ${item.count}`);
+});
+
+print('\n✅ Normalización completada');

@@ -1,0 +1,41 @@
+// Script para verificar qué valores de status existen en la base de datos
+
+use('crmagente');
+
+print('=== ANÁLISIS DE STATUS EN LA BASE DE DATOS ===\n');
+
+// 1. Contar todos los documentos
+const totalDocs = db.costumers.countDocuments({});
+print(`Total de documentos: ${totalDocs}\n`);
+
+// 2. Obtener todos los valores únicos de status
+print('Valores únicos de status:');
+const statusValues = db.costumers.distinct('status');
+statusValues.forEach(status => {
+  const count = db.costumers.countDocuments({ status: status });
+  print(`  - "${status}": ${count} documentos`);
+});
+
+// 3. Buscar documentos que podrían tener variaciones de "active"
+print('\n=== BUSCANDO VARIACIONES DE "ACTIVE" ===');
+
+// Case-insensitive search
+const activeVariations = db.costumers.find({ 
+  status: { $regex: /active/i } 
+}).limit(10).toArray();
+
+print(`\nEncontrados ${activeVariations.length} documentos con status que contiene "active":`);
+activeVariations.forEach(doc => {
+  print(`  - ID: ${doc._id}, Status: "${doc.status}", Cliente: ${doc.nombre_cliente || doc.clientName}`);
+});
+
+// 4. Buscar documentos con status "completed"
+print('\n=== DOCUMENTOS CON STATUS "COMPLETED" ===');
+const completedCount = db.costumers.countDocuments({ status: 'completed' });
+print(`Total con status "completed": ${completedCount}`);
+
+// Mostrar algunos ejemplos
+const completedExamples = db.costumers.find({ status: 'completed' }).limit(3).toArray();
+completedExamples.forEach(doc => {
+  print(`  - ${doc.nombre_cliente || doc.clientName} (${doc._id})`);
+});
