@@ -1046,9 +1046,61 @@
             <span class="token-chevron">▾</span>
             <select id="serviceFilter" class="costumer-filter-input">
               <option value="">Todos</option>
-              <option value="ATT">ATT</option>
-              <option value="DIRECTV">DIRECTV</option>
-              <option value="SPECTRUM">SPECTRUM</option>
+              <optgroup label="DIRECTV (Video)">
+                <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
+                <option value="VIDEO DIRECTV VIA SATELITE">VIDEO DIRECTV VIA SATELITE</option>
+              </optgroup>
+              <optgroup label="AT&T Internet">
+                <option value="ATT AIR">ATT AIR</option>
+                <option value="ATT 18 - 25 MB">ATT 18 - 25 MB</option>
+                <option value="ATT 50 - 100 MB">ATT 50 - 100 MB</option>
+                <option value="ATT 100 FIBRA">ATT 100 FIBRA</option>
+                <option value="ATT 300">ATT 300</option>
+                <option value="ATT 500">ATT 500</option>
+                <option value="ATT 1G">ATT 1G</option>
+              </optgroup>
+              <optgroup label="Spectrum">
+                <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
+                <option value="SPECTRUM 500">SPECTRUM 500</option>
+                <option value="SPECTRUM 500MBPS+">SPECTRUM 500MBPS+</option>
+                <option value="SPECTRUM 1G">SPECTRUM 1G</option>
+                <option value="SPECTRUM 2G">SPECTRUM 2G</option>
+              </optgroup>
+              <optgroup label="Frontier">
+                <option value="FRONTIER 200 MB">FRONTIER 200 MB</option>
+                <option value="FRONTIER 500 MB">FRONTIER 500 MB</option>
+                <option value="FRONTIER 1G">FRONTIER 1G</option>
+                <option value="FRONTIER 2G">FRONTIER 2G</option>
+              </optgroup>
+              <optgroup label="Consolidated">
+                <option value="CONSOLIDATED">CONSOLIDATED</option>
+              </optgroup>
+              <optgroup label="Xfinity">
+                <option value="XFINITY 300">XFINITY 300</option>
+                <option value="XFINITY 500">XFINITY 500</option>
+                <option value="XFINITY 1G">XFINITY 1G</option>
+              </optgroup>
+              <optgroup label="Brightspeed">
+                <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+              </optgroup>
+              <optgroup label="Earthlink">
+                <option value="INTERNET EARTHLINK 300 MB">INTERNET EARTHLINK 300 MB</option>
+                <option value="EARTHLINK">EARTHLINK</option>
+              </optgroup>
+              <optgroup label="Otros Proveedores">
+                <option value="OPTIMUM">OPTIMUM</option>
+                <option value="WOW">WOW</option>
+                <option value="ALTAFIBER">ALTAFIBER</option>
+                <option value="WINDSTREAM">WINDSTREAM</option>
+                <option value="HUGHESNET">HUGHESNET</option>
+                <option value="VIASAT">VIASAT</option>
+                <option value="CENTURYLINK">CENTURYLINK</option>
+                <option value="METRONET">METRONET</option>
+                <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+                <option value="HAWAIIAN">HAWAIIAN</option>
+                <option value="VIVINT">VIVINT</option>
+                <option value="MOBILITY">MOBILITY</option>
+              </optgroup>
             </select>
           </div>
 
@@ -1324,20 +1376,30 @@
           <input type="text" id="edit-motivo" placeholder="Motivo de la llamada"/>
         </div>
 
-        <!-- Botón Liberar de Reserva (solo visible si was_reserva = true) -->
-        <div class="field col-span-3" id="liberar-reserva-container" style="display:none;margin-top:8px;padding:12px;background:var(--warn-bg);border:2px solid var(--warn);border-radius:var(--r3);">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div style="flex:1;">
+        <!-- Banner Liberar de Reserva con asignación de agente (solo visible si was_reserva = true) -->
+        <div class="field col-span-3" id="liberar-reserva-container" style="display:none;margin-top:8px;padding:14px;background:var(--warn-bg);border:2px solid var(--warn);border-radius:var(--r3);">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
               <div style="font-size:.8rem;font-weight:700;color:var(--warn);margin-bottom:4px;">⚠️ Venta Reservada</div>
               <div style="font-size:.72rem;color:var(--ink-3);line-height:1.4;">
                 Esta venta fue marcada como reserva y <strong>NO cuenta para ningún agente</strong>. 
-                Para reasignarla y que cuente, haz click en "Liberar de Reserva".
+                Para liberarla, debes asignar al agente que envió el lead y confirmar.
               </div>
             </div>
-            <button type="button" class="btn" onclick="liberarDeReserva()" 
-              style="background:var(--warn);color:#fff;font-weight:700;padding:8px 16px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,152,0,.3);">
-              🔓 Liberar de Reserva
-            </button>
+            <div style="display:flex;align-items:flex-end;gap:12px;">
+              <div style="flex:1;">
+                <label style="display:block;font-size:.72rem;font-weight:600;color:var(--ink-2);margin-bottom:4px;">
+                  Agente que envió el lead <span style="color:var(--stop)">*</span>
+                </label>
+                <select id="liberar-agente-select" style="width:100%;padding:8px;border:1px solid var(--line-2);border-radius:var(--r2);font-family:var(--f);font-size:.8rem;background:var(--sheet);">
+                  <option value="">-- Selecciona agente --</option>
+                </select>
+              </div>
+              <button type="button" class="btn" onclick="liberarDeReservaConAsignacion()" 
+                style="background:var(--warn);color:#fff;font-weight:700;padding:10px 18px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,152,0,.3);">
+                🔓 Liberar y Asignar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1992,19 +2054,19 @@
       }
     });
 
-    // Actualizar select de Servicio (usando tipo_servicio)
-    const serviceFilter = document.getElementById('serviceFilter');
-    if (serviceFilter) {
-      const currentValue = serviceFilter.value;
-      serviceFilter.innerHTML = '<option value="">Todos</option>';
-      Array.from(tiposServicio).sort().forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.textContent = s;
-        serviceFilter.appendChild(opt);
-      });
-      serviceFilter.value = currentValue;
-    }
+    // NO actualizar select de Servicio - mantener opciones del HTML (lead.html)
+    // const serviceFilter = document.getElementById('serviceFilter');
+    // if (serviceFilter) {
+    //   const currentValue = serviceFilter.value;
+    //   serviceFilter.innerHTML = '<option value="">Todos</option>';
+    //   Array.from(tiposServicio).sort().forEach(s => {
+    //     const opt = document.createElement('option');
+    //     opt.value = s;
+    //     opt.textContent = s;
+    //     serviceFilter.appendChild(opt);
+    //   });
+    //   serviceFilter.value = currentValue;
+    // }
 
     // Actualizar select de Team
     const teamFilter = document.getElementById('teamFilter');
@@ -2169,7 +2231,7 @@
       if (search && !['nombre_cliente','telefono','numero_cuenta','zip_code']
             .some(f => String(lead[f]||'').toUpperCase().includes(search))) return false;
 
-      if (svc && !String(lead.tipo_servicio||'').toUpperCase().includes(svc.toUpperCase())) return false;
+      if (svc && !String(lead.servicios||'').toUpperCase().includes(svc.toUpperCase())) return false;
       if (team   && !String(lead.supervisor||'').toUpperCase().includes(team.toUpperCase())) return false;
       if (agent  && !String(lead.agente||'').includes(agent)) return false;
       if (mercado && lead.mercado !== mercado) return false;
@@ -2379,6 +2441,15 @@
       return;
     }
 
+    // BLOQUEAR cambio de status si la venta está en reserva
+    const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
+    if (wasReserva) {
+      showToast('⚠️ Esta venta está en RESERVA. Debes liberarla primero desde el modal de edición.', 'error');
+      // Revertir al status anterior
+      selectEl.value = lead.status;
+      return;
+    }
+
     const oldStatus = lead.status;
     lead.status = newStatus;
 
@@ -2499,8 +2570,8 @@
   }
 
   /* ── MODAL EDITAR ── */
-  // Función para liberar una venta de reserva (resetear was_reserva = false)
-  async function liberarDeReserva() {
+  // Función NUEVA: Liberar de reserva CON asignación de agente
+  async function liberarDeReservaConAsignacion() {
     const leadId = val('edit-lead-id');
     const lead = __allLeadsData.find(l => l._id === leadId);
     if (!lead) {
@@ -2508,37 +2579,73 @@
       return;
     }
 
+    // Obtener el agente seleccionado
+    const agenteSeleccionado = document.getElementById('liberar-agente-select')?.value;
+    if (!agenteSeleccionado) {
+      showToast('⚠️ Debes seleccionar el agente que envió el lead', 'error');
+      return;
+    }
+
     const confirmed = confirm(
-      '¿Estás seguro de liberar esta venta de reserva?\n\n' +
-      'Al liberarla, la venta VOLVERÁ A CONTAR para el agente asignado.\n' +
-      'Recuerda cambiar el agente si es necesario antes de guardar.'
+      `¿Confirmas liberar esta venta y asignarla a ${agenteSeleccionado}?\n\n` +
+      'La venta VOLVERÁ A CONTAR para este agente.'
     );
     
     if (!confirmed) return;
 
-    // Resetear was_reserva en memoria
+    // Resetear was_reserva y asignar agente en memoria
     lead.was_reserva = false;
+    lead.agente = agenteSeleccionado;
+    lead.agenteNombre = agenteSeleccionado;
 
     // Ocultar el banner de advertencia
     const container = document.getElementById('liberar-reserva-container');
     if (container) container.style.display = 'none';
 
+    // Habilitar el selector de status (agente ya está asignado)
+    const statusSelect = document.getElementById('edit-status');
+    if (statusSelect) {
+      statusSelect.disabled = false;
+      statusSelect.style.opacity = '1';
+      statusSelect.style.cursor = '';
+      statusSelect.title = '';
+    }
+
+    // Actualizar el select de agente con el nuevo valor
+    const agenteSelect = document.getElementById('edit-agente');
+    if (agenteSelect) {
+      agenteSelect.value = agenteSeleccionado;
+    }
+
     // Actualizar en el servidor
     try {
       const res = await AUTH.secureFetch('/api/leads/' + leadId, {
         method: 'PUT',
-        body: JSON.stringify({ was_reserva: false })
+        body: JSON.stringify({ 
+          was_reserva: false,
+          agente: agenteSeleccionado,
+          agenteNombre: agenteSeleccionado
+        })
       });
       if (res && res.ok) {
-        showToast('✅ Venta liberada de reserva. Ahora SÍ cuenta para el agente.', 'ok');
+        showToast(`✅ Venta liberada y asignada a ${agenteSeleccionado}`, 'ok');
         updateKPIs();
+        // Recargar datos para reflejar cambios
+        setTimeout(() => loadData(), 500);
       } else if (res) {
-        showToast('No se pudo liberar en servidor (liberado localmente)', 'warn');
+        showToast('No se pudo actualizar en servidor (actualizado localmente)', 'warn');
       }
     } catch (e) {
       console.error('Error liberando reserva:', e);
       showToast('Venta liberada localmente ✓', 'ok');
     }
+  }
+  window.liberarDeReservaConAsignacion = liberarDeReservaConAsignacion;
+
+  // Función LEGACY (mantener por compatibilidad)
+  async function liberarDeReserva() {
+    // Redirigir a la nueva función
+    await liberarDeReservaConAsignacion();
   }
   window.liberarDeReserva = liberarDeReserva;
 
@@ -2645,11 +2752,69 @@
 
     // Mostrar/ocultar el banner de "Liberar de Reserva" según status o was_reserva
     const liberarContainer = document.getElementById('liberar-reserva-container');
+    const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
     if (liberarContainer) {
       const currentStatus = normalizeStatus(getV(['status','Status','estado','state']));
-      const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
       const isReserva = currentStatus === 'reserva' || wasReserva;
       liberarContainer.style.display = isReserva ? 'block' : 'none';
+      
+      // Poblar el select de agentes si está visible
+      if (isReserva) {
+        const liberarAgenteSelect = document.getElementById('liberar-agente-select');
+        if (liberarAgenteSelect) {
+          // Obtener lista única de agentes de todos los leads
+          const agentesSet = new Set();
+          __allLeadsData.forEach(l => {
+            const agentName = l.agenteNombre || l.agente || l.createdBy || l.registeredBy || l.usuario || l.vendedor;
+            if (agentName && String(agentName).trim()) {
+              agentesSet.add(String(agentName).trim());
+            }
+          });
+          
+          // Ordenar alfabéticamente
+          const agentesArray = Array.from(agentesSet).sort((a, b) => a.localeCompare(b));
+          
+          // Limpiar y poblar el select
+          liberarAgenteSelect.innerHTML = '<option value="">-- Selecciona agente --</option>';
+          agentesArray.forEach(agente => {
+            const option = document.createElement('option');
+            option.value = agente;
+            option.textContent = agente;
+            liberarAgenteSelect.appendChild(option);
+          });
+        }
+      }
+    }
+
+    // Bloquear selector de status y agente si was_reserva = true
+    const statusSelect = document.getElementById('edit-status');
+    const agenteSelect = document.getElementById('edit-agente');
+    if (wasReserva) {
+      if (statusSelect) {
+        statusSelect.disabled = true;
+        statusSelect.style.opacity = '0.5';
+        statusSelect.style.cursor = 'not-allowed';
+        statusSelect.title = 'Debes liberar esta venta de reserva antes de cambiar el status';
+      }
+      if (agenteSelect) {
+        agenteSelect.disabled = true;
+        agenteSelect.style.opacity = '0.5';
+        agenteSelect.style.cursor = 'not-allowed';
+        agenteSelect.title = 'Debes liberar esta venta de reserva antes de cambiar el agente';
+      }
+    } else {
+      if (statusSelect) {
+        statusSelect.disabled = false;
+        statusSelect.style.opacity = '1';
+        statusSelect.style.cursor = '';
+        statusSelect.title = '';
+      }
+      if (agenteSelect) {
+        agenteSelect.disabled = false;
+        agenteSelect.style.opacity = '1';
+        agenteSelect.style.cursor = '';
+        agenteSelect.title = '';
+      }
     }
 
     document.getElementById('editarModal-wrapper').style.display = 'flex';
