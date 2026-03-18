@@ -319,7 +319,8 @@ router.get('/leads', protect, async (req, res) => {
       .replace(/[\u0300-\u036f]/g, '');
 
     const mercadoRestrict = (() => {
-      if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
+      // NOTA: rol_icon ya no tiene restricción de mercado - puede ver todos los leads
+      // if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
       if (roleLowerMarket === 'rol_bamo' || roleLowerMarket === 'bamo' || roleLowerMarket.includes('rol bamo')) return 'BAMO';
       return '';
     })();
@@ -381,7 +382,7 @@ router.get('/leads', protect, async (req, res) => {
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '');
-        const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice');
+        const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice') || roleRes === 'rol_icon' || roleRes.includes('rol_icon');
         const isSupervisorRes = roleRes.includes('supervisor');
         const isAgentRes = !isPrivilegedRes && !isSupervisorRes;
         if (!isPrivilegedRes) {
@@ -446,7 +447,7 @@ router.get('/leads', protect, async (req, res) => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
 
-      const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice');
+      const isPrivilegedRes = roleRes === 'administrador' || roleRes === 'admin' || roleRes.includes('admin') || roleRes.includes('backoffice') || roleRes === 'rol_icon' || roleRes.includes('rol_icon');
       const isSupervisorRes = roleRes.includes('supervisor');
       const isAgentRes = !isPrivilegedRes && !isSupervisorRes;
 
@@ -1722,7 +1723,8 @@ router.get('/leads/kpis', protect, async (req, res) => {
       .replace(/[\u0300-\u036f]/g, '');
 
     const mercadoRestrict = (() => {
-      if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
+      // NOTA: rol_icon ya no tiene restricción de mercado - puede ver todos los leads
+      // if (roleLowerMarket === 'rol_icon' || roleLowerMarket === 'icon' || roleLowerMarket.includes('rol icon')) return 'ICON';
       if (roleLowerMarket === 'rol_bamo' || roleLowerMarket === 'bamo' || roleLowerMarket.includes('rol bamo')) return 'BAMO';
       return '';
     })();

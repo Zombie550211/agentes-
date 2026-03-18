@@ -1,0 +1,85 @@
+// Script para actualizar was_reserva=true SOLO en ventas del mes actual con status='reserva'
+// Mes actual: Marzo 2026
+
+print("=== Actualizar was_reserva en ventas de MARZO 2026 con status RESERVA ===");
+
+// Definir el rango del mes actual (marzo 2026)
+const startOfMonth = new Date('2026-03-01T00:00:00.000Z');
+const endOfMonth = new Date('2026-04-01T00:00:00.000Z');
+
+print(`Rango de fechas: ${startOfMonth.toISOString()} a ${endOfMonth.toISOString()}`);
+
+// PASO 1: Contar ventas del mes actual con status='reserva' sin was_reserva=true
+const filter = {
+  status: { $regex: /^reserva$/i },
+  $or: [
+    {
+      dia_venta: {
+        $gte: startOfMonth,
+        $lt: endOfMonth
+      }
+    },
+    {
+      dia_venta: { $regex: /^2026-03/ }
+    },
+    {
+      createdAt: {
+        $gte: startOfMonth,
+        $lt: endOfMonth
+      }
+    }
+  ],
+  $or: [
+    { was_reserva: { $exists: false } },
+    { was_reserva: null },
+    { was_reserva: false },
+    { was_reserva: 'false' },
+    { was_reserva: 0 }
+  ]
+};
+
+print("\n--- Contando documentos a actualizar ---");
+const count = db.costumers_unified.countDocuments(filter);
+print(`Documentos encontrados: ${count}`);
+
+if (count === 0) {
+  print("No hay documentos para actualizar");
+} else {
+  // Mostrar las ventas que se van a actualizar
+  print("\n--- Ventas que se actualizarán ---");
+  const ventasAActualizar = db.costumers_unified.find(filter).toArray();
+  
+  ventasAActualizar.forEach((venta, index) => {
+    print(`${index + 1}. Cliente: ${venta.nombre_cliente || venta.cliente || 'N/A'}, Agente: ${venta.agenteNombre || venta.agente}, Fecha: ${venta.dia_venta}, Status: ${venta.status}`);
+  });
+  
+  // PASO 2: Actualizar
+  print("\n--- Actualizando documentos ---");
+  const result = db.costumers_unified.updateMany(
+    filter,
+    { $set: { was_reserva: true } }
+  );
+  
+  print(`✅ Matched: ${result.matchedCount}, Modified: ${result.modifiedCount}`);
+}
+
+// PASO 3: Verificar
+print("\n--- Verificación ---");
+const verificar = db.costumers_unified.countDocuments({
+  status: { $regex: /^reserva$/i },
+  $or: [
+    {
+      dia_venta: {
+        $gte: startOfMonth,
+        $lt: endOfMonth
+      }
+    },
+    {
+      dia_venta: { $regex: /^2026-03/ }
+    }
+  ],
+  was_reserva: true
+});
+
+print(`Ventas de marzo 2026 con status='reserva' y was_reserva=true: ${verificar}`);
+print("\n✅ Script completado");

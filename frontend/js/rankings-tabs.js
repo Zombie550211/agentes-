@@ -143,6 +143,12 @@
     for (const lead of (leads || [])) {
       if (!lead) continue;
       if (isCancelledStatus(lead)) continue;
+      
+      // CRÍTICO: Excluir ventas con was_reserva=true O status='reserva' - no cuentan hasta liberación
+      const wasReserva = lead.was_reserva === true || lead.was_reserva === 'true' || lead.was_reserva === 1;
+      const status = String(lead?.status || lead?.estado || lead?.state || '').toLowerCase().trim();
+      if (wasReserva || status === 'reserva') continue;
+      
       if (onlyAtt && !isAttLead(lead)) continue;
 
       const agent = getAgentName(lead);

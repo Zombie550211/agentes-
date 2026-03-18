@@ -281,4 +281,71 @@ router.post('/execute', protect, authorize('Administrador', 'admin'), async (req
   }
 });
 
+/**
+ * POST /api/migrate/populate-was-reserva
+ * Poblar campo was_reserva=true en ventas con status='reserva'
+ */
+router.post('/populate-was-reserva', protect, authorize('Administrador', 'admin'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'No hay conexión a la base de datos' });
+    }
+
+    const collections = ['costumers_unified', 'costumers'];
+    const results = {};
+
+    for (const collectionName of collections) {
+      try {
+        const collection = db.collection(collectionName);
+        
+        // Buscar documentos con status='reserva' (case insensitive) sin was_reserva=true
+        const filter = {
+          status: { $regex: /^reserva$/i },
+          $or: [
+            { was_reserva: { $exists: false } },
+            { was_reserva: null },
+            { was_reserva: false },
+            { was_reserva: 'false' },
+            { was_reserva: 0 }
+          ]
+        };
+        
+        // Contar documentos a actualizar
+        const count = await collection.countDocuments(filter);
+        
+        if (count === 0) {
+          results[collectionName] = { matched: 0, modified: 0, message: 'No hay documentos para actualizar' };
+          continue;
+        }
+        
+        // Actualizar todos los documentos
+        const result = await collection.updateMany(
+          filter,
+          { $set: { was_reserva: true } }
+        );
+        
+        results[collectionName] = {
+          matched: result.matchedCount,
+          modified: result.modifiedCount,
+          message: `Actualizados ${result.modifiedCount} de ${result.matchedCount} documentos`
+        };
+        
+      } catch (error) {
+        results[collectionName] = { error: error.message };
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Migración completada',
+      results
+    });
+
+  } catch (error) {
+    console.error('[MIGRATE] Error:', error);
+    res.status(500).json({ success: false, message: 'Error en la migración', error: error.message });
+  }
+});
+
 module.exports = router;

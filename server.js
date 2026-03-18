@@ -1930,6 +1930,9 @@ if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
   app.use('/api/debug-noauth', debugNoAuthRoutes);
   console.log('[SERVER] Ruta temporal /api/debug-noauth montada (solo NO production)');
 }
+// Debug route para verificar lead de Paola Villalobos
+const debugPaolaRoutes = require('./backend/routes/debug-paola');
+app.use('/api/debug-paola', debugPaolaRoutes);
 // Migrate routes (solo admins) para migración de datos
 try {
   const migrateRoutes = require('./backend/routes/migrate');
