@@ -1,0 +1,54 @@
+// Contar ventas de Abigail en marzo 2026 (sin excluir nada)
+print("=== VENTAS DE ABIGAIL EN MARZO 2026 ===");
+
+const startOfMonth = new Date('2026-03-01T00:00:00.000-06:00');
+const endOfMonth = new Date('2026-04-01T00:00:00.000-06:00');
+
+// Total sin filtros
+const total = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  $or: [
+    {
+      dia_venta: {
+        $gte: startOfMonth,
+        $lt: endOfMonth
+      }
+    },
+    {
+      dia_venta: { $regex: /^2026-03/ }
+    }
+  ]
+});
+
+print(`Total ventas en marzo 2026: ${total}`);
+
+// Con was_reserva=true o status='reserva'
+const conReserva = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  $or: [
+    {
+      dia_venta: {
+        $gte: startOfMonth,
+        $lt: endOfMonth
+      }
+    },
+    {
+      dia_venta: { $regex: /^2026-03/ }
+    }
+  ],
+  $or: [
+    { was_reserva: true },
+    { was_reserva: 'true' },
+    { was_reserva: 1 },
+    { status: { $regex: /reserva/i } }
+  ]
+});
+
+print(`Con was_reserva=true o status='reserva': ${conReserva}`);
+print(`Deberían contar en ranking: ${total - conReserva}`);

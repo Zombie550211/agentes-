@@ -207,7 +207,13 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
             replacement: ""
           }
         },
-        _teamNorm: { $toUpper: { $trim: { input: { $toString: "$_teamFuente" } } } }
+        _teamNorm: {
+          $replaceAll: {
+            input: { $toUpper: { $trim: { input: { $toString: "$_teamFuente" } } } },
+            find: "TEAM_",
+            replacement: ""
+          }
+        }
       }
     },
     {
@@ -237,6 +243,12 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
             }
           ]
         }
+      }
+    },
+    {
+      $match: {
+        // CRÍTICO: Excluir ventas con status='reserva' - no cuentan hasta liberación
+        _statusStr: { $not: { $regex: /RESERVA/ } }
       }
     },
     ...(Array.isArray(allowedStatuses) && allowedStatuses.length ? [{

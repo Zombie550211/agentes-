@@ -1,0 +1,80 @@
+// Query para verificar las ventas de Abigail Bernal con status='reserva'
+// Ejecutar en MongoDB Compass en la colección costumers_unified
+
+// 1. Buscar todas las ventas de Abigail
+print("=== TODAS LAS VENTAS DE ABIGAIL ===");
+const todasAbigail = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ]
+});
+print(`Total ventas de Abigail: ${todasAbigail}`);
+
+// 2. Buscar ventas de Abigail con status='reserva'
+print("\n=== VENTAS DE ABIGAIL CON STATUS RESERVA ===");
+const reservasAbigail = db.costumers_unified.find({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  status: { $regex: /reserva/i }
+}).toArray();
+
+print(`Ventas con status 'reserva': ${reservasAbigail.length}`);
+
+reservasAbigail.forEach((venta, index) => {
+  print(`\n--- Venta ${index + 1} ---`);
+  print(`ID: ${venta._id}`);
+  print(`Cliente: ${venta.nombre_cliente || venta.cliente || 'N/A'}`);
+  print(`Status: ${venta.status}`);
+  print(`was_reserva: ${venta.was_reserva}`);
+  print(`Día venta: ${venta.dia_venta || 'N/A'}`);
+  print(`Puntaje: ${venta.puntaje || 0}`);
+});
+
+// 3. Verificar cuántas tienen was_reserva=true
+print("\n=== VERIFICACIÓN was_reserva ===");
+const conWasReserva = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  status: { $regex: /reserva/i },
+  was_reserva: true
+});
+
+const sinWasReserva = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  status: { $regex: /reserva/i },
+  $or: [
+    { was_reserva: { $exists: false } },
+    { was_reserva: null },
+    { was_reserva: false }
+  ]
+});
+
+print(`Con was_reserva=true: ${conWasReserva}`);
+print(`Sin was_reserva=true: ${sinWasReserva}`);
+
+// 4. Contar ventas que SÍ deberían contar (sin reserva o liberadas)
+print("\n=== VENTAS QUE DEBERÍAN CONTAR EN RANKING ===");
+const ventasQueDebenContar = db.costumers_unified.countDocuments({
+  $or: [
+    { agenteNombre: { $regex: /abigail.*bernal/i } },
+    { agente: { $regex: /abigail.*bernal/i } }
+  ],
+  $and: [
+    { was_reserva: { $ne: true } },
+    { was_reserva: { $ne: 'true' } },
+    { was_reserva: { $ne: 1 } }
+  ],
+  status: { $not: { $regex: /reserva/i } }
+});
+
+print(`Ventas que deberían contar: ${ventasQueDebenContar}`);
+print(`Ventas que NO deberían contar (reserva): ${reservasAbigail.length}`);
+print(`Total esperado en ranking: ${ventasQueDebenContar}`);

@@ -1,0 +1,92 @@
+// Script para poblar was_reserva=true en ventas con status='reserva'
+// Ejecutar este script en MongoDB Compass en la base de datos correspondiente
+
+// PASO 1: Actualizar colección costumers_unified
+print("=== Actualizando costumers_unified ===");
+
+// Contar documentos con status='reserva' sin was_reserva=true
+const countUnified = db.costumers_unified.countDocuments({
+  status: { $regex: /^reserva$/i },
+  $or: [
+    { was_reserva: { $exists: false } },
+    { was_reserva: null },
+    { was_reserva: false },
+    { was_reserva: 'false' },
+    { was_reserva: 0 }
+  ]
+});
+
+print(`Documentos encontrados en costumers_unified: ${countUnified}`);
+
+// Actualizar documentos
+const resultUnified = db.costumers_unified.updateMany(
+  {
+    status: { $regex: /^reserva$/i },
+    $or: [
+      { was_reserva: { $exists: false } },
+      { was_reserva: null },
+      { was_reserva: false },
+      { was_reserva: 'false' },
+      { was_reserva: 0 }
+    ]
+  },
+  {
+    $set: { was_reserva: true }
+  }
+);
+
+print(`Matched: ${resultUnified.matchedCount}, Modified: ${resultUnified.modifiedCount}`);
+
+// PASO 2: Actualizar colección costumers (si existe)
+print("\n=== Actualizando costumers ===");
+
+// Contar documentos con status='reserva' sin was_reserva=true
+const countCostumers = db.costumers.countDocuments({
+  status: { $regex: /^reserva$/i },
+  $or: [
+    { was_reserva: { $exists: false } },
+    { was_reserva: null },
+    { was_reserva: false },
+    { was_reserva: 'false' },
+    { was_reserva: 0 }
+  ]
+});
+
+print(`Documentos encontrados en costumers: ${countCostumers}`);
+
+// Actualizar documentos
+const resultCostumers = db.costumers.updateMany(
+  {
+    status: { $regex: /^reserva$/i },
+    $or: [
+      { was_reserva: { $exists: false } },
+      { was_reserva: null },
+      { was_reserva: false },
+      { was_reserva: 'false' },
+      { was_reserva: 0 }
+    ]
+  },
+  {
+    $set: { was_reserva: true }
+  }
+);
+
+print(`Matched: ${resultCostumers.matchedCount}, Modified: ${resultCostumers.modifiedCount}`);
+
+// PASO 3: Verificar resultados
+print("\n=== Verificación ===");
+
+const verifyUnified = db.costumers_unified.countDocuments({
+  status: { $regex: /^reserva$/i },
+  was_reserva: true
+});
+
+const verifyCostumers = db.costumers.countDocuments({
+  status: { $regex: /^reserva$/i },
+  was_reserva: true
+});
+
+print(`Ventas con status='reserva' y was_reserva=true en costumers_unified: ${verifyUnified}`);
+print(`Ventas con status='reserva' y was_reserva=true en costumers: ${verifyCostumers}`);
+
+print("\n✅ Script completado");

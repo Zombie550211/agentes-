@@ -823,9 +823,13 @@ async function fetchTeamStats(ym) {
 function aggregateByAgent(leads, filterStatus, filterMonth) {
   var map = {};
   leads.forEach(function(l) {
+    // CRÍTICO: Excluir ventas con was_reserva=true O status='reserva' - no cuentan hasta liberación
+    var wasReserva = l.was_reserva === true || l.was_reserva === 'true' || l.was_reserva === 1;
+    var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
+    if (wasReserva || status === 'reserva') return;
+    
     // Filtrar por status solo si se especifica (para Ranking de Activación)
     if (filterStatus) {
-      var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
       if (status !== 'completed' && status !== 'active') return;
     }
     
@@ -854,9 +858,13 @@ function aggregateByAgent(leads, filterStatus, filterMonth) {
 function aggregateByTeam(leads, filterStatus) {
   var map = {};
   leads.forEach(function(l) {
+    // CRÍTICO: Excluir ventas con was_reserva=true O status='reserva' - no cuentan hasta liberación
+    var wasReserva = l.was_reserva === true || l.was_reserva === 'true' || l.was_reserva === 1;
+    var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
+    if (wasReserva || status === 'reserva') return;
+    
     // Filtrar por status solo si se especifica (para Ranking de Activación)
     if (filterStatus) {
-      var status = String(getField(l, ['status','estado','state']) || '').toLowerCase().trim();
       if (status !== 'completed' && status !== 'active') return;
     }
     

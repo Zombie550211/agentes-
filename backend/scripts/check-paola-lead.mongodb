@@ -1,0 +1,86 @@
+// Script para verificar el lead de Paola Villalobos y sus permisos
+
+print("=== VERIFICAR LEAD DE PAOLA VILLALOBOS ===");
+
+// Buscar en costumers_unified
+const leadUnified = db.costumers_unified.findOne({
+  $or: [
+    { nombre_cliente: { $regex: /paola.*villalobos/i } },
+    { cliente: { $regex: /paola.*villalobos/i } },
+    { NOMBRE_CLIENTE: { $regex: /paola.*villalobos/i } }
+  ]
+});
+
+if (leadUnified) {
+  print("\n✅ Lead encontrado en costumers_unified:");
+  print("- Cliente:", leadUnified.nombre_cliente || leadUnified.cliente || leadUnified.NOMBRE_CLIENTE);
+  print("- Agente:", leadUnified.agenteNombre || leadUnified.agente);
+  print("- Team/Supervisor:", leadUnified.supervisor || leadUnified.team || leadUnified.equipo);
+  print("- Mercado:", leadUnified.mercado);
+  print("- Status:", leadUnified.status);
+  print("- Fecha venta:", leadUnified.dia_venta);
+  print("- was_reserva:", leadUnified.was_reserva);
+  print("- excluirDeReporte:", leadUnified.excluirDeReporte);
+  print("\n📋 Documento completo:");
+  printjson(leadUnified);
+} else {
+  print("\n❌ Lead NO encontrado en costumers_unified");
+  
+  // Buscar en costumers
+  const leadCostumers = db.costumers.findOne({
+    $or: [
+      { nombre_cliente: { $regex: /paola.*villalobos/i } },
+      { cliente: { $regex: /paola.*villalobos/i } },
+      { NOMBRE_CLIENTE: { $regex: /paola.*villalobos/i } }
+    ]
+  });
+  
+  if (leadCostumers) {
+    print("\n✅ Lead encontrado en costumers:");
+    print("- Cliente:", leadCostumers.nombre_cliente || leadCostumers.cliente || leadCostumers.NOMBRE_CLIENTE);
+    print("- Agente:", leadCostumers.agenteNombre || leadCostumers.agente);
+    print("- Team/Supervisor:", leadCostumers.supervisor || leadCostumers.team || leadCostumers.equipo);
+    print("- Mercado:", leadCostumers.mercado);
+    print("- Status:", leadCostumers.status);
+    print("\n📋 Documento completo:");
+    printjson(leadCostumers);
+  } else {
+    print("\n❌ Lead NO encontrado en ninguna colección");
+  }
+}
+
+print("\n=== VERIFICAR USUARIO ICON 3 ===");
+
+const userIcon3 = db.users.findOne({
+  $or: [
+    { username: { $regex: /icon.*3/i } },
+    { name: { $regex: /icon.*3/i } },
+    { nombre: { $regex: /icon.*3/i } }
+  ]
+});
+
+if (userIcon3) {
+  print("\n✅ Usuario Icon 3 encontrado:");
+  print("- Username:", userIcon3.username);
+  print("- Nombre:", userIcon3.name || userIcon3.nombre);
+  print("- Rol:", userIcon3.role);
+  print("- Team:", userIcon3.team);
+  print("- Email:", userIcon3.email);
+  print("\n📋 Usuario completo:");
+  printjson(userIcon3);
+} else {
+  print("\n❌ Usuario Icon 3 NO encontrado");
+  print("\nBuscando usuarios con 'icon' en el nombre:");
+  const usersIcon = db.users.find({
+    $or: [
+      { username: { $regex: /icon/i } },
+      { name: { $regex: /icon/i } },
+      { role: { $regex: /icon/i } }
+    ]
+  }).toArray();
+  
+  print(`\nEncontrados ${usersIcon.length} usuarios con 'icon':`);
+  usersIcon.forEach(u => {
+    print(`- ${u.username} (${u.name || u.nombre}) - Rol: ${u.role} - Team: ${u.team}`);
+  });
+}
