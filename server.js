@@ -1933,6 +1933,9 @@ if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
 // Debug route para verificar lead de Paola Villalobos
 const debugPaolaRoutes = require('./backend/routes/debug-paola');
 app.use('/api/debug-paola', debugPaolaRoutes);
+// Bulk status by phone route
+const bulkStatusPhoneRoutes = require('./backend/routes/bulk-status-phone');
+app.use('/api/leads', bulkStatusPhoneRoutes);
 // Migrate routes (solo admins) para migración de datos
 try {
   const migrateRoutes = require('./backend/routes/migrate');
