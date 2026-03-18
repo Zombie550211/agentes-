@@ -2653,9 +2653,15 @@
 
   /* ═══════════════════════════════════════════
      BULK STATUS BY PHONE MODAL
-     FIX: closeBulkStatusPhoneModal was missing
   ═══════════════════════════════════════════ */
+  function canUseBulkStatusByPhone() {
+    const ud = getUserData();
+    const role = String(ud.role || ud.rol || '').toLowerCase();
+    return !(isAgent(role) || isSupervisor(role));
+  }
+
   window.openBulkStatusPhoneModal = function() {
+    if (!canUseBulkStatusByPhone()) { showToast('No tienes permisos para usar esta herramienta', 'error'); return; }
     const modal = document.getElementById('bulkStatusPhoneModal');
     if (modal) {
       modal.style.display = 'flex';
@@ -2672,6 +2678,7 @@
   };
 
   window.executeBulkStatusByPhone = async function() {
+    if (!canUseBulkStatusByPhone()) { showToast('No tienes permisos para usar esta herramienta', 'error'); return; }
     const textarea = document.getElementById('bulkPhoneNumbers');
     const newStatus = document.getElementById('bulkNewStatus') && document.getElementById('bulkNewStatus').value;
     if (!textarea || !newStatus) return;
@@ -2694,7 +2701,6 @@
     showToast(updated + ' leads actualizados localmente', updated ? 'ok' : 'warn');
     applyFilters();
 
-    // Persist to API
     const promises = __allLeadsData
       .filter(function(l) { const c = String(l.telefono||'').replace(/\D/g,''); return rawNumbers.includes(c); })
       .map(function(l) {
@@ -2709,8 +2715,17 @@
     window.closeBulkStatusPhoneModal();
   };
 
-  // Phone count listener
   document.addEventListener('DOMContentLoaded', function() {
+    const canUse = canUseBulkStatusByPhone();
+
+    const bspBtn = document.getElementById('btn-bulk-status-phone');
+    if (bspBtn) {
+      bspBtn.style.display = canUse ? '' : 'none';
+      if (canUse) bspBtn.addEventListener('click', window.openBulkStatusPhoneModal);
+    }
+
+    if (!canUse) return;
+
     const phoneTA = document.getElementById('bulkPhoneNumbers');
     const execBtn = document.getElementById('btnExecuteBulkStatus');
     const selSt   = document.getElementById('bulkNewStatus');
@@ -2723,17 +2738,8 @@
     }
     if (phoneTA) phoneTA.addEventListener('input', updatePhoneCount);
     if (selSt)   selSt.addEventListener('change', updatePhoneCount);
-
-    // Wire up bulk status phone button
-    const bspBtn = document.getElementById('btn-bulk-status-phone');
-    if (bspBtn) bspBtn.addEventListener('click', window.openBulkStatusPhoneModal);
   });
 
-  /* ═══════════════════════════════════════════
-     NOTES ENGINE
-     FIX: moved DOMContentLoaded listener OUT of
-     initNotesEngine so it fires correctly.
-  ═══════════════════════════════════════════ */
   function getCurrentUserName() {
     try {
       const raw = localStorage.getItem('crm_user') || sessionStorage.getItem('crm_user');

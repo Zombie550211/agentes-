@@ -1933,9 +1933,14 @@ if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
 // Debug route para verificar lead de Paola Villalobos
 const debugPaolaRoutes = require('./backend/routes/debug-paola');
 app.use('/api/debug-paola', debugPaolaRoutes);
-// Bulk status by phone route
-const bulkStatusPhoneRoutes = require('./backend/routes/bulk-status-phone');
-app.use('/api/leads', bulkStatusPhoneRoutes);
+// Bulk status by phone route (optional)
+try {
+  const bulkStatusPhoneRoutes = require('./backend/routes/bulk-status-phone');
+  app.use('/api/leads', bulkStatusPhoneRoutes);
+  console.log('[SERVER] Rutas bulk-status-phone cargadas');
+} catch (e) {
+  console.warn('[SERVER] No se pudieron cargar rutas bulk-status-phone:', e?.message);
+}
 // Migrate routes (solo admins) para migración de datos
 try {
   const migrateRoutes = require('./backend/routes/migrate');
