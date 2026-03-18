@@ -2689,30 +2689,61 @@
     const btn = document.getElementById('btnExecuteBulkStatus');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Actualizando…'; }
 
-    let updated = 0;
-    __allLeadsData.forEach(function(lead) {
-      const clean = String(lead.telefono || '').replace(/\D/g,'');
-      if (rawNumbers.includes(clean)) {
-        lead.status = normalizeStatus(newStatus);
-        updated++;
-      }
-    });
+    const preview = document.getElementById('bulkStatusPreview');
+    const content = document.getElementById('bulkStatusPreviewContent');
+    if (preview) preview.style.display = 'block';
+    if (content) content.textContent = 'Procesando…';
 
-    showToast(updated + ' leads actualizados localmente', updated ? 'ok' : 'warn');
-    applyFilters();
-
-    const promises = __allLeadsData
-      .filter(function(l) { const c = String(l.telefono||'').replace(/\D/g,''); return rawNumbers.includes(c); })
-      .map(function(l) {
-        return AUTH.secureFetch('/api/leads/' + l._id, {
-          method: 'PUT',
-          body: JSON.stringify({ status: l.status })
-        }).catch(function() {});
+    try {
+      const normalizedStatus = normalizeStatus(newStatus);
+      const res = await AUTH.secureFetch('/api/leads/bulk-status-by-phone', {
+        method: 'POST',
+        body: JSON.stringify({ phones: rawNumbers, newStatus: normalizedStatus })
       });
-    await Promise.allSettled(promises);
 
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Actualizar status'; }
-    window.closeBulkStatusPhoneModal();
+      if (!res) throw new Error('No se pudo conectar al servidor');
+      const data = await res.json().catch(function() { return {}; });
+
+      if (!res.ok || !data.success) {
+        const msg = (data && (data.message || data.error)) ? (data.message || data.error) : ('Error del servidor: ' + res.status);
+        if (content) content.textContent = msg;
+        showToast(msg, 'error');
+        return;
+      }
+
+      const foundPhones = Array.isArray(data.foundPhones) ? data.foundPhones : [];
+      const notFoundPhones = Array.isArray(data.notFoundPhones) ? data.notFoundPhones : [];
+
+      // Sync local state with server result
+      const foundSet = new Set(foundPhones);
+      __allLeadsData.forEach(function(lead) {
+        const clean = String(lead.telefono || '').replace(/\D/g,'');
+        if (foundSet.has(clean)) lead.status = normalizedStatus;
+      });
+      applyFilters();
+
+      // Render result inside modal
+      if (content) {
+        const okLines = foundPhones.slice(0, 25).map(function(p) { return '✓ ' + p; }).join('\n');
+        const koLines = notFoundPhones.slice(0, 25).map(function(p) { return '✗ ' + p; }).join('\n');
+        const extraOk = foundPhones.length > 25 ? ('\n… +' + (foundPhones.length - 25) + ' más') : '';
+        const extraKo = notFoundPhones.length > 25 ? ('\n… +' + (notFoundPhones.length - 25) + ' más') : '';
+        content.textContent =
+          'Actualizados: ' + (data.updated || 0) + '\n' +
+          'Encontrados: ' + (data.found || foundPhones.length) + '\n' +
+          'No encontrados: ' + (data.notFound || notFoundPhones.length) +
+          (foundPhones.length ? ('\n\nActualizados:\n' + okLines + extraOk) : '') +
+          (notFoundPhones.length ? ('\n\nNo encontrados:\n' + koLines + extraKo) : '');
+      }
+
+      showToast('Status masivo aplicado ✓', 'ok');
+    } catch (e) {
+      const msg = e && e.message ? e.message : 'Error inesperado';
+      if (content) content.textContent = msg;
+      showToast(msg, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Actualizar status'; }
+    }
   };
 
   document.addEventListener('DOMContentLoaded', function() {
