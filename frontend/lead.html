@@ -627,10 +627,10 @@
             <label>Status</label>
             <div class="radio-group">
               <label class="radio-btn checked" id="rb-pending" onclick="selectRadio('pending')">
-                <input type="radio" name="status" value="PENDING"><span class="radio-dot"></span>Pending
+                <input type="radio" name="status" value="PENDING" required><span class="radio-dot"></span>Pending
               </label>
               <label class="radio-btn" id="rb-repro" onclick="selectRadio('repro')">
-                <input type="radio" name="status" value="REPRO"><span class="radio-dot"></span>Repro
+                <input type="radio" name="status" value="REPRO" required><span class="radio-dot"></span>Repro
               </label>
             </div>
           </div>
@@ -664,7 +664,7 @@
           </div>
           <div class="field s2">
             <label>Comentario</label>
-            <textarea id="comentario" name="comentario"></textarea>
+            <textarea id="comentario" name="comentario" required></textarea>
           </div>
           <div class="field s2">
             <label>Indicadores de Puntaje</label>
@@ -722,7 +722,7 @@
               <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;">Agentes Disponibles: [Lista...]</span>
             </label>
             <div class="agent-row">
-              <select id="agentAssign" name="agentAssign"><option value="">Asignar a agente</option></select>
+              <select id="agentAssign" name="agentAssign" required><option value="">Asignar a agente</option></select>
               <button type="button" class="search-btn">
                 <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </button>
@@ -984,20 +984,59 @@
   document.getElementById('save-btn').addEventListener('click', async function() {
     const btn = this;
     
-    // Validar campos requeridos
-    const required = [
-      'nombre-cliente',
-      'telefono-principal',
-      'direccion',
-      'servicios',
-      'tipo-servicio',
-      'riesgo',
-      'dia-venta'
-    ];
+    // Validar: todos los campos deben estar llenos (ignorando ocultos/deshabilitados)
+    const isVisible = (el) => {
+      if (!el) return false;
+      if (el.disabled) return false;
+      if (el.type === 'hidden') return false;
+      const style = window.getComputedStyle(el);
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+      if (el.offsetParent === null) return false;
+      return true;
+    };
     
-    const empty = required.filter(id => !document.getElementById(id).value.trim());
-    if (empty.length > 0) {
-      showToast(`❌ Completa los campos: ${empty.join(', ')}`, 'error');
+    const normalizeValue = (el) => {
+      if (!el) return '';
+      const v = (el.value ?? '');
+      return typeof v === 'string' ? v.trim() : String(v);
+    };
+    
+    const requiredEls = Array.from(document.querySelectorAll('input, select, textarea'))
+      .filter(isVisible);
+    
+    const missingRadioGroups = (() => {
+      const radios = requiredEls.filter(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name);
+      const names = Array.from(new Set(radios.map(r => r.name)));
+      return names.filter(n => !radios.some(r => r.name === n && r.checked));
+    })();
+    
+    const missingCheckboxes = requiredEls
+      .filter(el => el.tagName === 'INPUT' && el.type === 'checkbox')
+      .filter(el => !el.checked);
+    
+    const emptyEls = requiredEls.filter(el => {
+      // No validar botones
+      if (el.tagName === 'BUTTON') return false;
+      if (el.type === 'button' || el.type === 'submit') return false;
+      if (el.type === 'radio' || el.type === 'checkbox') return false;
+      return normalizeValue(el) === '';
+    });
+    
+    const motivo = Array.from(document.querySelectorAll('.chip.active'))
+      .map(c => (c.dataset.value || c.textContent.trim()))
+      .join(', ')
+      .trim();
+    
+    if (emptyEls.length > 0 || missingRadioGroups.length > 0 || missingCheckboxes.length > 0 || !motivo) {
+      if (emptyEls[0] && typeof emptyEls[0].focus === 'function') {
+        emptyEls[0].focus();
+      } else if (missingRadioGroups.length > 0) {
+        const firstRadio = requiredEls.find(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name === missingRadioGroups[0]);
+        if (firstRadio && typeof firstRadio.focus === 'function') firstRadio.focus();
+      } else if (missingCheckboxes[0] && typeof missingCheckboxes[0].focus === 'function') {
+        missingCheckboxes[0].focus();
+      }
+      showToast('❌ Debes completar todos los campos del formulario', 'error');
       return;
     }
 
@@ -1012,7 +1051,7 @@
       tipo_servicio: document.getElementById('tipo-servicio').value.trim(),
       numero_cuenta: document.getElementById('numero-cuenta').value.trim(),
       mercado: document.getElementById('mercado').value.trim(),
-      motivo_llamada: Array.from(document.querySelectorAll('.chip.active')).map(c => (c.dataset.value || c.textContent.trim())).join(', '),
+      motivo_llamada: motivo,
       status: (document.querySelector('.radio-btn.checked input')?.value) || 'PENDING',
       autopago: document.getElementById('autopago').value.trim(),
       sistema: document.getElementById('sistema').value.trim(),
