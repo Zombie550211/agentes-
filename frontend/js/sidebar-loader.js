@@ -308,6 +308,23 @@
           window.__SIDEBAR_LOADED = true;
           window.__SIDEBAR_LOADED_AT = Date.now();
         } catch (_) { /* ignore */ }
+        // Ensure 'Reglas y Puntajes' exists also in preserved sidebars (some pages ship a static sidebar)
+        try {
+          (function ensureReglasIn(elem){
+            if (!elem || typeof elem.querySelector !== 'function') return;
+            if (elem.querySelector('a[href*="Reglas.html"]') || elem.querySelector('a[href*="Reglas y Puntajes"]')) return;
+            var target = elem.querySelector('ul.menu') || elem.querySelector('.nav-content') || elem;
+            var anchorHtml = '<a href="/Reglas.html" class="btn btn-sidebar" title="Reglas y Puntajes"><i class="fas fa-book"></i><span class="menu-label">Reglas y Puntajes</span></a>';
+            if (target && target.tagName && target.tagName.toLowerCase() === 'ul') {
+              target.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
+            } else if (target) {
+              // try to append into a sensible container
+              var list = target.querySelector('ul') || target;
+              if (list && list.tagName && list.tagName.toLowerCase() === 'ul') list.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
+              else target.insertAdjacentHTML('beforeend', anchorHtml);
+            }
+          })(sidebarElement);
+        } catch(_) {}
         return true;
       }
     } catch(_){ }
@@ -823,6 +840,7 @@
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/Reglas.html' },
       { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/Premios.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/Comisiones.html' },
