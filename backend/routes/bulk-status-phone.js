@@ -165,7 +165,11 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
         success: true,
         message: 'No se encontraron leads con los números proporcionados',
         updated: 0,
-        notFound: normalizedPhones.length
+        found: 0,
+        foundPhones: [],
+        notFound: normalizedPhones.length,
+        notFoundPhones: normalizedPhones,
+        totalPhones: normalizedPhones.length
       });
     }
 
