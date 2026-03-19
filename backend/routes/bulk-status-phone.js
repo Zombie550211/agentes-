@@ -7,7 +7,11 @@ const { protect } = require('../middleware/auth');
  * Normalizar número telefónico (eliminar todo excepto dígitos)
  */
 function normalizePhone(phone) {
-  return String(phone || '').replace(/\D/g, '');
+  const digits = String(phone || '').replace(/\D/g, '');
+  // Comparar por los últimos 10 dígitos para tolerar código país (ej: 1XXXXXXXXXX)
+  // y formatos como (239) 728-7674
+  if (digits.length < 10) return '';
+  return digits.slice(-10);
 }
 
 /**
@@ -55,8 +59,8 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
       });
     }
 
-    // Normalizar números telefónicos
-    const normalizedPhones = phones.map(normalizePhone).filter(p => p.length >= 10);
+    // Normalizar números telefónicos (últimos 10 dígitos)
+    const normalizedPhones = phones.map(normalizePhone).filter(p => p.length === 10);
 
     if (normalizedPhones.length === 0) {
       return res.status(400).json({ 
@@ -105,13 +109,21 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
         });
       }
       
-      if (phone1 && phone1.length >= 10) {
+      if (phone1 && phone1.length === 10) {
         if (!phoneToLeadMap.has(phone1)) {
           phoneToLeadMap.set(phone1, []);
         }
         phoneToLeadMap.get(phone1).push(lead);
       }
-      if (phone3 && phone3.length >= 10 && phone3 !== phone1 && phone3 !== phone2) {
+
+      if (phone2 && phone2.length === 10 && phone2 !== phone1) {
+        if (!phoneToLeadMap.has(phone2)) {
+          phoneToLeadMap.set(phone2, []);
+        }
+        phoneToLeadMap.get(phone2).push(lead);
+      }
+
+      if (phone3 && phone3.length === 10 && phone3 !== phone1 && phone3 !== phone2) {
         if (!phoneToLeadMap.has(phone3)) {
           phoneToLeadMap.set(phone3, []);
         }

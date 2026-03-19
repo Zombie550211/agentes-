@@ -2683,7 +2683,14 @@
     const newStatus = document.getElementById('bulkNewStatus') && document.getElementById('bulkNewStatus').value;
     if (!textarea || !newStatus) return;
 
-    const rawNumbers = textarea.value.split('\n').map(function(s) { return s.replace(/\D/g,''); }).filter(function(s) { return s.length >= 10; });
+    const rawNumbers = textarea.value
+      .split('\n')
+      .map(function(s) {
+        const d = String(s || '').replace(/\D/g,'');
+        return d.length >= 10 ? d.slice(-10) : '';
+      })
+      .filter(function(s) { return s.length === 10; });
+
     if (!rawNumbers.length) { showToast('No hay números válidos', 'error'); return; }
 
     const btn = document.getElementById('btnExecuteBulkStatus');
@@ -2715,25 +2722,40 @@
       const notFoundPhones = Array.isArray(data.notFoundPhones) ? data.notFoundPhones : [];
 
       // Sync local state with server result
-      const foundSet = new Set(foundPhones);
+      const foundSet = new Set(foundPhones.map(function(p) { return String(p || '').replace(/\D/g,''); }));
       __allLeadsData.forEach(function(lead) {
-        const clean = String(lead.telefono || '').replace(/\D/g,'');
-        if (foundSet.has(clean)) lead.status = normalizedStatus;
+        const d = String(lead.telefono || '').replace(/\D/g,'');
+        const clean10 = d.length >= 10 ? d.slice(-10) : d;
+        if (foundSet.has(clean10)) lead.status = normalizedStatus;
       });
       applyFilters();
 
-      // Render result inside modal
+      // Render result inside modal (separado)
       if (content) {
-        const okLines = foundPhones.slice(0, 25).map(function(p) { return '✓ ' + p; }).join('\n');
-        const koLines = notFoundPhones.slice(0, 25).map(function(p) { return '✗ ' + p; }).join('\n');
-        const extraOk = foundPhones.length > 25 ? ('\n… +' + (foundPhones.length - 25) + ' más') : '';
-        const extraKo = notFoundPhones.length > 25 ? ('\n… +' + (notFoundPhones.length - 25) + ' más') : '';
-        content.textContent =
-          'Actualizados: ' + (data.updated || 0) + '\n' +
-          'Encontrados: ' + (data.found || foundPhones.length) + '\n' +
-          'No encontrados: ' + (data.notFound || notFoundPhones.length) +
-          (foundPhones.length ? ('\n\nActualizados:\n' + okLines + extraOk) : '') +
-          (notFoundPhones.length ? ('\n\nNo encontrados:\n' + koLines + extraKo) : '');
+        const fmtPhone = function(p) {
+          const s = String(p || '').replace(/\D/g,'');
+          if (s.length === 10) return '(' + s.slice(0,3) + ') ' + s.slice(3,6) + '-' + s.slice(6);
+          return String(p || '');
+        };
+        const listBlock = function(title, count, bgVar, lnVar, inkVar, items, prefix) {
+          const lines = (items || []).map(function(p) { return prefix + ' ' + fmtPhone(p); }).map(escHTML).join('\n');
+          return '<div style="margin-top:10px;background:var(' + bgVar + ');border:1px solid var(' + lnVar + ');border-radius:var(--r2);padding:10px;">' +
+                 '<div style="font-weight:800;color:var(' + inkVar + ');font-size:.72rem;margin-bottom:6px;">' + escHTML(title) + ' (' + escHTML(String(count)) + ')</div>' +
+                 '<div style="max-height:160px;overflow:auto;font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);white-space:pre;">' + (lines || '—') + '</div>' +
+                 '</div>';
+        };
+
+        const summary = '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px;">' +
+                        '<div style="font-weight:800;color:var(--ink-1);font-size:.72rem;">Resumen</div>' +
+                        '<div style="font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);margin-top:6px;">' +
+                        'Actualizados: <b>' + escHTML(String(data.updated || 0)) + '</b><br>' +
+                        'Encontrados: <b>' + escHTML(String(data.found || foundPhones.length)) + '</b><br>' +
+                        'No encontrados: <b>' + escHTML(String(data.notFound || notFoundPhones.length)) + '</b>' +
+                        '</div></div>';
+
+        const okBlock = listBlock('✅ Actualizados', foundPhones.length, '--go-bg', '--go-ln', '--go', foundPhones, '✓');
+        const koBlock = listBlock('❌ No encontrados', notFoundPhones.length, '--stop-bg', '--stop-ln', '--stop', notFoundPhones, '✗');
+        content.innerHTML = summary + okBlock + koBlock;
       }
 
       showToast('Status masivo aplicado ✓', 'ok');
@@ -2762,7 +2784,12 @@
     const selSt   = document.getElementById('bulkNewStatus');
     function updatePhoneCount() {
       if (!phoneTA) return;
-      const nums = phoneTA.value.split('\n').map(function(s) { return s.replace(/\D/g,''); }).filter(function(s) { return s.length >= 10; });
+      const nums = phoneTA.value.split('\n')
+        .map(function(s) {
+          const d = String(s || '').replace(/\D/g,'');
+          return d.length >= 10 ? d.slice(-10) : '';
+        })
+        .filter(function(s) { return s.length === 10; });
       const countEl = document.getElementById('phoneCount');
       if (countEl) countEl.textContent = nums.length;
       if (execBtn && selSt) execBtn.disabled = !(nums.length > 0 && selSt.value);
