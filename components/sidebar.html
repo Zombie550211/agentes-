@@ -32,7 +32,8 @@
         <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
         <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
         <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
-  <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
+          <li><a href="Reglas.html" class="btn btn-sidebar" title="Reglas"><i class="fas fa-book"></i><span class="menu-label">Reglas</span></a></li>
+        <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
       </ul>
 
       <!-- Frase al pie -->
@@ -247,6 +248,33 @@
             sidebar.addEventListener('mouseleave', hide);
           }
         } catch (e) { /* no-op */ }
+      })();
+      // Ensure 'Reglas' link is present at runtime (in case sidebar is local/preserved)
+      (function(){
+        function ensureReglas(){
+          try {
+            if (document.querySelector('a[href*="Reglas.html"]')) return;
+            var target = document.querySelector('.nav-content') || document.querySelector('ul.menu') || document.querySelector('.sidebar');
+            if (!target) return;
+            var anchorHtml = '<a href="/Reglas.html" class="nav-item"><i class="fas fa-book item-icon"></i><span class="item-label">Reglas y Puntajes</span></a>';
+            if (target.tagName && target.tagName.toLowerCase() === 'ul') {
+              target.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
+            } else {
+              // prefer inserting into the Estadísticas block if present
+              var estad = target.querySelector('.nav-block.estadisticas');
+              if (estad) {
+                // insert before the first child that looks like 'Premios' or at end
+                var ref = estad.querySelector('.nav-item') || estad.firstElementChild;
+                if (ref) ref.insertAdjacentHTML('afterend', anchorHtml);
+                else estad.insertAdjacentHTML('beforeend', anchorHtml);
+              } else {
+                target.insertAdjacentHTML('beforeend', anchorHtml);
+              }
+            }
+            console.log('[Sidebar Patch] Enlace Reglas inyectado automáticamente');
+          } catch (e) { /* silent */ }
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureReglas); else ensureReglas();
       })();
       
       
