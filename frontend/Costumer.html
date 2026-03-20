@@ -1131,43 +1131,78 @@
     </div>
     <div class="modal-body">
       <div class="form-section">
-        <div class="form-group">
-          <label class="form-label" for="bulkPhoneNumbers">
-            <span class="label-text">Números telefónicos</span>
-            <span class="label-hint">Ingresa uno por línea. Acepta formatos: (346) 277-4495 o 3462774495</span>
-          </label>
-          <textarea id="bulkPhoneNumbers"
-                    placeholder="(346) 277-4495&#10;3462774495&#10;346-277-4495"
-                    style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;"
-                    aria-describedby="phoneCountHint"></textarea>
-          <div id="phoneCountHint" style="font-size:.68rem;color:var(--ink-4);margin-top:6px;">
-            <span id="phoneCount">0</span> números detectados
+
+        <!-- TABS: Teléfono / Nombre -->
+        <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:16px;">
+          <button id="bulkTabPhone" type="button" onclick="switchBulkTab('phone')"
+            style="flex:1;padding:9px 0;font-family:var(--f);font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--a);color:#fff;transition:all .12s;border-right:1px solid var(--line-1);">
+            📞 Por Teléfono
+          </button>
+          <button id="bulkTabName" type="button" onclick="switchBulkTab('name')"
+            style="flex:1;padding:9px 0;font-family:var(--f);font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--sheet);color:var(--ink-2);transition:all .12s;">
+            👤 Por Nombre
+          </button>
+        </div>
+
+        <!-- PANEL TELÉFONO -->
+        <div id="bulkPanelPhone">
+          <div class="form-group">
+            <label class="form-label" for="bulkPhoneNumbers">
+              <span class="label-text">Números telefónicos</span>
+              <span class="label-hint">Uno por línea. Acepta formatos: (346) 277-4495 o 3462774495</span>
+            </label>
+            <textarea id="bulkPhoneNumbers"
+                      placeholder="(346) 277-4495&#10;3462774495&#10;346-277-4495"
+                      style="width:100%;min-height:160px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
           </div>
         </div>
+
+        <!-- PANEL NOMBRE -->
+        <div id="bulkPanelName" style="display:none;">
+          <div class="form-group">
+            <label class="form-label" for="bulkNamesList">
+              <span class="label-text">Nombres de clientes</span>
+              <span class="label-hint">Uno por línea. Debe coincidir con el nombre guardado en el sistema.</span>
+            </label>
+            <textarea id="bulkNamesList"
+                      placeholder="JUAN PEREZ&#10;MARIA LOPEZ&#10;CARLOS GARCIA"
+                      style="width:100%;min-height:160px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+          </div>
+        </div>
+
+        <!-- Contador -->
+        <div id="phoneCountHint" style="font-size:.68rem;color:var(--ink-4);margin-top:4px;margin-bottom:12px;">
+          <span id="phoneCount">0 números</span> detectados
+        </div>
+
+        <!-- Selector de status -->
         <div class="form-group">
           <label class="form-label" for="bulkNewStatus">
             <span class="label-text">Nuevo status</span>
-            <span class="label-hint">Selecciona el status que se aplicará a todos los leads encontrados</span>
+            <span class="label-hint">Se aplicará a todos los leads encontrados</span>
           </label>
-          <select id="bulkNewStatus" style="width:100%;padding:10px;border:1px solid var(--line-1);border-radius:var(--r2);font-size:.85rem;">
+          <select id="bulkNewStatus" style="width:100%;padding:10px;border:1px solid var(--line-1);border-radius:var(--r2);font-size:.85rem;font-family:var(--f);outline:none;">
             <option value="">-- Selecciona un status --</option>
-            <option value="Pending">Pending</option>
-            <option value="Completed">Completed / Active</option>
-            <option value="Colchon">Colchón</option>
-            <option value="Oficina">Oficina</option>
-            <option value="Ventas en reserva">Ventas en reserva</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed / Active</option>
+            <option value="oficina">Oficina</option>
+            <option value="reserva">Ventas en reserva</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="hold">Hold</option>
           </select>
         </div>
+
+        <!-- Resultado -->
         <div id="bulkStatusPreview" style="display:none;margin-top:16px;padding:12px;background:var(--info-bg);border:1px solid var(--info-ln);border-radius:var(--r2);" aria-live="polite">
-          <div style="font-size:.75rem;font-weight:700;color:var(--info);margin-bottom:6px;">Vista previa</div>
+          <div style="font-size:.75rem;font-weight:700;color:var(--info);margin-bottom:6px;">Resultado</div>
           <div id="bulkStatusPreviewContent" style="font-size:.72rem;color:var(--ink-2);"></div>
         </div>
+
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" type="button" onclick="closeBulkStatusPhoneModal()">Cancelar</button>
-      <button class="btn-save" id="btnExecuteBulkStatus" type="button" onclick="executeBulkStatusByPhone()" disabled>
+      <button class="btn-save" id="btnExecuteBulkStatus" type="button" onclick="executeBulkStatus()" disabled>
         🔄 Actualizar status
       </button>
     </div>
@@ -1214,6 +1249,25 @@
 </div>
 <!-- PARTE 2 — Pega esto a continuación de la Parte 1, eliminando el comentario de cierre -->
 
+
+<style>
+/* ── Colchón select styles ── */
+.status-inline-select.colchon-select {
+  border-left: 3px solid var(--a) !important;
+  font-style: italic;
+}
+.status-inline-select.colchon-select::before {
+  content: '🛏 ';
+}
+/* Colchón completed — highlight verde */
+.status-inline-select.colchon-select.badge-active {
+  background: linear-gradient(135deg, var(--a-bg), var(--go-bg)) !important;
+  border-color: var(--go-ln) !important;
+  color: var(--go) !important;
+  border-left: 3px solid var(--a) !important;
+  font-weight: 800;
+}
+</style>
 <!-- DATE RANGE PICKER SCRIPT -->
 <script>
 (function () {
@@ -1363,14 +1417,7 @@
   function setSelectSafe(id,value){const el=document.getElementById(id);if(!el)return;const v=(value==null)?'':String(value).trim();if(!v){el.value='';return;}const opts=Array.from(el.options);if(opts.some(function(o){return o.value===v;})){el.value=v;return;}const vL=v.toLowerCase();const hit=opts.find(function(o){return o.value.toLowerCase()===vL;});if(hit){el.value=hit.value;return;}const opt=document.createElement('option');opt.value=v;opt.textContent=v;el.appendChild(opt);el.value=v;}
   function fmtDate(rawDate){if(!rawDate)return'—';try{const str=String(rawDate).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(str)){const parts=str.split('-');const dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}return new Date(rawDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return String(rawDate);}}
   function cell(txt){return'<td>'+(txt||'—')+'</td>';}
-  function getUserData(){
-    try{
-      const raw = localStorage.getItem('crm_user') || sessionStorage.getItem('crm_user') || localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-      return raw ? JSON.parse(raw) : {};
-    }catch(_){
-      try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; }
-    }
-  }
+  function getUserData(){try{return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){return{};}}
   function isAdminOrBackoffice(role){return['admin','backoffice','administrador','rol_icon','rol_bamo'].indexOf(role)!==-1;}
   function isAgent(role){return['agente','agent','agentes','vendedor','vendedores'].indexOf(role)!==-1;}
   function isSupervisor(role){return['supervisor','supervisores'].indexOf(role)!==-1;}
@@ -1383,6 +1430,7 @@
   function pickField(obj,keys,fallback){if(!obj)return fallback!==undefined?fallback:'';for(let i=0;i<keys.length;i++){const v=obj[keys[i]];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return fallback!==undefined?fallback:'';}
 
   /* ── COLCHÓN DETECTION ── */
+  // isColchonLead: detecta el PATRÓN de colchón (fechas), sin importar status
   function isColchonLead(lead){
     try{
       const now=new Date();
@@ -1390,10 +1438,12 @@
       const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
       if(!dv||!di)return false;
-      const st=normalizeStatus(lead.status);
-      if(st!=='completed'&&st!=='active'&&st!=='pending')return false;
       return dv!==curMonthStr&&di===curMonthStr;
     }catch(_){return false;}
+  }
+  // isColchonActivo: colchón que CUENTA (patrón + completed)
+  function isColchonActivo(lead){
+    return isColchonLead(lead) && (normalizeStatus(lead.status)==='completed'||normalizeStatus(lead.status)==='active');
   }
 
   function normalizeLeads(items){
@@ -1517,7 +1567,7 @@
       if(mercado&&lead.mercado!==mercado)return false;
 
       if(activeStatusTab&&activeStatusTab!=='all'){
-        if(activeStatusTab==='colchon'){if(!lead._es_colchon)return false;}
+        if(activeStatusTab==='colchon'){if(!lead._es_colchon)return false;} // muestra todos los colchones (cualquier status)
         else if(activeStatusTab==='completed'){if(lead.status!=='completed'&&lead.status!=='active')return false;if(lead._es_colchon)return false;}
         else if(activeStatusTab==='pending'){if(lead.status!=='pending')return false;if(lead._es_colchon)return false;}
         else{if(lead.status!==activeStatusTab)return false;}
@@ -1540,11 +1590,18 @@
 
   function statusCellHTML(leadId,currentStatus,isColchon){
     const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    // Agentes solo ven badge, no pueden cambiar status
     if(!isAdminOrBackoffice(role))return badgeHTML(currentStatus,isColchon);
-    if(isColchon)return badgeHTML(currentStatus,true);
-    const lidStr=String(leadId),cfg=STATUS_CFG[currentStatus]||{cls:'badge-hold'};
-    const opts=[{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}].map(function(o){return'<option value="'+o.value+'"'+(o.value===currentStatus?' selected':'')+'>'+o.label+'</option>';}).join('');
-    return'<select class="status-inline-select '+cfg.cls+'" data-lead-id="'+escHTML(lidStr)+'" onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>';
+    // Admins/backoffice pueden cambiar status INCLUSO en colchones
+    const lidStr=String(leadId);
+    const cfg=STATUS_CFG[currentStatus]||{cls:'badge-hold'};
+    // Para colchones, opciones limitadas: completed o cancelled
+    const allOpts=isColchon
+      ? [{value:'completed',label:'Completed ✓'},{value:'cancelled',label:'Cancelled'},{value:'pending',label:'Pending'},{value:'hold',label:'Hold'}]
+      : [{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}];
+    const opts=allOpts.map(function(o){return'<option value="'+o.value+'"'+(o.value===currentStatus?' selected':'')+'>'+o.label+'</option>';}).join('');
+    const colchonAttr=isColchon?' data-is-colchon="1"':'';
+    return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'"'+colchonAttr+' onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>';
   }
 
   /* ── TABLE ROWS ── */
@@ -1587,7 +1644,11 @@
       const dv=String(l.dia_venta||'').slice(0,10),st=l.status,isCol=!!l._es_colchon;
       if(st==='oficina'){kpi.oficina++;return;}
       if(st==='reserva'){kpi.reserva++;return;}
-      if(isCol){kpi.colchon++;return;}
+      // Colchón solo cuenta en KPI si status es completed/active
+      if(isCol){
+        if(st==='completed'||st==='active')kpi.colchon++;
+        return;
+      }
       if(!dv.startsWith(curMon))return;
       if(dv===today)kpi.hoy++;
       if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
@@ -1613,11 +1674,39 @@
     const leadId=selectEl.dataset.leadId,newStatus=selectEl.value;
     const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
     if(!lead){showToast('Lead no encontrado','error');return;}
-    const oldStatus=lead.status,oldCls=(STATUS_CFG[oldStatus]||{cls:'badge-hold'}).cls,newCls=(STATUS_CFG[newStatus]||{cls:'badge-hold'}).cls;
-    lead.status=newStatus;selectEl.classList.remove(oldCls);selectEl.classList.add(newCls);updateKPIs();
+    const oldStatus=lead.status;
+    const oldCls=(STATUS_CFG[oldStatus]||{cls:'badge-hold'}).cls;
+    const newCls=(STATUS_CFG[newStatus]||{cls:'badge-hold'}).cls;
+    lead.status=newStatus;
+    // Recalcular si sigue siendo colchón activo según nuevo status
+    const wasColchon=!!lead._es_colchon;
+    if(wasColchon){
+      // Sigue siendo colchón (patrón de fechas no cambia)
+      // pero _es_colchon ACTIVO solo si completed
+      const normSt=normalizeStatus(newStatus);
+      lead._es_colchon_activo=(normSt==='completed'||normSt==='active');
+    }
+    selectEl.classList.remove(oldCls);selectEl.classList.add(newCls);
+    updateKPIs();
     const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({status:newStatus})});
-    if(res&&res.ok){showToast('Status actualizado ✓','ok');}
-    else if(res){lead.status=oldStatus;selectEl.value=oldStatus;selectEl.classList.remove(newCls);selectEl.classList.add(oldCls);showToast('No se pudo guardar el status','error');}
+    if(res&&res.ok){
+      const isCol=!!lead._es_colchon;
+      if(isCol&&(normalizeStatus(newStatus)==='completed'||normalizeStatus(newStatus)==='active')){
+        showToast('✅ Colchón completado — ahora cuenta en rankings','ok');
+      }else if(isCol){
+        showToast('Status actualizado (cuenta cuando sea Completed)','ok');
+      }else{
+        showToast('Status actualizado ✓','ok');
+      }
+      // Refrescar fila para actualizar badge/select
+      applyFilters();
+    } else if(res){
+      lead.status=oldStatus;
+      selectEl.value=oldStatus;
+      selectEl.classList.remove(newCls);
+      selectEl.classList.add(oldCls);
+      showToast('No se pudo guardar el status','error');
+    }
   };
 
   /* ── EDIT MODAL ── */
@@ -1701,55 +1790,132 @@
   window.liberarDeReserva=window.liberarDeReservaConAsignacion;
 
   /* ── BULK STATUS BY PHONE ── */
-  function canUseBulkStatusByPhone(){const ud=getUserData();const role=String(ud.role||ud.rol||'').toLowerCase();return!(isAgent(role)||isSupervisor(role));}
-  window.openBulkStatusPhoneModal=function(){if(!canUseBulkStatusByPhone()){showToast('No tienes permisos para usar esta herramienta','error');return;}const modal=document.getElementById('bulkStatusPhoneModal');if(modal){modal.style.display='flex';modal.setAttribute('aria-hidden','false');}};
-  window.closeBulkStatusPhoneModal=function(){const modal=document.getElementById('bulkStatusPhoneModal');if(modal){modal.style.display='none';modal.setAttribute('aria-hidden','true');}};
-  window.executeBulkStatusByPhone=async function(){
-    if(!canUseBulkStatusByPhone()){showToast('No tienes permisos','error');return;}
-    const textarea=document.getElementById('bulkPhoneNumbers');
-    const newStatus=document.getElementById('bulkNewStatus')&&document.getElementById('bulkNewStatus').value;
-    if(!textarea||!newStatus)return;
-    const rawNumbers=textarea.value.split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});
-    if(!rawNumbers.length){showToast('No hay números válidos','error');return;}
-    const btn=document.getElementById('btnExecuteBulkStatus');
-    if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}
-    const preview=document.getElementById('bulkStatusPreview'),content=document.getElementById('bulkStatusPreviewContent');
-    if(preview)preview.style.display='block';if(content)content.textContent='Procesando…';
-    try{
-      const res=await AUTH.secureFetch('/api/leads/bulk-status-by-phone',{method:'POST',body:JSON.stringify({phones:rawNumbers,newStatus:normalizeStatus(newStatus)})});
-      if(!res)throw new Error('No se pudo conectar al servidor');
-      const data=await res.json().catch(function(){return{};});
-      if(!res.ok||!data.success){const msg=(data&&(data.message||data.error))?(data.message||data.error):('Error del servidor: '+res.status);if(content)content.textContent=msg;showToast(msg,'error');return;}
-      const foundPhones=Array.isArray(data.foundPhones)?data.foundPhones:[];
-      const notFoundPhones=Array.isArray(data.notFoundPhones)?data.notFoundPhones:[];
-      const updatedLeads=Array.isArray(data.updatedLeads)?data.updatedLeads:[];
-      const normalizedStatus=normalizeStatus(newStatus);
-      const srcPhones=updatedLeads.length?updatedLeads.map(function(x){return x&&x.telefono;}):foundPhones;
-      const foundSet=new Set((srcPhones||[]).map(function(p){return String(p||'').replace(/\D/g,'');}).map(function(d){return d.length>=10?d.slice(-10):d;}).filter(Boolean));
-      __allLeadsData.forEach(function(lead){const d=String(lead.telefono||'').replace(/\D/g,'');const clean10=d.length>=10?d.slice(-10):d;if(foundSet.has(clean10))lead.status=normalizedStatus;});
-      applyFilters();
-      if(content){
-        const fmtPhone=function(p){const s=String(p||'').replace(/\D/g,'');const s10=s.length>=10?s.slice(-10):s;if(s10.length===10)return'('+s10.slice(0,3)+') '+s10.slice(3,6)+'-'+s10.slice(6);return String(p||'');};
-        const okItems=updatedLeads.length?updatedLeads:foundPhones,okCount=okItems.length;
-        const okFormatter=function(x){if(x&&typeof x==='object'){const phone=fmtPhone(x.telefono||'');const name=String(x.nombre_cliente||'').trim();return name?(phone+' — '+name):phone;}return fmtPhone(x);};
-        const summary='<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px;"><div style="font-weight:800;color:var(--ink-1);font-size:.72rem;">Resumen</div><div style="font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);margin-top:6px;">Actualizados: <b>'+escHTML(String(data.updated||0))+'</b><br>Encontrados: <b>'+escHTML(String(data.found||foundPhones.length))+'</b><br>No encontrados: <b>'+escHTML(String(data.notFound||notFoundPhones.length))+'</b></div></div>';
-        const listBlock=function(title,count,bgVar,lnVar,inkVar,items,prefix,formatter){const lines=(items||[]).map(function(p){return prefix+' '+(formatter?formatter(p):fmtPhone(p));}).map(escHTML).join('\n');return'<div style="margin-top:10px;background:var('+bgVar+');border:1px solid var('+lnVar+');border-radius:var(--r2);padding:10px;"><div style="font-weight:800;color:var('+inkVar+');font-size:.72rem;margin-bottom:6px;">'+escHTML(title)+' ('+escHTML(String(count))+')</div><div style="max-height:160px;overflow:auto;font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);white-space:pre;">'+(lines||'—')+'</div></div>';};
-        content.innerHTML=summary+listBlock('✅ Actualizados',okCount,'--go-bg','--go-ln','--go',okItems,'✓',okFormatter)+listBlock('❌ No encontrados',notFoundPhones.length,'--stop-bg','--stop-ln','--stop',notFoundPhones,'✗');
-      }
-      showToast('Status masivo aplicado ✓','ok');
-    }catch(e){const msg=e&&e.message?e.message:'Error inesperado';if(content)content.textContent=msg;showToast(msg,'error');}
-    finally{if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar status';}}
+  /* ══════════════════════════════════════════
+     BULK STATUS — Teléfono y Nombre
+  ══════════════════════════════════════════ */
+  function canUseBulkStatus(){
+    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    return !isAgent(role)&&!isSupervisor(role);
+  }
+
+  var _bulkMode='phone';
+
+  window.openBulkStatusPhoneModal=function(){
+    if(!canUseBulkStatus()){showToast('No tienes permisos para esta herramienta','error');return;}
+    const modal=document.getElementById('bulkStatusPhoneModal');
+    if(modal){modal.style.display='flex';modal.setAttribute('aria-hidden','false');}
+    _bulkMode='phone';
+    _switchBulkTab('phone');
+  };
+  window.closeBulkStatusPhoneModal=function(){
+    const modal=document.getElementById('bulkStatusPhoneModal');
+    if(modal){modal.style.display='none';modal.setAttribute('aria-hidden','true');}
+    const pr=document.getElementById('bulkStatusPreview');if(pr)pr.style.display='none';
+    const ct=document.getElementById('bulkStatusPreviewContent');if(ct)ct.innerHTML='';
+    const ta1=document.getElementById('bulkPhoneNumbers');if(ta1)ta1.value='';
+    const ta2=document.getElementById('bulkNamesList');if(ta2)ta2.value='';
+    _updateBulkCount();
   };
 
+  function _switchBulkTab(mode){
+    _bulkMode=mode;
+    const phonePanel=document.getElementById('bulkPanelPhone');
+    const namePanel =document.getElementById('bulkPanelName');
+    const tabPhone  =document.getElementById('bulkTabPhone');
+    const tabName   =document.getElementById('bulkTabName');
+    if(phonePanel)phonePanel.style.display=mode==='phone'?'block':'none';
+    if(namePanel) namePanel.style.display =mode==='name' ?'block':'none';
+    if(tabPhone){tabPhone.style.background=mode==='phone'?'var(--a)':'var(--sheet)';tabPhone.style.color=mode==='phone'?'#fff':'var(--ink-2)';}
+    if(tabName) {tabName.style.background =mode==='name' ?'var(--a)':'var(--sheet)';tabName.style.color =mode==='name' ?'#fff':'var(--ink-2)';}
+    _updateBulkCount();
+  }
+  window.switchBulkTab=_switchBulkTab;
+
+  function _updateBulkCount(){
+    const execBtn=document.getElementById('btnExecuteBulkStatus');
+    const selSt=document.getElementById('bulkNewStatus');
+    const countEl=document.getElementById('phoneCount');
+    if(_bulkMode==='phone'){
+      const ta=document.getElementById('bulkPhoneNumbers');
+      const nums=ta?(ta.value.split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;})):[];
+      if(countEl)countEl.textContent=nums.length+' números';
+      if(execBtn&&selSt)execBtn.disabled=!(nums.length>0&&selSt.value);
+    }else{
+      const ta=document.getElementById('bulkNamesList');
+      const names=ta?(ta.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;})):[];
+      if(countEl)countEl.textContent=names.length+' nombres';
+      if(execBtn&&selSt)execBtn.disabled=!(names.length>0&&selSt.value);
+    }
+  }
+
+  function _buildResultHTML(data,mode){
+    const fmtPhone=function(p){const s=String(p||'').replace(/\D/g,'');const s10=s.length>=10?s.slice(-10):s;return s10.length===10?'('+s10.slice(0,3)+') '+s10.slice(3,6)+'-'+s10.slice(6):String(p||'');};
+    const listBlock=function(title,bgVar,lnVar,inkVar,items,fmtFn){if(!items||!items.length)return'';const lines=items.map(fmtFn).map(escHTML).join('\n');return'<div style="margin-top:10px;background:var('+bgVar+');border:1px solid var('+lnVar+');border-radius:var(--r2);padding:10px;"><div style="font-weight:800;color:var('+inkVar+');font-size:.72rem;margin-bottom:6px;">'+escHTML(title)+' ('+items.length+')</div><div style="max-height:160px;overflow:auto;font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);white-space:pre;">'+lines+'</div></div>';};
+    const summary='<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px;"><div style="font-weight:800;color:var(--ink-1);font-size:.72rem;">Resumen</div><div style="font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2);margin-top:6px;">Actualizados: <b>'+escHTML(String(data.updated||0))+'</b><br>Encontrados: <b>'+escHTML(String(data.found||0))+'</b><br>No encontrados: <b>'+escHTML(String(data.notFound||0))+'</b></div></div>';
+    const okFmt=function(x){if(x&&typeof x==='object'){const ph=fmtPhone(x.telefono||'');const nm=String(x.nombre_cliente||'').trim();return nm?(ph?(ph+' — '+nm):nm):ph;}return mode==='phone'?fmtPhone(x):String(x||'');};
+    const okItems=Array.isArray(data.updatedLeads)&&data.updatedLeads.length?data.updatedLeads:(Array.isArray(data.foundPhones)?data.foundPhones:Array.isArray(data.foundNames)?data.foundNames:[]);
+    const badItems=Array.isArray(data.notFoundPhones)?data.notFoundPhones:Array.isArray(data.notFoundNames)?data.notFoundNames:[];
+    return summary+listBlock('✅ Actualizados','--go-bg','--go-ln','--go',okItems,function(x){return'✓ '+okFmt(x);})+listBlock('❌ No encontrados','--stop-bg','--stop-ln','--stop',badItems,function(x){return'✗ '+(mode==='phone'?fmtPhone(x):String(x||''));});
+  }
+
+  window.executeBulkStatus=async function(){
+    if(!canUseBulkStatus()){showToast('No tienes permisos','error');return;}
+    const newStatus=document.getElementById('bulkNewStatus')&&document.getElementById('bulkNewStatus').value;
+    if(!newStatus){showToast('Selecciona un status','error');return;}
+    const btn=document.getElementById('btnExecuteBulkStatus');
+    const preview=document.getElementById('bulkStatusPreview');
+    const content=document.getElementById('bulkStatusPreviewContent');
+    if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}
+    if(preview)preview.style.display='block';
+    if(content)content.textContent='Procesando…';
+    try{
+      let res,data,normalizedStatus=normalizeStatus(newStatus);
+      if(_bulkMode==='phone'){
+        const ta=document.getElementById('bulkPhoneNumbers');
+        const nums=(ta?ta.value:'').split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});
+        if(!nums.length){showToast('Sin números válidos','error');return;}
+        res=await AUTH.secureFetch('/api/leads/bulk-status-by-phone',{method:'POST',body:JSON.stringify({phones:nums,newStatus:normalizeStatus(newStatus)})});
+        if(!res)throw new Error('Sin conexión al servidor');
+        data=await res.json().catch(function(){return{};});
+        if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}
+        const src=(Array.isArray(data.updatedLeads)&&data.updatedLeads.length)?data.updatedLeads.map(function(x){return x&&x.telefono;}):(Array.isArray(data.foundPhones)?data.foundPhones:[]);
+        const fSet=new Set((src||[]).map(function(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):d;}).filter(Boolean));
+        __allLeadsData.forEach(function(l){const d=String(l.telefono||'').replace(/\D/g,'');const c=d.length>=10?d.slice(-10):d;if(fSet.has(c))l.status=normalizedStatus;});
+      }else{
+        const ta=document.getElementById('bulkNamesList');
+        const names=(ta?ta.value:'').split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;});
+        if(!names.length){showToast('Sin nombres válidos (mín. 3 caracteres)','error');return;}
+        res=await AUTH.secureFetch('/api/leads/bulk-status-by-name',{method:'POST',body:JSON.stringify({names:names,newStatus:normalizeStatus(newStatus)})});
+        if(!res)throw new Error('Sin conexión al servidor');
+        data=await res.json().catch(function(){return{};});
+        if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}
+        const updatedLeads=Array.isArray(data.updatedLeads)?data.updatedLeads:[];
+        const nameSet=new Set(updatedLeads.map(function(x){return String(x&&x.nombre_cliente||'').trim().toLowerCase();}).filter(Boolean));
+        __allLeadsData.forEach(function(l){if(nameSet.has(String(l.nombre_cliente||'').trim().toLowerCase()))l.status=normalizedStatus;});
+      }
+      applyFilters();
+      if(content)content.innerHTML=_buildResultHTML(data,_bulkMode);
+      showToast('Status masivo aplicado ✓','ok');
+    }catch(e){
+      if(content)content.textContent=e&&e.message?e.message:'Error inesperado';
+      showToast(e&&e.message?e.message:'Error inesperado','error');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar status';}
+    }
+  };
+  window.executeBulkStatusByPhone=window.executeBulkStatus;
+
   document.addEventListener('DOMContentLoaded',function(){
-    const canUse=canUseBulkStatusByPhone();
+    const canUse=canUseBulkStatus();
     const bspBtn=document.getElementById('btn-bulk-status-phone');
     if(bspBtn){bspBtn.style.display=canUse?'':'none';if(canUse)bspBtn.addEventListener('click',window.openBulkStatusPhoneModal);}
     if(!canUse)return;
-    const phoneTA=document.getElementById('bulkPhoneNumbers'),execBtn=document.getElementById('btnExecuteBulkStatus'),selSt=document.getElementById('bulkNewStatus');
-    function updatePhoneCount(){if(!phoneTA)return;const nums=phoneTA.value.split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});const countEl=document.getElementById('phoneCount');if(countEl)countEl.textContent=nums.length;if(execBtn&&selSt)execBtn.disabled=!(nums.length>0&&selSt.value);}
-    if(phoneTA)phoneTA.addEventListener('input',updatePhoneCount);
-    if(selSt)selSt.addEventListener('change',updatePhoneCount);
+    const selSt=document.getElementById('bulkNewStatus');
+    const ta1=document.getElementById('bulkPhoneNumbers');
+    const ta2=document.getElementById('bulkNamesList');
+    if(ta1)ta1.addEventListener('input',_updateBulkCount);
+    if(ta2)ta2.addEventListener('input',_updateBulkCount);
+    if(selSt)selSt.addEventListener('change',_updateBulkCount);
   });
 
   /* ── NOTES ENGINE ── */
