@@ -711,8 +711,11 @@ function detectServices(lead) {
   var isFrontier = false;
   arr.forEach(function(s) {
     var up = String(s).toUpperCase().trim();
-    if (/AT&?T/.test(up) || up.includes('ATT')) isATT      = true;
-    if (up.includes('FRONTIER'))                isFrontier = true;
+    // Detectar AT&T: att-air, ATT AIR, AT&T AIR, AT&T, ATT
+    if (/AT&?T/.test(up) || up.includes('ATT') || up.includes('AT-T') || up.replace(/-/g,' ').includes('ATT')) {
+      isATT = true;
+    }
+    if (up.includes('FRONTIER')) isFrontier = true;
   });
   return { isATT: isATT, isFrontier: isFrontier };
 }
@@ -748,9 +751,9 @@ async function fetchLeadsForMonth(ym) {
 
   try {
     var res = await fetchWithAuth(
-      '/api/leads?fechaInicio=' + rangeStart +
+      '/api/rankings-leads?fechaInicio=' + rangeStart +
       '&fechaFin='    + rangeEnd +
-      '&limit=5000&offset=0'
+      '&limit=5000&scope=ranking'
     );
     if (!res || !res.ok) return [];
     var j = await res.json();
@@ -804,9 +807,10 @@ function aggregateByAgent(leads, ym) {
      .trim() || 'Sin nombre';
 
     // Capitalizar nombre para mostrar
-    var displayName = rawName.charAt(0).toUpperCase() +
-                      rawName.slice(1).toLowerCase()
-                      .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+    // Capitalizar correctamente cada palabra
+    var displayName = rawName.trim().split(/s+/)
+      .map(function(w){ return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; })
+      .join(' ');
 
     var key  = normalizeKey(rawName);
     var team = String(

@@ -2623,7 +2623,9 @@ app.get('/api/leads', protect, async (req, res) => {
     const isAdmin  = ['admin','administrador','backoffice','bo'].some(r => userRole.includes(r));
 
     // ── FIX: límite default subido de 1000 a 5000 ──────────────
-    const { fechaInicio, fechaFin, limit = 5000 } = req.query;
+    // scope=ranking → todos los usuarios ven todos los leads (es una competencia global)
+    const { fechaInicio, fechaFin, limit = 5000, scope } = req.query;
+    const isRanking = scope === 'ranking';
 
     let dateFilter = {};
     if (fechaInicio && fechaFin) {
@@ -2661,7 +2663,8 @@ app.get('/api/leads', protect, async (req, res) => {
     }
 
     let filter = dateFilter;
-    if (!isAdmin) {
+    // Si scope=ranking, todos ven todos los leads (sin filtro por agente)
+    if (!isAdmin && !isRanking) {
       // FIX: normalizar username para matchear variantes en BD
       // username puede ser INGRID.GARCIA pero BD tiene Ingrid Garcia
       const v1 = username;
@@ -2707,6 +2710,72 @@ app.get('/api/leads', protect, async (req, res) => {
   } catch (e) {
     console.error('[GET /api/leads]', e);
     return res.status(500).json({ success: false, message: 'Error al obtener leads', error: e.message });
+  }
+});
+
+// ── GET /api/rankings-leads ───────────────────────────────────
+// Endpoint dedicado para rankings — devuelve TODOS los leads
+// sin filtro por agente, para que cualquier rol vea la tabla
+// completa de competencia.
+app.get('/api/rankings-leads', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+
+    const { fechaInicio, fechaFin, limit = 5000 } = req.query;
+
+    let dateFilter = {};
+    if (fechaInicio && fechaFin) {
+      const fi = new Date(fechaInicio);
+      const ft = new Date(fechaFin + 'T23:59:59');
+      const fiYear  = fi.getFullYear();
+      const fiMonth = fi.getMonth();
+      const colchonMonthStart = new Date(fiYear, fiMonth, 1);
+
+      const normalFilter = {
+        $or: [
+          { dia_venta:          { $gte: fi, $lte: ft } },
+          { fecha_contratacion: { $gte: fi, $lte: ft } },
+          { createdAt:          { $gte: fi, $lte: ft } },
+          { creadoEn:           { $gte: fi, $lte: ft } },
+          { fecha:              { $gte: fi, $lte: ft } }
+        ]
+      };
+
+      const colchonFilter = {
+        $and: [
+          { dia_instalacion: { $gte: fi, $lte: ft } },
+          { dia_venta:       { $lt: colchonMonthStart } },
+          { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
+        ]
+      };
+
+      dateFilter = { $or: [normalFilter, colchonFilter] };
+    }
+
+    const leads = await db.collection('costumers_unified')
+      .find(dateFilter)
+      .project({
+        _id:1, agenteNombre:1, agente:1, createdBy:1, usuario:1,
+        status:1, dia_venta:1, dia_instalacion:1,
+        puntaje:1, supervisor:1, equipo:1, team:1,
+        servicios:1, tipo_servicio:1, servicios_texto:1,
+        producto:1, producto_contratado:1
+      })
+      .sort({ dia_venta: -1, createdAt: -1 })
+      .limit(Math.min(parseInt(limit, 10) || 5000, 10000))
+      .toArray();
+
+    const now    = new Date();
+    const result = leads.map(lead => {
+      const col = isColchon(lead, now);
+      return col ? { ...lead, _es_colchon: true } : lead;
+    });
+
+    return res.json(result);
+  } catch (e) {
+    console.error('[GET /api/rankings-leads]', e);
+    return res.status(500).json({ success: false, message: 'Error al obtener leads para rankings', error: e.message });
   }
 });
 
