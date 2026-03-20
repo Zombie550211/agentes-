@@ -248,9 +248,9 @@ const AGENT_TO_SUP = new Map([
   ['francisco aguilar','roberto velasquez'], ['levy ceren','roberto velasquez'],
   ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
   ['nelson ceren','roberto velasquez'],
-  ['anderson guzman','randal martinez'],  ['carlos grande','randal martinez'],
-  ['guadalupe santana','randal martinez'],['julio chavez','randal martinez'],
-  ['priscila hernandez','randal martinez'],['riquelmi torres','randal martinez']
+  ['anderson guzman','johana'],  ['carlos grande','johana'],
+  ['guadalupe santana','johana'],['julio chavez','johana'],
+  ['priscila hernandez','johana'],['riquelmi torres','johana']
 ]);
 
 function normText(s) {
