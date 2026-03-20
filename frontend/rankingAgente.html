@@ -781,20 +781,24 @@ function aggregateByAgent(leads, ym) {
   leads.forEach(function(l) {
     var st  = normalizeStatus(l.status);
 
-    // Ignorar statuses que nunca cuentan
-    if (st === 'cancelled' || st === 'hold' || st === 'rescheduled' || st === 'reserva') return;
+    // Ignorar statuses que nunca cuentan en ningún ranking
+    if (st === 'cancelled' || st === 'hold' || st === 'rescheduled' || st === 'reserva' || st === 'oficina') return;
 
     var dv  = String(l.dia_venta       || l.diaVenta       || '').slice(0, 7);
     var di  = String(l.dia_instalacion || l.diaInstalacion || '').slice(0, 7);
 
-    // ¿Es venta del mes? completed + dia_venta en targetYM
-    var isVentaMes     = isCompleted(l.status) && dv === targetYM;
+    // isVentaMes: cualquier status válido con dia_venta en el mes
+    // (pending y completed cuentan para Ranking Ventas y AT&T)
+    var isVentaMes     = dv === targetYM;
+
+    // isVentaCompletada: solo completed — para Ranking Activación
+    var isVentaCompletada = isCompleted(l.status) && dv === targetYM;
 
     // ¿Es colchón? patrón de fechas + SOLO cuenta si completed
     var esPatronColchon = isColchon(l, targetYM);
     var isColchonValido = esPatronColchon && isCompleted(l.status); // solo completed cuenta
 
-    // Si no es ninguno de los dos, ignorar
+    // Si no tiene ningún criterio válido, ignorar
     if (!isVentaMes && !isColchonValido) return;
 
     // Nombre del agente — intentar varios campos
@@ -808,7 +812,7 @@ function aggregateByAgent(leads, ym) {
 
     // Capitalizar nombre para mostrar
     // Capitalizar correctamente cada palabra
-    var displayName = rawName.trim().split(/s+/)
+    var displayName = rawName.trim().split(/\s+/)
       .map(function(w){ return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; })
       .join(' ');
 
@@ -821,27 +825,33 @@ function aggregateByAgent(leads, ym) {
 
     if (!map[key]) {
       map[key] = {
-        name:      displayName,
-        team:      team,
-        ventasMes: 0,
-        colchon:   0,
-        total:     0,
-        puntos:    0,
-        att:       0,
-        frontier:  0
+        name:         displayName,
+        team:         team,
+        ventasMes:    0,   // todos los status válidos (para Ranking Ventas/AT&T)
+        ventasComp:   0,   // solo completed (para Ranking Activación)
+        puntosVentas: 0,   // puntos de ventasMes (todos los status)
+        colchon:      0,
+        total:        0,
+        puntos:       0,
+        att:          0,
+        frontier:     0
       };
     }
 
     // Actualizar team si está vacío
     if (!map[key].team && team) map[key].team = team;
 
-    if (isVentaMes)      { map[key].ventasMes++; map[key].puntos += pts; }
-    if (isColchonValido) { map[key].colchon++;   map[key].puntos += pts; }
+    // ventasMes = TODOS los status válidos (para Ranking Ventas y AT&T)
+    if (isVentaMes)         { map[key].ventasMes++;  map[key].puntosVentas += pts; }
+    // ventasCompletadas = solo completed (para Ranking Activación)
+    if (isVentaCompletada)  { map[key].ventasComp++; map[key].puntos += pts; }
+    if (isColchonValido)    { map[key].colchon++;     map[key].puntos += pts; }
 
-    map[key].total = map[key].ventasMes + map[key].colchon;
+    map[key].total = map[key].ventasComp + map[key].colchon;
 
-    if (svc.isATT)      map[key].att++;
-    if (svc.isFrontier) map[key].frontier++;
+    // AT&T y Frontier cuentan todos los status válidos del mes
+    if (isVentaMes && svc.isATT)      map[key].att++;
+    if (isVentaMes && svc.isFrontier) map[key].frontier++;
   });
 
   return Object.values(map);
@@ -856,9 +866,11 @@ function aggregateByTeam(agentRows) {
     var key = normalizeKey(r.team || 'Sin equipo');
     if (!map[key]) map[key] = {
       name: r.team || 'Sin equipo', team: r.team || 'Sin equipo',
-      ventasMes:0, colchon:0, total:0, puntos:0, att:0, frontier:0
+      ventasMes:0, ventasComp:0, puntosVentas:0, colchon:0, total:0, puntos:0, att:0, frontier:0
     };
-    map[key].ventasMes += r.ventasMes;
+    map[key].ventasMes    += r.ventasMes;
+    map[key].ventasComp   += r.ventasComp || 0;
+    map[key].puntosVentas += r.puntosVentas || 0;
     map[key].colchon   += r.colchon;
     map[key].total     += r.total;
     map[key].puntos    += r.puntos;
@@ -909,6 +921,18 @@ function setLoading(tbodyId, colCount) {
 var _activationRows  = [];
 var _activationScope = 'agent';
 var _activationYM    = '';
+var _leadsCache      = {};   // cache: ym -> leads array (evita 3 fetches por tab)
+
+// Fetch con cache — si ya tenemos los leads del mes, no vuelve a pedir
+async function fetchLeadsForMonthCached(ym) {
+  if (_leadsCache[ym]) return _leadsCache[ym];
+  var leads = await fetchLeadsForMonth(ym);
+  _leadsCache[ym] = leads;
+  return leads;
+}
+
+// Limpiar cache cuando cambia el mes
+function clearLeadsCache() { _leadsCache = {}; }
 
 async function loadActivation(ym) {
   _activationYM = ym;
@@ -917,7 +941,7 @@ async function loadActivation(ym) {
   document.getElementById('kpi-activation').innerHTML  = '';
   document.getElementById('meta-activation').textContent = '';
 
-  var leads     = await fetchLeadsForMonth(ym);
+  var leads     = await fetchLeadsForMonthCached(ym);
   var agentRows = aggregateByAgent(leads, ym);
   _activationRows = agentRows;
   renderActivation(_activationScope, ym, agentRows);
@@ -930,9 +954,11 @@ function renderActivation(scope, ym, agentRows) {
       return b.total - a.total || b.puntos - a.puntos;
     });
   } else {
-    rows = agentRows.slice().sort(function(a,b){
-      return b.total - a.total || b.puntos - a.puntos;
-    });
+    rows = agentRows
+      .filter(function(r){ return r.ventasComp > 0 || r.colchon > 0; })
+      .slice().sort(function(a,b){
+        return b.total - a.total || b.puntos - a.puntos;
+      });
   }
 
   var tbody   = document.getElementById('tbody-activation');
@@ -947,7 +973,7 @@ function renderActivation(scope, ym, agentRows) {
     return;
   }
 
-  var totalVentas  = rows.reduce(function(s,r){ return s + r.ventasMes; }, 0);
+  var totalVentas  = rows.reduce(function(s,r){ return s + (r.ventasComp||0); }, 0);
   var totalColchon = rows.reduce(function(s,r){ return s + r.colchon;   }, 0);
   meta.textContent = rows.length + ' ' + (scope === 'team' ? 'equipos' : 'agentes') +
     ' · ' + totalVentas + ' ventas · ' + totalColchon + ' colchones';
@@ -971,7 +997,7 @@ function renderActivation(scope, ym, agentRows) {
       '</div>',
       '<div class="kpi-val">' + r.total + '</div>',
       '<div class="kpi-name">' + escHtml(r.name) + '</div>',
-      '<div class="kpi-pts"><strong>' + r.puntos.toFixed(2) + '</strong> pts &nbsp;·&nbsp; ' + r.ventasMes + ' ventas</div>',
+      '<div class="kpi-pts"><strong>' + r.puntos.toFixed(2) + '</strong> pts &nbsp;·&nbsp; ' + (r.ventasComp||0) + ' ventas</div>',
       colchonLine,
       '<div class="kpi-prog"><div class="kpi-prog-bar ' + kpC[i] + '" style="width:' + pct + '%"></div></div>',
       '</div>'
@@ -990,7 +1016,7 @@ function renderActivation(scope, ym, agentRows) {
       '    <div class="agent-team">' + escHtml(r.team || '—') + '</div>',
       '  </div>',
       '</div></td>',
-      '<td class="num v-sales">' + r.ventasMes + '</td>',
+      '<td class="num v-sales">' + (r.ventasComp||0) + '</td>',
       '<td class="num v-colchon">' + (r.colchon > 0 ? '🛏 ' + r.colchon : '—') + '</td>',
       '<td class="num v-total">' + r.total + '</td>',
       '<td class="num v-pts">' + r.puntos.toFixed(2) + '</td>',
@@ -1008,12 +1034,13 @@ async function loadSales(ym) {
   document.getElementById('kpi-sales').innerHTML    = '';
   document.getElementById('meta-sales').textContent = '';
 
-  var leads     = await fetchLeadsForMonth(ym);
+  var leads     = await fetchLeadsForMonthCached(ym);
   var agentRows = aggregateByAgent(leads, ym);
 
+  // Ranking Ventas: todos los status válidos (pending + completed)
   var rows = agentRows
     .filter(function(r){ return r.ventasMes > 0; })
-    .sort(function(a,b){ return b.puntos - a.puntos || b.ventasMes - a.ventasMes; });
+    .sort(function(a,b){ return b.ventasMes - a.ventasMes || b.puntosVentas - a.puntosVentas; });
 
   var tbody   = document.getElementById('tbody-sales');
   var kpiGrid = document.getElementById('kpi-sales');
@@ -1024,26 +1051,26 @@ async function loadSales(ym) {
   if (!rows.length) { tbody.innerHTML = ''; empty.classList.add('visible'); return; }
 
   var totalVentas = rows.reduce(function(s,r){ return s + r.ventasMes; }, 0);
-  var totalPuntos = rows.reduce(function(s,r){ return s + r.puntos;    }, 0);
+  var totalPuntos = rows.reduce(function(s,r){ return s + (r.puntosVentas||0); }, 0);
   meta.textContent = rows.length + ' agentes · ' + totalVentas + ' ventas · ' + totalPuntos.toFixed(2) + ' pts';
 
-  var maxPts = rows[0].puntos || 1;
+  var maxPts = rows[0].ventasMes || 1;
   var kC  = ['k1','k2','k3','k4'];
   var kiC = ['ki1','ki2','ki3','ki4'];
   var kbC = ['kb1','kb2','kb3','kb4'];
   var kpC = ['kpb1','kpb2','kpb3','kpb4'];
 
   kpiGrid.innerHTML = rows.slice(0, 4).map(function(r, i) {
-    var pct = Math.round((r.puntos / maxPts) * 100);
+    var pct = Math.round((r.ventasMes / maxPts) * 100);
     return [
       '<div class="kpi-tile ' + kC[i] + '">',
       '<div class="kpi-top">',
       '  <div class="kpi-ic ' + kiC[i] + '"><i class="fas fa-cart-shopping"></i></div>',
       '  <span class="kpi-badge ' + kbC[i] + '">#' + (i+1) + '</span>',
       '</div>',
-      '<div class="kpi-val">' + r.puntos.toFixed(2) + '</div>',
+      '<div class="kpi-val">' + r.ventasMes + '</div>',
       '<div class="kpi-name">' + escHtml(r.name) + '</div>',
-      '<div class="kpi-pts"><strong>' + r.ventasMes + '</strong> ventas &nbsp;·&nbsp; ' + escHtml(r.team || '—') + '</div>',
+      '<div class="kpi-pts"><strong>' + (r.puntosVentas||0).toFixed(2) + '</strong> pts &nbsp;·&nbsp; ' + escHtml(r.team || '—') + '</div>',
       '<div class="kpi-prog"><div class="kpi-prog-bar ' + kpC[i] + '" style="width:' + pct + '%"></div></div>',
       '</div>'
     ].join('');
@@ -1062,7 +1089,7 @@ async function loadSales(ym) {
       '  </div>',
       '</div></td>',
       '<td class="num v-sales">' + r.ventasMes + '</td>',
-      '<td class="num v-pts">' + r.puntos.toFixed(2) + '</td>',
+      '<td class="num v-pts">' + (r.puntosVentas||0).toFixed(2) + '</td>',
       '</tr>'
     ].join('');
   }).join('');
@@ -1077,7 +1104,7 @@ async function loadATT(ym) {
   document.getElementById('kpi-att').innerHTML    = '';
   document.getElementById('meta-att').textContent = '';
 
-  var leads     = await fetchLeadsForMonth(ym);
+  var leads     = await fetchLeadsForMonthCached(ym);
   var agentRows = aggregateByAgent(leads, ym);
 
   var rows = agentRows
@@ -1157,10 +1184,9 @@ function switchTab(tab) {
     p.classList.toggle('is-active', p.dataset.panel === tab);
   });
   _activeTab = tab;
-  if (!_tabLoaded[tab]) {
-    _tabLoaded[tab] = true;
-    loadTab(tab, currentYM());
-  }
+  // Siempre cargar — usa cache si ya tiene los leads, es instantáneo
+  _tabLoaded[tab] = true;
+  loadTab(tab, currentYM());
 }
 
 function currentYM() {
@@ -1174,6 +1200,7 @@ function loadTab(tab, ym) {
 }
 
 function loadAll(ym) {
+  clearLeadsCache();  // nuevo mes = limpiar cache
   _tabLoaded = {};
   _tabLoaded[_activeTab] = true;
   loadTab(_activeTab, ym);
