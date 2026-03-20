@@ -772,33 +772,7 @@ async function fetchLeadsForMonth(ym) {
    - Ignora reserva, cancelled, hold, rescheduled
    - Acumula puntos para AMBOS (ventas + colchones)
 ══════════════════════════════════════════════ */
-function debugLeads(leads, ym) {
-  // Muestra en consola los primeros 20 leads con sus campos clave
-  console.group('[DEBUG aggregateByAgent] leads recibidos: ' + leads.length + ' para ' + ym);
-  var counts = {};
-  leads.forEach(function(l) {
-    var dv  = String(l.dia_venta || '').slice(0,7);
-    var di  = String(l.dia_instalacion || '').slice(0,7);
-    var st  = normalizeStatus(l.status);
-    var nm  = l.agenteNombre || l.agente || l.createdBy || 'SIN_NOMBRE';
-    // Normalizar key exactamente como lo hace aggregateByAgent
-    var key = normalizeKey(nm);
-    var isV = st === 'completed' && dv === ym;
-    var isC = isColchon(l, ym);
-    if (isV || isC) {
-      counts[key] = counts[key] || { name: nm, v:0, c:0 };
-      if (isV) counts[key].v++;
-      if (isC) counts[key].c++;
-    }
-  });
-  Object.keys(counts).sort().forEach(function(k) {
-    console.log('  ' + k + ' → ventas:' + counts[k].v + ' colchon:' + counts[k].c + ' [raw: ' + counts[k].name + ']');
-  });
-  console.groupEnd();
-}
-
 function aggregateByAgent(leads, ym) {
-  debugLeads(leads, ym);
   var targetYM = ym || getMonth();
   var map = {};
 
