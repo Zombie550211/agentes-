@@ -2707,11 +2707,12 @@ app.get('/api/leads', protect, async (req, res) => {
         : userClause;
     }
 
+    // Admins pueden ver más registros históricos
+    const maxLimit = isAdmin ? 50000 : 10000;
     const leads = await db.collection('costumers_unified')
       .find(filter)
-      .sort({ dia_venta: -1, createdAt: -1 })
-      // ── FIX: límite máximo subido de 5000 a 10000 ──────────
-      .limit(Math.min(parseInt(limit, 10) || 5000, 10000))
+      .sort({ dia_venta: -1, creadoEn: -1, createdAt: -1 })
+      .limit(Math.min(parseInt(limit, 10) || 5000, maxLimit))
       .toArray();
 
     const now    = new Date();
@@ -3166,4 +3167,4 @@ async function gracefulShutdown(signal) {
 process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-module.exports = { app, getIo: () => io };
+module.exports = { app, getIo: () => io };      
