@@ -1479,17 +1479,27 @@
         numero_cuenta:   pick(['numero_cuenta','no_cuenta','accountNumber','cuenta']),
         autopago:        formatAutopago(pick(['autopago','autoPago','autopay','auto_pay'])),
         direccion:       pick(['direccion','address','direccion_cliente']),
-        tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio']),
         sistema:         pick(['sistema','system']),
         riesgo:          normalizeRiesgo(pick(['riesgo','risk'])),
-        dia_venta:       String(pick(['dia_venta','saleDate','fecha_venta','fechaVenta','diaVenta'])).slice(0,10),
+        dia_venta:       (function(){
+          var v=pick(['dia_venta','saleDate','fecha_venta','fechaVenta','diaVenta']);
+          if(v&&String(v).trim()&&String(v).trim()!=='undefined')return String(v).slice(0,10);
+          // Fallback: usar fecha_contratacion solo si no hay dia_venta
+          var fc=pick(['fecha_contratacion']);
+          if(fc&&String(fc).trim())return String(fc).slice(0,10);
+          // Último fallback: creadoEn / createdAt
+          var ca=pick(['creadoEn','createdAt','fecha_creacion']);
+          if(ca)return String(ca).slice(0,10);
+          return '';
+        })(),
         dia_instalacion: String(pick(['dia_instalacion','installDate','fecha_instalacion','fechaInstalacion','diaInstalacion'])).slice(0,10),
         status:          normalizeStatus(pick(['status','Status','estado','state'])),
-        servicios:       pick(['servicios']),
+        servicios:       pick(['servicios','servicios_texto','producto_contratado','serviceDescription']),
+        tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio','tipo_servicios','servicios_texto']),
         mercado:         pick(['mercado','market']),
-        supervisor:      normalizeSupervisorName(pick(['supervisor','SUPERVISOR','team','Team'])),
-        agente:          pick(['agenteNombre','agente','createdBy','creadoPor'])||pickField(raw,['agenteNombre','agente','createdBy','creadoPor'],''),
-        motivo_llamada:  pick(['motivo_llamada','motivo','reason','motivoLlamada']),
+        supervisor:      normalizeSupervisorName(pick(['supervisor','SUPERVISOR','team','Team','equipo'])),
+        agente:          pick(['agenteNombre','agente','createdBy','creadoPor','createdBy','creadoPor'])||pickField(raw,['agenteNombre','agente','createdBy','creadoPor'],''),
+        motivo_llamada:  pick(['motivo_llamada','motivo','reason','motivoLlamada','comentario']),
         zip_code:        pick(['zip_code','zip','zipcode','zipCode']),
         puntaje:         pickField(it,['puntaje','score','puntos'],''),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
@@ -1537,7 +1547,21 @@
   function refreshFilterOptions(){
     if(!__allLeadsData.length)return;
     const equipos=new Set(),agentes=new Set(),mercados=new Set(),meses=new Set();
-    __allLeadsData.forEach(function(lead){if(lead.supervisor)equipos.add(lead.supervisor);if(lead.agente)agentes.add(lead.agente);if(lead.mercado)mercados.add(lead.mercado);if(lead.dia_venta&&lead.dia_venta.length>=7)meses.add(lead.dia_venta.substring(0,7));});
+    __allLeadsData.forEach(function(lead){
+      if(lead.supervisor)equipos.add(lead.supervisor);
+      if(lead.agente)agentes.add(lead.agente);
+      if(lead.mercado)mercados.add(lead.mercado);
+      // Usar múltiples campos de fecha para construir opciones del dropdown
+      var toYM=function(v){if(!v)return'';var s=String(v).trim();return s.length>=7?s.slice(0,7):'';};
+      var fechas=[
+        lead.dia_venta, lead.dia_instalacion,
+        lead._raw&&lead._raw.fecha_contratacion,
+        lead._raw&&lead._raw.creadoEn,
+        lead._raw&&lead._raw.createdAt,
+        lead._raw&&lead._raw.fecha_creacion,
+      ].map(toYM).filter(function(f){return f&&f.length===7&&/^\d{4}-\d{2}$/.test(f);});
+      fechas.forEach(function(f){meses.add(f);});
+    });
     function updateSelect(id,items){const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML='<option value="">Todos</option>';Array.from(items).sort().forEach(function(v){const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});el.value=cur;}
     updateSelect('teamFilter',equipos);updateSelect('agentFilter',agentes);updateSelect('mercadoFilter',mercados);
     const monthEl=document.getElementById('monthFilter');
@@ -1591,7 +1615,23 @@
         else{if(lead.status!==activeStatusTab)return false;}
       }
 
-      if(month){const ref=lead._es_colchon?lead.dia_instalacion:lead.dia_venta;if(!String(ref).startsWith(month))return false;}
+      if(month){
+        // Buscar en todos los campos de fecha disponibles
+        // Normalizar fecha ISO completa a solo YYYY-MM para comparar
+        const toYM=function(v){if(!v)return'';const s=String(v).trim();return s.slice(0,7);};
+        const refs=[
+          lead.dia_venta,
+          lead.dia_instalacion,
+          lead._raw&&toYM(lead._raw.fecha_contratacion),
+          lead._raw&&toYM(lead._raw.creadoEn),
+          lead._raw&&toYM(lead._raw.createdAt),
+          lead._raw&&toYM(lead._raw.fecha_creacion),
+          lead._raw&&toYM(lead._raw.updatedAt),
+          lead._raw&&toYM(lead._raw.actualizadoEn),
+        ].map(function(r){return toYM(r);}).filter(function(r){return r&&r.length===7;});
+        const matchesMes=refs.some(function(r){return r===month;});
+        if(!matchesMes)return false;
+      }
       if(onlyTwoMonths){const limit=new Date(d.getFullYear(),d.getMonth()-1,1);const ref=lead.dia_venta||lead.dia_instalacion;if(ref&&new Date(ref)<limit)return false;}
       if(from&&to){const ref=lead._es_colchon?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
       return true;
