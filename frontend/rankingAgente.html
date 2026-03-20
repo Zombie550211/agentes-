@@ -621,6 +621,21 @@ function parseNumber(v) {
   return isNaN(n) ? 0 : n;
 }
 
+// Normaliza el nombre del supervisor/team a un nombre de team consistente
+function normalizeTeamName(raw) {
+  var s = String(raw || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!s) return 'Sin equipo';
+  if (s.includes('JOHANA') || s.includes('JOHANNA'))    return 'Johana';
+  if (s.includes('IRANIA') || s.includes('SERRANO'))    return 'Irania';
+  if (s.includes('MARISOL') || s.includes('BELTRAN'))   return 'Marisol';
+  if (s.includes('ROBERTO') || s.includes('VELASQUEZ')) return 'Roberto';
+  if (s.includes('BRYAN') || s.includes('PLEITEZ'))     return 'Pleitez';
+  if (s.includes('JONATHAN'))                           return 'Jonathan F';
+  if (s.includes('LUIS G') || s.includes('LUIS_G'))     return 'Luis G';
+  return s.charAt(0) + s.slice(1).toLowerCase();
+}
+
 function normalizeKey(name) {
   try {
     return String(name || '')
@@ -817,9 +832,9 @@ function aggregateByAgent(leads, ym) {
       .join(' ');
 
     var key  = normalizeKey(rawName);
-    var team = String(
+    var team = normalizeTeamName(
       l.supervisor || l.equipo || l.team || l.grupo || ''
-    ).trim();
+    );
     var pts  = parseNumber(l.puntaje || l.score || l.puntos || 0);
     var svc  = detectServices(l);
 
