@@ -1363,7 +1363,14 @@
   function setSelectSafe(id,value){const el=document.getElementById(id);if(!el)return;const v=(value==null)?'':String(value).trim();if(!v){el.value='';return;}const opts=Array.from(el.options);if(opts.some(function(o){return o.value===v;})){el.value=v;return;}const vL=v.toLowerCase();const hit=opts.find(function(o){return o.value.toLowerCase()===vL;});if(hit){el.value=hit.value;return;}const opt=document.createElement('option');opt.value=v;opt.textContent=v;el.appendChild(opt);el.value=v;}
   function fmtDate(rawDate){if(!rawDate)return'—';try{const str=String(rawDate).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(str)){const parts=str.split('-');const dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}return new Date(rawDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return String(rawDate);}}
   function cell(txt){return'<td>'+(txt||'—')+'</td>';}
-  function getUserData(){try{return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){return{};}}
+  function getUserData(){
+    try{
+      const raw = localStorage.getItem('crm_user') || sessionStorage.getItem('crm_user') || localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+      return raw ? JSON.parse(raw) : {};
+    }catch(_){
+      try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; }
+    }
+  }
   function isAdminOrBackoffice(role){return['admin','backoffice','administrador','rol_icon','rol_bamo'].indexOf(role)!==-1;}
   function isAgent(role){return['agente','agent','agentes','vendedor','vendedores'].indexOf(role)!==-1;}
   function isSupervisor(role){return['supervisor','supervisores'].indexOf(role)!==-1;}
