@@ -1,1601 +1,870 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comisiones - CRM</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="js/fetch-interceptor.js" defer></script>
-    <script src="js/sidebar-loader.js" defer></script>
-    <style>
-        html, body { height: 100%; overflow-x: hidden; }
-        .layout { min-height: 100vh; display: flex; }
-        .main-content { flex: 1; margin-left: 260px; width: calc(100% - 260px); }
-        @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; } }
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Comisiones · Residencial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="js/fetch-interceptor.js" defer></script>
+  <script src="js/sidebar-loader.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <style>
+    :root {
+      --bg:        #f1f3f7;
+      --surface:   #ffffff;
+      --surface2:  #f8f9fb;
+      --border:    rgba(0,0,0,.07);
+      --border2:   rgba(0,0,0,.12);
+      --ink:       #0c0e14;
+      --ink2:      #4a5068;
+      --ink3:      #9098b0;
+      --gold:      #c49a00;
+      --gold-dim:  rgba(196,154,0,.09);
+      --gold-glow: rgba(196,154,0,.2);
+      --green:     #16a34a;
+      --green-dim: rgba(22,163,74,.1);
+      --red:       #dc2626;
+      --red-dim:   rgba(220,38,38,.09);
+      --blue:      #2563eb;
+      --blue-dim:  rgba(37,99,235,.09);
+      --nav-w:     220px;
+      --f:         'Syne', sans-serif;
+      --fm:        'DM Mono', monospace;
+      --r:         10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--f);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
 
-        .agent-premium {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --accent: #f59e0b;
-            --success: #10b981;
-            --danger: #ef4444;
-            --bg-dark: #0f172a;
-            --bg-light: #f8fafc;
-            --bg-card: #ffffff;
-            --text-dark: #1e293b;
-            --text-gray: #64748b;
-            --border: #e2e8f0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            color: var(--text-dark);
-            min-height: 100vh;
-            padding: 20px;
-        }
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: var(--nav-w); min-height: 100vh; position: fixed; top:0; left:0; z-index:200; background:var(--ink); }
+    .main { margin-left: var(--nav-w); flex:1; padding: 28px 32px 60px; max-width: 1400px; }
 
-        .agent-premium .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+    /* ── Header ── */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+    }
+    .page-title-block { display: flex; flex-direction: column; gap: 4px; }
+    .page-eyebrow {
+      font-size: .68rem; font-weight: 700; letter-spacing: .15em;
+      text-transform: uppercase; color: var(--gold); font-family: var(--fm);
+    }
+    .page-title {
+      font-size: 1.8rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink);
+      line-height: 1;
+    }
+    .page-subtitle { font-size: .8rem; color: var(--ink2); margin-top: 2px; }
 
-        .agent-premium .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 40px;
-            padding: 30px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
+    /* ── Month picker ── */
+    .month-nav {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--r); padding: 4px;
+    }
+    .month-btn {
+      width: 30px; height: 30px; border-radius: 6px; border: none;
+      background: transparent; color: var(--ink2); cursor: pointer; font-size: .9rem;
+      display: flex; align-items: center; justify-content: center; transition: all .12s;
+    }
+    .month-btn:hover { background: var(--border2); color: var(--ink); }
+    .month-label {
+      font-family: var(--fm); font-size: .82rem; font-weight: 500;
+      color: var(--ink); padding: 0 10px; min-width: 110px; text-align: center;
+    }
 
-        .agent-premium .header-content h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--text-dark);
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    /* ── View toggle (admin only) ── */
+    .view-toggle {
+      display: flex; gap: 4px; background: var(--surface2);
+      border: 1px solid var(--border2); border-radius: var(--r); padding: 4px;
+    }
+    .vtab {
+      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+      font-family: var(--f); font-size: .75rem; font-weight: 700;
+      color: var(--ink2); background: transparent; transition: all .12s; letter-spacing: .03em;
+    }
+    .vtab.active { background: var(--gold); color: #000; }
 
-        .agent-premium .header-content p {
-            color: var(--text-gray);
-            font-size: 1rem;
-        }
+    /* ── KPI Strip ── */
+    .kpi-strip {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .15s;
+    }
+    .kpi-card:hover { border-color: var(--border2); }
+    .kpi-card.gold { border-color: rgba(245,200,66,.3); background: var(--gold-dim); }
+    .kpi-card.green { border-color: rgba(34,197,94,.3); background: var(--green-dim); }
+    .kpi-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+    .kpi-val { font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink); font-family: var(--fm); }
+    .kpi-val.gold { color: var(--gold); }
+    .kpi-val.green { color: var(--green); }
+    .kpi-sub { font-size: .68rem; color: var(--ink2); }
 
-        .agent-premium .badge-role {
-            background: var(--primary);
-            color: white;
-            padding: 10px 24px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            letter-spacing: 1px;
-            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
-        }
+    /* ── Escala badge ── */
+    .escala-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--gold-dim); border: 1px solid rgba(245,200,66,.35);
+      border-radius: var(--r); padding: 8px 14px;
+      font-family: var(--fm); font-size: .78rem; font-weight: 500; color: var(--gold);
+    }
+    .escala-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink:0; }
 
-        .agent-premium .grid-main {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
+    /* ── Section ── */
+    .section { margin-bottom: 32px; }
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink2);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::before { content:''; display:block; width:20px; height:2px; background:var(--gold); border-radius:2px; }
 
-        @media (max-width: 1024px) {
-            .agent-premium .grid-main { grid-template-columns: 1fr; }
-        }
+    /* ── Agent card (admin grid) ── */
+    .agents-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
+    }
+    .agent-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 20px; position: relative;
+      transition: border-color .15s, transform .15s;
+      cursor: default;
+    }
+    .agent-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+    .agent-card.no-meta { opacity: .55; }
 
-        .agent-premium .card-commission {
-            background: linear-gradient(135deg, #fff5e6 0%, #fffbf0 100%);
-            border-radius: 24px;
-            padding: 40px;
-            border: 2px solid var(--accent);
-            position: relative;
-            overflow: hidden;
-        }
+    .agent-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .agent-avatar {
+      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .82rem; color: var(--gold); letter-spacing: .05em;
+    }
+    .agent-name { font-size: .9rem; font-weight: 700; color: var(--ink); }
+    .agent-team { font-size: .68rem; color: var(--ink2); margin-top: 1px; }
 
-        .agent-premium .card-commission::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
-            border-radius: 50%;
-        }
+    .agent-rows { display: flex; flex-direction: column; gap: 7px; }
+    .agent-row { display: flex; justify-content: space-between; align-items: center; }
+    .agent-row-lbl { font-size: .7rem; color: var(--ink2); }
+    .agent-row-val { font-family: var(--fm); font-size: .78rem; font-weight: 500; color: var(--ink); }
+    .agent-row-val.gold { color: var(--gold); }
+    .agent-row-val.green { color: var(--green); }
+    .agent-row-val.red { color: var(--red); }
 
-        .agent-premium .commission-content {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
+    /* Progress bar */
+    .prog-wrap { margin-top: 12px; }
+    .prog-lbl { display: flex; justify-content: space-between; font-size: .65rem; color: var(--ink3); margin-bottom: 5px; }
+    .prog-track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--gold), #ffdf6b); transition: width .5s ease; }
+    .prog-fill.green { background: linear-gradient(90deg, var(--green), #4ade80); }
 
-        .agent-premium .commission-label {
-            font-size: 0.95rem;
-            color: var(--text-gray);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-        }
+    /* ── Agent self view ── */
+    .self-view {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .self-view { grid-template-columns: 1fr; } }
 
-        .agent-premium .commission-icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            animation: agentPremiumFloat 3s ease-in-out infinite;
-            position: relative;
-            width: 80px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .big-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px;
+    }
+    .big-card.gold-card {
+      border-color: rgba(245,200,66,.3);
+      background: linear-gradient(135deg, #111118 0%, #16140a 100%);
+    }
 
-        @keyframes agentPremiumFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
+    .commission-display {
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; gap: 8px; padding: 12px 0 20px;
+    }
+    .commission-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink2); }
+    .commission-amount {
+      font-family: var(--fm); font-size: 3.2rem; font-weight: 500;
+      color: var(--gold); letter-spacing: -.04em; line-height: 1;
+    }
+    .commission-basis { font-size: .72rem; color: var(--ink2); }
 
-        .agent-premium .wallet-container {
-            position: relative;
-            width: 80px;
-            height: 80px;
-        }
+    /* Scale bars */
+    .scale-bars { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .scale-bar-item { position: relative; }
+    .scale-bar-head { display: flex; justify-content: space-between; font-size: .68rem; margin-bottom: 5px; }
+    .scale-bar-name { color: var(--ink2); }
+    .scale-bar-pct { font-family: var(--fm); color: var(--gold); font-weight: 500; }
+    .scale-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .scale-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--gold) 0%, #ffdf6b 100%);
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+    .scale-fill.reached { background: linear-gradient(90deg, var(--green) 0%, #4ade80 100%); }
 
-        .agent-premium .wallet-base {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .stat-box {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px;
+    }
+    .stat-icon { font-size: 1.2rem; margin-bottom: 6px; }
+    .stat-lbl { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 4px; }
+    .stat-val { font-family: var(--fm); font-size: 1.4rem; font-weight: 500; color: var(--ink); }
+    .stat-val.gold { color: var(--gold); }
+    .stat-val.green { color: var(--green); }
+    .stat-sub { font-size: .65rem; color: var(--ink2); margin-top: 2px; }
 
-        .agent-premium .wallet-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
-            border-radius: 0 0 20px 20px;
-            overflow: hidden;
-            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            opacity: 0.3;
-        }
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); overflow: hidden;
+    }
+    .ctable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .ctable thead tr { background: var(--surface2); }
+    .ctable thead th {
+      padding: 10px 14px; text-align: left; font-size: .62rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--ink3);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .ctable tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
+    .ctable tbody tr:last-child { border-bottom: none; }
+    .ctable tbody tr:hover { background: var(--surface2); }
+    .ctable tbody td { padding: 11px 14px; color: var(--ink2); vertical-align: middle; }
+    .ctable tbody td:first-child { color: var(--ink); font-weight: 600; }
+    .mono { font-family: var(--fm); font-size: .76rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: .63rem; font-weight: 700;
+      letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+    }
+    .badge-gold { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(245,200,66,.3); }
+    .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .badge-gray { background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid var(--border); }
 
-        .agent-premium .wallet-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-            animation: agentPremiumWave 2s ease-in-out infinite;
-        }
+    /* ── Loading ── */
+    .loader-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; color: var(--ink2); font-size: .8rem; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes agentPremiumWave {
-            0%, 100% { transform: translateX(-100%); }
-            50% { transform: translateX(100%); }
-        }
+    /* ── Empty ── */
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 20px; color: var(--ink2); font-size: .78rem; text-align: center; }
+    .empty-icon { font-size: 2rem; opacity: .4; }
 
-        .agent-premium .wallet-emoji {
-            position: relative;
-            z-index: 2;
-            font-size: 2.5rem;
-        }
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .main { margin-left: 0; padding: 16px; }
+      .sidebar { display: none; }
+      .agents-grid { grid-template-columns: 1fr; }
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    }
 
-        .agent-premium .commission-amount {
-            font-size: 3.5rem;
-            font-weight: 900;
-            color: var(--accent);
-            margin-bottom: 8px;
-            letter-spacing: -1px;
-        }
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 8px; font-size: .8rem; font-weight: 700;
+      z-index: 9999; animation: toastIn .2s ease; box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .toast.ok { background: var(--green); color: #000; }
+    .toast.err { background: var(--red); color: #fff; }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
-        .agent-premium .commission-sub {
-            color: var(--text-gray);
-            font-size: 0.95rem;
-            margin-bottom: 24px;
-        }
+    /* ── Divider ── */
+    hr.dim { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
-        .agent-premium .progress-container {
-            width: 100%;
-            margin-top: 30px;
-        }
-
-        .agent-premium .progress-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--text-dark);
-        }
-
-        .agent-premium .progress-bar {
-            width: 100%;
-            height: 10px;
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .agent-premium .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent) 0%, #fbbf24 100%);
-            border-radius: 10px;
-            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .agent-premium .card-stats {
-            background: var(--bg-card);
-            border-radius: 24px;
-            padding: 40px;
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-        }
-
-        .agent-premium .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-
-        .agent-premium .stat-item {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 30px;
-        }
-
-        .agent-premium .stat-item:nth-child(odd) {
-            border-right: 1px solid var(--border);
-            padding-right: 30px;
-        }
-
-        @media (max-width: 600px) {
-            .agent-premium .stats-grid { grid-template-columns: 1fr; }
-            .agent-premium .stat-item:nth-child(odd) { border-right: none; padding-right: 0; }
-        }
-
-        .agent-premium .stat-icon {
-            font-size: 2.5rem;
-            margin-bottom: 12px;
-        }
-
-        .agent-premium .stat-label {
-            font-size: 0.9rem;
-            color: var(--text-gray);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-        }
-
-        .agent-premium .stat-value {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--text-dark);
-            margin-bottom: 4px;
-        }
-
-        .agent-premium .stat-sub {
-            font-size: 0.85rem;
-            color: var(--text-gray);
-        }
-
-        .agent-premium .card-activity {
-            background: var(--bg-card);
-            border-radius: 24px;
-            padding: 40px;
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            grid-column: 1 / -1;
-        }
-
-        .agent-premium .activity-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 24px;
-            color: var(--text-dark);
-        }
-    </style>
+    /* No meta tag */
+    .no-meta-tag {
+      position: absolute; top: 10px; right: 10px;
+      font-size: .6rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--ink3);
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 4px;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 auto-hide-sidebar">
-    <script>
-        // Verificar acceso para administradores, agentes y vendedores
-        (async function checkAccess() {
-            try {
-                const response = await fetch('/api/auth/me');
-                const userData = await response.json();
-                
-                if (!userData.user || !userData.user.role) {
-                    window.location.href = '/login.html';
-                    return;
-                }
-                
-                const role = String(userData.user.role || '').toLowerCase();
-                const isAllowed = role.includes('admin') || role.includes('administrador') || 
-                                role.includes('backoffice') || role.includes('agente') || 
-                                role.includes('vendedor') || role.includes('agent') || 
-                                role.includes('seller');
-                
-                if (!isAllowed) {
-                    document.body.innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <div style="text-align: center; color: white; padding: 40px;">
-                                <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
-                                <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 10px;">Acceso Denegado</h1>
-                                <p style="font-size: 18px; opacity: 0.9; margin-bottom: 30px;">No tienes permisos para acceder a esta página</p>
-                                <a href="/" style="display: inline-block; background: white; color: #667eea; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s;">
-                                    Volver al Inicio
-                                </a>
-                            </div>
-                        </div>
-                    `;
-                    return;
-                }
-            } catch (error) {
-                console.error('Error verificando acceso:', error);
-                window.location.href = '/login.html';
-            }
-        })();
-    </script>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
+  <main class="main" id="main-content">
+    <div class="loader-wrap" id="page-loader">
+      <div class="spinner"></div>
+      <span>Cargando comisiones...</span>
+    </div>
+  </main>
+</div>
 
-    <div class="layout">
-        <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
-        <main class="main-content">
-            <div id="root"></div>
-        </main>
+<script>
+/* ══════════════════════════════════════════════════════
+   AUTH helpers
+══════════════════════════════════════════════════════ */
+const AUTH = (function(){
+  const TK='token', UK='crm_user';
+  function getToken(){ return localStorage.getItem(TK)||sessionStorage.getItem(TK)||null; }
+  function getUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; } }
+  function redirectLogin(){ sessionStorage.setItem('crm_redirect_after_login', window.location.pathname); window.location.replace('/login.html'); }
+  function check(){ const t=getToken(); if(!t){ redirectLogin(); return null; } return t; }
+  async function sf(url,opts){
+    const t=check(); if(!t) return null;
+    const headers=Object.assign({'Authorization':'Bearer '+t,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
+    try{
+      const res=await fetch(url,Object.assign({},opts,{headers}));
+      if(res.status===401){ redirectLogin(); return null; }
+      return res;
+    }catch(e){ return null; }
+  }
+  return { getToken, getUser, check, sf, redirectLogin };
+})();
+
+/* ══════════════════════════════════════════════════════
+   ROLE HELPERS
+══════════════════════════════════════════════════════ */
+function isAdmin(role){
+  const r=String(role||'').toLowerCase();
+  return ['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo'].some(v=>r===v||r.includes(v));
+}
+function isAgentRole(role){
+  const r=String(role||'').toLowerCase();
+  return ['agente','agent','agentes','vendedor','vendedores','seller'].some(v=>r===v||r.includes(v));
+}
+
+/* ══════════════════════════════════════════════════════
+   COMMISSION FORMULA — RESIDENCIAL
+   Solo cuenta: completed del mes + colchones completed
+   Escala basada en puntos (floor):
+     17-20 → $6/pto | 21-25 → $12/pto | 26-30 → $15/pto | 31+ → $18/pto
+   Decimal bonus (solo si puntos >= 17):
+     .25/.35 → +$2 | .50/.75 → +$3 | .80/.85 → +$4
+══════════════════════════════════════════════════════ */
+function calcComision(puntos) {
+  const p = (typeof puntos === 'number' ? puntos : parseFloat(puntos||0)) || 0;
+  if (p < 17) return 0;
+
+  const base = Math.floor(p);
+  let tasa = 0;
+  if      (base >= 31) tasa = 18;
+  else if (base >= 26) tasa = 15;
+  else if (base >= 21) tasa = 12;
+  else if (base >= 17) tasa = 6;
+
+  const frac = parseFloat((p - base).toFixed(2));
+  let bonus = 0;
+  if (frac >= 0.85)      bonus = 4;
+  else if (frac >= 0.80) bonus = 4;
+  else if (frac >= 0.75) bonus = 3;
+  else if (frac >= 0.50) bonus = 3;
+  else if (frac >= 0.35) bonus = 2;
+  else if (frac >= 0.25) bonus = 2;
+
+  return (base * tasa) + bonus;
+}
+
+function getEscala(p) {
+  if (p >= 31) return 'Escala 31+';
+  if (p >= 26) return 'Escala 26-30';
+  if (p >= 21) return 'Escala 21-25';
+  if (p >= 17) return 'Escala 17-20';
+  return 'Sin meta';
+}
+
+function getTasa(p) {
+  if (p >= 31) return 18;
+  if (p >= 26) return 15;
+  if (p >= 21) return 12;
+  if (p >= 17) return 6;
+  return 0;
+}
+
+function getEscalaPct(p) {
+  if (p >= 31) return 100;
+  if (p >= 26) return Math.min(100, ((p-26)/(31-26))*100);
+  if (p >= 21) return Math.min(100, ((p-21)/(26-21))*100);
+  if (p >= 17) return Math.min(100, ((p-17)/(21-17))*100);
+  return Math.min(100, (p/17)*100);
+}
+
+/* ══════════════════════════════════════════════════════
+   DATA HELPERS
+══════════════════════════════════════════════════════ */
+function normalizeStatus(s){
+  const v=String(s||'').trim().toLowerCase();
+  if(v==='completed'||v==='active'||v.includes('complet')||v.includes('activ')||v.includes('cerr')||v.includes('vend')) return 'completed';
+  if(v==='cancelled'||v.includes('cancel')) return 'cancelled';
+  if(v==='pending'||v.includes('pend')) return 'pending';
+  if(v==='hold'||v.includes('hold')) return 'hold';
+  if(v.includes('reserv')) return 'reserva';
+  if(v.includes('resche')||v.includes('reagend')) return 'rescheduled';
+  if(v.includes('oficin')) return 'oficina';
+  return v;
+}
+
+function getYM(y,m){ return y+'-'+String(m).padStart(2,'0'); }
+
+function isColchon(lead, targetYM){
+  const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
+  const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
+  if(!dv||!di) return false;
+  return dv !== targetYM && di === targetYM;
+}
+
+// Cuenta para comisión: completed del mes + colchón completed
+function cuentaParaComision(lead, targetYM){
+  const st = normalizeStatus(lead.status);
+  if(st !== 'completed') return false;
+  const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
+  if(dv === targetYM) return true;               // venta del mes completed
+  if(isColchon(lead, targetYM)) return true;     // colchón completed
+  return false;
+}
+
+function capName(s){
+  return String(s||'').trim().split(/\s+/)
+    .map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'').join(' ');
+}
+
+function initials(name){
+  return String(name||'').trim().split(/\s+/).slice(0,2)
+    .map(w=>w[0]||'').join('').toUpperCase()||'??';
+}
+
+function fmtUSD(n){
+  const v = typeof n==='number'?n:parseFloat(n||0)||0;
+  return '$'+v.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+function normalizeAgentName(s){
+  return String(s||'').replace(/\./g,' ').trim();
+}
+
+/* ══════════════════════════════════════════════════════
+   AGGREGATE — calcula puntos y comisión por agente
+   a partir de leads del mes
+══════════════════════════════════════════════════════ */
+function aggregateAgents(leads, targetYM){
+  const map = {};
+  leads.forEach(lead => {
+    if(!cuentaParaComision(lead, targetYM)) return;
+
+    const rawName = String(
+      lead.agenteNombre || lead.agente || lead.createdBy || lead.creadoPor || lead.usuario || ''
+    ).trim();
+    if(!rawName) return;
+    const normName = normalizeAgentName(rawName);
+    const key = normName.toLowerCase();
+    const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
+    const team = String(lead.supervisor||lead.equipo||lead.team||'').trim();
+    const esColchon = isColchon(lead, targetYM);
+
+    if(!map[key]){
+      map[key] = {
+        name:     capName(normName),
+        rawName:  normName,
+        team:     team,
+        puntos:   0,
+        ventas:   0,
+        colchones:0,
+      };
+    }
+    map[key].puntos += pts;
+    if(esColchon) map[key].colchones++;
+    else map[key].ventas++;
+    if(!map[key].team && team) map[key].team = team;
+  });
+
+  return Object.values(map).map(a => {
+    const p = parseFloat(a.puntos.toFixed(2));
+    return {
+      ...a,
+      puntos: p,
+      comision: calcComision(p),
+      escala: getEscala(p),
+      tasa: getTasa(p),
+      pct: getEscalaPct(p),
+      totalVentas: a.ventas + a.colchones,
+    };
+  }).sort((a,b) => b.puntos - a.puntos);
+}
+
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let _user = null;
+let _view = 'admin'; // 'admin' | 'agent'
+let _month = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
+let _leads = [];
+let _agents = [];
+let _loading = false;
+
+/* ══════════════════════════════════════════════════════
+   FETCH LEADS
+══════════════════════════════════════════════════════ */
+async function fetchLeads(){
+  // Para admins: scope=ranking trae todos los leads sin filtro de agente
+  const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
+  const res = await AUTH.sf(`/api/leads?limit=10000${adminScope}`);
+  if(!res||!res.ok) return [];
+  try{
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.data||data.leads||[]);
+  }catch(_){ return []; }
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════════════ */
+function toast(msg, type='ok'){
+  const t = document.createElement('div');
+  t.className = 'toast '+type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2800);
+}
+
+function renderMonthNav(){
+  const mn=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `<div class="month-nav">
+    <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+    <span class="month-label">${mn[_month.month-1]} ${_month.year}</span>
+    <button class="month-btn" onclick="changeMonth(1)">›</button>
+  </div>`;
+}
+
+function renderViewToggle(){
+  if(!isAdmin(_user?.role)) return '';
+  return `<div class="view-toggle">
+    <button class="vtab ${_view==='admin'?'active':''}" onclick="switchView('admin')">Vista Admin</button>
+    <button class="vtab ${_view==='agent'?'active':''}" onclick="switchView('agent')">Mi Vista</button>
+  </div>`;
+}
+
+function renderAdminView(){
+  const ym = getYM(_month.year, _month.month);
+  const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
+  const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
+  const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
+  const conMeta = _agents.filter(a=>a.puntos>=17).length;
+
+  const kpis = `
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Agentes</div>
+      <div class="kpi-val">${_agents.length}</div>
+      <div class="kpi-sub">${conMeta} con meta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Ventas</div>
+      <div class="kpi-val">${totalVentas}</div>
+      <div class="kpi-sub">Completed del mes</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-lbl">Puntos totales</div>
+      <div class="kpi-val gold">${totalPuntos}</div>
+      <div class="kpi-sub">Suma de puntajes</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-lbl">Comisión total</div>
+      <div class="kpi-val green">${fmtUSD(totalComision)}</div>
+      <div class="kpi-sub">A pagar este mes</div>
+    </div>
+  </div>`;
+
+  const cards = _agents.length === 0
+    ? `<div class="empty"><div class="empty-icon">📋</div><span>Sin ventas completed para ${ym}</span></div>`
+    : `<div class="agents-grid">${_agents.map(a=>renderAgentCard(a)).join('')}</div>`;
+
+  // Table
+  const tableRows = _agents.map((a,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${a.name}</td>
+      <td>${a.team||'—'}</td>
+      <td class="mono">${a.puntos.toFixed(2)}</td>
+      <td class="mono">${a.ventas}</td>
+      <td class="mono">${a.colchones}</td>
+      <td class="mono">$${getTasa(a.puntos)}/pto</td>
+      <td class="mono green" style="color:var(--green)">${fmtUSD(a.comision)}</td>
+      <td><span class="badge ${a.puntos>=17?'badge-gold':'badge-gray'}">${a.escala}</span></td>
+    </tr>`).join('');
+
+  return `
+    ${kpis}
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">Agentes con comisión</div>
+      </div>
+      ${cards}
+    </div>
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">Detalle por agente</div>
+      </div>
+      <div class="table-wrap">
+        <table class="ctable">
+          <thead>
+            <tr>
+              <th>#</th><th>Agente</th><th>Team</th><th>Puntos</th>
+              <th>Ventas</th><th>Colchones</th><th>Tasa</th><th>Comisión</th><th>Escala</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows||`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--ink3)">Sin datos</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderAgentCard(a){
+  const pct = Math.min(100, a.pct).toFixed(0);
+  const noMeta = a.puntos < 17;
+  return `
+  <div class="agent-card ${noMeta?'no-meta':''}">
+    ${noMeta?'<div class="no-meta-tag">Sin meta</div>':''}
+    <div class="agent-card-top">
+      <div class="agent-avatar">${initials(a.name)}</div>
+      <div>
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-team">${a.team||'Sin equipo'}</div>
+      </div>
+    </div>
+    <div class="agent-rows">
+      <div class="agent-row">
+        <span class="agent-row-lbl">Puntaje</span>
+        <span class="agent-row-val mono">${a.puntos.toFixed(2)} pts</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Ventas completed</span>
+        <span class="agent-row-val">${a.ventas}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Colchones completed</span>
+        <span class="agent-row-val">${a.colchones}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Tasa</span>
+        <span class="agent-row-val">$${getTasa(a.puntos)}/pto · ${a.escala}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Comisión estimada</span>
+        <span class="agent-row-val ${noMeta?'':'green'}">${fmtUSD(a.comision)}</span>
+      </div>
+    </div>
+    ${!noMeta?`
+    <div class="prog-wrap">
+      <div class="prog-lbl"><span>Progreso escala</span><span>${pct}%</span></div>
+      <div class="prog-track"><div class="prog-fill ${a.puntos>=17?'green':''}" style="width:${pct}%"></div></div>
+    </div>`:''}
+  </div>`;
+}
+
+function renderAgentSelfView(){
+  // Buscar el agente actual en _agents
+  const userName = String(_user?.name||_user?.username||_user?.nombre||'').trim();
+  const userNorm = normalizeAgentName(userName).toLowerCase();
+
+  const agentData = _agents.find(a => {
+    const an = a.rawName.toLowerCase();
+    return an === userNorm || an.includes(userNorm.split(' ')[0]) || userNorm.includes(an.split(' ')[0]);
+  }) || {
+    name: capName(userName)||'Mi usuario',
+    team: '',
+    puntos: 0, ventas: 0, colchones: 0,
+    comision: 0, escala: 'Sin meta', tasa: 0, pct: 0, totalVentas: 0
+  };
+
+  const p = agentData.puntos;
+  const noMeta = p < 17;
+  const ym = getYM(_month.year, _month.month);
+
+  const scaleBars = [
+    { label:'Escala 17-20', min:17, max:21 },
+    { label:'Escala 21-25', min:21, max:26 },
+    { label:'Escala 26-30', min:26, max:31 },
+    { label:'Escala 31+',   min:31, max:Infinity },
+  ].map(s => {
+    let pct = 0;
+    if(s.max===Infinity) pct = p>=s.min?100:0;
+    else pct = Math.min(100,Math.max(0,((p-s.min)/(s.max-s.min))*100));
+    return {...s, pct: pct.toFixed(1), reached: p>=s.min};
+  });
+
+  return `
+  <div class="self-view">
+    <div class="big-card gold-card">
+      <div class="commission-display">
+        <div class="commission-lbl">Comisión Estimada · Residencial</div>
+        <div class="commission-amount">${fmtUSD(agentData.comision)}</div>
+        <div class="commission-basis">
+          ${noMeta
+            ? 'Sin meta alcanzada (mínimo 17 puntos)'
+            : `${Math.floor(p)} pts × $${getTasa(p)}/pto${agentData.comision>(Math.floor(p)*getTasa(p))?` + bono decimal`:''}`
+          }
+        </div>
+        <div style="margin-top:12px">
+          <span class="escala-badge">
+            <span class="escala-dot"></span>
+            ${agentData.escala}
+          </span>
+        </div>
+      </div>
+      <div class="scale-bars">
+        ${scaleBars.map(s=>`
+          <div class="scale-bar-item">
+            <div class="scale-bar-head">
+              <span class="scale-bar-name">${s.label}</span>
+              <span class="scale-bar-pct">${s.pct}%</span>
+            </div>
+            <div class="scale-track">
+              <div class="scale-fill ${s.reached?'reached':''}" style="width:${Math.min(100,s.pct)}%"></div>
+            </div>
+          </div>`).join('')}
+      </div>
     </div>
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        const getMetaFromPoints = (points) => {
-            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
-
-            if (p >= 31) return 'META 4';
-            if (p >= 26) return 'META 3';
-            if (p >= 21) return 'META 2';
-            if (p >= 17) return 'META 1';
-            return 'SIN META';
-        };
-
-        const getProgressFromPoints = (points) => {
-            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
-
-            if (p >= 31) return 100;
-            if (p >= 26) return Number((Math.min(100, Math.max(0, ((p - 26) / (31 - 26)) * 100))).toFixed(2));
-            if (p >= 21) return Number((Math.min(100, Math.max(0, ((p - 21) / (26 - 21)) * 100))).toFixed(2));
-            if (p >= 17) return Number((Math.min(100, Math.max(0, ((p - 17) / (21 - 17)) * 100))).toFixed(2));
-            return Number((Math.min(100, Math.max(0, (p / 17) * 100))).toFixed(2));
-        };
-
-        const getCommissionFromPoints = (points) => {
-            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
-            const base = Math.floor(p);
-            const frac = Number((p - base).toFixed(2));
-
-            let rate = 0;
-            if (base >= 31) rate = 18;
-            else if (base >= 26) rate = 15;
-            else if (base >= 21) rate = 12;
-            else if (base >= 17) rate = 6;
-
-            let bonus = 0;
-            if (p >= 17.85) {
-                if (frac >= 0.85) bonus = 4;
-                else if (frac >= 0.80) bonus = 4;
-                else if (frac >= 0.75) bonus = 3;
-                else if (frac >= 0.50) bonus = 3;
-                else if (frac >= 0.35) bonus = 2;
-                else if (frac >= 0.25) bonus = 2;
-            }
-
-            return (base * rate) + bonus;
-        };
-
-        const formatUsd = (amount) => {
-            const n = (typeof amount === 'number' ? amount : parseFloat(amount || 0)) || 0;
-            return `$${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
-        };
-
-        // Normalizar nombre: solo primer nombre + primer apellido
-        const normalizeName = (fullName) => {
-            if (!fullName) return '';
-            const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
-            if (parts.length === 0) return '';
-            if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-            // Primer nombre + primer apellido (asumiendo que el apellido es la última palabra)
-            const firstName = parts[0];
-            const lastName = parts[parts.length - 1];
-            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-            return `${capitalize(firstName)} ${capitalize(lastName)}`;
-        };
-
-        // Obtener iniciales del nombre (máximo 4 letras)
-        const getInitials = (fullName) => {
-            if (!fullName) return '??';
-            const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
-            if (parts.length === 0) return '??';
-            // Tomar solo las primeras 2 palabras para las iniciales
-            return parts.slice(0, 2).map(n => n[0]?.toUpperCase() || '').join('');
-        };
-
-        // Comisión para Team Lineas (diferente fórmula)
-        const getCommissionLineas = (points) => {
-            const p = (typeof points === 'number' ? points : parseFloat(points || 0)) || 0;
-            const base = Math.floor(p);
-            
-            // Tabla de comisiones Team Lineas
-            // META 1: 17 pts = $5/pto
-            // META 2: 21 pts = $8/pto
-            // META 3: 26 pts = $10/pto
-            // META 4: 31 pts = $12/pto
-            let rate = 0;
-            if (base >= 31) rate = 12;
-            else if (base >= 26) rate = 10;
-            else if (base >= 21) rate = 8;
-            else if (base >= 17) rate = 5;
-
-            return base * rate;
-        };
-
-        const CommissionDashboard = () => {
-            const [activeView, setActiveView] = useState('agent');
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [agents, setAgents] = useState([]);
-            const [agentsLineas, setAgentsLineas] = useState([]);
-            const [currentUser, setCurrentUser] = useState(null);
-            const [currentAgent, setCurrentAgent] = useState(null);
-            const [isAgentUser, setIsAgentUser] = useState(false);
-            const [selectedAgent, setSelectedAgent] = useState(null);
-            const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
-            const longPressRef = React.useRef(null);
-            const longPressTargetRef = React.useRef(null);
-            const [selectedMonth, setSelectedMonth] = React.useState(() => {
-                const now = new Date();
-                return { year: now.getFullYear(), month: now.getMonth() + 1 };
-            });
-            const isAdminUser = (() => {
-                const roleRaw = String(currentUser?.role || '').toLowerCase();
-                return roleRaw.includes('admin') || roleRaw.includes('administrador');
-            })();
-
-            const loadAgentsFromDB = async () => {
-                try {
-                    console.log('Cargando agentes desde API...');
-                    const { year, month } = selectedMonth;
-                    console.log(`Cargando agentes para ${year}-${String(month).padStart(2, '0')}`);
-                    
-                    // Cargar agentes regulares para el mes seleccionado
-                    const response = await fetch(`/api/comisiones/agentes-mes?year=${year}&month=${month}`);
-                    console.log('Respuesta agentes-mes status:', response.status);
-                    
-                    // Cargar agentes de Team Lineas desde BD separada (sin filtro de mes por ahora)
-                    const responseLineas = await fetch('/api/comisiones/agentes-lineas');
-                    console.log('Respuesta agentes-lineas status:', responseLineas.status);
-                    
-                    if (!response.ok) {
-                        console.error('Error en respuesta agentes-mes:', response.statusText);
-                    }
-                    
-                    const data = await response.json();
-                    const dataLineas = responseLineas.ok ? await responseLineas.json() : { data: [] };
-                    
-                    console.log('Datos agentes regulares:', data);
-                    console.log('Datos Team Lineas:', dataLineas);
-                    
-                    // La API retorna agentes consolidados
-                    const agentes = data.data || data.agentes || [];
-                    
-                    if (Array.isArray(agentes) && agentes.length > 0) {
-                        console.log('Primer agente estructura:', agentes[0]);
-                        
-                        // Mapear los datos de la API a la estructura esperada
-                        const agentesProcesados = agentes.map((agent, idx) => {
-                            const agentName = String(agent.nombre || agent.name || '').toLowerCase();
-                            let supervisor = '';
-                            const pointsValue = parseFloat((agent.puntos || agent.points || 0).toFixed(2));
-                            
-                            // Asignar supervisor basado en el nombre del agente
-                            if (agentName.includes('victor') || agentName.includes('edward') || agentName.includes('cristian') || 
-                                agentName.includes('oscar') || agentName.includes('jocelyn') || agentName.includes('nancy') ||
-                                agentName.includes('melanie') || agentName.includes('alexis') || agentName.includes('dennis')) {
-                                supervisor = 'JONATHAN F';
-                            } else if (agentName.includes('daniel') || agentName.includes('fernando') || agentName.includes('karla') || 
-                                      agentName.includes('jonathan') || agentName.includes('luis') || agentName.includes('manuel') || agentName.includes('tatiana')) {
-                                supervisor = 'LUIS G';
-                            }
-                            
-                            const rawName = agent.nombre || agent.name || agent.agenteNombre || `Agente ${idx + 1}`;
-                            const normalizedName = normalizeName(rawName);
-                            
-                            return {
-                                id: String(agent.id || agent._id || idx),
-                                name: normalizedName,
-                                fullName: rawName,
-                                sales: agent.ventas || agent.sales || 0,
-                                points: pointsValue,
-                                pendingSales: agent.pendientes || agent.pending || agent.pendingSales || 0,
-                                commission: getCommissionFromPoints(pointsValue),
-                                score: Math.round(pointsValue * 100),
-                                meta: getMetaFromPoints(pointsValue),
-                                progress: getProgressFromPoints(pointsValue),
-                                email: agent.email || '',
-                                phone: agent.phone || agent.telefono || '',
-                                team: agent.team || agent.equipo || 'General',
-                                supervisor: supervisor
-                            };
-                        });
-                        
-                        console.log('Agentes procesados:', agentesProcesados);
-                        
-                        // Todos los agentes regulares van a "otros" (sin Team Lineas)
-                        setAgents(agentesProcesados.sort((a, b) => b.sales - a.sales));
-                    } else {
-                        console.warn('No hay agentes regulares en la respuesta');
-                    }
-                    
-                    // Procesar agentes de Team Lineas desde el endpoint dedicado
-                    const agentesLineas = dataLineas.data || [];
-                    if (Array.isArray(agentesLineas) && agentesLineas.length > 0) {
-                        console.log('Agentes Team Lineas desde BD:', agentesLineas);
-                        
-                        const lineasProcesados = agentesLineas.map((agent, idx) => {
-                            const rawName = agent.nombre || agent.name || `Agente Lineas ${idx + 1}`;
-                            const normalizedName = normalizeName(rawName);
-                            const lineasWireless = Number(agent.lineasWireless || agent.wirelessLines || 0);
-                            const lineasSinWireless = Number(agent.lineasSinWireless || agent.nonWirelessLines || 0);
-                            const lineasTotal = Number(agent.lineasTotal || agent.totalLines || 0);
-                            const comisionVal = (typeof agent.comision === 'number' ? agent.comision : parseFloat(agent.comision || agent.commission || 0)) || 0;
-                            
-                            return {
-                                id: String(agent.id || agent._id || `lineas-${idx}`),
-                                name: normalizedName,
-                                fullName: rawName,
-                                sales: agent.ventas || agent.sales || 0,
-                                pendingSales: agent.pendientes || 0,
-                                // Team Líneas no maneja comisión por puntos
-                                points: 0,
-                                commission: comisionVal,
-                                score: 0,
-                                meta: 'TEAM LINEAS',
-                                progress: 0,
-                                supervisor: agent.supervisor || '',
-                                lineasWireless,
-                                lineasSinWireless,
-                                lineasTotal,
-                                isLineas: true
-                            };
-                        }).sort((a, b) => b.sales - a.sales);
-                        
-                        console.log('Team Lineas procesados:', lineasProcesados.length, lineasProcesados);
-                        setAgentsLineas(lineasProcesados);
-                    } else {
-                        console.warn('No hay agentes de Team Lineas en la respuesta');
-                    }
-                } catch (error) {
-                    console.error('Error cargando agentes:', error);
-                }
-            };
-
-            // Cargar agentes desde BD y obtener usuario actual
-            React.useEffect(() => {
-                loadAgentsFromDB();
-                getCurrentUser();
-            }, []);
-            React.useEffect(() => {
-                if (isAdminUser && activeView === 'admin') {
-                    loadAgentsFromDB();
-                }
-            }, [selectedMonth, isAdminUser, activeView]);
-            
-            // Para agentes, también recargar cuando cambia el mes seleccionado
-            React.useEffect(() => {
-                if (isAgentUser) {
-                    loadAgentsFromDB();
-                }
-            }, [selectedMonth, isAgentUser]);
-
-            const changeMonth = (delta) => {
-                setSelectedMonth(prev => {
-                    let { year, month } = prev;
-                    month += delta;
-                    if (month > 12) { month = 1; year += 1; }
-                    if (month < 1) { month = 12; year -= 1; }
-                    return { year, month };
-                });
-            };
-
-            const formatMonthYear = ({ year, month }) => {
-                const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                return `${monthNames[month - 1]} ${year}`;
-            };
-
-            const handleMonthChange = (e) => {
-                const [year, month] = e.target.value.split('-').map(Number);
-                if (year && month && month >= 1 && month <= 12) {
-                    setSelectedMonth({ year, month });
-                }
-            };
-
-            const closeAgentModal = () => {
-                setIsAgentModalOpen(false);
-                setSelectedAgent(null);
-            };
-
-            const startLongPress = (agent, source) => {
-                if (!isAdminUser) return;
-                try {
-                    if (longPressRef.current) clearTimeout(longPressRef.current);
-                } catch (_) {}
-                longPressTargetRef.current = source || null;
-                longPressRef.current = setTimeout(() => {
-                    setSelectedAgent(agent);
-                    setIsAgentModalOpen(true);
-                }, 3000);
-            };
-
-            const cancelLongPress = (source) => {
-                try {
-                    if (source && longPressTargetRef.current && source !== longPressTargetRef.current) return;
-                    if (longPressRef.current) clearTimeout(longPressRef.current);
-                } catch (_) {}
-                longPressRef.current = null;
-                longPressTargetRef.current = null;
-            };
-
-            React.useEffect(() => {
-                const onKeyDown = (e) => {
-                    if (e && e.key === 'Escape') closeAgentModal();
-                };
-                window.addEventListener('keydown', onKeyDown);
-                return () => window.removeEventListener('keydown', onKeyDown);
-            }, []);
-
-            const AgentDashboardView = ({ agentOverride, userOverride, selectedMonth: propSelectedMonth, changeMonth: propChangeMonth, handleMonthChange: propHandleMonthChange, formatMonthYear: propFormatMonthYear }) => {
-                const agentData = agentOverride || currentAgent;
-                const userData = userOverride || currentUser;
-                
-                // Usar los props pasados o crear valores por defecto
-                const selectedMonth = propSelectedMonth || (() => {
-                    const now = new Date();
-                    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-                })();
-                
-                const changeMonth = propChangeMonth || ((delta) => {
-                    console.log('[AgentDashboard] changeMonth no disponible');
-                });
-                
-                const handleMonthChange = propHandleMonthChange || ((e) => {
-                    console.log('[AgentDashboard] handleMonthChange no disponible');
-                });
-                
-                const formatMonthYear = propFormatMonthYear || (({ year, month }) => {
-                    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                    return `${monthNames[month - 1]} ${year}`;
-                });
-
-                // Recargar datos del agente cuando cambia el mes
-                React.useEffect(() => {
-                    // Aquí podrías agregar lógica para recargar datos específicos del agente
-                    // Por ahora, los datos del agente ya vienen de la carga principal
-                    console.log(`[AgentDashboard] Mes cambiado a: ${formatMonthYear(selectedMonth)}`);
-                }, [selectedMonth]);
-
-                if (!agentData) {
-                    return (
-                        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                            <div className="text-center">
-                                <p className="text-gray-600 text-lg">Cargando datos...</p>
-                            </div>
-                        </div>
-                    );
-                }
-
-                const sales = agentData?.sales || 0;
-                const points = (typeof agentData?.points === 'number' ? agentData.points : parseFloat(agentData?.points || 0)) || 0;
-                const percent = getProgressFromPoints(points);
-                const totalMoney = getCommissionFromPoints(points);
-                const clamp01 = (n) => Math.min(1, Math.max(0, n));
-                const getScaleBase = (p) => {
-                    if (p >= 31) return 31;
-                    if (p >= 26) return 26;
-                    if (p >= 21) return 21;
-                    if (p >= 17) return 17;
-                    return 0;
-                };
-                const scaleBase = getScaleBase(points);
-                const scaleLabel = scaleBase ? `Escala ${scaleBase}` : 'Sin escala';
-                const scaleBars = [
-                    { key: 's17', label: 'Escala 17-20', min: 17, max: 21 },
-                    { key: 's21', label: 'Escala 21-25', min: 21, max: 26 },
-                    { key: 's26', label: 'Escala 26-30', min: 26, max: 31 },
-                    { key: 's31', label: 'Escala 31+', min: 31, max: Infinity },
-                ].map(s => {
-                    let pct = 0;
-                    if (s.max === Infinity) pct = points >= s.min ? 100 : 0;
-                    else pct = clamp01((points - s.min) / (s.max - s.min)) * 100;
-                    return Object.assign({}, s, { pct: Number(pct.toFixed(2)) });
-                });
-                const roleLabelRaw = String(userData?.role || 'agente').toUpperCase();
-                const roleLabel = `ROL: ${roleLabelRaw}`;
-                const progressFillStyle = percent >= 100
-                    ? { width: `${percent}%`, background: 'linear-gradient(90deg, var(--success) 0%, #34d399 100%)' }
-                    : { width: `${percent}%` };
-
-                const pending = agentData?.pendingSales || 0;
-
-                return (
-                    <div className="agent-premium">
-                        <div className="container">
-                            <header className="header">
-                                <div className="header-content">
-                                    <div>
-                                        <h1>¡Hola, {agentData?.name}! 👋</h1>
-                                        <p>Aquí está tu rendimiento actual y tus ganancias</p>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <button
-                                                onClick={() => changeMonth(-1)}
-                                                className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                                                title="Mes anterior"
-                                            >
-                                                ←
-                                            </button>
-                                            <input
-                                                type="month"
-                                                value={`${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`}
-                                                onChange={handleMonthChange}
-                                                className="px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            />
-                                            <button
-                                                onClick={() => changeMonth(1)}
-                                                className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                                                title="Mes siguiente"
-                                            >
-                                                →
-                                            </button>
-                                        </div>
-                                        <p className="text-sm text-gray-500 mt-1">{formatMonthYear(selectedMonth)}</p>
-                                    </div>
-                                </div>
-                                <div className="badge-role">{roleLabel}</div>
-                            </header>
-
-                            <div className="grid-main">
-                                <div className="card-commission">
-                                    <div className="commission-content">
-                                        <div className="commission-label">Comisión Estimada</div>
-                                        <div className="commission-icon">
-                                            <div className="wallet-container">
-                                                <div className="wallet-fill" style={{ height: `${percent}%` }} />
-                                                <div className="wallet-base">
-                                                    <span className="wallet-emoji">💰</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="commission-amount">{formatUsd(totalMoney)}</div>
-                                        <div className="commission-sub">Basado en tu fórmula de rendimiento</div>
-
-                                        <div className="progress-container">
-                                            <div className="progress-label">
-                                                <span>Progreso de Meta</span>
-                                                <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{scaleLabel}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-                                                {scaleBars.map(sb => (
-                                                    <div key={sb.key}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
-                                                            <span>{sb.label}</span>
-                                                            <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{`${sb.pct.toFixed(2)}%`}</span>
-                                                        </div>
-                                                        <div className="progress-bar">
-                                                            <div className="progress-fill" style={{ width: `${Math.min(100, sb.pct)}%` }} />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="card-stats">
-                                    <div className="stats-grid">
-                                        <div className="stat-item">
-                                            <div className="stat-icon">📊</div>
-                                            <div className="stat-label">Ventas Activas</div>
-                                            <div className="stat-value">{sales}</div>
-                                            <div className="stat-sub">Clientes este mes</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">⭐</div>
-                                            <div className="stat-label">Puntaje Activo</div>
-                                            <div className="stat-value">{points.toFixed(2)}</div>
-                                            <div className="stat-sub">Nivel: Avanzado</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">✅</div>
-                                            <div className="stat-label">Pendientes</div>
-                                            <div className="stat-value">{pending}</div>
-                                            <div className="stat-sub">Ventas en pending</div>
-                                        </div>
-
-                                        <div className="stat-item">
-                                            <div className="stat-icon">🚀</div>
-                                            <div className="stat-label">Escala</div>
-                                            <div className="stat-value">{scaleLabel}</div>
-                                            <div className="stat-sub">Escala actual</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="card-activity">
-                                <div className="activity-title">Ventas Mensuales</div>
-                                <svg width="100%" height="300" viewBox="0 0 900 300" style={{ maxWidth: '100%', marginTop: 20 }}>
-                                    <defs>
-                                        <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" style={{ stopColor: '#6366f1', stopOpacity: 0.3 }} />
-                                            <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0.8 }} />
-                                        </linearGradient>
-                                    </defs>
-                                    <line x1="60" y1="30" x2="60" y2="250" stroke="#e2e8f0" strokeWidth="2" />
-                                    <line x1="60" y1="250" x2="850" y2="250" stroke="#e2e8f0" strokeWidth="2" />
-
-                                    <text x="45" y="255" textAnchor="end" fontSize="12" fill="#64748b">0</text>
-                                    <text x="45" y="195" textAnchor="end" fontSize="12" fill="#64748b">25</text>
-                                    <text x="45" y="135" textAnchor="end" fontSize="12" fill="#64748b">50</text>
-                                    <text x="45" y="75" textAnchor="end" fontSize="12" fill="#64748b">75</text>
-
-                                    <g>
-                                        <rect x="80" y="190" width="35" height="60" fill="#e0e7ff" rx="4" />
-                                        <text x="97.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Ene</text>
-
-                                        <rect x="125" y="170" width="35" height="80" fill="#e0e7ff" rx="4" />
-                                        <text x="142.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Feb</text>
-                                        <g transform="translate(160, 155)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+33%</text>
-                                        </g>
-
-                                        <rect x="170" y="140" width="35" height="110" fill="#e0e7ff" rx="4" />
-                                        <text x="187.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Mar</text>
-                                        <g transform="translate(205, 120)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+37%</text>
-                                        </g>
-
-                                        <rect x="215" y="155" width="35" height="95" fill="#e0e7ff" rx="4" />
-                                        <text x="232.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Abr</text>
-                                        <g transform="translate(250, 135)">
-                                            <line x1="0" y1="0" x2="0" y2="15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 10 L 0 15 L 4 10" stroke="#ef4444" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="-5" textAnchor="middle" fontSize="11" fill="#ef4444" fontWeight="700">-13%</text>
-                                        </g>
-
-                                        <rect x="260" y="100" width="35" height="150" fill="#e0e7ff" rx="4" />
-                                        <text x="277.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">May</text>
-                                        <g transform="translate(295, 75)">
-                                            <line x1="0" y1="15" x2="0" y2="0" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                            <path d="M -4 5 L 0 0 L 4 5" stroke="#10b981" strokeWidth="2" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="25" textAnchor="middle" fontSize="11" fill="#10b981" fontWeight="700">+58%</text>
-                                        </g>
-
-                                        <rect x="305" y="70" width="35" height="180" fill="url(#arrowGradient)" rx="4" />
-                                        <text x="322.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jun</text>
-                                        <g transform="translate(340, 40)">
-                                            <line x1="0" y1="20" x2="0" y2="0" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-                                            <path d="M -5 8 L 0 0 L 5 8" stroke="#f59e0b" strokeWidth="3" fill="none" strokeLinejoin="round" />
-                                            <text x="0" y="32" textAnchor="middle" fontSize="11" fill="#f59e0b" fontWeight="700">+20%</text>
-                                        </g>
-
-                                        <rect x="350" y="60" width="35" height="190" fill="#e0e7ff" rx="4" />
-                                        <text x="367.5" y="270" textAnchor="middle" fontSize="12" fontWeight="600" fill="#1e293b">Jul</text>
-                                    </g>
-
-                                    <g transform="translate(600, 30)">
-                                        <rect width="240" height="100" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" rx="8" />
-                                        <text x="12" y="25" fontSize="13" fontWeight="700" fill="#1e293b">Tendencia Mensual</text>
-                                        <circle cx="20" cy="50" r="4" fill="#10b981" />
-                                        <text x="32" y="54" fontSize="12" fill="#64748b">Crecimiento</text>
-                                        <circle cx="20" cy="75" r="4" fill="#ef4444" />
-                                        <text x="32" y="79" fontSize="12" fill="#64748b">Decrecimiento</text>
-                                    </g>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const AgentViewModal = ({ agent, open, onClose }) => {
-                if (!open || !agent) return null;
-                const forcedUser = Object.assign({}, currentUser || {}, { role: 'agente' });
-                return (
-                    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true">
-                        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-                        <div className="absolute inset-0 p-4 sm:p-6 overflow-auto">
-                            <div className="relative mx-auto w-full max-w-6xl">
-                                <button onClick={onClose} className="absolute -top-3 -right-3 w-10 h-10 rounded-xl bg-white shadow hover:bg-gray-100 text-gray-800 z-50">✕</button>
-                                <div className="rounded-2xl overflow-hidden">
-                                    <AgentDashboardView 
-                                        agentOverride={agent} 
-                                        userOverride={forcedUser} 
-                                        selectedMonth={selectedMonth}
-                                        changeMonth={changeMonth}
-                                        handleMonthChange={handleMonthChange}
-                                        formatMonthYear={formatMonthYear}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const getCurrentUser = async () => {
-                try {
-                    // 1) Intentar desde storage (mismo criterio que sidebar-loader.js)
-                    try {
-                        const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
-                        if (raw) {
-                            const parsed = JSON.parse(raw);
-                            if (parsed && (parsed.username || parsed.name || parsed.email)) {
-                                const userFromStorage = Object.assign({}, parsed);
-                                if (!userFromStorage.username) userFromStorage.username = userFromStorage.name || userFromStorage.email || 'Usuario';
-                                console.log('Usuario actual (storage):', userFromStorage);
-                                setCurrentUser(userFromStorage);
-
-                                const role = String(userFromStorage?.role || '').toLowerCase();
-                                const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
-                                setIsAgentUser(isAgent);
-                                return;
-                            }
-                        }
-                    } catch (e) {}
-
-                    // 2) Intentar desde servidor con cookies
-                    try {
-                        const res = await fetch('/api/auth/verify-server', { method: 'GET', credentials: 'include' });
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data.authenticated && data.user) {
-                                console.log('Usuario actual (verify-server):', data);
-                                setCurrentUser(data.user);
-
-                                const role = String(data.user?.role || '').toLowerCase();
-                                const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
-                                setIsAgentUser(isAgent);
-                                return;
-                            }
-                        }
-                    } catch (e) {}
-
-                    // 3) Fallback legacy
-                    const response = await fetch('/api/auth/me');
-                    const userData = await response.json();
-                    console.log('Usuario actual (auth/me):', userData);
-                    setCurrentUser(userData.user);
-
-                    const role = String(userData.user?.role || '').toLowerCase();
-                    const isAgent = role.includes('agente') || role.includes('agent') || role.includes('vendedor') || role.includes('seller');
-                    setIsAgentUser(isAgent);
-                } catch (error) {
-                    console.error('Error obteniendo usuario:', error);
-                }
-            };
-
-            React.useEffect(() => {
-                // Una vez que tenemos agentes y usuario, buscar el agente actual
-                const allAgents = [...agentsLineas, ...agents];
-                if (currentUser && allAgents.length > 0) {
-                    const normalizeText = (v) => String(v || '')
-                        .trim()
-                        .toLowerCase()
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '')
-                        .replace(/[^a-z0-9]+/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                    const idToString = (v) => {
-                        if (v == null) return '';
-                        if (typeof v === 'string' || typeof v === 'number') return String(v);
-                        if (typeof v === 'object') {
-                            if (v.$oid) return String(v.$oid);
-                            if (v.oid) return String(v.oid);
-                            if (typeof v.toHexString === 'function') return String(v.toHexString());
-                            if (typeof v.toString === 'function') return String(v.toString());
-                        }
-                        return String(v);
-                    };
-                    const isNameMatch = (agentName, candidateName) => {
-                        const a = normalizeText(agentName);
-                        const c = normalizeText(candidateName);
-                        if (!a || !c) return false;
-                        if (a === c) return true;
-                        if (a.includes(c) || c.includes(a)) return true;
-                        const aTokens = new Set(a.split(/\s+/).filter(t => t.length > 2));
-                        const cTokens = c.split(/\s+/).filter(t => t.length > 2);
-                        if (cTokens.length === 0) return false;
-                        return cTokens.every(t => aTokens.has(t));
-                    };
-                    const roleNow = String(currentUser?.role || '').toLowerCase();
-                    const isAgentNow = roleNow.includes('agente') || roleNow.includes('agent') || roleNow.includes('vendedor') || roleNow.includes('seller');
-                    const userId = idToString(currentUser.id || currentUser._id);
-                    const userEmail = currentUser.email;
-                    const userNameCandidates = [
-                        currentUser.username,
-                        currentUser.name,
-                        currentUser.nombre,
-                        currentUser.fullName,
-                    ].filter(Boolean).map(normalizeText);
-
-                    const fallbackAgent = {
-                        id: userId || 'me',
-                        name: currentUser.name || currentUser.username || currentUser.email || 'Mi Usuario',
-                        sales: 0,
-                        points: 0,
-                        pendingSales: 0,
-                        commission: 0,
-                        score: 0,
-                        meta: getMetaFromPoints(0),
-                        progress: getProgressFromPoints(0),
-                        email: userEmail || '',
-                        phone: '',
-                        team: currentUser.team || 'General',
-                        supervisor: ''
-                    };
-
-                    const agentFound = allAgents.find(a => {
-                        if (!a) return false;
-                        const agentId = idToString(a.id || a._id);
-                        const agentEmail = a.email;
-                        const agentName = a.name;
-
-                        if (userId && agentId && agentId === userId) return true;
-                        if (userEmail && agentEmail && normalizeText(agentEmail) === normalizeText(userEmail)) return true;
-                        if (agentName && userNameCandidates.length > 0) return userNameCandidates.some(c => isNameMatch(agentName, c));
-                        return false;
-                    });
-
-                    const agentFoundStrong = (() => {
-                        const byId = allAgents.find(a => {
-                            if (!a) return false;
-                            const agentId = idToString(a.id || a._id);
-                            return userId && agentId && agentId === userId;
-                        });
-                        if (byId) return byId;
-
-                        const byEmail = allAgents.find(a => {
-                            if (!a) return false;
-                            return userEmail && a.email && normalizeText(a.email) === normalizeText(userEmail);
-                        });
-                        if (byEmail) return byEmail;
-
-                        const byNameExact = allAgents.find(a => {
-                            if (!a) return false;
-                            const agentName = a.name;
-                            if (!agentName || userNameCandidates.length === 0) return false;
-                            const n = normalizeText(agentName);
-                            return userNameCandidates.includes(n);
-                        });
-                        if (byNameExact) return byNameExact;
-
-                        return null;
-                    })();
-
-                    const agentPicked = isAgentNow ? agentFoundStrong : (agentFoundStrong || agentFound);
-                    if (isAgentNow) setCurrentAgent(agentPicked || fallbackAgent);
-                    else setCurrentAgent(agentPicked || allAgents[0] || null);
-
-                    try {
-                        console.log('[Comisiones] match agente:', {
-                            isAgentNow,
-                            user: { id: userId, email: userEmail, names: userNameCandidates },
-                            found: agentPicked ? { id: agentPicked.id, name: agentPicked.name, email: agentPicked.email, pendingSales: agentPicked.pendingSales } : null,
-                            fallback: { id: fallbackAgent.id, name: fallbackAgent.name }
-                        });
-                    } catch (e) {}
-                }
-            }, [currentUser, agents, agentsLineas]);
-
-            const AdminDashboard = () => (
-                <div className="min-h-screen bg-gray-50">
-                    {/* Header */}
-                    <div className="bg-white border-b sticky top-0 z-10">
-                        <div className="max-w-7xl mx-auto px-6 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-                                        <span className="text-white text-xl">💰</span>
-                                    </div>
-                                    <div>
-                                        <h1 className="text-xl font-bold text-gray-900">Comisiones</h1>
-                                        <p className="text-sm text-gray-500">Panel de Administración - {formatMonthYear(selectedMonth)}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Buscar agente..."
-                                            className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => changeMonth(-1)}
-                                            className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                                            title="Mes anterior"
-                                        >
-                                            ←
-                                        </button>
-                                        <input
-                                            type="month"
-                                            value={`${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`}
-                                            onChange={handleMonthChange}
-                                            className="px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <button
-                                            onClick={() => changeMonth(1)}
-                                            className="px-3 py-2 border rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                                            title="Mes siguiente"
-                                        >
-                                            →
-                                        </button>
-                                    </div>
-                                    <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <span className="text-xl">🔔</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Navigation Tabs */}
-                    <div className="bg-white border-b">
-                        <div className="max-w-7xl mx-auto px-6">
-                            <div className="flex gap-8">
-                                {[
-                                    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                                    { id: 'agents', label: 'Agentes', icon: '👥' },
-                                    { id: 'reports', label: 'Reportes', icon: '📄' },
-                                    { id: 'analytics', label: 'Analytics', icon: '📈' },
-                                ].map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center gap-2 px-1 py-4 border-b-2 transition-colors ${
-                                            activeTab === tab.id
-                                                ? 'border-indigo-600 text-indigo-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                    >
-                                        <span className="text-lg">{tab.icon}</span>
-                                        <span className="font-medium text-sm">{tab.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="max-w-7xl mx-auto px-6 py-8">
-                        {activeTab === 'dashboard' && (
-                            <>
-                                {/* Agent Cards */}
-                                <div className="mb-8">
-                                    <h2 className="text-lg font-bold text-gray-900 mb-4">
-                                        Todos los Agentes ({agents.length}) - {formatMonthYear(selectedMonth)}
-                                    </h2>
-                                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 mb-4">
-                                        + Agregar Agente
-                                    </button>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                        {agents.map(agent => (
-                                            <div
-                                                key={agent.id}
-                                                className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
-                                                onMouseDown={() => startLongPress(agent, agent.id)}
-                                                onMouseUp={() => cancelLongPress(agent.id)}
-                                                onMouseLeave={() => cancelLongPress(agent.id)}
-                                                onTouchStart={() => startLongPress(agent, agent.id)}
-                                                onTouchEnd={() => cancelLongPress(agent.id)}
-                                                onTouchCancel={() => cancelLongPress(agent.id)}
-                                            >
-                                                <button 
-                                                    onClick={() => setAgents(agents.filter(a => a.id !== agent.id))}
-                                                    onMouseDown={(e) => { try { e.stopPropagation(); } catch(_) {} cancelLongPress(agent.id); }}
-                                                    onTouchStart={(e) => { try { e.stopPropagation(); } catch(_) {} cancelLongPress(agent.id); }}
-                                                    className="absolute top-3 right-3 bg-red-100 text-red-600 p-1.5 rounded-lg hover:bg-red-200 transition-colors"
-                                                    title="Eliminar agente"
-                                                >
-                                                    🗑️
-                                                </button>
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                            <span className="font-bold text-indigo-600">{getInitials(agent.fullName || agent.name)}</span>
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                                                            <p className="text-sm text-gray-500">{agent.sales} ventas</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-3 mb-4">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Ventas</span>
-                                                        <span className="font-semibold text-gray-900">{agent.sales}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Puntaje</span>
-                                                        <span className="font-semibold text-gray-900">{agent.points.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Comisión</span>
-                                                        <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mb-4">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-sm text-gray-600">Progreso</span>
-                                                        <span className="text-sm font-medium text-gray-900">{`${Math.min(100, agent.progress || 0).toFixed(2)}%`}</span>
-                                                    </div>
-                                                    <div className="bg-gray-200 rounded-full h-2">
-                                                        <div 
-                                                            className={`h-2 rounded-full ${agent.progress >= 90 ? 'bg-green-500' : agent.progress >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                            style={{ width: `${Math.min(100, agent.progress || 0)}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center justify-between pt-4 border-t">
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                                        agent.progress >= 90 ? 'bg-green-100 text-green-700' :
-                                                        agent.progress >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-red-100 text-red-700'
-                                                    }`}>
-                                                        {agent.progress >= 90 ? '↑ 10%' : agent.progress >= 70 ? '↓ 12%' : '↑ 1%'}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">vs mes anterior</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <AgentViewModal agent={selectedAgent} open={isAgentModalOpen} onClose={closeAgentModal} />
-
-                        {activeTab === 'agents' && (
-                            <div>
-                                <div className="flex items-center justify-between mb-6">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">Agentes - Team Lineas</h2>
-                                        <p className="text-gray-600 mt-1">Administra los agentes de Lineas ({agentsLineas.length})</p>
-                                    </div>
-                                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2">
-                                        <span>➕</span>
-                                        Agregar Agente
-                                    </button>
-                                </div>
-
-                                {agentsLineas.length === 0 ? (
-                                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                                        <p className="text-gray-600 text-lg">No hay agentes en Team Lineas</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-8">
-                                        {/* Team Jonathan F */}
-                                        <div>
-                                            <h3 className="text-xl font-bold text-gray-900 mb-4">📞 TEAM JONATHAN F</h3>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                {agentsLineas
-                                                    .filter(agent => agent.supervisor === 'JONATHAN F')
-                                                    .map(agent => (
-                                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-                                                            <div className="flex items-start justify-between mb-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                                        <span className="font-bold text-indigo-600">{getInitials(agent.fullName || agent.name)}</span>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="space-y-3 mb-4">
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Ventas</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Líneas Wireless</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless || 0}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Líneas sin Wireless</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless || 0}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Comisión</span>
-                                                                    <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Team Luis G */}
-                                        <div>
-                                            <h3 className="text-xl font-bold text-gray-900 mb-4">📞 TEAM LUIS G</h3>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                {agentsLineas
-                                                    .filter(agent => agent.supervisor === 'LUIS G')
-                                                    .map(agent => (
-                                                        <div key={agent.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-                                                            <div className="flex items-start justify-between mb-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                                                        <span className="font-bold text-purple-600">{getInitials(agent.fullName || agent.name)}</span>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="space-y-3 mb-4">
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Ventas</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Líneas Wireless</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless || 0}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Líneas sin Wireless</span>
-                                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless || 0}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-gray-600">Comisión</span>
-                                                                    <span className="font-semibold text-green-600">{formatUsd(agent.commission)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'reports' && (
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                                    Reportes de Comisiones - {formatMonthYear(selectedMonth)}
-                                </h2>
-
-                                {(() => {
-                                    const allAgents = [...agentsLineas, ...agents];
-                                    return (
-                                        <div className="grid grid-cols-4 gap-6 mb-6">
-                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                                <h3 className="text-sm text-gray-600 mb-2">Ventas Totales</h3>
-                                                <p className="text-3xl font-bold text-gray-900">{allAgents.reduce((s, a) => s + (a.sales || 0), 0)}</p>
-                                            </div>
-                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                                <h3 className="text-sm text-gray-600 mb-2">Puntaje Total</h3>
-                                                <p className="text-3xl font-bold text-gray-900">{allAgents.reduce((s, a) => s + (parseFloat(a.points) || 0), 0).toFixed(0)}</p>
-                                            </div>
-                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                                <h3 className="text-sm text-gray-600 mb-2">Comisión Total</h3>
-                                                <p className="text-3xl font-bold text-green-600">{formatUsd(allAgents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0))}</p>
-                                            </div>
-                                            <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                                <h3 className="text-sm text-gray-600 mb-2">Agentes Activos</h3>
-                                                <p className="text-3xl font-bold text-indigo-600">{allAgents.length}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                <div className="bg-white rounded-xl border border-gray-200">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ventas</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Puntaje</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comisión</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">% del Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-200">
-                                                {agents.map((agent, index) => (
-                                                    <tr key={agent.id} className="hover:bg-gray-50">
-                                                        <td className="px-6 py-4 text-gray-900 font-medium">{index + 1}</td>
-                                                        <td className="px-6 py-4 font-medium text-gray-900">{agent.name}</td>
-                                                        <td className="px-6 py-4 text-indigo-600 font-semibold">{agent.sales}</td>
-                                                        <td className="px-6 py-4 text-blue-600 font-semibold">{agent.points.toFixed(2)}</td>
-                                                        <td className="px-6 py-4 text-green-600 font-semibold">{formatUsd(agent.commission)}</td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                                                                {((agent.sales / agents.reduce((s, a) => s + a.sales, 0)) * 100).toFixed(1)}%
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'analytics' && (
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics</h2>
-
-                                <div className="grid grid-cols-4 gap-6 mb-8">
-                                    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg">
-                                        <h3 className="text-indigo-100 text-sm font-medium mb-4">Promedio Ventas</h3>
-                                        <p className="text-3xl font-bold mb-1">{agents.length > 0 ? (agents.reduce((s, a) => s + (a.sales || 0), 0) / agents.length).toFixed(1) : '0'}</p>
-                                        <p className="text-indigo-100 text-sm">Por Agente</p>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
-                                        <h3 className="text-green-100 text-sm font-medium mb-4">Puntaje Promedio</h3>
-                                        <p className="text-3xl font-bold mb-1">{agents.length > 0 ? (agents.reduce((s, a) => s + (parseFloat(a.points) || 0), 0) / agents.length).toFixed(1) : '0'}</p>
-                                        <p className="text-green-100 text-sm">Puntos Acumulados</p>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
-                                        <h3 className="text-purple-100 text-sm font-medium mb-4">Comisión Promedio</h3>
-                                        <p className="text-3xl font-bold mb-1">{formatUsd(agents.length > 0 ? (agents.reduce((s, a) => s + (parseFloat(a.commission) || 0), 0) / agents.length) : 0)}</p>
-                                        <p className="text-purple-100 text-sm">Por Agente</p>
-                                    </div>
-
-                                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
-                                        <h3 className="text-orange-100 text-sm font-medium mb-4">Score Promedio</h3>
-                                        <p className="text-3xl font-bold mb-1">{agents.length > 0 ? (agents.reduce((s, a) => s + (a.score || 0), 0) / agents.length).toFixed(0) : '0'}%</p>
-                                        <p className="text-orange-100 text-sm">Desempeño General</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                                        <h3 className="font-semibold text-gray-900 mb-6">Top Agentes</h3>
-                                        <div className="space-y-4">
-                                            {[...agents].sort((a, b) => b.sales - a.sales).map((agent, index) => (
-                                                <div key={agent.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                                                        index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                        index === 1 ? 'bg-gray-100 text-gray-700' :
-                                                        'bg-orange-100 text-orange-700'
-                                                    }`}>
-                                                        {index + 1}
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-medium text-gray-900">{agent.name}</p>
-                                                        <p className="text-xs text-gray-500">{agent.sales} ventas • {agent.points.toFixed(2)} pts</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="font-semibold text-green-600">{formatUsd(agent.commission)}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                                        <h3 className="font-semibold text-gray-900 mb-6">Metas Alcanzadas</h3>
-                                        <div className="space-y-4">
-                                            {(() => {
-                                                const allAgents = [...agentsLineas, ...agents];
-                                                return [
-                                                    { name: 'META 1', agents: allAgents.filter(a => a.meta === 'META 1').length, points: '17 pts', commission: '$6/pto' },
-                                                    { name: 'META 2', agents: allAgents.filter(a => a.meta === 'META 2').length, points: '21 pts', commission: '$12/pto' },
-                                                    { name: 'META 3', agents: allAgents.filter(a => a.meta === 'META 3').length, points: '26 pts', commission: '$15/pto' },
-                                                    { name: 'META 4', agents: allAgents.filter(a => a.meta === 'META 4').length, points: '31 pts', commission: '$18/pto' },
-                                                ].map((meta, index) => (
-                                                <div key={index} className="border-b pb-4">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-3 h-3 rounded-full bg-${['indigo', 'green', 'purple', 'orange'][index]}-500`} />
-                                                            <span className="font-medium text-gray-900">{meta.name}</span>
-                                                            <span className="text-sm text-gray-600">{meta.points}</span>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="font-semibold text-gray-900">{meta.agents} agentes</p>
-                                                            <p className="text-xs text-green-600">{meta.commission}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                ));
-                                            })()}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-
-            const AgentDashboard = () => (
-                <AgentDashboardView 
-                    selectedMonth={selectedMonth}
-                    changeMonth={changeMonth}
-                    handleMonthChange={handleMonthChange}
-                    formatMonthYear={formatMonthYear}
-                />
-            );
-
-            return (
-                <div>
-                    {currentUser && !isAgentUser && (
-                        <div className="fixed bottom-6 right-6 z-50 bg-white shadow-lg rounded-lg p-2 border border-gray-200">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setActiveView('admin')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        activeView === 'admin' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    Vista Admin
-                                </button>
-                                <button
-                                    onClick={() => setActiveView('agent')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        activeView === 'agent' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    Mi Vista
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {isAgentUser ? <AgentDashboard /> : (activeView === 'admin' ? <AdminDashboard /> : <AgentDashboard />)}
-                </div>
-            );
-        };
-
-        ReactDOM.render(<CommissionDashboard />, document.getElementById('root'));
-    </script>
-
-    <script src="/js/user-info.js" defer></script>
-    <script src="/js/logout-handler.js" defer></script>
+    <div class="big-card">
+      <div class="section-title" style="margin-bottom:16px">Mis métricas · ${ym}</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-icon">📊</div>
+          <div class="stat-lbl">Ventas completed</div>
+          <div class="stat-val">${agentData.ventas}</div>
+          <div class="stat-sub">Activas este mes</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">🛏</div>
+          <div class="stat-lbl">Colchones</div>
+          <div class="stat-val">${agentData.colchones}</div>
+          <div class="stat-sub">Instalados este mes</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-lbl">Puntaje</div>
+          <div class="stat-val gold">${p.toFixed(2)}</div>
+          <div class="stat-sub">Puntos acumulados</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-icon">💰</div>
+          <div class="stat-lbl">Comisión</div>
+          <div class="stat-val green">${fmtUSD(agentData.comision)}</div>
+          <div class="stat-sub">Estimada</div>
+        </div>
+      </div>
+
+      ${p>=17?`
+      <div style="margin-top:18px;padding:12px 14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+        <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:8px;">Desglose comisión</div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-family:var(--fm);font-size:.72rem;color:var(--ink2);">
+          <div style="display:flex;justify-content:space-between;">
+            <span>${Math.floor(p)} pts × $${getTasa(p)}</span>
+            <span style="color:var(--ink)">${fmtUSD(Math.floor(p)*getTasa(p))}</span>
+          </div>
+          ${agentData.comision-(Math.floor(p)*getTasa(p))>0?`
+          <div style="display:flex;justify-content:space-between;">
+            <span>Bono decimal (.${String(parseFloat((p-Math.floor(p)).toFixed(2))).split('.')[1]||'00'})</span>
+            <span style="color:var(--gold)">+${fmtUSD(agentData.comision-(Math.floor(p)*getTasa(p)))}</span>
+          </div>`:''}
+          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:5px;margin-top:3px;">
+            <span style="font-weight:700;color:var(--ink)">Total</span>
+            <span style="color:var(--green);font-weight:700">${fmtUSD(agentData.comision)}</span>
+          </div>
+        </div>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+function render(){
+  const container = document.getElementById('main-content');
+  if(!container) return;
+
+  const userIsAdmin = isAdmin(_user?.role);
+  const showAdminView = userIsAdmin && _view === 'admin';
+
+  container.innerHTML = `
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Servicios Residenciales</div>
+        <div class="page-title">Comisiones</div>
+        <div class="page-subtitle">Cálculo basado en puntaje · solo ventas completed</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        ${renderMonthNav()}
+        ${renderViewToggle()}
+      </div>
+    </div>
+    ${_loading
+      ? `<div class="loader-wrap"><div class="spinner"></div><span>Cargando datos...</span></div>`
+      : (showAdminView ? renderAdminView() : renderAgentSelfView())
+    }`;
+}
+
+/* ══════════════════════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════════════════════ */
+window.changeMonth = function(delta){
+  let {year, month} = _month;
+  month += delta;
+  if(month>12){ month=1; year++; }
+  if(month<1){ month=12; year--; }
+  _month = {year, month};
+  loadData();
+};
+
+window.switchView = function(v){
+  _view = v;
+  render();
+};
+
+/* ══════════════════════════════════════════════════════
+   LOAD DATA
+══════════════════════════════════════════════════════ */
+async function loadData(){
+  _loading = true;
+  render();
+  const leads = await fetchLeads();
+  _leads = leads;
+  const ym = getYM(_month.year, _month.month);
+  _agents = aggregateAgents(leads, ym);
+  _loading = false;
+  render();
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+(async function init(){
+  if(!AUTH.check()) return;
+
+  // Get user
+  _user = AUTH.getUser();
+
+  // Verificar acceso
+  const role = String(_user?.role||'').toLowerCase();
+  const allowed = isAdmin(role) || isAgentRole(role);
+  if(!allowed){
+    document.getElementById('main-content').innerHTML = `
+      <div class="empty" style="height:60vh">
+        <div class="empty-icon">🔒</div>
+        <span>No tienes acceso a esta página</span>
+      </div>`;
+    return;
+  }
+
+  // Admins → vista admin por defecto | Agentes → mi vista
+  _view = isAdmin(role) ? 'admin' : 'agent';
+
+  document.getElementById('page-loader').remove();
+
+  await loadData();
+})();
+</script>     
 </body>
 </html>
