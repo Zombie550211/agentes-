@@ -759,7 +759,7 @@ async function fetchLeadsForMonth(ym) {
     if (Array.isArray(j.leads)) return j.leads;
     return [];
   } catch(e) {
-    console.warn('[fetchLeadsForMonth]', e);
+
     return [];
   }
 }
@@ -798,13 +798,15 @@ function aggregateByAgent(leads, ym) {
     var rawName = String(
       l.agenteNombre || l.agente || l.createdBy ||
       l.registeredBy || l.usuario || l.vendedor || ''
-    ).trim() || 'Sin nombre';
+    ).trim()
+     .replace(/\./g, ' ')   // ABIGAIL.BERNAL → ABIGAIL BERNAL
+     .replace(/\s+/g, ' ')  // espacios múltiples → uno solo
+     .trim() || 'Sin nombre';
 
-    // FIX: normalizar nombre (INGRID.GARCIA → Ingrid Garcia)
-    var displayName = rawName.replace(/\./g, ' ');
-    displayName = displayName.charAt(0).toUpperCase() +
-                  displayName.slice(1).toLowerCase()
-                  .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+    // Capitalizar nombre para mostrar
+    var displayName = rawName.charAt(0).toUpperCase() +
+                      rawName.slice(1).toLowerCase()
+                      .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
 
     var key  = normalizeKey(rawName);
     var team = String(
