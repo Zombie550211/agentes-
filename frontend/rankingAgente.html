@@ -684,13 +684,12 @@ function isCompleted(raw) { return normalizeStatus(raw) === 'completed'; }
    - status es completed o pending
 ══════════════════════════════════════════════ */
 function isColchon(lead, targetYM) {
+  // Detecta SOLO el patrón de fechas (dia_venta != targetYM, dia_instalacion = targetYM)
+  // El status NO importa para detectar — se valida aparte para CONTAR
   try {
     var dv = String(lead.dia_venta       || lead.diaVenta       || '').slice(0, 7);
     var di = String(lead.dia_instalacion || lead.diaInstalacion || '').slice(0, 7);
     if (!dv || !di) return false;
-    var st = normalizeStatus(lead.status);
-    if (st !== 'completed' && st !== 'pending') return false;
-    // venta en otro mes Y instalación en el mes pedido
     return dv !== targetYM && di === targetYM;
   } catch(e) { return false; }
 }
@@ -791,8 +790,9 @@ function aggregateByAgent(leads, ym) {
     // ¿Es venta del mes? completed + dia_venta en targetYM
     var isVentaMes     = isCompleted(l.status) && dv === targetYM;
 
-    // ¿Es colchón válido? dia_venta != targetYM + dia_instalacion = targetYM + completed/pending
-    var isColchonValido = isColchon(l, targetYM);
+    // ¿Es colchón? patrón de fechas + SOLO cuenta si completed
+    var esPatronColchon = isColchon(l, targetYM);
+    var isColchonValido = esPatronColchon && isCompleted(l.status); // solo completed cuenta
 
     // Si no es ninguno de los dos, ignorar
     if (!isVentaMes && !isColchonValido) return;

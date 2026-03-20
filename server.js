@@ -74,11 +74,16 @@ const COMPLETED_VALUES_LOWER = ['completed','active','completado','activo','acti
 const completedMatchExpr = { $in: [{ $toLower: { $ifNull: ['$status',''] } }, COMPLETED_VALUES_LOWER] };
 
 // ── COLCHÓN DETECTION ─────────────────────────────────────────
+// Una venta es colchón geográficamente cuando:
+//   - dia_venta está en un mes DIFERENTE al mes de referencia
+//   - dia_instalacion está en el mes de referencia
+// IMPORTANTE: El status NO se valida aquí.
+// Para CONTAR en rankings solo cuentan los colchones con status completed.
 function isColchon(lead, referenceDate) {
   try {
-    const ref      = referenceDate || new Date();
-    const curYear  = ref.getFullYear();
-    const curMonth = String(ref.getMonth() + 1).padStart(2, '0');
+    const ref         = referenceDate || new Date();
+    const curYear     = ref.getFullYear();
+    const curMonth    = String(ref.getMonth() + 1).padStart(2, '0');
     const curMonthStr = `${curYear}-${curMonth}`;
 
     const dv = String(lead.dia_venta       || lead.diaVenta       || '').slice(0, 7);
@@ -86,14 +91,18 @@ function isColchon(lead, referenceDate) {
 
     if (!dv || !di) return false;
 
-    const st          = normalizeStatus(lead.status);
-    const validStatus = (st === 'completed' || st === 'active' || st === 'pending');
-    if (!validStatus) return false;
-
+    // Solo detectar el patrón de fechas — status no importa para la DETECCIÓN
+    // (el badge colchón se muestra aunque esté pending)
     return dv !== curMonthStr && di === curMonthStr;
   } catch {
     return false;
   }
+}
+
+// Una venta colchón CUENTA en rankings SOLO si tiene status completed/active
+// Si está pending/hold/etc. muestra el badge pero NO cuenta en rankings
+function isColchonActivo(lead, referenceDate) {
+  return isColchon(lead, referenceDate) && isCompleted(lead.status);
 }
 // ── FIN STATUS + COLCHÓN NORMALIZATION ───────────────────────
 
@@ -473,7 +482,7 @@ async function refreshInitDashboardCache(_db) {
       .toArray();
 
     const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
-    const colchonLeads = leads.filter(l => isColchon(l, now));
+    const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // solo colchones completed
 
     const kpis = {
       ventas:         ventasLeads.length,
@@ -1116,7 +1125,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       .limit(20000)
       .toArray();
 
-    const colchonLeads = leads.filter(l => isColchon(l, now));
+    const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // Solo colchones completed cuentan
     const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
     const totalPuntos  = ventasLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0);
 
@@ -2702,7 +2711,8 @@ app.get('/api/leads', protect, async (req, res) => {
 
     const now    = new Date();
     const result = leads.map(lead => {
-      const col = isColchon(lead, now);
+      // _es_colchon = true solo si tiene patron de colchon Y status completed
+      const col = isColchonActivo(lead, now);
       return col ? { ...lead, _es_colchon: true } : lead;
     });
 

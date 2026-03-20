@@ -1,372 +1,253 @@
-const express = require('express');
-const router = express.Router();
-const { getDb } = require('../config/db');
-const { protect } = require('../middleware/auth');
+// backend/routes/bulk-status-phone.js
+// POST /api/leads/bulk-status-by-phone  — Cambio masivo de status por teléfono
+// POST /api/leads/bulk-status-by-name   — Cambio masivo de status por nombre
+// Acceso: Administrador, Backoffice únicamente
 
-/**
- * Normalizar número telefónico (eliminar todo excepto dígitos)
- */
+'use strict';
+
+const express = require('express');
+const router  = express.Router();
+const { getDb, isConnected } = require('../config/db');
+const { protect }            = require('../middleware/auth');
+
+// ── HELPERS ───────────────────────────────────────────────────
+
+// Últimos 10 dígitos del teléfono
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
-  // Comparar por los últimos 10 dígitos para tolerar código país (ej: 1XXXXXXXXXX)
-  // y formatos como (239) 728-7674
   if (digits.length < 10) return '';
   return digits.slice(-10);
 }
 
 function normalizeName(name) {
-  return String(name || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function escapeRegex(str) {
   return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Roles con acceso — debe coincidir con server.js
 function canUseRole(req) {
-  const userRole = String(req.user?.role || '').toLowerCase().trim();
-  const isAdmin = userRole === 'admin' || userRole === 'administrador';
-  const isBackoffice = userRole === 'backoffice' || userRole === 'back office' || userRole === 'back_office';
-  const isRolIcon = userRole === 'rol_icon' || userRole === 'rol-icon';
-  return isAdmin || isBackoffice || isRolIcon;
+  const r = String(req.user?.role || '').toLowerCase().trim();
+  return [
+    'admin', 'administrador', 'administrator', 'administrativo',
+    'backoffice', 'back office', 'back_office', 'bo', 'b.o',
+    'rol_icon', 'rol-icon', 'rol_bamo'
+  ].some(v => r === v || r.includes(v));
 }
 
-/**
- * @route POST /api/leads/bulk-status-by-phone
- * @desc Cambio masivo de status por números telefónicos
- * @access Private (Administrador, Backoffice)
- */
+// ── POST /bulk-status-by-phone ────────────────────────────────
 router.post('/bulk-status-by-phone', protect, async (req, res) => {
   try {
-    const { phones, newStatus } = req.body;
-
-    // Validaciones
-    if (!Array.isArray(phones) || phones.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Debe proporcionar al menos un número telefónico' 
-      });
-    }
-
-    if (!newStatus) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Debe especificar el nuevo status' 
-      });
-    }
-
-    // Verificar permisos (solo admin y backoffice)
     if (!canUseRole(req)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'No tienes permisos para realizar cambios masivos de status' 
-      });
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'BD no disponible' });
     }
 
     const db = getDb();
-    if (!db) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error de conexión a la base de datos' 
-      });
+    if (!db) return res.status(503).json({ success: false, message: 'BD no disponible' });
+
+    const { phones, newStatus } = req.body || {};
+
+    if (!Array.isArray(phones) || !phones.length) {
+      return res.status(400).json({ success: false, message: 'Se requiere array de teléfonos' });
+    }
+    if (!newStatus) {
+      return res.status(400).json({ success: false, message: 'Se requiere newStatus' });
     }
 
-    // Normalizar números telefónicos (últimos 10 dígitos)
-    const normalizedPhones = phones.map(normalizePhone).filter(p => p.length === 10);
+    // Limpiar y deduplicar teléfonos de entrada
+    const inputPhones = [...new Set(
+      phones.map(normalizePhone).filter(p => p.length === 10)
+    )];
 
-    if (normalizedPhones.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No se detectaron números telefónicos válidos' 
-      });
+    if (!inputPhones.length) {
+      return res.status(400).json({ success: false, message: 'Sin números válidos de 10 dígitos' });
     }
 
-    console.log(`[BULK STATUS BY PHONE] Usuario: ${req.user?.username}, Números: ${normalizedPhones.length}, Nuevo status: ${newStatus}`);
+    const coll = db.collection('costumers_unified');
 
-    // Buscar leads en costumers_unified que coincidan con los números
-    const collection = db.collection('costumers_unified');
+    // Buscar directamente por los teléfonos en la BD — sin traer todo a memoria
+    // Regex de sufijo para cubrir formatos con código de país (+1, etc.)
+    const phoneRegexes = inputPhones.map(p => new RegExp(escapeRegex(p) + '$'));
 
-    // ESTRATEGIA MEJORADA: Buscar todos los leads que tengan teléfono o teléfono alterno
-    // y luego comparar normalizando en memoria
-    console.log(`[BULK STATUS PHONE] Buscando leads con teléfono...`);
-    
-    // Obtener todos los leads que tienen algún teléfono
-    const allLeadsWithPhones = await collection.find({
+    const query = {
       $or: [
-        { telefono: { $exists: true, $ne: null, $ne: '' } },
-        { telefono_alterno: { $exists: true, $ne: null, $ne: '' } },
-        { telefono_principal: { $exists: true, $ne: null, $ne: '' } }
+        { telefono:           { $in: inputPhones } },
+        { telefono_principal: { $in: inputPhones } },
+        { telefono_alterno:   { $in: inputPhones } },
+        { telefono:           { $in: phoneRegexes } },
+        { telefono_principal: { $in: phoneRegexes } },
+        { telefono_alterno:   { $in: phoneRegexes } },
       ]
-    }).toArray();
-    
-    console.log(`[BULK STATUS PHONE] Total leads con teléfono: ${allLeadsWithPhones.length}`);
-    
-    // Crear un mapa de teléfono normalizado -> lead
-    const phoneToLeadMap = new Map();
-    allLeadsWithPhones.forEach(lead => {
-      const phone1 = normalizePhone(lead.telefono);
-      const phone2 = normalizePhone(lead.telefono_alterno);
-      const phone3 = normalizePhone(lead.telefono_principal);
-      
-      // DEBUG: Verificar si este lead tiene el número 5593556760
-      if (phone1 === '5593556760' || phone2 === '5593556760' || phone3 === '5593556760') {
-        console.log(`[BULK STATUS DEBUG] Lead con 5593556760 encontrado:`, {
-          _id: lead._id,
-          telefono_raw: lead.telefono,
-          telefono_norm: phone1,
-          telefono_alterno_raw: lead.telefono_alterno,
-          telefono_alterno_norm: phone2,
-          telefono_principal_raw: lead.telefono_principal,
-          telefono_principal_norm: phone3
-        });
-      }
-      
-      if (phone1 && phone1.length === 10) {
-        if (!phoneToLeadMap.has(phone1)) {
-          phoneToLeadMap.set(phone1, []);
-        }
-        phoneToLeadMap.get(phone1).push(lead);
-      }
+    };
 
-      if (phone2 && phone2.length === 10 && phone2 !== phone1) {
-        if (!phoneToLeadMap.has(phone2)) {
-          phoneToLeadMap.set(phone2, []);
-        }
-        phoneToLeadMap.get(phone2).push(lead);
-      }
+    const foundLeads = await coll
+      .find(query)
+      .project({ _id: 1, nombre_cliente: 1, telefono: 1, telefono_principal: 1, telefono_alterno: 1, status: 1 })
+      .toArray();
 
-      if (phone3 && phone3.length === 10 && phone3 !== phone1 && phone3 !== phone2) {
-        if (!phoneToLeadMap.has(phone3)) {
-          phoneToLeadMap.set(phone3, []);
-        }
-        phoneToLeadMap.get(phone3).push(lead);
-      }
-    });
-    
-    // DEBUG: Verificar si 5593556760 está en el mapa
-    console.log(`[BULK STATUS DEBUG] ¿5593556760 en el mapa?:`, phoneToLeadMap.has('5593556760'));
-    console.log(`[BULK STATUS DEBUG] Total números en mapa:`, phoneToLeadMap.size);
-    
-    // DEBUG: Buscar números que comiencen con 559
-    const numbersStartingWith559 = Array.from(phoneToLeadMap.keys()).filter(p => p.startsWith('559'));
-    console.log(`[BULK STATUS DEBUG] Números que comienzan con 559:`, numbersStartingWith559.slice(0, 10));
-    
-    console.log(`[BULK STATUS PHONE] Mapa de teléfonos creado con ${phoneToLeadMap.size} números únicos`);
-    
-    // Encontrar leads que coincidan con los números de entrada
-    const leadsToUpdate = [];
-    const foundPhoneNumbers = new Set();
-    
-    normalizedPhones.forEach(inputPhone => {
-      const matchingLeads = phoneToLeadMap.get(inputPhone);
-      if (matchingLeads) {
-        foundPhoneNumbers.add(inputPhone);
-        matchingLeads.forEach(lead => {
-          if (!leadsToUpdate.find(l => l._id.toString() === lead._id.toString())) {
-            leadsToUpdate.push(lead);
-          }
-        });
-      }
-    });
-    
-    console.log(`[BULK STATUS PHONE] Números de entrada encontrados: ${foundPhoneNumbers.size}`);
-    console.log(`[BULK STATUS PHONE] Leads únicos a actualizar: ${leadsToUpdate.length}`);
-
-    if (leadsToUpdate.length === 0) {
+    if (!foundLeads.length) {
       return res.json({
-        success: true,
-        message: 'No se encontraron leads con los números proporcionados',
-        updated: 0,
-        found: 0,
-        foundPhones: [],
-        updatedLeads: [],
-        notFound: normalizedPhones.length,
-        notFoundPhones: normalizedPhones,
-        totalPhones: normalizedPhones.length
+        success:        true,
+        updated:        0,
+        found:          0,
+        notFound:       inputPhones.length,
+        foundPhones:    [],
+        notFoundPhones: inputPhones,
+        updatedLeads:   [],
+        message:        'No se encontraron leads con esos teléfonos'
       });
     }
 
-    // Actualizar status de los leads encontrados
-    // Crear query usando los IDs de los leads encontrados
-    const leadIds = leadsToUpdate.map(lead => lead._id);
-    const updateQuery = { _id: { $in: leadIds } };
-    
-    const updateResult = await collection.updateMany(
-      updateQuery,
-      { 
-        $set: { 
-          status: newStatus,
-          updatedAt: new Date(),
-          updatedBy: req.user?.username || req.user?.name || 'Sistema'
-        } 
-      }
-    );
-
-    console.log(`[BULK STATUS BY PHONE] Leads actualizados: ${updateResult.modifiedCount}`);
-
-    // Calcular cuántos números no se encontraron
-    const notFoundPhones = normalizedPhones.filter(p => !foundPhoneNumbers.has(p));
-    const notFoundCount = notFoundPhones.length;
-    
-    // Crear lista de números que sí se encontraron y actualizaron
-    const foundPhonesList = Array.from(foundPhoneNumbers);
-    const foundCount = foundPhonesList.length;
-
-    const updatedLeads = (leadsToUpdate || []).map(l => {
-      const getName = () => {
-        const v = l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '';
-        return String(v || '').trim();
-      };
-      const pickPhone = () => {
-        return normalizePhone(l.telefono) || normalizePhone(l.telefono_principal) || normalizePhone(l.telefono_alterno) || '';
-      };
-      return {
-        id: l._id && l._id.toString ? l._id.toString() : String(l._id || ''),
-        nombre_cliente: getName(),
-        telefono: pickPhone()
-      };
-    });
-
-    res.json({
-      success: true,
-      message: `Status actualizado exitosamente para ${updateResult.modifiedCount} lead(s)`,
-      updated: updateResult.modifiedCount,
-      found: foundCount,
-      foundPhones: foundPhonesList,
-      updatedLeads: updatedLeads,
-      notFound: notFoundCount,
-      notFoundPhones: notFoundPhones,
-      totalPhones: normalizedPhones.length
-    });
-
-  } catch (error) {
-    console.error('[BULK STATUS BY PHONE] Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error interno del servidor',
-      error: error.message 
-    });
-  }
-});
-
-/**
- * @route POST /api/leads/bulk-status-by-name
- * @desc Cambio masivo de status por nombre de cliente (nombre_cliente)
- * @access Private (Administrador, Backoffice)
- */
-router.post('/bulk-status-by-name', protect, async (req, res) => {
-  try {
-    const { names, newStatus } = req.body;
-
-    if (!Array.isArray(names) || names.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Debe proporcionar al menos un nombre'
-      });
-    }
-
-    if (!newStatus) {
-      return res.status(400).json({
-        success: false,
-        message: 'Debe especificar el nuevo status'
-      });
-    }
-
-    if (!canUseRole(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes permisos para realizar cambios masivos de status'
-      });
-    }
-
-    const db = getDb();
-    if (!db) {
-      return res.status(500).json({
-        success: false,
-        message: 'Error de conexión a la base de datos'
-      });
-    }
-
-    const normalizedNames = names
-      .map(normalizeName)
-      .filter(n => n.length >= 3);
-
-    if (!normalizedNames.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se detectaron nombres válidos'
-      });
-    }
-
-    const collection = db.collection('costumers_unified');
-
-    // Build case-insensitive exact-match regexes (trim + collapse spaces done in normalizeName)
-    const regexes = normalizedNames.slice(0, 300).map(n => new RegExp('^' + escapeRegex(n) + '$', 'i'));
-    const or = regexes.map(r => ({ nombre_cliente: r }));
-
-    const leadsFound = await collection.find({ $or: or }).toArray();
-    const leadsToUpdate = leadsFound || [];
-
-    const foundNamesSet = new Set(leadsToUpdate.map(l => normalizeName(l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '')).filter(Boolean));
-    const notFoundNames = normalizedNames.filter(n => !foundNamesSet.has(n));
-
-    if (leadsToUpdate.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No se encontraron leads con los nombres proporcionados',
-        updated: 0,
-        found: 0,
-        foundNames: [],
-        updatedLeads: [],
-        notFound: normalizedNames.length,
-        notFoundNames: normalizedNames,
-        totalNames: normalizedNames.length
-      });
-    }
-
-    const leadIds = leadsToUpdate.map(lead => lead._id);
-    const updateResult = await collection.updateMany(
+    // Actualizar todos en una sola operación
+    const leadIds      = foundLeads.map(l => l._id);
+    const updateResult = await coll.updateMany(
       { _id: { $in: leadIds } },
       {
         $set: {
-          status: newStatus,
+          status:    newStatus,
           updatedAt: new Date(),
-          updatedBy: req.user?.username || req.user?.name || 'Sistema'
+          updatedBy: req.user?.username || 'Sistema'
         }
       }
     );
 
-    const updatedLeads = leadsToUpdate.map(l => {
-      const v = l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '';
-      const pickPhone = () => {
-        return normalizePhone(l.telefono) || normalizePhone(l.telefono_principal) || normalizePhone(l.telefono_alterno) || '';
-      };
-      return {
-        id: l._id && l._id.toString ? l._id.toString() : String(l._id || ''),
-        nombre_cliente: String(v || '').trim(),
-        telefono: pickPhone()
-      };
+    // Construir resumen
+    const foundPhonesSet = new Set();
+    foundLeads.forEach(l => {
+      const p = normalizePhone(l.telefono_principal || l.telefono || l.telefono_alterno || '');
+      if (p) foundPhonesSet.add(p);
     });
 
-    res.json({
-      success: true,
-      message: `Status actualizado exitosamente para ${updateResult.modifiedCount} lead(s)`,
-      updated: updateResult.modifiedCount,
-      found: foundNamesSet.size,
-      foundNames: Array.from(foundNamesSet),
-      updatedLeads: updatedLeads,
-      notFound: notFoundNames.length,
-      notFoundNames: notFoundNames,
-      totalNames: normalizedNames.length
+    const notFoundPhones = inputPhones.filter(p => !foundPhonesSet.has(p));
+
+    const updatedLeads = foundLeads.map(l => ({
+      id:             String(l._id),
+      nombre_cliente: String(l.nombre_cliente || '').trim(),
+      telefono:       normalizePhone(l.telefono_principal || l.telefono || l.telefono_alterno || '')
+    }));
+
+    return res.json({
+      success:        true,
+      message:        `${updateResult.modifiedCount} lead(s) actualizados a "${newStatus}"`,
+      updated:        updateResult.modifiedCount,
+      found:          foundLeads.length,
+      notFound:       notFoundPhones.length,
+      foundPhones:    Array.from(foundPhonesSet),
+      notFoundPhones,
+      updatedLeads,
+      totalPhones:    inputPhones.length
     });
-  } catch (error) {
-    console.error('[BULK STATUS BY NAME] Error:', error);
-    res.status(500).json({
+
+  } catch (e) {
+    return res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      error: error.message
+      error:   process.env.NODE_ENV !== 'production' ? e.message : undefined
     });
   }
 });
+
+// ── POST /bulk-status-by-name ─────────────────────────────────
+router.post('/bulk-status-by-name', protect, async (req, res) => {
+  try {
+    if (!canUseRole(req)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    if (!isConnected()) {
+      return res.status(503).json({ success: false, message: 'BD no disponible' });
+    }
+
+    const db = getDb();
+    if (!db) return res.status(503).json({ success: false, message: 'BD no disponible' });
+
+    const { names, newStatus } = req.body || {};
+
+    if (!Array.isArray(names) || !names.length) {
+      return res.status(400).json({ success: false, message: 'Se requiere array de nombres' });
+    }
+    if (!newStatus) {
+      return res.status(400).json({ success: false, message: 'Se requiere newStatus' });
+    }
+
+    const normalizedNames = [...new Set(
+      names.map(normalizeName).filter(n => n.length >= 3)
+    )];
+
+    if (!normalizedNames.length) {
+      return res.status(400).json({ success: false, message: 'Sin nombres válidos (mínimo 3 caracteres)' });
+    }
+
+    const coll = db.collection('costumers_unified');
+
+    const regexes = normalizedNames.slice(0, 300).map(n =>
+      new RegExp('^' + escapeRegex(n) + '$', 'i')
+    );
+
+    const foundLeads = await coll
+      .find({ nombre_cliente: { $in: regexes } })
+      .project({ _id: 1, nombre_cliente: 1, telefono: 1, telefono_principal: 1, status: 1 })
+      .toArray();
+
+    if (!foundLeads.length) {
+      return res.json({
+        success:       true,
+        updated:       0,
+        found:         0,
+        notFound:      normalizedNames.length,
+        foundNames:    [],
+        notFoundNames: normalizedNames,
+        updatedLeads:  [],
+        message:       'No se encontraron leads con esos nombres'
+      });
+    }
+
+    const leadIds      = foundLeads.map(l => l._id);
+    const updateResult = await coll.updateMany(
+      { _id: { $in: leadIds } },
+      {
+        $set: {
+          status:    newStatus,
+          updatedAt: new Date(),
+          updatedBy: req.user?.username || 'Sistema'
+        }
+      }
+    );
+
+    const foundNamesSet = new Set(foundLeads.map(l => normalizeName(l.nombre_cliente || '')));
+    const notFoundNames = normalizedNames.filter(n => !foundNamesSet.has(n));
+
+    const updatedLeads = foundLeads.map(l => ({
+      id:             String(l._id),
+      nombre_cliente: String(l.nombre_cliente || '').trim(),
+      telefono:       normalizePhone(l.telefono_principal || l.telefono || '')
+    }));
+
+    return res.json({
+      success:       true,
+      message:       `${updateResult.modifiedCount} lead(s) actualizados a "${newStatus}"`,
+      updated:       updateResult.modifiedCount,
+      found:         foundNamesSet.size,
+      notFound:      notFoundNames.length,
+      foundNames:    Array.from(foundNamesSet),
+      notFoundNames,
+      updatedLeads,
+      totalNames:    normalizedNames.length
+    });
+
+  } catch (e) {
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error:   process.env.NODE_ENV !== 'production' ? e.message : undefined
+    });
+  }
+});
+
+module.exports = router;
