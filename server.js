@@ -1,428 +1,125 @@
-// 1. PRIMERO: Todas las importaciones (Libraries)
-const dns = require('dns');
-const express = require('express'); // <--- Express va aquí arriba
-const helmet = require('helmet');
-const cors = require('cors');
-const http = require('http');
-const https = require('https');
-const path = require('path');
-const multer = require('multer');
-const fs = require('fs');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+// ============================================================
+//  server.js
+//  Cambios aplicados:
+//  1. isColchon() — helper reutilizable para detectar ventas colchón
+//  2. POST /api/leads — lógica de RESERVA corregida (dia_venta !== hoy)
+//  3. GET /api/leads — incluye ventas colchón + campo "fecha" + límite 5000
+//  4. GET /api/init-dashboard — KPIs distinguen colchón de ventas normales
+// ============================================================
+
+// 1. IMPORTS
+const dns      = require('dns');
+const express  = require('express');
+const helmet   = require('helmet');
+const cors     = require('cors');
+const http     = require('http');
+const https    = require('https');
+const path     = require('path');
+const multer   = require('multer');
+const fs       = require('fs');
+const bcrypt   = require('bcryptjs');
+const jwt      = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { ObjectId, GridFSBucket } = require('mongodb');
-const { Server } = require('socket.io');
+const { Server }   = require('socket.io');
 const { Readable } = require('stream');
 require('dotenv').config();
 
-// (Opcional: Tu código de DNS si lo necesitas)
 if (process.env.NODE_ENV !== 'production') {
-    dns.setServers(['8.8.8.8', '8.8.4.4']);
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
 }
 
-// 2. SEGUNDO: Crear la App (¡Aquí nace la variable 'app'!)
+// ── STATUS NORMALIZATION (fuente única de verdad) ─────────────
+const STATUS_COMPLETED = new Set([
+  'completed','active','completado','activo','activa',
+  'vendido','cerrado','cerrada','venta cerrada'
+]);
+const STATUS_PENDING   = new Set(['pending','pendiente','pendientes']);
+const STATUS_CANCELLED = new Set(['cancelled','canceled','cancelado','cancelada']);
+const STATUS_HOLD      = new Set(['hold','en hold','pausado','pausa']);
+const STATUS_RESERVA   = new Set(['reserva','ventas en reserva','reserved','reservation']);
+const STATUS_OFICINA   = new Set(['oficina','active_oficina']);
+const STATUS_RESCHEDULED = new Set(['rescheduled','reagendado','reagendada','reprogramado','reprogramada']);
+
+function normalizeStatus(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return 'pending';
+  if (STATUS_COMPLETED.has(s))    return 'completed';
+  if (STATUS_PENDING.has(s))      return 'pending';
+  if (STATUS_CANCELLED.has(s))    return 'cancelled';
+  if (STATUS_HOLD.has(s))         return 'hold';
+  if (STATUS_RESERVA.has(s))      return 'reserva';
+  if (STATUS_OFICINA.has(s))      return 'oficina';
+  if (STATUS_RESCHEDULED.has(s))  return 'rescheduled';
+  if (s.includes('cancel'))                                           return 'cancelled';
+  if (s.includes('pend'))                                             return 'pending';
+  if (s.includes('complet') || s.includes('activ') ||
+      s.includes('cerr')    || s.includes('vend'))                   return 'completed';
+  if (s.includes('hold'))                                             return 'hold';
+  if (s.includes('reser'))                                            return 'reserva';
+  if (s.includes('resched') || s.includes('reagend') ||
+      s.includes('reprogram'))                                        return 'rescheduled';
+  if (s.includes('oficina'))                                          return 'oficina';
+  return 'pending';
+}
+
+function isCompleted(status)  { return normalizeStatus(status) === 'completed'; }
+function isCancelled(status)  { return normalizeStatus(status) === 'cancelled'; }
+function isPending(status)    { return normalizeStatus(status) === 'pending'; }
+function isReserva(status)    { return normalizeStatus(status) === 'reserva'; }
+function isOficina(status)    { return normalizeStatus(status) === 'oficina'; }
+
+// MongoDB $expr para usar en aggregates
+const COMPLETED_VALUES_LOWER = ['completed','active','completado','activo','activa','vendido','cerrado','cerrada'];
+const completedMatchExpr = { $in: [{ $toLower: { $ifNull: ['$status',''] } }, COMPLETED_VALUES_LOWER] };
+
+// ── COLCHÓN DETECTION ─────────────────────────────────────────
+function isColchon(lead, referenceDate) {
+  try {
+    const ref      = referenceDate || new Date();
+    const curYear  = ref.getFullYear();
+    const curMonth = String(ref.getMonth() + 1).padStart(2, '0');
+    const curMonthStr = `${curYear}-${curMonth}`;
+
+    const dv = String(lead.dia_venta       || lead.diaVenta       || '').slice(0, 7);
+    const di = String(lead.dia_instalacion || lead.diaInstalacion || '').slice(0, 7);
+
+    if (!dv || !di) return false;
+
+    const st          = normalizeStatus(lead.status);
+    const validStatus = (st === 'completed' || st === 'active' || st === 'pending');
+    if (!validStatus) return false;
+
+    return dv !== curMonthStr && di === curMonthStr;
+  } catch {
+    return false;
+  }
+}
+// ── FIN STATUS + COLCHÓN NORMALIZATION ───────────────────────
+
+// 2. APP
 const app = express();
 
-// Directorio base del frontend (HTML/CSS/JS/assets)
-const FRONTEND_DIR = path.join(__dirname, 'frontend');
-const FRONTEND_PUBLIC_DIR = path.join(FRONTEND_DIR, 'public');
+const FRONTEND_DIR         = path.join(__dirname, 'frontend');
+const FRONTEND_PUBLIC_DIR  = path.join(FRONTEND_DIR, 'public');
 const FRONTEND_AGENTES_DIR = path.join(FRONTEND_DIR, 'agentes');
 
-// 3. TERCERO: Configurar seguridad y red (Ahora sí puedes usar 'app')
-// Configuración de seguridad "relajada" para pruebas
-app.use(helmet({
-  contentSecurityPolicy: false,
-  hsts: false, // <--- ESTO ES LA CLAVE. Desactiva la obligación de HTTPS.
-}));
-app.use(cors({ origin: '*' })); // O tu config de cors
-app.use(express.json());
-
-// ... A partir de aquí deja tu código como estaba ...
-
-// GridFS bucket para archivos
-let gridFSBucket = null;
-let userAvatarsBucket = null;
-
-// Carga condicional de Helmet y Rate Limit (si están instalados)
-
-let rateLimit = null;
-
-try { 
-  rateLimit = require('express-rate-limit'); 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[INIT] Rate limit cargado correctamente');
-  }
-} catch (e) { 
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[INIT] express-rate-limit no instalado, se recomienda instalarlo:', e.message); 
-  }
-}
-// Carga condicional de cookie-parser (para soportar JWT en cookies si se usa)
-let cookieParser = null;
-try { 
-  cookieParser = require('cookie-parser'); 
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[INIT] cookie-parser no instalado (opcional si usas JWT en header)'); 
-  }
-} catch (e) { 
-  // Silenciar error en producción
-}
-
-// Importar configuración de base de datos
-const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./backend/config/db');
-
-// Importar utilidades
-const { normalizeDateToString, isValidDate } = require('./backend/utils/dateNormalizer');
-const dateFormatterMiddleware = require('./backend/middleware/dateFormatter');
-
-// Middleware de autenticación unificado
-const { protect, authorize } = require('./backend/middleware/auth');
-
-// Importar rutas
-const authRoutes = require('./backend/routes/auth');
-const forgotPasswordRoutes = require('./backend/routes/auth-forgot-password');
-const apiRoutes = require('./backend/routes/api');
-const rankingRoutes = require('./backend/routes/ranking');
-const equipoRoutes = require('./backend/routes/equipoRoutes');
-let teamsRoutes = null;
-const employeesOfMonthRoutes = require('./backend/routes/employeesOfMonth');
-const facturacionRoutes = require('./backend/routes/facturacion');
-const facturacionLineasRoutes = require('./backend/routes/facturacionLineas');
-const llamadasVentasLineasRoutes = require('./backend/routes/llamadasVentasLineas');
-let mediaProxy = null;
-try {
-  mediaProxy = require('./backend/routes/mediaProxy');
-} catch (e) {
-  console.warn('[INIT] mediaProxy route not available:', e.message);
-}
-let debugRoutes = null;
-try {
-  debugRoutes = require('./backend/routes/debug');
-} catch (e) {
-  console.warn('[INIT] debug route not available:', e.message);
-}
-let debugNoAuthRoutes = null;
-try {
-  debugNoAuthRoutes = require('./backend/routes/debug_noauth');
-} catch (e) {
-  console.warn('[INIT] debug_noauth route not available:', e.message);
-}
-try {
-  teamsRoutes = require('./backend/routes/teams');
-} catch (e) {
-  console.warn('[INIT] teams route not available:', e.message);
-}
-
-// Configuración de JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
-if (!process.env.JWT_SECRET) {
-  console.warn('[WARN] JWT_SECRET no definido en variables de entorno. Usa un valor fuerte en producción.');
-}
-const JWT_EXPIRES_IN = '24h'; // El token expira en 24 horas
-
-// Silenciar logs en producción (mantener solo errores críticos)
-if (process.env.NODE_ENV === 'production') {
-  // Desactivar completamente logs informativos
-  console.log = () => {};
-  console.info = () => {};
-  console.debug = () => {};
-  console.warn = () => {};
-  
-  // Mantener solo errores críticos sin información sensible
-  const originalError = console.error;
-  console.error = (...args) => {
-    // Filtrar información sensible en errores
-    const filteredArgs = args.map(arg => {
-      if (typeof arg === 'string') {
-        return arg.replace(/password|token|secret|key|authorization/gi, '[REDACTED]');
-      }
-      if (typeof arg === 'object' && arg !== null) {
-        const filtered = { ...arg };
-        // Eliminar campos sensibles
-        delete filtered.password;
-        delete filtered.token;
-        delete filtered.secret;
-        delete filtered.key;
-        delete filtered.authorization;
-        delete filtered.headers;
-        return filtered;
-      }
-      return arg;
-    });
-    originalError(...filteredArgs);
-  };
-}
-// En Render SIEMPRE se debe escuchar en process.env.PORT. En local usamos 3000 por defecto.
-const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
-const PORT = isRender ? Number(process.env.PORT) : (Number(process.env.PORT) || 3000);
-
-// IMPORTANTE: Configurar límites de body PRIMERO, antes de cualquier otro middleware
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ extended: true, limit: '500mb' }));
-
-// Variable para almacenar la referencia del servidor activo
-let activeServer = null;
-let io = null; // Socket.io instance
-
-// Crear servidor HTTP para Socket.io
-const httpServer = http.createServer(app);
-
-// Health check (definido ANTES de static para evitar redirecciones del front)
-app.get('/health', (req, res) => {
-  const state = mongoose.connection.readyState; // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
-  const map = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
-  res.json({ ok: state === 1, mongo: map[state] || String(state) });
-});
-
-// Servir crear-cuenta.html sin middleware auth a nivel de HTML.
-// El control de acceso se hace en el frontend y los endpoints API ya están protegidos.
-app.get(['/crear-cuenta.html', '/crear-cuenta'], (req, res) => {
-  return res.sendFile(path.join(FRONTEND_DIR, 'crear-cuenta.html'));
-});
-
-// Configuración de rutas de archivos estáticos
-// 1) Assets del frontend (png/jpg/svg/etc.) viven en frontend/images
-app.use('/images', express.static(path.join(FRONTEND_DIR, 'images'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.mp4')) {
-      res.setHeader('Content-Type', 'video/mp4');
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
-  }
-}));
-// 2) Mantener compatibilidad con recursos en frontend/public/images (p.ej. mp4)
-app.use('/images', express.static(path.join(FRONTEND_PUBLIC_DIR, 'images'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.mp4')) {
-      res.setHeader('Content-Type', 'video/mp4');
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
-  }
-}));
-
-// Servir otros archivos estáticos
-app.use(express.static(FRONTEND_PUBLIC_DIR));
-app.use(express.static(FRONTEND_AGENTES_DIR));
-
-// Recursos compartidos legacy usados por el frontend (sin mover aún a frontend/)
-app.use('/utils', express.static(path.join(__dirname, 'backend', 'utils')));
-app.use('/scripts', express.static(path.join(__dirname, 'scripts')));
-app.use('/components', express.static(path.join(__dirname, 'components')));
-
-// Evitar cache agresivo del navegador para HTML en desarrollo
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    try {
-      if (req.path && /\.html?$/i.test(req.path)) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
-      }
-    } catch (_) {}
-    next();
-  });
-}
-
-// Servir archivos HTML
-// Middleware: soportar peticiones con doble-encoding en la URL (p. ej. %2520)
-// Esto detecta rutas que contienen '%25' (el caracter '%' codificado) y prueba
-// a decodificarlas y servir el archivo correspondiente si existe en disco.
-app.use((req, res, next) => {
-  try {
-    if (req.path && /%25|%20|%2[0-9A-Fa-f]/.test(req.path)) {
-      // intentar decodificar varias veces para manejar %2520 -> %20 -> ' '
-      let decoded = req.path;
-      for (let i = 0; i < 5; i++) {
-        try {
-          const once = decodeURIComponent(decoded);
-          if (once === decoded) break;
-          decoded = once;
-        } catch (e) {
-          break;
-        }
-      }
-      // normalizar y construir ruta de archivo
-      const candidateRelative = decoded.replace(/^\/+/, '');
-      const candidate = path.join(FRONTEND_DIR, candidateRelative);
-      if (candidate && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-        return res.sendFile(candidate);
-      }
-    }
-  } catch (e) {
-    // ignore and continue to next middleware
-  }
-  next();
-});
-
-app.use(express.static(FRONTEND_DIR, {
-  extensions: ['html', 'htm'],
-  index: false,
-  setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-  }
-}));
-
-// Middleware para normalizar fechas en todas las respuestas JSON
-app.use('/api', dateFormatterMiddleware);
-
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/api', (req, res, next) => {
-    try {
-      console.log('[API DEBUG] Incoming request', { method: req.method, url: req.originalUrl, headersPreview: Object.fromEntries(Object.keys(req.headers).slice(0,6).map(k=>[k, req.headers[k]])) });
-    } catch (e) { console.warn('[API DEBUG] Error logging request', e); }
-    next();
-  });
-}
-
-// Montar ruta de teams (autenticada)
-if (teamsRoutes) {
-  app.use('/api/teams', teamsRoutes);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[INIT] Ruta /api/teams montada');
-  }
-}
-
-// La conexión de Mongoose ahora es gestionada centralmente por config/db.js
-// para permitir el fallback a una base de datos local y el modo offline.
-// Se ha eliminado el bloque de conexión duplicado de este archivo.
-
-// Configurar directorio para uploads
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsDir));
-
-// Cloudinary (SIEMPRE)
-const cloudinary = require('cloudinary').v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
-
-const CLOUDINARY_HAS_CREDENTIALS = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
-);
-const CLOUDINARY_BG_REMOVAL_FLAG = String(process.env.CLOUDINARY_BG_REMOVAL || '').trim().toLowerCase();
-const CLOUDINARY_BG_REMOVAL_ENABLED = CLOUDINARY_HAS_CREDENTIALS && CLOUDINARY_BG_REMOVAL_FLAG !== '0' && CLOUDINARY_BG_REMOVAL_FLAG !== 'false';
-const CLOUDINARY_AVATAR_FOLDER = process.env.CLOUDINARY_AVATAR_FOLDER || 'dashboard/user-avatars';
-
-if (process.env.NODE_ENV !== 'production') {
-  if (CLOUDINARY_BG_REMOVAL_ENABLED) {
-    console.log('[CLOUDINARY] Background removal habilitado para avatares (cloudinary_ai).');
-  } else if (CLOUDINARY_HAS_CREDENTIALS) {
-    console.log('[CLOUDINARY] Background removal deshabilitado. Establece CLOUDINARY_BG_REMOVAL=1 para activarlo.');
+// 3. JWT SECRET
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[FATAL] JWT_SECRET no definido.');
+    process.exit(1);
   } else {
-    console.log('[CLOUDINARY] Credenciales no configuradas. Se omitirá el background removal.');
+    console.warn('[WARN] JWT_SECRET no definido. Usando clave de desarrollo.');
   }
 }
+const JWT_SECRET_EFFECTIVE = JWT_SECRET || 'dev_only_insecure_key_do_not_use_in_prod';
+const JWT_EXPIRES_IN = '24h';
 
-// Configuración de Multer para subida de archivos (diskStorage temporal antes de subir a Cloudinary)
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    // Generar nombre único: timestamp + nombre original
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, name + '-' + uniqueSuffix + ext);
-  }
-});
-
-// Filtro de archivos permitidos
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
-    'video/mp4', 'video/mov', 'video/avi', 'video/quicktime'
-  ];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de archivo no permitido'), false);
-  }
-};
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 } // Reducido a 10MB para evitar rechazos en produccion
-});
-
-// Multer para archivos de notas (memoryStorage para subir a GridFS)
-const noteFileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
-    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/ogg', 'audio/webm',
-    'video/mp4', 'video/webm', 'video/quicktime',
-    'application/pdf'
-  ];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de archivo no permitido para notas'), false);
-  }
-};
-const noteUpload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: noteFileFilter,
-  limits: { fileSize: 500 * 1024 * 1024 } // 500MB max para archivos de notas (audios grandes)
-});
-
-const avatarFileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de archivo no permitido para avatar'), false);
-  }
-};
-
-const avatarUpload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: avatarFileFilter,
-  limits: { fileSize: 4 * 1024 * 1024 } // 4MB para avatares de usuario
-});
-
-// Helper para opciones de cookie dinámicas según request (soporte localhost:10000 en HTTP)
-function cookieOptionsForReq(req, baseOpts) {
-  const defaultOpts = baseOpts || {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000,
-    path: '/',
-  };
-  const proto = (req.headers && req.headers['x-forwarded-proto']) || req.protocol;
-  const isHttps = (proto === 'https') || req.secure;
-  const host = (req.headers && req.headers.host) || '';
-  const isLocal10000 = /localhost:10000$/i.test(host);
-  if (isLocal10000 || !isHttps) {
-    return { ...defaultOpts, secure: false, sameSite: 'lax' };
-  }
-  return defaultOpts;
-}
-
-// CORS endurecido con lista blanca desde .env (ALLOWED_ORIGINS) + orígenes conocidos
-const parseAllowedOrigins = (raw) => (raw || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-// Lista blanca de orígenes permitidos
-const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+// 4. SEGURIDAD Y CORS
+const parseAllowedOrigins = (raw) => (raw || '').split(',').map(s => s.trim()).filter(Boolean);
+const envOrigins   = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 const defaultAllowed = [
   'http://localhost:10000',
   'http://localhost:3000',
@@ -431,876 +128,516 @@ const defaultAllowed = [
   'https://agentes-49dr.onrender.com',
   'https://agentes-frontend.onrender.com'
 ];
-
-const corsWhitelist = () => Array.from(new Set([
-  ...defaultAllowed,
-  ...(Array.isArray(allowedOrigins) ? allowedOrigins : [])
-]));
-
-// Si estamos en producción, añadir el dominio de Render a la lista blanca
-const isProduction = process.env.NODE_ENV === 'production';
-if (isProduction) {
+if (process.env.NODE_ENV === 'production') {
   const renderDomains = [
     process.env.RENDER_EXTERNAL_URL,
     process.env.RENDER_INSTANCE && `https://${process.env.RENDER_INSTANCE}.onrender.com`,
     'https://agentes-49dr.onrender.com'
   ].filter(Boolean);
-  
-  allowedOrigins.push(...renderDomains);
-  console.log('[CORS] Orígenes permitidos en producción:', allowedOrigins);
+  envOrigins.push(...renderDomains);
+}
+const corsWhitelist = () => Array.from(new Set([...defaultAllowed, ...envOrigins]));
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  hsts: process.env.NODE_ENV === 'production'
+}));
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return callback(null, true);
+    const whitelist = corsWhitelist();
+    if (whitelist.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origen no permitido — ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','X-Admin-Setup-Secret']
+}));
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// 5. LOGS EN PRODUCCIÓN
+if (process.env.NODE_ENV === 'production') {
+  console.log   = () => {};
+  console.info  = () => {};
+  console.debug = () => {};
+  const originalError = console.error;
+  console.error = (...args) => {
+    const filtered = args.map(arg => {
+      if (typeof arg === 'string') return arg.replace(/password|token|secret|key|authorization/gi, '[REDACTED]');
+      if (typeof arg === 'object' && arg !== null) {
+        const f = { ...arg };
+        ['password','token','secret','key','authorization','headers'].forEach(k => delete f[k]);
+        return f;
+      }
+      return arg;
+    });
+    originalError(...filtered);
+  };
 }
 
-// Inicializar la conexión a la base de datos
-let db;
-// TTL para la cache del init-dashboard (ms). Por defecto 5 minutos
-const INIT_DASHBOARD_TTL = Number(process.env.INIT_DASHBOARD_TTL_MS) || (5 * 60 * 1000);
+// 6. PUERTO
+const isRender = !!process.env.RENDER || /render/i.test(process.env.RENDER_EXTERNAL_URL || '');
+const PORT = isRender
+  ? Number(process.env.PORT)
+  : (Number(process.env.PORT) || 3000);
 
-// Estructura de cache en memoria para /api/init-dashboard
-global.initDashboardCache = global.initDashboardCache || { data: null, updatedAt: 0 };
-// Flag para evitar refrescos concurrentes
+// 7. MÓDULOS OPCIONALES
+let rateLimit    = null;
+let cookieParser = null;
+try { rateLimit = require('express-rate-limit'); } catch (e) { console.warn('[INIT] express-rate-limit no instalado:', e.message); }
+try { cookieParser = require('cookie-parser'); } catch (_) {}
+
+// 8. IMPORTS INTERNOS
+const { connectToMongoDB, getDb, getDbFor, closeConnection, isConnected } = require('./backend/config/db');
+const { normalizeDateToString }  = require('./backend/utils/dateNormalizer');
+const dateFormatterMiddleware    = require('./backend/middleware/dateFormatter');
+const { protect, authorize }     = require('./backend/middleware/auth');
+
+const authRoutes                 = require('./backend/routes/auth');
+const forgotPasswordRoutes       = require('./backend/routes/auth-forgot-password');
+const apiRoutes                  = require('./backend/routes/api');
+const rankingRoutes              = require('./backend/routes/ranking');
+const equipoRoutes               = require('./backend/routes/equipoRoutes');
+const employeesOfMonthRoutes     = require('./backend/routes/employeesOfMonth');
+const facturacionRoutes          = require('./backend/routes/facturacion');
+const facturacionLineasRoutes    = require('./backend/routes/facturacionLineas');
+const llamadasVentasLineasRoutes = require('./backend/routes/llamadasVentasLineas');
+
+let teamsRoutes = null;
+try { teamsRoutes = require('./backend/routes/teams'); } catch (e) { console.warn('[INIT] teams route:', e.message); }
+let mediaProxy = null;
+try { mediaProxy = require('./backend/routes/mediaProxy'); } catch (e) { console.warn('[INIT] mediaProxy:', e.message); }
+let debugRoutes = null;
+try { debugRoutes = require('./backend/routes/debug'); } catch (e) { console.warn('[INIT] debug route:', e.message); }
+let debugNoAuthRoutes = null;
+try { debugNoAuthRoutes = require('./backend/routes/debug_noauth'); } catch (e) { console.warn('[INIT] debug_noauth:', e.message); }
+
+// 9. ESTADO GLOBAL
+let gridFSBucket      = null;
+let userAvatarsBucket = null;
+let db                = null;
+let activeServer      = null;
+let io                = null;
+
+const INIT_DASHBOARD_TTL = Number(process.env.INIT_DASHBOARD_TTL_MS) || 5 * 60 * 1000;
+global.initDashboardCache           = global.initDashboardCache           || { data: null, updatedAt: 0 };
 global.initDashboardCacheRefreshing = global.initDashboardCacheRefreshing || false;
 
-// Función para refrescar la cache del init-dashboard en background.
-// Calcula los KPIs del mes actual (modo administrador) y actualiza global.initDashboardCache.
+const AGENT_TO_SUP = new Map([
+  ['josue renderos','irania serrano'],    ['tatiana ayala','irania serrano'],
+  ['giselle diaz','irania serrano'],      ['miguel nunez','irania serrano'],
+  ['roxana martinez','irania serrano'],   ['irania serrano','irania serrano'],
+  ['abigail galdamez','bryan pleitez'],   ['alexander rivera','bryan pleitez'],
+  ['diego mejia','bryan pleitez'],        ['evelin garcia','bryan pleitez'],
+  ['fabricio panameno','bryan pleitez'],  ['luis chavarria','bryan pleitez'],
+  ['steven varela','bryan pleitez'],
+  ['cindy flores','roberto velasquez'],   ['daniela bonilla','roberto velasquez'],
+  ['francisco aguilar','roberto velasquez'], ['levy ceren','roberto velasquez'],
+  ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
+  ['nelson ceren','roberto velasquez'],
+  ['anderson guzman','randal martinez'],  ['carlos grande','randal martinez'],
+  ['guadalupe santana','randal martinez'],['julio chavez','randal martinez'],
+  ['priscila hernandez','randal martinez'],['riquelmi torres','randal martinez']
+]);
+
+function normText(s) {
+  try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
+  catch { return String(s || '').trim().toLowerCase(); }
+}
+
+function getSupervisorAgents(supervisorUsername) {
+  const norm = normText(supervisorUsername);
+  return Array.from(AGENT_TO_SUP.entries())
+    .filter(([, sup]) => normText(sup) === norm)
+    .map(([agent]) => agent);
+}
+
+// 10. HELPER COOKIE
+function cookieOptionsForReq(req, baseOpts) {
+  const defaults = baseOpts || {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge:   24 * 60 * 60 * 1000,
+    path:     '/'
+  };
+  const proto   = (req.headers && req.headers['x-forwarded-proto']) || req.protocol;
+  const isHttps = proto === 'https' || req.secure;
+  const host    = (req.headers && req.headers.host) || '';
+  if (/localhost:10000$/i.test(host) || !isHttps) return { ...defaults, secure: false, sameSite: 'lax' };
+  return defaults;
+}
+
+// 11. RATE LIMITERS
+const makeLimiter = (opts) => rateLimit
+  ? rateLimit.rateLimit(opts)
+  : ((req, res, next) => next());
+
+const authLimiter  = makeLimiter({ windowMs: 15*60*1000, limit: 100, standardHeaders: 'draft-7', legacyHeaders: false });
+const loginLimiter = makeLimiter({ windowMs: 10*60*1000, limit: 20,  standardHeaders: 'draft-7', legacyHeaders: false });
+
+// 12. HTTP SERVER
+const httpServer = http.createServer(app);
+
+// ── MIDDLEWARES ESTÁTICOS ─────────────────────────────────────
+
+app.get('/health', (req, res) => {
+  const state = mongoose.connection.readyState;
+  const map   = { 0:'disconnected', 1:'connected', 2:'connecting', 3:'disconnecting' };
+  res.json({ ok: state === 1, mongo: map[state] || String(state) });
+});
+
+app.get(['/crear-cuenta.html','/crear-cuenta'], (req, res) =>
+  res.sendFile(path.join(FRONTEND_DIR, 'crear-cuenta.html'))
+);
+
+const videoSetHeaders = (res, p) => {
+  if (p.endsWith('.mp4')) {
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.setHeader('Accept-Ranges', 'bytes');
+  }
+};
+app.use('/images', express.static(path.join(FRONTEND_DIR,        'images'), { setHeaders: videoSetHeaders }));
+app.use('/images', express.static(path.join(FRONTEND_PUBLIC_DIR, 'images'), { setHeaders: videoSetHeaders }));
+app.use(express.static(FRONTEND_PUBLIC_DIR));
+app.use(express.static(FRONTEND_AGENTES_DIR));
+app.use('/utils',      express.static(path.join(__dirname, 'backend', 'utils')));
+app.use('/scripts',    express.static(path.join(__dirname, 'scripts')));
+app.use('/components', express.static(path.join(__dirname, 'components')));
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    if (req.path && /\.html?$/i.test(req.path)) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma',  'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+}
+
+app.use((req, res, next) => {
+  try {
+    if (req.path && /%25|%20|%2[0-9A-Fa-f]/.test(req.path)) {
+      let decoded = req.path;
+      for (let i = 0; i < 5; i++) {
+        try { const once = decodeURIComponent(decoded); if (once === decoded) break; decoded = once; } catch { break; }
+      }
+      const candidate = path.join(FRONTEND_DIR, decoded.replace(/^\/+/, ''));
+      if (candidate && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return res.sendFile(candidate);
+    }
+  } catch (_) {}
+  next();
+});
+
+app.use(express.static(FRONTEND_DIR, {
+  extensions: ['html','htm'],
+  index: false,
+  setHeaders: (res, p) => {
+    if (p.endsWith('.css'))      res.setHeader('Content-Type', 'text/css');
+    else if (p.endsWith('.js'))  res.setHeader('Content-Type', 'application/javascript');
+  }
+}));
+
+app.use('/api', dateFormatterMiddleware);
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api', (req, res, next) => { console.log('[API DEBUG]', req.method, req.originalUrl); next(); });
+}
+
+if (teamsRoutes) {
+  app.use('/api/teams', teamsRoutes);
+  if (process.env.NODE_ENV !== 'production') console.log('[INIT] /api/teams montada');
+}
+
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+if (cookieParser) app.use(cookieParser());
+
+// 13. CLOUDINARY
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true
+});
+const CLOUDINARY_HAS_CREDENTIALS = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY   &&
+  process.env.CLOUDINARY_API_SECRET
+);
+const CLOUDINARY_BG_REMOVAL_FLAG    = String(process.env.CLOUDINARY_BG_REMOVAL || '').trim().toLowerCase();
+const CLOUDINARY_BG_REMOVAL_ENABLED = CLOUDINARY_HAS_CREDENTIALS &&
+  CLOUDINARY_BG_REMOVAL_FLAG !== '0' && CLOUDINARY_BG_REMOVAL_FLAG !== 'false';
+const CLOUDINARY_AVATAR_FOLDER      = process.env.CLOUDINARY_AVATAR_FOLDER || 'dashboard/user-avatars';
+
+// 14. MULTER
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename:    (req, file, cb) => {
+    const ext  = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    cb(null, `${name}-${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`);
+  }
+});
+const fileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg','image/jpg','image/png','image/gif','video/mp4','video/mov','video/avi','video/quicktime'];
+  cb(allowed.includes(file.mimetype) ? null : new Error('Tipo no permitido'), allowed.includes(file.mimetype));
+};
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10*1024*1024 } });
+
+const noteFileFilter = (req, file, cb) => {
+  const allowed = [
+    'image/jpeg','image/jpg','image/png','image/webp','image/gif',
+    'audio/mpeg','audio/mp3','audio/wav','audio/m4a','audio/x-m4a','audio/mp4','audio/ogg','audio/webm',
+    'video/mp4','video/webm','video/quicktime','application/pdf'
+  ];
+  cb(allowed.includes(file.mimetype) ? null : new Error('Tipo no permitido para notas'), allowed.includes(file.mimetype));
+};
+const noteUpload   = multer({ storage: multer.memoryStorage(), fileFilter: noteFileFilter, limits: { fileSize: 500*1024*1024 } });
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg','image/jpg','image/png','image/webp','image/gif'];
+    cb(allowed.includes(file.mimetype) ? null : new Error('Tipo no permitido para avatar'), allowed.includes(file.mimetype));
+  },
+  limits: { fileSize: 4*1024*1024 }
+});
+
+// 15. CONEXIÓN A BD
+(async () => {
+  db = await connectToMongoDB();
+  if (isConnected()) {
+    console.log('[SERVER] Conexión a base de datos establecida.');
+    try { gridFSBucket      = new GridFSBucket(db, { bucketName: 'noteFiles' });   console.log('[SERVER] GridFS noteFiles OK'); }
+    catch (e) { console.error('[SERVER] GridFS noteFiles error:', e.message); }
+    try { userAvatarsBucket = new GridFSBucket(db, { bucketName: 'userAvatars' }); console.log('[SERVER] GridFS userAvatars OK'); }
+    catch (e) { console.error('[SERVER] GridFS userAvatars error:', e.message); }
+  } else {
+    console.warn('[SERVER] Modo OFFLINE — operaciones de BD fallarán.');
+  }
+})();
+
+// ── ACTIVITY LOGGER ───────────────────────────────────────────
+async function logActivity(db, activityType, leadId, leadClientName, actorUsername, actorRole, description, extra = {}) {
+  try {
+    await db.collection('activities').insertOne({
+      activity_type:    activityType,
+      lead_id:          leadId,
+      lead_client_name: leadClientName,
+      actor_username:   actorUsername,
+      actor_role:       actorRole,
+      description,
+      timestamp:        new Date(),
+      ...extra
+    });
+  } catch (e) { console.warn('[ACTIVITY-LOG] Error:', e.message); }
+}
+
+// ── INIT-DASHBOARD CACHE REFRESH ──────────────────────────────
 async function refreshInitDashboardCache(_db) {
-  // Evitar refrescos concurrentes
   if (global.initDashboardCacheRefreshing) {
-    console.log('[INIT-DASHBOARD] Refresco ya en curso — omitiendo nueva invocación');
+    console.log('[INIT-DASHBOARD] Refresco ya en curso — omitiendo');
     return global.initDashboardCache.data;
   }
   global.initDashboardCacheRefreshing = true;
   try {
-    if (!isConnected()) {
-      console.warn('[INIT-DASHBOARD] DB no está conectada — omitiendo refresh');
-      global.initDashboardCacheRefreshing = false;
-      return;
-    }
-    const startTime = Date.now();
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 1);
+    if (!isConnected()) { console.warn('[INIT-DASHBOARD] BD no conectada'); return; }
+    const startTime  = Date.now();
+    const now        = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const dateConditions = [
-      { dia_venta: { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
-      { creadoEn: { $gte: monthStart, $lt: monthEnd } },
-      { createdAt: { $gte: monthStart, $lt: monthEnd } },
-      { fecha: { $gte: monthStart, $lt: monthEnd } }
+      { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
+      { createdAt:          { $gte: monthStart, $lt: monthEnd } },
+      { fecha:              { $gte: monthStart, $lt: monthEnd } }
     ];
-
-    const filter = { $or: dateConditions };
-
-    const projection = {
-      _id: 1,
-      agenteNombre: 1,
-      agente: 1,
-      usuario: 1,
-      servicios: 1,
-      puntaje: 1,
-      status: 1,
-      dia_venta: 1,
-      creadoEn: 1,
-      createdAt: 1,
-      fecha_contratacion: 1,
-      fecha: 1
-    };
 
     if (!_db) _db = getDb();
     const leads = await _db.collection('costumers_unified')
-      .find(filter)
-      .project(projection)
+      .find({ $or: dateConditions })
+      .project({ _id:1, agenteNombre:1, agente:1, usuario:1, servicios:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1, creadoEn:1, createdAt:1 })
       .sort({ dia_venta: -1 })
       .limit(2000)
       .toArray();
 
+    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    const colchonLeads = leads.filter(l => isColchon(l, now));
+
     const kpis = {
-      ventas: leads.length,
-      puntos: leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0),
+      ventas:         ventasLeads.length,
+      puntos:         ventasLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0),
       mayor_vendedor: '-',
-      canceladas: leads.filter(l => (l.status || '').toLowerCase().includes('cancel')).length,
-      pendientes: leads.filter(l => (l.status || '').toLowerCase().includes('pend')).length
+      canceladas:     leads.filter(l => isCancelled(l.status) && !isColchon(l, now)).length,
+      pendientes:     leads.filter(l => isPending(l.status)   && !isColchon(l, now)).length,
+      colchon:        colchonLeads.length,
+      colchon_puntos: colchonLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0)
     };
 
-    if (leads.length > 0) {
+    if (ventasLeads.length > 0) {
       const agents = {};
-      leads.forEach(l => {
-        const agent = l.agenteNombre || l.agente || '-';
-        agents[agent] = (agents[agent] || 0) + 1;
+      ventasLeads.forEach(l => {
+        const a = l.agenteNombre || l.agente || '-';
+        agents[a] = (agents[a] || 0) + parseFloat(l.puntaje || 0);
       });
       const top = Object.entries(agents).sort((a, b) => b[1] - a[1])[0];
       kpis.mayor_vendedor = top ? top[0] : '-';
     }
 
-    const agentMap = {};
+    const agentMap   = {};
     const productMap = {};
-    leads.forEach(lead => {
+    ventasLeads.forEach(lead => {
       const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
       agentMap[agent] = (agentMap[agent] || 0) + 1;
-
       const services = Array.isArray(lead.servicios) ? lead.servicios : [lead.servicios];
-      services.forEach(s => {
-        if (s) productMap[s] = (productMap[s] || 0) + 1;
-      });
+      services.forEach(s => { if (s) productMap[s] = (productMap[s] || 0) + 1; });
     });
 
-    const chartTeams = Object.entries(agentMap)
-      .map(([nombre, count]) => ({ nombre, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 50);
+    const chartTeams     = Object.entries(agentMap).map(([nombre, count]) => ({ nombre, count })).sort((a, b) => b.count - a.count).slice(0, 50);
+    const chartProductos = Object.entries(productMap).map(([servicio, count]) => ({ servicio, count })).sort((a, b) => b.count - a.count).slice(0, 5);
 
-    const chartProductos = Object.entries(productMap)
-      .map(([servicio, count]) => ({ servicio, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const elapsed = Date.now() - startTime;
+    const elapsed  = Date.now() - startTime;
     const response = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
       user: { username: null, role: 'system', team: 'Global' },
       kpis,
       userStats: { ventasUsuario: kpis.ventas, puntosUsuario: kpis.puntos, equipoUsuario: 'Global' },
-      chartTeams,
-      chartProductos,
-      isAdminOrBackoffice: true,
-      monthYear: `${currentMonth + 1}/${currentYear}`
+      chartTeams, chartProductos, isAdminOrBackoffice: true,
+      monthYear: `${now.getMonth() + 1}/${now.getFullYear()}`
     };
 
-    global.initDashboardCache.data = response;
+    global.initDashboardCache.data      = response;
     global.initDashboardCache.updatedAt = Date.now();
     if (global.broadcastDashboardUpdate) global.broadcastDashboardUpdate({ kpis, chartTeams, chartProductos, timestamp: response.timestamp });
-    console.log(`[INIT-DASHBOARD] Cache refrescada correctamente (${elapsed}ms)`);
+    console.log(`[INIT-DASHBOARD] Cache refrescada (${elapsed}ms)`);
     return response;
   } catch (e) {
-    console.warn('[INIT-DASHBOARD] Error refrescando cache:', e);
+    console.warn('[INIT-DASHBOARD] Error:', e.message);
     throw e;
   } finally {
     global.initDashboardCacheRefreshing = false;
   }
 }
-(async () => {
-  db = await connectToMongoDB(); // La lógica de error y fallback ya está dentro.
-  if (isConnected()) {
-    console.log('[SERVER] Conexión a base de datos establecida.');
-    try {
-      gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
-      console.log('[SERVER] GridFS inicializado correctamente.');
-    } catch (e) {
-      console.error('[SERVER] Error inicializando GridFS:', e.message);
-    }
-    try {
-      userAvatarsBucket = new GridFSBucket(db, { bucketName: 'userAvatars' });
-      console.log('[SERVER] GridFS para avatares inicializado correctamente.');
-    } catch (e) {
-      console.error('[SERVER] Error inicializando GridFS de avatares:', e.message);
-    }
-  } else {
-    console.warn('[SERVER] Iniciando en modo OFFLINE. Las operaciones de base de datos fallarán.');
-  }
-})();
 
-// Configuración de middlewares
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ extended: true, limit: '500mb' }));
-if (cookieParser) {
-  app.use(cookieParser());
-}
-// Helmet (si disponible)
-if (helmet) {
-  app.use(helmet({
-    contentSecurityPolicy: false
-  }));
-}
-// Rate limiting (si disponible)
-const makeLimiter = (opts) => rateLimit ? rateLimit.rateLimit(opts) : ((req, res, next) => next());
-const authLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: 'draft-7', legacyHeaders: false });
-const loginLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
+// ── ENDPOINTS GRIDFS NOTAS ────────────────────────────────────
 
-// Crear registro para Team Lineas en colección dedicada "Lineas"
-// Consultar registros de Team Lineas (con filtrado por agente)
-app.get('/api/lineas', protect, async (req, res) => {
-  try {
-    // Asegurar conexión BD
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    const user = req.user;
-    const username = user?.username || '';
-    const role = (user?.role || '').toLowerCase();
-
-    // Determinar si es usuario privilegiado (puede ver todos los registros)
-    const privilegedRoles = ['admin', 'administrador', 'backoffice', 'back office', 'back_office', 'bo', 'b.o', 'supervisor', 'supervisor team lineas'];
-    const isPrivileged = privilegedRoles.some(r => role === r || role.includes(r));
-
-    let filter = {};
-    
-    // Si no es privilegiado, filtrar por agente
-    if (!isPrivileged) {
-      filter = {
-        $or: [
-          { agente: username },
-          { agenteNombre: username },
-          { createdBy: username },
-          { registeredBy: username }
-        ]
-      };
-      console.log(`[GET /api/lineas] Filtro individual para ${username}:`, filter);
-    } else {
-      console.log(`[GET /api/lineas] Usuario privilegiado ${username}, sin filtros`);
-    }
-
-    // Consultar registros
-    const registros = await db.collection('Lineas').find(filter).sort({ creadoEn: -1 }).toArray();
-    
-    console.log(`[GET /api/lineas] Encontrados ${registros.length} registros para ${username}`);
-    
-    return res.status(200).json({ 
-      success: true, 
-      data: registros,
-      count: registros.length,
-      user: username,
-      filtered: !isPrivileged
-    });
-
-  } catch (error) {
-    console.error('Error en GET /api/lineas:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Error al consultar registros de Lineas', 
-      error: error.message 
-    });
-  }
-});
-
-app.post('/api/lineas', protect, async (req, res) => {
-  try {
-    // Asegurar conexión BD
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-
-    const body = req.body || {};
-    const user = req.user;
-    const username = user?.username || '';
-
-    // Helpers de normalización
-    const toUpper = (s) => (s == null ? '' : String(s).trim().toUpperCase());
-    const normalizeCollectionName = (s) => {
-      try {
-        return String(s || '')
-          .trim()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^A-Za-z0-9_\s-]/g, ' ')
-          .replace(/[\s-]+/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_+|_+$/g, '')
-          .toUpperCase() || 'UNKNOWN';
-      } catch {
-        return String(s || '')
-          .trim()
-          .replace(/[\s-]+/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_+|_+$/g, '')
-          .toUpperCase() || 'UNKNOWN';
-      }
-    };
-    const normalizeAgentDisplayName = (s) => {
-      return String(s || '')
-        .trim()
-        .replace(/_/g, ' ')
-        .replace(/\s+/g, ' ')
-        .toUpperCase();
-    };
-    const digitsOnly = (s) => (s == null ? '' : String(s).replace(/\D+/g, ''));
-    const asDate = (s) => {
-      if (!s) return null;
-      const normalized = normalizeDateToString(s);
-      if (!normalized) return null;
-      // Retornar como string normalizado en formato YYYY-MM-DD
-      return normalized;
-    };
-
-    // Validaciones mínimas obligatorias
-    const errors = [];
-    const requiredFields = ['nombre_cliente','telefono_principal','numero_cuenta','autopay','pin_seguridad','direccion','dia_venta','dia_instalacion','status','cantidad_lineas','id','mercado','supervisor'];
-    for (const f of requiredFields) {
-      if (body[f] == null || body[f] === '' || (Array.isArray(body[f]) && body[f].length === 0)) {
-        errors.push(`Campo requerido faltante: ${f}`);
-      }
-    }
-    if (errors.length) {
-      return res.status(400).json({ success: false, message: 'Validación fallida', errors });
-    }
-
-    // Coerciones/normalizaciones
-    const cantidadLineas = Number(body.cantidad_lineas || 0);
-    const telefonos = (Array.isArray(body.telefonos) ? body.telefonos : []).map(digitsOnly).filter(Boolean);
-    const servicios = Array.isArray(body.servicios) ? body.servicios.map(String) : [];
-
-    const normalizeLineStatus = (v) => {
-      const s = String(v || '').trim().toUpperCase();
-      return s || '';
-    };
-
-    const payloadLines = Array.isArray(body.lines) ? body.lines : (Array.isArray(body.lineas) ? body.lineas : []);
-    const payloadLineasStatus = (body.lineas_status && typeof body.lineas_status === 'object') ? body.lineas_status : null;
-
-    // Validaciones de dominio
-    const autopayVal = String(body.autopay || '').toLowerCase();
-    if (!['si','no'].includes(autopayVal)) errors.push('autopay debe ser si | no');
-    const statusVal = String(body.status || '').toLowerCase();
-    if (!['pending','repro'].includes(statusVal)) errors.push('status inválido (permitidos: pending, repro)');
-    const mercado = String(body.mercado || '').toLowerCase();
-    if (!['bamo','icon'].includes(mercado)) errors.push('mercado debe ser uno: bamo | icon');
-    
-    // Determinar el supervisor automáticamente según el team del usuario
-    let supervisorVal = String(body.supervisor || '').toLowerCase();
-    if (!supervisorVal && user.supervisor) {
-      // Si el usuario tiene supervisor asignado, usarlo
-      supervisorVal = String(user.supervisor).toLowerCase();
-    } else if (!supervisorVal && user.team) {
-      // Si no tiene supervisor, asignarlo según el team
-      const userTeamLower = String(user.team).toLowerCase();
-      if (userTeamLower.includes('jonathan')) {
-        supervisorVal = 'jonathan f';
-      } else if (userTeamLower.includes('luis')) {
-        supervisorVal = 'luis g';
-      }
-    }
-    
-    if (!supervisorVal) errors.push('No se pudo determinar el supervisor automáticamente');
-    if (!['jonathan f', 'luis g'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN F, LUIS G)');
-    if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser entre 1 y 5');
-    if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
-    if (errors.length) {
-      return res.status(400).json({ success: false, message: 'Validación fallida', errors });
-    }
-
-    // --- Lógica de guardado dinámico ---
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) {
-        return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
-    }
-
-    // Determinar la colección de destino
-    let targetAgent = username;
-    if (user.role.toLowerCase().includes('supervisor') && body.agenteAsignado) {
-        targetAgent = body.agenteAsignado;
-    }
-    const targetCollectionName = normalizeCollectionName(targetAgent);
-
-    // Construir documento a insertar
-    const now = new Date();
-    const creatorUserId = user?._id || user?.id || user?.userId || null;
-    const creatorDisplay = normalizeAgentDisplayName(username);
-    const assignedDisplay = normalizeAgentDisplayName(targetAgent);
-    const doc = {
-      team: 'team lineas',
-      nombre_cliente: toUpper(body.nombre_cliente),
-      telefono_principal: digitsOnly(body.telefono_principal),
-      numero_cuenta: String(body.numero_cuenta || '').trim(),
-      autopay: autopayVal === 'si',
-      pin_seguridad: String(body.pin_seguridad || '').trim(),
-      direccion: String(body.direccion || '').trim(),
-      servicios,
-      dia_venta: asDate(body.dia_venta),
-      dia_instalacion: asDate(body.dia_instalacion),
-      status: statusVal.toUpperCase(),
-      cantidad_lineas: cantidadLineas,
-      telefonos,
-      ID: String(body.id || '').trim(),
-      mercado: mercado.toUpperCase(),
-      supervisor: supervisorVal.toUpperCase(),
-      userId: creatorUserId,
-      agente: creatorDisplay, // Quien CREA el registro
-      agenteAsignado: assignedDisplay, // A quien se le ASIGNA el registro
-      agenteAsignadoCollection: targetCollectionName,
-      creadoEn: now,
-      actualizadoEn: now,
-      _raw: body
-    };
-
-    const initialLineasStatus = {};
-    const initialLines = [];
-    for (let i = 0; i < cantidadLineas; i++) {
-      let st = '';
-      if (payloadLineasStatus && Object.prototype.hasOwnProperty.call(payloadLineasStatus, i)) {
-        st = normalizeLineStatus(payloadLineasStatus[i]);
-      }
-      if (!st && payloadLines[i]) {
-        const row = payloadLines[i];
-        st = normalizeLineStatus(row.estado ?? row.status ?? row.STATUS ?? row.state);
-      }
-      if (!st) {
-        st = statusVal === 'pending' ? 'PENDING' : statusVal.toUpperCase();
-      }
-      initialLineasStatus[i] = st;
-
-      const tel = telefonos[i] || digitsOnly(payloadLines[i]?.telefono);
-      const svc = servicios[i] || String(payloadLines[i]?.servicio || '');
-      initialLines.push({ telefono: tel || '', servicio: svc || '', estado: st });
-    }
-
-    doc.lineas_status = initialLineasStatus;
-    doc.lines = initialLines;
-
-    const collection = teamLineasDb.collection(targetCollectionName);
-    const result = await collection.insertOne(doc);
-
-    return res.status(201).json({ 
-        success: true, 
-        message: `Formulario guardado en TEAM_LINEAS > ${targetCollectionName}`, 
-        id: result.insertedId?.toString(), 
-        data: doc 
-    });
-
-  } catch (error) {
-    console.error('Error en POST /api/lineas:', error);
-    return res.status(500).json({ success: false, message: 'Error al crear el registro de Lineas', error: error.message });
-  }
-});
-
-// PUT /api/lineas-team/update - Actualizar registro de Team Líneas
-app.put('/api/lineas-team/update', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-
-    const body = req.body || {};
-    const user = req.user;
-    const clientId = body.id;
-
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
-    }
-
-    // Helpers de normalización
-    const toUpper = (s) => (s == null ? '' : String(s).trim().toUpperCase());
-    const asDate = (s) => {
-      if (!s) return null;
-      const normalized = normalizeDateToString(s);
-      if (!normalized) return null;
-      // Retornar como string normalizado en formato YYYY-MM-DD
-      return normalized;
-    };
-
-    // Campos a actualizar (solo los permitidos)
-    const updateData = {
-      nombre_cliente: body.nombre_cliente ? toUpper(body.nombre_cliente) : undefined,
-      telefono_principal: body.telefono_principal ? String(body.telefono_principal).replace(/\D+/g, '') : undefined,
-      numero_cuenta: body.numero_cuenta ? String(body.numero_cuenta).trim() : undefined,
-      cantidad_lineas: body.cantidad_lineas ? Number(body.cantidad_lineas) : undefined,
-      status: body.status ? String(body.status).toUpperCase() : undefined,
-      dia_venta: body.dia_venta ? asDate(body.dia_venta) : undefined,
-      dia_instalacion: body.dia_instalacion ? asDate(body.dia_instalacion) : undefined,
-      actualizadoEn: new Date()
-    };
-
-    // Remover campos undefined
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
-
-    // Obtener BD de Team Líneas
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) {
-      return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
-    }
-
-    // Buscar y actualizar en todas las colecciones disponibles (no depender de lista fija)
-    const collections = (await teamLineasDb.listCollections().toArray())
-      .map(c => c && c.name)
-      .filter(Boolean);
-    let updated = false;
-
-    for (const colName of collections) {
-      try {
-        const collection = teamLineasDb.collection(colName);
-
-        // Intentar buscar por _id como ObjectId o como string
-        let filter;
-        try {
-          filter = { _id: new (require('mongodb')).ObjectId(clientId) };
-        } catch (_) {
-          filter = { _id: clientId };
-        }
-        const result = await collection.updateOne(filter, { $set: updateData });
-        
-        // matchedCount>0 significa que el registro existe (aunque no cambie nada => modifiedCount=0)
-        if (result && result.matchedCount > 0) {
-          updated = true;
-          break;
-        }
-      } catch (e) {
-        // Continuar con siguiente colección
-      }
-    }
-
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
-    }
-
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Registro actualizado correctamente'
-    });
-
-  } catch (error) {
-    console.error('Error en PUT /api/lineas-team/update:', error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar el registro de Lineas', error: error.message });
-  }
-});
-
-// POST /api/lineas-team/notes - Guardar nota para registro de Team Líneas
-app.post('/api/lineas-team/notes', protect, async (req, res) => {
-  try {
-    const body = req.body || {};
-    const clientId = body.clientId;
-    
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
-    }
-    
-    // Por ahora, simplemente aceptar la nota sin guardarla
-    // En un futuro, se puede extender para guardar en una colección de notas
-    console.log('[API /lineas-team/notes] Nota guardada para cliente:', clientId);
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Nota guardada correctamente'
-    });
-  } catch (error) {
-    console.error('Error en POST /api/lineas-team/notes:', error);
-    return res.status(500).json({ success: false, message: 'Error al guardar la nota', error: error.message });
-  }
-});
-
-// POST /api/lineas-team/notes/edit - Editar nota de registro de Team Líneas
-app.post('/api/lineas-team/notes/edit', protect, async (req, res) => {
-  try {
-    const body = req.body || {};
-    const clientId = body.clientId;
-    
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
-    }
-    
-    console.log('[API /lineas-team/notes/edit] Nota editada para cliente:', clientId);
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Nota actualizada correctamente'
-    });
-  } catch (error) {
-    console.error('Error en POST /api/lineas-team/notes/edit:', error);
-    return res.status(500).json({ success: false, message: 'Error al editar la nota', error: error.message });
-  }
-});
-
-// POST /api/lineas-team/notes/delete - Eliminar nota de registro de Team Líneas
-app.post('/api/lineas-team/notes/delete', protect, async (req, res) => {
-  try {
-    const body = req.body || {};
-    const clientId = body.clientId;
-    
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
-    }
-    
-    console.log('[API /lineas-team/notes/delete] Nota eliminada para cliente:', clientId);
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Nota eliminada correctamente'
-    });
-  } catch (error) {
-    console.error('Error en POST /api/lineas-team/notes/delete:', error);
-    return res.status(500).json({ success: false, message: 'Error al eliminar la nota', error: error.message });
-  }
-});
-
-// DELETE /api/lineas-team/delete - Eliminar registro de Team Líneas
-app.delete('/api/lineas-team/delete', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-
-    const body = req.body || {};
-    const clientId = body.id;
-
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'ID del cliente es requerido' });
-    }
-
-    // Obtener BD de Team Líneas
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) {
-      return res.status(503).json({ success: false, message: 'No se pudo acceder a la base de datos de Team Líneas.' });
-    }
-
-    // Buscar y eliminar en todas las colecciones de agentes
-    const collections = ['JOCELYN_REYES', 'EDWARD_RAMIREZ', 'VICTOR_HURTADO', 'CRISTIAN_RIVERA', 'NANCY_LOPEZ', 'OSCAR_RIVERA', 'DANIEL_DEL_CID', 'FERNANDO_BELTRAN', 'KARLA_RODRIGUEZ'];
-    let deleted = false;
-
-    for (const colName of collections) {
-      try {
-        const collection = teamLineasDb.collection(colName);
-        const result = await collection.deleteOne(
-          { _id: new (require('mongodb')).ObjectId(clientId) }
-        );
-        
-        if (result.deletedCount > 0) {
-          deleted = true;
-          break;
-        }
-      } catch (e) {
-        // Continuar con siguiente colección
-      }
-    }
-
-    if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Registro no encontrado' });
-    }
-
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Registro eliminado correctamente'
-    });
-
-  } catch (error) {
-    console.error('Error en DELETE /api/lineas-team/delete:', error);
-    return res.status(500).json({ success: false, message: 'Error al eliminar el registro de Lineas', error: error.message });
-  }
-});
-
-// Ruta específica para el video
-app.get('/videos/:filename', (req, res) => {
-  const filename = req.params.filename;
-  // Asegurarse de que la ruta sea correcta
-  const videoPath = path.join(FRONTEND_PUBLIC_DIR, 'videos', filename);
-  console.log('Buscando video en:', videoPath);
-  console.log('El archivo existe?', fs.existsSync(videoPath) ? 'Sí' : 'No');
-  
-  // Verificar si el archivo existe
-  if (fs.existsSync(videoPath)) {
-    const stat = fs.statSync(videoPath);
-    const fileSize = stat.size;
-    const range = req.headers.range;
-
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-')
-      const start = parseInt(parts[0], 10)
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
-      const chunksize = (end - start) + 1
-      const file = fs.createReadStream(videoPath, { start, end })
-      const head = {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': 'video/mp4',
-      }
-      res.writeHead(206, head)
-      file.pipe(res)
-    } else {
-      const head = {
-        'Content-Length': fileSize,
-        'Content-Type': 'video/mp4',
-      }
-      res.writeHead(200, head)
-      fs.createReadStream(videoPath).pipe(res)
-    }
-  } else {
-    res.status(404).send('Video no encontrado');
-  }
-});
-
-// Servir archivos estáticos (EXCEPTO Costumer.html que ya está protegido)
-app.use(express.static(FRONTEND_DIR, {
-  extensions: ['html', 'htm'],
-  index: false,  // Evitar que se sirva index.html automáticamente
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-  }
-}));
-
-// Handle CORS preflight for all routes
-
-// ========== ENDPOINTS GRIDFS PARA ARCHIVOS DE NOTAS ==========
-
-// Subir archivo a GridFS
 app.post('/api/files/upload', protect, noteUpload.single('file'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
-    }
-    
+    if (!req.file) return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
     if (!gridFSBucket) {
-      if (db) {
-        gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
-      } else {
-        return res.status(503).json({ success: false, message: 'GridFS no disponible' });
-      }
+      if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
+      else    return res.status(503).json({ success: false, message: 'GridFS no disponible' });
     }
-    
     const { leadId } = req.body;
-    const file = req.file;
-    const filename = `${Date.now()}-${file.originalname}`;
-    
-    // Determinar tipo de archivo
-    let fileType = 'document';
-    if (file.mimetype.startsWith('image/')) fileType = 'image';
-    else if (file.mimetype.startsWith('audio/')) fileType = 'audio';
-    else if (file.mimetype.startsWith('video/')) fileType = 'video';
+    const file       = req.file;
+    const filename   = `${Date.now()}-${file.originalname}`;
+    let   fileType   = 'document';
+    if (file.mimetype.startsWith('image/'))       fileType = 'image';
+    else if (file.mimetype.startsWith('audio/'))  fileType = 'audio';
+    else if (file.mimetype.startsWith('video/'))  fileType = 'video';
     else if (file.mimetype === 'application/pdf') fileType = 'pdf';
-    
-    // Crear stream de subida a GridFS
+
     const uploadStream = gridFSBucket.openUploadStream(filename, {
       contentType: file.mimetype,
-      metadata: {
-        leadId: leadId || null,
-        uploadedBy: req.user?.username || 'unknown',
-        uploadedAt: new Date(),
-        originalName: file.originalname,
-        fileType: fileType
-      }
+      metadata: { leadId: leadId || null, uploadedBy: req.user?.username || 'unknown', uploadedAt: new Date(), originalName: file.originalname, fileType }
     });
-    
     uploadStream.write(file.buffer);
     uploadStream.end();
-    
-    await new Promise((resolve, reject) => {
-      uploadStream.on('finish', resolve);
-      uploadStream.on('error', reject);
-    });
-    
-    const fileId = uploadStream.id.toString();
-    console.log('[GridFS] Archivo subido:', filename, 'ID:', fileId);
-    
-    return res.json({
-      success: true,
-      data: {
-        fileId: fileId,
-        filename: filename,
-        originalName: file.originalname,
-        contentType: file.mimetype,
-        fileType: fileType,
-        size: file.size,
-        url: `/api/files/${fileId}`
-      }
-    });
-  } catch (error) {
-    console.error('[GridFS] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al subir archivo', error: error.message });
+    await new Promise((resolve, reject) => { uploadStream.on('finish', resolve); uploadStream.on('error', reject); });
+
+    return res.json({ success: true, data: {
+      fileId: uploadStream.id.toString(), filename, originalName: file.originalname,
+      contentType: file.mimetype, fileType, size: file.size, url: `/api/files/${uploadStream.id}`
+    }});
+  } catch (e) {
+    console.error('[GridFS] Error upload:', e);
+    return res.status(500).json({ success: false, message: 'Error al subir archivo', error: e.message });
   }
 });
 
-// Obtener archivo de GridFS (con soporte para streaming de audio/video)
 app.get('/api/files/:id', async (req, res) => {
   try {
-    const fileId = req.params.id;
     if (!gridFSBucket) {
       if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
-      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+      else    return res.status(503).json({ success: false, message: 'GridFS no disponible' });
     }
-    
     let objectId;
-    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
-    
+    try { objectId = new ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
     const fileDoc = await db.collection('noteFiles.files').findOne({ _id: objectId });
     if (!fileDoc) return res.status(404).json({ success: false, message: 'Archivo no encontrado' });
-    
-    const fileSize = fileDoc.length;
+
+    const fileSize    = fileDoc.length;
     const contentType = fileDoc.contentType || 'application/octet-stream';
-    const range = req.headers.range;
-    
-    // Soporte para Range requests (streaming de audio/video)
+    const range       = req.headers.range;
+
     if (range && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
       const parts = range.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunkSize = (end - start) + 1;
-      
+      const end   = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
-        'Content-Type': contentType
+        'Content-Range':  `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges':  'bytes',
+        'Content-Length': (end - start) + 1,
+        'Content-Type':   contentType
       });
-      
-      const downloadStream = gridFSBucket.openDownloadStream(objectId, { start, end: end + 1 });
-      downloadStream.pipe(res);
+      gridFSBucket.openDownloadStream(objectId, { start, end: end + 1 }).pipe(res);
     } else {
-      res.set('Content-Type', contentType);
-      res.set('Content-Length', fileSize);
-      res.set('Accept-Ranges', 'bytes');
-      res.set('Content-Disposition', `inline; filename="${fileDoc.filename}"`);
-      
-      const downloadStream = gridFSBucket.openDownloadStream(objectId);
-      downloadStream.pipe(res);
+      res.set({ 'Content-Type': contentType, 'Content-Length': fileSize, 'Accept-Ranges': 'bytes',
+                'Content-Disposition': `inline; filename="${fileDoc.filename}"` });
+      gridFSBucket.openDownloadStream(objectId).pipe(res);
     }
-  } catch (error) {
-    console.error('[GridFS GET] Error:', error);
-    if (!res.headersSent) return res.status(500).json({ success: false, message: 'Error', error: error.message });
+  } catch (e) {
+    console.error('[GridFS GET]', e);
+    if (!res.headersSent) res.status(500).json({ success: false, message: 'Error', error: e.message });
   }
 });
 
-// Descargar archivo de GridFS (forzar descarga)
 app.get('/api/files/:id/download', async (req, res) => {
   try {
-    const fileId = req.params.id;
     if (!gridFSBucket) {
       if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
-      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+      else    return res.status(503).json({ success: false, message: 'GridFS no disponible' });
     }
-    
     let objectId;
-    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
-    
+    try { objectId = new ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
     const fileDoc = await db.collection('noteFiles.files').findOne({ _id: objectId });
     if (!fileDoc) return res.status(404).json({ success: false, message: 'Archivo no encontrado' });
-    
-    const originalName = fileDoc.metadata?.originalName || fileDoc.filename;
-    res.set('Content-Type', fileDoc.contentType || 'application/octet-stream');
-    res.set('Content-Length', fileDoc.length);
-    res.set('Content-Disposition', `attachment; filename="${originalName}"`);
-    
-    const downloadStream = gridFSBucket.openDownloadStream(objectId);
-    downloadStream.pipe(res);
-  } catch (error) {
-    console.error('[GridFS DOWNLOAD] Error:', error);
-    if (!res.headersSent) return res.status(500).json({ success: false, message: 'Error', error: error.message });
+    res.set({ 'Content-Type': fileDoc.contentType || 'application/octet-stream', 'Content-Length': fileDoc.length,
+              'Content-Disposition': `attachment; filename="${fileDoc.metadata?.originalName || fileDoc.filename}"` });
+    gridFSBucket.openDownloadStream(objectId).pipe(res);
+  } catch (e) {
+    console.error('[GridFS DOWNLOAD]', e);
+    if (!res.headersSent) res.status(500).json({ success: false, message: 'Error', error: e.message });
   }
 });
 
-// Eliminar archivo de GridFS
 app.delete('/api/files/:id', protect, async (req, res) => {
   try {
-    const fileId = req.params.id;
     if (!gridFSBucket) {
       if (db) gridFSBucket = new GridFSBucket(db, { bucketName: 'noteFiles' });
-      else return res.status(503).json({ success: false, message: 'GridFS no disponible' });
+      else    return res.status(503).json({ success: false, message: 'GridFS no disponible' });
     }
     let objectId;
-    try { objectId = new ObjectId(fileId); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
+    try { objectId = new ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
     await gridFSBucket.delete(objectId);
     return res.json({ success: true, message: 'Archivo eliminado' });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Error', error: error.message });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error', error: e.message });
   }
-}); // Cerrar correctamente el app.delete
+});
 
-// ========== ENDPOINTS GRIDFS PARA AVATARES DE USUARIO ==========
-
+// ── GRIDFS AVATARES ───────────────────────────────────────────
 async function ensureUserAvatarBucket() {
   if (userAvatarsBucket) return userAvatarsBucket;
   if (!db) db = getDb();
@@ -1309,28 +646,9 @@ async function ensureUserAvatarBucket() {
   return userAvatarsBucket;
 }
 
-const IMAGE_MIME_EXTENSION_MAP = {
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif'
-};
-
-function inferImageExtension(mimetype, fallback = 'png') {
-  if (!mimetype) return fallback;
-  const ext = IMAGE_MIME_EXTENSION_MAP[mimetype.toLowerCase()];
-  return ext || fallback;
-}
-
-function bufferToStream(buffer) {
-  return new Readable({
-    read() {
-      this.push(buffer);
-      this.push(null);
-    }
-  });
-}
+const IMAGE_MIME_EXT = { 'image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif' };
+function inferImageExtension(mime, fallback = 'png') { return IMAGE_MIME_EXT[(mime||'').toLowerCase()] || fallback; }
+function bufferToStream(buffer) { return new Readable({ read() { this.push(buffer); this.push(null); } }); }
 
 function downloadBufferFromUrl(url, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
@@ -1339,2537 +657,557 @@ function downloadBufferFromUrl(url, redirectsLeft = 5) {
       const parsed = new URL(target);
       const client = parsed.protocol === 'https:' ? https : http;
       const request = client.get({
-        hostname: parsed.hostname,
-        path: `${parsed.pathname}${parsed.search}`,
-        protocol: parsed.protocol,
-        headers: {
-          'User-Agent': 'agentes-dashboard-avatar/1.0',
-          Accept: 'image/*,*/*;q=0.8'
+        hostname: parsed.hostname, path: `${parsed.pathname}${parsed.search}`,
+        protocol: parsed.protocol, headers: { 'User-Agent': 'agentes-dashboard-avatar/1.0', Accept: 'image/*,*/*;q=0.8' }
+      }, (resp) => {
+        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location && redirectsLeft > 0) {
+          resp.resume();
+          return resolve(downloadBufferFromUrl(new URL(resp.headers.location, target).toString(), redirectsLeft - 1));
         }
-      }, (res) => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
-          const nextUrl = new URL(res.headers.location, target).toString();
-          res.resume();
-          return resolve(downloadBufferFromUrl(nextUrl, redirectsLeft - 1));
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode} al descargar recurso (${target})`));
-        }
+        if (resp.statusCode !== 200) { resp.resume(); return reject(new Error(`HTTP ${resp.statusCode}`)); }
         const chunks = [];
-        res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
+        resp.on('data', c => chunks.push(c));
+        resp.on('end', () => resolve(Buffer.concat(chunks)));
       });
       request.on('error', reject);
-    } catch (error) {
-      reject(error);
-    }
+    } catch (e) { reject(e); }
   });
 }
 
 async function processAvatarWithCloudinary(inputBuffer, options = {}) {
-  if (!Buffer.isBuffer(inputBuffer)) {
-    throw new Error('Buffer de avatar inválido');
-  }
-
-  const { originalName = '', mimetype = 'image/png', username = '' } = options;
-  const details = {
-    backgroundRemoved: false,
-    processor: CLOUDINARY_BG_REMOVAL_ENABLED ? 'cloudinary_ai' : null,
-    bytesBefore: inputBuffer.length
-  };
+  if (!Buffer.isBuffer(inputBuffer)) throw new Error('Buffer de avatar inválido');
+  const { mimetype = 'image/png' } = options;
+  const details = { backgroundRemoved: false, processor: CLOUDINARY_BG_REMOVAL_ENABLED ? 'cloudinary_ai' : null, bytesBefore: inputBuffer.length };
 
   if (!CLOUDINARY_BG_REMOVAL_ENABLED) {
     details.bytesAfter = inputBuffer.length;
-    return {
-      buffer: inputBuffer,
-      contentType: mimetype || 'image/png',
-      extension: inferImageExtension(mimetype, 'png'),
-      details
-    };
+    return { buffer: inputBuffer, contentType: mimetype || 'image/png', extension: inferImageExtension(mimetype), details };
   }
 
   const startedAt = Date.now();
-
   try {
     const uploadResult = await new Promise((resolve, reject) => {
-      const uploadOptions = {
-        resource_type: 'image',
-        folder: CLOUDINARY_AVATAR_FOLDER,
-        background_removal: 'cloudinary_ai',
-        overwrite: true,
-        format: 'png',
-        use_filename: false,
-        unique_filename: true,
+      const stream = cloudinary.uploader.upload_stream({
+        resource_type: 'image', folder: CLOUDINARY_AVATAR_FOLDER, background_removal: 'cloudinary_ai',
+        overwrite: true, format: 'png', use_filename: false, unique_filename: true,
         transformation: [{ width: 800, height: 800, crop: 'limit' }]
-      };
-
-      const uploadStream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
-        if (error) return reject(error);
-        return resolve(result);
-      });
-
-      bufferToStream(inputBuffer).pipe(uploadStream);
+      }, (error, result) => error ? reject(error) : resolve(result));
+      bufferToStream(inputBuffer).pipe(stream);
     });
 
-    const processedUrl = uploadResult?.secure_url || cloudinary.url(uploadResult.public_id, {
-      secure: true,
-      format: 'png'
-    });
-
+    const processedUrl    = uploadResult?.secure_url || cloudinary.url(uploadResult.public_id, { secure: true, format: 'png' });
     const processedBuffer = await downloadBufferFromUrl(processedUrl);
 
-    details.backgroundRemoved = true;
-    details.processor = 'cloudinary_ai';
-    details.bytesAfter = processedBuffer.length;
-    details.processingMs = Date.now() - startedAt;
-    details.cloudinaryPublicId = uploadResult?.public_id || null;
-    details.cloudinaryAssetId = uploadResult?.asset_id || null;
-    details.cloudinaryVersion = uploadResult?.version || null;
-    details.secureUrl = processedUrl;
-    details.uploadedAt = uploadResult?.created_at ? new Date(uploadResult.created_at) : new Date();
-
-    return {
-      buffer: processedBuffer,
-      contentType: 'image/png',
-      extension: 'png',
-      details
-    };
-  } catch (error) {
-    details.processingError = error?.message || String(error);
+    Object.assign(details, {
+      backgroundRemoved: true, processor: 'cloudinary_ai', bytesAfter: processedBuffer.length,
+      processingMs: Date.now() - startedAt, cloudinaryPublicId: uploadResult?.public_id || null,
+      cloudinaryAssetId: uploadResult?.asset_id || null, cloudinaryVersion: uploadResult?.version || null,
+      secureUrl: processedUrl, uploadedAt: uploadResult?.created_at ? new Date(uploadResult.created_at) : new Date()
+    });
+    return { buffer: processedBuffer, contentType: 'image/png', extension: 'png', details };
+  } catch (e) {
+    details.processingError = e?.message || String(e);
     details.bytesAfter = inputBuffer.length;
-    console.warn('[Avatar Upload] No se pudo procesar el avatar con Cloudinary:', details.processingError, { username, originalName });
-    return {
-      buffer: inputBuffer,
-      contentType: mimetype || 'image/png',
-      extension: inferImageExtension(mimetype, 'png'),
-      details
-    };
+    console.warn('[Avatar] Cloudinary falló, usando original:', details.processingError);
+    return { buffer: inputBuffer, contentType: mimetype || 'image/png', extension: inferImageExtension(mimetype), details };
   }
 }
 
 app.post('/api/users/me/avatar', protect, avatarUpload.single('avatar'), async (req, res) => {
   try {
-    if (!req.user || !req.user.username) {
-      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
-    }
-
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible para guardar el avatar' });
-    }
-
+    if (!req.user?.username) return res.status(401).json({ success: false, message: 'No autenticado' });
+    if (!req.file)           return res.status(400).json({ success: false, message: 'No se proporcionó archivo' });
+    if (!isConnected())      return res.status(503).json({ success: false, message: 'BD no disponible' });
     if (!db) db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
+    if (!db)                 return res.status(503).json({ success: false, message: 'BD no disponible' });
 
-    const bucket = await ensureUserAvatarBucket();
+    const bucket   = await ensureUserAvatarBucket();
     const usersCol = db.collection('users');
+    const existing = await usersCol.findOne({ username: req.user.username }, { projection: { avatarFileId:1, avatarCloudinaryPublicId:1 } });
+    const sanitized = req.file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_') || 'avatar.png';
+    const baseName  = path.basename(sanitized, path.extname(sanitized)) || 'avatar';
+    const processing = await processAvatarWithCloudinary(req.file.buffer, { originalName: sanitized, mimetype: req.file.mimetype, username: req.user.username });
+    const finalExt  = processing.extension || inferImageExtension(req.file.mimetype);
+    const finalFile = `${Date.now()}-${baseName}.${finalExt}`;
 
-    const existingUser = await usersCol.findOne(
-      { username: req.user.username },
-      { projection: { avatarFileId: 1, avatarCloudinaryPublicId: 1 } }
-    );
-
-    const sanitizedNameRaw = req.file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_') || 'avatar.png';
-    const baseName = path.basename(sanitizedNameRaw, path.extname(sanitizedNameRaw)) || 'avatar';
-
-    const processing = await processAvatarWithCloudinary(req.file.buffer, {
-      originalName: sanitizedNameRaw,
-      mimetype: req.file.mimetype,
-      username: req.user.username
-    });
-
-    const finalExtension = processing.extension || inferImageExtension(req.file.mimetype, 'png');
-    const finalFilename = `${Date.now()}-${baseName}.${finalExtension}`;
-
-    const metadataRaw = {
-      userId: req.user.id ? req.user.id.toString() : null,
-      username: req.user.username,
-      uploadedAt: new Date(),
-      originalName: req.file.originalname,
-      originalMimeType: req.file.mimetype,
-      sanitizedFilename: sanitizedNameRaw,
-      backgroundRemoved: Boolean(processing.details?.backgroundRemoved),
-      backgroundProcessor: processing.details?.processor || null,
-      cloudinaryPublicId: processing.details?.cloudinaryPublicId || null,
-      cloudinaryAssetId: processing.details?.cloudinaryAssetId || null,
-      cloudinaryVersion: processing.details?.cloudinaryVersion || null,
-      cloudinarySecureUrl: processing.details?.secureUrl || null,
-      bytesOriginal: processing.details?.bytesBefore ?? req.file.size ?? (req.file.buffer ? req.file.buffer.length : null),
-      bytesProcessed: processing.details?.bytesAfter ?? null,
-      processingMs: processing.details?.processingMs ?? null,
-      processingError: processing.details?.processingError || null
+    const metaRaw = {
+      userId: req.user.id?.toString() || null, username: req.user.username, uploadedAt: new Date(),
+      originalName: req.file.originalname, originalMimeType: req.file.mimetype, sanitizedFilename: sanitized,
+      backgroundRemoved: Boolean(processing.details?.backgroundRemoved), backgroundProcessor: processing.details?.processor || null,
+      cloudinaryPublicId: processing.details?.cloudinaryPublicId || null, cloudinaryAssetId: processing.details?.cloudinaryAssetId || null,
+      cloudinaryVersion: processing.details?.cloudinaryVersion || null, cloudinarySecureUrl: processing.details?.secureUrl || null,
+      bytesOriginal: processing.details?.bytesBefore ?? req.file.size, bytesProcessed: processing.details?.bytesAfter ?? null,
+      processingMs: processing.details?.processingMs ?? null, processingError: processing.details?.processingError || null
     };
-    const metadata = Object.fromEntries(
-      Object.entries(metadataRaw).filter(([, value]) => value !== undefined)
-    );
+    const metadata = Object.fromEntries(Object.entries(metaRaw).filter(([,v]) => v !== undefined));
 
-    const uploadStream = bucket.openUploadStream(finalFilename, {
-      contentType: processing.contentType,
-      metadata
-    });
-
+    const uploadStream = bucket.openUploadStream(finalFile, { contentType: processing.contentType, metadata });
     uploadStream.end(processing.buffer);
+    await new Promise((resolve, reject) => { uploadStream.on('finish', resolve); uploadStream.on('error', reject); });
 
-    await new Promise((resolve, reject) => {
-      uploadStream.on('finish', resolve);
-      uploadStream.on('error', reject);
-    });
-
-    const fileId = uploadStream.id.toString();
+    const fileId    = uploadStream.id.toString();
     const avatarUrl = `/api/user-avatars/${fileId}`;
-
-    const setPayload = {
-      avatarFileId: fileId,
-      avatarUrl,
-      avatarUpdatedAt: new Date(),
-      avatarBackgroundRemoved: Boolean(processing.details?.backgroundRemoved)
-    };
-
-    const unsetPayload = {};
-
-    if (processing.details?.backgroundRemoved && processing.details?.processor) {
-      setPayload.avatarProcessor = processing.details.processor;
-    } else {
-      unsetPayload.avatarProcessor = '';
-    }
-
+    const setP = { avatarFileId: fileId, avatarUrl, avatarUpdatedAt: new Date(), avatarBackgroundRemoved: Boolean(processing.details?.backgroundRemoved) };
+    const unsetP = {};
+    if (processing.details?.backgroundRemoved) setP.avatarProcessor = processing.details.processor;
+    else unsetP.avatarProcessor = '';
     if (processing.details?.cloudinaryPublicId) {
-      setPayload.avatarCloudinaryPublicId = processing.details.cloudinaryPublicId;
-      if (processing.details?.cloudinaryVersion != null) {
-        setPayload.avatarCloudinaryVersion = processing.details.cloudinaryVersion;
-      } else {
-        unsetPayload.avatarCloudinaryVersion = '';
-      }
-    } else {
-      unsetPayload.avatarCloudinaryPublicId = '';
-      unsetPayload.avatarCloudinaryVersion = '';
+      setP.avatarCloudinaryPublicId = processing.details.cloudinaryPublicId;
+      if (processing.details?.cloudinaryVersion != null) setP.avatarCloudinaryVersion = processing.details.cloudinaryVersion;
+      else unsetP.avatarCloudinaryVersion = '';
+    } else { unsetP.avatarCloudinaryPublicId = ''; unsetP.avatarCloudinaryVersion = ''; }
+
+    const updateDoc = { $set: setP };
+    if (Object.keys(unsetP).length) updateDoc.$unset = unsetP;
+    await usersCol.updateOne({ username: req.user.username }, updateDoc);
+
+    if (existing?.avatarFileId && existing.avatarFileId !== fileId) {
+      try { await bucket.delete(new ObjectId(existing.avatarFileId)); } catch (_) {}
+    }
+    if (existing?.avatarCloudinaryPublicId && existing.avatarCloudinaryPublicId !== (processing.details?.cloudinaryPublicId || null) && CLOUDINARY_HAS_CREDENTIALS) {
+      try { await cloudinary.uploader.destroy(existing.avatarCloudinaryPublicId, { invalidate: true }); } catch (_) {}
     }
 
-    const updateDoc = { $set: setPayload };
-    if (Object.keys(unsetPayload).length > 0) {
-      updateDoc.$unset = unsetPayload;
-    }
-
-    await usersCol.updateOne(
-      { username: req.user.username },
-      updateDoc
-    );
-
-    if (existingUser && existingUser.avatarFileId && existingUser.avatarFileId !== fileId) {
-      try {
-        const oldId = new ObjectId(existingUser.avatarFileId);
-        await bucket.delete(oldId);
-      } catch (e) {
-        console.warn('[Avatar Upload] No se pudo eliminar el avatar anterior:', e?.message || e);
-      }
-    }
-
-    if (
-      existingUser &&
-      existingUser.avatarCloudinaryPublicId &&
-      existingUser.avatarCloudinaryPublicId !== (processing.details?.cloudinaryPublicId || null) &&
-      CLOUDINARY_HAS_CREDENTIALS
-    ) {
-      try {
-        await cloudinary.uploader.destroy(existingUser.avatarCloudinaryPublicId, { invalidate: true });
-      } catch (e) {
-        console.warn('[Avatar Upload] No se pudo eliminar el avatar anterior en Cloudinary:', e?.message || e);
-      }
-    }
-
-    return res.json({
-      success: true,
-      message: 'Avatar actualizado correctamente',
-      data: {
-        url: avatarUrl,
-        fileId,
-        backgroundRemoved: Boolean(processing.details?.backgroundRemoved)
-      }
-    });
-  } catch (error) {
-    console.error('[Avatar Upload] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar el avatar', error: error.message });
+    return res.json({ success: true, message: 'Avatar actualizado', data: { url: avatarUrl, fileId, backgroundRemoved: Boolean(processing.details?.backgroundRemoved) } });
+  } catch (e) {
+    console.error('[Avatar Upload]', e);
+    return res.status(500).json({ success: false, message: 'Error al actualizar avatar', error: e.message });
   }
 });
 
 app.get('/api/user-avatars/:id', async (req, res) => {
   try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
     const bucket = await ensureUserAvatarBucket();
-    const fileId = req.params.id;
     let objectId;
-    try {
-      objectId = new ObjectId(fileId);
-    } catch {
-      return res.status(400).json({ success: false, message: 'ID inválido' });
-    }
+    try { objectId = new ObjectId(req.params.id); }
+    catch { return res.status(400).json({ success: false, message: 'ID inválido' }); }
 
-    const filesCollection = db.collection('userAvatars.files');
-    const fileDoc = await filesCollection.findOne({ _id: objectId });
+    const fileDoc = await db.collection('userAvatars.files').findOne({ _id: objectId });
     if (!fileDoc) {
-      // Si no existe el avatar en GridFS, intentar devolver una imagen por defecto en vez de 404
-      try {
-        const defaultPath = path.join(__dirname, 'images', 'avatar.png');
-        if (fs.existsSync(defaultPath)) {
-          res.type('png');
-          res.set('Cache-Control', 'public, max-age=86400');
-          return res.sendFile(defaultPath);
-        }
-      } catch (e) {
-        // si falla, caer al response inline fallback (SVG)
-      }
-      // fallback: generar un svg simple que evite 404 en el cliente
-      try {
-        const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="60" cy="45" r="26" fill="#f8fafc"/><rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/></svg>`;
-        res.type('image/svg+xml');
-        res.set('Cache-Control', 'public, max-age=86400');
-        return res.send(svg);
-      } catch (e) {
-        // último recurso: devolver 404 JSON
-        return res.status(404).json({ success: false, message: 'Avatar no encontrado' });
-      }
+      const defaultPath = path.join(__dirname, 'images', 'avatar.png');
+      if (fs.existsSync(defaultPath)) { res.type('png'); res.set('Cache-Control','public, max-age=86400'); return res.sendFile(defaultPath); }
+      const svg = `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="60" cy="45" r="26" fill="#f8fafc"/><rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/></svg>`;
+      res.type('image/svg+xml'); res.set('Cache-Control','public, max-age=86400'); return res.send(svg);
     }
-
-    res.set('Content-Type', fileDoc.contentType || 'image/png');
-    res.set('Cache-Control', 'private, max-age=86400');
-    res.set('Accept-Ranges', 'bytes');
-
-    const downloadStream = bucket.openDownloadStream(objectId);
-    downloadStream.on('error', (err) => {
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, message: 'Error al leer el avatar', error: err.message });
-      }
-    });
-    downloadStream.pipe(res);
-  } catch (error) {
-    console.error('[Avatar Fetch] Error:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, message: 'Error interno', error: error.message });
-    }
+    res.set({ 'Content-Type': fileDoc.contentType || 'image/png', 'Cache-Control': 'private, max-age=86400', 'Accept-Ranges': 'bytes' });
+    const dl = bucket.openDownloadStream(objectId);
+    dl.on('error', e => { if (!res.headersSent) res.status(500).json({ success: false, message: 'Error leyendo avatar', error: e.message }); });
+    dl.pipe(res);
+  } catch (e) {
+    console.error('[Avatar Fetch]', e);
+    if (!res.headersSent) res.status(500).json({ success: false, message: 'Error interno', error: e.message });
   }
 });
 
 app.delete('/api/users/me/avatar', protect, async (req, res) => {
   try {
-    if (!req.user || !req.user.username) {
-      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-    }
-
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
+    if (!req.user?.username) return res.status(401).json({ success: false, message: 'No autenticado' });
+    if (!isConnected())      return res.status(503).json({ success: false, message: 'BD no disponible' });
     if (!db) db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const bucket = await ensureUserAvatarBucket();
+    const bucket   = await ensureUserAvatarBucket();
     const usersCol = db.collection('users');
-    const user = await usersCol.findOne(
-      { username: req.user.username },
-      { projection: { avatarFileId: 1 } }
-    );
-
-    if (!user || !user.avatarFileId) {
-      return res.json({ success: true, message: 'No había avatar para eliminar', data: { url: null } });
-    }
-
-    try {
-      const objectId = new ObjectId(user.avatarFileId);
-      await bucket.delete(objectId);
-    } catch (error) {
-      console.warn('[Avatar Delete] No se pudo eliminar el archivo:', error?.message || error);
-    }
-
-    await usersCol.updateOne(
-      { username: req.user.username },
-      { $unset: { avatarFileId: '', avatarUrl: '', avatarUpdatedAt: '' } }
-    );
-
-    return res.json({ success: true, message: 'Avatar eliminado correctamente', data: { url: null } });
-  } catch (error) {
-    console.error('[Avatar Delete] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al eliminar el avatar', error: error.message });
-  }
-});
-
-// ============================================
-// FIN ENDPOINTS GRIDFS
-// ============================================
-
-/* BLOQUE ROTO DESACTIVADO TEMPORALMENTE (Falta cabecera del endpoint)
-            if (docs && docs.length > 0) {
-              successfulQueries++;
-              console.log(`[CRM] ${colName} (sin mes): ${docs.length} clientes`);
-              clients = clients.concat(docs);
-            }
-          } catch (err) {
-            console.error(`[CRM] Error en ${colName}:`, err.message);
-          }
-        }
-      }
-
-      console.log(`[CRM] RESULTADO: ${clients.length} clientes para "${agent}"`);
-      console.log(`[CRM] Stats: ${successfulQueries}/${totalAttempts} queries exitosas`);
-
-      return res.status(200).json({
-        success: true,
-        agent: agent,
-        month: month || 'current',
-        clients: clients || [],
-        count: clients.length
-      });
-
-    } catch (error) {
-      console.error('[CRM] Error en búsqueda de colecciones:', error.message);
-      console.error('[CRM] Stack:', error.stack);
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Error al obtener clientes: ' + error.message,
-        error: error.message,
-        clients: []
-      });
-    }
-
-  } catch (error) {
-    console.error('[CRM] ERROR NO CAPTURADO:', error.message);
-    console.error('[CRM] Stack:', error.stack);
-    
-    return res.status(500).json({
-      success: false,
-      message: 'Error al procesar solicitud: ' + error.message,
-      error: error.message,
-      clients: []
-    });
-  }
-*/
-
-// ENDPOINT DEBUG: Inspeccionar estructura de documentos
-// ============================================
-app.get('/api/crm/debug-fields', async (req, res) => {
-  try {
-    const { agent } = req.query;
-    
-    if (!agent) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Parámetro agent requerido'
-      });
-    }
-
-    if (!isConnected()) {
-      return res.status(503).json({ 
-        success: false, 
-        message: 'BD no disponible'
-      });
-    }
-    
-    const database = getDb();
-    if (!database) {
-      return res.status(503).json({ 
-        success: false, 
-        message: 'BD no disponible'
-      });
-    }
-
-    // Buscar un documento de prueba
-    const collections = await database.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name).filter(name => /^costumers|^customers_unified/i.test(name));
-    
-    let sampleDoc = null;
-    let sourceCollection = null;
-
-    for (const colName of collectionNames) {
-      try {
-        sampleDoc = await database.collection(colName)
-          .findOne({ 
-            $or: [
-              { agente: { $regex: agent, $options: 'i' } },
-              { agenteNombre: { $regex: agent, $options: 'i' } },
-              { nombreAgente: { $regex: agent, $options: 'i' } }
-            ]
-          });
-        
-        if (sampleDoc) {
-          sourceCollection = colName;
-          break;
-        }
-      } catch (err) {
-        // Continuar
-      }
-    }
-
-    if (!sampleDoc) {
-      return res.status(404).json({ 
-        success: false, 
-        message: `No se encontraron documentos para agente: ${agent}`,
-        fields: []
-      });
-    }
-
-    // Obtener los nombres de campos
-    const fields = Object.keys(sampleDoc).sort();
-    
-    // Crear un resumen de campos
-    const fieldInfo = fields.map(field => ({
-      name: field,
-      value: sampleDoc[field],
-      type: typeof sampleDoc[field],
-      empty: !sampleDoc[field] || sampleDoc[field] === 'undefined'
-    }));
-
-    return res.status(200).json({
-      success: true,
-      agent: agent,
-      sourceCollection: sourceCollection,
-      totalFields: fields.length,
-      fields: fieldInfo,
-      sampleDocument: sampleDoc
-    });
-
-  } catch (error) {
-    console.error('[DEBUG] Error:', error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al inspeccionar documentos',
-      error: error.message
-    });
-  }
-});
-
-// ENDPOINT DEBUG: Verificar puntaje de INGRID en todas las colecciones (DEBUG - SOLO DICIEMBRE 2025)
-app.get('/api/debug/ingrid-score', async (req, res) => {
-  try {
-    const db = getDb();
-    if (!db) return res.status(503).json({ error: 'BD no disponible' });
-    
-    const agentPatterns = [
-      { agente: 'INGRID.GARCIA' },
-      { agenteNombre: 'INGRID.GARCIA' },
-      { nombreAgente: 'INGRID.GARCIA' },
-      { createdBy: 'INGRID.GARCIA' },
-      { registeredBy: 'INGRID.GARCIA' },
-      { vendedor: 'INGRID.GARCIA' }
-    ];
-    
-    const results = {};
-    const collections = ['costumers_unified'];
-    
-    for (const colName of collections) {
-      try {
-        const col = db.collection(colName);
-        
-        // Filtrar por dia_venta en diciembre 2025 (formato YYYY-MM-DD)
-        const decFilter = {
-          $and: [
-            { $or: agentPatterns },
-            { 
-              $or: [
-                { dia_venta: { $gte: '2025-12-01', $lte: '2025-12-31' } },
-                { createdAt: { $gte: new Date(2025, 11, 1), $lte: new Date(2025, 11, 31) } }
-              ]
-            }
-          ]
-        };
-        
-        const count = await col.countDocuments(decFilter);
-        
-        if (count > 0) {
-          const agg = await col.aggregate([
-            { $match: decFilter },
-            { $group: {
-              _id: null,
-              count: { $sum: 1 },
-              totalPuntaje: { $sum: { $toDouble: '$puntaje' } },
-              avgPuntaje: { $avg: { $toDouble: '$puntaje' } }
-            }}
-          ]).toArray();
-          
-          results[colName] = agg[0] || { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
-        } else {
-          results[colName] = { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
-        }
-      } catch (e) {
-        results[colName] = { error: e.message };
-      }
-    }
-    
-    res.json(results);
+    const user     = await usersCol.findOne({ username: req.user.username }, { projection: { avatarFileId:1 } });
+    if (!user?.avatarFileId) return res.json({ success: true, message: 'Sin avatar', data: { url: null } });
+    try { await bucket.delete(new ObjectId(user.avatarFileId)); } catch (_) {}
+    await usersCol.updateOne({ username: req.user.username }, { $unset: { avatarFileId:'', avatarUrl:'', avatarUpdatedAt:'' } });
+    return res.json({ success: true, message: 'Avatar eliminado', data: { url: null } });
   } catch (e) {
-    console.error('[DEBUG INGRID]', e.message);
-    res.status(500).json({ error: e.message });
+    console.error('[Avatar Delete]', e);
+    return res.status(500).json({ success: false, message: 'Error al eliminar avatar', error: e.message });
   }
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/auth', forgotPasswordRoutes);
-app.use('/api/facturacion', facturacionRoutes);
-app.use('/api/facturacion-lineas', facturacionLineasRoutes);
-app.use('/api/llamadas-ventas-lineas', llamadasVentasLineasRoutes);
-app.use('/api/ranking', rankingRoutes);
-app.use('/api/equipos', equipoRoutes);
-app.use('/api/employees-of-month', employeesOfMonthRoutes);
-
-app.use('/api', apiRoutes); // Esta debe ir AL FINAL porque es la más genérica
-// Proxy para recursos de Cloudinary (evita problemas con Tracking Prevention en clientes)
-if (mediaProxy) app.use('/media/proxy', mediaProxy);
-// Debug routes (solo lectura) para diagnóstico
-if (debugRoutes) app.use('/api/debug', debugRoutes);
-// Ruta temporal NO autenticada para debug local (solo si no estamos en producción)
-if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
-  app.use('/api/debug-noauth', debugNoAuthRoutes);
-  console.log('[SERVER] Ruta temporal /api/debug-noauth montada (solo NO production)');
-}
-// Debug route para verificar lead de Paola Villalobos
-const debugPaolaRoutes = require('./backend/routes/debug-paola');
-app.use('/api/debug-paola', debugPaolaRoutes);
-// Bulk status by phone route (optional)
-try {
-  const bulkStatusPhoneRoutes = require('./backend/routes/bulk-status-phone');
-  app.use('/api/leads', bulkStatusPhoneRoutes);
-  console.log('[SERVER] Rutas bulk-status-phone cargadas');
-} catch (e) {
-  console.warn('[SERVER] No se pudieron cargar rutas bulk-status-phone:', e?.message);
-}
-// Migrate routes (solo admins) para migración de datos
-try {
-  const migrateRoutes = require('./backend/routes/migrate');
-  app.use('/api/migrate', migrateRoutes);
-  console.log('[SERVER] Rutas de migración cargadas');
-} catch (e) {
-  console.warn('[SERVER] No se pudieron cargar rutas de migración:', e?.message);
-}
-
-// Middleware inline (authenticateJWT) queda reemplazado por middleware/auth.js (protect)
-// Wrapper mínimo por compatibilidad con referencias existentes
-const authenticateJWT = (req, res, next) => protect(req, res, next);
-
-// ... (rest of the code remains the same)
-// Favicon handler: servir un icono por defecto para evitar 404
-app.get('/favicon.ico', (req, res) => {
+// ── ENDPOINTS TEAM LÍNEAS ─────────────────────────────────────
+app.get('/api/lineas', protect, async (req, res) => {
   try {
-    const iconPathPng = path.join(__dirname, 'images', 'avatar.png');
-    if (fs.existsSync(iconPathPng)) {
-      res.type('png');
-      return res.sendFile(iconPathPng);
-    }
-  } catch {}
-  // Fallback vacío para no loguear 404
-  res.status(204).end();
-});
-
-// Ruta protegida de ejemplo (requiere autenticación)
-app.get('/api/protected', protect, (req, res) => {
-  res.json({ message: 'Ruta protegida', user: req.user });
-});
-
-// Endpoint para verificar autenticación desde el servidor (sin protección)
-app.get('/api/auth/verify-server', async (req, res) => {
-  // Verificar si hay token en cookies
-  const token = req.cookies?.token;
-
-  if (!token) {
-    return res.json({
-      success: false,
-      message: 'No se encontró token',
-      authenticated: false,
-      role: null,
-      username: null
-    });
-  }
-
-  try {
-    const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
-    const decoded = jwt.verify(token, JWT_SECRET);
-
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
     if (!db) db = getDb();
-    let userDoc = null;
-    if (db) {
+    const { username, role } = req.user;
+    const privilegedRoles = ['admin','administrador','backoffice','back office','back_office','bo','b.o','supervisor','supervisor team lineas'];
+    const isPrivileged = privilegedRoles.some(r => (role||'').toLowerCase() === r || (role||'').toLowerCase().includes(r));
+    const filter = isPrivileged ? {} : {
+      $or: [{ agente: username },{ agenteNombre: username },{ createdBy: username },{ registeredBy: username }]
+    };
+    const registros = await db.collection('Lineas').find(filter).sort({ creadoEn: -1 }).toArray();
+    return res.json({ success: true, data: registros, count: registros.length, user: username, filtered: !isPrivileged });
+  } catch (e) {
+    console.error('[GET /api/lineas]', e);
+    return res.status(500).json({ success: false, message: 'Error al consultar Lineas', error: e.message });
+  }
+});
+
+app.post('/api/lineas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const body     = req.body || {};
+    const user     = req.user;
+    const username = user?.username || '';
+
+    const toUpper  = s => (s == null ? '' : String(s).trim().toUpperCase());
+    const digitsOnly = s => (s == null ? '' : String(s).replace(/\D+/g,''));
+    const asDate   = s => { if (!s) return null; return normalizeDateToString(s) || null; };
+    const normalizeCollectionName = s => {
       try {
-        userDoc = await db.collection('users').findOne(
-          { username: decoded.username },
-          { projection: { password: 0 } }
-        );
-      } catch (e) {
-        console.warn('[verify-server] No se pudo obtener usuario:', e?.message || e);
-      }
-    }
-
-    const userPayload = userDoc ? {
-      id: userDoc._id ? userDoc._id.toString() : decoded.id,
-      username: userDoc.username,
-      role: userDoc.role,
-      email: userDoc.email || null,
-      team: userDoc.team || null,
-      permissions: userDoc.permissions || decoded.permissions,
-      avatarUrl: userDoc.avatarUrl || null,
-      avatarFileId: userDoc.avatarFileId || null,
-      avatarUpdatedAt: userDoc.avatarUpdatedAt || null
-    } : {
-      id: decoded.id,
-      username: decoded.username,
-      role: decoded.role,
-      email: decoded.email || null,
-      team: decoded.team || null,
-      permissions: decoded.permissions,
-      avatarUrl: null,
-      avatarFileId: null,
-      avatarUpdatedAt: null
+        return String(s||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^A-Za-z0-9_\s-]/g,' ').replace(/[\s-]+/g,'_').replace(/_+/g,'_')
+          .replace(/^_+|_+$/g,'').toUpperCase() || 'UNKNOWN';
+      } catch { return String(s||'').trim().replace(/[\s-]+/g,'_').toUpperCase() || 'UNKNOWN'; }
     };
+    const normalizeAgentDisplay = s => String(s||'').trim().replace(/_/g,' ').replace(/\s+/g,' ').toUpperCase();
 
-    res.json({
-      success: true,
-      message: 'Token válido',
-      authenticated: true,
-      user: userPayload
-    });
-  } catch (error) {
-    res.json({
-      success: false,
-      message: 'Token inválido',
-      authenticated: false,
-      role: null,
-      username: null,
-      error: error.message
-    });
-  }
-});
-
-// GET /api/llamadas-ventas - Obtener datos de llamadas y ventas
-app.get('/api/llamadas-ventas', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    const errors   = [];
+    const required = ['nombre_cliente','telefono_principal','numero_cuenta','autopay','pin_seguridad','direccion','dia_venta','dia_instalacion','status','cantidad_lineas','id','mercado','supervisor'];
+    for (const f of required) {
+      if (body[f] == null || body[f] === '' || (Array.isArray(body[f]) && !body[f].length)) errors.push(`Campo requerido: ${f}`);
     }
-    if (!db) db = getDb();
+    if (errors.length) return res.status(400).json({ success: false, message: 'Validación fallida', errors });
 
-    const role = String(req.user?.role || '').toLowerCase();
-    const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
-    if (!isAllowed) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
+    const cantidadLineas = Number(body.cantidad_lineas || 0);
+    const telefonos = (Array.isArray(body.telefonos) ? body.telefonos : []).map(digitsOnly).filter(Boolean);
+    const servicios  = Array.isArray(body.servicios) ? body.servicios.map(String) : [];
+
+    const autopayVal = String(body.autopay || '').toLowerCase();
+    if (!['si','no'].includes(autopayVal)) errors.push('autopay debe ser si | no');
+
+    const statusNorm = normalizeStatus(body.status);
+    if (!['pending','rescheduled'].includes(statusNorm)) errors.push('status inválido (permitidos: pending, repro/rescheduled)');
+
+    const mercado = String(body.mercado||'').toLowerCase();
+    if (!['bamo','icon'].includes(mercado)) errors.push('mercado debe ser bamo | icon');
+
+    let supervisorVal = String(body.supervisor||'').toLowerCase();
+    if (!supervisorVal && user.supervisor) supervisorVal = String(user.supervisor).toLowerCase();
+    else if (!supervisorVal && user.team) {
+      const t = String(user.team).toLowerCase();
+      if (t.includes('jonathan')) supervisorVal = 'jonathan f';
+      else if (t.includes('luis')) supervisorVal = 'luis g';
     }
+    if (!supervisorVal) errors.push('No se pudo determinar el supervisor');
+    if (!['jonathan f','luis g'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN F, LUIS G)');
+    if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser 1-5');
+    if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
+    if (errors.length) return res.status(400).json({ success: false, message: 'Validación fallida', errors });
 
-    const { month, year } = req.query;
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
-    
-    const targetMonth = month ? parseInt(month) : currentMonth;
-    const targetYear = year ? parseInt(year) : currentYear;
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
 
-    // Crear filtro por mes y año
-    const startDate = new Date(targetYear, targetMonth - 1, 1);
-    const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+    let targetAgent = username;
+    if ((user.role||'').toLowerCase().includes('supervisor') && body.agenteAsignado) targetAgent = body.agenteAsignado;
+    const targetCollectionName = normalizeCollectionName(targetAgent);
 
-    console.log(`[GET /api/llamadas-ventas] Buscando datos para ${targetMonth}/${targetYear}`);
+    const payloadLines    = Array.isArray(body.lines) ? body.lines : (Array.isArray(body.lineas) ? body.lineas : []);
+    const payloadLineasSt = (body.lineas_status && typeof body.lineas_status === 'object') ? body.lineas_status : null;
+    const normalizeLineSt = v => String(v||'').trim().toUpperCase() || '';
 
-    const registros = await db.collection('llamadas_ventas').aggregate([
-      {
-        $match: {
-          fecha: {
-            $gte: startDate,
-            $lte: endDate
-          }
-        }
-      },
-      {
-        $addFields: {
-          __fechaKey: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } }
-        }
-      },
-      { $sort: { actualizadoEn: -1, creadoEn: -1, _id: -1 } },
-      {
-        $group: {
-          _id: { fechaKey: '$__fechaKey', team: '$team', tipo: '$tipo' },
-          doc: { $first: '$$ROOT' }
-        }
-      },
-      { $replaceRoot: { newRoot: '$doc' } },
-      { $project: { __fechaKey: 0 } },
-      { $sort: { fecha: 1, team: 1, tipo: 1 } }
-    ]).toArray();
-
-    console.log(`[GET /api/llamadas-ventas] Encontrados ${registros.length} registros`);
-
-    return res.json({
-      success: true,
-      data: registros,
-      count: registros.length,
-      month: targetMonth,
-      year: targetYear
-    });
-
-  } catch (error) {
-    console.error('[GET /api/llamadas-ventas] Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al obtener datos de llamadas y ventas',
-      error: error.message
-    });
-  }
-});
-
-// POST /api/llamadas-ventas - Guardar o actualizar datos de llamadas y ventas
-app.post('/api/llamadas-ventas', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    const role = String(req.user?.role || '').toLowerCase();
-    const isAllowed = role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
-    if (!isAllowed) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
+    const initialLineasStatus = {};
+    const initialLines = [];
+    for (let i = 0; i < cantidadLineas; i++) {
+      let st = '';
+      if (payloadLineasSt && Object.prototype.hasOwnProperty.call(payloadLineasSt, i)) st = normalizeLineSt(payloadLineasSt[i]);
+      if (!st && payloadLines[i]) st = normalizeLineSt(payloadLines[i].estado ?? payloadLines[i].status ?? '');
+      if (!st) st = statusNorm === 'pending' ? 'PENDING' : statusNorm.toUpperCase();
+      initialLineasStatus[i] = st;
+      initialLines.push({ telefono: telefonos[i]||digitsOnly(payloadLines[i]?.telefono)||'', servicio: servicios[i]||String(payloadLines[i]?.servicio||''), estado: st });
     }
 
-    const { day, team, type, value } = req.body;
-    const user = req.user;
-
-    // Validaciones
-    if (!day || !team || !type) {
-      return res.status(400).json({
-        success: false,
-        message: 'Faltan campos requeridos: day, team, type'
-      });
-    }
-
-    // Evitar sobrescrituras accidentales: no permitir guardar '-' / vacío en LLAMADAS o VENTAS
-    if (type === 'LLAMADAS' || type === 'VENTAS') {
-      const rawValue = (value ?? '').toString().trim();
-      if (rawValue === '' || rawValue === '-') {
-        return res.status(400).json({
-          success: false,
-          message: 'Valor inválido para LLAMADAS/VENTAS'
-        });
-      }
-
-      const n = Number(rawValue);
-      if (!Number.isFinite(n)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Valor inválido para LLAMADAS/VENTAS'
-        });
-      }
-    }
-
-    // Crear rango de fecha para el día especificado (mes y año actual)
     const now = new Date();
-    const fechaStart = new Date(now.getFullYear(), now.getMonth(), parseInt(day));
-    const fechaEnd = new Date(now.getFullYear(), now.getMonth(), parseInt(day) + 1);
-
-    // Determinar el valor a guardar
-    let valorFinal = value;
-    if (type === 'TOTALES') {
-      // Para totales, el valor viene como "llamadas/ventas"
-      const partes = value.split('/');
-      valorFinal = value; // Guardar el string completo
-    } else {
-      // Para llamadas y ventas individuales
-      valorFinal = parseFloat(value) || 0;
-    }
-
-    console.log(`[POST /api/llamadas-ventas] Guardando: ${day}/${team}/${type} = ${valorFinal}`);
-
-    const result = await db.collection('llamadas_ventas').updateMany(
-      {
-        fecha: { $gte: fechaStart, $lt: fechaEnd },
-        team: team,
-        tipo: type
-      },
-      {
-        $set: {
-          valor: valorFinal,
-          actualizadoEn: new Date(),
-          actualizadoPor: user?.username || 'unknown'
-        },
-        $setOnInsert: {
-          fecha: fechaStart,
-          creadoEn: new Date(),
-          creadoPor: user?.username || 'unknown'
-        }
-      },
-      { upsert: true }
-    );
-
-    console.log(`[POST /api/llamadas-ventas] Guardado exitoso: ${result.modifiedCount || result.upsertedCount} registros afectados`);
-
-    return res.json({
-      success: true,
-      message: 'Datos guardados correctamente',
-      data: {
-        day,
-        team,
-        type,
-        value: valorFinal,
-        fecha: fechaStart,
-        modifiedCount: result.modifiedCount,
-        upsertedCount: result.upsertedCount
-      }
-    });
-
-  } catch (error) {
-    console.error('[POST /api/llamadas-ventas] Error:', {
-      message: error?.message,
-      stack: error?.stack,
-      body: req?.body,
-      user: req?.user?.username
-    });
-    return res.status(500).json({
-      success: false,
-      message: 'Error al guardar datos de llamadas y ventas',
-      error: error.message,
-      details: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-    });
-  }
-});
-
-// ======================
-// VISTA EXCEL (SHEETS)
-// ======================
-const LLAMADAS_EXCEL_SHEETS = 'llamadas_ventas_excel_sheets';
-const LLAMADAS_EXCEL_DATA = 'llamadas_ventas_excel_data';
-const LLAMADAS_EXCEL_USERS = 'llamadas_ventas_excel_users';
-
-const isAllowedLlamadasExcel = (roleRaw) => {
-  const role = String(roleRaw || '').toLowerCase();
-  return role.includes('admin') || role.includes('administrador') || role.includes('administrator') || role.includes('backoffice') || role === 'bo';
-};
-
-const normalizeSheetName = (name) => {
-  const s = String(name || '').trim();
-  return s || null;
-};
-
-// GET /api/llamadas-ventas-excel/sheets
-app.get('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const sheets = await db.collection(LLAMADAS_EXCEL_SHEETS)
-      .find({})
-      .project({ _id: 1, name: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1 })
-      .sort({ createdAt: 1, _id: 1 })
-      .toArray();
-
-    const normalized = sheets.map(s => ({
-      _id: (s && s._id) ? s._id.toString() : '',
-      name: s?.name,
-      createdAt: s?.createdAt,
-      createdBy: s?.createdBy,
-      updatedAt: s?.updatedAt,
-      updatedBy: s?.updatedBy
-    }));
-
-    return res.json({ success: true, data: normalized });
-  } catch (error) {
-    console.error('[GET /api/llamadas-ventas-excel/sheets] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al obtener sheets', error: error.message });
-  }
-});
-
-// POST /api/llamadas-ventas-excel/sheets
-app.post('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const user = req.user;
-    const now = new Date();
-    const fallbackName = now.toISOString().slice(0, 10);
-    const requestedName = normalizeSheetName(req.body?.name);
-    const baseName = requestedName || fallbackName;
-
-    let name = baseName;
-    const exists = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ name });
-    if (exists) {
-      name = `${baseName} (${now.toISOString().slice(11, 19)})`;
-    }
-
     const doc = {
-      name,
-      createdAt: now,
-      createdBy: user?.username || 'unknown',
-      updatedAt: now,
-      updatedBy: user?.username || 'unknown'
+      team: 'team lineas', nombre_cliente: toUpper(body.nombre_cliente),
+      telefono_principal: digitsOnly(body.telefono_principal), numero_cuenta: String(body.numero_cuenta||'').trim(),
+      autopay: autopayVal === 'si', pin_seguridad: String(body.pin_seguridad||'').trim(),
+      direccion: String(body.direccion||'').trim(), servicios,
+      dia_venta: asDate(body.dia_venta), dia_instalacion: asDate(body.dia_instalacion),
+      status: statusNorm.toUpperCase(), cantidad_lineas: cantidadLineas, telefonos,
+      ID: String(body.id||'').trim(), mercado: mercado.toUpperCase(), supervisor: supervisorVal.toUpperCase(),
+      userId: user?._id || user?.id || null,
+      agente:                    normalizeAgentDisplay(username),
+      agenteAsignado:            normalizeAgentDisplay(targetAgent),
+      agenteAsignadoCollection:  targetCollectionName,
+      lineas_status: initialLineasStatus, lines: initialLines,
+      creadoEn: now, actualizadoEn: now, _raw: body
     };
 
-    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).insertOne(doc);
-    return res.json({ success: true, data: { _id: result.insertedId ? result.insertedId.toString() : '', ...doc } });
-  } catch (error) {
-    console.error('[POST /api/llamadas-ventas-excel/sheets] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al crear sheet', error: error.message });
+    const result = await teamLineasDb.collection(targetCollectionName).insertOne(doc);
+    return res.status(201).json({ success: true, message: `Guardado en TEAM_LINEAS > ${targetCollectionName}`, id: result.insertedId?.toString(), data: doc });
+  } catch (e) {
+    console.error('[POST /api/lineas]', e);
+    return res.status(500).json({ success: false, message: 'Error al crear registro de Líneas', error: e.message });
   }
 });
 
-// GET /api/llamadas-ventas-excel/sheets/:sheetId
-app.get('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+app.put('/api/lineas-team/update', protect, async (req, res) => {
   try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const body     = req.body || {};
+    const clientId = body.id;
+    if (!clientId) return res.status(400).json({ success: false, message: 'ID requerido' });
 
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
+    const toUpper = s => (s == null ? '' : String(s).trim().toUpperCase());
+    const asDate  = s => { if (!s) return null; return normalizeDateToString(s) || null; };
 
-    const sheetId = String(req.params.sheetId || '').trim();
-    if (!sheetId) return res.status(400).json({ success: false, message: 'sheetId inválido' });
-
-    let _id;
-    try { _id = new ObjectId(sheetId); } catch { return res.status(400).json({ success: false, message: 'sheetId inválido' }); }
-
-    const sheet = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ _id }, { projection: { name: 1 } });
-    if (!sheet) return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
-
-    const data = await db.collection(LLAMADAS_EXCEL_DATA)
-      .find({ sheetId })
-      .project({ _id: 0, kind: 1, team: 1, person: 1, col: 1, metric: 1, value: 1 })
-      .toArray();
-
-    const users = await db.collection(LLAMADAS_EXCEL_USERS)
-      .find({ sheetId })
-      .project({ _id: 0, name: 1, role: 1, team: 1 })
-      .toArray();
-
-    return res.json({ success: true, sheet: { _id: sheet._id ? sheet._id.toString() : sheetId, name: sheet.name }, data, users });
-  } catch (error) {
-    console.error('[GET /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al cargar sheet', error: error.message });
-  }
-});
-
-// POST /api/llamadas-ventas-excel/cell
-app.post('/api/llamadas-ventas-excel/cell', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const user = req.user;
-    const { sheetId, team, person, col, metric, value } = req.body || {};
-    const sid = String(sheetId || '').trim();
-    if (!sid) return res.status(400).json({ success: false, message: 'Falta sheetId' });
-
-    const now = new Date();
-    const v = (value ?? '').toString().trim();
-
-    let filter;
-    let kind;
-    if (metric) {
-      const m = String(metric).trim().toUpperCase();
-      kind = 'summary';
-      filter = { sheetId: sid, kind, metric: m };
-    } else {
-      if (!team || !person || !col) {
-        return res.status(400).json({ success: false, message: 'Faltan campos requeridos: team, person, col' });
-      }
-      kind = 'cell';
-      filter = { sheetId: sid, kind, team: String(team).trim(), person: String(person).trim(), col: String(col).trim().toUpperCase() };
-    }
-
-    if (v === '') {
-      await db.collection(LLAMADAS_EXCEL_DATA).deleteOne(filter);
-    } else {
-      await db.collection(LLAMADAS_EXCEL_DATA).updateOne(
-        filter,
-        {
-          $set: { value: v, updatedAt: now, updatedBy: user?.username || 'unknown' },
-          $setOnInsert: { sheetId: sid, kind, createdAt: now, createdBy: user?.username || 'unknown' }
-        },
-        { upsert: true }
-      );
-    }
-
-    // Touch sheet (si existe)
-    try {
-      await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne(
-        { _id: new ObjectId(sid) },
-        { $set: { updatedAt: now, updatedBy: user?.username || 'unknown' } }
-      );
-    } catch (_) {}
-
-    return res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /api/llamadas-ventas-excel/cell] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al guardar celda', error: error.message });
-  }
-});
-
-// POST /api/llamadas-ventas-excel/user
-app.post('/api/llamadas-ventas-excel/user', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const { sheetId, name, role, team } = req.body || {};
-    const sid = String(sheetId || '').trim();
-    if (!sid || !name || !team) {
-      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: sheetId, name, team' });
-    }
-
-    const doc = {
-      sheetId: sid,
-      name: String(name).trim().toUpperCase(),
-      role: String(role || '').trim(),
-      team: String(team).trim(),
-      updatedAt: new Date(),
-      updatedBy: req.user?.username || 'unknown'
+    const updateData = {
+      nombre_cliente:     body.nombre_cliente     ? toUpper(body.nombre_cliente) : undefined,
+      telefono_principal: body.telefono_principal ? String(body.telefono_principal).replace(/\D+/g,'') : undefined,
+      numero_cuenta:      body.numero_cuenta      ? String(body.numero_cuenta).trim() : undefined,
+      cantidad_lineas:    body.cantidad_lineas    ? Number(body.cantidad_lineas) : undefined,
+      status:             body.status             ? normalizeStatus(body.status).toUpperCase() : undefined,
+      dia_venta:          body.dia_venta          ? asDate(body.dia_venta) : undefined,
+      dia_instalacion:    body.dia_instalacion    ? asDate(body.dia_instalacion) : undefined,
+      actualizadoEn:      new Date()
     };
+    Object.keys(updateData).forEach(k => updateData[k] === undefined && delete updateData[k]);
 
-    await db.collection(LLAMADAS_EXCEL_USERS).updateOne(
-      { sheetId: sid, name: doc.name, team: doc.team },
-      {
-        $set: doc,
-        $setOnInsert: { createdAt: new Date(), createdBy: req.user?.username || 'unknown' }
-      },
-      { upsert: true }
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
+
+    const cols = (await teamLineasDb.listCollections().toArray()).map(c => c.name).filter(Boolean);
+    let updated = false;
+    for (const colName of cols) {
+      try {
+        let filter;
+        try { filter = { _id: new ObjectId(clientId) }; } catch (_) { filter = { _id: clientId }; }
+        const result = await teamLineasDb.collection(colName).updateOne(filter, { $set: updateData });
+        if (result && result.matchedCount > 0) { updated = true; break; }
+      } catch (_) {}
+    }
+    if (!updated) return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    return res.json({ success: true, message: 'Registro actualizado' });
+  } catch (e) {
+    console.error('[PUT /api/lineas-team/update]', e);
+    return res.status(500).json({ success: false, message: 'Error al actualizar Líneas', error: e.message });
+  }
+});
+
+app.post('/api/lineas-team/notes', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const { clientId, texto, type } = req.body || {};
+    if (!clientId) return res.status(400).json({ success: false, message: 'clientId requerido' });
+    let leadObjectId;
+    try { leadObjectId = new ObjectId(clientId); } catch { leadObjectId = clientId; }
+    const nota = { leadId: leadObjectId, texto: String(texto||'').slice(0, 1000), type: type || 'general', autor: req.user?.username || 'Sistema', createdAt: new Date() };
+    await db.collection('lineas_notes').insertOne(nota);
+    return res.json({ success: true, message: 'Nota guardada', data: nota });
+  } catch (e) {
+    console.error('[POST /api/lineas-team/notes]', e);
+    return res.status(500).json({ success: false, message: 'Error al guardar nota', error: e.message });
+  }
+});
+
+app.post('/api/lineas-team/notes/edit', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const { clientId, noteId, texto } = req.body || {};
+    if (!clientId || !noteId) return res.status(400).json({ success: false, message: 'clientId y noteId requeridos' });
+    let noteObjectId;
+    try { noteObjectId = new ObjectId(noteId); } catch { noteObjectId = noteId; }
+    const result = await db.collection('lineas_notes').updateOne(
+      { _id: noteObjectId },
+      { $set: { texto: String(texto||'').slice(0,1000), updatedAt: new Date(), updatedBy: req.user?.username } }
     );
-
-    return res.json({ success: true, data: { name: doc.name, role: doc.role, team: doc.team } });
-  } catch (error) {
-    console.error('[POST /api/llamadas-ventas-excel/user] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al guardar usuario', error: error.message });
+    if (!result.matchedCount) return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    return res.json({ success: true, message: 'Nota actualizada' });
+  } catch (e) {
+    console.error('[POST /api/lineas-team/notes/edit]', e);
+    return res.status(500).json({ success: false, message: 'Error al editar nota', error: e.message });
   }
 });
 
-app.post('/api/llamadas-ventas-excel/user-delete', protect, async (req, res) => {
+app.post('/api/lineas-team/notes/delete', protect, async (req, res) => {
   try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
     if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const { sheetId, name, team } = req.body || {};
-    const sid = String(sheetId || '').trim();
-    const n = String(name || '').trim().toUpperCase();
-    const t = String(team || '').trim();
-    if (!sid || !n || !t) {
-      return res.status(400).json({ success: false, message: 'Faltan campos requeridos: sheetId, name, team' });
-    }
-
-    await db.collection(LLAMADAS_EXCEL_USERS).deleteOne({ sheetId: sid, name: n, team: t });
-    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid, kind: 'cell', team: t, person: n });
-
-    return res.json({ success: true });
-  } catch (error) {
-    console.error('[POST /api/llamadas-ventas-excel/user-delete] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al eliminar usuario', error: error.message });
+    const { noteId } = req.body || {};
+    if (!noteId) return res.status(400).json({ success: false, message: 'noteId requerido' });
+    let noteObjectId;
+    try { noteObjectId = new ObjectId(noteId); } catch { noteObjectId = noteId; }
+    const result = await db.collection('lineas_notes').deleteOne({ _id: noteObjectId });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    return res.json({ success: true, message: 'Nota eliminada' });
+  } catch (e) {
+    console.error('[POST /api/lineas-team/notes/delete]', e);
+    return res.status(500).json({ success: false, message: 'Error al eliminar nota', error: e.message });
   }
 });
 
-// DELETE /api/llamadas-ventas-excel/sheets/:sheetId
-app.delete('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+app.delete('/api/lineas-team/delete', protect, async (req, res) => {
   try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const clientId = (req.body || {}).id;
+    if (!clientId) return res.status(400).json({ success: false, message: 'ID requerido' });
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
+    const cols = (await teamLineasDb.listCollections().toArray()).map(c => c.name).filter(Boolean);
+    let deleted = false;
+    for (const colName of cols) {
+      try {
+        const result = await teamLineasDb.collection(colName).deleteOne({ _id: new ObjectId(clientId) });
+        if (result.deletedCount > 0) { deleted = true; break; }
+      } catch (_) {}
     }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const { sheetId } = req.params;
-    const sid = String(sheetId || '').trim();
-    
-    if (!sid) {
-      return res.status(400).json({ success: false, message: 'Sheet ID es requerido' });
-    }
-
-    // Delete the sheet
-    const sheetResult = await db.collection(LLAMADAS_EXCEL_SHEETS).deleteOne({ _id: new ObjectId(sid) });
-    
-    if (sheetResult.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
-    }
-
-    // Delete all associated data
-    await db.collection(LLAMADAS_EXCEL_USERS).deleteMany({ sheetId: sid });
-    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid });
-
-    return res.json({ success: true, message: 'Sheet eliminado correctamente' });
-  } catch (error) {
-    console.error('[DELETE /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al eliminar sheet', error: error.message });
+    if (!deleted) return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+    return res.json({ success: true, message: 'Registro eliminado' });
+  } catch (e) {
+    console.error('[DELETE /api/lineas-team/delete]', e);
+    return res.status(500).json({ success: false, message: 'Error al eliminar registro de Líneas', error: e.message });
   }
 });
 
-// PATCH /api/llamadas-ventas-excel/sheets/:sheetId
-app.patch('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
-  try {
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    if (!isAllowedLlamadasExcel(req.user?.role)) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    const { sheetId } = req.params;
-    const { name } = req.body || {};
-    const sid = String(sheetId || '').trim();
-    const newName = String(name || '').trim();
-    
-    if (!sid || !newName) {
-      return res.status(400).json({ success: false, message: 'Sheet ID y nombre son requeridos' });
-    }
-
-    // Validate date format MM/DD/YYYY
-    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
-    if (!dateRegex.test(newName)) {
-      return res.status(400).json({ success: false, message: 'Formato de fecha inválido. Use MM/DD/YYYY' });
-    }
-
-    // Update sheet name
-    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne(
-      { _id: new ObjectId(sid) },
-      { 
-        $set: { 
-          name: newName, 
-          updatedAt: new Date(), 
-          updatedBy: req.user?.username || 'unknown' 
-        } 
-      }
-    );
-    
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
-    }
-
-    return res.json({ success: true, message: 'Nombre actualizado correctamente', data: { name: newName } });
-  } catch (error) {
-    console.error('[PATCH /api/llamadas-ventas-excel/sheets/:sheetId] Error:', error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar nombre', error: error.message });
-  }
-});
-
-// ========== ENDPOINT INIT-DASHBOARD ==========
-// Carga todos los datos del dashboard en una sola petición (solución optimizada)
-// OPTIMIZADO: Endpoint ultra-rápido para cargar solo datos esenciales del dashboard
+// ── INIT-DASHBOARD ────────────────────────────────────────────
 app.get('/api/init-dashboard', protect, async (req, res) => {
   const startTime = Date.now();
   try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
 
-    const user = req.user;
+    const user     = req.user;
     const username = user?.username || '';
     const userRole = (user?.role || '').toLowerCase();
-    const isAdmin = ['admin', 'administrator', 'administrador', 'administradora'].some(r => userRole.includes(r));
-    const isBackoffice = ['backoffice', 'bo'].some(r => userRole.includes(r));
-    const isSupervisor = userRole.includes('supervisor');
-    const isAgent = userRole.includes('agente') || userRole.includes('agent');
-    const isAdminOrBackoffice = isAdmin || isBackoffice;
+    const isAdmin  = ['admin','administrator','administrador','administradora'].some(r => userRole.includes(r));
+    const isBO     = ['backoffice','bo'].some(r => userRole.includes(r));
+    const isSup    = userRole.includes('supervisor');
+    const isAgent  = userRole.includes('agente') || userRole.includes('agent');
+    const isAdmOrBO = isAdmin || isBO;
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 1);
+    const now        = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 1);
 
-    console.log(`[INIT-DASHBOARD] ⚡ Inicio para ${username} (${userRole}) [Admin:${isAdmin} BO:${isBackoffice} Sup:${isSupervisor} Agent:${isAgent}]`);
-
-    // Mapeo de supervisor -> agentes (igual al que se usa en otros lugares)
-    const AGENT_TO_SUP = new Map([
-      ['josue renderos','irania serrano'], ['tatiana ayala','irania serrano'], ['giselle diaz','irania serrano'],
-      ['miguel nunez','irania serrano'], ['roxana martinez','irania serrano'], ['irania serrano','irania serrano'],
-      ['abigail galdamez','bryan pleitez'], ['alexander rivera','bryan pleitez'], ['diego mejia','bryan pleitez'],
-      ['evelin garcia','bryan pleitez'], ['fabricio panameno','bryan pleitez'], ['luis chavarria','bryan pleitez'],
-      ['steven varela','bryan pleitez'],
-      ['cindy flores','roberto velasquez'], ['daniela bonilla','roberto velasquez'], ['francisco aguilar','roberto velasquez'],
-      ['levy ceren','roberto velasquez'], ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
-      ['nelson ceren','roberto velasquez'],
-      ['anderson guzman','randal martinez'], ['carlos grande','randal martinez'], ['guadalupe santana','randal martinez'],
-      ['julio chavez','randal martinez'], ['priscila hernandez','randal martinez'], ['riquelmi torres','randal martinez']
-    ]);
-
-    const norm = (s) => {
-      try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');} catch { return ''; }
-    };
-
-    // Obtener lista de agentes que supervisa este usuario (si es supervisor)
-    let supervisorAgents = [];
-    if (isSupervisor) {
-      const normalizedUsername = norm(username);
-      supervisorAgents = Array.from(AGENT_TO_SUP.entries())
-        .filter(([agent, supervisor]) => norm(supervisor) === normalizedUsername)
-        .map(([agent]) => agent);
-      console.log(`[INIT-DASHBOARD] Supervisor '${username}' supervisa ${supervisorAgents.length} agentes: ${supervisorAgents.slice(0, 3).join(', ')}...`);
-    }
-
-    // Definir qué usuarios son considerados en los datos
-    // Nota:
-    // - KPIs del panel "Métricas del mes" y el widget "Ranking del mes" deben ser GLOBALES para agentes.
-    // - El HERO debe seguir mostrando métricas PERSONALES.
-    let usersForData = [];
-    if (isAdminOrBackoffice) {
-      // Admin/Backoffice: incluir TODOS (sin filtrar)
-      usersForData = null; // null = sin filtrar
-    } else if (isSupervisor) {
-      // Supervisor: incluir solo sus agentes
-      usersForData = supervisorAgents;
-    } else if (isAgent) {
-      // Agente: KPIs/RANKING globales
-      usersForData = null;
-    }
-
-    // Función para crear filtro de usuario según rol
-    const createUserFilter = () => {
-      if (!usersForData) return {}; // Admin/BO: sin filtro de usuario
-      const userNames = usersForData.map(u => norm(u));
-      return { $or: [
-        { agenteNombre: { $in: usersForData } },
-        { agente: { $in: usersForData } },
-        { usuario: { $in: usersForData } }
-      ]};
-    };
+    const supervisorAgents = isSup ? getSupervisorAgents(username) : [];
+    let usersForData = null;
+    if (isSup) usersForData = supervisorAgents;
 
     const dateConditions = [
-      { dia_venta: { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
-      { creadoEn: { $gte: monthStart, $lt: monthEnd } },
-      { createdAt: { $gte: monthStart, $lt: monthEnd } },
-      { fecha: { $gte: monthStart, $lt: monthEnd } }
+      { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
+      { createdAt:          { $gte: monthStart, $lt: monthEnd } },
+      { fecha:              { $gte: monthStart, $lt: monthEnd } }
     ];
 
-    const userFilter = createUserFilter();
-    const filter = userFilter && Object.keys(userFilter).length > 0 
-      ? { $and: [ { $or: dateConditions }, userFilter ] }
-      : { $or: dateConditions };
-
-    const projection = {
-      _id: 1, agenteNombre: 1, agente: 1, usuario: 1, servicios: 1, tipo_servicios: 1,
-      puntaje: 1, status: 1, dia_venta: 1, creadoEn: 1, createdAt: 1,
-      fecha_contratacion: 1, fecha: 1, nombre_cliente: 1
+    const colchonCondition = {
+      $and: [
+        { dia_instalacion: { $gte: monthStart, $lt: monthEnd } },
+        { dia_venta:       { $lt: monthStart } },
+        { $or: [
+          { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
+        ]}
+      ]
     };
 
-    // Una sola query optimizada
-    const leads = await db.collection('costumers_unified')
+    const userFilter = usersForData
+      ? { $or: [{ agenteNombre: { $in: usersForData } },{ agente: { $in: usersForData } },{ usuario: { $in: usersForData } }] }
+      : {};
+
+    const baseFilter = { $or: [...dateConditions, colchonCondition] };
+    const filter = (usersForData && usersForData.length > 0)
+      ? { $and: [baseFilter, userFilter] }
+      : baseFilter;
+
+    const leads = await dbInst.collection('costumers_unified')
       .find(filter)
-      .project(projection)
+      .project({ _id:1, agenteNombre:1, agente:1, usuario:1, servicios:1, tipo_servicios:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1, creadoEn:1, createdAt:1, nombre_cliente:1 })
       .sort({ dia_venta: -1 })
       .limit(20000)
       .toArray();
 
-    console.log(`[INIT-DASHBOARD] 📊 Registros obtenidos (filtro de usuario aplicado): ${leads.length}`);
+    const colchonLeads = leads.filter(l => isColchon(l, now));
+    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    const totalPuntos  = ventasLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0);
 
-    // CÁLCULOS DE KPIs (del usuario logueado o su equipo)
-    const totalPuntos = leads.reduce((sum, lead) => sum + parseFloat(lead.puntaje || 0), 0);
     const kpis = {
-      ventas: leads.length,
-      puntos: totalPuntos,
+      ventas:         ventasLeads.length,
+      puntos:         totalPuntos,
       mayor_vendedor: '-',
-      mejor_team: '-',
-      canceladas: leads.filter(l => (l.status || '').toLowerCase().includes('cancel')).length,
-      pendientes: leads.filter(l => (l.status || '').toLowerCase().includes('pend')).length
+      mejor_team:     '-',
+      canceladas:     leads.filter(l => isCancelled(l.status) && !isColchon(l, now)).length,
+      pendientes:     leads.filter(l => isPending(l.status)   && !isColchon(l, now)).length,
+      colchon:        colchonLeads.length,
+      colchon_puntos: colchonLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0)
     };
 
-    // Mejor vendedor (agente con MÁS PUNTOS del mes)
-    if (leads.length > 0) {
+    if (ventasLeads.length > 0) {
       const agentPuntos = {};
-      leads.forEach(l => {
-        const agent = l.agenteNombre || l.agente || '-';
-        agentPuntos[agent] = (agentPuntos[agent] || 0) + parseFloat(l.puntaje || 0);
+      ventasLeads.forEach(l => {
+        const a = l.agenteNombre || l.agente || '-';
+        agentPuntos[a] = (agentPuntos[a] || 0) + parseFloat(l.puntaje || 0);
       });
-      const topAgent = Object.entries(agentPuntos).sort((a, b) => b[1] - a[1])[0];
-      kpis.mayor_vendedor = topAgent ? topAgent[0] : '-';
-      
-      console.log(`[INIT-DASHBOARD] Top agentes por puntos:`, Object.entries(agentPuntos).sort((a, b) => b[1] - a[1]).slice(0, 3));
+      const top = Object.entries(agentPuntos).sort((a, b) => b[1] - a[1])[0];
+      kpis.mayor_vendedor = top ? top[0] : '-';
     }
 
-    // Mejor team (team con MÁS PUNTOS del mes)
-    // TODOS ven el mejor team del mes (no solo su team)
-    if (leads.length > 0) {
-      // Obtener todos los agentes del mes con sus teams
-      const allLeadsForTeams = await db.collection('costumers_unified')
+    try {
+      const allLeadsTeams = await dbInst.collection('costumers_unified')
         .find({ $or: dateConditions })
-        .project({ agenteNombre: 1, agente: 1, usuario: 1, puntaje: 1, team: 1 })
+        .project({ agenteNombre:1, agente:1, usuario:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1 })
         .toArray();
-      
-      // Mapear agente -> team usando datos de usuarios
+      const users = await dbInst.collection('users').find({}).project({ username:1, team:1 }).toArray();
       const agentTeamMap = new Map();
-      const users = await db.collection('users').find({}).toArray();
-      users.forEach(u => {
-        if (u.username) {
-          agentTeamMap.set(norm(u.username), u.team || 'Sin equipo');
-        }
-      });
-      
+      users.forEach(u => { if (u.username) agentTeamMap.set(normText(u.username), u.team || 'Sin equipo'); });
       const teamPuntos = {};
-      allLeadsForTeams.forEach(l => {
+      allLeadsTeams.filter(l => isCompleted(l.status) && !isColchon(l, now)).forEach(l => {
         const agent = l.agenteNombre || l.agente || l.usuario || '-';
-        const team = agentTeamMap.get(norm(agent)) || 'Sin equipo';
+        const team  = agentTeamMap.get(normText(agent)) || 'Sin equipo';
         teamPuntos[team] = (teamPuntos[team] || 0) + parseFloat(l.puntaje || 0);
       });
-      
       const topTeam = Object.entries(teamPuntos).sort((a, b) => b[1] - a[1])[0];
       kpis.mejor_team = topTeam ? topTeam[0] : '-';
-      
-      console.log(`[INIT-DASHBOARD] Top teams por puntos:`, Object.entries(teamPuntos).sort((a, b) => b[1] - a[1]).slice(0, 3));
-    }
+    } catch (_) {}
 
-    // Gráficos
-    const agentMap = {};
+    const agentMap   = {};
     const productMap = {};
-    let agentsWithData = 0, productsWithData = 0;
-    
-    leads.forEach(lead => {
+    ventasLeads.forEach(lead => {
       const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
-      if (agent && agent !== 'Sin asignar') agentsWithData++;
       agentMap[agent] = (agentMap[agent] || 0) + 1;
-
       let services = lead.servicios || lead.tipo_servicios || [];
       if (typeof services === 'string') services = [services];
-      else if (!Array.isArray(services)) services = [];
-      
-      services.forEach(s => {
-        if (s) { productsWithData++; productMap[s] = (productMap[s] || 0) + 1; }
-      });
+      if (!Array.isArray(services)) services = [];
+      services.forEach(s => { if (s) productMap[s] = (productMap[s] || 0) + 1; });
     });
+    const chartTeams     = Object.entries(agentMap).map(([nombre, count]) => ({ nombre, count })).sort((a,b)=>b.count-a.count).slice(0,50);
+    const chartProductos = Object.entries(productMap).map(([servicio, count]) => ({ servicio, count })).sort((a,b)=>b.count-a.count).slice(0,5);
 
-    const chartTeams = Object.entries(agentMap)
-      .map(([nombre, count]) => ({ nombre, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 50);
-
-    const chartProductos = Object.entries(productMap)
-      .map(([servicio, count]) => ({ servicio, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    // DATOS PERSONALES DEL USUARIO LOGUEADO (para hero section)
-    let userPersonalStats = { ventasPersonales: 0, puntosPersonales: 0, posicionRanking: '-', nombreUsuario: user?.name || username };
-
-    // Para agentes y supervisores: calcular stats del usuario logueado dentro de la data global (o del equipo)
-    if (!isAdminOrBackoffice) {
-      const userLeads = leads.filter(l => norm(l.agenteNombre || l.agente || l.usuario || '') === norm(username));
+    let userPersonalStats = { ventasPersonales:0, puntosPersonales:0, posicionRanking:'-', nombreUsuario: user?.name || username };
+    if (!isAdmOrBO) {
+      const userLeads = leads.filter(l => isCompleted(l.status) && !isColchon(l, now) && normText(l.agenteNombre || l.agente || l.usuario || '') === normText(username));
       userPersonalStats.ventasPersonales = userLeads.length;
-      userPersonalStats.puntosPersonales = Math.round(userLeads.reduce((sum, l) => sum + parseFloat(l.puntaje || 0), 0) * 100) / 100;
+      userPersonalStats.puntosPersonales = Math.round(userLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0) * 100) / 100;
     }
-
-    // Calcular ranking del usuario logueado si es agente
-    if (isAgent && !isAdminOrBackoffice) {
-      // Obtener todos los agentes del mes con sus puntos
-      const allLeads = await db.collection('costumers_unified')
-        .find({ $or: dateConditions })
-        .project({ agenteNombre: 1, agente: 1, puntaje: 1 })
-        .toArray();
-
+    if (isAgent && !isAdmOrBO) {
+      const allLeads = await dbInst.collection('costumers_unified').find({ $or: dateConditions }).project({ agenteNombre:1, agente:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1 }).toArray();
       const agentStats = {};
-      allLeads.forEach(l => {
-        const agent = l.agenteNombre || l.agente || '-';
-        if (!agentStats[agent]) agentStats[agent] = 0;
-        agentStats[agent] += parseFloat(l.puntaje || 0);
+      allLeads.filter(l => isCompleted(l.status) && !isColchon(l, now)).forEach(l => {
+        const a = l.agenteNombre || l.agente || '-';
+        agentStats[a] = (agentStats[a] || 0) + parseFloat(l.puntaje || 0);
       });
-
-      const ranking = Object.entries(agentStats)
-        .map(([name, pts]) => ({ name, pts }))
-        .sort((a, b) => b.pts - a.pts);
-
-      const userPos = ranking.findIndex(r => norm(r.name) === norm(username)) + 1;
-      userPersonalStats.posicionRanking = userPos > 0 ? `#${userPos}/${ranking.length}` : '-';
+      const ranking = Object.entries(agentStats).map(([name, pts]) => ({ name, pts })).sort((a,b)=>b.pts-a.pts);
+      const pos = ranking.findIndex(r => normText(r.name) === normText(username)) + 1;
+      userPersonalStats.posicionRanking = pos > 0 ? `#${pos}/${ranking.length}` : '-';
     }
 
     const elapsed = Date.now() - startTime;
-    console.log(`[INIT-DASHBOARD] ✅ Completado en ${elapsed}ms`);
-
-    const response = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: {
-        username: user?.username,
-        role: user?.role,
-        team: user?.team || 'Sin equipo',
-        name: user?.name || username
-      },
-      kpis: kpis,
-      userStats: {
-        ventasUsuario: userPersonalStats.ventasPersonales,
-        puntosUsuario: userPersonalStats.puntosPersonales,
-        equipoUsuario: user?.team || 'Sin equipo'
-      },
-      userPersonalStats: userPersonalStats,
-      chartTeams: chartTeams,
-      chartProductos: chartProductos,
-      isAdmin: isAdmin,
-      isBackoffice: isBackoffice,
-      isSupervisor: isSupervisor,
-      isAgent: isAgent,
-      roleInfo: {
-        supervisorAgents: isSupervisor ? supervisorAgents : [],
-        viewAllUsers: isAdminOrBackoffice
-      },
-      monthYear: `${currentMonth + 1}/${currentYear}`
-    };
-
-    res.json(response);
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-DASHBOARD] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos del dashboard',
-      error: error.message
-    });
-  }
-});
-
-/**
- * ACTIVITY LOGGING HELPER
- * Registra todas las actividades de los usuarios en la colección 'activities'
- */
-async function logActivity(db, activityType, leadId, leadClientName, actorUsername, actorRole, description, additionalData = {}) {
-  try {
-    const activity = {
-      activity_type: activityType, // "Venta cerrada", "Cambio de Status", "Nota agregada", etc.
-      lead_id: leadId,
-      lead_client_name: leadClientName,
-      actor_username: actorUsername,
-      actor_role: actorRole,
-      description: description,
-      timestamp: new Date(),
-      ...additionalData
-    };
-    
-    await db.collection('activities').insertOne(activity);
-    console.log(`[ACTIVITY-LOG] ${activityType} registrada para ${leadClientName}`);
-  } catch (error) {
-    console.warn(`[ACTIVITY-LOG] Error registrando actividad:`, error.message);
-  }
-}
-
-// Obtener actividad reciente (desde la colección activities)
-app.get('/api/recent-activity', protect, async (req, res) => {
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-    const userRole = (user?.role || '').toLowerCase();
-    const isAdmin = ['admin', 'administrator', 'administrador', 'administradora'].some(r => userRole.includes(r));
-    const isBackoffice = ['backoffice', 'bo'].some(r => userRole.includes(r));
-    const isSupervisor = userRole.includes('supervisor');
-    const isAgent = userRole.includes('agente') || userRole.includes('agent');
-    const isAdminOrBackoffice = isAdmin || isBackoffice;
-
-    const norm = (s) => {
-      try { return String(s || '').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');} catch { return ''; }
-    };
-
-    // Mapeo de supervisor -> agentes
-    const AGENT_TO_SUP = new Map([
-      ['josue renderos','irania serrano'], ['tatiana ayala','irania serrano'], ['giselle diaz','irania serrano'],
-      ['miguel nunez','irania serrano'], ['roxana martinez','irania serrano'], ['irania serrano','irania serrano'],
-      ['abigail galdamez','bryan pleitez'], ['alexander rivera','bryan pleitez'], ['diego mejia','bryan pleitez'],
-      ['evelin garcia','bryan pleitez'], ['fabricio panameno','bryan pleitez'], ['luis chavarria','bryan pleitez'],
-      ['steven varela','bryan pleitez'],
-      ['cindy flores','roberto velasquez'], ['daniela bonilla','roberto velasquez'], ['francisco aguilar','roberto velasquez'],
-      ['levy ceren','roberto velasquez'], ['lisbeth cortez','roberto velasquez'], ['lucia ferman','roberto velasquez'],
-      ['nelson ceren','roberto velasquez'],
-      ['anderson guzman','randal martinez'], ['carlos grande','randal martinez'], ['guadalupe santana','randal martinez'],
-      ['julio chavez','randal martinez'], ['priscila hernandez','randal martinez'], ['riquelmi torres','randal martinez']
-    ]);
-
-    // Obtener agentes que supervisa (si es supervisor)
-    let supervisorAgents = [];
-    if (isSupervisor) {
-      const normalizedUsername = norm(username);
-      supervisorAgents = Array.from(AGENT_TO_SUP.entries())
-        .filter(([agent, supervisor]) => norm(supervisor) === normalizedUsername)
-        .map(([agent]) => agent);
-    }
-
-    // Definir usuarios visibles según rol
-    let usersForData = [];
-    if (isAdminOrBackoffice) {
-      usersForData = null; // Sin filtro
-    } else if (isSupervisor) {
-      usersForData = supervisorAgents;
-    } else if (isAgent) {
-      usersForData = [username];
-    }
-
-    // Crear filtro de usuario
-    let userFilter = {};
-    if (usersForData) {
-      userFilter = { $or: [
-        { agenteNombre: { $in: usersForData } },
-        { agente: { $in: usersForData } },
-        { usuario: { $in: usersForData } }
-      ]};
-    }
-
-    // Obtener últimos 50 leads, ordenados por fecha de creación más reciente
-    const now = new Date();
-    const lastDays = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Últimos 30 días
-    
-    const dateFilter = {
-      $or: [
-        { creadoEn: { $gte: lastDays } },
-        { createdAt: { $gte: lastDays } },
-        { dia_venta: { $gte: lastDays } },
-        { fecha_contratacion: { $gte: lastDays } },
-        { fecha: { $gte: lastDays } }
-      ]
-    };
-
-    const filter = usersForData ? { $and: [dateFilter, userFilter] } : dateFilter;
-
-    const activities = await db.collection('costumers_unified')
-      .find(filter)
-      .sort({ creadoEn: -1, createdAt: -1, dia_venta: -1 })
-      .limit(50)
-      .project({
-        _id: 1,
-        nombre_cliente: 1,
-        agenteNombre: 1,
-        agente: 1,
-        usuario: 1,
-        status: 1,
-        servicios: 1,
-        tipo_servicios: 1,
-        puntaje: 1,
-        creadoEn: 1,
-        createdAt: 1,
-        dia_venta: 1,
-        tipo_actividad: 1
-      })
-      .toArray();
-
-    // Transformar a formato de actividad más legible
-    const formatted = activities.map((lead, idx) => {
-      const agent = lead.agenteNombre || lead.agente || lead.usuario || '—';
-      const clientName = lead.nombre_cliente || 'Cliente sin nombre';
-      const services = Array.isArray(lead.servicios) ? lead.servicios[0] : 
-                      lead.tipo_servicios || 'Servicio general';
-      const status = (lead.status || '').toLowerCase();
-      
-      // Determinar tipo de actividad basado en status
-      let activityType = 'Nuevo';
-      if (status.includes('cerr') || status.includes('complet')) {
-        activityType = 'Venta cerrada';
-      } else if (status.includes('pend')) {
-        activityType = 'Seguimiento';
-      } else if (status.includes('cancel')) {
-        activityType = 'Cancelación';
-      } else if (status.includes('susp') || status.includes('soport')) {
-        activityType = 'Soporte';
-      } else if (status.includes('edit') || status.includes('modif')) {
-        activityType = 'Edición';
-      }
-
-      const dateCreated = lead.creadoEn || lead.createdAt || lead.dia_venta || new Date();
-      const timeAgo = getTimeAgo(dateCreated);
-
-      return {
-        id: lead._id,
-        nombre_cliente: clientName,
-        agente: agent,
-        servicio: services,
-        tipo_actividad: activityType,
-        status: status,
-        fecha: dateCreated,
-        tiempo_relativo: timeAgo
-      };
-    });
-
     res.json({
-      success: true,
-      data: formatted
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role, team: user?.team || 'Sin equipo', name: user?.name || username },
+      kpis,
+      userStats: { ventasUsuario: userPersonalStats.ventasPersonales, puntosUsuario: userPersonalStats.puntosPersonales, equipoUsuario: user?.team || 'Sin equipo' },
+      userPersonalStats, chartTeams, chartProductos,
+      isAdmin, isBackoffice: isBO, isSupervisor: isSup, isAgent,
+      roleInfo: { supervisorAgents: isSup ? supervisorAgents : [], viewAllUsers: isAdmOrBO },
+      monthYear: `${curMonth + 1}/${curYear}`
     });
-
-  } catch (error) {
-    console.error('[RECENT-ACTIVITY] Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar actividad reciente',
-      error: error.message
-    });
+  } catch (e) {
+    console.error('[INIT-DASHBOARD] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar dashboard', error: e.message });
   }
 });
 
-// Función auxiliar para calcular tiempo relativo
-function getTimeAgo(date) {
-  if (!(date instanceof Date) || isNaN(date)) {
-    return 'Hace poco';
-  }
-  
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 1) return 'Hace segundos';
-  if (diffMins < 60) return `Hace ${diffMins} min`;
-  if (diffHours < 24) return `Hace ${diffHours} h`;
-  if (diffDays < 7) return `Hace ${diffDays} días`;
-  return date.toLocaleDateString('es-ES');
-}
-
-// Pre-calentar datos de TODAS las páginas del mes actual para carga instantánea post-login
-// Retorna: dashboard, customers, leads, rankings, estadísticas (solo mes actual)
-app.get('/api/init-all-pages', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-    const userRole = (user?.role || '').toLowerCase();
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-
-    console.log(`[INIT-ALL-PAGES] ⚡ Inicio para ${username} (${userRole})`);
-
-    // Filtro de fecha para el mes actual
-    const dateConditions = [
-      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
-      { creadoEn: { $gte: monthStart, $lte: monthEnd } },
-      { createdAt: { $gte: monthStart, $lte: monthEnd } },
-      { fecha: { $gte: monthStart, $lte: monthEnd } }
-    ];
-
-    // 1. DASHBOARD DATA (KPIs)
-    let dashboardData = null;
-    try {
-      dashboardData = global.initDashboardCache?.data || null;
-    } catch (e) {
-      console.warn('[INIT-ALL-PAGES] Error fetching dashboard cache:', e?.message);
-    }
-
-    // 2. CUSTOMERS para Costumer.html (primeros 200 del mes actual, proyección ligera)
-    let customers = [];
-    try {
-      const custColl = db.collection('costumers_unified');
-      const custFilter = { $or: dateConditions };
-      customers = await custColl.find(custFilter)
-        .project({
-          _id: 1,
-          nombre_cliente: 1,
-          status: 1,
-          telefono_principal: 1,
-          numero_cuenta: 1,
-          agente: 1,
-          agenteNombre: 1,
-          supervisor: 1,
-          dia_venta: 1,
-          dia_instalacion: 1,
-          autopago: 1,
-          pin_seguridad: 1,
-          direccion: 1,
-          telefonos: 1,
-          cantidad_lineas: 1,
-          servicios: 1,
-          servicios_texto: 1,
-          producto: 1,
-          mercado: 1
-        })
-        .limit(200)
-        .toArray();
-      console.log(`[INIT-ALL-PAGES] Customers del mes: ${customers.length}`);
-    } catch (e) {
-      console.warn('[INIT-ALL-PAGES] Error fetching customers:', e?.message);
-    }
-
-    // 3. LEADS para estadísticas (primeros 100 del mes actual)
-    let leads = [];
-    try {
-      const leadsColl = db.collection('leads');
-      const leadFilter = { $or: dateConditions };
-      leads = await leadsColl.find(leadFilter)
-        .project({
-          _id: 1,
-          nombre: 1,
-          status: 1,
-          fecha: 1,
-          agente: 1,
-          agenteNombre: 1,
-          puntaje: 1,
-          servicios: 1,
-          empresa: 1
-        })
-        .limit(100)
-        .toArray();
-      console.log(`[INIT-ALL-PAGES] Leads del mes: ${leads.length}`);
-    } catch (e) {
-      console.warn('[INIT-ALL-PAGES] Error fetching leads:', e?.message);
-    }
-
-    // 4. RANKINGS (top 30)
-    let rankings = [];
-    try {
-      const rankColl = db.collection('rankings');
-      rankings = await rankColl.find({})
-        .project({
-          _id: 1,
-          agente: 1,
-          agenteNombre: 1,
-          puntaje: 1,
-          posicion: 1,
-          ventas: 1,
-          mes: 1
-        })
-        .limit(30)
-        .toArray();
-      console.log(`[INIT-ALL-PAGES] Rankings: ${rankings.length}`);
-    } catch (e) {
-      console.warn('[INIT-ALL-PAGES] Error fetching rankings:', e?.message);
-    }
-
-    // 5. ESTADÍSTICAS agregadas por equipo (mes actual)
-    let statsAgg = {};
-    try {
-      const statsColl = db.collection('estadisticas');
-      const statsFilter = { $or: dateConditions };
-      const agg = await statsColl.aggregate([
-        { $match: statsFilter },
-        { $group: {
-          _id: '$equipo',
-          totalLeads: { $sum: 1 },
-          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } },
-          promedio: { $avg: '$puntaje' }
-        }},
-        { $sort: { totalLeads: -1 } },
-        { $limit: 15 }
-      ]).toArray();
-      agg.forEach(s => {
-        statsAgg[s._id || 'general'] = {
-          totalLeads: s.totalLeads,
-          totalVentas: s.totalVentas,
-          promedio: Math.round(s.promedio || 0)
-        };
-      });
-      console.log(`[INIT-ALL-PAGES] Stats equipos: ${Object.keys(statsAgg).length}`);
-    } catch (e) {
-      console.warn('[INIT-ALL-PAGES] Error fetching stats:', e?.message);
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-ALL-PAGES] ✅ Completado en ${elapsed}ms`);
-
-    const response = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: {
-        username: user?.username,
-        role: user?.role,
-        team: user?.team || 'Sin equipo'
-      },
-      data: {
-        dashboard: dashboardData,
-        customers: customers,
-        leads: leads,
-        rankings: rankings,
-        stats: statsAgg,
-        monthYear: `${currentMonth + 1}/${currentYear}`,
-        note: 'Solo datos del mes actual. Para otros meses, filtrar en la página.'
-      },
-      ttl: 5 * 60 * 1000  // válido por 5 minutos
-    };
-
-    res.json(response);
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-ALL-PAGES] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de páginas',
-      error: error.message
-    });
-  }
-});
-
-// Endpoint específico para precalentamiento de Estadísticas
-app.get('/api/init-estadisticas', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-    const userRole = (user?.role || '').toLowerCase();
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-
-    console.log(`[INIT-ESTADISTICAS] ⚡ Inicio para ${username} (${userRole})`);
-
-    const dateConditions = [
-      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
-      { creadoEn: { $gte: monthStart, $lte: monthEnd } },
-      { createdAt: { $gte: monthStart, $lte: monthEnd } },
-      { fecha: { $gte: monthStart, $lte: monthEnd } }
-    ];
-
-    // 1. Datos de equipos (para gráfico de porcentaje/estadísticas por equipo)
-    let teamsData = [];
-    try {
-      const statsColl = db.collection('estadisticas');
-      const statsFilter = { $or: dateConditions };
-      const agg = await statsColl.aggregate([
-        { $match: statsFilter },
-        { $group: {
-          _id: '$equipo',
-          totalLeads: { $sum: 1 },
-          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } },
-          promedio: { $avg: '$puntaje' },
-          ACTIVAS: { $sum: { $cond: [{ $eq: ['$status', 'Activa'] }, 1, 0] } }
-        }},
-        { $sort: { totalLeads: -1 } },
-        { $limit: 20 }
-      ]).toArray();
-      teamsData = agg.map(s => ({
-        name: s._id || 'Sin equipo',
-        equipo: s._id || 'Sin equipo',
-        Total: s.totalLeads,
-        totalVentas: s.totalVentas,
-        Puntaje: Math.round(s.promedio || 0),
-        ACTIVAS: s.ACTIVAS,
-        porcentaje: 0 // se calcula en el front
-      }));
-      console.log(`[INIT-ESTADISTICAS] Teams datos: ${teamsData.length}`);
-    } catch (e) {
-      console.warn('[INIT-ESTADISTICAS] Error fetching teams:', e?.message);
-    }
-
-    // 2. Agentes con estadísticas (para conversion table y rankings)
-    let agentsData = [];
-    try {
-      const costumersColl = db.collection('costumers_unified');
-      const custFilter = { $or: dateConditions };
-      const agg = await costumersColl.aggregate([
-        { $match: custFilter },
-        { $group: {
-          _id: '$agenteNombre',
-          totalClientes: { $sum: 1 },
-          agente: { $first: '$agente' },
-          supervisor: { $first: '$supervisor' }
-        }},
-        { $sort: { totalClientes: -1 } },
-        { $limit: 30 }
-      ]).toArray();
-      agentsData = agg.map(a => ({
-        nombre: a._id || 'Sin asignar',
-        agente: a.agente || '',
-        totalClientes: a.totalClientes,
-        supervisor: a.supervisor || ''
-      }));
-      console.log(`[INIT-ESTADISTICAS] Agents datos: ${agentsData.length}`);
-    } catch (e) {
-      console.warn('[INIT-ESTADISTICAS] Error fetching agents:', e?.message);
-    }
-
-    // 3. Datos de leads para gráficos de ventas (últimos 60 días)
-    let leadsChartData = [];
-    try {
-      const leadsColl = db.collection('leads');
-      const pastDays = 60;
-      const dateFrom = new Date(now);
-      dateFrom.setDate(dateFrom.getDate() - pastDays);
-      const leadsFilter = { fecha: { $gte: dateFrom, $lte: now } };
-      
-      const leadsAgg = await leadsColl.aggregate([
-        { $match: leadsFilter },
-        { $group: {
-          _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$fecha', timezone: 'America/Costa_Rica' }
-          },
-          count: { $sum: 1 },
-          completados: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } }
-        }},
-        { $sort: { _id: 1 } },
-        { $limit: 60 }
-      ]).toArray();
-      
-      leadsChartData = leadsAgg.map(l => ({
-        fecha: l._id,
-        count: l.count,
-        completados: l.completados || 0
-      }));
-      console.log(`[INIT-ESTADISTICAS] Leads chart data: ${leadsChartData.length} days`);
-    } catch (e) {
-      console.warn('[INIT-ESTADISTICAS] Error fetching leads chart:', e?.message);
-    }
-
-    // 4. Resumen rápido por estado
-    let statusSummary = {};
-    try {
-      const custColl = db.collection('costumers_unified');
-      const custFilter = { $or: dateConditions };
-      const statusAgg = await custColl.aggregate([
-        { $match: custFilter },
-        { $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }},
-        { $sort: { count: -1 } }
-      ]).toArray();
-      statusAgg.forEach(s => {
-        statusSummary[s._id || 'Sin estado'] = s.count;
-      });
-      console.log(`[INIT-ESTADISTICAS] Status summary: ${Object.keys(statusSummary).length} estados`);
-    } catch (e) {
-      console.warn('[INIT-ESTADISTICAS] Error fetching status summary:', e?.message);
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-ESTADISTICAS] ✅ Completado en ${elapsed}ms`);
-
-    const response = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: {
-        username: user?.username,
-        role: user?.role,
-        team: user?.team || 'Sin equipo'
-      },
-      data: {
-        teamsData: teamsData,
-        agentsData: agentsData,
-        leadsChartData: leadsChartData,
-        statusSummary: statusSummary,
-        monthYear: `${currentMonth + 1}/${currentYear}`,
-        note: 'Datos precalculados para Estadísticas.html'
-      },
-      ttl: 5 * 60 * 1000
-    };
-
-    res.json(response);
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-ESTADISTICAS] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de estadísticas',
-      error: error.message
-    });
-  }
-});
-
-// Endpoint específico para precalentamiento de Rankings
-app.get('/api/init-rankings', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-    const userRole = (user?.role || '').toLowerCase();
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-
-    console.log(`[INIT-RANKINGS] ⚡ Inicio para ${username} (${userRole})`);
-
-    // 1. Ranking del MES ACTUAL (para mostrar Top 3) - buscar en costumers por rango de fecha
-    let currentMonthRanking = [];
-    try {
-      const custColl = db.collection('costumers_unified');
-      
-      // Buscar en costumers por rango de fecha del mes actual
-      const rankingData = await custColl.find({
-        $or: [
-          { createdAt: { $gte: monthStart, $lte: monthEnd } },
-          { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-          { fecha: { $gte: monthStart, $lte: monthEnd } }
-        ]
-      })
-        .project({
-          _id: 1,
-          agente: 1,
-          agenteNombre: 1,
-          nombre: 1,
-          puntos: 1,
-          puntaje: 1,
-          sumPuntaje: 1,
-          ventas: 1,
-          posicion: 1,
-          position: 1,
-          mes: 1
-        })
-        .sort({ sumPuntaje: -1, puntos: -1 })
-        .limit(30)
-        .toArray();
-      
-      currentMonthRanking = rankingData.map((r, idx) => ({
-        agente: r.agente,
-        nombre: r.agenteNombre || r.nombre,
-        puntos: r.sumPuntaje || r.puntos || 0,
-        puntaje: r.sumPuntaje || r.puntaje || 0,
-        promedio: r.sumPuntaje || r.puntaje || 0,
-        ventas: r.ventas || 0,
-        posicion: r.position || r.posicion || (idx + 1),
-        position: r.position || r.posicion || (idx + 1),
-        mes: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
-      }));
-      console.log(`[INIT-RANKINGS] Ranking mes actual (${monthStart.toISOString()} - ${monthEnd.toISOString()}): ${currentMonthRanking.length} agentes`);
-    } catch (e) {
-      console.warn('[INIT-RANKINGS] Error fetching current month ranking:', e?.message);
-    }
-
-    // 2. Ranking histórico por mes (últimos 6 meses)
-    let monthlyRankings = {};
-    try {
-      // Buscar SOLO en la colección principal 'costumers' para evitar duplicados de agentes en colecciones individuales
-      const costumersColl = db.collection('costumers_unified');
-      const months = [];
-      for (let i = 0; i < 6; i++) {
-        const d = new Date(currentYear, currentMonth - i, 1);
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const y = d.getFullYear();
-        months.push({ key: `${y}-${m}`, year: y, month: parseInt(m, 10) });
-      }
-
-      for (const monthInfo of months) {
-        try {
-          const { key: monthKey, year: y, month: m } = monthInfo;
-          const monthStart = new Date(y, m - 1, 1);
-          const monthEnd = new Date(y, m, 0, 23, 59, 59);
-          
-          console.log(`[INIT-RANKINGS] Consultando mes ${monthKey} desde costumers collection`);
-          
-          // Usar agregación para agrupar por agente y evitar duplicados
-          const rankData = await costumersColl
-            .aggregate([
-              {
-                $match: {
-                  createdAt: { $gte: monthStart, $lte: monthEnd }
-                }
-              },
-              {
-                $group: {
-                  _id: { $toLower: { $trim: { input: '$agente' } } },
-                  agenteNombre: { $first: '$agente' },
-                  nombre: { $first: '$agente' },
-                  ventas: { $sum: { $cond: [{ $in: ['$status', ['vendido', 'cerrado', 'completado']] }, 1, 0] } },
-                  sumPuntaje: { $sum: { $toDouble: { $ifNull: ['$puntaje', 0] } } },
-                  count: { $sum: 1 }
-                }
-              },
-              { $sort: { sumPuntaje: -1, ventas: -1 } },
-              { $limit: 15 }
-            ])
-            .toArray();
-          
-          monthlyRankings[monthKey] = rankData.map((r, idx) => ({
-            agente: r._id,
-            nombre: r.agenteNombre || r.nombre,
-            puntos: Number((r.sumPuntaje || 0).toFixed(2)),
-            ventas: r.ventas || 0,
-            position: idx + 1,
-            mes: monthKey
-          }));
-          
-          console.log(`[INIT-RANKINGS] ${monthKey}: ${rankData.length} agentes encontrados`);
-        } catch (e) {
-          console.warn(`[INIT-RANKINGS] Error fetching ranking for ${monthInfo.key}:`, e?.message);
-          monthlyRankings[monthInfo.key] = [];
-        }
-      }
-      console.log(`[INIT-RANKINGS] Ranking histórico: ${Object.keys(monthlyRankings).length} meses cargados`);
-    } catch (e) {
-      console.warn('[INIT-RANKINGS] Error fetching monthly rankings:', e?.message);
-    }
-
-    // 3. Top 3 actual (para podio)
-    let topThree = {
-      first: currentMonthRanking[0] || null,
-      second: currentMonthRanking[1] || null,
-      third: currentMonthRanking[2] || null
-    };
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-RANKINGS] ✅ Completado en ${elapsed}ms`);
-
-    const response = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: {
-        username: user?.username,
-        role: user?.role,
-        team: user?.team || 'Sin equipo'
-      },
-      data: {
-        currentMonthRanking: currentMonthRanking,
-        topThree: topThree,
-        monthlyRankings: monthlyRankings,
-        monthYear: `${currentMonth + 1}/${currentYear}`,
-        note: 'Datos precalculados para Ranking y Promociones.html'
-      },
-      ttl: 5 * 60 * 1000
-    };
-
-    res.json(response);
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-RANKINGS] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de rankings',
-      error: error.message
-    });
-  }
-});
-
-// Endpoint específico para precalentamiento de Lead
-app.get('/api/init-lead', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-
-    console.log(`[INIT-LEAD] ⚡ Inicio para ${username}`);
-
-    const dateConditions = [
-      { fecha: { $gte: monthStart, $lte: monthEnd } },
-      { createdAt: { $gte: monthStart, $lte: monthEnd } }
-    ];
-
-    // Leads del mes actual
-    let leadsData = [];
-    try {
-      const leadsColl = db.collection('leads');
-      leadsData = await leadsColl.find({ $or: dateConditions })
-        .project({
-          _id: 1,
-          nombre: 1,
-          status: 1,
-          fecha: 1,
-          agente: 1,
-          agenteNombre: 1,
-          puntaje: 1,
-          servicios: 1,
-          empresa: 1
-        })
-        .limit(200)
-        .toArray();
-      console.log(`[INIT-LEAD] Leads del mes: ${leadsData.length}`);
-    } catch (e) {
-      console.warn('[INIT-LEAD] Error fetching leads:', e?.message);
-    }
-
-    // Resumen por status
-    let statusSummary = {};
-    try {
-      const statusAgg = await db.collection('leads').aggregate([
-        { $match: { $or: dateConditions } },
-        { $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }},
-        { $sort: { count: -1 } }
-      ]).toArray();
-      statusAgg.forEach(s => {
-        statusSummary[s._id || 'Sin estado'] = s.count;
-      });
-    } catch (e) {
-      console.warn('[INIT-LEAD] Error fetching status:', e?.message);
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-LEAD] ✅ Completado en ${elapsed}ms`);
-
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: { username: user?.username, role: user?.role },
-      data: {
-        leadsData: leadsData,
-        statusSummary: statusSummary,
-        monthYear: `${currentMonth + 1}/${currentYear}`
-      },
-      ttl: 5 * 60 * 1000
-    });
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-LEAD] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de leads',
-      error: error.message
-    });
-  }
-});
-
-// Endpoint específico para precalentamiento de Facturación
-app.get('/api/init-facturacion', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const monthStart = new Date(currentYear, currentMonth, 1);
-    const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-
-    console.log(`[INIT-FACTURACION] ⚡ Inicio para ${username}`);
-
-    const dateConditions = [
-      { dia_venta: { $gte: monthStart, $lte: monthEnd } },
-      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
-      { createdAt: { $gte: monthStart, $lte: monthEnd } }
-    ];
-
-    // Datos de facturación
-    let facturacionData = [];
-    try {
-      const custColl = db.collection('costumers_unified');
-      facturacionData = await custColl.find({ $or: dateConditions })
-        .project({
-          _id: 1,
-          nombre_cliente: 1,
-          numero_cuenta: 1,
-          status: 1,
-          agente: 1,
-          agenteNombre: 1,
-          dia_venta: 1,
-          dia_instalacion: 1,
-          cantidad_lineas: 1,
-          autopago: 1
-        })
-        .limit(150)
-        .toArray();
-      console.log(`[INIT-FACTURACION] Registros del mes: ${facturacionData.length}`);
-    } catch (e) {
-      console.warn('[INIT-FACTURACION] Error fetching facturacion:', e?.message);
-    }
-
-    // Resumen de ingresos
-    let ingresosSummary = { total: 0, completadas: 0 };
-    try {
-      const agg = await db.collection('costumers_unified').aggregate([
-        { $match: { $or: dateConditions } },
-        { $group: {
-          _id: null,
-          totalCount: { $sum: 1 },
-          completadas: { $sum: { $cond: [{ $eq: ['$status', 'Completado'] }, 1, 0] } }
-        }}
-      ]).toArray();
-      if (agg.length > 0) {
-        ingresosSummary.total = agg[0].totalCount || 0;
-        ingresosSummary.completadas = agg[0].completadas || 0;
-      }
-    } catch (e) {
-      console.warn('[INIT-FACTURACION] Error fetching summary:', e?.message);
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-FACTURACION] ✅ Completado en ${elapsed}ms`);
-
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: { username: user?.username, role: user?.role },
-      data: {
-        facturacionData: facturacionData,
-        ingresosSummary: ingresosSummary,
-        monthYear: `${currentMonth + 1}/${currentYear}`
-      },
-      ttl: 5 * 60 * 1000
-    });
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-FACTURACION] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de facturación',
-      error: error.message
-    });
-  }
-});
-
-// Endpoint específico para precalentamiento de Multimedia
-app.get('/api/init-multimedia', protect, async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    const user = req.user;
-    const username = user?.username || '';
-
-    console.log(`[INIT-MULTIMEDIA] ⚡ Inicio para ${username}`);
-
-    // Archivos multimedia recientes
-    let multimediaData = [];
-    try {
-      const mediaColl = db.collection('media');
-      multimediaData = await mediaColl.find({})
-        .project({
-          _id: 1,
-          fileName: 1,
-          fileType: 1,
-          uploadedBy: 1,
-          uploadedAt: 1,
-          fileSize: 1
-        })
-        .sort({ uploadedAt: -1 })
-        .limit(100)
-        .toArray();
-      console.log(`[INIT-MULTIMEDIA] Archivos: ${multimediaData.length}`);
-    } catch (e) {
-      console.warn('[INIT-MULTIMEDIA] Error fetching media:', e?.message);
-    }
-
-    // Resumen por tipo
-    let typeSummary = {};
-    try {
-      const typeAgg = await db.collection('media').aggregate([
-        { $group: {
-          _id: '$fileType',
-          count: { $sum: 1 }
-        }},
-        { $sort: { count: -1 } }
-      ]).toArray();
-      typeAgg.forEach(t => {
-        typeSummary[t._id || 'desconocido'] = t.count;
-      });
-    } catch (e) {
-      console.warn('[INIT-MULTIMEDIA] Error fetching type summary:', e?.message);
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.log(`[INIT-MULTIMEDIA] ✅ Completado en ${elapsed}ms`);
-
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      loadTime: elapsed,
-      user: { username: user?.username, role: user?.role },
-      data: {
-        multimediaData: multimediaData,
-        typeSummary: typeSummary
-      },
-      ttl: 5 * 60 * 1000
-    });
-
-  } catch (error) {
-    const elapsed = Date.now() - startTime;
-    console.error(`[INIT-MULTIMEDIA] ❌ Error en ${elapsed}ms:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al cargar datos de multimedia',
-      error: error.message
-    });
-  }
-});
-
-app.get('/api/auth/debug-storage', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Este endpoint es solo para debugging',
-    note: 'Para verificar si hay token, usa /api/auth/verify-server',
-    instructions: 'Asegúrate de estar logueado correctamente en login.html',
-    troubleshooting: [
-      '1. Ve a login.html e inicia sesión con un usuario admin',
-      '2. El token se guardará automáticamente en cookies',
-      '3. Regresa a empleado-del-mes.html',
-      '4. Los permisos se verificarán automáticamente'
-    ]
-  });
-});
-
-// Debug: Exponer cache de init-dashboard para pruebas rápidas (no protegido)
-app.get('/api/init-dashboard-debug', (req, res) => {
+app.get('/api/init-dashboard-debug', protect, (req, res) => {
   try {
     const cache = global.initDashboardCache || { data: null, updatedAt: 0 };
     return res.json({ success: true, cache });
@@ -3878,2812 +1216,1868 @@ app.get('/api/init-dashboard-debug', (req, res) => {
   }
 });
 
-// Dev helper: emitir un token JWT de prueba para debugging local (NO en production)
-app.post('/api/auth/test-token', (req, res) => {
+// ── INIT-RANKINGS ─────────────────────────────────────────────
+app.get('/api/init-rankings', protect, async (req, res) => {
+  const startTime = Date.now();
   try {
-    if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
-    const originIp = req.ip || req.connection && req.connection.remoteAddress || '';
-    // permitir solo llamadas desde localhost
-    if (!(originIp === '::1' || originIp === '127.0.0.1' || originIp.endsWith('::1') || originIp.startsWith('127.0.0.1'))) {
-      return res.status(403).json({ success: false, message: 'Allowed only from localhost' });
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+    const now  = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+
+    let currentMonthRanking = [];
+    try {
+      const rankAgg = await dbInst.collection('costumers_unified').aggregate([
+        {
+          $match: {
+            $or: [
+              { createdAt: { $gte: monthStart, $lte: monthEnd } },
+              { dia_venta: { $gte: monthStart, $lte: monthEnd } },
+              { fecha:     { $gte: monthStart, $lte: monthEnd } }
+            ]
+          }
+        },
+        { $match: { $expr: completedMatchExpr } },
+        { $match: { $expr: { $gte: [{ $ifNull: ['$dia_venta', monthStart] }, monthStart] } } },
+        {
+          $group: {
+            _id:          { $toLower: { $trim: { input: { $ifNull: ['$agenteNombre',''] } } } },
+            agenteNombre: { $first: '$agenteNombre' },
+            sumPuntaje:   { $sum: { $toDouble: { $ifNull: ['$puntaje', 0] } } },
+            ventas:       { $sum: 1 }
+          }
+        },
+        { $sort: { sumPuntaje: -1, ventas: -1 } },
+        { $limit: 30 }
+      ]).toArray();
+
+      currentMonthRanking = rankAgg.map((r, idx) => ({
+        agente:   r._id,
+        nombre:   r.agenteNombre || r._id,
+        puntos:   Number(r.sumPuntaje.toFixed(2)),
+        puntaje:  Number(r.sumPuntaje.toFixed(2)),
+        ventas:   r.ventas,
+        posicion: idx + 1, position: idx + 1,
+        mes:      `${curYear}-${String(curMonth + 1).padStart(2,'0')}`
+      }));
+    } catch (e) { console.warn('[INIT-RANKINGS] ranking mes actual:', e.message); }
+
+    const monthlyRankings = {};
+    try {
+      for (let i = 0; i < 6; i++) {
+        const d      = new Date(curYear, curMonth - i, 1);
+        const m      = d.getMonth(); const y = d.getFullYear();
+        const mStart = new Date(y, m, 1);
+        const mEnd   = new Date(y, m + 1, 0, 23, 59, 59);
+        const key    = `${y}-${String(m + 1).padStart(2,'0')}`;
+        try {
+          const agg = await dbInst.collection('costumers_unified').aggregate([
+            { $match: { createdAt: { $gte: mStart, $lte: mEnd } } },
+            { $match: { $expr: completedMatchExpr } },
+            {
+              $group: {
+                _id:          { $toLower: { $trim: { input: { $ifNull: ['$agente',''] } } } },
+                agenteNombre: { $first: '$agente' },
+                sumPuntaje:   { $sum: { $toDouble: { $ifNull: ['$puntaje', 0] } } },
+                ventas:       { $sum: 1 }
+              }
+            },
+            { $sort: { sumPuntaje: -1, ventas: -1 } },
+            { $limit: 15 }
+          ]).toArray();
+          monthlyRankings[key] = agg.map((r, idx) => ({
+            agente: r._id, nombre: r.agenteNombre || r._id,
+            puntos: Number((r.sumPuntaje || 0).toFixed(2)), ventas: r.ventas || 0,
+            position: idx + 1, mes: key
+          }));
+        } catch (e) {
+          console.warn(`[INIT-RANKINGS] ${key}:`, e.message);
+          monthlyRankings[key] = [];
+        }
+      }
+    } catch (e) { console.warn('[INIT-RANKINGS] histórico:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role, team: user?.team || 'Sin equipo' },
+      data: {
+        currentMonthRanking, monthlyRankings,
+        topThree: { first: currentMonthRanking[0]||null, second: currentMonthRanking[1]||null, third: currentMonthRanking[2]||null },
+        monthYear: `${curMonth + 1}/${curYear}`
+      },
+      ttl: 5 * 60 * 1000
+    });
+  } catch (e) {
+    console.error('[INIT-RANKINGS] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar rankings', error: e.message });
+  }
+});
+
+// ── INIT-ESTADÍSTICAS ─────────────────────────────────────────
+app.get('/api/init-estadisticas', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+    const now  = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+    const dateConditions = [
+      { dia_venta:          { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { creadoEn:           { $gte: monthStart, $lte: monthEnd } },
+      { createdAt:          { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    let teamsData = [];
+    try {
+      const agg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        {
+          $group: {
+            _id:         { $ifNull: ['$supervisor', 'Sin equipo'] },
+            totalLeads:  { $sum: 1 },
+            totalVentas: { $sum: { $cond: [{ $expr: completedMatchExpr }, 1, 0] } },
+            ACTIVAS:     { $sum: { $cond: [{ $expr: completedMatchExpr }, 1, 0] } },
+            promedio:    { $avg: { $toDouble: { $ifNull: ['$puntaje', 0] } } }
+          }
+        },
+        { $sort: { totalLeads: -1 } },
+        { $limit: 20 }
+      ]).toArray();
+      teamsData = agg.map(s => ({
+        name: s._id || 'Sin equipo', equipo: s._id || 'Sin equipo',
+        Total: s.totalLeads, totalVentas: s.totalVentas,
+        Puntaje: Math.round(s.promedio || 0), ACTIVAS: s.ACTIVAS, porcentaje: 0
+      }));
+    } catch (e) { console.warn('[INIT-ESTADISTICAS] teams:', e.message); }
+
+    let agentsData = [];
+    try {
+      const agg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        {
+          $group: {
+            _id:           '$agenteNombre',
+            totalClientes: { $sum: 1 },
+            totalVentas:   { $sum: { $cond: [{ $expr: completedMatchExpr }, 1, 0] } },
+            totalPuntos:   { $sum: { $cond: [{ $expr: completedMatchExpr }, { $toDouble: { $ifNull: ['$puntaje',0] } }, 0] } },
+            agente:        { $first: '$agente' },
+            supervisor:    { $first: '$supervisor' }
+          }
+        },
+        { $sort: { totalPuntos: -1 } },
+        { $limit: 30 }
+      ]).toArray();
+      agentsData = agg.map(a => ({
+        nombre: a._id||'Sin asignar', agente: a.agente||'',
+        totalClientes: a.totalClientes, totalVentas: a.totalVentas,
+        totalPuntos: Number((a.totalPuntos||0).toFixed(2)), supervisor: a.supervisor||''
+      }));
+    } catch (e) { console.warn('[INIT-ESTADISTICAS] agents:', e.message); }
+
+    let leadsChartData = [];
+    try {
+      const dateFrom = new Date(now); dateFrom.setDate(dateFrom.getDate() - 60);
+      const agg = await dbInst.collection('leads').aggregate([
+        { $match: { fecha: { $gte: dateFrom, $lte: now } } },
+        {
+          $group: {
+            _id:         { $dateToString: { format:'%Y-%m-%d', date:'$fecha', timezone:'America/Mexico_City' } },
+            count:       { $sum: 1 },
+            completados: { $sum: { $cond: [{ $in: [{ $toLower: { $ifNull: ['$status',''] } }, COMPLETED_VALUES_LOWER] }, 1, 0] } }
+          }
+        },
+        { $sort: { _id: 1 } }, { $limit: 60 }
+      ]).toArray();
+      leadsChartData = agg.map(l => ({ fecha: l._id, count: l.count, completados: l.completados||0 }));
+    } catch (e) { console.warn('[INIT-ESTADISTICAS] leads chart:', e.message); }
+
+    let statusSummary = {};
+    try {
+      const agg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: { _id: { $toLower: { $ifNull: ['$status',''] } }, count: { $sum:1 } } },
+        { $sort: { count: -1 } }
+      ]).toArray();
+      agg.forEach(s => { statusSummary[normalizeStatus(s._id)] = (statusSummary[normalizeStatus(s._id)] || 0) + s.count; });
+    } catch (e) { console.warn('[INIT-ESTADISTICAS] status summary:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role, team: user?.team||'Sin equipo' },
+      data: { teamsData, agentsData, leadsChartData, statusSummary, monthYear: `${curMonth+1}/${curYear}` },
+      ttl: 5*60*1000
+    });
+  } catch (e) {
+    console.error('[INIT-ESTADISTICAS] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar estadísticas', error: e.message });
+  }
+});
+
+// ── INIT-ALL-PAGES ────────────────────────────────────────────
+app.get('/api/init-all-pages', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+    const now  = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+    const dateConditions = [
+      { dia_venta:          { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { creadoEn:           { $gte: monthStart, $lte: monthEnd } },
+      { createdAt:          { $gte: monthStart, $lte: monthEnd } },
+      { fecha:              { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    let dashboardData = null;
+    try { dashboardData = global.initDashboardCache?.data || null; } catch (_) {}
+
+    let customers = [];
+    try {
+      customers = await dbInst.collection('costumers_unified')
+        .find({ $or: dateConditions })
+        .project({ _id:1, nombre_cliente:1, status:1, telefono_principal:1, numero_cuenta:1, agente:1, agenteNombre:1, supervisor:1, dia_venta:1, dia_instalacion:1, autopago:1, pin_seguridad:1, direccion:1, telefonos:1, cantidad_lineas:1, servicios:1, servicios_texto:1, producto:1, mercado:1 })
+        .limit(200).toArray();
+    } catch (e) { console.warn('[INIT-ALL-PAGES] customers:', e.message); }
+
+    let leads = [];
+    try {
+      leads = await dbInst.collection('leads')
+        .find({ $or: dateConditions })
+        .project({ _id:1, nombre:1, status:1, fecha:1, agente:1, agenteNombre:1, puntaje:1, servicios:1, empresa:1 })
+        .limit(100).toArray();
+    } catch (e) { console.warn('[INIT-ALL-PAGES] leads:', e.message); }
+
+    let rankings = [];
+    try {
+      const rankAgg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        { $match: { $expr: completedMatchExpr } },
+        { $group: { _id: '$agenteNombre', sumPuntaje: { $sum: { $toDouble: { $ifNull: ['$puntaje',0] } } }, ventas: { $sum:1 } } },
+        { $sort: { sumPuntaje: -1 } }, { $limit: 30 }
+      ]).toArray();
+      rankings = rankAgg.map((r, i) => ({ agente: r._id, agenteNombre: r._id, puntaje: Number((r.sumPuntaje||0).toFixed(2)), ventas: r.ventas, posicion: i+1 }));
+    } catch (e) { console.warn('[INIT-ALL-PAGES] rankings:', e.message); }
+
+    let statsAgg = {};
+    try {
+      const agg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: {
+          _id:         { $ifNull: ['$supervisor','general'] },
+          totalLeads:  { $sum: 1 },
+          totalVentas: { $sum: { $cond: [{ $expr: completedMatchExpr }, 1, 0] } },
+          promedio:    { $avg: { $toDouble: { $ifNull: ['$puntaje',0] } } }
+        }},
+        { $sort: { totalLeads: -1 } }, { $limit: 15 }
+      ]).toArray();
+      agg.forEach(s => {
+        statsAgg[s._id||'general'] = { totalLeads: s.totalLeads, totalVentas: s.totalVentas, promedio: Math.round(s.promedio||0) };
+      });
+    } catch (e) { console.warn('[INIT-ALL-PAGES] stats:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role, team: user?.team||'Sin equipo' },
+      data: { dashboard: dashboardData, customers, leads, rankings, stats: statsAgg, monthYear: `${curMonth+1}/${curYear}` },
+      ttl: 5*60*1000
+    });
+  } catch (e) {
+    console.error('[INIT-ALL-PAGES] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar páginas', error: e.message });
+  }
+});
+
+// ── INIT-LEAD ─────────────────────────────────────────────────
+app.get('/api/init-lead', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+    const now  = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+    const dateConditions = [{ fecha: { $gte: monthStart, $lte: monthEnd } }, { createdAt: { $gte: monthStart, $lte: monthEnd } }];
+
+    let leadsData = [];
+    try {
+      leadsData = await dbInst.collection('leads').find({ $or: dateConditions })
+        .project({ _id:1, nombre:1, status:1, fecha:1, agente:1, agenteNombre:1, puntaje:1, servicios:1, empresa:1 })
+        .limit(200).toArray();
+    } catch (e) { console.warn('[INIT-LEAD] leads:', e.message); }
+
+    let statusSummary = {};
+    try {
+      const agg = await dbInst.collection('leads').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: { _id: { $toLower: { $ifNull: ['$status',''] } }, count: { $sum:1 } } },
+        { $sort: { count:-1 } }
+      ]).toArray();
+      agg.forEach(s => { statusSummary[normalizeStatus(s._id)] = (statusSummary[normalizeStatus(s._id)]||0) + s.count; });
+    } catch (e) { console.warn('[INIT-LEAD] status:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: { leadsData, statusSummary, monthYear: `${curMonth+1}/${curYear}` },
+      ttl: 5*60*1000
+    });
+  } catch (e) {
+    console.error('[INIT-LEAD] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar leads', error: e.message });
+  }
+});
+
+// ── INIT-FACTURACIÓN ──────────────────────────────────────────
+app.get('/api/init-facturacion', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+    const now  = new Date();
+    const curMonth   = now.getMonth();
+    const curYear    = now.getFullYear();
+    const monthStart = new Date(curYear, curMonth, 1);
+    const monthEnd   = new Date(curYear, curMonth + 1, 0, 23, 59, 59);
+    const dateConditions = [
+      { dia_venta:          { $gte: monthStart, $lte: monthEnd } },
+      { fecha_contratacion: { $gte: monthStart, $lte: monthEnd } },
+      { createdAt:          { $gte: monthStart, $lte: monthEnd } }
+    ];
+
+    let facturacionData = [];
+    try {
+      facturacionData = await dbInst.collection('costumers_unified').find({ $or: dateConditions })
+        .project({ _id:1, nombre_cliente:1, numero_cuenta:1, status:1, agente:1, agenteNombre:1, dia_venta:1, dia_instalacion:1, cantidad_lineas:1, autopago:1 })
+        .limit(150).toArray();
+    } catch (e) { console.warn('[INIT-FACTURACION] data:', e.message); }
+
+    let ingresosSummary = { total: 0, completadas: 0 };
+    try {
+      const agg = await dbInst.collection('costumers_unified').aggregate([
+        { $match: { $or: dateConditions } },
+        { $group: {
+          _id:         null,
+          totalCount:  { $sum: 1 },
+          completadas: { $sum: { $cond: [{ $expr: completedMatchExpr }, 1, 0] } }
+        }}
+      ]).toArray();
+      if (agg.length) { ingresosSummary.total = agg[0].totalCount||0; ingresosSummary.completadas = agg[0].completadas||0; }
+    } catch (e) { console.warn('[INIT-FACTURACION] summary:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: { facturacionData, ingresosSummary, monthYear: `${curMonth+1}/${curYear}` },
+      ttl: 5*60*1000
+    });
+  } catch (e) {
+    console.error('[INIT-FACTURACION] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar facturación', error: e.message });
+  }
+});
+
+// ── INIT-MULTIMEDIA ───────────────────────────────────────────
+app.get('/api/init-multimedia', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user = req.user;
+
+    let multimediaData = [];
+    try {
+      multimediaData = await dbInst.collection('media').find({})
+        .project({ _id:1, fileName:1, fileType:1, uploadedBy:1, uploadedAt:1, fileSize:1 })
+        .sort({ uploadedAt: -1 }).limit(100).toArray();
+    } catch (e) { console.warn('[INIT-MULTIMEDIA] media:', e.message); }
+
+    let typeSummary = {};
+    try {
+      const agg = await dbInst.collection('media').aggregate([
+        { $group: { _id: '$fileType', count: { $sum:1 } } }, { $sort: { count:-1 } }
+      ]).toArray();
+      agg.forEach(t => { typeSummary[t._id||'desconocido'] = t.count; });
+    } catch (e) { console.warn('[INIT-MULTIMEDIA] type summary:', e.message); }
+
+    const elapsed = Date.now() - startTime;
+    res.json({
+      success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
+      user: { username: user?.username, role: user?.role },
+      data: { multimediaData, typeSummary },
+      ttl: 5*60*1000
+    });
+  } catch (e) {
+    console.error('[INIT-MULTIMEDIA] Error:', e);
+    res.status(500).json({ success: false, message: 'Error al cargar multimedia', error: e.message });
+  }
+});
+
+// ── RECENT ACTIVITY ───────────────────────────────────────────
+function getTimeAgo(date) {
+  if (!(date instanceof Date) || isNaN(date)) return 'Hace poco';
+  const diffMs   = Date.now() - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffH    = Math.floor(diffMs / 3600000);
+  const diffD    = Math.floor(diffMs / 86400000);
+  if (diffMins < 1)  return 'Hace segundos';
+  if (diffMins < 60) return `Hace ${diffMins} min`;
+  if (diffH < 24)    return `Hace ${diffH} h`;
+  if (diffD < 7)     return `Hace ${diffD} días`;
+  return date.toLocaleDateString('es-ES');
+}
+
+app.get('/api/recent-activity', protect, async (req, res) => {
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const user     = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdmin  = ['admin','administrator','administrador','administradora'].some(r => userRole.includes(r));
+    const isBO     = ['backoffice','bo'].some(r => userRole.includes(r));
+    const isSup    = userRole.includes('supervisor');
+    const isAgent  = userRole.includes('agente') || userRole.includes('agent');
+
+    const supervisorAgents = isSup ? getSupervisorAgents(username) : [];
+    let usersForData = null;
+    if (isSup)        usersForData = supervisorAgents;
+    else if (isAgent) usersForData = [username];
+
+    const lastDays  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const dateFilter = { $or: [
+      { creadoEn:          { $gte: lastDays } }, { createdAt: { $gte: lastDays } },
+      { dia_venta:         { $gte: lastDays } }, { fecha_contratacion: { $gte: lastDays } },
+      { fecha:             { $gte: lastDays } }
+    ]};
+
+    const userFilter = usersForData ? { $or: [
+      { agenteNombre: { $in: usersForData } }, { agente: { $in: usersForData } }, { usuario: { $in: usersForData } }
+    ]} : {};
+
+    const filter = usersForData ? { $and: [dateFilter, userFilter] } : dateFilter;
+
+    const activities = await dbInst.collection('costumers_unified').find(filter)
+      .sort({ creadoEn:-1, createdAt:-1, dia_venta:-1 })
+      .limit(50)
+      .project({ _id:1, nombre_cliente:1, agenteNombre:1, agente:1, usuario:1, status:1, servicios:1, tipo_servicios:1, puntaje:1, creadoEn:1, createdAt:1, dia_venta:1 })
+      .toArray();
+
+    const formatted = activities.map(lead => {
+      const agent      = lead.agenteNombre || lead.agente || lead.usuario || '—';
+      const clientName = lead.nombre_cliente || 'Cliente sin nombre';
+      const services   = Array.isArray(lead.servicios) ? lead.servicios[0] : lead.tipo_servicios || 'Servicio general';
+      const normSt     = normalizeStatus(lead.status);
+      let activityType = 'Nuevo';
+      if (normSt === 'completed')        activityType = 'Venta cerrada';
+      else if (normSt === 'pending')     activityType = 'Seguimiento';
+      else if (normSt === 'cancelled')   activityType = 'Cancelación';
+      else if (normSt === 'hold')        activityType = 'En espera';
+      else if (normSt === 'rescheduled') activityType = 'Reagendado';
+
+      const dateCreated = lead.creadoEn || lead.createdAt || lead.dia_venta || new Date();
+      return {
+        id: lead._id, nombre_cliente: clientName, agente: agent, servicio: services,
+        tipo_actividad: activityType, status: normSt,
+        fecha: dateCreated, tiempo_relativo: getTimeAgo(dateCreated instanceof Date ? dateCreated : new Date(dateCreated))
+      };
+    });
+
+    res.json({ success: true, data: formatted });
+  } catch (e) {
+    console.error('[RECENT-ACTIVITY]', e);
+    res.status(500).json({ success: false, message: 'Error al cargar actividad', error: e.message });
+  }
+});
+
+// ── LLAMADAS Y VENTAS ─────────────────────────────────────────
+app.get('/api/llamadas-ventas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAllowed = ['admin','administrador','administrator','backoffice','bo'].some(r => role.includes(r));
+    if (!isAllowed) return res.status(403).json({ success: false, message: 'No autorizado' });
+
+    const now         = new Date();
+    const targetMonth = req.query.month ? parseInt(req.query.month, 10) : now.getMonth() + 1;
+    const targetYear  = req.query.year  ? parseInt(req.query.year,  10) : now.getFullYear();
+    const startDate   = new Date(targetYear, targetMonth - 1, 1);
+    const endDate     = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+    const registros = await db.collection('llamadas_ventas').aggregate([
+      { $match: { fecha: { $gte: startDate, $lte: endDate } } },
+      { $addFields: { __fechaKey: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } } } },
+      { $sort: { actualizadoEn: -1, creadoEn: -1, _id: -1 } },
+      { $group: { _id: { fechaKey: '$__fechaKey', team: '$team', tipo: '$tipo' }, doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+      { $project: { __fechaKey: 0 } },
+      { $sort: { fecha: 1, team: 1, tipo: 1 } }
+    ]).toArray();
+
+    return res.json({ success: true, data: registros, count: registros.length, month: targetMonth, year: targetYear });
+  } catch (e) {
+    console.error('[GET /api/llamadas-ventas]', e);
+    return res.status(500).json({ success: false, message: 'Error al obtener llamadas-ventas', error: e.message });
+  }
+});
+
+app.post('/api/llamadas-ventas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAllowed = ['admin','administrador','administrator','backoffice','bo'].some(r => role.includes(r));
+    if (!isAllowed) return res.status(403).json({ success: false, message: 'No autorizado' });
+
+    const { day, team, type, value } = req.body;
+    if (!day || !team || !type) return res.status(400).json({ success: false, message: 'Faltan campos: day, team, type' });
+
+    if (type === 'LLAMADAS' || type === 'VENTAS') {
+      const raw = (value ?? '').toString().trim();
+      if (!raw || raw === '-') return res.status(400).json({ success: false, message: 'Valor inválido para LLAMADAS/VENTAS' });
+      if (!Number.isFinite(Number(raw))) return res.status(400).json({ success: false, message: 'Valor no numérico para LLAMADAS/VENTAS' });
     }
 
-    const body = req.body || {};
-    const username = body.username || body.user || 'dev.admin';
-    const role = body.role || 'Administrador';
-    const payload = { username, role };
-    const token = require('jsonwebtoken').sign(payload, process.env.JWT_SECRET || 'tu_clave_secreta_super_segura', { expiresIn: '2h' });
-    return res.json({ success: true, token, payload });
+    const now        = new Date();
+    const fechaStart = new Date(now.getFullYear(), now.getMonth(), parseInt(day, 10));
+    const fechaEnd   = new Date(now.getFullYear(), now.getMonth(), parseInt(day, 10) + 1);
+    const valorFinal = type === 'TOTALES' ? value : (parseFloat(value) || 0);
+
+    const result = await db.collection('llamadas_ventas').updateMany(
+      { fecha: { $gte: fechaStart, $lt: fechaEnd }, team, tipo: type },
+      {
+        $set:         { valor: valorFinal, actualizadoEn: now, actualizadoPor: req.user?.username || 'unknown' },
+        $setOnInsert: { fecha: fechaStart, creadoEn: now, creadoPor: req.user?.username || 'unknown' }
+      },
+      { upsert: true }
+    );
+
+    return res.json({ success: true, message: 'Datos guardados', data: { day, team, type, value: valorFinal, fecha: fechaStart, modifiedCount: result.modifiedCount, upsertedCount: result.upsertedCount } });
+  } catch (e) {
+    console.error('[POST /api/llamadas-ventas]', e);
+    return res.status(500).json({ success: false, message: 'Error al guardar llamadas-ventas', error: e.message });
+  }
+});
+
+// ── LLAMADAS-VENTAS-EXCEL ─────────────────────────────────────
+const LLAMADAS_EXCEL_SHEETS = 'llamadas_ventas_excel_sheets';
+const LLAMADAS_EXCEL_DATA   = 'llamadas_ventas_excel_data';
+const LLAMADAS_EXCEL_USERS  = 'llamadas_ventas_excel_users';
+
+const isAllowedLlamadasExcel = (roleRaw) => {
+  const r = String(roleRaw || '').toLowerCase();
+  return ['admin','administrador','administrator','backoffice','bo'].some(v => r.includes(v));
+};
+const normalizeSheetName = (name) => String(name || '').trim() || null;
+
+app.get('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const sheets = await db.collection(LLAMADAS_EXCEL_SHEETS).find({})
+      .project({ _id:1, name:1, createdAt:1, createdBy:1, updatedAt:1, updatedBy:1 })
+      .sort({ createdAt:1, _id:1 }).toArray();
+    return res.json({ success: true, data: sheets.map(s => ({ _id: s._id?.toString()||'', name: s.name, createdAt: s.createdAt, createdBy: s.createdBy, updatedAt: s.updatedAt, updatedBy: s.updatedBy })) });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al obtener sheets', error: e.message });
+  }
+});
+
+app.post('/api/llamadas-ventas-excel/sheets', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const now      = new Date();
+    const baseName = normalizeSheetName(req.body?.name) || now.toISOString().slice(0,10);
+    let name       = baseName;
+    const exists   = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ name });
+    if (exists) name = `${baseName} (${now.toISOString().slice(11,19)})`;
+    const doc    = { name, createdAt: now, createdBy: req.user?.username||'unknown', updatedAt: now, updatedBy: req.user?.username||'unknown' };
+    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).insertOne(doc);
+    return res.json({ success: true, data: { _id: result.insertedId?.toString()||'', ...doc } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al crear sheet', error: e.message });
+  }
+});
+
+app.get('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const sid = String(req.params.sheetId || '').trim();
+    if (!sid) return res.status(400).json({ success: false, message: 'sheetId inválido' });
+    let _id;
+    try { _id = new ObjectId(sid); } catch { return res.status(400).json({ success: false, message: 'sheetId inválido' }); }
+    const sheet = await db.collection(LLAMADAS_EXCEL_SHEETS).findOne({ _id }, { projection: { name:1 } });
+    if (!sheet) return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+    const data  = await db.collection(LLAMADAS_EXCEL_DATA).find({ sheetId: sid }).project({ _id:0, kind:1, team:1, person:1, col:1, metric:1, value:1 }).toArray();
+    const users = await db.collection(LLAMADAS_EXCEL_USERS).find({ sheetId: sid }).project({ _id:0, name:1, role:1, team:1 }).toArray();
+    return res.json({ success: true, sheet: { _id: sheet._id?.toString()||sid, name: sheet.name }, data, users });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al cargar sheet', error: e.message });
+  }
+});
+
+app.post('/api/llamadas-ventas-excel/cell', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const { sheetId, team, person, col, metric, value } = req.body || {};
+    const sid = String(sheetId || '').trim();
+    if (!sid) return res.status(400).json({ success: false, message: 'Falta sheetId' });
+    const now = new Date();
+    const v   = (value ?? '').toString().trim();
+    let filter, kind;
+    if (metric) {
+      kind = 'summary'; filter = { sheetId: sid, kind, metric: String(metric).trim().toUpperCase() };
+    } else {
+      if (!team || !person || !col) return res.status(400).json({ success: false, message: 'Faltan campos: team, person, col' });
+      kind = 'cell'; filter = { sheetId: sid, kind, team: String(team).trim(), person: String(person).trim(), col: String(col).trim().toUpperCase() };
+    }
+    if (v === '') {
+      await db.collection(LLAMADAS_EXCEL_DATA).deleteOne(filter);
+    } else {
+      await db.collection(LLAMADAS_EXCEL_DATA).updateOne(filter,
+        { $set: { value: v, updatedAt: now, updatedBy: req.user?.username||'unknown' }, $setOnInsert: { sheetId: sid, kind, createdAt: now, createdBy: req.user?.username||'unknown' } },
+        { upsert: true }
+      );
+    }
+    try { await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne({ _id: new ObjectId(sid) }, { $set: { updatedAt: now, updatedBy: req.user?.username||'unknown' } }); } catch (_) {}
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al guardar celda', error: e.message });
+  }
+});
+
+app.post('/api/llamadas-ventas-excel/user', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const { sheetId, name, role, team } = req.body || {};
+    const sid = String(sheetId||'').trim();
+    if (!sid || !name || !team) return res.status(400).json({ success: false, message: 'Faltan campos: sheetId, name, team' });
+    const doc = { sheetId: sid, name: String(name).trim().toUpperCase(), role: String(role||'').trim(), team: String(team).trim(), updatedAt: new Date(), updatedBy: req.user?.username||'unknown' };
+    await db.collection(LLAMADAS_EXCEL_USERS).updateOne(
+      { sheetId: sid, name: doc.name, team: doc.team },
+      { $set: doc, $setOnInsert: { createdAt: new Date(), createdBy: req.user?.username||'unknown' } },
+      { upsert: true }
+    );
+    return res.json({ success: true, data: { name: doc.name, role: doc.role, team: doc.team } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al guardar usuario', error: e.message });
+  }
+});
+
+app.post('/api/llamadas-ventas-excel/user-delete', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const sid = String((req.body||{}).sheetId||'').trim();
+    const n   = String((req.body||{}).name  ||'').trim().toUpperCase();
+    const t   = String((req.body||{}).team  ||'').trim();
+    if (!sid || !n || !t) return res.status(400).json({ success: false, message: 'Faltan campos: sheetId, name, team' });
+    await db.collection(LLAMADAS_EXCEL_USERS).deleteOne({ sheetId: sid, name: n, team: t });
+    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid, kind: 'cell', team: t, person: n });
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al eliminar usuario', error: e.message });
+  }
+});
+
+app.delete('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const sid = String(req.params.sheetId||'').trim();
+    if (!sid) return res.status(400).json({ success: false, message: 'sheetId requerido' });
+    const r = await db.collection(LLAMADAS_EXCEL_SHEETS).deleteOne({ _id: new ObjectId(sid) });
+    if (!r.deletedCount) return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+    await db.collection(LLAMADAS_EXCEL_USERS).deleteMany({ sheetId: sid });
+    await db.collection(LLAMADAS_EXCEL_DATA).deleteMany({ sheetId: sid });
+    return res.json({ success: true, message: 'Sheet eliminado' });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al eliminar sheet', error: e.message });
+  }
+});
+
+app.patch('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    if (!isAllowedLlamadasExcel(req.user?.role)) return res.status(403).json({ success: false, message: 'No autorizado' });
+    const sid     = String(req.params.sheetId||'').trim();
+    const newName = String((req.body||{}).name||'').trim();
+    if (!sid || !newName) return res.status(400).json({ success: false, message: 'sheetId y nombre requeridos' });
+    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+    if (!dateRegex.test(newName)) return res.status(400).json({ success: false, message: 'Formato de fecha inválido. Use MM/DD/YYYY' });
+    const result = await db.collection(LLAMADAS_EXCEL_SHEETS).updateOne(
+      { _id: new ObjectId(sid) },
+      { $set: { name: newName, updatedAt: new Date(), updatedBy: req.user?.username||'unknown' } }
+    );
+    if (!result.matchedCount) return res.status(404).json({ success: false, message: 'Sheet no encontrado' });
+    return res.json({ success: true, message: 'Nombre actualizado', data: { name: newName } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar nombre', error: e.message });
+  }
+});
+
+// ── DEBUG ENDPOINTS ───────────────────────────────────────────
+app.get('/api/crm/debug-fields', protect, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
+  try {
+    const { agent } = req.query;
+    if (!agent) return res.status(400).json({ success: false, message: 'Parámetro agent requerido' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const database    = getDb();
+    const collections = await database.listCollections().toArray();
+    const names       = collections.map(c => c.name).filter(n => /^costumers|^customers_unified/i.test(n));
+    let sampleDoc = null, sourceCollection = null;
+    for (const colName of names) {
+      try {
+        sampleDoc = await database.collection(colName).findOne({
+          $or: [{ agente: { $regex: agent, $options:'i' } },{ agenteNombre: { $regex: agent, $options:'i' } },{ nombreAgente: { $regex: agent, $options:'i' } }]
+        });
+        if (sampleDoc) { sourceCollection = colName; break; }
+      } catch (_) {}
+    }
+    if (!sampleDoc) return res.status(404).json({ success: false, message: `No se encontraron documentos para: ${agent}` });
+    const fields = Object.keys(sampleDoc).sort();
+    return res.json({ success: true, agent, sourceCollection, totalFields: fields.length, fields: fields.map(f => ({ name: f, value: sampleDoc[f], type: typeof sampleDoc[f] })) });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al inspeccionar documentos', error: e.message });
+  }
+});
+
+app.get('/api/debug/ingrid-score', protect, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
+  try {
+    const database = getDb();
+    if (!database) return res.status(503).json({ error: 'BD no disponible' });
+    const agentPatterns = [
+      { agente: 'INGRID.GARCIA' },{ agenteNombre: 'INGRID.GARCIA' },{ nombreAgente: 'INGRID.GARCIA' },
+      { createdBy: 'INGRID.GARCIA' },{ registeredBy: 'INGRID.GARCIA' },{ vendedor: 'INGRID.GARCIA' }
+    ];
+    const decFilter = { $and: [
+      { $or: agentPatterns },
+      { $or: [{ dia_venta: { $gte: '2025-12-01', $lte: '2025-12-31' } },{ createdAt: { $gte: new Date(2025,11,1), $lte: new Date(2025,11,31) } }] }
+    ]};
+    const col   = database.collection('costumers_unified');
+    const count = await col.countDocuments(decFilter);
+    let result  = { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
+    if (count > 0) {
+      const agg = await col.aggregate([
+        { $match: decFilter },
+        { $group: { _id: null, count: { $sum:1 }, totalPuntaje: { $sum: { $toDouble: '$puntaje' } }, avgPuntaje: { $avg: { $toDouble: '$puntaje' } } } }
+      ]).toArray();
+      result = agg[0] || result;
+    }
+    res.json({ costumers_unified: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/debug/user', protect, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
+  try {
+    let dbUser = null;
+    if (req.user?._id && isConnected()) {
+      if (!db) db = getDb();
+      try { dbUser = await db.collection('users').findOne({ _id: new ObjectId(req.user._id) }); } catch (_) {}
+    }
+    res.json({ success: true, tokenUser: req.user, dbUser, canCreateAccounts: ['Administrador','admin','administrador','Administrativo'].includes(req.user?.role) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/debug/users', protect, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const users = await db.collection('users').find({}).project({ username:1, role:1, team:1, createdAt:1 }).toArray();
+    res.json({ success: true, users: users.map(u => ({ _id: u._id, username: u.username, role: u.role, team: u.team, createdAt: u.createdAt })) });
+  } catch (e) {
+    console.error('[debug/users]', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/auth/debug-storage', protect, (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
+  res.json({ success: true, message: 'Endpoint de debugging', note: 'Para verificar token usa /api/auth/verify-server' });
+});
+
+// ── DEV ENDPOINTS ─────────────────────────────────────────────
+function isLocalhost(req) {
+  const ip = req.ip || (req.connection && req.connection.remoteAddress) || '';
+  return ip === '::1' || ip === '127.0.0.1' || ip.endsWith('::1') || ip.startsWith('127.');
+}
+
+app.post('/api/auth/test-token', (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
+  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Allowed only from localhost' });
+  const { username = 'dev.admin', role = 'Administrador' } = req.body || {};
+  const token = jwt.sign({ username, role }, JWT_SECRET_EFFECTIVE, { expiresIn: '2h' });
+  return res.json({ success: true, token, payload: { username, role } });
+});
+
+app.post('/api/dev/populate-test-data', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
+  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
+  try {
+    const database = getDb();
+    if (!database) return res.status(500).json({ success: false, message: 'Database not connected' });
+    const users = database.collection('users');
+    let testUser = await users.findOne({ username: 'test.agent' });
+    if (!testUser) {
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      await users.insertOne({ username: 'test.agent', password: hashedPassword, name: 'Agente Test', email: 'test@example.com', role: 'agente', team: 'Test', createdAt: new Date(), verified: true });
+      testUser = { username: 'test.agent' };
+    }
+    const costumers = database.collection('costumers_unified');
+    const existing  = await costumers.countDocuments({ agenteNombre: 'test.agent' });
+    if (existing === 0) {
+      await costumers.insertMany([
+        { nombre: 'María López',  telefono:'1234567890', agenteNombre:'test.agent', servicios:['Internet 100MB'], tipo_servicio:'Internet Hogar', puntaje:1,    status:'completed', dia_venta: new Date() },
+        { nombre: 'Carlos Pérez', telefono:'9876543210', agenteNombre:'test.agent', servicios:['TV Premium'],    tipo_servicio:'TV',             puntaje:0.75, status:'completed', dia_venta: new Date() },
+        { nombre: 'Ana Torres',   telefono:'5551234567', agenteNombre:'test.agent', servicios:['Combo 200MB'],   tipo_servicio:'Combo',          puntaje:1.5,  status:'completed', dia_venta: new Date() }
+      ]);
+    }
+    return res.json({ success: true, message: 'Test data populated', user: testUser.username, leads: await costumers.countDocuments({ agenteNombre: 'test.agent' }) });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// DEV ENDPOINT: Poblar datos de prueba (SOLO LOCALHOST)
-// ═══════════════════════════════════════════════════════════
-app.post('/api/dev/populate-test-data', async (req, res) => {
-  try {
-    // Solo permitir desde localhost
-    const originIp = req.ip || req.connection?.remoteAddress || '';
-    if (!(originIp === '::1' || originIp === '127.0.0.1')) {
-      return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
-    }
-    
-    const db = getDb();
-    if (!db) return res.status(500).json({ success: false, message: 'Database not connected' });
-    
-    // 1. Crear usuario de prueba si no existe
-    const users = db.collection('users');
-    let testUser = await users.findOne({ username: 'test.agent' });
-    
-    if (!testUser) {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('123456', 10);
-      await users.insertOne({
-        username: 'test.agent',
-        password: hashedPassword,
-        name: 'Agente Test',
-        email: 'test@example.com',
-        role: 'agente',
-        team: 'Test',
-        createdAt: new Date(),
-        verified: true
-      });
-      testUser = { username: 'test.agent' };
-    }
-    
-    // 2. Crear leads de prueba
-    const costumers = db.collection('costumers_unified');
-    const existingLeads = await costumers.countDocuments({ agenteNombre: 'test.agent' });
-    
-    if (existingLeads === 0) {
-      const testLeads = [
-        {
-          nombre: 'María López',
-          teléfono: '1234567890',
-          email: 'maria@example.com',
-          agenteNombre: 'test.agent',
-          servicios: ['Internet 100MB'],
-          sistema: 'SARA',
-          tipo_servicio: 'Internet Hogar',
-          puntaje: 1,
-          status: 'vendido',
-          fecha_creacion: new Date(),
-          fecha_venta: new Date()
-        },
-        {
-          nombre: 'Carlos Pérez',
-          teléfono: '9876543210',
-          email: 'carlos@example.com',
-          agenteNombre: 'test.agent',
-          servicios: ['TV Premium'],
-          sistema: 'N/A',
-          tipo_servicio: 'TV',
-          puntaje: 0.75,
-          status: 'vendido',
-          fecha_creacion: new Date(),
-          fecha_venta: new Date()
-        },
-        {
-          nombre: 'Ana Torres',
-          teléfono: '5551234567',
-          email: 'ana@example.com',
-          agenteNombre: 'test.agent',
-          servicios: ['Combo 200MB'],
-          sistema: 'SARA',
-          tipo_servicio: 'Combo',
-          puntaje: 1.5,
-          status: 'vendido',
-          fecha_creacion: new Date(),
-          fecha_venta: new Date()
-        }
-      ];
-      
-      await costumers.insertMany(testLeads);
-    }
-    
-    return res.json({
-      success: true,
-      message: 'Test data populated',
-      user: testUser.username,
-      leads: await costumers.countDocuments({ agenteNombre: 'test.agent' })
-    });
-  } catch (error) {
-    console.error('[DEV] Error populating test data:', error);
-    return res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════
-// DEV ENDPOINT: Asignar TODOS los leads reales al usuario admin
-// ═══════════════════════════════════════════════════════════
 app.post('/api/dev/assign-real-leads-to-admin', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
+  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
   try {
-    // Solo permitir desde localhost
-    const originIp = req.ip || req.connection?.remoteAddress || '';
-    if (!(originIp === '::1' || originIp === '127.0.0.1')) {
-      return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
+    const database = getDb();
+    if (!database) return res.status(500).json({ success: false, message: 'Database not connected' });
+    const costumers = database.collection('costumers_unified');
+    const total     = await costumers.countDocuments();
+    if (!req.body?.confirm || req.body.confirm !== 'YES_I_UNDERSTAND_THIS_OVERWRITES_ALL') {
+      return res.status(400).json({ success: false, message: 'Debes enviar { "confirm": "YES_I_UNDERSTAND_THIS_OVERWRITES_ALL" } en el body.' });
     }
-    
-    const db = getDb();
-    if (!db) return res.status(500).json({ success: false, message: 'Database not connected' });
-    
-    const costumers = db.collection('costumers_unified');
-    
-    // 1. Contar leads actuales sin agente
-    const leadsWithoutAgent = await costumers.countDocuments({ 
-      agenteNombre: { $exists: false } 
-    });
-    const leadsWithAgent = await costumers.countDocuments({ agenteNombre: { $exists: true } });
-    const totalLeads = await costumers.countDocuments();
-    
-    // 2. Asignar TODOS los leads sin agente a 'admin' (o actualizar los que ya tienen agente)
-    const result = await costumers.updateMany(
-      {},  // Actualizar TODOS los documentos
-      { $set: { agenteNombre: 'admin' } }
-    );
-    
-    // 3. Contar nuevamente para verificar
-    const finalCount = await costumers.countDocuments({ agenteNombre: 'admin' });
-    
-    // 4. Obtener estadísticas
-    const stats = await costumers.aggregate([
-      { $match: { agenteNombre: 'admin' } },
-      {
-        $group: {
-          _id: null,
-          totalVentas: { $sum: { $cond: [{ $eq: ['$status', 'vendido'] }, 1, 0] } },
-          totalPuntos: { $sum: '$puntaje' },
-          totalLeads: { $sum: 1 }
-        }
-      }
-    ]).toArray();
-    
-    return res.json({
-      success: true,
-      message: 'All leads assigned to admin',
-      before: {
-        totalLeads,
-        leadsWithoutAgent,
-        leadsWithAgent
-      },
-      after: {
-        totalLeadsForAdmin: finalCount,
-        modifiedCount: result.modifiedCount
-      },
-      stats: stats.length > 0 ? stats[0] : { totalVentas: 0, totalPuntos: 0, totalLeads: 0 }
-    });
-  } catch (error) {
-    console.error('[DEV] Error assigning leads:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    const result = await costumers.updateMany({}, { $set: { agenteNombre: 'admin' } });
+    return res.json({ success: true, message: 'All leads assigned to admin', before: { totalLeads: total }, after: { modifiedCount: result.modifiedCount } });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Endpoint para obtener teams con supervisores asignados
-app.get('/api/teams', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), (req, res) => {
+// ── AUTH ENDPOINTS ────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/auth', forgotPasswordRoutes);
+
+app.post('/api/login', loginLimiter, async (req, res) => {
   try {
-    console.log('[TEAMS] Solicitando lista de teams...');
-    
-    // Teams con supervisores predefinidos (datos estáticos)
-    const teamsWithSupervisors = [
-      {
-        value: 'TEAM IRANIA',
-        label: 'TEAM IRANIA',
-        supervisor: 'irania.serrano',
-        supervisorName: 'Irania Serrano'
-      },
-      {
-        value: 'TEAM BRYAN PLEITEZ',
-        label: 'TEAM BRYAN PLEITEZ', 
-        supervisor: 'bryan.pleitez',
-        supervisorName: 'Bryan Pleitez'
-      },
-      {
-        value: 'TEAM MARISOL BELTRAN',
-        label: 'TEAM MARISOL BELTRAN',
-        supervisor: 'marisol.beltran', 
-        supervisorName: 'Marisol Beltrán'
-      },
-      {
-        value: 'TEAM ROBERTO VELASQUEZ',
-        label: 'TEAM ROBERTO VELASQUEZ',
-        supervisor: 'roberto.velasquez',
-        supervisorName: 'Roberto Velásquez'
-      },
-      {
-        value: 'team lineas jonathan',
-        label: 'TEAM LÍNEAS - JONATHAN F',
-        supervisor: 'JONATHAN F',
-        supervisorName: 'JONATHAN F'
-      },
-      {
-        value: 'team lineas luis',
-        label: 'TEAM LÍNEAS - LUIS G',
-        supervisor: 'LUIS G',
-        supervisorName: 'LUIS G'
-      },
-      {
-        value: 'Backoffice',
-        label: 'Backoffice',
-        supervisor: null,
-        supervisorName: 'Sin supervisor específico'
-      },
-      {
-        value: 'Administración',
-        label: 'Administración', 
-        supervisor: null,
-        supervisorName: 'Sin supervisor específico'
-      }
-    ];
-    
-    console.log('[TEAMS] Devolviendo', teamsWithSupervisors.length, 'teams');
-    
-    res.json({
-      success: true,
-      teams: teamsWithSupervisors
-    });
-    
-  } catch (error) {
-    console.error('[TEAMS] Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error al obtener teams' 
-    });
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ success: false, message: 'Usuario y contraseña son requeridos' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+    const user = await db.collection('users').findOne({ username });
+    if (!user || !await bcrypt.compare(password, user.password)) {
+      return res.status(401).json({ success: false, message: 'Usuario o contraseña incorrectos' });
+    }
+    const token = jwt.sign({ id: user._id?.toString(), username: user.username, role: user.role||'user' }, JWT_SECRET_EFFECTIVE, { expiresIn: JWT_EXPIRES_IN });
+    try {
+      const opts = cookieOptionsForReq(req, { httpOnly:true, secure: process.env.NODE_ENV==='production', sameSite: process.env.NODE_ENV==='production'?'none':'lax', maxAge: 24*60*60*1000, path:'/' });
+      if (res.cookie) res.cookie('token', token, opts);
+    } catch (_) {}
+    const { password: _, ...userWithout } = user;
+    return res.json({ success: true, message: 'Inicio de sesión exitoso', token, user: userWithout });
+  } catch (e) {
+    console.error('[LOGIN]', e);
+    return res.status(500).json({ success: false, message: 'Error en el servidor' });
   }
 });
 
-// Endpoint para obtener supervisores por team (simplificado - ya no se usa)
-app.get('/api/supervisors/:team', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), (req, res) => {
+app.get('/api/auth/verify-server', async (req, res) => {
+  const token = req.cookies?.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+  if (!token) return res.json({ success: false, message: 'No se encontró token', authenticated: false });
   try {
-    const { team } = req.params;
-    console.log('[SUPERVISORS] Solicitando supervisores para team:', team);
-    
-    // Ya no necesitamos este endpoint porque los supervisores se asignan automáticamente
-    // Pero lo mantenemos por compatibilidad
-    res.json({
-      success: true,
-      supervisors: []
-    });
-    
-  } catch (error) {
-    console.error('[SUPERVISORS] Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error al obtener supervisores' 
-    });
+    const decoded = jwt.verify(token, JWT_SECRET_EFFECTIVE);
+    let userDoc = null;
+    if (isConnected()) {
+      if (!db) db = getDb();
+      try { userDoc = await db.collection('users').findOne({ username: decoded.username }, { projection: { password:0 } }); } catch (_) {}
+    }
+    const payload = userDoc ? {
+      id: userDoc._id?.toString() || decoded.id, username: userDoc.username, role: userDoc.role,
+      email: userDoc.email||null, team: userDoc.team||null, permissions: userDoc.permissions||decoded.permissions,
+      avatarUrl: userDoc.avatarUrl||null, avatarFileId: userDoc.avatarFileId||null
+    } : { id: decoded.id, username: decoded.username, role: decoded.role, email: decoded.email||null, team: decoded.team||null };
+    return res.json({ success: true, message: 'Token válido', authenticated: true, user: payload });
+  } catch (e) {
+    return res.json({ success: false, message: 'Token inválido', authenticated: false, error: e.message });
   }
 });
 
-// Endpoint para registrar nuevo usuario (solo administradores)
-app.post('/api/auth/register', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), async (req, res) => {
+app.post('/api/auth/register', protect, authorize('Administrador','admin','administrador','Administrativo'), async (req, res) => {
   try {
     const { username, password, role, team, supervisor } = req.body;
+    if (!username || !password || !role) return res.status(400).json({ success: false, message: 'username, password y role son requeridos' });
+    if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ success: false, message: 'Contraseña debe tener al menos 8 caracteres' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
 
-    // Validaciones básicas
-    if (!username || !password || !role) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username, password y role son requeridos'
-      });
-    }
-
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'La contraseña debe tener al menos 8 caracteres'
-      });
-    }
-
-    // Normalizar el rol recibido a valores canónicos usados en la app
     const normalizeRole = (r) => {
-      if (!r) return 'Usuario';
-      const rr = String(r).trim().toLowerCase();
-      if (['admin', 'administrador', 'administrator', 'administrativo'].includes(rr)) return 'Administrador';
-      if (['backoffice', 'back office', 'back_office', 'bo', 'b.o', 'b-o'].includes(rr)) return 'Backoffice';
+      const rr = String(r||'').trim().toLowerCase();
+      if (['admin','administrador','administrator','administrativo'].includes(rr)) return 'Administrador';
+      if (['backoffice','back office','back_office','bo','b.o','b-o'].includes(rr)) return 'Backoffice';
       if (['supervisor'].includes(rr)) return 'Supervisor';
-      if (['vendedor', 'agente', 'agentes', 'agent'].includes(rr)) return 'Agente';
-      if (['supervisor team lineas', 'supervisor_team_lineas', 'supervisor lineas', 'supervisor líneas', 'supervisor team líneas'].includes(rr)) return 'Supervisor Team Lineas';
-      if (['lineas-agentes', 'lineas agentes', 'lineas_agentes', 'líneas-agentes', 'lineas-agente', 'lineas agente'].includes(rr)) return 'Lineas-Agentes';
-      if (['team lineas', 'team_lineas', 'teamlineas', 'lineas', 'líneas', 'team líneas', 'team_lineas_1', 'team_lineas_2'].includes(rr)) return 'Team Lineas';
-      // Capitalizar la primera letra por defecto
+      if (['vendedor','agente','agentes','agent'].includes(rr)) return 'Agente';
+      if (['supervisor team lineas','supervisor_team_lineas','supervisor lineas'].includes(rr)) return 'Supervisor Team Lineas';
+      if (['lineas-agentes','lineas agentes','lineas_agentes'].includes(rr)) return 'Lineas-Agentes';
+      if (['team lineas','team_lineas','lineas','líneas'].includes(rr)) return 'Team Lineas';
       return rr.charAt(0).toUpperCase() + rr.slice(1);
     };
 
     const canonicalRole = normalizeRole(role);
-    
-    // Crear el nuevo usuario
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
+    const existing = await db.collection('users').findOne({ username: String(username).trim() });
+    if (existing) return res.status(400).json({ success: false, message: 'El usuario ya existe' });
 
-    // Verificar si el usuario ya existe
-    const existingUser = await db.collection('users').findOne({ username: username });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'El usuario ya existe'
-      });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    let teamNorm = canonicalRole === 'Backoffice' ? null : (team ? String(team).trim() : null);
+    let supVal   = supervisor || null;
+    if (!supVal && teamNorm) {
+      const t = String(teamNorm).toLowerCase();
+      if (t.includes('jonathan')) supVal = 'JONATHAN F';
+      else if (t.includes('luis')) supVal = 'LUIS G';
     }
 
-    // Hashear la contraseña
-    const bcrypt = require('bcryptjs');
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Normalizar el team: si es Backoffice no asignar team (Backoffice ve todo)
-    let teamNormalized = team ? String(team).trim() : null;
-    if (canonicalRole === 'Backoffice') teamNormalized = null;
-
-    // Asignar supervisor automáticamente según el team de Líneas
-    let supervisorValue = supervisor || null;
-    if (!supervisorValue && teamNormalized) {
-      const normalizedTeam = String(teamNormalized).toLowerCase();
-      if (normalizedTeam.includes('team lineas jonathan') || normalizedTeam.includes('jonathan')) {
-        supervisorValue = 'JONATHAN F';
-      } else if (normalizedTeam.includes('team lineas luis') || normalizedTeam.includes('luis')) {
-        supervisorValue = 'LUIS G';
-      }
-    }
-
-    // Definir permisos por rol (coincidente con PERMISOS_POR_ROL.md)
     const rolePermissions = {
-      'Administrador': ['read', 'write', 'delete', 'manage_users', 'manage_teams'],
-      'Backoffice': ['read', 'write', 'export', 'view_finance'],
-      'Supervisor': ['read_team', 'write_team', 'view_reports'],
-      'Agente': ['read_own', 'write_own'],
-      'Team Lineas': ['read_team:lineas', 'write_team:lineas'],
-      'Lineas-Agentes': ['read_team:lineas', 'write_team:lineas'],
-      'Supervisor Team Lineas': ['read_team:lineas', 'write_team:lineas', 'view_reports']
+      'Administrador': ['read','write','delete','manage_users','manage_teams'],
+      'Backoffice':    ['read','write','export','view_finance'],
+      'Supervisor':    ['read_team','write_team','view_reports'],
+      'Agente':        ['read_own','write_own'],
+      'Team Lineas':   ['read_team:lineas','write_team:lineas'],
+      'Lineas-Agentes':['read_team:lineas','write_team:lineas'],
+      'Supervisor Team Lineas': ['read_team:lineas','write_team:lineas','view_reports']
     };
 
-    const permissions = rolePermissions[canonicalRole] || ['read_own'];
-
-    // Crear el nuevo usuario
     const newUser = {
-      username: String(username).trim(),
-      password: hashedPassword,
-      role: canonicalRole,
-      team: teamNormalized || null,
-      supervisor: supervisorValue || null,
+      username: String(username).trim(), password: hashedPassword, role: canonicalRole,
+      team: teamNorm, supervisor: supVal,
       name: (req.body.name && String(req.body.name).trim()) || String(username).trim(),
-      permissions,
-      createdBy: req.user && req.user.username ? req.user.username : 'system',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      permissions: rolePermissions[canonicalRole] || ['read_own'],
+      createdBy: req.user?.username || 'system', createdAt: new Date(), updatedAt: new Date()
     };
-
     await db.collection('users').insertOne(newUser);
-    // No devolver la contraseña
-    delete newUser.password;
-    
-    console.log(`[REGISTER] Nuevo usuario creado: ${username} (${role}) en team: ${team} con supervisor: ${supervisor} por: ${req.user.username}`);
-    
-    res.json({ 
-      success: true, 
-      message: 'Usuario creado exitosamente',
-      user: {
-        username: newUser.username,
-        role: newUser.role,
-        team: newUser.team,
-        supervisor: newUser.supervisor
-      }
-    });
-    
-  } catch (error) {
-    console.error('[REGISTER] Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error interno del servidor' 
-    });
+    console.log(`[REGISTER] ${username} (${canonicalRole}) creado por ${req.user.username}`);
+    return res.json({ success: true, message: 'Usuario creado', user: { username: newUser.username, role: newUser.role, team: newUser.team, supervisor: newUser.supervisor } });
+  } catch (e) {
+    console.error('[REGISTER]', e);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint para restablecer contraseña (solo administradores)
-app.post('/api/auth/reset-password', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), async (req, res) => {
+app.post('/api/auth/reset-password', protect, authorize('Administrador','admin','administrador','Administrativo'), async (req, res) => {
   try {
     const { username, newPassword } = req.body;
-    
-    if (!username || !newPassword) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username y nueva contraseña son requeridos' 
-      });
-    }
-    
-    if (newPassword.length < 8) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'La contraseña debe tener al menos 8 caracteres' 
-      });
-    }
-    
-    // Asegurar conexión BD
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    let db;
-    try {
-      db = await connectToMongoDB();
-    } catch (dbError) {
-      console.error('[AUTH] Error conectando a MongoDB en resetPassword:', dbError);
-      return res.status(500).json({ success: false, message: 'Error de conexión a la base de datos' });
-    }
-
-    // Buscar el usuario en MongoDB
+    if (!username || !newPassword) return res.status(400).json({ success: false, message: 'username y newPassword requeridos' });
+    if (newPassword.length < 8)     return res.status(400).json({ success: false, message: 'Contraseña debe tener al menos 8 caracteres' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
     const user = await db.collection('users').findOne({ username });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-    }
-
-    // Hashear la nueva contraseña
-    const bcrypt = require('bcryptjs');
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Actualizar la contraseña
-    await db.collection('users').updateOne(
-      { _id: user._id },
-      { $set: { password: hashedPassword, updatedAt: new Date() } }
-    );
-    
-    console.log(`[RESET] Contraseña restablecida para usuario: ${username} por: ${req.user.username}`);
-    
-    res.json({ 
-      success: true, 
-      message: 'Contraseña restablecida exitosamente' 
-    });
-    
-  } catch (error) {
-    console.error('[RESET] Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error interno del servidor' 
-    });
-  }
-});
-
-// Endpoint para subir archivos multimedia
-app.post('/api/upload', protect, (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
-    if (!err) return next();
-    const code = err && (err.code || err.name) ? String(err.code || err.name) : 'UPLOAD_ERROR';
-    const msg = err && err.message ? String(err.message) : 'Error subiendo archivo';
-    // Errores comunes de Multer
-    if (code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({
-        success: false,
-        message: 'El archivo excede el tamaño máximo permitido (10MB).',
-        code
-      });
-    }
-    if (code === 'LIMIT_UNEXPECTED_FILE') {
-      return res.status(400).json({ success: false, message: 'Campo de archivo inválido.', code });
-    }
-    return res.status(400).json({ success: false, message: msg, code });
-  });
-}, async (req, res) => {
-  console.log('[UPLOAD] Inicio de upload', {
-    file: req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path } : null,
-    body: req.body,
-    user: req.user?.username,
-    NODE_ENV: process.env.NODE_ENV,
-    hasCloudinary: !!(cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
-  });
-  
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se recibió ningún archivo'
-      });
-    }
-
-    // Asegurar conexión BD
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-
-    // Determinar categoría del archivo (permite override desde el cliente)
-    let categoryOverride = (req.body && req.body.category) || req.query.category || req.headers['x-media-category'];
-    let category = null;
-    if (categoryOverride && typeof categoryOverride === 'string') {
-      category = categoryOverride.toLowerCase();
-    } else {
-      category = 'image';
-      if (req.file.mimetype === 'image/gif') {
-        category = 'gif';
-      } else if (req.file.mimetype.startsWith('video/')) {
-        category = 'video';
-      }
-    }
-
-    // URL del archivo (local por defecto); si hay Cloudinary, subir allí
-    let fileUrl = `/uploads/${req.file.filename}`;
-    let cloudinaryPublicId = null;
-    let source = 'local';
-
-    const hasCloudinary = cloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
-    const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-
-    const categoryLower = String(category || '').toLowerCase();
-    const requiresCloudinary = (categoryLower === 'marketing' || categoryLower === 'employees-of-month') && isProduction;
-
-    // En producción (Render) el almacenamiento local es efímero; para marketing requerimos Cloudinary
-    if (requiresCloudinary && !hasCloudinary) {
-      // No permitir fallback a disco local en producción para categorías críticas.
-      // employees-of-month: evita que la imagen desaparezca tras reinicios.
-      if (req.file && fs.existsSync(req.file.path)) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-      }
-      console.warn(`[UPLOAD] Cloudinary no configurado para categoría "${categoryLower}" en producción. Bloqueando subida local.`);
-      return res.status(400).json({
-        success: false,
-        message: `Cloudinary no está configurado para ${categoryLower} en producción. Configura CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET.`
-      });
-    }
-
-    if (hasCloudinary) {
-      try {
-        const folder = `crm/${category || 'general'}`;
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder,
-          resource_type: 'auto',
-        });
-        fileUrl = result.secure_url;
-        cloudinaryPublicId = result.public_id;
-        source = 'cloudinary';
-        // Borrar archivo local tras subir a Cloudinary
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-      } catch (e) {
-        // En desarrollo, permitir fallback a storage local incluso para employees-of-month
-        const shouldFallbackToLocal = !isProduction || categoryLower !== 'marketing';
-        
-        if (requiresCloudinary && !shouldFallbackToLocal) {
-          // En producción para marketing, fallar si Cloudinary no funciona
-          if (req.file && fs.existsSync(req.file.path)) {
-            try { fs.unlinkSync(req.file.path); } catch (_) {}
-          }
-          console.error(`[UPLOAD] Cloudinary falló para ${categoryLower} en producción:`, {
-            message: e?.message,
-            name: e?.name,
-            http_code: e?.http_code,
-            code: e?.code,
-            error: e?.error
-          });
-          return res.status(502).json({
-            success: false,
-            message: `No se pudo subir el archivo a Cloudinary (${categoryLower}). Intenta nuevamente o revisa credenciales.`,
-            details: {
-              category: categoryLower,
-              cloudinary: {
-                name: e?.name || null,
-                code: e?.code || null,
-                http_code: e?.http_code || null,
-                message: e?.message || null
-              }
-            }
-          });
-        }
-
-        // En desarrollo o si es permitido, usar storage local
-        console.warn(`[UPLOAD] Cloudinary falló para ${categoryLower}, usando storage local:`, {
-          message: e?.message,
-          name: e?.name,
-          http_code: e?.http_code,
-          code: e?.code,
-          isProduction,
-          shouldFallbackToLocal
-        });
-        source = 'local'; // Mantener fileUrl como local
-      }
-    }
-    // Guardar información en la base de datos (Mongo nativo)
-    // Asegurar conexión y obtener collection
-    if (!db) db = getDb();
-    if (!db) {
-      // Eliminar archivo local si no hay BD
-      if (req.file && fs.existsSync(req.file.path)) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
-      }
-      return res.status(503).json({ success: false, message: 'No hay conexión a la base de datos.' });
-    }
-    const collection = db.collection('mediafiles');
-    const now = new Date();
-    const doc = {
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      path: req.file.path,
-      url: fileUrl,
-      cloudinaryPublicId,
-      source,
-      uploadedBy: req.user.username,
-      category: category,
-      uploadDate: now,
-      createdAt: now,
-      updatedAt: now
-    };
-    const insertResult = await collection.insertOne(doc);
-    const saved = { _id: insertResult.insertedId, ...doc };
-
-    console.log(`[UPLOAD] Archivo subido: ${req.file.originalname} por ${req.user.username}`);
-
-    res.json({
-      success: true,
-      message: 'Archivo subido exitosamente',
-      file: {
-        id: saved._id,
-        name: saved.originalName,
-        url: saved.url,
-        type: saved.mimetype,
-        size: saved.size,
-        category: saved.category,
-        uploadDate: saved.uploadDate,
-        source: saved.source
-      }
-    });
-
-  } catch (error) {
-    console.error('[UPLOAD] Error:', error);
-    
-    // Eliminar archivo si hubo error guardando en BD
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
-    const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-    res.status(500).json({
-      success: false,
-      message: 'Error subiendo archivo',
-      ...(isProduction
-        ? {}
-        : {
-            error: {
-              name: error?.name || null,
-              message: error?.message || String(error),
-              stack: typeof error?.stack === 'string' ? error.stack.split('\n').slice(0, 8).join('\n') : null
-            }
-          })
-    });
-  }
-});
-
-// Endpoint para obtener lista de archivos multimedia (con verificación de existencia)
-app.get('/api/media', protect, async (req, res) => {
-  try {
-    console.log('[MEDIA] Solicitud a /api/media recibida');
-
-    // Usar MongoDB nativo en lugar de Mongoose
-    if (!db) await connectToMongoDB();
-    const collection = db.collection('mediafiles');
-
-    // Filtros opcionales
-    const { category, limit = 50, offset = 0, orderBy = 'uploadDate', sort = 'desc' } = req.query;
-
-    let query = {};
-    if (category && category !== 'all') {
-      query.category = category;
-    }
-
-    // Configurar ordenamiento dinámico
-    const allowedSortFields = {
-      'uploadDate': 'uploadDate',
-      'createdAt': 'createdAt', 
-      'updatedAt': 'updatedAt',
-      'originalName': 'originalName',
-      'size': 'size'
-    };
-    
-    const sortField = allowedSortFields[orderBy] || 'uploadDate';
-    const sortDirection = sort.toLowerCase() === 'asc' ? 1 : -1;
-    const sortSpec = { [sortField]: sortDirection };
-
-    console.log(`[MEDIA] Ejecutando consulta a mediafiles con orden: ${JSON.stringify(sortSpec)}`);
-    const files = await collection
-      .find(query, { 
-        sort: sortSpec,
-        limit: parseInt(limit),
-        skip: parseInt(offset)
-      })
-      .toArray();
-
-    console.log(`[MEDIA] Encontrados ${files.length} archivos en BD`);
-
-    // Verificar existencia de archivos locales y aceptar Cloudinary sin verificación en disco
-    const uploadsDir = path.join(__dirname, 'uploads');
-    const validFiles = [];
-
-    for (const file of files) {
-      try {
-        const isCloudinary = file.source === 'cloudinary' || /https?:\/\/res\.cloudinary\.com\//i.test(file.url || '');
-        if (isCloudinary) {
-          // Para Cloudinary, confiamos en la URL segura almacenada
-          validFiles.push(file);
-          console.log(`[MEDIA] ✓ Archivo Cloudinary: ${file.originalName}`);
-          continue;
-        }
-
-        const filePath = path.join(uploadsDir, path.basename(file.url || ''));
-        if (file.url && fs.existsSync(filePath)) {
-          validFiles.push(file);
-          console.log(`[MEDIA] ✓ Archivo local válido: ${file.originalName}`);
-        } else {
-          console.log(`[MEDIA] ⚠️ Archivo local inexistente (se omite, no se borra DB): ${file.url}`);
-        }
-      } catch (error) {
-        console.error(`[MEDIA] Error verificando archivo ${file.url}:`, error);
-      }
-    }
-
-    console.log(`[MEDIA] Devolviendo ${validFiles.length} archivos válidos`);
-
-    const formattedFiles = validFiles.map(file => ({
-      id: file._id,
-      name: file.originalName,
-      url: file.url,
-      type: file.mimetype,
-      size: file.size,
-      category: file.category,
-      uploadDate: file.uploadDate,
-      uploadedBy: file.uploadedBy
-    }));
-
-    res.json(formattedFiles);
-
-  } catch (error) {
-    console.error('[MEDIA] Error obteniendo archivos:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error obteniendo archivos'
-    });
-  }
-});
-
-// Endpoint para eliminar archivo multimedia
-app.delete('/api/media/:id', protect, async (req, res) => {
-  try {
-    if (!db) await connectToMongoDB();
-    const collection = db.collection('mediafiles');
-    const { id } = req.params;
-
-    const file = await collection.findOne({ _id: new ObjectId(id) });
-    if (!file) {
-      return res.status(404).json({
-        success: false,
-        message: 'Archivo no encontrado'
-      });
-    }
-
-    // Verificar permisos: solo el que subió el archivo o admin puede eliminarlo
-    const isAdmin = ['admin', 'Administrador', 'administrador', 'Administrativo'].includes(req.user.role);
-    if (file.uploadedBy !== req.user.username && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes permisos para eliminar este archivo'
-      });
-    }
-
-    // Eliminar archivo físico
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
-
-    // Eliminar registro de la base de datos
-    await collection.deleteOne({ _id: new ObjectId(id) });
-
-    console.log(`[DELETE] Archivo eliminado: ${file.originalName} por ${req.user.username}`);
-
-    res.json({
-      success: true,
-      message: 'Archivo eliminado exitosamente'
-    });
-
-  } catch (error) {
-    console.error('[DELETE] Error eliminando archivo:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error eliminando archivo'
-    });
-  }
-});
-
-// Endpoint para obtener estadísticas de multimedia
-app.get('/api/media/stats', protect, async (req, res) => {
-  try {
-    if (!db) await connectToMongoDB();
-    const collection = db.collection('mediafiles');
-
-    // Usar aggregate con MongoDB nativo
-    const stats = await collection.aggregate([
-      {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-          totalSize: { $sum: '$size' }
-        }
-      }
-    ]).toArray();
-
-    const totalFiles = await collection.countDocuments();
-    const totalSizeResult = await collection.aggregate([
-      { $group: { _id: null, total: { $sum: '$size' } } }
-    ]).toArray();
-
-    res.json({
-      success: true,
-      stats: {
-        total: totalFiles,
-        totalSize: totalSizeResult[0]?.total || 0,
-        byCategory: stats
-      }
-    });
-
-  } catch (error) {
-    console.error('[STATS] Error obteniendo estadísticas:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error obteniendo estadísticas'
-    });
-  }
-});
-
-// Endpoint temporal para debugging - ver información del usuario actual
-app.get('/api/debug/user', protect, async (req, res) => {
-  try {
-    console.log('[DEBUG] Usuario actual:', req.user);
-    
-    // También buscar en la base de datos
-    let dbUser = null;
-    if (req.user && req.user._id) {
-      // Usar MongoDB en lugar de UserMemory
-      try {
-        if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-        dbUser = await db.collection('users').findOne({ _id: new ObjectId(req.user._id) });
-      } catch (error) {
-        console.error('[DEBUG] Error buscando usuario en MongoDB:', error);
-      }
-    }
-    
-    res.json({
-      success: true,
-      tokenUser: req.user,
-      dbUser: dbUser,
-      canCreateAccounts: ['Administrador', 'admin', 'administrador', 'Administrativo'].includes(req.user?.role)
-    });
-  } catch (error) {
-    console.error('[DEBUG] Error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Endpoint para ver usuarios disponibles (solo desarrollo)
-app.get('/api/debug/users', async (req, res) => {
-  try {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({ message: 'Not found' });
-    }
-
-    // Usar MongoDB en lugar de UserMemory
-    if (!isConnected()) {
-      return res.status(503).json({ success: false, message: 'Servicio no disponible. No hay conexión a la base de datos.' });
-    }
-    if (!db) db = getDb();
-    const users = await db.collection('users')
-      .find({}, { username: 1, role: 1, _id: 1 })
-      .toArray();
-
-    const sanitizedUsers = users.map(u => ({
-      _id: u._id,
-      username: u.username,
-      role: u.role,
-      team: u.team,
-      createdAt: u.createdAt
-    }));
-
-    res.json({
-      success: true,
-      message: 'Usuarios disponibles en MongoDB',
-      users: sanitizedUsers,
-      note: 'Credenciales de prueba: usuario="Kelvin Rodriguez" contraseña="Kelvin2025" o "Daniel Martinez" contraseña="password"'
-    });
-  } catch (error) {
-    try {
-      if (!db) await connectToMongoDB();
-      const collection = db.collection('mediafiles');
-
-      // Obtener todos los archivos multimedia de la BD
-      const mediaFiles = await collection.find({}).toArray();
-      const uploadsDir = path.join(__dirname, 'uploads');
-
-      let cleaned = 0;
-      let errors = 0;
-
-      console.log(`[CLEAN-MEDIA] Revisando ${mediaFiles.length} archivos multimedia...`);
-
-      for (const file of mediaFiles) {
-        try {
-          const filePath = path.join(uploadsDir, path.basename(file.url));
-
-          // Verificar si el archivo existe físicamente
-          if (!fs.existsSync(filePath)) {
-            console.log(`[CLEAN-MEDIA] Eliminando referencia a archivo inexistente: ${file.url}`);
-            await collection.deleteOne({ _id: file._id });
-            cleaned++;
-          }
-        } catch (error) {
-          console.error(`[CLEAN-MEDIA] Error procesando archivo ${file.url}:`, error);
-          errors++;
-        }
-      }
-
-      res.json({
-        success: true,
-        message: 'Limpieza de archivos multimedia completada',
-        cleaned,
-        errors,
-        total: mediaFiles.length
-      });
-    } catch (error) {
-      console.error('[CLEAN-MEDIA] Error:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-});
-
-// Endpoint para crear un usuario administrador inicial (solo desarrollo + secreto por .env)
-app.post('/api/create-admin', async (req, res) => {
-  try {
-    // Bloquear en producción
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({ success: false, message: 'No encontrado' });
-    }
-
-    const { username, password, secret } = req.body || {};
-    const SETUP_SECRET = process.env.ADMIN_SETUP_SECRET;
-    const headerSecret = req.headers['x-admin-setup-secret'];
-    const providedSecret = headerSecret || secret;
-
-    if (!SETUP_SECRET || !providedSecret || providedSecret !== SETUP_SECRET) {
-      return res.status(403).json({ success: false, message: 'No autorizado' });
-    }
-
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Usuario y contraseña son requeridos' });
-    }
-
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      db = await connectToMongoDB();
-    }
-
-    // Verificar si el usuario ya existe
-    const existingUser = await db.collection('users').findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'El usuario ya existe' });
-    }
-
-    // Hashear la contraseña
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Crear el usuario administrador
-    const newUser = {
-      username,
-      password: hashedPassword,
-      role: 'admin',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    await db.collection('users').insertOne(newUser);
-    // No devolver la contraseña
-    delete newUser.password;
-
-    return res.status(201).json({ success: true, message: 'Usuario administrador creado exitosamente', user: newUser });
-  } catch (error) {
-    console.error('Error al crear usuario administrador:', error);
-    return res.status(500).json({ success: false, message: 'Error al crear el usuario administrador' });
-  }
-});
-
-    // Listar agentes desde la colección de usuarios (para hidratar sidebar)
-    app.get('/api/users/agents', protect, async (req, res) => {
-  try {
-    if (!db) await connectToMongoDB();
-    const usersColl = db.collection('users');
-    // Filtrar roles que contengan 'agente' o 'vendedor' (case-insensitive)
-    const roleFilter = { role: { $regex: /(agente|vendedor)/i } };
-    const users = await usersColl
-      .find(roleFilter)
-      .project({ username: 1, name: 1, nombre: 1, fullName: 1, role: 1, supervisor:1, supervisorName:1, supervisorId:1, team:1 })
-      .toArray();
-    const sanitized = users.map(u => ({
-      id: (u._id && u._id.toString()) || null,
-      username: u.username || null,
-      name: u.name || u.nombre || u.fullName || u.username || null,
-      role: u.role || 'Agentes'
-    }));
-    return res.json({ success: true, agents: sanitized });
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.collection('users').updateOne({ _id: user._id }, { $set: { password: hashed, updatedAt: new Date() } });
+    console.log(`[RESET] ${username} restablecida por ${req.user.username}`);
+    return res.json({ success: true, message: 'Contraseña restablecida' });
   } catch (e) {
-    console.error('[users-agents] error:', e);
+    console.error('[RESET]', e);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/create-admin', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ success: false, message: 'No encontrado' });
+  const { username, password, secret } = req.body || {};
+  const SETUP_SECRET = process.env.ADMIN_SETUP_SECRET;
+  const provided     = req.headers['x-admin-setup-secret'] || secret;
+  if (!SETUP_SECRET || !provided || provided !== SETUP_SECRET) return res.status(403).json({ success: false, message: 'No autorizado' });
+  if (!username || !password) return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
+  if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+  if (!db) db = getDb();
+  const existing = await db.collection('users').findOne({ username });
+  if (existing) return res.status(400).json({ success: false, message: 'El usuario ya existe' });
+  const hashed  = await bcrypt.hash(password, 10);
+  const newUser = { username, password: hashed, role: 'admin', createdAt: new Date(), updatedAt: new Date() };
+  await db.collection('users').insertOne(newUser);
+  delete newUser.password;
+  return res.status(201).json({ success: true, message: 'Administrador creado', user: newUser });
+});
+
+// ── TEAMS & SUPERVISORS ───────────────────────────────────────
+app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
+  res.json({ success: true, teams: [
+    { value:'TEAM IRANIA',            label:'TEAM IRANIA',            supervisor:'irania.serrano',    supervisorName:'Irania Serrano' },
+    { value:'TEAM BRYAN PLEITEZ',     label:'TEAM BRYAN PLEITEZ',     supervisor:'bryan.pleitez',     supervisorName:'Bryan Pleitez' },
+    { value:'TEAM MARISOL BELTRAN',   label:'TEAM MARISOL BELTRAN',   supervisor:'marisol.beltran',   supervisorName:'Marisol Beltrán' },
+    { value:'TEAM ROBERTO VELASQUEZ', label:'TEAM ROBERTO VELASQUEZ', supervisor:'roberto.velasquez', supervisorName:'Roberto Velásquez' },
+    { value:'team lineas jonathan',   label:'TEAM LÍNEAS - JONATHAN F', supervisor:'JONATHAN F',      supervisorName:'JONATHAN F' },
+    { value:'team lineas luis',       label:'TEAM LÍNEAS - LUIS G',   supervisor:'LUIS G',            supervisorName:'LUIS G' },
+    { value:'Backoffice',             label:'Backoffice',             supervisor:null,                supervisorName:'Sin supervisor' },
+    { value:'Administración',         label:'Administración',         supervisor:null,                supervisorName:'Sin supervisor' }
+  ]});
+});
+
+app.get('/api/supervisors/:team', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
+  res.json({ success: true, supervisors: [] });
+});
+
+app.get('/api/users/agents', protect, async (req, res) => {
+  try {
+    if (!db) { if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' }); db = getDb(); }
+    const users = await db.collection('users').find({ role: { $regex: /(agente|vendedor)/i } })
+      .project({ username:1, name:1, nombre:1, fullName:1, role:1, supervisor:1, team:1 }).toArray();
+    return res.json({ success: true, agents: users.map(u => ({ id: u._id?.toString()||null, username: u.username||null, name: u.name||u.nombre||u.fullName||u.username||null, role: u.role||'Agente' })) });
+  } catch (e) {
     return res.status(500).json({ success: false, message: 'Error obteniendo agentes', error: e.message });
   }
 });
 
-// Endpoint para el login
-// Endpoint para el login (aplicar rate limit si disponible)
-app.post('/api/login', loginLimiter, async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Usuario y contraseña son requeridos' 
-      });
-    }
-    
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      await connectToMongoDB();
-    }
-    
-    // Buscar el usuario en la base de datos
-    const user = await db.collection('users').findOne({ username });
-    
-    if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Usuario o contraseña incorrectos' 
-      });
-    }
-    
-    // Verificar la contraseña
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    
-    if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Usuario o contraseña incorrectos' 
-      });
-    }
-    
-    // Generar token JWT (usar clave 'id' de forma unificada)
-    const token = jwt.sign(
-      { 
-        id: user._id?.toString(), 
-        username: user.username,
-        role: user.role || 'user'
-      }, 
-      JWT_SECRET, 
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-    
-    // Establecer cookie HttpOnly con el token (compatibilidad con lecturas desde cookie)
-    try {
-      const opts = cookieOptionsForReq(req, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000,
-        path: '/',
-      });
-      res.cookie && res.cookie('token', token, opts);
-    } catch {}
-
-    // Enviar respuesta exitosa sin la contraseña
-    const { password: _, ...userWithoutPassword } = user;
-    
-    res.json({
-      success: true,
-      message: 'Inicio de sesión exitoso',
-      token,
-      user: userWithoutPassword
-    });
-    
-  } catch (error) {
-    console.error('Error en el login:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error en el servidor durante el inicio de sesión'
-    });
-  }
-});
-
-// Endpoint para obtener comentarios de un lead (usado por Costumer.html)
+// ── COMENTARIOS ───────────────────────────────────────────────
 app.get('/api/comments', async (req, res) => {
   try {
     const { leadId } = req.query;
-    if (!leadId) {
-      return res.status(400).json({ success: false, message: 'Se requiere el parámetro leadId' });
-    }
-    if (!db) {
-      await connectToMongoDB();
-    }
-    let leadObjectId;
-    try {
-      leadObjectId = new ObjectId(leadId);
-    } catch {
-      return res.status(400).json({ success: false, message: 'leadId inválido' });
-    }
-    const comments = await db
-      .collection('Vcomments')
-      .find({ leadId: leadObjectId })
-      .sort({ createdAt: 1 })
-      .toArray();
-    // Adaptar para frontend: devolver arreglo en propiedad comments
-    const payload = (comments || []).map(c => ({
-      _id: c._id?.toString(),
-      autor: c.autor || c.author || 'Desconocido',
-      texto: c.texto || c.text || '',
-      fecha: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString()
-    }));
-    return res.json({ success: true, comments: payload, message: 'Comentarios cargados correctamente' });
-  } catch (error) {
-    console.error('Error al obtener comentarios:', error);
-    return res.status(500).json({ success: false, message: 'Error al cargar los comentarios', error: error.message });
-  }
-});
-
-// Endpoints de comentarios por lead (solo administradores)
-// Listar comentarios
-app.get('/api/leads/:id/comentarios', protect, (req, res, next) => {
-  // Verificar si el usuario es administrador
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      message: 'Acceso denegado. Se requiere rol de administrador.'
-    });
-  }
-  next();
-}, async (req, res) => {
-  try {
-    const leadId = req.params.id;
-    if (!db) await connectToMongoDB();
+    if (!leadId) return res.status(400).json({ success: false, message: 'Se requiere leadId' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
     let leadObjectId;
     try { leadObjectId = new ObjectId(leadId); } catch { return res.status(400).json({ success: false, message: 'leadId inválido' }); }
-    const list = await db.collection('Vcomments').find({ leadId: leadObjectId }).sort({ createdAt: 1 }).toArray();
-    const mapped = list.map(c => ({
-      _id: c._id?.toString(),
-      autor: c.autor || c.author || 'Desconocido',
-      fecha: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
-      texto: c.texto || c.text || ''
-    }));
-    return res.json(mapped);
-  } catch (err) {
-    console.error('GET comentarios error:', err);
-    return res.status(500).json({ success: false, message: 'Error al obtener comentarios', error: err.message });
+    const comments = await db.collection('Vcomments').find({ leadId: leadObjectId }).sort({ createdAt:1 }).toArray();
+    return res.json({ success: true, comments: comments.map(c => ({ _id: c._id?.toString(), autor: c.autor||c.author||'Desconocido', texto: c.texto||c.text||'', fecha: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString() })) });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al cargar comentarios', error: e.message });
   }
 });
 
-// Crear comentario
+app.get('/api/leads/:id/comentarios', protect, async (req, res) => {
+  try {
+    if (!db) db = getDb();
+    let leadObjectId;
+    try { leadObjectId = new ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, message: 'leadId inválido' }); }
+    const list = await db.collection('Vcomments').find({ leadId: leadObjectId }).sort({ createdAt:1 }).toArray();
+    return res.json(list.map(c => ({ _id: c._id?.toString(), autor: c.autor||c.author||'Desconocido', fecha: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(), texto: c.texto||c.text||'' })));
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al obtener comentarios', error: e.message });
+  }
+});
+
 app.post('/api/leads/:id/comentarios', protect, async (req, res) => {
   try {
-    const leadId = req.params.id;
-    const { texto, comentario, autor: autorBody } = req.body || {};
-    if (!db) await connectToMongoDB();
+    if (!db) db = getDb();
     let leadObjectId;
-    try { 
-      leadObjectId = new ObjectId(leadId); 
-    } catch { 
-      return res.status(400).json({ success: false, message: 'leadId inválido' }); 
-    }
+    try { leadObjectId = new ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, message: 'leadId inválido' }); }
+    const { texto, comentario, autor: autorBody } = req.body || {};
     const now = new Date();
-    const doc = {
-      leadId: leadObjectId,
-      texto: (texto ?? comentario ?? '').toString().slice(0, 1000),
-      autor: autorBody || req.user?.username || 'Sistema',
-      createdAt: now,
-      updatedAt: now
-    };
+    const doc = { leadId: leadObjectId, texto: (texto ?? comentario ?? '').toString().slice(0,1000), autor: autorBody || req.user?.username || 'Sistema', createdAt: now, updatedAt: now };
     const result = await db.collection('Vcomments').insertOne(doc);
-    
-    // REGISTRAR ACTIVIDAD: Nota agregada
     try {
       const lead = await db.collection('costumers_unified').findOne({ _id: leadObjectId });
       const clientName = lead?.nombre_cliente || 'Sin nombre';
-      const noteSnippet = doc.texto.length > 50 ? doc.texto.substring(0, 50) + '...' : doc.texto;
-      
-      await logActivity(
-        db,
-        'Nota agregada',
-        leadObjectId,
-        clientName,
-        req.user?.username || 'Sistema',
-        req.user?.role || 'Usuario',
-        `Nota agregada a ${clientName}: "${noteSnippet}"`,
-        { note_content: doc.texto, note_author: doc.autor }
-      );
-    } catch (actErr) {
-      console.warn('[ACTIVITY-LOG] Error logging note activity:', actErr.message);
-    }
-    
-    return res.status(201).json({
-      success: true,
-      message: 'Comentario creado',
-      data: { _id: result.insertedId.toString(), ...doc }
-    });
-  } catch (err) {
-    console.error('POST comentario error:', err);
-    return res.status(500).json({ success: false, message: 'Error al crear comentario', error: err.message });
+      await logActivity(db, 'Nota agregada', leadObjectId, clientName, req.user?.username||'Sistema', req.user?.role||'Usuario', `Nota en ${clientName}: "${doc.texto.slice(0,50)}"`, { note_author: doc.autor });
+    } catch (_) {}
+    return res.status(201).json({ success: true, message: 'Comentario creado', data: { _id: result.insertedId.toString(), ...doc } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al crear comentario', error: e.message });
   }
 });
 
-// Actualizar comentario
 app.put('/api/leads/:id/comentarios/:comentarioId', protect, async (req, res) => {
   try {
-    const { id, comentarioId } = req.params;
-    const { texto } = req.body || {};
-    if (!db) await connectToMongoDB();
+    if (!db) db = getDb();
     let leadObjectId, commentObjectId;
-    try { leadObjectId = new ObjectId(id); commentObjectId = new ObjectId(comentarioId); } catch { return res.status(400).json({ success: false, message: 'IDs inválidos' }); }
+    try { leadObjectId = new ObjectId(req.params.id); commentObjectId = new ObjectId(req.params.comentarioId); }
+    catch { return res.status(400).json({ success: false, message: 'IDs inválidos' }); }
     const result = await db.collection('Vcomments').findOneAndUpdate(
       { _id: commentObjectId, leadId: leadObjectId },
-      { $set: { texto: (texto ?? '').toString().slice(0, 1000), updatedAt: new Date() } },
+      { $set: { texto: (req.body?.texto ?? '').toString().slice(0,1000), updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
     if (!result.value) return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
     const c = result.value;
-    return res.json({ success: true, message: 'Comentario actualizado', data: { _id: c._id.toString(), autor: c.autor, texto: c.texto, fecha: new Date(c.createdAt).toISOString() } });
-  } catch (err) {
-    console.error('PUT comentario error:', err);
-    return res.status(500).json({ success: false, message: 'Error al actualizar comentario', error: err.message });
+    return res.json({ success: true, data: { _id: c._id.toString(), autor: c.autor, texto: c.texto, fecha: new Date(c.createdAt).toISOString() } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar comentario', error: e.message });
   }
 });
 
-// Eliminar comentario
 app.delete('/api/leads/:id/comentarios/:comentarioId', protect, async (req, res) => {
   try {
-    const { id, comentarioId } = req.params;
-    if (!db) await connectToMongoDB();
+    if (!db) db = getDb();
     let leadObjectId, commentObjectId;
-    try { leadObjectId = new ObjectId(id); commentObjectId = new ObjectId(comentarioId); } catch { return res.status(400).json({ success: false, message: 'IDs inválidos' }); }
+    try { leadObjectId = new ObjectId(req.params.id); commentObjectId = new ObjectId(req.params.comentarioId); }
+    catch { return res.status(400).json({ success: false, message: 'IDs inválidos' }); }
     const result = await db.collection('Vcomments').deleteOne({ _id: commentObjectId, leadId: leadObjectId });
-    if (result.deletedCount === 0) return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
     return res.json({ success: true, message: 'Comentario eliminado' });
-  } catch (err) {
-    console.error('DELETE comentario error:', err);
-    return res.status(500).json({ success: false, message: 'Error al eliminar comentario', error: err.message });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error al eliminar comentario', error: e.message });
   }
 });
 
-// Actualizar el "status" de un lead/cliente
+// ── LEADS STATUS ──────────────────────────────────────────────
 app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'), async (req, res) => {
   try {
-    // Verificar conexión a BD
-    if (!db) await connectToMongoDB();
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
 
-    // Roles permitidos para actualizar status
-    const role = req.user?.role || '';
-    console.log('[PUT /api/leads/:id/status] Rol del usuario:', role);
-    const normRole = (v) => String(v || '')
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '_')
-      .replace(/-+/g, '_');
-    const roleNorm = normRole(role);
-    const allowedRoles = new Set(['administrador', 'admin', 'backoffice', 'rol_icon', 'rol_bamo']);
-    if (!allowedRoles.has(roleNorm)) {
-      return res.status(403).json({ success: false, message: 'No autorizado para actualizar el estado' });
-    }
+    const role     = String(req.user?.role || '');
+    const roleNorm = normText(role).replace(/\s+/g,'_');
+    const allowedRoles = new Set(['administrador','admin','backoffice','rol_icon','rol_bamo']);
+    if (!allowedRoles.has(roleNorm)) return res.status(403).json({ success: false, message: 'No autorizado' });
 
-    // Validar ID
-    const { id } = req.params;
-    let leadObjectId = null;
-    try { leadObjectId = new ObjectId(id); } catch { /* puede ser string */ }
-    console.log('[PUT /api/leads/:id/status] ID recibido:', id, 'ObjectId válido:', !!leadObjectId);
-
-    // Validar body
-    const allowed = ['pending', 'hold', 'cancelled', 'rescheduled', 'completed'];
+    const { id }    = req.params;
     const rawStatus = (req.body?.status || '').toString().trim();
-    const status = rawStatus.toLowerCase();
-    console.log('[PUT /api/leads/:id/status] Status recibido:', rawStatus);
-    if (!rawStatus) {
-      return res.status(400).json({ success: false, message: 'El campo status es requerido' });
-    }
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ success: false, message: `Status inválido. Permitidos: ${allowed.join(', ')}` });
+    if (!rawStatus) return res.status(400).json({ success: false, message: 'Campo status requerido' });
+
+    const normSt = normalizeStatus(rawStatus);
+    const validStatuses = ['pending','hold','cancelled','rescheduled','completed','active','oficina','reserva'];
+    if (!validStatuses.includes(normSt)) {
+      return res.status(400).json({ success: false, message: `Status inválido. Permitidos: ${validStatuses.join(', ')}` });
     }
 
-    // Normalizar a Capitalized para almacenar (opcional)
-    const capitalized = status.charAt(0).toUpperCase() + status.slice(1);
-
-    // Intentar actualización por etapas para evitar rarezas con $or
+    const capitalized = normSt.charAt(0).toUpperCase() + normSt.slice(1);
     const coll = db.collection('costumers_unified');
+    let leadObjectId = null;
+    try { leadObjectId = new ObjectId(id); } catch (_) {}
+
     let result = null;
-
-    // 1) Intentar por _id:ObjectId si es válido
-    if (leadObjectId) {
-      console.log('[PUT /api/leads/:id/status] Intentando update por _id:ObjectId');
-      result = await coll.findOneAndUpdate(
-        { _id: leadObjectId },
-        { $set: { status: capitalized, actualizadoEn: new Date() } },
-        { returnDocument: 'after' }
-      );
-      console.log('[PUT /api/leads/:id/status] Resultado _id:ObjectId:', !!(result && result.value));
-    }
-
-    // 2) Si no funcionó, intentar por _id:string
-    if (!result || !result.value) {
-      console.log('[PUT /api/leads/:id/status] Intentando update por _id:string');
-      result = await coll.findOneAndUpdate(
-        { _id: id },
-        { $set: { status: capitalized, actualizadoEn: new Date() } },
-        { returnDocument: 'after' }
-      );
-      console.log('[PUT /api/leads/:id/status] Resultado _id:string:', !!(result && result.value));
-    }
-
-    // 3) Si no funcionó, intentar por campo alterno id:string
-    if (!result || !result.value) {
-      console.log('[PUT /api/leads/:id/status] Intentando update por id:string');
-      result = await coll.findOneAndUpdate(
-        { id: id },
-        { $set: { status: capitalized, actualizadoEn: new Date() } },
-        { returnDocument: 'after' }
-      );
-      console.log('[PUT /api/leads/:id/status] Resultado id:string:', !!(result && result.value));
-    }
-
-    if (!result || !result.value) {
-      // Diagnóstico adicional: comprobar cada criterio por separado
+    for (const filter of [
+      leadObjectId ? { _id: leadObjectId } : null,
+      { _id: id },
+      { id: id }
+    ].filter(Boolean)) {
       try {
-        const tests = [];
-        if (leadObjectId) tests.push({ name: '_id:ObjectId', q: { _id: leadObjectId } });
-        tests.push({ name: '_id:string', q: { _id: id } });
-        tests.push({ name: 'id:string', q: { id: id } });
-        for (const t of tests) {
-          const found = await coll.findOne(t.q);
-          console.log(`[PUT /api/leads/:id/status] Test criterio ${t.name}:`, found ? 'ENCONTRADO' : 'NO_ENCONTRADO');
-        }
-        // Intentar updateOne directo y loguear matched/modified para aislar el problema
-        if (leadObjectId) {
-          console.log('[PUT /api/leads/:id/status] Fallback updateOne por _id:ObjectId');
-          const upd = await coll.updateOne(
-            { _id: leadObjectId },
-            { $set: { status: capitalized, actualizadoEn: new Date() } }
-          );
-          console.log('[PUT /api/leads/:id/status] updateOne resultado:', { matchedCount: upd.matchedCount, modifiedCount: upd.modifiedCount, acknowledged: upd.acknowledged });
-          if (upd.matchedCount > 0) {
-            console.log('[PUT /api/leads/:id/status] updateOne aplicó cambios, devolviendo éxito');
-            
-            // REGISTRAR ACTIVIDAD: Cambio de Status (fallback path)
-            if (result && result.value) {
-              await logActivity(
-                db,
-                'Cambio de Status',
-                leadObjectId || id,
-                result.value.nombre_cliente || 'Sin nombre',
-                req.user?.username || 'Sistema',
-                req.user?.role || 'Backoffice',
-                `Status de ${result.value.nombre_cliente} cambiado a ${capitalized}`,
-                { old_status: result.value.status, new_status: capitalized }
-              );
-            }
-            
-            return res.json({ success: true, message: 'Status actualizado correctamente (fallback updateOne)', data: { id, status: capitalized } });
-          }
-        }
-      } catch (e) {
-        console.warn('[PUT /api/leads/:id/status] Error durante diagnóstico de criterios:', e?.message);
-      }
-      console.warn('[PUT /api/leads/:id/status] Lead no encontrado con ninguno de los criterios para id:', id);
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+        result = await coll.findOneAndUpdate(filter, { $set: { status: capitalized, actualizadoEn: new Date() } }, { returnDocument: 'after' });
+        if (result?.value) break;
+      } catch (_) {}
     }
 
-    // REGISTRAR ACTIVIDAD: Cambio de Status
-    const oldStatus = result.value?.status || 'Desconocido';
-    await logActivity(
-      db,
-      'Cambio de Status',
-      result.value?._id || id,
-      result.value?.nombre_cliente || 'Sin nombre',
-      req.user?.username || 'Sistema',
-      req.user?.role || 'Backoffice',
-      `Status de ${result.value?.nombre_cliente || 'Cliente'} cambiado de ${oldStatus} a ${capitalized}`,
-      { old_status: oldStatus, new_status: capitalized }
-    );
+    if (!result?.value && leadObjectId) {
+      const upd = await coll.updateOne({ _id: leadObjectId }, { $set: { status: capitalized, actualizadoEn: new Date() } });
+      if (upd.matchedCount > 0) {
+        await logActivity(db, 'Cambio de Status', leadObjectId, '', req.user?.username||'Sistema', req.user?.role||'Backoffice', `Status cambiado a ${capitalized}`, { new_status: capitalized });
+        return res.json({ success: true, message: 'Status actualizado', data: { id, status: capitalized } });
+      }
+    }
 
-    return res.json({ success: true, message: 'Status actualizado correctamente', data: { id, status: capitalized } });
-  } catch (error) {
-    console.error('Error al actualizar status del lead:', error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar el status', error: error.message });
+    if (!result?.value) return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+
+    const oldStatus = result.value?.status || 'Desconocido';
+    await logActivity(db, 'Cambio de Status', result.value?._id||id, result.value?.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Backoffice', `Status de ${result.value?.nombre_cliente||'Cliente'} cambiado de ${oldStatus} a ${capitalized}`, { old_status: oldStatus, new_status: capitalized });
+    return res.json({ success: true, message: 'Status actualizado', data: { id, status: capitalized } });
+  } catch (e) {
+    console.error('[PUT /api/leads/:id/status]', e);
+    return res.status(500).json({ success: false, message: 'Error al actualizar status', error: e.message });
   }
 });
 
-// PUT /api/leads/:id - Actualizar información completa del lead
+// ── PUT /api/leads/:id ────────────────────────────────────────
 app.put('/api/leads/:id', protect, async (req, res) => {
   try {
-    const { id } = req.params;
-    const updateData = req.body;
+    const { id }     = req.params;
+    const updateData = req.body || {};
+    if (!id)   return res.status(400).json({ success: false, message: 'ID requerido' });
+    if (!Object.keys(updateData).length) return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
 
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'ID del lead requerido' });
-    }
+    Object.keys(updateData).forEach(k => (updateData[k] == null) && delete updateData[k]);
+    if (updateData.status) updateData.status = normalizeStatus(updateData.status);
 
-    if (!updateData || Object.keys(updateData).length === 0) {
-      return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
-    }
-
-    // Limpiar campos undefined
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined || updateData[key] === null) {
-        delete updateData[key];
-      }
-    });
-
-    // Agregar timestamp de actualización
-    updateData.actualizado_en = new Date();
+    updateData.actualizado_en  = new Date();
     updateData.actualizado_por = req.user?.username || 'Sistema';
 
-    console.log(`[PUT /api/leads/:id] ID: ${id}, Actualizando campos:`, Object.keys(updateData));
+    const dbInst = getDb();
+    if (!dbInst) return res.status(500).json({ success: false, message: 'BD no disponible' });
 
-    const db = getDb();
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Base de datos no disponible' });
-    }
-
-    // Intentar convertir ID a ObjectId si es válido
     let leadObjectId = null;
-    try {
-      leadObjectId = new ObjectId(id);
-    } catch (e) {
-      console.log('[PUT /api/leads/:id] ID no es ObjectId válido, buscando como string');
-    }
+    try { leadObjectId = new ObjectId(id); } catch (_) {}
 
-    // Buscar y actualizar en colecciones (intentar en orden: leads, costumers, customers)
-    const collectionNames = ['leads', 'costumers', 'customers'];
-    let updated = false;
-
+    const collectionNames = ['costumers_unified', 'leads', 'costumers', 'customers'];
     for (const collName of collectionNames) {
-      try {
-        const collection = db.collection(collName);
-        
-        // Intentar actualizar por _id (ObjectId)
-        if (leadObjectId) {
-          const result = await collection.findOneAndUpdate(
-            { _id: leadObjectId },
-            { $set: updateData },
-            { returnDocument: 'after' }
-          );
-          
-          if (result.value) {
-            console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (ObjectId)`);
-            updated = true;
-
-            // REGISTRAR ACTIVIDAD
-            await logActivity(
-              db,
-              'Edición de Lead',
-              result.value._id,
-              result.value.nombre_cliente || 'Sin nombre',
-              req.user?.username || 'Sistema',
-              req.user?.role || 'Backoffice',
-              `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
-              { campos: Object.keys(updateData), valores_previos: {} }
-            );
-
-            return res.json({ success: true, message: 'Lead actualizado correctamente', data: result.value });
+      const coll = dbInst.collection(collName);
+      for (const filter of [
+        leadObjectId ? { _id: leadObjectId } : null,
+        { _id: id },
+        { id }
+      ].filter(Boolean)) {
+        try {
+          const result = await coll.findOneAndUpdate(filter, { $set: updateData }, { returnDocument: 'after' });
+          if (result?.value) {
+            await logActivity(dbInst, 'Edición de Lead', result.value._id, result.value.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Campos actualizados: ${Object.keys(updateData).join(', ')}`, { campos: Object.keys(updateData) });
+            return res.json({ success: true, message: 'Lead actualizado', data: result.value });
           }
-        }
-
-        // Intentar actualizar por _id (string)
-        const resultStr = await collection.findOneAndUpdate(
-          { _id: id },
-          { $set: updateData },
-          { returnDocument: 'after' }
-        );
-
-        if (resultStr.value) {
-          console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (string ID)`);
-          updated = true;
-
-          // REGISTRAR ACTIVIDAD
-          await logActivity(
-            db,
-            'Edición de Lead',
-            resultStr.value._id,
-            resultStr.value.nombre_cliente || 'Sin nombre',
-            req.user?.username || 'Sistema',
-            req.user?.role || 'Backoffice',
-            `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
-            { campos: Object.keys(updateData) }
-          );
-
-          return res.json({ success: true, message: 'Lead actualizado correctamente', data: resultStr.value });
-        }
-
-        // Intentar actualizar por id (campo alternativo)
-        const resultAlt = await collection.findOneAndUpdate(
-          { id: id },
-          { $set: updateData },
-          { returnDocument: 'after' }
-        );
-
-        if (resultAlt.value) {
-          console.log(`[PUT /api/leads/:id] Lead actualizado en colección "${collName}" (id field)`);
-          updated = true;
-
-          // REGISTRAR ACTIVIDAD
-          await logActivity(
-            db,
-            'Edición de Lead',
-            resultAlt.value._id || id,
-            resultAlt.value.nombre_cliente || 'Sin nombre',
-            req.user?.username || 'Sistema',
-            req.user?.role || 'Backoffice',
-            `Se actualizaron campos: ${Object.keys(updateData).join(', ')}`,
-            { campos: Object.keys(updateData) }
-          );
-
-          return res.json({ success: true, message: 'Lead actualizado correctamente', data: resultAlt.value });
-        }
-      } catch (e) {
-        console.warn(`[PUT /api/leads/:id] Error en colección "${collName}":`, e.message);
+        } catch (_) {}
       }
     }
-
-    if (!updated) {
-      console.warn(`[PUT /api/leads/:id] Lead no encontrado con ID: ${id}`);
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
-    }
-
-  } catch (error) {
-    console.error('[PUT /api/leads/:id] Error al actualizar lead:', error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar el lead', error: error.message });
+    return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+  } catch (e) {
+    console.error('[PUT /api/leads/:id]', e);
+    return res.status(500).json({ success: false, message: 'Error al actualizar lead', error: e.message });
   }
 });
 
-// ELIMINADO: Endpoint duplicado que interfería con routes/api.js
-
-// Endpoint para obtener clientes desde la base de datos (solo administradores)
-app.get('/api/customers', protect, async (req, res) => {
+// ── DELETE /api/leads/:id ─────────────────────────────────────
+app.delete('/api/leads/:id', protect, async (req, res) => {
   try {
-    console.log('Solicitud recibida en /api/customers');
-    
-    // Verificar si la base de datos está conectada
-    if (!db) {
-      console.log('Base de datos no conectada, intentando conectar...');
-      await connectToMongoDB();
-    }
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ success: false, message: 'ID requerido' });
+    const dbInst = getDb();
+    if (!dbInst) return res.status(500).json({ success: false, message: 'BD no disponible' });
+    let leadObjectId = null;
+    try { leadObjectId = new ObjectId(id); } catch (_) {}
 
-    // Obtener los parámetros de paginación y filtros
-    const page = parseInt(req.query.page) || 1;
-    const userRole = (req.user?.role || '').toLowerCase();
-    const isAdminOrBO = userRole === 'administrador' || userRole === 'backoffice' || userRole === 'admin';
-    const isSupervisor = userRole === 'supervisor' || userRole.includes('supervisor');
-    
-    // Administradores pueden ver hasta 10,000 registros, otros hasta 500
-    const maxLimit = isAdminOrBO ? 10000 : 500;
-    const limit = Math.min(parseInt(req.query.limit) || 200, maxLimit);
-    const skip = (page - 1) * limit;
-    const fechaInicio = req.query.fechaInicio ? new Date(req.query.fechaInicio) : null;
-    const fechaFin = req.query.fechaFin ? new Date(req.query.fechaFin) : null;
-
-    console.log(`[/api/customers] Parámetros - Usuario: ${req.user?.username}, Rol: ${userRole}, Página: ${page}, Límite: ${limit}`);
-
-    // ===== TODOS: LEER DE costumers_unified =====
-    const unifiedCollection = 'costumers_unified';
-    
-    // Construir query base
-    let baseQuery = {};
-    
-    // Aplicar filtros de fecha si existen
-    if (fechaInicio && fechaFin) {
-      baseQuery.creadoEn = {
-        $gte: fechaInicio,
-        $lte: fechaFin
-      };
-    } else if (fechaInicio) {
-      baseQuery.creadoEn = { $gte: fechaInicio };
-    } else if (fechaFin) {
-      baseQuery.creadoEn = { $lte: fechaFin };
-    }
-    
-    // Aplicar filtros adicionales del query
-    if (req.query.status) {
-      baseQuery.status = req.query.status;
-    }
-
-    // Filtrar por usuario si NO es admin/backoffice
-    if (!isAdminOrBO) {
-      const currentUsername = (req.user?.username || '').trim();
-      const currentUserId = (req.user?._id?.toString?.() || req.user?.id?.toString?.() || String(req.user?._id || req.user?.id || ''));
-      
-      if (isSupervisor) {
-        // Supervisor: obtener sus agentes y filtrar por ellos
-        const agentes = await db.collection('users')
-          .find({ 
-            supervisor: { $regex: new RegExp(currentUsername, 'i') },
-            role: { $not: { $regex: /admin/i } }
-          })
-          .toArray();
-        
-        const agenteNames = agentes.map(a => (a.username || a.name || '').trim()).filter(Boolean);
-        if (agenteNames.length > 0) {
-          baseQuery.$or = [
-            { agenteNombre: { $in: agenteNames } },
-            { agente: { $in: agenteNames } },
-            { usuario: { $in: agenteNames } }
-          ];
-          console.log(`[/api/customers] Supervisor ${currentUsername}: filtrando por ${agenteNames.length} agentes`);
-        }
-      } else {
-        // Agente normal: solo sus propios leads
-        baseQuery.$or = [
-          { agenteNombre: currentUsername },
-          { agente: currentUsername },
-          { usuario: currentUsername }
-        ];
-        console.log(`[/api/customers] Agente ${currentUsername}: filtrando por usuario actual`);
+    const collectionNames = ['costumers_unified','leads','costumers','customers'];
+    for (const collName of collectionNames) {
+      const coll = dbInst.collection(collName);
+      for (const filter of [leadObjectId ? { _id: leadObjectId } : null, { _id: id }, { id }].filter(Boolean)) {
+        try {
+          const result = await coll.findOneAndDelete(filter);
+          if (result?.value) {
+            await logActivity(dbInst, 'Lead eliminado', result.value._id, result.value.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Lead de ${result.value.nombre_cliente||'Sin nombre'} eliminado`, {});
+            return res.json({ success: true, message: 'Lead eliminado' });
+          }
+        } catch (_) {}
       }
     }
-
-    console.log(`[/api/customers] Query final:`, JSON.stringify(baseQuery, null, 2));
-
-    // Contar total de documentos que coinciden con el filtro
-    const total = await db.collection(unifiedCollection).countDocuments(baseQuery);
-    
-    // Obtener documentos con paginación
-    const sortField = req.query.sortBy || 'creadoEn';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-    
-    const customers = await db.collection(unifiedCollection)
-      .find(baseQuery)
-      .sort({ [sortField]: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .toArray();
-    
-    console.log(`[/api/customers] Devolviendo ${customers.length} de ${total} documentos`);
-    
-    return res.json({
-      success: true,
-      data: customers,
-      total: total,
-      page: page,
-      limit: limit,
-      source: unifiedCollection
-    });
-
-  } catch (error) {
-    console.error('[/api/customers] Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al obtener customers',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
-    });
-  }
-});
-
-// Resumen de agentes disponibles en la data de clientes (diagnóstico)
-app.get('/api/customers/agents-summary', protect, async (req, res) => {
-  try {
-    if (!db) await connectToMongoDB();
-    const coll = db.collection('costumers_unified');
-    // Agrupar por agenteId y agenteNombre para ver cuántos clientes tiene cada agente
-    const pipeline = [
-      {
-        $group: {
-          _id: { id: '$agenteId', nombre: '$agenteNombre' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } }
-    ];
-    const rows = await coll.aggregate(pipeline).toArray();
-    // También recolectar valores de campos alternos por si los datos usan otras llaves
-    const distintos = {
-      agente: await coll.distinct('agente'),
-      agent: await coll.distinct('agent'),
-      agenteNombre: await coll.distinct('agenteNombre'),
-      agentName: await coll.distinct('agentName')
-    };
-    return res.json({
-      success: true,
-      summary: rows.map(r => ({ agenteId: r._id.id || null, agenteNombre: r._id.nombre || null, count: r.count })),
-      distincts: distintos
-    });
+    return res.status(404).json({ success: false, message: 'Lead no encontrado' });
   } catch (e) {
-    console.error('[agents-summary] error:', e);
-    return res.status(500).json({ success: false, message: 'Error generando resumen de agentes', error: e.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar lead', error: e.message });
   }
 });
 
-// Resumen de agentes disponibles en la data de clientes (diagnóstico)
-app.get('/api/customers/agents-summary', protect, async (req, res) => {
-  try {
-    if (!db) await connectToMongoDB();
-    const coll = db.collection('costumers_unified');
-    // Agrupar por agenteId y agenteNombre para ver cuántos clientes tiene cada agente
-    const pipeline = [
-      {
-        $group: {
-          _id: { id: '$agenteId', nombre: '$agenteNombre' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } }
-    ];
-    const rows = await coll.aggregate(pipeline).toArray();
-    // También recolectar valores de campos alternos por si los datos usan otras llaves
-    const distintos = {
-      agente: await coll.distinct('agente'),
-      agent: await coll.distinct('agent'),
-      agenteNombre: await coll.distinct('agenteNombre'),
-      agentName: await coll.distinct('agentName')
-    };
-    return res.json({
-      success: true,
-      summary: rows.map(r => ({ agenteId: r._id.id || null, agenteNombre: r._id.nombre || null, count: r.count })),
-      distincts: distintos
-    });
-  } catch (e) {
-    console.error('[agents-summary] error:', e);
-    return res.status(500).json({ success: false, message: 'Error generando resumen de agentes', error: e.message });
-  }
-});
-
-// Middleware para verificar autenticación
-const requireAuth = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.redirect('/login.html');
-  }
-  
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.redirect('/login.html');
-    }
-    req.user = user;
-    next();
-  });
-};
-
-// Ruta raíz - Redirigir a login.html
-app.get('/', (req, res) => {
-  res.redirect('/login.html');
-});
-
-// Ruta de la aplicación principal (protección vía frontend con auth-check.js)
-app.get('/inicio', (req, res) => {
-  res.sendFile(path.join(FRONTEND_DIR, 'lead.html'));
-});
-
-// Ruta protegida para Costumer.html (solo administradores)
-app.get('/Costumer.html', protect, (req, res, next) => {
-  // Verificar si el usuario es administrador
-  if (req.user && req.user.role === 'admin') {
-    // Si es administrador, servir el archivo con encoding UTF-8
-    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    return res.sendFile(path.join(FRONTEND_DIR, 'Costumer.html'));
-  } else {
-    // Si no es administrador, redirigir a página de inicio con mensaje de error
-    return res.redirect('/inicio?error=Acceso denegado. Se requiere rol de administrador.');
-  }
-});
-
-// NOTA: Ruta catch-all movida al final del archivo para no interceptar APIs
-
-// Conexión a MongoDB
-let mongoClient; // Variable para mantener la referencia al cliente
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/crmagente';
-// Endpoint para crear un nuevo lead
+// ── POST /api/leads ───────────────────────────────────────────
 app.post('/api/leads', protect, async (req, res) => {
-  // Set CORS headers
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', true);
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+  if (req.method === 'OPTIONS') return res.status(200).end();
   try {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Autenticación requerida' });
     const leadData = req.body;
-    console.log('=== NUEVA SOLICITUD EN /api/leads ===');
-    console.log('Datos recibidos:', leadData);
-    // Extra guard: require authenticated user (protect should enforce this)
-    if (!req.user) {
-      console.warn('[POST /api/leads] solicitud sin usuario autenticado - rechazando');
-      return res.status(401).json({ success: false, message: 'Acceso denegado. Debes autenticarte para enviar leads.' });
-    }
-    
-    // Validar datos del lead
-    const requiredFields = ['telefono_principal', 'direccion', 'tipo_servicio', 'nombre_cliente'];
-    const missingFields = requiredFields.filter(field => {
-      const value = leadData[field];
-      return value === undefined || value === null || value === '';
-    });
-    
-    if (missingFields.length > 0) {
-      console.error('Campos faltantes o inválidos:', missingFields);
-      return res.status(400).json({
-        success: false,
-        message: 'Faltan campos requeridos o son inválidos',
-        missingFields: missingFields
-      });
-    }
-    
-    // Se ha eliminado la validación de duplicados para permitir guardar cualquier lead
-    console.log('Guardando nuevo lead sin validación de duplicados');
-    
-    // Determinar el agente final: agenteId manda. Si no hay agenteId resoluble, usar agenteAsignado/agente (si no es placeholder).
-    let finalAgentName = null;
-    let finalAgentId = null;
-    let assignedByName = null;
+    const required = ['telefono_principal','direccion','tipo_servicio','nombre_cliente'];
+    const missing  = required.filter(f => !leadData[f]);
+    if (missing.length) return res.status(400).json({ success: false, message: 'Faltan campos requeridos', missingFields: missing });
 
-    function isPlaceholderAgent(v) {
-      const s = (v ?? '').toString().trim().toLowerCase();
-      return !s || s === 'agente' || s === 'agente desconocido';
-    }
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
 
+    function isPlaceholderAgent(v) { const s = (v??'').toString().trim().toLowerCase(); return !s || s === 'agente' || s === 'agente desconocido'; }
     async function findUserByIdLoose(id) {
-      try {
-        if (!id) return null;
-        const usersCollection = db.collection('users');
-        const s = String(id).trim();
-        if (/^[a-fA-F0-9]{24}$/.test(s)) {
-          try { return await usersCollection.findOne({ _id: new ObjectId(s) }); } catch (e) {}
-        }
-        return await usersCollection.findOne({ $or: [{ id: s }, { _id: s }] });
-      } catch (e) {
-        return null;
-      }
+      if (!id) return null;
+      const usersCol = db.collection('users');
+      const s = String(id).trim();
+      if (/^[a-fA-F0-9]{24}$/.test(s)) { try { return await usersCol.findOne({ _id: new ObjectId(s) }); } catch (_) {} }
+      return usersCol.findOne({ $or: [{ id: s }, { _id: s }] });
     }
 
-    // 1) Si viene agenteId, intentar resolverlo a un user y usarlo como fuente de verdad
-    let targetUser = null;
+    let finalAgentName = null, finalAgentId = null, assignedByName = null, targetUser = null;
     if (leadData.agenteId && !isPlaceholderAgent(leadData.agenteId)) {
       targetUser = await findUserByIdLoose(leadData.agenteId);
       if (targetUser) {
-        finalAgentId = targetUser._id || targetUser.id;
+        finalAgentId   = targetUser._id || targetUser.id;
         finalAgentName = (targetUser.name || targetUser.username || '').toString().trim();
-        // Solo marcar asignadoPor si el lead fue creado para OTRO agente
-        try {
-          const creatorId = req.user?.id ? String(req.user.id) : '';
-          const destId = finalAgentId ? String(finalAgentId) : '';
-          assignedByName = (creatorId && destId && creatorId !== destId) ? (req.user?.username || 'Sistema') : null;
-        } catch (_) {
-          assignedByName = req.user?.username || 'Sistema';
-        }
+        const creatorId = req.user?.id ? String(req.user.id) : '';
+        const destId    = finalAgentId ? String(finalAgentId) : '';
+        assignedByName  = (creatorId && destId && creatorId !== destId) ? (req.user?.username||'Sistema') : null;
       }
     }
-    
     if (!finalAgentId && (leadData.agenteAsignado || leadData.agente)) {
-      // Si hay un agente asignado explícitamente (supervisor asignando a un agente)
-      const assignedAgent = leadData.agenteAsignado || leadData.agente;
-      if (isPlaceholderAgent(assignedAgent)) {
-        // Ignorar placeholder
-      } else {
-        finalAgentName = String(assignedAgent).replace(/_/g, ' ').trim();
+      const assigned = leadData.agenteAsignado || leadData.agente;
+      if (!isPlaceholderAgent(assigned)) {
+        finalAgentName = String(assigned).replace(/_/g,' ').trim();
         assignedByName = req.user?.username || 'Sistema';
-      
-        console.log('[POST /api/leads] ASIGNACIÓN DETECTADA:');
-        console.log('  - Agente asignado:', finalAgentName);
-        console.log('  - Asignado por:', assignedByName);
-      
-        // Intentar obtener el ID del agente asignado desde la base de datos
         try {
-          const usersCollection = db.collection('users');
-          const agentUser = await usersCollection.findOne({
-            $or: [
-              { name: { $regex: new RegExp(finalAgentName, 'i') } },
-              { username: { $regex: new RegExp(finalAgentName, 'i') } }
-            ]
-          });
-          
-          if (agentUser) {
-            finalAgentId = agentUser._id || agentUser.id;
-            console.log('  - ID del agente encontrado:', finalAgentId);
-          } else {
-            console.log('  - No se encontró usuario para el agente asignado');
-          }
-        } catch (err) {
-          console.warn('[POST /api/leads] Error buscando agente asignado:', err.message);
-        }
+          const agentUser = await db.collection('users').findOne({ $or: [{ name: { $regex: new RegExp(finalAgentName,'i') } },{ username: { $regex: new RegExp(finalAgentName,'i') } }] });
+          if (agentUser) finalAgentId = agentUser._id || agentUser.id;
+        } catch (_) {}
       }
     }
+    if (!finalAgentId)   finalAgentId   = req.user?.id;
+    if (!finalAgentName) finalAgentName = req.user?.name || req.user?.username || 'Agente Desconocido';
 
-    // Fallback final: si no se pudo resolver agente asignado, usar usuario actual
-    if (!finalAgentId) {
-      finalAgentId = req.user?.id;
-    }
-    if (!finalAgentName) {
-      finalAgentName = req.user?.name || req.user?.username || 'Agente Desconocido';
-      console.log('[POST /api/leads] Sin asignación explícita, usando usuario actual:', finalAgentName);
-    }
-
-    // ===== Ventas en reserva =====
-    // Regla: si el usuario ingresa dia_venta anterior a HOY (en TZ negocio),
-    // se guarda pero NO debe contar como venta. Se marca con status "Ventas en reserva".
-    const BUSINESS_TIMEZONE = 'America/Mexico_City';
-    const toBusinessISO = (value) => {
+    // ── Lógica de RESERVA ─────────────────────────────────────
+    const toDateOnly = (v) => {
+      if (!v) return '';
       try {
-        if (!value) return '';
-        if (typeof value === 'string') {
-          const s = value.trim();
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
-            const [dd, mm, yyyy] = s.split('/').map(n => parseInt(n, 10));
-            if (yyyy && mm && dd) return `${String(yyyy).padStart(4,'0')}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-          }
-        }
-        const d = value instanceof Date ? value : new Date(value);
-        if (isNaN(d)) return '';
-        return new Intl.DateTimeFormat('en-CA', {
-          timeZone: BUSINESS_TIMEZONE,
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        }).format(d);
-      } catch (_) {
-        return '';
-      }
+        const s = String(v).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = v instanceof Date ? v : new Date(v);
+        if (isNaN(d.getTime())) return '';
+        const yr = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const dy = String(d.getDate()).padStart(2, '0');
+        return `${yr}-${mo}-${dy}`;
+      } catch { return ''; }
     };
 
-    const getDiaVentaRaw = (obj) => {
-      try {
-        if (!obj) return null;
-        return obj.dia_venta || obj.diaVenta || obj.dia || obj.fecha || obj.fecha_lead || obj?._raw?.dia_venta || obj?._raw?.diaVenta || null;
-      } catch (_) {
-        return null;
-      }
-    };
+    const todayDateOnly    = toDateOnly(new Date());
+    const diaVentaDateOnly = toDateOnly(leadData.dia_venta || leadData.diaVenta || leadData.fecha);
 
-    const todayISO = toBusinessISO(new Date());
-    const diaVentaISO = toBusinessISO(getDiaVentaRaw(leadData));
-    const shouldGoToReserva = !!(diaVentaISO && todayISO && diaVentaISO < todayISO);
-    const statusToStore = shouldGoToReserva ? 'Ventas en reserva' : (leadData.status || 'PENDING');
-    if (shouldGoToReserva) {
-      console.log('[POST /api/leads] Venta con dia_venta pasado detectada. Marcando como Ventas en reserva.', { diaVentaISO, todayISO });
-    }
+    const rawStatus       = String(leadData.status || 'pending').toLowerCase();
+    const statusNormInput = normalizeStatus(rawStatus);
+    const canBeReserva    = (statusNormInput === 'pending' || statusNormInput === 'completed');
+    const goToReserva     = !!(
+      diaVentaDateOnly &&
+      todayDateOnly    &&
+      diaVentaDateOnly !== todayDateOnly &&
+      canBeReserva
+    );
 
-    // Crear nuevo lead con formato consistente
+    let statusToStore = goToReserva ? 'reserva' : normalizeStatus(rawStatus);
+
     const newLead = {
       ...leadData,
       fecha_creacion: new Date(),
-      status: statusToStore,
-      creadoEn: new Date(),
-      actualizadoEn: new Date(),
-      // Agregar campos adicionales con valores por defecto
-      puntaje: leadData.puntaje || 0,
-      fuente: leadData.fuente || 'WEB',
-      asignadoA: leadData.asignadoA || null,
-      notas: leadData.notas || [],
-      // USAR EL AGENTE ASIGNADO (si existe) en lugar del usuario actual
-      agente: finalAgentName,
-      agenteNombre: finalAgentName,
-      agenteId: finalAgentId || req.user?.id,
-      team: (targetUser && targetUser.team) ? targetUser.team : (req.user?.team || leadData.team || ''),
-      // Si fue asignado por un supervisor, guardar esa información
-      asignadoPor: assignedByName || undefined,
-      createdBy: req.user?.username, // Quien creó el registro
-      creadoPor: req.user?.username, // Quien creó el registro
-      historial: [{
-        accion: 'CREADO',
-        fecha: new Date(),
-        usuario: req.user?.username || leadData.usuario || 'SISTEMA',
-        detalles: assignedByName ? `Lead creado por ${assignedByName} y asignado a ${finalAgentName}` : 'Lead creado a través del formulario web',
-        agenteId: finalAgentId || req.user?.id
-      }]
+      status:         statusToStore,
+      creadoEn:       new Date(), actualizadoEn: new Date(),
+      puntaje:        leadData.puntaje || 0,
+      fuente:         leadData.fuente || 'WEB',
+      notas:          leadData.notas || [],
+      agente:         finalAgentName, agenteNombre: finalAgentName,
+      agenteId:       finalAgentId || req.user?.id,
+      team:           (targetUser?.team) || req.user?.team || leadData.team || '',
+      asignadoPor:    assignedByName || undefined,
+      createdBy:      req.user?.username, creadoPor: req.user?.username,
+      historial: [{ accion:'CREADO', fecha: new Date(), usuario: req.user?.username||'SISTEMA', detalles: assignedByName ? `Creado por ${assignedByName} y asignado a ${finalAgentName}` : 'Lead creado', agenteId: finalAgentId||req.user?.id }]
     };
-    
-    // Asignar supervisor automáticamente SOLO si el formulario no envió supervisor
-    const leadSup = (leadData?.supervisor ?? '').toString().trim();
-    if (!leadSup) {
-      // Si el usuario tiene supervisor explícito en su perfil
-      if (req.user?.supervisor) {
-        newLead.supervisor = req.user.supervisor;
-        console.log('[POST /api/leads] Supervisor asignado automáticamente:', req.user.supervisor);
-      } else if (req.user?.team && String(req.user.team).toLowerCase().includes('lineas')) {
-        // Si el usuario pertenece a Team Líneas pero no tiene supervisor explícito, asignarlo según el team
-        const userTeamLower = String(req.user.team).toLowerCase();
-        if (userTeamLower.includes('jonathan')) {
-          newLead.supervisor = 'JONATHAN F';
-        } else if (userTeamLower.includes('luis')) {
-          newLead.supervisor = 'LUIS G';
-        }
-        console.log('[POST /api/leads] Supervisor asignado automáticamente por team:', newLead.supervisor);
-      }
-    }
-    
-    // Canonical collection selection improved:
-    // 1) use a persistent mapping collection `user_collections` (ownerId -> collectionName) if present
-    // 2) otherwise try to find existing collections by shortId or by normalized display name
-    // 3) if none found, create deterministic canonical name using shortId + normalized display
 
-    // Normalize owner id input into a stable string (prefer hex ObjectId when possible)
-    function normalizeOwnerIdInput(v) {
-      try {
-        if (!v) return '';
-        // If it's already an object like {$oid: '...'}
-        if (typeof v === 'object') {
-          if (v.$oid) return String(v.$oid);
-          if (v.toHexString && typeof v.toHexString === 'function') return String(v.toHexString());
-          // fallback to string representation
-          const s = String(v);
-          const m = s.match(/([a-fA-F0-9]{24})/);
-          if (m) return m[1];
-          return s.trim();
-        }
-        const s = String(v).trim();
-        // match patterns like ObjectId('...') or raw 24-hex
-        const m1 = s.match(/^ObjectId\('([a-fA-F0-9]{24})'\)$/);
-        if (m1) return m1[1];
-        const m2 = s.match(/^([a-fA-F0-9]{24})$/);
-        if (m2) return m2[1];
-        return s;
-      } catch (e) {
-        return String(v || '').trim();
+    if (!newLead.supervisor || !String(newLead.supervisor).trim()) {
+      if (req.user?.supervisor) newLead.supervisor = req.user.supervisor;
+      else if (req.user?.team) {
+        const t = String(req.user.team).toLowerCase();
+        if (t.includes('jonathan')) newLead.supervisor = 'JONATHAN F';
+        else if (t.includes('luis')) newLead.supervisor = 'LUIS G';
       }
     }
 
-    // IMPORTANTE: Usar el ID del agente asignado (finalAgentId) en lugar del usuario autenticado
-    // Esto asegura que el lead se guarde en la colección del agente asignado
-    const ownerId = normalizeOwnerIdInput(finalAgentId || newLead.agenteId || req.user?.id || newLead.ownerId || '');
-    if (!ownerId) {
-      console.warn('[POST /api/leads] usuario autenticado sin id válido - rechazando');
-      return res.status(401).json({ success: false, message: 'Usuario sin id válido' });
-    }
-
-    console.log('[POST /api/leads] ownerId para determinar colección:', ownerId);
-    console.log('[POST /api/leads] finalAgentId:', finalAgentId);
-    console.log('[POST /api/leads] req.user.id:', req.user?.id);
-
-    // Ensure the lead stores a normalized agenteId so future scans match consistently
-    try { newLead.agenteId = ownerId; } catch (e) { /* noop */ }
-
-    const shortId = ownerId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
-
-    function normalizeDisplay(s) {
-      if (!s) return '';
-      return String(s)
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9\s\-_.]/g, '')
-        .trim()
-        .replace(/\s+/g, '_')
-        .replace(/__+/g, '_')
-        .slice(0, 60);
-    }
-
-    const displayNorm = normalizeDisplay(newLead.agenteNombre || newLead.agente || '');
-
-    // 1) Check mapping collection first (do not overwrite an existing mapping)
-    let targetCollection = null;
-    let mappingExisted = false;
-    try {
-      // Try matching ownerId both as stored string and as ObjectId (some mappings were stored as ObjectId)
-      const orQuery = [{ ownerId: ownerId }];
-      if (/^[a-fA-F0-9]{24}$/.test(ownerId)) {
-        try { orQuery.push({ ownerId: new ObjectId(ownerId) }); } catch (e) { }
-      }
-      const mapping = await db.collection('user_collections').findOne({ $or: orQuery });
-      if (mapping && mapping.collectionName) {
-        targetCollection = mapping.collectionName;
-        mappingExisted = true;
-        console.log('[POST /api/leads] found mapping for ownerId ->', targetCollection);
-      }
-    } catch (e) {
-      console.warn('[POST /api/leads] error reading user_collections mapping:', e && e.message);
-    }
-
-    // If we have no target yet, scan candidate collections and pick the one with the
-    // highest count of documents having agenteId === ownerIdRaw. This prevents creating
-    // a new collection when the user's leads are already in another one.
-    if (!targetCollection) {
-      try {
-        // Helper: create a loose regex matching the name ignoring spaces/punctuation
-        function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-        function makeLooseNameRegex(n) {
-          try {
-            if (!n) return null;
-            const normalized = String(n).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-            // keep only alnum chars
-            const compact = normalized.replace(/[^a-z0-9]/g, '');
-            if (!compact) return null;
-            const parts = compact.split('');
-            const pattern = parts.map(ch => escapeRegex(ch)).join('[^a-z0-9]*');
-            return new RegExp('^' + pattern + '$', 'i');
-          } catch (e) { return null; }
-        }
-
-        const allCols = await db.listCollections().toArray();
-        const names = allCols.map(c => c.name).filter(Boolean);
-        let best = { name: null, score: 0, countId: 0, countName: 0 };
-        const username = newLead.agenteNombre || newLead.agente || '';
-        const usernameRegex = makeLooseNameRegex(username);
-        for (const n of names) {
-          if (!n.startsWith('costumers_')) continue;
-          try {
-            const c = db.collection(n);
-            // Match agenteId both as string and as ObjectId (if ownerIdRaw is a 24-hex)
-            let cntId = 0;
-            try {
-              const orClauses = [{ agenteId: ownerId }];
-              if (/^[a-fA-F0-9]{24}$/.test(ownerId)) {
-                try { orClauses.push({ agenteId: new ObjectId(ownerId) }); } catch (e) { }
-              }
-              cntId = await c.countDocuments({ $or: orClauses });
-            } catch (e) {
-              cntId = 0;
-            }
-            // also count documents that have the agent's display name but missing agenteId
-            let cntName = 0;
-            if (username) {
-              try {
-                if (usernameRegex) {
-                  const q = { $or: [] };
-                  q.$or.push({ agente: { $regex: usernameRegex } });
-                  q.$or.push({ agenteNombre: { $regex: usernameRegex } });
-                  q.$or.push({ createdBy: { $regex: usernameRegex } });
-                  cntName = await c.countDocuments(q);
-                } else {
-                  cntName = await c.countDocuments({ $or: [{ agente: username }, { agenteNombre: username }, { createdBy: username }] });
-                }
-              } catch (e) { cntName = 0; }
-            }
-            // Score: prefer exact agenteId matches, but also consider name matches
-            const score = (cntId * 100) + (cntName * 10);
-            if (score > best.score) best = { name: n, score, countId: cntId, countName: cntName };
-          } catch (e) {
-            // ignore per-collection errors
-          }
-        }
-        if (best.score > 0) {
-          // Prefer this existing collection which already contains leads for this agent
-          if (targetCollection !== best.name) {
-            console.log('[POST /api/leads] detected existing collection with agent docs:', best.name, 'countId:', best.countId, 'countName:', best.countName);
-            targetCollection = best.name;
-            // upsert mapping to point to the detected collection
-            try {
-              await db.collection('user_collections').updateOne(
-                { ownerId: ownerId },
-                { $set: { ownerId: ownerId, collectionName: targetCollection, updatedAt: new Date() } },
-                { upsert: true }
-              );
-              console.log('[POST /api/leads] user_collections mapping updated to', targetCollection);
-            } catch (e) {
-              console.warn('[POST /api/leads] error updating mapping to detected collection:', e && e.message);
-            }
-          }
-        }
-      } catch (e) {
-        // listing could fail, continue gracefully to other heuristics
-      }
-    }
-
-    // 2) If no mapping, look for existing collections that match shortId or normalized name
-    if (!targetCollection) {
-      try {
-        const allCols = await db.listCollections().toArray();
-        const names = allCols.map(c => c.name);
-
-        // Helper: normalize a string similar to normalizeDisplay but return alnum and underscores
-        function norm(s) {
-          if (!s) return '';
-          return String(s)
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '_')
-            .replace(/__+/g, '_')
-            .replace(/^_+|_+$/g, '');
-        }
-
-        const candidates = [];
-
-        // Score collections: higher score = better match
-        for (const n of names) {
-          if (!n.startsWith('costumers_')) continue;
-          const suffix = n.slice('costumers_'.length);
-          const parts = suffix.split('_').filter(Boolean).map(p => norm(p));
-          const fullNorm = norm(suffix);
-          let score = 0;
-
-          // exact costumers_<shortId>
-          if (n === `costumers_${shortId}`) score += 100;
-
-          // any part equals shortId
-          if (parts.includes(shortId)) score += 50;
-
-          // last part equals shortId (common pattern costumers_<display>_<shortId>)
-          if (parts.length > 0 && parts[parts.length - 1] === shortId) score += 25;
-
-          // display match
-          if (displayNorm && fullNorm.includes(norm(displayNorm))) score += 20;
-
-          // fallback small score if contains shortId substring
-          if (fullNorm.indexOf(shortId) !== -1) score += 5;
-
-          if (score > 0) candidates.push({ name: n, score });
-        }
-
-        if (candidates.length > 0) {
-          candidates.sort((a, b) => b.score - a.score);
-          targetCollection = candidates[0].name;
-        }
-      } catch (e) {
-        console.warn('[POST /api/leads] error listando colecciones:', e && e.message);
-      }
-    }
-
-    // 3) If still not found, create a deterministic canonical collection name using shortId
-    if (!targetCollection) {
-      targetCollection = displayNorm ? `costumers_${shortId}_${displayNorm}` : `costumers_${shortId}`;
-      console.log('[POST /api/leads] no existing collection found; will use canonical name:', targetCollection);
-    }
-
-    // Persist mapping for future requests (upsert) ONLY if there wasn't a mapping at the start
-    if (!mappingExisted) {
-      try {
-        await db.collection('user_collections').updateOne(
-          { ownerId: ownerId },
-          { $set: { ownerId: ownerId, collectionName: targetCollection, updatedAt: new Date() } },
-          { upsert: true }
-        );
-        console.log('[POST /api/leads] user_collections mapping upserted for', ownerId, '->', targetCollection);
-      } catch (e) {
-        console.warn('[POST /api/leads] error upserting user_collections mapping:', e && e.message);
-      }
-    } else {
-      console.log('[POST /api/leads] mapping existed; not overwriting user_collections for', ownerId);
-    }
-
-    console.log('[POST /api/leads] targetCollection (final):', targetCollection, 'shortId:', shortId, 'user:', req.user?.username);
-
-    // Guardar en colección unificada (fuente única del sistema)
-    const unifiedCollectionName = 'costumers_unified';
-    try {
-      const u = await db.listCollections({ name: unifiedCollectionName }).toArray();
-      if (!Array.isArray(u) || u.length === 0) {
-        await db.createCollection(unifiedCollectionName);
-      }
-    } catch (_) {
-      // continuar: si falla, insertOne reportará el error
-    }
-
-    // Preparar metadatos para el unified. Evitar choques por _id en diferentes colecciones.
     const newId = new ObjectId();
-    newLead._id = newId;
+    newLead._id              = newId;
     newLead.sourceCollection = 'app_leads';
-    newLead.sourceId = newId.toString();
-    newLead.unifiedAt = new Date();
+    newLead.sourceId         = newId.toString();
+    newLead.unifiedAt        = new Date();
 
-    const result = await db.collection(unifiedCollectionName).insertOne(newLead);
-    console.log('Lead creado exitosamente en costumers_unified con ID:', result.insertedId);
-
-    // REGISTRAR ACTIVIDAD: Detectar tipo de actividad
-    const finalAgent = newLead.agenteNombre || newLead.agente || newLead.usuario || 'Sistema';
-    const creatorUsername = req.user?.username || 'Sistema';
-    const creatorRole = req.user?.role || 'Usuario';
-    
-    // Determinar si es venta ingresada o solo un lead creado
-    const diaventa = newLead.dia_venta ? new Date(newLead.dia_venta) : null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isVentaIngresada = diaventa && new Date(diaventa).getTime() >= today.getTime() && 
-                             (newLead.status && (newLead.status.toLowerCase().includes('complet') || newLead.status.toLowerCase().includes('cerr') || newLead.status.toLowerCase().includes('venta')));
-    
-    const activityType = isVentaIngresada ? 'Venta ingresada' : 'Lead creado';
-    const activityDescription = isVentaIngresada 
-      ? `Venta ingresada — ${newLead.nombre_cliente} por ${creatorUsername}`
-      : `Lead de ${newLead.nombre_cliente} creado y asignado a ${finalAgent}`;
-    
-    await logActivity(
-      db,
-      activityType,
-      result.insertedId,
-      newLead.nombre_cliente || 'Sin nombre',
-      creatorUsername,
-      creatorRole,
-      activityDescription,
-      { agente_asignado: finalAgent, tipo_servicio: newLead.tipo_servicio, status: newLead.status }
+    const result  = await db.collection('costumers_unified').insertOne(newLead);
+    const isVenta = isCompleted(newLead.status);
+    await logActivity(db, isVenta ? 'Venta ingresada' : 'Lead creado', result.insertedId, newLead.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario',
+      isVenta ? `Venta de ${newLead.nombre_cliente} por ${req.user?.username}` : `Lead de ${newLead.nombre_cliente} asignado a ${finalAgentName}`,
+      { agente_asignado: finalAgentName, tipo_servicio: newLead.tipo_servicio, status: newLead.status }
     );
 
-    return res.status(201).json({
-      success: true,
-      message: 'Lead creado exitosamente',
-      data: {
-        id: result.insertedId,
-        ...newLead
-      }
-    });
-
-  } catch (error) {
-    console.error('Error al procesar el lead:', error);
-    
-    // Manejar errores de duplicados
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: 'Ya existe un lead con este número de teléfono',
-        error: error.message
-      });
-    }
-    
-    return res.status(500).json({
-      success: false,
-      message: 'Error al procesar el lead',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
-    });
+    return res.status(201).json({ success: true, message: 'Lead creado exitosamente', data: { id: result.insertedId, ...newLead } });
+  } catch (e) {
+    console.error('[POST /api/leads]', e);
+    if (e.code === 11000) return res.status(409).json({ success: false, message: 'Ya existe un lead con este teléfono' });
+    return res.status(500).json({ success: false, message: 'Error al procesar el lead', error: process.env.NODE_ENV !== 'production' ? e.message : 'Error interno' });
   }
 });
 
-// Función para obtener la IP local
-function getLocalIp() {
-  const os = require('os');
-  const ifaces = os.networkInterfaces();
-  
-  for (const iface of Object.values(ifaces)) {
-    for (const details of iface) {
-      if (details.family === 'IPv4' && !details.internal) {
-        return details.address;
-      }
-    }
-  }
-  
-  return 'localhost';
-}
+// ── GET /api/leads ────────────────────────────────────────────
+// CORREGIDO:
+// 1. Campo "fecha" agregado al normalFilter
+// 2. Límite default subido a 5000 (máximo 10000)
+// 3. Incluye ventas colchón (dia_venta mes anterior + dia_instalacion mes actual)
+app.get('/api/leads', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
 
-if (String(process.env.USE_LEGACY_EMPLOYEES_OF_MONTH || '').toLowerCase() === '1') {
-  app.get('/api/employees-of-month', async (req, res) => {
-    try {
-      console.log('🌐 Cargando empleados del mes...');
+    const user     = req.user;
+    const username = user?.username || '';
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdmin  = ['admin','administrador','backoffice','bo'].some(r => userRole.includes(r));
 
-      if (!db) {
-        console.log('Base de datos no conectada, intentando conectar...');
-        await connectToMongoDB();
-      }
+    // ── FIX: límite default subido de 1000 a 5000 ──────────────
+    const { fechaInicio, fechaFin, limit = 5000 } = req.query;
 
-      const collections = await db.listCollections().toArray();
-      const collectionName = 'employeesOfMonth';
-      const collectionExists = collections.some(c => c.name === collectionName);
+    let dateFilter = {};
+    if (fechaInicio && fechaFin) {
+      const fi = new Date(fechaInicio);
+      const ft = new Date(fechaFin + 'T23:59:59');
 
-      if (!collectionExists) {
-        console.log(`Colección ${collectionName} no existe, devolviendo array vacío`);
-        return res.json({
-          success: true,
-          message: 'No hay empleados del mes registrados',
-          employees: {}
-        });
-      }
+      const fiYear  = fi.getFullYear();
+      const fiMonth = fi.getMonth();
+      const colchonMonthStart = new Date(fiYear, fiMonth, 1);
 
-      const employeesCollection = db.collection(collectionName);
-      const employees = await employeesCollection.find({}).toArray();
+      // ── FIX: campo "fecha" agregado al $or ──────────────────
+      const normalFilter = {
+        $or: [
+          { dia_venta:          { $gte: fi, $lte: ft } },
+          { fecha_contratacion: { $gte: fi, $lte: ft } },
+          { createdAt:          { $gte: fi, $lte: ft } },
+          { creadoEn:           { $gte: fi, $lte: ft } },
+          { fecha:              { $gte: fi, $lte: ft } }  // ← FIX: leads con campo "fecha"
+        ]
+      };
 
-      const employeesObj = {};
-      employees.forEach(emp => {
-        const key = emp.position || emp.employee || 'first';
-        employeesObj[key] = {
-          employee: emp.employee || key,
-          name: emp.name || 'Sin nombre',
-          description: emp.description || 'Sin descripción',
-          imageData: emp.imageData || null,
-          imageClass: emp.imageClass || 'square',
-          date: emp.date || new Date().toLocaleDateString('es-ES')
-        };
-      });
-
-      console.log('✅ Empleados del mes cargados:', Object.keys(employeesObj).length);
-      return res.json({
-        success: true,
-        message: 'Empleados del mes cargados correctamente',
-        employees: employeesObj
-      });
-    } catch (error) {
-      console.error('❌ Error cargando empleados del mes:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Error al cargar empleados del mes',
-        error: error.message
-      });
-    }
-  });
-
-  app.post('/api/employees-of-month', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
-    try {
-      console.log('💾 Guardando empleado del mes...');
-
-      if (!db) {
-        console.log('Base de datos no conectada, intentando conectar...');
-        await connectToMongoDB();
-      }
-
-      const { employee, name, description, imageData } = req.body || {};
-
-      if (!employee || !name) {
-        return res.status(400).json({
-          success: false,
-          message: 'Se requiere el empleado y nombre'
-        });
-      }
-
-      const employeesCollection = db.collection('employeesOfMonth');
-      const result = await employeesCollection.findOneAndUpdate(
-        { employee: employee },
-        {
-          $set: {
-            employee: employee,
-            name: name,
-            description: description || 'Sin descripción',
-            imageData: imageData,
-            date: new Date().toLocaleDateString('es-ES'),
-            updatedAt: new Date()
+      const colchonFilter = {
+        $and: [
+          { dia_instalacion: { $gte: fi, $lte: ft } },
+          { dia_venta:       { $lt: colchonMonthStart } },
+          {
+            $or: [
+              { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
+            ]
           }
-        },
-        {
-          upsert: true,
-          returnDocument: 'after'
-        }
-      );
+        ]
+      };
 
-      console.log('✅ Empleado del mes guardado:', employee);
-      return res.json({
-        success: true,
-        message: 'Empleado del mes guardado correctamente',
-        data: result.value
-      });
-    } catch (error) {
-      console.error('❌ Error guardando empleado del mes:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Error al guardar empleado del mes',
-        error: error.message
-      });
+      dateFilter = { $or: [normalFilter, colchonFilter] };
     }
-  });
 
-  app.delete('/api/employees-of-month/:employee', protect, authorize('Administrador', 'Supervisor Team Lineas'), async (req, res) => {
-    try {
-      console.log('🗑️ Eliminando empleado del mes:', req.params.employee);
-
-      if (!db) {
-        console.log('Base de datos no conectada, intentando conectar...');
-        await connectToMongoDB();
-      }
-
-      const employeesCollection = db.collection('employeesOfMonth');
-      const result = await employeesCollection.deleteOne({ employee: req.params.employee });
-
-      if (result.deletedCount === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Empleado del mes no encontrado'
-        });
-      }
-
-      console.log('✅ Empleado del mes eliminado:', req.params.employee);
-      return res.json({
-        success: true,
-        message: 'Empleado del mes eliminado correctamente'
-      });
-    } catch (error) {
-      console.error('❌ Error eliminando empleado del mes:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Error al eliminar empleado del mes',
-        error: error.message
-      });
+    let filter = dateFilter;
+    if (!isAdmin) {
+      // FIX: normalizar username para matchear variantes en BD
+      // username puede ser INGRID.GARCIA pero BD tiene Ingrid Garcia
+      const v1 = username;
+      const v2 = username.replace(/\./g, ' ');
+      const cap = s => s.toLowerCase().replace(/(?:^|\s)\S/g, c => c.toUpperCase());
+      const v3 = cap(v2);
+      const v4 = v2.toLowerCase();
+      const v5 = v2.toUpperCase();
+      const v6 = username.toLowerCase();
+      const variants = [...new Set([v1,v2,v3,v4,v5,v6].filter(Boolean))];
+      const rxEsc = v2.split('').map(c => c.replace(/[.+?^{}()|[\]\\]/,'\\'+c)).join('');
+      const userRx = new RegExp("^" + rxEsc + "$", "i");
+      const userClause = {
+        $or: [
+          { agenteNombre: { $in: variants } },
+          { agente:       { $in: variants } },
+          { usuario:      { $in: variants } },
+          { agenteNombre: userRx },
+          { agente:       userRx },
+          { createdBy:    { $in: variants } },
+          { registeredBy: { $in: variants } }
+        ]
+      };
+      filter = Object.keys(dateFilter).length
+        ? { $and: [dateFilter, userClause] }
+        : userClause;
     }
-  });
-}
 
-// Manejar rutas de la aplicación (SPA) - DEBE IR AL FINAL
-app.get('*', (req, res) => {
-  // Si la ruta es una extensión de archivo, devolver 404
-  if (req.path.includes('.')) {
-    return res.status(404).send('Archivo no encontrado');
+    const leads = await db.collection('costumers_unified')
+      .find(filter)
+      .sort({ dia_venta: -1, createdAt: -1 })
+      // ── FIX: límite máximo subido de 5000 a 10000 ──────────
+      .limit(Math.min(parseInt(limit, 10) || 5000, 10000))
+      .toArray();
+
+    const now    = new Date();
+    const result = leads.map(lead => {
+      const col = isColchon(lead, now);
+      return col ? { ...lead, _es_colchon: true } : lead;
+    });
+
+    return res.json(result);
+  } catch (e) {
+    console.error('[GET /api/leads]', e);
+    return res.status(500).json({ success: false, message: 'Error al obtener leads', error: e.message });
   }
-  // Para cualquier otra ruta, servir lead.html (útil para SPA)
-  res.sendFile(path.join(FRONTEND_DIR, 'lead.html'));
 });
 
-// Función para iniciar el servidor con Socket.io
-function startServer(port) {
-  // LIMPIAR CACHE DE RANKING al iniciar el servidor para asegurar datos frescos
-  if (global.__rankingCache) {
-    global.__rankingCache.clear();
-    console.log('[STARTUP] ✓ Cache de ranking limpiado');
+// ── CUSTOMERS ─────────────────────────────────────────────────
+app.get('/api/customers', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+
+    const page      = parseInt(req.query.page, 10) || 1;
+    const userRole  = (req.user?.role || '').toLowerCase();
+    const isAdmOrBO = ['administrador','backoffice','admin'].some(r => userRole.includes(r));
+    const isSup     = userRole.includes('supervisor');
+    const maxLimit  = isAdmOrBO ? 10000 : 500;
+    const limit     = Math.min(parseInt(req.query.limit, 10) || 200, maxLimit);
+    const skip      = (page - 1) * limit;
+    const fechaInicio = req.query.fechaInicio ? new Date(req.query.fechaInicio) : null;
+    const fechaFin    = req.query.fechaFin    ? new Date(req.query.fechaFin)    : null;
+
+    let baseQuery = {};
+    if (fechaInicio && fechaFin) baseQuery.creadoEn = { $gte: fechaInicio, $lte: fechaFin };
+    else if (fechaInicio)        baseQuery.creadoEn = { $gte: fechaInicio };
+    else if (fechaFin)           baseQuery.creadoEn = { $lte: fechaFin };
+
+    if (req.query.status) baseQuery.status = normalizeStatus(req.query.status);
+
+    if (!isAdmOrBO) {
+      const cur = (req.user?.username || '').trim();
+      if (isSup) {
+        const agentes = await db.collection('users').find({ supervisor: { $regex: new RegExp(cur,'i') }, role: { $not: /admin/i } }).toArray();
+        const names   = agentes.map(a => (a.username||a.name||'').trim()).filter(Boolean);
+        if (names.length) baseQuery.$or = [{ agenteNombre: { $in: names } },{ agente: { $in: names } },{ usuario: { $in: names } }];
+      } else {
+        baseQuery.$or = [{ agenteNombre: cur },{ agente: cur },{ usuario: cur }];
+      }
+    }
+
+    const total     = await db.collection('costumers_unified').countDocuments(baseQuery);
+    const sortF     = req.query.sortBy || 'creadoEn';
+    const sortO     = req.query.sortOrder === 'asc' ? 1 : -1;
+    const customers = await db.collection('costumers_unified').find(baseQuery).sort({ [sortF]: sortO }).skip(skip).limit(limit).toArray();
+
+    return res.json({ success: true, data: customers, total, page, limit, source: 'costumers_unified' });
+  } catch (e) {
+    console.error('[/api/customers]', e);
+    return res.status(500).json({ success: false, message: 'Error al obtener customers', error: process.env.NODE_ENV === 'development' ? e.message : 'Error interno' });
   }
-  
-  // Configurar Socket.io
+});
+
+app.get('/api/customers/agents-summary', protect, async (req, res) => {
+  try {
+    if (!db) db = getDb();
+    const coll = db.collection('costumers_unified');
+    const rows = await coll.aggregate([
+      { $group: { _id: { id: '$agenteId', nombre: '$agenteNombre' }, count: { $sum:1 } } },
+      { $sort: { count:-1 } }
+    ]).toArray();
+    const distintos = {
+      agente:       await coll.distinct('agente'),
+      agenteNombre: await coll.distinct('agenteNombre')
+    };
+    return res.json({ success: true, summary: rows.map(r => ({ agenteId: r._id.id||null, agenteNombre: r._id.nombre||null, count: r.count })), distincts: distintos });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error', error: e.message });
+  }
+});
+
+// ── MEDIA / UPLOAD ────────────────────────────────────────────
+app.post('/api/upload', protect, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    const code = err?.code || err?.name || 'UPLOAD_ERROR';
+    if (code === 'LIMIT_FILE_SIZE')       return res.status(413).json({ success: false, message: 'Archivo excede 10MB', code });
+    if (code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ success: false, message: 'Campo de archivo inválido', code });
+    return res.status(400).json({ success: false, message: err?.message || 'Error subiendo archivo', code });
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No se recibió archivo' });
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    if (!db) db = getDb();
+
+    let category = (req.body?.category || req.query.category || req.headers['x-media-category'] || 'image').toLowerCase();
+    if (req.file.mimetype === 'image/gif')      category = 'gif';
+    if (req.file.mimetype.startsWith('video/')) category = 'video';
+
+    let fileUrl = `/uploads/${req.file.filename}`, cloudinaryPublicId = null, source = 'local';
+    const requiresCDN = (category === 'marketing' || category === 'employees-of-month') && process.env.NODE_ENV === 'production';
+
+    if (requiresCDN && !CLOUDINARY_HAS_CREDENTIALS) {
+      if (req.file && fs.existsSync(req.file.path)) try { fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(400).json({ success: false, message: `Cloudinary no configurado para ${category} en producción.` });
+    }
+
+    if (CLOUDINARY_HAS_CREDENTIALS) {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, { folder: `crm/${category}`, resource_type: 'auto' });
+        fileUrl = result.secure_url; cloudinaryPublicId = result.public_id; source = 'cloudinary';
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      } catch (e) {
+        if (requiresCDN) {
+          if (req.file && fs.existsSync(req.file.path)) try { fs.unlinkSync(req.file.path); } catch (_) {}
+          return res.status(502).json({ success: false, message: `Cloudinary falló para ${category}`, details: { message: e?.message } });
+        }
+        console.warn('[UPLOAD] Cloudinary falló, usando local:', e?.message);
+      }
+    }
+
+    const now = new Date();
+    const doc = { filename: req.file.filename, originalName: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path, url: fileUrl, cloudinaryPublicId, source, uploadedBy: req.user.username, category, uploadDate: now, createdAt: now, updatedAt: now };
+    const inserted = await db.collection('mediafiles').insertOne(doc);
+    return res.json({ success: true, message: 'Archivo subido', file: { id: inserted.insertedId, name: doc.originalName, url: doc.url, type: doc.mimetype, size: doc.size, category: doc.category, uploadDate: doc.uploadDate, source: doc.source } });
+  } catch (e) {
+    console.error('[UPLOAD]', e);
+    if (req.file && fs.existsSync(req.file.path)) try { fs.unlinkSync(req.file.path); } catch (_) {}
+    return res.status(500).json({ success: false, message: 'Error subiendo archivo', ...(process.env.NODE_ENV !== 'production' ? { error: e?.message } : {}) });
+  }
+});
+
+app.get('/api/media', protect, async (req, res) => {
+  try {
+    if (!db) db = getDb();
+    const { category, limit = 50, offset = 0, orderBy = 'uploadDate', sort = 'desc' } = req.query;
+    const query     = category && category !== 'all' ? { category } : {};
+    const allowed   = { uploadDate:'uploadDate', createdAt:'createdAt', updatedAt:'updatedAt', originalName:'originalName', size:'size' };
+    const sortField = allowed[orderBy] || 'uploadDate';
+    const sortDir   = sort.toLowerCase() === 'asc' ? 1 : -1;
+    const files     = await db.collection('mediafiles').find(query, { sort: { [sortField]: sortDir }, limit: parseInt(limit,10), skip: parseInt(offset,10) }).toArray();
+
+    const valid = files.filter(file => {
+      const isCloudinary = file.source === 'cloudinary' || /https?:\/\/res\.cloudinary\.com\//i.test(file.url||'');
+      if (isCloudinary) return true;
+      const filePath = path.join(uploadsDir, path.basename(file.url||''));
+      return file.url && fs.existsSync(filePath);
+    });
+
+    return res.json(valid.map(f => ({ id: f._id, name: f.originalName, url: f.url, type: f.mimetype, size: f.size, category: f.category, uploadDate: f.uploadDate, uploadedBy: f.uploadedBy })));
+  } catch (e) {
+    console.error('[MEDIA]', e);
+    return res.status(500).json({ success: false, message: 'Error obteniendo archivos' });
+  }
+});
+
+app.delete('/api/media/:id', protect, async (req, res) => {
+  try {
+    if (!db) db = getDb();
+    const file = await db.collection('mediafiles').findOne({ _id: new ObjectId(req.params.id) });
+    if (!file) return res.status(404).json({ success: false, message: 'Archivo no encontrado' });
+    const isAdminRole = ['admin','Administrador','administrador','Administrativo'].includes(req.user.role);
+    if (file.uploadedBy !== req.user.username && !isAdminRole) return res.status(403).json({ success: false, message: 'Sin permisos para eliminar este archivo' });
+    if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    await db.collection('mediafiles').deleteOne({ _id: new ObjectId(req.params.id) });
+    return res.json({ success: true, message: 'Archivo eliminado' });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error eliminando archivo' });
+  }
+});
+
+app.get('/api/media/stats', protect, async (req, res) => {
+  try {
+    if (!db) db = getDb();
+    const stats      = await db.collection('mediafiles').aggregate([{ $group: { _id:'$category', count:{ $sum:1 }, totalSize:{ $sum:'$size' } } }]).toArray();
+    const total      = await db.collection('mediafiles').countDocuments();
+    const totalSizeR = await db.collection('mediafiles').aggregate([{ $group: { _id:null, total:{ $sum:'$size' } } }]).toArray();
+    return res.json({ success: true, stats: { total, totalSize: totalSizeR[0]?.total||0, byCategory: stats } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Error obteniendo estadísticas' });
+  }
+});
+
+app.get('/videos/:filename', (req, res) => {
+  const videoPath = path.join(FRONTEND_PUBLIC_DIR, 'videos', req.params.filename);
+  if (!fs.existsSync(videoPath)) return res.status(404).send('Video no encontrado');
+  const stat     = fs.statSync(videoPath);
+  const fileSize = stat.size;
+  const range    = req.headers.range;
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end   = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${fileSize}`, 'Accept-Ranges': 'bytes', 'Content-Length': (end-start)+1, 'Content-Type': 'video/mp4' });
+    fs.createReadStream(videoPath, { start, end }).pipe(res);
+  } else {
+    res.writeHead(200, { 'Content-Length': fileSize, 'Content-Type': 'video/mp4' });
+    fs.createReadStream(videoPath).pipe(res);
+  }
+});
+
+// ── VARIOS ────────────────────────────────────────────────────
+app.get('/api/protected', protect, (req, res) => res.json({ message: 'Ruta protegida', user: req.user }));
+
+app.get('/favicon.ico', (req, res) => {
+  try {
+    const p = path.join(__dirname, 'images', 'avatar.png');
+    if (fs.existsSync(p)) { res.type('png'); return res.sendFile(p); }
+  } catch (_) {}
+  res.status(204).end();
+});
+
+app.get('/', (req, res) => res.redirect('/login.html'));
+app.get('/inicio', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'lead.html')));
+
+app.get('/Costumer.html', protect, (req, res) => {
+  if (req.user?.role === 'admin') {
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    return res.sendFile(path.join(FRONTEND_DIR, 'Costumer.html'));
+  }
+  return res.redirect('/inicio?error=Acceso denegado');
+});
+
+// ── RUTAS MODULARES ───────────────────────────────────────────
+app.use('/api/facturacion',            facturacionRoutes);
+app.use('/api/facturacion-lineas',     facturacionLineasRoutes);
+app.use('/api/llamadas-ventas-lineas', llamadasVentasLineasRoutes);
+app.use('/api/ranking',                rankingRoutes);
+app.use('/api/equipos',                equipoRoutes);
+app.use('/api/employees-of-month',     employeesOfMonthRoutes);
+app.use('/api',                        apiRoutes);
+
+if (mediaProxy)  app.use('/media/proxy',  mediaProxy);
+if (debugRoutes) app.use('/api/debug',    debugRoutes);
+if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
+  app.use('/api/debug-noauth', debugNoAuthRoutes);
+  console.log('[SERVER] /api/debug-noauth montada (solo dev)');
+}
+
+try { const r = require('./backend/routes/debug-paola');       app.use('/api/debug-paola', r); }          catch (_) {}
+try { const r = require('./backend/routes/bulk-status-phone'); app.use('/api/leads', r); console.log('[SERVER] bulk-status-phone cargado'); } catch (e) { console.warn('[SERVER] bulk-status-phone:', e?.message); }
+try { const r = require('./backend/routes/migrate');           app.use('/api/migrate', r); console.log('[SERVER] Rutas de migración cargadas'); } catch (e) { console.warn('[SERVER] migrate:', e?.message); }
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ success: false, message: `Endpoint no encontrado: ${req.method} ${req.path}` });
+  }
+  if (req.path.includes('.')) return res.status(404).send('Archivo no encontrado');
+  return res.sendFile(path.join(FRONTEND_DIR, 'lead.html'));
+});
+
+app.use((err, req, res, next) => {
+  console.error('[ERROR GLOBAL]', err.stack || err.message);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({
+    status: 'error',
+    message: process.env.NODE_ENV !== 'production' ? err.message : 'Error interno del servidor. Intente más tarde.'
+  });
+});
+
+// ── SOCKET.IO Y ARRANQUE ──────────────────────────────────────
+function startServer(port) {
+  if (global.__rankingCache) { global.__rankingCache.clear(); console.log('[STARTUP] Cache ranking limpiado'); }
+
   io = new Server(httpServer, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-          return callback(null, true);
-        }
-        const whitelist = corsWhitelist();
-        if (whitelist.includes(origin)) return callback(null, true);
-        callback(null, true);
+      origin: (origin, cb) => {
+        if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) return cb(null, true);
+        if (corsWhitelist().includes(origin)) return cb(null, true);
+        cb(null, true);
       },
-      methods: ['GET', 'POST'],
-      credentials: true
+      methods: ['GET','POST'], credentials: true
     }
   });
 
-  // Mapa de usuarios conectados
-  const connectedUsers = new Map();
-  const dashboardSubscribers = new Set(); // Usuarios suscritos a actualizaciones del dashboard
+  const connectedUsers       = new Map();
+  const dashboardSubscribers = new Set();
 
   io.on('connection', (socket) => {
-    console.log('[Socket.io] Nueva conexión:', socket.id);
+    console.log('[Socket.io] Conexión:', socket.id);
 
-    // Usuario se registra con su identificador
     socket.on('register', (userData) => {
       const { odigo, agenteId, username, role } = userData || {};
       const identifier = odigo || agenteId || username;
-
       if (identifier) {
-        socket.userId = identifier;
-        socket.userData = userData;
+        socket.userId = identifier; socket.userData = userData;
         socket.join(`user:${identifier}`);
         if (role) socket.join(`role:${role}`);
-
-        if (!connectedUsers.has(identifier)) {
-          connectedUsers.set(identifier, new Set());
-        }
+        if (!connectedUsers.has(identifier)) connectedUsers.set(identifier, new Set());
         connectedUsers.get(identifier).add(socket.id);
-        console.log(`[Socket.io] Usuario registrado: ${identifier}`);
       }
     });
 
-    // ========== NUEVO: Suscripción a actualizaciones del dashboard ==========
-    socket.on('subscribe', (data) => {
-      const { channel, user } = data || {};
-      
+    socket.on('subscribe', ({ channel, user } = {}) => {
       if (channel === 'dashboard') {
         socket.dashboardUser = user;
         socket.join('dashboard-updates');
         dashboardSubscribers.add(socket.id);
-        console.log(`[Dashboard WS] Usuario ${user} suscrito a actualizaciones (socket: ${socket.id})`);
-        
-        // Confirmar suscripción al cliente
-        socket.emit('subscribed', { 
-          success: true, 
-          message: 'Suscrito a actualizaciones del dashboard',
-          channel: 'dashboard'
-        });
+        socket.emit('subscribed', { success: true, channel: 'dashboard' });
       }
-    });
-
-    // Recibir mensajes del dashboard (para logging)
-    socket.on('dashboard-message', (message) => {
-      console.log(`[Dashboard] Mensaje de ${socket.dashboardUser}:`, message);
     });
 
     socket.on('disconnect', () => {
       if (socket.userId) {
-        const userSockets = connectedUsers.get(socket.userId);
-        if (userSockets) {
-          userSockets.delete(socket.id);
-          if (userSockets.size === 0) connectedUsers.delete(socket.userId);
-        }
-        console.log(`[Socket.io] Desconectado: ${socket.userId}`);
+        const s = connectedUsers.get(socket.userId);
+        if (s) { s.delete(socket.id); if (!s.size) connectedUsers.delete(socket.userId); }
       }
-      
-      if (dashboardSubscribers.has(socket.id)) {
-        dashboardSubscribers.delete(socket.id);
-        console.log(`[Dashboard WS] Usuario desuscrito:`, socket.dashboardUser);
-      }
+      dashboardSubscribers.delete(socket.id);
     });
   });
 
-  // Función para emitir actualizaciones del dashboard a todos los suscriptores
-  // Se puede llamar desde otros endpoints o intervalos
   global.broadcastDashboardUpdate = (updateData) => {
-    if (io) {
-      console.log('[Dashboard Broadcast] Enviando actualización a', dashboardSubscribers.size, 'usuarios');
-      io.to('dashboard-updates').emit('message', {
-        type: 'dashboard-update',
-        data: updateData,
-        timestamp: new Date().toISOString()
-      });
-    }
+    if (io) io.to('dashboard-updates').emit('message', { type: 'dashboard-update', data: updateData, timestamp: new Date().toISOString() });
   };
 
-  // Hacer io disponible globalmente
   app.set('io', io);
   global.io = io;
 
-  // ============================================
-  // ENDPOINT: Populate leads with sample data
-  // ============================================
-  app.post('/api/populate-leads', protect, authorize('Administrador', 'admin', 'administrador', 'backoffice'), async (req, res) => {
+  app.post('/api/populate-leads', protect, authorize('Administrador','admin','administrador','backoffice'), async (req, res) => {
     try {
-      if (!isConnected()) {
-        return res.status(503).json({ success: false, message: 'Base de datos no disponible' });
-      }
+      if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
       if (!db) db = getDb();
-
-      const agents = [
-        'Irania Serrano',
-        'Roberto Velasquez',
-        'Marisol Beltran',
-        'Bryan Pleitez',
-        'Johana',
-        'Randal Martinez'
-      ];
-
-      const services = [
-        'ATT 18-25 MB',
-        'ATT 50-100 MB', 
-        'ATT 100 FIBRA',
-        'ATT 300',
-        'DIRECTV Cable + Internet',
-        'XFINITY Gigabit',
-        'SPECTRUM 500 MB',
-        'FRONTIER FIBER',
-        'HUGHES NET',
-        'VIASAT'
-      ];
-
-      // Find leads without agenteNombre
-      const leadsToUpdate = await db.collection('costumers_unified').find({
-        $or: [
-          { agenteNombre: { $exists: false } },
-          { agenteNombre: null },
-          { agenteNombre: { $eq: '' } }
-        ]
-      }).toArray();
-
-      console.log(`[POPULATE] Found ${leadsToUpdate.length} leads to update`);
-
+      const agents   = ['Irania Serrano','Roberto Velasquez','Marisol Beltran','Bryan Pleitez','Johana','Randal Martinez'];
+      const services = ['ATT 18-25 MB','ATT 50-100 MB','ATT 100 FIBRA','ATT 300','DIRECTV Cable + Internet','XFINITY Gigabit','SPECTRUM 500 MB','FRONTIER FIBER','HUGHES NET','VIASAT'];
+      const toUpdate = await db.collection('costumers_unified').find({ $or:[{ agenteNombre:{ $exists:false } },{ agenteNombre:null },{ agenteNombre:'' }] }).toArray();
       let updated = 0;
-      for (let i = 0; i < leadsToUpdate.length; i++) {
-        const lead = leadsToUpdate[i];
-        
-        // Assign random agent
-        lead.agenteNombre = agents[Math.floor(Math.random() * agents.length)];
-        
-        // Assign random service if missing
-        if (!lead.servicios || lead.servicios === '' || lead.servicios === null) {
-          lead.servicios = services[Math.floor(Math.random() * services.length)];
-        }
-        
-        // Update in database
-        await db.collection('costumers_unified').updateOne(
-          { _id: lead._id },
-          { $set: { agenteNombre: lead.agenteNombre, servicios: lead.servicios } }
-        );
+      for (const lead of toUpdate) {
+        await db.collection('costumers_unified').updateOne({ _id: lead._id }, { $set: {
+          agenteNombre: agents[Math.floor(Math.random() * agents.length)],
+          servicios:    (!lead.servicios || lead.servicios === '') ? services[Math.floor(Math.random() * services.length)] : lead.servicios
+        }});
         updated++;
       }
-
-      console.log(`[POPULATE] Updated ${updated} leads`);
-
-      // Clear cache so new data is reflected
       global.initDashboardCache = { data: null, updatedAt: 0 };
-
-      return res.json({
-        success: true,
-        message: `${updated} leads updated with agent names and services`,
-        updated: updated
-      });
-    } catch (error) {
-      console.error('[POPULATE] Error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Error populating leads',
-        error: error.message
-      });
+      return res.json({ success: true, message: `${updated} leads actualizados`, updated });
+    } catch (e) {
+      return res.status(500).json({ success: false, message: 'Error', error: e.message });
     }
   });
 
-  // Pre-warm init-dashboard cache once server is ready and schedule periodic refreshes
   (async () => {
-    try {
-      await refreshInitDashboardCache(getDb());
-      console.log('[INIT-DASHBOARD] Cache pre-warmed on server start');
-    } catch (e) {
-      console.warn('[INIT-DASHBOARD] Pre-warm failed:', e?.message || e);
-    }
+    try { await refreshInitDashboardCache(getDb()); console.log('[INIT-DASHBOARD] Pre-warm OK'); }
+    catch (e) { console.warn('[INIT-DASHBOARD] Pre-warm falló:', e?.message); }
 
-    // Programar refresco periódico en background
-    try {
-      setInterval(() => {
-        try {
-          refreshInitDashboardCache(getDb()).catch(err => console.warn('[INIT-DASHBOARD] background refresh error', err));
-        } catch (inner) { console.warn('[INIT-DASHBOARD] background schedule error', inner); }
-      }, Math.max(10000, INIT_DASHBOARD_TTL));
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[INIT-DASHBOARD] background refresh scheduled (ms):', INIT_DASHBOARD_TTL);
-      }
-    } catch (e) {
-      console.warn('[INIT-DASHBOARD] Could not schedule background refresh:', e?.message || e);
-    }
+    setInterval(() => {
+      refreshInitDashboardCache(getDb()).catch(e => console.warn('[INIT-DASHBOARD] background refresh error', e?.message));
+    }, Math.max(10000, INIT_DASHBOARD_TTL));
 
     httpServer.listen(port, () => {
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`[SERVER] Servidor corriendo en el puerto ${port}`);
+        console.log(`[SERVER] Puerto: ${port}`);
         console.log(`[SERVER] Entorno: ${process.env.NODE_ENV || 'development'}`);
         console.log(`[SERVER] URL: http://localhost:${port}`);
-        console.log(`[Socket.io] WebSocket activo`);
+        console.log('[Socket.io] WebSocket activo');
       }
     });
   })();
 
-  httpServer.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      console.error(`[SERVER] Puerto ${port} en uso`);
-      process.exit(1);
-    } else {
-      console.error('[SERVER] Error:', error);
-    }
+  httpServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') { console.error(`[SERVER] Puerto ${port} en uso`); process.exit(1); }
+    else console.error('[SERVER] Error:', e);
   });
 
   activeServer = httpServer;
   return httpServer;
 }
 
-// Arrancar servidor después de conectar BD
 (async () => {
   let retries = 0;
-  const maxRetries = 30;
-  while (!isConnected() && retries < maxRetries) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    retries++;
-  }
-
-  if (isConnected()) {
-    console.log('[SERVER] Base de datos lista, iniciando servidor...');
-    startServer(PORT);
-  } else {
-    console.error('[SERVER] BD no conectada, iniciando en modo degradado');
-    startServer(PORT);
-  }
+  while (!isConnected() && retries < 30) { await new Promise(r => setTimeout(r, 1000)); retries++; }
+  if (isConnected()) console.log('[SERVER] BD lista, iniciando...');
+  else               console.warn('[SERVER] BD no conectada, arrancando en modo degradado');
+  startServer(PORT);
 })();
 
-// Manejo de cierre graceful
-process.on('SIGINT', async () => {
-  console.log('\n[SHUTDOWN] Cerrando servidor...');
+async function gracefulShutdown(signal) {
+  console.log(`\n[SHUTDOWN] ${signal}...`);
   try {
-    if (activeServer) activeServer.close(() => console.log('[SHUTDOWN] Servidor cerrado'));
+    if (activeServer) await new Promise(r => activeServer.close(r));
     await closeConnection();
-  } catch (error) {
-    console.error('[SHUTDOWN] Error:', error);
-  }
+  } catch (e) { console.error('[SHUTDOWN] Error:', e); }
   process.exit(0);
-});
-process.on('SIGTERM', async () => {
-  console.log('\n[SHUTDOWN] Señal SIGTERM...');
-  try {
-    if (activeServer) activeServer.close(() => console.log('[SHUTDOWN] Servidor cerrado'));
-    await closeConnection();
-  } catch (error) {
-    console.error('[SHUTDOWN] Error:', error);
-  }
-  process.exit(0);
-});
+}
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// --- INICIO DEL ESCUDO DE ERRORES ---
-app.use((err, req, res, next) => {
-    // 1. Esto imprime el error real en TU terminal (para que tú, el desarrollador, sepas qué pasó)
-    console.error('ERROR DETECTADO:', err.stack);
-
-    // 2. Esto es lo que ve el usuario (o el hacker): Un mensaje genérico y limpio.
-    res.status(500).json({
-        status: 'error',
-        message: 'Ups! Ocurrió un error interno en el servidor. Intente más tarde.'
-    });
-});
-// --- FIN DEL ESCUDO ---
-
-// Exportar
 module.exports = { app, getIo: () => io };
-

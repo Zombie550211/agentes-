@@ -14,6 +14,25 @@ function normalizePhone(phone) {
   return digits.slice(-10);
 }
 
+function normalizeName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function escapeRegex(str) {
+  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function canUseRole(req) {
+  const userRole = String(req.user?.role || '').toLowerCase().trim();
+  const isAdmin = userRole === 'admin' || userRole === 'administrador';
+  const isBackoffice = userRole === 'backoffice' || userRole === 'back office' || userRole === 'back_office';
+  const isRolIcon = userRole === 'rol_icon' || userRole === 'rol-icon';
+  return isAdmin || isBackoffice || isRolIcon;
+}
+
 /**
  * @route POST /api/leads/bulk-status-by-phone
  * @desc Cambio masivo de status por números telefónicos
@@ -39,12 +58,7 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
     }
 
     // Verificar permisos (solo admin y backoffice)
-    const userRole = String(req.user?.role || '').toLowerCase().trim();
-    const isAdmin = userRole === 'admin' || userRole === 'administrador';
-    const isBackoffice = userRole === 'backoffice' || userRole === 'back office' || userRole === 'back_office';
-    const isRolIcon = userRole === 'rol_icon' || userRole === 'rol-icon';
-
-    if (!isAdmin && !isBackoffice && !isRolIcon) {
+    if (!canUseRole(req)) {
       return res.status(403).json({ 
         success: false, 
         message: 'No tienes permisos para realizar cambios masivos de status' 
@@ -167,6 +181,7 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
         updated: 0,
         found: 0,
         foundPhones: [],
+        updatedLeads: [],
         notFound: normalizedPhones.length,
         notFoundPhones: normalizedPhones,
         totalPhones: normalizedPhones.length
@@ -199,12 +214,28 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
     const foundPhonesList = Array.from(foundPhoneNumbers);
     const foundCount = foundPhonesList.length;
 
+    const updatedLeads = (leadsToUpdate || []).map(l => {
+      const getName = () => {
+        const v = l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '';
+        return String(v || '').trim();
+      };
+      const pickPhone = () => {
+        return normalizePhone(l.telefono) || normalizePhone(l.telefono_principal) || normalizePhone(l.telefono_alterno) || '';
+      };
+      return {
+        id: l._id && l._id.toString ? l._id.toString() : String(l._id || ''),
+        nombre_cliente: getName(),
+        telefono: pickPhone()
+      };
+    });
+
     res.json({
       success: true,
       message: `Status actualizado exitosamente para ${updateResult.modifiedCount} lead(s)`,
       updated: updateResult.modifiedCount,
       found: foundCount,
       foundPhones: foundPhonesList,
+      updatedLeads: updatedLeads,
       notFound: notFoundCount,
       notFoundPhones: notFoundPhones,
       totalPhones: normalizedPhones.length
@@ -220,4 +251,122 @@ router.post('/bulk-status-by-phone', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
+/**
+ * @route POST /api/leads/bulk-status-by-name
+ * @desc Cambio masivo de status por nombre de cliente (nombre_cliente)
+ * @access Private (Administrador, Backoffice)
+ */
+router.post('/bulk-status-by-name', protect, async (req, res) => {
+  try {
+    const { names, newStatus } = req.body;
+
+    if (!Array.isArray(names) || names.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe proporcionar al menos un nombre'
+      });
+    }
+
+    if (!newStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe especificar el nuevo status'
+      });
+    }
+
+    if (!canUseRole(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para realizar cambios masivos de status'
+      });
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error de conexión a la base de datos'
+      });
+    }
+
+    const normalizedNames = names
+      .map(normalizeName)
+      .filter(n => n.length >= 3);
+
+    if (!normalizedNames.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se detectaron nombres válidos'
+      });
+    }
+
+    const collection = db.collection('costumers_unified');
+
+    // Build case-insensitive exact-match regexes (trim + collapse spaces done in normalizeName)
+    const regexes = normalizedNames.slice(0, 300).map(n => new RegExp('^' + escapeRegex(n) + '$', 'i'));
+    const or = regexes.map(r => ({ nombre_cliente: r }));
+
+    const leadsFound = await collection.find({ $or: or }).toArray();
+    const leadsToUpdate = leadsFound || [];
+
+    const foundNamesSet = new Set(leadsToUpdate.map(l => normalizeName(l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '')).filter(Boolean));
+    const notFoundNames = normalizedNames.filter(n => !foundNamesSet.has(n));
+
+    if (leadsToUpdate.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No se encontraron leads con los nombres proporcionados',
+        updated: 0,
+        found: 0,
+        foundNames: [],
+        updatedLeads: [],
+        notFound: normalizedNames.length,
+        notFoundNames: normalizedNames,
+        totalNames: normalizedNames.length
+      });
+    }
+
+    const leadIds = leadsToUpdate.map(lead => lead._id);
+    const updateResult = await collection.updateMany(
+      { _id: { $in: leadIds } },
+      {
+        $set: {
+          status: newStatus,
+          updatedAt: new Date(),
+          updatedBy: req.user?.username || req.user?.name || 'Sistema'
+        }
+      }
+    );
+
+    const updatedLeads = leadsToUpdate.map(l => {
+      const v = l.nombre_cliente || l.nombre || l.clientName || l.nombreCliente || '';
+      const pickPhone = () => {
+        return normalizePhone(l.telefono) || normalizePhone(l.telefono_principal) || normalizePhone(l.telefono_alterno) || '';
+      };
+      return {
+        id: l._id && l._id.toString ? l._id.toString() : String(l._id || ''),
+        nombre_cliente: String(v || '').trim(),
+        telefono: pickPhone()
+      };
+    });
+
+    res.json({
+      success: true,
+      message: `Status actualizado exitosamente para ${updateResult.modifiedCount} lead(s)`,
+      updated: updateResult.modifiedCount,
+      found: foundNamesSet.size,
+      foundNames: Array.from(foundNamesSet),
+      updatedLeads: updatedLeads,
+      notFound: notFoundNames.length,
+      notFoundNames: notFoundNames,
+      totalNames: normalizedNames.length
+    });
+  } catch (error) {
+    console.error('[BULK STATUS BY NAME] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
