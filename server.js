@@ -2340,8 +2340,8 @@ app.put('/api/leads/:id/comentarios/:comentarioId', protect, async (req, res) =>
       { $set: { texto: (req.body?.texto ?? '').toString().slice(0,1000), updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    if (!result.value) return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
-    const c = result.value;
+    const c = result?.value || (result?._id ? result : null);
+    if (!c) return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
     return res.json({ success: true, data: { _id: c._id.toString(), autor: c.autor, texto: c.texto, fecha: new Date(c.createdAt).toISOString() } });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Error al actualizar comentario', error: e.message });
@@ -2388,19 +2388,21 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
     let leadObjectId = null;
     try { leadObjectId = new ObjectId(id); } catch (_) {}
 
-    let result = null;
+    let resultDoc = null;
     for (const filter of [
       leadObjectId ? { _id: leadObjectId } : null,
       { _id: id },
       { id: id }
     ].filter(Boolean)) {
       try {
-        result = await coll.findOneAndUpdate(filter, { $set: { status: capitalized, actualizadoEn: new Date() } }, { returnDocument: 'after' });
-        if (result?.value) break;
+        const r = await coll.findOneAndUpdate(filter, { $set: { status: capitalized, actualizadoEn: new Date() } }, { returnDocument: 'after' });
+        // Compatible con driver v4 (r.value) y v5+ (r directo)
+        resultDoc = r?.value || (r?._id ? r : null);
+        if (resultDoc) break;
       } catch (_) {}
     }
 
-    if (!result?.value && leadObjectId) {
+    if (!resultDoc && leadObjectId) {
       const upd = await coll.updateOne({ _id: leadObjectId }, { $set: { status: capitalized, actualizadoEn: new Date() } });
       if (upd.matchedCount > 0) {
         await logActivity(db, 'Cambio de Status', leadObjectId, '', req.user?.username||'Sistema', req.user?.role||'Backoffice', `Status cambiado a ${capitalized}`, { new_status: capitalized });
@@ -2408,10 +2410,10 @@ app.put('/api/leads/:id/status', protect, authorize('Administrador','Backoffice'
       }
     }
 
-    if (!result?.value) return res.status(404).json({ success: false, message: 'Lead no encontrado' });
+    if (!resultDoc) return res.status(404).json({ success: false, message: 'Lead no encontrado' });
 
-    const oldStatus = result.value?.status || 'Desconocido';
-    await logActivity(db, 'Cambio de Status', result.value?._id||id, result.value?.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Backoffice', `Status de ${result.value?.nombre_cliente||'Cliente'} cambiado de ${oldStatus} a ${capitalized}`, { old_status: oldStatus, new_status: capitalized });
+    const oldStatus = resultDoc.status || 'Desconocido';
+    await logActivity(db, 'Cambio de Status', resultDoc._id||id, resultDoc.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Backoffice', `Status de ${resultDoc.nombre_cliente||'Cliente'} cambiado de ${oldStatus} a ${capitalized}`, { old_status: oldStatus, new_status: capitalized });
     return res.json({ success: true, message: 'Status actualizado', data: { id, status: capitalized } });
   } catch (e) {
     console.error('[PUT /api/leads/:id/status]', e);
@@ -2449,9 +2451,11 @@ app.put('/api/leads/:id', protect, async (req, res) => {
       ].filter(Boolean)) {
         try {
           const result = await coll.findOneAndUpdate(filter, { $set: updateData }, { returnDocument: 'after' });
-          if (result?.value) {
-            await logActivity(dbInst, 'Edición de Lead', result.value._id, result.value.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Campos actualizados: ${Object.keys(updateData).join(', ')}`, { campos: Object.keys(updateData) });
-            return res.json({ success: true, message: 'Lead actualizado', data: result.value });
+          // Compatible con driver v4 (result.value) y v5+ (result directo)
+          const doc = result?.value || (result?._id ? result : null);
+          if (doc) {
+            await logActivity(dbInst, 'Edición de Lead', doc._id, doc.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Campos actualizados: ${Object.keys(updateData).join(', ')}`, { campos: Object.keys(updateData) });
+            return res.json({ success: true, message: 'Lead actualizado', data: doc });
           }
         } catch (_) {}
       }
@@ -2479,8 +2483,9 @@ app.delete('/api/leads/:id', protect, async (req, res) => {
       for (const filter of [leadObjectId ? { _id: leadObjectId } : null, { _id: id }, { id }].filter(Boolean)) {
         try {
           const result = await coll.findOneAndDelete(filter);
-          if (result?.value) {
-            await logActivity(dbInst, 'Lead eliminado', result.value._id, result.value.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Lead de ${result.value.nombre_cliente||'Sin nombre'} eliminado`, {});
+          const doc = result?.value || (result?._id ? result : null);
+          if (doc) {
+            await logActivity(dbInst, 'Lead eliminado', doc._id, doc.nombre_cliente||'Sin nombre', req.user?.username||'Sistema', req.user?.role||'Usuario', `Lead de ${doc.nombre_cliente||'Sin nombre'} eliminado`, {});
             return res.json({ success: true, message: 'Lead eliminado' });
           }
         } catch (_) {}
@@ -2713,7 +2718,9 @@ app.get('/api/leads', protect, async (req, res) => {
     const result = leads.map(lead => {
       // _es_colchon = true solo si tiene patron de colchon Y status completed
       const col = isColchonActivo(lead, now);
-      return col ? { ...lead, _es_colchon: true } : lead;
+      // Asegurar que _id siempre llegue como string al frontend
+      const base = { ...lead, _id: lead._id?.toString() || '' };
+      return col ? { ...base, _es_colchon: true } : base;
     });
 
     return res.json(result);

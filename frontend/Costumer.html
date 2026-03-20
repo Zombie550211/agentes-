@@ -1418,9 +1418,9 @@
   function fmtDate(rawDate){if(!rawDate)return'—';try{const str=String(rawDate).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(str)){const parts=str.split('-');const dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}return new Date(rawDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return String(rawDate);}}
   function cell(txt){return'<td>'+(txt||'—')+'</td>';}
   function getUserData(){try{return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){return{};}}
-  function isAdminOrBackoffice(role){return['admin','backoffice','administrador','rol_icon','rol_bamo'].indexOf(role)!==-1;}
-  function isAgent(role){return['agente','agent','agentes','vendedor','vendedores'].indexOf(role)!==-1;}
-  function isSupervisor(role){return['supervisor','supervisores'].indexOf(role)!==-1;}
+  function isAdminOrBackoffice(role){const r=String(role||'').toLowerCase();return['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo'].some(function(v){return r===v||r.includes(v);});}
+  function isAgent(role){const r=String(role||'').toLowerCase();return['agente','agent','agentes','vendedor','vendedores','seller'].some(function(v){return r===v||r.includes(v);});}
+  function isSupervisor(role){const r=String(role||'').toLowerCase();return['supervisor','supervisores'].some(function(v){return r===v||r.includes(v);});}
 
   /* ── NORMALIZATION ── */
   function formatAutopago(val){const v=String(val||'').toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Sí';if(v==='false'||v==='0'||v==='no')return'No';return String(val||'');}
@@ -1446,13 +1446,31 @@
     return isColchonLead(lead) && (normalizeStatus(lead.status)==='completed'||normalizeStatus(lead.status)==='active');
   }
 
+  // Extrae el _id de MongoDB de forma segura (ObjectId, string, {$oid:...})
+  function extractMongoId(it, idx) {
+    if (!it) return 'tmp-' + idx;
+    // Intentar directo de _id o id (puede ser objeto ObjectId)
+    var v = it._id !== undefined ? it._id : (it.id !== undefined ? it.id : null);
+    if (!v) return 'tmp-' + idx;
+    if (typeof v === 'string' && v.trim() && v !== '[object Object]') return v.trim();
+    if (typeof v === 'object') {
+      if (v.$oid) return String(v.$oid);
+      if (v.oid)  return String(v.oid);
+      if (typeof v.toHexString === 'function') return v.toHexString();
+      // toString() de ObjectId devuelve el hex directamente
+      var s = v.toString();
+      if (s && s !== '[object Object]' && /^[a-f0-9]{24}$/i.test(s)) return s;
+    }
+    return 'tmp-' + idx;
+  }
+
   function normalizeLeads(items){
     if(!Array.isArray(items))return[];
     return items.map(function(it,idx){
       const raw=(it&&it._raw&&typeof it._raw==='object')?it._raw:null;
       const pick=function(keys){return pickField(it,keys)||pickField(raw,keys)||'';};
       const lead={
-        _id:             String(pickField(it,['_id','id'],'tmp-'+idx)),
+        _id:             extractMongoId(it, idx),
         _raw:            it,
         _es_colchon:     !!(it&&it._es_colchon),
         nombre_cliente:  pick(['nombre_cliente','clientName','nombre'])||'SIN NOMBRE',
@@ -1674,6 +1692,7 @@
     const leadId=selectEl.dataset.leadId,newStatus=selectEl.value;
     const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
     if(!lead){showToast('Lead no encontrado','error');return;}
+    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
     const oldStatus=lead.status;
     const oldCls=(STATUS_CFG[oldStatus]||{cls:'badge-hold'}).cls;
     const newCls=(STATUS_CFG[newStatus]||{cls:'badge-hold'}).cls;
@@ -1747,6 +1766,7 @@
     const leadId=getVal('edit-lead-id');
     const lead=__allLeadsData.find(function(l){return String(l._id)===String(leadId);});
     if(!lead)return;
+    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido en BD — recarga la tabla','error');return;}
     lead.nombre_cliente=getVal('edit-nombre');lead.telefono=getVal('edit-telefono');lead.telefono_alt=getVal('edit-telefono-alt');
     lead.numero_cuenta=getVal('edit-cuenta');lead.direccion=getVal('edit-direccion');lead.zip_code=getVal('edit-zip');
     lead.autopago=getVal('edit-autopago');lead.riesgo=getVal('edit-riesgo');lead.tipo_servicio=getVal('edit-tipo-servicio');
