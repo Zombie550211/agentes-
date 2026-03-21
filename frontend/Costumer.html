@@ -235,6 +235,13 @@
       outline:none; pointer-events:none; cursor:default; width:auto; min-width:50px;
     }
 
+    #puntajeTotalCount {
+      font-family:var(--f-mono); font-size:.71rem; font-weight:500;
+      color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-ln);
+      border-radius:var(--rf); padding:3px 10px; text-align:center;
+      outline:none; pointer-events:none; cursor:default; width:auto; min-width:70px;
+    }
+
     .btn {
       font-family:var(--f); font-size:.74rem; font-weight:600;
       padding:6px 12px; border-radius:var(--r2); border:1px solid var(--line-1);
@@ -840,6 +847,7 @@
 
         <div class="cmd-bar-right">
           <output id="recuentoCount" aria-live="polite" aria-label="Total de registros">0</output>
+          <output id="puntajeTotalCount" aria-live="polite" aria-label="Puntaje total filtrado" title="Puntaje total de leads filtrados">0 pts</output>
           <button id="scroll-left"  class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la izquierda">«</button>
           <button id="scroll-right" class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la derecha">»</button>
           <button id="toggle-forceall" class="btn" style="display:none;height:26px;padding:0 10px;font-size:.7rem">👥 Ver todos</button>
@@ -1684,6 +1692,13 @@
         '</tr>';
     }).join('');}
     const countEl=document.getElementById('recuentoCount');if(countEl)countEl.value=total;
+    // Calcular puntaje total de los leads filtrados (todos, no solo la página actual)
+    const puntajeTotal=__filteredLeads.reduce(function(sum,lead){
+      const p=parseFloat(lead.puntaje||lead._raw&&lead._raw.puntaje||0)||0;
+      return sum+p;
+    },0);
+    const puntajeEl=document.getElementById('puntajeTotalCount');
+    if(puntajeEl)puntajeEl.value=puntajeTotal.toFixed(2)+' pts';
     const pages=Math.ceil(total/(pageSize===99999?total||1:pageSize))||1;
     const pageEl=document.getElementById('pageInfo');if(pageEl)pageEl.textContent='Página '+currentPage+' de '+pages;
     const prev=document.getElementById('pagePrev'),next=document.getElementById('pageNext');
@@ -1807,17 +1822,57 @@
     const lead=__allLeadsData.find(function(l){return String(l._id)===String(leadId);});
     if(!lead)return;
     if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido en BD — recarga la tabla','error');return;}
-    lead.nombre_cliente=getVal('edit-nombre');lead.telefono=getVal('edit-telefono');lead.telefono_alt=getVal('edit-telefono-alt');
-    lead.numero_cuenta=getVal('edit-cuenta');lead.direccion=getVal('edit-direccion');lead.zip_code=getVal('edit-zip');
-    lead.autopago=getVal('edit-autopago');lead.riesgo=getVal('edit-riesgo');lead.tipo_servicio=getVal('edit-tipo-servicio');
-    lead.sistema=getVal('edit-sistema');lead.mercado=getVal('edit-mercado');lead.servicios=getVal('edit-servicios');
-    lead.dia_venta=getVal('edit-dia-venta');lead.dia_instalacion=getVal('edit-dia-instalacion');
-    lead.puntaje=getVal('edit-puntaje');lead.status=getVal('edit-status');
-    lead.supervisor=getVal('edit-supervisor');lead.motivo_llamada=getVal('edit-motivo');
+
+    // Solo mandamos los campos editables al servidor — nunca _id, _raw, notas con base64, etc.
+    const updates={
+      nombre_cliente:  getVal('edit-nombre'),
+      telefono:        getVal('edit-telefono'),
+      telefono_alt:    getVal('edit-telefono-alt'),
+      telefono_alterno:getVal('edit-telefono-alt'),
+      numero_cuenta:   getVal('edit-cuenta'),
+      direccion:       getVal('edit-direccion'),
+      zip_code:        getVal('edit-zip'),
+      zip:             getVal('edit-zip'),
+      autopago:        getVal('edit-autopago'),
+      riesgo:          getVal('edit-riesgo'),
+      tipo_servicio:   getVal('edit-tipo-servicio'),
+      sistema:         getVal('edit-sistema'),
+      mercado:         getVal('edit-mercado'),
+      servicios:       getVal('edit-servicios'),
+      dia_venta:       getVal('edit-dia-venta'),
+      dia_instalacion: getVal('edit-dia-instalacion'),
+      puntaje:         getVal('edit-puntaje')?parseFloat(getVal('edit-puntaje'))||0:'',
+      status:          getVal('edit-status'),
+      supervisor:      getVal('edit-supervisor'),
+      motivo_llamada:  getVal('edit-motivo'),
+    };
+
+    // Actualizar el objeto local también
+    Object.assign(lead, {
+      nombre_cliente:  updates.nombre_cliente,
+      telefono:        updates.telefono,
+      telefono_alt:    updates.telefono_alt,
+      numero_cuenta:   updates.numero_cuenta,
+      direccion:       updates.direccion,
+      zip_code:        updates.zip_code,
+      autopago:        updates.autopago,
+      riesgo:          updates.riesgo,
+      tipo_servicio:   updates.tipo_servicio,
+      sistema:         updates.sistema,
+      mercado:         updates.mercado,
+      servicios:       updates.servicios,
+      dia_venta:       updates.dia_venta,
+      dia_instalacion: updates.dia_instalacion,
+      puntaje:         updates.puntaje,
+      status:          updates.status,
+      supervisor:      updates.supervisor,
+      motivo_llamada:  updates.motivo_llamada,
+    });
     lead._es_colchon=isColchonLead(lead);
+
     const saveBtn=document.querySelector('#editarModal .btn-save');
     if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ Guardando…';}
-    const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify(lead)});
+    const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify(updates)});
     if(res&&res.ok){showToast('Guardado ✓','ok');}else if(res){showToast('No se pudo guardar en servidor','warn');}
     if(saveBtn){saveBtn.disabled=false;saveBtn.innerHTML='💾 Guardar cambios';}
     window.cerrarModal();applyFilters();
@@ -2089,4 +2144,4 @@
 })();
 </script>
 </body>
-</html>
+</html>   
