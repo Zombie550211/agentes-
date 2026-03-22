@@ -396,7 +396,7 @@
     #toggleMonthsBtn:hover { background:var(--a-line); }
     #pagePrev, #pageNext { width:28px; height:28px; padding:0; justify-content:center; font-size:.95rem; }
 
-    #editarModal-wrapper, #bulkExcelModal, #comentariosModal, #bulkStatusPhoneModal {
+    #editarModal-wrapper, #bulkExcelModal, #comentariosModal, #bulkStatusPhoneModal, #cuadraturaModal {
       position:fixed; inset:0; background:rgba(12,14,20,.5);
       backdrop-filter:blur(8px) saturate(1.5); z-index:400;
       display:none; align-items:center; justify-content:center; padding:20px;
@@ -643,6 +643,24 @@
     @media(max-width:600px){ .drp-popover { position: fixed !important; top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; min-width: unset; border-radius: var(--r4) var(--r4) 0 0; max-height: 90vh; overflow-y: auto; } }
 
     .costumer-table.compact-mode tbody td { padding: 6px 14px !important; font-size:.73rem; }
+
+    /* Cuadratura tabs */
+    .cuad-tab {
+      flex:1; padding:8px 0; font-family:var(--f); font-size:.74rem; font-weight:700;
+      border:none; cursor:pointer; background:var(--sheet-2); color:var(--ink-3);
+      transition:all .12s; border-right:1px solid var(--line-1);
+    }
+    .cuad-tab:last-child { border-right:none; }
+    .cuad-tab:hover { background:var(--sheet-3); color:var(--ink-1); }
+    .cuad-tab.is-active { background:var(--sheet); color:var(--ink-1); font-weight:800; box-shadow:inset 0 -2px 0 var(--a); }
+    .cuad-row-ok   td { color:var(--go) !important; }
+    .cuad-row-diff td:first-child { color:var(--warn) !important; }
+    .cuad-row-miss td:first-child { color:var(--stop) !important; }
+    .cuad-row-extra td:first-child { color:var(--info) !important; }
+    #cuadratura-tbody tr { border-bottom:1px solid var(--sheet-3); }
+    #cuadratura-tbody tr:last-child { border-bottom:none; }
+    #cuadratura-tbody td { padding:8px 12px; color:var(--ink-2); }
+    #cuadratura-tbody td:first-child { font-weight:700; }
   </style>
 </head>
 <body>
@@ -706,6 +724,7 @@
           <button class="btn" id="enable-notifications-btn" title="Notificaciones" aria-label="Notificaciones">🔔</button>
           <button class="btn" id="toggle-compact">⊞ Compacto</button>
           <button class="btn" id="btn-bulk-status-phone" title="Cambio masivo de status por teléfonos">📞 Status masivo</button>
+          <button class="btn" id="btn-cuadratura" title="Cuadratura de puntaje y clientes" style="gap:5px;">⚖️ Cuadratura</button>
           <button class="btn btn-accent" id="refresh-table">↻ Refrescar</button>
         </div>
       </div>
@@ -851,7 +870,7 @@
           <button id="scroll-left"  class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la izquierda">«</button>
           <button id="scroll-right" class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la derecha">»</button>
           <button id="toggle-forceall" class="btn" style="display:none;height:26px;padding:0 10px;font-size:.7rem">👥 Ver todos</button>
-          <button id="bulk-excel-btn"  class="btn" style="display:none;height:26px;padding:0 10px;font-size:.7rem">📄 Excel</button>
+
         </div>
       </div>
     </div>
@@ -1217,6 +1236,79 @@
   </div>
 </div>
 
+<!-- MODAL CUADRATURA -->
+<div id="cuadraturaModal" role="dialog" aria-modal="true" aria-labelledby="cuadraturaTitle" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-header-content">
+        <div class="modal-icon" style="background:var(--warn-bg);">⚖️</div>
+        <div>
+          <div class="modal-title" id="cuadraturaTitle">Cuadratura de Puntaje</div>
+          <div class="modal-subtitle" id="cuadratura-subtitle">Compara tu lista manual contra los leads filtrados en pantalla</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeCuadraturaModal()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <!-- Input -->
+        <div id="cuadratura-input-panel">
+          <div class="form-group">
+            <label class="form-label">
+              <span class="label-text">Lista manual (Nombre · Puntaje)</span>
+              <span class="label-hint">Pega un cliente por línea. Formato: <b>NOMBRE, 0.75</b> o <b>NOMBRE 0.75</b> o solo <b>NOMBRE</b></span>
+            </label>
+            <textarea id="cuadraturaInput"
+              placeholder="JUAN PEREZ, 0.75&#10;MARIA LOPEZ, 1.00&#10;CARLOS GARCIA, 0.45&#10;ANA GOMEZ"
+              style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+          </div>
+          <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
+            <span id="cuadratura-count">0 líneas</span> detectadas
+            · Filtro activo: <span id="cuadratura-filter-info" style="color:var(--a);font-weight:600;">cargando…</span>
+          </div>
+          <div id="cuadratura-filter-warn" style="display:none;margin-top:8px;padding:8px 12px;background:var(--warn-bg);border:1px solid var(--warn-ln);border-radius:var(--r2);font-size:.72rem;color:var(--warn);font-weight:600;">
+            ⚠️ Sin filtro de status — se comparan TODOS los leads (completed, pending, cancelled…). Activa un filtro de status antes de comparar.
+          </div>
+        </div>
+
+        <!-- Resultado -->
+        <div id="cuadratura-result" style="display:none;">
+          <!-- Resumen KPIs -->
+          <div id="cuadratura-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+          <!-- Tabs resultado -->
+          <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
+            <button class="cuad-tab is-active" data-tab="diff" onclick="switchCuadTab(this)">⚠️ Diferencias</button>
+            <button class="cuad-tab" data-tab="ok"   onclick="switchCuadTab(this)">✅ Coinciden</button>
+            <button class="cuad-tab" data-tab="miss" onclick="switchCuadTab(this)">❌ No en CRM</button>
+            <button class="cuad-tab" data-tab="extra" onclick="switchCuadTab(this)">🔍 Sobrantes</button>
+          </div>
+          <div id="cuadratura-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
+            <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+              <thead>
+                <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                  <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Estado</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Nombre cliente</th>
+                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts manual</th>
+                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts CRM</th>
+                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody id="cuadratura-tbody"></tbody>
+            </table>
+          </div>
+          <!-- Totales -->
+          <div id="cuadratura-totales" style="margin-top:10px;padding:10px 14px;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r2);font-family:var(--f-mono);font-size:.74rem;display:flex;gap:20px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeCuadraturaModal()">Cerrar</button>
+      <button id="btn-cuadratura-limpiar" class="btn" type="button" onclick="limpiarCuadratura()" style="display:none;">↺ Nueva comparación</button>
+      <button class="btn-save" id="btnEjecutarCuadratura" type="button" onclick="ejecutarCuadratura()" disabled>⚖️ Comparar</button>
+    </div>
+  </div>
+</div>
+
 <!-- DATE RANGE PICKER POPOVER -->
 <div class="drp-popover" id="drpPopover" role="dialog" aria-modal="true" aria-label="Seleccionar rango de fechas">
   <div class="drp-head">
@@ -1509,7 +1601,13 @@
         agente:          pick(['agenteNombre','agente','createdBy','creadoPor','createdBy','creadoPor'])||pickField(raw,['agenteNombre','agente','createdBy','creadoPor'],''),
         motivo_llamada:  pick(['motivo_llamada','motivo','reason','motivoLlamada','comentario']),
         zip_code:        pick(['zip_code','zip','zipcode','zipCode']),
-        puntaje:         pickField(it,['puntaje','score','puntos'],''),
+        puntaje:         (function(){
+          var v=pickField(it,['puntaje','score','puntos','Puntaje','Score'],'');
+          if(v===''||v===null||v===undefined)return '';
+          // Normalizar coma decimal → punto
+          var n=parseFloat(String(v).replace(',','.'));
+          return isNaN(n)?'':n;
+        })(),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
       };
@@ -1687,14 +1785,27 @@
         '<td class="status-td">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
         cell(escHTML(lead.servicios))+cell(escHTML(lead.mercado))+cell(escHTML(lead.supervisor))+cell(escHTML(lead.motivo_llamada))+
         cell('<span class="mono">'+escHTML(lead.zip_code)+'</span>')+
-        cell(lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?'<span style="font-family:var(--f-mono);font-size:.72rem;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r1);padding:2px 6px;'+(lead.puntaje>=80?'color:var(--go)':lead.puntaje>=50?'color:var(--warn)':'color:var(--stop)')+'">'+escHTML(String(lead.puntaje))+'</span>':'—')+
+        cell(lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?'<span style="font-family:var(--f-mono);font-size:.72rem;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r1);padding:2px 6px;'+(parseFloat(lead.puntaje)>=1?'color:var(--go)':parseFloat(lead.puntaje)>=0.5?'color:var(--warn)':'color:var(--stop)')+'">'+escHTML(String(lead.puntaje))+'</span>':'—')+
         '<td style="padding:8px 14px;"><button class="rab" onclick="editLead(\''+lid+'\')" style="width:auto;padding:0 8px;font-size:.7rem;gap:4px;" aria-label="Editar">✎ Editar</button></td>'+
         '</tr>';
     }).join('');}
     const countEl=document.getElementById('recuentoCount');if(countEl)countEl.value=total;
     // Calcular puntaje total de los leads filtrados (todos, no solo la página actual)
     const puntajeTotal=__filteredLeads.reduce(function(sum,lead){
-      const p=parseFloat(lead.puntaje||lead._raw&&lead._raw.puntaje||0)||0;
+      // Intentar todos los campos posibles donde puede estar el puntaje
+      const raw=lead._raw||{};
+      const candidates=[
+        lead.puntaje,
+        raw.puntaje, raw.score, raw.puntos,
+        raw.Puntaje, raw.Score, raw.Puntos,
+      ];
+      var p=0;
+      for(var i=0;i<candidates.length;i++){
+        var v=candidates[i];
+        if(v===null||v===undefined||v==='')continue;
+        var n=parseFloat(String(v).replace(',','.'));
+        if(!isNaN(n)&&n>0){p=n;break;}
+      }
       return sum+p;
     },0);
     const puntajeEl=document.getElementById('puntajeTotalCount');
@@ -1873,7 +1984,43 @@
     const saveBtn=document.querySelector('#editarModal .btn-save');
     if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ Guardando…';}
     const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify(updates)});
-    if(res&&res.ok){showToast('Guardado ✓','ok');}else if(res){showToast('No se pudo guardar en servidor','warn');}
+    if(res&&res.ok){
+      // Actualizar inmediatamente en memoria — sin necesidad de refrescar
+      const idx=__allLeadsData.findIndex(function(l){return String(l._id)===String(leadId);});
+      if(idx!==-1){
+        // Re-normalizar el lead con los nuevos valores
+        const updatedRaw=Object.assign({},__allLeadsData[idx]._raw||{},updates);
+        const reNorm=normalizeLeads([updatedRaw]);
+        if(reNorm.length){
+          reNorm[0]._id=leadId;
+          __allLeadsData[idx]=reNorm[0];
+        } else {
+          // Fallback: actualizar campos directamente
+          Object.assign(__allLeadsData[idx],{
+            nombre_cliente: updates.nombre_cliente,
+            telefono:        updates.telefono,
+            telefono_alt:    updates.telefono_alt,
+            numero_cuenta:   updates.numero_cuenta,
+            direccion:       updates.direccion,
+            zip_code:        updates.zip_code,
+            autopago:        updates.autopago,
+            riesgo:          updates.riesgo,
+            tipo_servicio:   updates.tipo_servicio,
+            sistema:         updates.sistema,
+            mercado:         updates.mercado,
+            servicios:       updates.servicios,
+            dia_venta:       updates.dia_venta,
+            dia_instalacion: updates.dia_instalacion,
+            puntaje:         updates.puntaje,
+            status:          updates.status,
+            supervisor:      updates.supervisor,
+            motivo_llamada:  updates.motivo_llamada,
+          });
+          __allLeadsData[idx]._es_colchon=isColchonLead(__allLeadsData[idx]);
+        }
+      }
+      showToast('Guardado ✓','ok');
+    }else if(res){showToast('No se pudo guardar en servidor','warn');}
     if(saveBtn){saveBtn.disabled=false;saveBtn.innerHTML='💾 Guardar cambios';}
     window.cerrarModal();applyFilters();
   };
@@ -2085,6 +2232,425 @@
   window.handleNoteImageSelect=function(){const input=document.getElementById('note-image-input');if(!input||!input.files)return;const maxSize=5*1024*1024,validTypes=['image/jpeg','image/png','image/webp'];Array.from(input.files).forEach(function(file){if(!validTypes.includes(file.type)){showToast('"'+file.name+'" no es JPG, PNG o WebP','error');return;}if(file.size>maxSize){showToast('"'+file.name+'" excede 5MB','error');return;}const reader=new FileReader();reader.onload=function(e){noteAttachments.images.push({type:'image',name:file.name,data:e.target.result,mimeType:file.type});renderNoteFilesPreview();};reader.readAsDataURL(file);});input.value='';};
   window.handleNoteAudioSelect=function(){const input=document.getElementById('note-audio-input');if(!input||!input.files||!input.files[0])return;const file=input.files[0],maxSize=50*1024*1024,validTypes=['audio/mpeg','audio/wav','audio/ogg','audio/mp4','audio/webm'];if(!validTypes.includes(file.type)){showToast('"'+file.name+'" formato de audio no válido','error');input.value='';return;}if(file.size>maxSize){showToast('"'+file.name+'" excede 50MB','error');input.value='';return;}const reader=new FileReader();reader.onload=function(e){noteAttachments.audio={type:'audio',name:file.name,data:e.target.result,mimeType:file.type};renderNoteFilesPreview();};reader.readAsDataURL(file);input.value='';};
 
+  /* ── EXPORT CSV ── */
+  function exportToCSV(){
+    if(!__filteredLeads.length){showToast('Sin datos para exportar','error');return;}
+
+    const cols=[
+      {label:'Agente',        fn:function(l){return l.agente||'';}},
+      {label:'Nombre cliente', fn:function(l){return l.nombre_cliente||'';}},
+      {label:'Teléfono',      fn:function(l){return l.telefono||'';}},
+      {label:'Tel. alterno',  fn:function(l){return l.telefono_alt||'';}},
+      {label:'No. cuenta',    fn:function(l){return l.numero_cuenta||'';}},
+      {label:'Autopago',      fn:function(l){return l.autopago||'';}},
+      {label:'Dirección',     fn:function(l){return l.direccion||'';}},
+      {label:'Tipo servicio', fn:function(l){return l.tipo_servicio||'';}},
+      {label:'Sistema',       fn:function(l){return l.sistema||'';}},
+      {label:'Riesgo',        fn:function(l){return l.riesgo||'';}},
+      {label:'Día venta',     fn:function(l){return l.dia_venta||'';}},
+      {label:'Día instalación',fn:function(l){return l.dia_instalacion||'';}},
+      {label:'Status',        fn:function(l){return l.status||'';}},
+      {label:'Colchón',       fn:function(l){return l._es_colchon?'Sí':'No';}},
+      {label:'Servicios',     fn:function(l){return l.servicios||'';}},
+      {label:'Mercado',       fn:function(l){return l.mercado||'';}},
+      {label:'Supervisor',    fn:function(l){return l.supervisor||'';}},
+      {label:'Motivo llamada',fn:function(l){return l.motivo_llamada||'';}},
+      {label:'ZIP',           fn:function(l){return l.zip_code||'';}},
+      {label:'Puntaje',       fn:function(l){return l.puntaje!==''&&l.puntaje!=null?l.puntaje:'';}},
+    ];
+
+    function escCSV(v){
+      const s=String(v==null?'':v).replace(/"/g,'""');
+      return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s+'"':s;
+    }
+
+    const header=cols.map(function(c){return escCSV(c.label);}).join(',');
+    const rows=__filteredLeads.map(function(lead){
+      return cols.map(function(c){return escCSV(c.fn(lead));}).join(',');
+    });
+
+    // Agregar fila de totales al final
+    const totalPuntaje=__filteredLeads.reduce(function(s,l){return s+(parseFloat(l.puntaje)||0);},0);
+    const totalRow='TOTAL,,,,,,,,,,,,,,,,,,,,'+totalPuntaje.toFixed(2);
+
+    const csv='\uFEFF'+[header].concat(rows).concat([totalRow]).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+
+    // Nombre del archivo con filtros aplicados
+    const now=new Date();
+    const fecha=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+    const agente=document.getElementById('agentFilter')&&document.getElementById('agentFilter').value;
+    const mes=document.getElementById('monthFilter')&&document.getElementById('monthFilter').value;
+    const status=document.getElementById('bulkNewStatus');
+    const parts=['CRM'];
+    if(agente)parts.push(agente.replace(/\s+/g,'_'));
+    if(mes)parts.push(mes);
+    parts.push(fecha);
+    a.href=url;
+    a.download=parts.join('_')+'.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exportado ✓ ('+__filteredLeads.length+' registros · '+totalPuntaje.toFixed(2)+' pts)','ok');
+  }
+
+
+  /* ══════════════════════════════════════════
+     CUADRATURA DE PUNTAJE
+  ══════════════════════════════════════════ */
+  var _cuadData = { all:[], currentTab:'diff' };
+
+  function normForCuad(s){
+    return String(s||'').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  }
+
+  window.openCuadraturaModal = function(){
+    const modal = document.getElementById('cuadraturaModal');
+    if(modal){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); }
+    // Mostrar info del filtro activo
+    updateCuadraturaFilterInfo();
+    limpiarCuadratura();
+  };
+
+  window.closeCuadraturaModal = function(){
+    const modal = document.getElementById('cuadraturaModal');
+    if(modal){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
+  };
+
+  function updateCuadraturaFilterInfo(){
+    const el = document.getElementById('cuadratura-filter-info');
+    if(!el) return;
+    const agent  = getVal('agentFilter');
+    const month  = getVal('monthFilter');
+    const status = document.querySelector('#quickStatusChips .stab.is-active');
+    const svc    = getVal('serviceFilter');
+    const parts  = [];
+    if(agent)  parts.push('Agente: '+agent);
+    if(month)  parts.push('Mes: '+month);
+    if(status && status.dataset.status !== 'all') parts.push('Status: '+status.textContent.trim());
+    if(svc)    parts.push('Servicio: '+svc);
+    const n = __filteredLeads.length;
+    parts.push(n+' leads');
+    el.textContent = parts.join(' · ') || 'Todos los leads ('+n+')';
+
+    // Advertencia si no hay filtro de status específico
+    const warn = document.getElementById('cuadratura-filter-warn');
+    if(warn){
+      const hasStatus = status && status.dataset.status !== 'all';
+      warn.style.display = hasStatus ? 'none' : 'block';
+    }
+  }
+
+  window.limpiarCuadratura = function(){
+    const inp  = document.getElementById('cuadraturaInput');
+    const res  = document.getElementById('cuadratura-result');
+    const inpP = document.getElementById('cuadratura-input-panel');
+    const lim  = document.getElementById('btn-cuadratura-limpiar');
+    const btn  = document.getElementById('btnEjecutarCuadratura');
+    if(inp)  { inp.value=''; }
+    if(res)  res.style.display='none';
+    if(inpP) inpP.style.display='block';
+    if(lim)  lim.style.display='none';
+    if(btn)  { btn.style.display=''; btn.disabled=true; }  // restaurar display Y deshabilitar
+    const cnt = document.getElementById('cuadratura-count');
+    if(cnt) cnt.textContent='0 líneas';
+    _cuadData = { all:[], currentTab:'diff' };
+    updateCuadraturaFilterInfo();  // refrescar info de filtro
+  };
+
+  window.switchCuadTab = function(btn){
+    document.querySelectorAll('.cuad-tab').forEach(function(t){ t.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+    _cuadData.currentTab = btn.dataset.tab;
+    renderCuadTable();
+  };
+
+  window.ejecutarCuadratura = function(){
+    const ta = document.getElementById('cuadraturaInput');
+    if(!ta||!ta.value.trim()){ showToast('Pega tu lista primero','error'); return; }
+
+    // Parsear líneas manual: "NOMBRE, 0.75" | "NOMBRE 0.75" | "NOMBRE"
+    const lineas = ta.value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+    const manual = lineas.map(function(l){
+      // Normalizar: reemplazar coma decimal por punto SOLO si es separador decimal
+      // Detectar TAB como separador entre nombre y puntaje (formato Excel)
+      var nombre = '', puntajeStr = '', hasPuntaje = false;
+
+      // 1. Separar por TAB (formato pegado desde Excel)
+      if(l.indexOf('\t') !== -1){
+        var tabParts = l.split('\t');
+        nombre = tabParts[0].trim();
+        puntajeStr = tabParts[tabParts.length-1].trim();
+        hasPuntaje = true;
+      }
+      // 2. Separar por punto y coma (0,45 pegado como "NOMBRE;0,45")
+      else if(l.indexOf(';') !== -1){
+        var sParts = l.split(';');
+        nombre = sParts[0].trim();
+        puntajeStr = sParts[sParts.length-1].trim();
+        hasPuntaje = true;
+      }
+      // 3. Detectar patrón NOMBRE seguido de número al final (con punto o coma decimal)
+      else {
+        // Regex: captura número al final con punto o coma decimal
+        var m = l.match(/^(.+?)\s+([0-9]+[.,][0-9]+)\s*$/);
+        if(m){
+          nombre = m[1].trim();
+          puntajeStr = m[2].trim();
+          hasPuntaje = true;
+        } else {
+          // Intentar separador coma entre nombre y puntaje: "JUAN PEREZ, 0.75"
+          var lastComma = l.lastIndexOf(',');
+          if(lastComma !== -1){
+            var after = l.slice(lastComma+1).trim();
+            // Solo si lo que sigue a la coma es un número puro (sin letras)
+            if(/^[0-9]+([.,][0-9]+)?$/.test(after)){
+              nombre = l.slice(0, lastComma).trim();
+              puntajeStr = after;
+              hasPuntaje = true;
+            } else {
+              nombre = l;
+            }
+          } else {
+            nombre = l;
+          }
+        }
+      }
+
+      // Convertir puntaje: reemplazar coma decimal por punto
+      var puntaje = null;
+      if(hasPuntaje && puntajeStr){
+        var pNorm = puntajeStr.replace(',', '.');
+        puntaje = parseFloat(pNorm);
+        if(isNaN(puntaje)){ puntaje = null; hasPuntaje = false; }
+      }
+
+      return { nombre: nombre||l, puntaje: puntaje, hasPuntaje: hasPuntaje };
+    });
+
+    // Leads filtrados actuales
+    // Para cuadratura solo contar leads con status que cuenta (completed/active)
+    // Excluir cancelled, hold, rescheduled, oficina, reserva
+    const leads = __filteredLeads.filter(function(l){
+      const st = normalizeStatus(l.status);
+      // Excluir explícitamente cualquier status que no sea completed/active
+      if(st === 'cancelled' || st === 'canceled') return false;
+      if(st === 'hold') return false;
+      if(st === 'rescheduled') return false;
+      if(st === 'reserva') return false;
+      if(st === 'oficina') return false;
+      return st === 'completed' || st === 'active';
+    });
+
+    // Construir map de CRM (normName → lead), ordenado por puntaje desc
+    const crmMap = {};
+    leads.forEach(function(lead){
+      const norm = normForCuad(lead.nombre_cliente);
+      if(!crmMap[norm]) crmMap[norm] = [];
+      crmMap[norm].push(lead);
+    });
+    // Sin ordenamiento — emparejar en orden natural de la BD
+
+    // Set de nombres manuales para detectar sobrantes
+    const manualNormSet = new Set(manual.map(function(m){ return normForCuad(m.nombre); }));
+
+    const results = [];
+    // Índice para saber cuántas veces ya usamos cada nombre del CRM
+    const crmUsedIndex = {};
+
+    // Comparar cada entrada manual contra CRM individualmente
+    manual.forEach(function(m){
+      const norm = normForCuad(m.nombre);
+      const crmLeads = crmMap[norm];
+
+      if(!crmLeads || !crmLeads.length){
+        // Buscar coincidencia parcial
+        var found = null;
+        Object.keys(crmMap).forEach(function(k){
+          if(!found && (k.includes(norm.split(' ')[0]) || norm.includes(k.split(' ')[0]))){
+            if(norm.split(' ')[0].length >= 4) found = { key:k, leads: crmMap[k] };
+          }
+        });
+        if(found){
+          const idx = crmUsedIndex[found.key] || 0;
+          const lead = found.leads[idx] || found.leads[0];
+          crmUsedIndex[found.key] = idx + 1;
+          const crmPts = parseFloat(lead.puntaje)||0;
+          const diff = m.hasPuntaje ? parseFloat((m.puntaje - crmPts).toFixed(2)) : null;
+          results.push({
+            tipo: diff===0?'ok':(diff!==null?'diff':'miss-partial'),
+            nombre: m.nombre,
+            nombreCRM: lead.nombre_cliente,
+            puntajeManual: m.puntaje,
+            puntajeCRM: crmPts,
+            diff: diff,
+            parcial: true,
+          });
+        } else {
+          results.push({ tipo:'miss', nombre:m.nombre, nombreCRM:null, puntajeManual:m.puntaje, puntajeCRM:null, diff:null });
+        }
+      } else {
+        // Emparejar 1 a 1: primera aparición → primer registro CRM, segunda → segundo, etc.
+        const idx = crmUsedIndex[norm] || 0;
+        const lead = crmLeads[idx] || crmLeads[crmLeads.length-1];
+        crmUsedIndex[norm] = idx + 1;
+        const crmPts = parseFloat(lead.puntaje)||0;
+        const diff = m.hasPuntaje ? parseFloat((m.puntaje - crmPts).toFixed(2)) : null;
+        const tipo = diff===null?'ok':(diff===0?'ok':'diff');
+        results.push({
+          tipo: tipo,
+          nombre: m.nombre,
+          nombreCRM: lead.nombre_cliente,
+          puntajeManual: m.puntaje,
+          puntajeCRM: crmPts,
+          diff: diff,
+          parcial: false,
+        });
+      }
+    });
+
+    // Sobrantes: en CRM pero no en manual
+    // Agrupar sobrantes por nombre para no duplicar entradas de ventas dobles
+    const sobrantesMap = {};
+    leads.forEach(function(lead){
+      const norm = normForCuad(lead.nombre_cliente);
+      if(!manualNormSet.has(norm)){
+        const yaIncluido = results.some(function(r){ return normForCuad(r.nombreCRM||'')===norm; });
+        if(!yaIncluido){
+          if(!sobrantesMap[norm]) sobrantesMap[norm]={ nombre:lead.nombre_cliente, pts:0, count:0 };
+          sobrantesMap[norm].pts += parseFloat(lead.puntaje)||0;
+          sobrantesMap[norm].count++;
+        }
+      }
+    });
+    Object.values(sobrantesMap).forEach(function(s){
+      const nota = s.count > 1 ? ' ('+s.count+' registros)' : '';
+      results.push({
+        tipo: 'extra',
+        nombre: s.nombre + nota,
+        nombreCRM: s.nombre,
+        puntajeManual: null,
+        puntajeCRM: parseFloat(s.pts.toFixed(2)),
+        diff: null,
+      });
+    });
+
+    _cuadData.all = results;
+    _cuadData.currentTab = 'diff';
+
+    // Activar tab diff
+    document.querySelectorAll('.cuad-tab').forEach(function(t){ t.classList.remove('is-active'); });
+    const diffTab = document.querySelector('.cuad-tab[data-tab="diff"]');
+    if(diffTab) diffTab.classList.add('is-active');
+
+    // Mostrar resultado, ocultar input
+    document.getElementById('cuadratura-input-panel').style.display='none';
+    document.getElementById('cuadratura-result').style.display='block';
+    document.getElementById('btn-cuadratura-limpiar').style.display='';
+    document.getElementById('btnEjecutarCuadratura').style.display='none';
+
+    renderCuadKPIs();
+    renderCuadTable();
+    renderCuadTotales();
+  };
+
+  function renderCuadKPIs(){
+    const all = _cuadData.all;
+    const ok    = all.filter(function(r){ return r.tipo==='ok'; }).length;
+    const diff  = all.filter(function(r){ return r.tipo==='diff'||r.tipo==='miss-partial'; }).length;
+    const miss  = all.filter(function(r){ return r.tipo==='miss'; }).length;
+    const extra = all.filter(function(r){ return r.tipo==='extra'; }).length;
+    const kpiEl = document.getElementById('cuadratura-kpis');
+    if(!kpiEl) return;
+    function kpi(icon,label,val,color){
+      return '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px 12px;text-align:center;">'+
+        '<div style="font-size:1.1rem;">'+icon+'</div>'+
+        '<div style="font-family:var(--f-mono);font-size:1.1rem;font-weight:800;color:'+color+';">'+val+'</div>'+
+        '<div style="font-size:.63rem;color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em;">'+label+'</div>'+
+      '</div>';
+    }
+    kpiEl.innerHTML =
+      kpi('✅','Coinciden',ok,'var(--go)') +
+      kpi('⚠️','Diferencias',diff,'var(--warn)') +
+      kpi('❌','No en CRM',miss,'var(--stop)') +
+      kpi('🔍','Sobrantes CRM',extra,'var(--info)');
+  }
+
+  function renderCuadTable(){
+    const tab  = _cuadData.currentTab;
+    const all  = _cuadData.all;
+    const tbody = document.getElementById('cuadratura-tbody');
+    if(!tbody) return;
+
+    const filtered = all.filter(function(r){
+      if(tab==='ok')    return r.tipo==='ok';
+      if(tab==='diff')  return r.tipo==='diff'||r.tipo==='miss-partial';
+      if(tab==='miss')  return r.tipo==='miss';
+      if(tab==='extra') return r.tipo==='extra';
+      return true;
+    });
+
+    if(!filtered.length){
+      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-4);">Sin registros en esta categoría</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(r){
+      var icon='', rowCls='';
+      if(r.tipo==='ok')           { icon='✅'; rowCls='cuad-row-ok'; }
+      else if(r.tipo==='diff')    { icon='⚠️'; rowCls='cuad-row-diff'; }
+      else if(r.tipo==='miss-partial'){ icon='⚠️~'; rowCls='cuad-row-diff'; }
+      else if(r.tipo==='miss')    { icon='❌'; rowCls='cuad-row-miss'; }
+      else if(r.tipo==='extra')   { icon='🔍'; rowCls='cuad-row-extra'; }
+
+      var ptsManual = r.puntajeManual!=null ? r.puntajeManual.toFixed(2) : '—';
+      var ptsCRM    = r.puntajeCRM!=null    ? r.puntajeCRM.toFixed(2)    : '—';
+      var diffStr   = '—';
+      var diffColor = '';
+      if(r.diff!=null){
+        diffStr = (r.diff>0?'+':'')+r.diff.toFixed(2);
+        diffColor = r.diff>0?'color:var(--warn)':r.diff<0?'color:var(--stop)':'color:var(--go)';
+      }
+      var nombre = escHTML(r.nombre||(r.tipo==='extra'?r.nombreCRM:''));
+      if(r.parcial) nombre += ' <span style="font-size:.6rem;color:var(--ink-4);">(parcial)</span>';
+
+      return '<tr class="'+rowCls+'">'+
+        '<td>'+icon+'</td>'+
+        '<td>'+nombre+'</td>'+
+        '<td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsManual)+'</td>'+
+        '<td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsCRM)+'</td>'+
+        '<td style="text-align:right;font-family:var(--f-mono);'+diffColor+'">'+escHTML(diffStr)+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  function renderCuadTotales(){
+    const el = document.getElementById('cuadratura-totales');
+    if(!el) return;
+    const all = _cuadData.all;
+    // Total manual = suma de lo que pegó el usuario (excluye sobrantes que no tienen puntajeManual)
+    const totManual = all.filter(function(r){ return r.tipo!=='extra'; })
+                        .reduce(function(s,r){ return s+(r.puntajeManual||0); },0);
+    // Total CRM = suma de los puntajes CRM de los leads que matchearon (no sobrantes)
+    const totCRMMatchados = all.filter(function(r){ return r.tipo!=='extra' && r.puntajeCRM!=null; })
+                              .reduce(function(s,r){ return s+(r.puntajeCRM||0); },0);
+    // Total CRM real = matchados + sobrantes (lo que realmente tiene el CRM)
+    const totCRMReal = all.filter(function(r){ return r.puntajeCRM!=null; })
+                         .reduce(function(s,r){ return s+(r.puntajeCRM||0); },0);
+    const diff = parseFloat((totManual-totCRMMatchados).toFixed(2));
+    const diffColor = diff===0?'var(--go)':diff>0?'var(--warn)':'var(--stop)';
+    el.innerHTML =
+      '<span>Manual: <b>'+totManual.toFixed(2)+' pts</b></span>'+
+      '<span>CRM (matchados): <b>'+totCRMMatchados.toFixed(2)+' pts</b></span>'+
+      (totCRMReal !== totCRMMatchados ? '<span style="color:var(--info)">CRM total (con sobrantes): <b>'+totCRMReal.toFixed(2)+' pts</b></span>' : '')+
+      '<span style="color:'+diffColor+'">Diferencia: <b>'+(diff>0?'+':'')+diff.toFixed(2)+' pts</b></span>';
+  }
+
   /* ── SCROLLBAR MIRROR ── */
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
@@ -2126,6 +2692,8 @@
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
     document.querySelectorAll('.token select').forEach(function(sel){sel.addEventListener('change',function(){const token=sel.closest('.token');if(!token)return;const tvId=token.querySelector('[id^="tv-"]');if(tvId){const chosen=sel.options[sel.selectedIndex];tvId.textContent=chosen.text;token.classList.toggle('active',!!sel.value);}applyFiltersDebounced();});});
     const getScroll=function(){return document.querySelector('.tscroll');};
+    const cuadBtn=document.getElementById('btn-cuadratura');
+    if(cuadBtn)cuadBtn.addEventListener('click',window.openCuadraturaModal);
     const slBtn=document.getElementById('scroll-left'),srBtn=document.getElementById('scroll-right');
     if(slBtn)slBtn.addEventListener('click',function(){const s=getScroll();if(s)s.scrollLeft-=300;});
     if(srBtn)srBtn.addEventListener('click',function(){const s=getScroll();if(s)s.scrollLeft+=300;});
@@ -2137,11 +2705,19 @@
     const addNoteBtn=document.getElementById('btn-add-note');if(addNoteBtn)addNoteBtn.addEventListener('click',window.addNoteToLead);
     const avatar=document.getElementById('compose-avatar');if(avatar)avatar.textContent=getInitials(getCurrentUserName());
     const wrapper=document.getElementById('editarModal-wrapper');if(wrapper)wrapper.addEventListener('click',function(e){if(e.target===wrapper)window.cerrarModal();});
-    document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(document.getElementById('editarModal-wrapper').style.display!=='none')window.cerrarModal();if(document.getElementById('bulkStatusPhoneModal').getAttribute('aria-hidden')==='false')window.closeBulkStatusPhoneModal();});
+    document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(document.getElementById('editarModal-wrapper').style.display!=='none')window.cerrarModal();if(document.getElementById('bulkStatusPhoneModal').getAttribute('aria-hidden')==='false')window.closeBulkStatusPhoneModal();if(document.getElementById('cuadraturaModal')&&document.getElementById('cuadraturaModal').getAttribute('aria-hidden')==='false')window.closeCuadraturaModal();});
+    const cuadTA = document.getElementById('cuadraturaInput');
+    if(cuadTA) cuadTA.addEventListener('input', function(){
+      const lines = cuadTA.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+      const cnt = document.getElementById('cuadratura-count');
+      if(cnt) cnt.textContent = lines.length + ' líneas';
+      const btn = document.getElementById('btnEjecutarCuadratura');
+      if(btn) btn.disabled = lines.length === 0;
+    });
     loadInitialData();
   });
-
+   
 })();
 </script>
 </body>
-</html>   
+</html>     
