@@ -418,12 +418,26 @@ function isColchon(lead, targetYM){
 }
 
 // Cuenta para comisión: completed del mes + colchón completed
+// REGLA: la venta cuenta en el mes en que se INSTALA, no en que se vende
+// - Venta normal: dia_venta === targetYM Y dia_instalacion === targetYM (o sin instalación)
+// - Colchón: dia_venta !== targetYM Y dia_instalacion === targetYM
+// - Venta futura: dia_venta === targetYM pero dia_instalacion en mes siguiente → NO cuenta aún
 function cuentaParaComision(lead, targetYM){
   const st = normalizeStatus(lead.status);
   if(st !== 'completed') return false;
   const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
-  if(dv === targetYM) return true;               // venta del mes completed
-  if(isColchon(lead, targetYM)) return true;     // colchón completed
+  const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
+
+  // Colchón: vendido en mes anterior, instalado en targetYM → cuenta en targetYM
+  if(isColchon(lead, targetYM)) return true;
+
+  // Venta del mes: dia_venta === targetYM
+  if(dv === targetYM){
+    // Si tiene dia_instalacion en un mes FUTURO → no cuenta aún (será colchón del mes siguiente)
+    if(di && di > targetYM) return false;
+    return true;
+  }
+
   return false;
 }
 
@@ -670,9 +684,27 @@ function renderAgentSelfView(){
   const userName = String(_user?.name||_user?.username||_user?.nombre||'').trim();
   const userNorm = normalizeAgentName(userName).toLowerCase();
 
+  // Intentar match en este orden de prioridad:
+  // 1. Exacto
+  // 2. Normalizando puntos→espacios (LISBETH.CORTEZ → lisbeth cortez)
+  // 3. Username exacto
+  const userUsername = String(_user?.username||'').replace(/\./g,' ').trim().toLowerCase();
+
   const agentData = _agents.find(a => {
-    const an = a.rawName.toLowerCase();
-    return an === userNorm || an.includes(userNorm.split(' ')[0]) || userNorm.includes(an.split(' ')[0]);
+    const an = a.rawName.toLowerCase().replace(/\./g,' ').trim();
+    const un = userNorm.replace(/\./g,' ').trim();
+    // 1. Match exacto
+    if(an === un) return true;
+    // 2. Match con username
+    if(userUsername && an === userUsername) return true;
+    // 3. Match por TODAS las palabras significativas (no solo 2)
+    const normWords = un.split(' ').filter(w=>w.length>2);
+    const anWords   = an.split(' ').filter(w=>w.length>2);
+    if(normWords.length === 0) return false;
+    // TODAS las palabras del usuario deben estar en el nombre del agente
+    const allMatch = normWords.every(w => anWords.includes(w));
+    // Y el número de palabras debe ser similar (evitar matches parciales)
+    return allMatch && Math.abs(normWords.length - anWords.length) <= 1;
   }) || {
     name: capName(userName)||'Mi usuario',
     team: '',
@@ -865,6 +897,6 @@ async function loadData(){
 
   await loadData();
 })();
-</script>     
+</script>
 </body>
-</html>
+</html>     
