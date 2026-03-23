@@ -1625,11 +1625,13 @@
   async function fetchLeads() {
     if (!AUTH.check()) return [];
 
-    // CORREGIDO: NO mandamos fechas al servidor.
-    // Si mandamos fechaInicio=2026-01-01, los leads de 2025 nunca aparecen.
-    // El servidor filtra por agente y devuelve TODOS sus leads.
-    // El filtro de fechas se aplica solo en el frontend con el date picker.
-    const url = '/api/leads?limit=5000&offset=0';
+    // Admins y roles especiales (rol_icon, rol_bamo, backoffice) ven todos los leads
+    const ud = getUserData();
+    const role = String(ud.role||ud.rol||'').toLowerCase();
+    const isAdm = isAdminOrBackoffice(role);
+    const limit = isAdm ? 50000 : 5000;
+    const scope = isAdm ? '&scope=ranking' : '';
+    const url = '/api/leads?limit='+limit+'&offset=0'+scope;
 
     const res = await AUTH.secureFetch(url);
     if (!res) return [];
@@ -2716,8 +2718,8 @@
     });
     loadInitialData();
   });
-   
+
 })();
 </script>
 </body>
-</html>     
+</html>
