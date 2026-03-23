@@ -1705,7 +1705,38 @@
         }
         else if(isSup){if(normalizeSupervisorName(lead.supervisor)!==normalizedUserName)return false;}
       }
-      if(search){const h=[lead.nombre_cliente,lead.telefono,lead.numero_cuenta,lead.zip_code].map(function(f){return String(f||'').toUpperCase();}).join('|');if(h.indexOf(search)===-1)return false;}
+      if(search){
+        const searchDigits = search.replace(/\D/g,'');
+        // Normaliza cualquier teléfono a solo dígitos (últimos 10)
+        const normPhone = function(p){
+          const d = String(p||'').replace(/\D/g,'');
+          return d.length >= 10 ? d.slice(-10) : d;
+        };
+
+        // Búsqueda por teléfono: si el input tiene 7+ dígitos
+        if(searchDigits.length >= 7){
+          const searchNorm = searchDigits.length >= 10 ? searchDigits.slice(-10) : searchDigits;
+          const tel1 = normPhone(lead.telefono);
+          const tel2 = normPhone(lead.telefono_alt);
+          const phoneMatch = tel1.includes(searchNorm) || tel2.includes(searchNorm);
+          if(phoneMatch) return true; // encontrado por teléfono → pasar
+          // Si no matchea por teléfono, intentar también por nombre/cuenta/zip
+          const h = [lead.nombre_cliente,lead.numero_cuenta,lead.zip_code]
+            .map(function(f){return String(f||'').toUpperCase();}).join('|');
+          if(h.indexOf(search)===-1) return false;
+        } else {
+          // Búsqueda de texto: nombre, teléfono (literal y dígitos), cuenta, zip
+          const tel1raw = String(lead.telefono||'').toUpperCase();
+          const tel2raw = String(lead.telefono_alt||'').toUpperCase();
+          const tel1dig = normPhone(lead.telefono);
+          const tel2dig = normPhone(lead.telefono_alt);
+          const h = [
+            lead.nombre_cliente, lead.numero_cuenta, lead.zip_code,
+            tel1raw, tel2raw, tel1dig, tel2dig
+          ].map(function(f){return String(f||'').toUpperCase();}).join('|');
+          if(h.indexOf(search)===-1) return false;
+        }
+      }
       if(svc&&String(lead.tipo_servicio||'').toUpperCase().indexOf(svc.toUpperCase())===-1)return false;
       if(team&&String(lead.supervisor||'').toUpperCase().indexOf(team.toUpperCase())===-1)return false;
       if(agent){
@@ -2716,7 +2747,7 @@
       const btn = document.getElementById('btnEjecutarCuadratura');
       if(btn) btn.disabled = lines.length === 0;
     });
-    loadInitialData();
+    loadInitialData();    
   });
 
 })();
