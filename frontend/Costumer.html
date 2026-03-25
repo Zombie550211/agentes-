@@ -1629,8 +1629,11 @@
     const ud = getUserData();
     const role = String(ud.role||ud.rol||'').toLowerCase();
     const isAdm = isAdminOrBackoffice(role);
-    const limit = isAdm ? 50000 : 5000;
-    const scope = isAdm ? '&scope=ranking' : '';
+    const isSup = isSupervisor(role);
+    // Admins, backoffice, rol_icon, rol_bamo Y supervisores necesitan ver todos los leads
+    const needsAll = isAdm || isSup;
+    const limit = needsAll ? 50000 : 5000;
+    const scope = needsAll ? '&scope=ranking' : '';
     const url = '/api/leads?limit='+limit+'&offset=0'+scope;
 
     const res = await AUTH.secureFetch(url);
@@ -1703,7 +1706,18 @@
           const agentMatch=normalize(lead.agente)===normalize(userName)||normalize(lead.agente)===normalize(userUsername)||normalize(lead.agenteNombre||'')===normalize(userName)||normalize(lead.agenteNombre||'')===normalize(userUsername);
           if(!agentMatch)return false;
         }
-        else if(isSup){if(normalizeSupervisorName(lead.supervisor)!==normalizedUserName)return false;}
+        else if(isSup){
+          // Comparar supervisor con múltiples variantes del nombre
+          const supNorm = normalizeSupervisorName(lead.supervisor).toLowerCase();
+          const userNormShort = normalizedUserName.toLowerCase();
+          // Match por nombre normalizado corto (ROBERTO, MARISOL, etc)
+          const supMatch = supNorm === userNormShort ||
+            // Match directo por nombre completo
+            String(lead.supervisor||'').toLowerCase().includes(userName.toLowerCase().split(' ')[0]) ||
+            // Match por username
+            String(lead.supervisor||'').toLowerCase().includes(userUsername.toLowerCase().replace(/\./g,' ').split(' ')[0]);
+          if(!supMatch) return false;
+        }
       }
       if(search){
         const searchDigits = search.replace(/\D/g,'');
@@ -2747,10 +2761,10 @@
       const btn = document.getElementById('btnEjecutarCuadratura');
       if(btn) btn.disabled = lines.length === 0;
     });
-    loadInitialData();    
+    loadInitialData();
   });
 
 })();
-</script>
+</script>    
 </body>
 </html>
