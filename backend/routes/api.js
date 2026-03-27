@@ -3498,27 +3498,36 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       return res.status(500).json({ success: false, message: 'Error interno al actualizar lead', error: uErr && uErr.message });
     }
 
-    // Emitir notificación Socket.io si se actualizaron notas
-    if (updateData.notas && global.io) {
+    // Emitir notificación Socket.io
+    if (global.io) {
       (async () => {
         try {
           const collection = db.collection(updatedCollection || 'costumers');
           const lead = await collection.findOne(matchedFilter || (objId ? { _id: objId } : { _id: recordId }));
-          if (lead) {
+          const clientName = lead?.nombre_cliente || lead?.nombre || 'Cliente';
+          const actor = req.user?.username || req.user?.name || 'Usuario';
+          const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
+
+          // Notificar al dueño del lead si se agregó una nota
+          if (updateData.notas && lead) {
             const ownerId = lead.createdBy || lead.registeredBy || lead.usuario || lead.user || lead.owner || lead.agenteId || lead.agente || lead.odigo;
-            const clientName = lead.nombre_cliente || lead.nombre || 'Cliente';
-            const author = req.user?.username || req.user?.name || 'Usuario';
-            const currentUserId = req.user?.agenteId || req.user?.odigo || req.user?.username;
             if (ownerId && ownerId !== currentUserId) {
               global.io.to(`user:${ownerId}`).emit('note-added', {
-                leadId: recordId,
-                clientName,
-                author,
-                timestamp: new Date().toISOString()
+                leadId: recordId, clientName, author: actor, timestamp: new Date().toISOString()
               });
-              console.log(`[Socket.io] Notificación enviada a ${ownerId}`);
             }
           }
+
+          // Notificar a admins/backoffice en cualquier cambio
+          const tipo = updateData.notas ? 'nota' : updateData.status ? 'status' : 'edicion';
+          const ADMIN_ROOMS = ['role:admin','role:administrador','role:administrator','role:backoffice','role:back office','role:back_office'];
+          ADMIN_ROOMS.forEach(room => {
+            global.io.to(room).emit('lead-updated', {
+              leadId: recordId, clientName, actor, tipo,
+              status: updateData.status || null,
+              timestamp: new Date().toISOString()
+            });
+          });
         } catch (socketErr) {
           console.error('[Socket.io] Error al emitir notificación:', socketErr.message);
         }
@@ -3598,11 +3607,21 @@ router.delete('/leads/:id', protect, async (req, res, next) => {
     }
 
     console.log(`[API DELETE LEAD] Lead ${recordId} eliminado por usuario ${user?.username || user?.name || 'desconocido'} (${role})`);
-    
-    return res.json({ 
-      success: true, 
-      message: 'Lead eliminado correctamente', 
-      data: { id: recordId } 
+
+    if (global.io) {
+      const actor = user?.username || user?.name || 'Usuario';
+      const ADMIN_ROOMS = ['role:admin','role:administrador','role:administrator','role:backoffice','role:back office','role:back_office'];
+      ADMIN_ROOMS.forEach(room => {
+        global.io.to(room).emit('lead-deleted', {
+          leadId: recordId, actor, timestamp: new Date().toISOString()
+        });
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Lead eliminado correctamente',
+      data: { id: recordId }
     });
   } catch (error) {
     console.error('[API DELETE LEAD] Error:', error);
