@@ -3024,6 +3024,34 @@ try { const r = require('./backend/routes/debug-paola');       app.use('/api/deb
 try { const r = require('./backend/routes/bulk-status-phone'); app.use('/api/leads', r); console.log('[SERVER] bulk-status-phone cargado'); } catch (e) { console.warn('[SERVER] bulk-status-phone:', e?.message); }
 try { const r = require('./backend/routes/migrate');           app.use('/api/migrate', r); console.log('[SERVER] Rutas de migración cargadas'); } catch (e) { console.warn('[SERVER] migrate:', e?.message); }
 
+// ── FORCE LOGOUT ALL USERS ─────────────────────────────────────
+(async () => {
+  try {
+    const db = getDb ? getDb() : null;
+    if (db) {
+      const setting = await db.collection('system_settings').findOne({ key: 'forceLogoutBefore' });
+      if (setting && setting.value) {
+        global.forceLogoutBefore = setting.value;
+        console.log('[SERVER] forceLogoutBefore cargado:', new Date(setting.value).toISOString());
+      }
+    }
+  } catch (e) { /* db puede no estar lista aún, se carga en el endpoint */ }
+})();
+
+app.post('/api/admin/force-logout-all', protect, authorize('Administrador','admin','administrador'), async (req, res) => {
+  try {
+    const ts = Date.now();
+    global.forceLogoutBefore = ts;
+    const db = getDb();
+    if (db) await db.collection('system_settings').updateOne({ key: 'forceLogoutBefore' }, { $set: { key: 'forceLogoutBefore', value: ts, updatedAt: new Date(), updatedBy: req.user?.username } }, { upsert: true });
+    if (global.io) global.io.emit('force-logout', { message: 'Sesión cerrada por el administrador', ts });
+    console.log(`[ADMIN] force-logout-all ejecutado por ${req.user?.username} en ${new Date(ts).toISOString()}`);
+    res.json({ success: true, message: 'Todas las sesiones han sido cerradas', ts });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: `Endpoint no encontrado: ${req.method} ${req.path}` });
