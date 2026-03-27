@@ -720,10 +720,11 @@
           </label>
         </div>
         <div class="cmd-actions">
-          <button class="btn" id="enable-notifications-btn" title="Notificaciones" aria-label="Notificaciones">🔔</button>
+          <button class="btn" id="enable-notifications-btn" title="Activar notificaciones" aria-label="Notificaciones">🔔</button>
           <button class="btn" id="toggle-compact">⊞ Compacto</button>
           <button class="btn" id="btn-bulk-status-phone" title="Cambio masivo de status por teléfonos">📞 Status masivo</button>
           <button class="btn" id="btn-cuadratura" title="Cuadratura de puntaje y clientes" style="gap:5px;">⚖️ Cuadratura</button>
+          <button class="btn" id="btn-force-logout" title="Cerrar sesión de todos los usuarios" style="display:none;background:#fef2f2;color:#dc2626;border-color:#fca5a5;">⏏ Cerrar todas las sesiones</button>
           <button class="btn btn-accent" id="refresh-table">↻ Refrescar</button>
         </div>
       </div>
@@ -2249,6 +2250,8 @@
       let userData={};try{userData=raw?JSON.parse(raw):{};}catch(_){}
       const userRole=String(userData.role||userData.rol||'').toLowerCase();
       __socket.emit('register',{username:userData.username||userData.name,role:userRole});
+      __socket.on('connect',function(){ document.dispatchEvent(new Event('crm-socket-ready')); });
+      document.dispatchEvent(new Event('crm-socket-ready'));
 
       // Notificación cuando otro agente agrega nota a lead propio
       __socket.on('note-added',function(p){
@@ -2416,6 +2419,90 @@
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
     document.querySelectorAll('.token select').forEach(function(sel){sel.addEventListener('change',function(){const token=sel.closest('.token');if(!token)return;const tvId=token.querySelector('[id^="tv-"]');if(tvId){const chosen=sel.options[sel.selectedIndex];tvId.textContent=chosen.text;token.classList.toggle('active',!!sel.value);}applyFiltersDebounced();});});
     const cuadBtn=document.getElementById('btn-cuadratura');if(cuadBtn)cuadBtn.addEventListener('click',window.openCuadraturaModal);
+
+    // ── Botón 🔔 activa notificaciones manualmente ──
+    const enBtn=document.getElementById('enable-notifications-btn');
+    if(enBtn){
+      enBtn.addEventListener('click',function(){
+        if(!('Notification' in window)){showToast('Tu navegador no soporta notificaciones','warn');return;}
+        if(Notification.permission==='granted'){showCRMNotif('info',{cliente:'Notificaciones activas',detalle:'Ya tienes las notificaciones activadas',actor:''});return;}
+        Notification.requestPermission().then(function(p){
+          if(p==='granted'){showCRMNotif('info',{cliente:'Notificaciones activadas',detalle:'Recibirás alertas de cambios en tiempo real',actor:''});}
+          else{showToast('Permiso denegado — actívalo desde la configuración del navegador','warn');}
+        });
+      });
+    }
+
+    // ── Botón force-logout (solo admins) ──
+    const flBtn=document.getElementById('btn-force-logout');
+    if(flBtn){
+      if(isAdminOrBackoffice(role)) flBtn.style.display='';
+      flBtn.addEventListener('click',async function(){
+        if(!confirm('¿Cerrar sesión de TODOS los usuarios?\nTendrán que iniciar sesión nuevamente.'))return;
+        flBtn.disabled=true; flBtn.textContent='⏳ Cerrando sesiones…';
+        try{
+          const res=await AUTH.secureFetch('/api/admin/force-logout-all',{method:'POST'});
+          if(res&&res.ok){showToast('Todas las sesiones cerradas ✓','ok');}
+          else{showToast('Error al cerrar sesiones','error');}
+        }catch(e){showToast('Error: '+e.message,'error');}
+        flBtn.disabled=false; flBtn.innerHTML='⏏ Cerrar todas las sesiones';
+      });
+    }
+
+    // ── Popup anuncio único: sistema de notificaciones ──
+    if(!localStorage.getItem('crm_notif_announcement_v1')){
+      setTimeout(function(){
+        var overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+        overlay.innerHTML=[
+          '<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:system-ui,sans-serif;">',
+            '<div style="background:linear-gradient(135deg,#6C47FF,#a855f7);padding:28px 28px 20px;color:#fff;text-align:center;">',
+              '<div style="font-size:2.5rem;margin-bottom:8px;">🔔</div>',
+              '<div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">Sistema de Notificaciones</div>',
+              '<div style="font-size:.82rem;opacity:.85;">Ya está activo en el CRM</div>',
+            '</div>',
+            '<div style="padding:24px 28px;">',
+              '<ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:12px;">',
+                '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">🔄</span><div><strong style="display:block;font-size:.85rem;color:#111;">Cambio de status</strong><span style="font-size:.78rem;color:#6b7280;">Recibirás alerta cuando se modifique el status de un lead</span></div></li>',
+                '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">✏️</span><div><strong style="display:block;font-size:.85rem;color:#111;">Edición de leads</strong><span style="font-size:.78rem;color:#6b7280;">Notificación cuando un agente edita información</span></div></li>',
+                '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">📝</span><div><strong style="display:block;font-size:.85rem;color:#111;">Notas nuevas</strong><span style="font-size:.78rem;color:#6b7280;">Alerta cuando se agrega una nota a tu cliente</span></div></li>',
+                '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">🗑️</span><div><strong style="display:block;font-size:.85rem;color:#111;">Lead eliminado</strong><span style="font-size:.78rem;color:#111;background:#fef2f2;padding:1px 6px;border-radius:4px;font-size:.75rem;">(Solo admins)</span></div></li>',
+              '</ul>',
+              '<button id="crm-notif-ann-btn" style="width:100%;background:#6C47FF;color:#fff;border:none;border-radius:12px;padding:13px;font-size:.9rem;font-weight:700;cursor:pointer;">Activar notificaciones ahora</button>',
+              '<button id="crm-notif-ann-skip" style="width:100%;background:none;border:none;color:#9ca3af;font-size:.78rem;cursor:pointer;margin-top:8px;padding:6px;">Quizás más tarde</button>',
+            '</div>',
+          '</div>'
+        ].join('');
+        document.body.appendChild(overlay);
+
+        document.getElementById('crm-notif-ann-btn').addEventListener('click',function(){
+          if('Notification' in window && Notification.permission==='default'){
+            Notification.requestPermission().then(function(p){
+              if(p==='granted') showCRMNotif('info',{cliente:'Notificaciones activadas',detalle:'Recibirás alertas en tiempo real',actor:''});
+            });
+          }
+          localStorage.setItem('crm_notif_announcement_v1','1');
+          overlay.remove();
+        });
+        document.getElementById('crm-notif-ann-skip').addEventListener('click',function(){
+          localStorage.setItem('crm_notif_announcement_v1','1');
+          overlay.remove();
+        });
+      }, 1200);
+    }
+
+    // ── Socket: force-logout ──
+    if(typeof io==='function'&&!window.__forceLogoutListening){
+      window.__forceLogoutListening=true;
+      document.addEventListener('crm-socket-ready',function(){
+        if(window.__socket){
+          window.__socket.on('force-logout',function(){
+            showToast('El administrador cerró todas las sesiones','warn');
+            setTimeout(function(){AUTH.redirectToLogin('force_logout');},2000);
+          });
+        }
+      });
+    }
     const getScroll=function(){return document.querySelector('.tscroll');};
     const slBtn=document.getElementById('scroll-left'),srBtn=document.getElementById('scroll-right');
     if(slBtn)slBtn.addEventListener('click',function(){const s=getScroll();if(s)s.scrollLeft-=300;});

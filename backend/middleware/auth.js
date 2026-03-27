@@ -47,6 +47,11 @@ const protect = async (req, res, next) => {
       // Verificar token
       const decoded = jwt.verify(token, JWT_SECRET);
 
+      // Verificar force-logout global
+      if (global.forceLogoutBefore && decoded.iat && (decoded.iat * 1000) < global.forceLogoutBefore) {
+        return res.status(401).json({ success: false, message: 'Sesión cerrada por el administrador. Por favor inicia sesión nuevamente.' });
+      }
+
       // Obtener información del usuario desde la base de datos
       const db = getDb();
       if (!db) {
