@@ -3523,12 +3523,11 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
           // Notificar a admins/backoffice en cualquier cambio
           const tipo = updateData.notas ? 'nota' : updateData.status ? 'status' : 'edicion';
           const ADMIN_ROOMS = ['role:admin','role:administrador','role:administrator','role:backoffice','role:back office','role:back_office'];
+          const payload = { leadId: recordId, clientName, actor, tipo, status: updateData.status || null, timestamp: new Date().toISOString() };
           ADMIN_ROOMS.forEach(room => {
-            global.io.to(room).emit('lead-updated', {
-              leadId: recordId, clientName, actor, tipo,
-              status: updateData.status || null,
-              timestamp: new Date().toISOString()
-            });
+            const roomSockets = global.io.sockets.adapter.rooms.get(room);
+            console.log(`[SOCKET] emit lead-updated → ${room} (${roomSockets ? roomSockets.size : 0} sockets)`);
+            global.io.to(room).emit('lead-updated', payload);
           });
         } catch (socketErr) {
           console.error('[Socket.io] Error al emitir notificación:', socketErr.message);

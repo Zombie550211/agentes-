@@ -3099,6 +3099,7 @@ function startServer(port) {
         if (role) socket.join(`role:${role}`);
         if (!connectedUsers.has(identifier)) connectedUsers.set(identifier, new Set());
         connectedUsers.get(identifier).add(socket.id);
+        console.log(`[SOCKET] Usuario registrado: ${identifier} | rol: ${role||'(sin rol)'} | rooms: user:${identifier}, role:${role||'-'}`);
       }
     });
 

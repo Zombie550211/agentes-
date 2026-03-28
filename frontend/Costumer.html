@@ -2246,9 +2246,11 @@
     if(__socket||typeof io!=='function')return;
     try{
       __socket=io({transports:['websocket','polling'],withCredentials:true});
-      const raw=localStorage.getItem('crm_user')||sessionStorage.getItem('crm_user');
+      // Intentar todas las claves posibles donde se guarda el usuario
+      const raw=localStorage.getItem('user')||sessionStorage.getItem('user')||localStorage.getItem('crm_user')||sessionStorage.getItem('crm_user');
       let userData={};try{userData=raw?JSON.parse(raw):{};}catch(_){}
-      const userRole=String(userData.role||userData.rol||'').toLowerCase();
+      const userRole=String(userData.role||userData.rol||userData.rol_nombre||'').toLowerCase();
+      console.log('[SOCKET] Registrando con rol:', userRole, '| usuario:', userData.username||userData.name);
       __socket.emit('register',{username:userData.username||userData.name,role:userRole});
       __socket.on('connect',function(){ document.dispatchEvent(new Event('crm-socket-ready')); });
       document.dispatchEvent(new Event('crm-socket-ready'));
