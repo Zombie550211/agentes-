@@ -16,7 +16,7 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB no disponible' });
-    const { name, username: usernameRaw, email, password, role, team, supervisor, supervisorName, supervisorId } = req.body;
+    const { name, username: usernameRaw, email, password, role, team, supervisor, supervisorName, supervisorId, permissions: permissionsRaw } = req.body;
     const username = String(usernameRaw || '').trim();
     if (!username || !password || !role) {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios (usuario, contraseña, rol)' });
@@ -136,10 +136,13 @@ router.post('/register', protect, authorize('Administrador', 'admin', 'administr
       }
     }
 
+    const permissions = Array.isArray(permissionsRaw) ? permissionsRaw : [];
+
     const userDoc = {
       username,
       password: hashed,
       role,
+      permissions,
       team: normalizedTeamFinal || '',
       name: name || '',
       email: email || '',

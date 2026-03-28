@@ -852,7 +852,7 @@
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
-      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: '/crear-cuenta.html', adminOnly: true }
+      { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true }
     ];
 
     // Sección 4: Servicios Móviles

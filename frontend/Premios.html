@@ -3,857 +3,1464 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Premios — Febrero</title>
+  <title>Premios — Reconocimiento</title>
 
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
-      background: #F4F5F7;
-      font-family: 'Inter', sans-serif;
-      min-height: 100vh;
-      padding: 0;
-    }
+    body { font-family: 'Inter', sans-serif; background: #ECEEF3; min-height: 100vh; }
 
     .layout { display: flex; min-height: 100vh; }
     .sidebar { flex: 0 0 auto; }
-    .main-content {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-    }
+    .main-content { flex: 1; overflow-y: auto; min-width: 0; }
 
-    .page {
-      width: 100%;
-      max-width: 860px;
-    }
-
-    .header-banner {
-      background: #1B2A4A;
-      border-radius: 20px 20px 0 0;
-      padding: 36px 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      animation: fadeDown 0.6s ease both;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .brand-icon {
-      width: 46px;
-      height: 46px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-    }
-
-    .brand-text .company {
-      font-size: 0.65rem;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.45);
-    }
-
-    .brand-text .doc-title {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #fff;
-      margin-top: 2px;
-    }
-
-    .header-right {
-      text-align: right;
-    }
-
-    .period-label {
-      font-size: 0.65rem;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-    }
-
-    .period-value {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #fff;
-      margin-top: 2px;
-    }
-
-    .main-card {
-      background: #fff;
-      border-radius: 0 0 20px 20px;
-      box-shadow: 0 20px 60px rgba(27,42,74,0.1);
-      overflow: hidden;
-      animation: fadeUp 0.7s ease 0.1s both;
-    }
-
-    .section-label {
-      padding: 20px 48px;
-      background: #F8F9FC;
-      border-bottom: 1px solid #EAECF2;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-label span {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: #8A94A6;
-    }
-
-    .section-label .line {
-      flex: 1;
-      height: 1px;
-      background: #EAECF2;
-    }
-
-    .section-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .btn-add {
-      appearance: none;
-      border: 1px solid #D7DDEA;
-      background: #fff;
-      color: #1B2A4A;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 10px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease;
-      white-space: nowrap;
-    }
-
-    .btn-add:hover {
-      background: #FAFBFF;
-      border-color: #C9D2E6;
-    }
-
-    .prizes-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-    }
-
-    .prize-block {
-      padding: 40px 48px;
+    /* ── PAGE HEADER ── */
+    .page-header {
+      background: linear-gradient(135deg, #111827 0%, #1B2A4A 100%);
+      padding: 36px 40px 32px;
       position: relative;
-      transition: background 0.2s ease;
+      overflow: hidden;
     }
-
-    .prize-remove {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      border: 1px solid #EAECF2;
-      background: #fff;
-      color: #8A94A6;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      line-height: 1;
-      transition: background 0.15s ease, color 0.15s ease;
-    }
-
-    .prize-remove:hover {
-      background: #FAFBFF;
-      color: #1B2A4A;
-    }
-
-    .prize-block:hover { background: #FAFBFF; }
-
-    .prize-block:first-child {
-      border-right: 1px solid #EAECF2;
-    }
-
-    .prize-block::before {
+    .page-header::after {
       content: '';
       position: absolute;
-      top: 0; left: 48px;
-      width: 40px;
-      height: 3px;
-      border-radius: 0 0 4px 4px;
+      right: -60px; top: -60px;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      background: rgba(201,151,42,0.07);
+      pointer-events: none;
     }
-
-    .prize-block.first::before { background: #C9972A; }
-    .prize-block.second::before { background: #1B2A4A; }
-
-    .rank-row {
+    .page-header-inner {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
     }
-
-    .rank-badge {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 2px;
+    .page-eyebrow {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 3px;
       text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 100px;
-    }
-
-    .prize-block.first .rank-badge {
-      background: #FEF4DC;
-      color: #C9972A;
-    }
-
-    .prize-block.second .rank-badge {
-      background: #EEF1F8;
-      color: #1B2A4A;
-    }
-
-    .rank-icon { font-size: 1.1rem; }
-
-    .prize-amount {
-      font-family: 'Playfair Display', serif;
-      font-size: 4rem;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: -2px;
+      color: rgba(255,255,255,0.38);
       margin-bottom: 6px;
     }
-
-    .prize-block.first .prize-amount { color: #C9972A; }
-    .prize-block.second .prize-amount { color: #1B2A4A; }
-
-    .prize-desc {
-      font-size: 0.75rem;
-      color: #8A94A6;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      font-weight: 500;
-      margin-bottom: 28px;
+    .page-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
     }
-
-    .winner-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: #F4F5F7;
-      border: 1px solid #EAECF2;
-      border-radius: 100px;
-      padding: 8px 14px 8px 8px;
-    }
-
-    .avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
+    .period-badge {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .prize-block.first .avatar { background: #C9972A; }
-    .prize-block.second .avatar { background: #1B2A4A; }
-
-    .winner-name-chip {
-      font-size: 0.82rem;
+      gap: 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-size: 0.78rem;
       font-weight: 600;
-      color: #2D3A52;
+      color: rgba(255,255,255,0.75);
+      white-space: nowrap;
     }
+    .period-badge i { color: #C9972A; }
 
-    .table-section {
-      border-top: 1px solid #EAECF2;
-    }
-
-    .table-header {
+    /* ── STATS STRIP ── */
+    .stats-strip {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      padding: 12px 48px;
-      background: #F8F9FC;
-      border-bottom: 1px solid #EAECF2;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      background: #fff;
+      border-bottom: 1px solid #E5E8EF;
     }
-
-    .table-header span {
+    .stat-item {
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-right: 1px solid #E5E8EF;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-label {
       font-size: 0.62rem;
       font-weight: 700;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: #8A94A6;
+      color: #9AA5B8;
     }
-
-    .table-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      padding: 18px 48px;
-      align-items: center;
-      border-bottom: 1px solid #F0F1F5;
-      transition: background 0.15s ease;
-    }
-
-    .table-row:hover { background: #FAFBFF; }
-
-    .table-row:last-child { border-bottom: none; }
-
-    .row-name {
-      font-size: 0.9rem;
-      font-weight: 600;
+    .stat-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
       color: #1B2A4A;
+      line-height: 1;
+    }
+    .stat-sub {
+      font-size: 0.72rem;
+      color: #B0BBCC;
+      margin-top: 2px;
+    }
+
+    /* ── PAGE BODY ── */
+    .page-body { padding: 32px 40px; display: flex; flex-direction: column; gap: 32px; }
+
+    /* ── SECTION ── */
+    .section { display: flex; flex-direction: column; gap: 16px; }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #1B2A4A;
+      letter-spacing: -0.3px;
+    }
+    .section-subtitle {
+      font-size: 0.78rem;
+      color: #9AA5B8;
+      margin-top: 2px;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      appearance: none;
+      background: #1B2A4A;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-action:hover { background: #243659; }
+    .btn-action i { font-size: 0.72rem; }
+
+    /* ── PREMIOS ACTIVOS GRID ── */
+    .prizes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .prize-card {
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+      min-height: 220px;
+    }
+
+    /* Colored backgrounds per type */
+    .prize-card[data-tipo="first"] {
+      background: linear-gradient(145deg, #92600D 0%, #C9891A 45%, #E8A830 100%);
+      box-shadow: 0 8px 32px rgba(175,120,22,0.40);
+    }
+    .prize-card[data-tipo="second"] {
+      background: linear-gradient(145deg, #1E2F48 0%, #2D4060 45%, #3D5278 100%);
+      box-shadow: 0 8px 32px rgba(30,47,72,0.40);
+    }
+    .prize-card[data-tipo="third"] {
+      background: linear-gradient(145deg, #7A3A10 0%, #B05A20 45%, #D07838 100%);
+      box-shadow: 0 8px 32px rgba(140,80,30,0.38);
+    }
+    .prize-card[data-tipo="special"] {
+      background: linear-gradient(145deg, #2D0A6E 0%, #5B21B6 45%, #7C3AED 100%);
+      box-shadow: 0 8px 32px rgba(91,33,182,0.42);
+    }
+    .prize-card[data-tipo="team"] {
+      background: linear-gradient(145deg, #064E4A 0%, #0C7D76 45%, #0D9488 100%);
+      box-shadow: 0 8px 32px rgba(12,125,118,0.38);
+    }
+    .prize-card[data-tipo="bonus"] {
+      background: linear-gradient(145deg, #064E26 0%, #127A3A 45%, #16A34A 100%);
+      box-shadow: 0 8px 32px rgba(18,122,58,0.38);
+    }
+
+    .prize-card:hover {
+      transform: translateY(-6px) scale(1.01);
+    }
+    .prize-card[data-tipo="first"]:hover   { box-shadow: 0 20px 50px rgba(175,120,22,0.50); }
+    .prize-card[data-tipo="second"]:hover  { box-shadow: 0 20px 50px rgba(30,47,72,0.52); }
+    .prize-card[data-tipo="third"]:hover   { box-shadow: 0 20px 50px rgba(140,80,30,0.48); }
+    .prize-card[data-tipo="special"]:hover { box-shadow: 0 20px 50px rgba(91,33,182,0.52); }
+    .prize-card[data-tipo="team"]:hover    { box-shadow: 0 20px 50px rgba(12,125,118,0.48); }
+    .prize-card[data-tipo="bonus"]:hover   { box-shadow: 0 20px 50px rgba(18,122,58,0.48); }
+
+    /* Decorative background icon */
+    .prize-card-deco {
+      position: absolute;
+      right: 16px; bottom: 12px;
+      font-size: 5.5rem;
+      opacity: 0.13;
+      pointer-events: none;
+      user-select: none;
+      line-height: 1;
+      filter: blur(1px);
+    }
+
+    .prize-card-bar { display: none; }
+
+    .prize-card-body { padding: 24px; flex: 1; display: flex; flex-direction: column; gap: 0; position: relative; z-index: 1; }
+
+    .prize-card-top {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: space-between;
+      margin-bottom: 18px;
     }
 
-    .row-rank-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
+    .tipo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 100px;
+      background: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.95);
+      border: 1px solid rgba(255,255,255,0.22);
+      backdrop-filter: blur(4px);
+    }
+
+    .card-delete-btn {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: rgba(255,255,255,0.55);
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
       flex-shrink: 0;
     }
-
-    .table-row:nth-child(1) .row-rank-dot { background: #C9972A; }
-    .table-row:nth-child(2) .row-rank-dot { background: #1B2A4A; }
-
-    .row-cell {
-      font-size: 0.82rem;
-      color: #5A6478;
-      font-weight: 400;
+    .card-delete-btn:hover {
+      background: rgba(255,255,255,0.22);
+      color: #fff;
+      border-color: rgba(255,255,255,0.35);
     }
 
-    .row-cell.amount {
+    .prize-card-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -2px;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    /* first gets a golden tint */
+    .prize-card[data-tipo="first"] .prize-card-amount { color: #FFE082; }
+
+    .prize-card-titulo {
+      font-size: 0.92rem;
       font-weight: 700;
-      font-size: 0.9rem;
+      color: rgba(255,255,255,0.95);
+      margin-bottom: 6px;
+    }
+    .prize-card-desc {
+      font-size: 0.74rem;
+      color: rgba(255,255,255,0.58);
+      line-height: 1.55;
+      flex: 1;
+      margin-bottom: 18px;
     }
 
-    .table-row:nth-child(1) .row-cell.amount { color: #C9972A; }
-    .table-row:nth-child(2) .row-cell.amount { color: #1B2A4A; }
-
-    .status-pill {
+    .prize-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.14);
+    }
+    .categoria-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 100px;
+      padding: 4px 11px;
+      font-size: 0.67rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.82);
+      backdrop-filter: blur(4px);
+    }
+    .activo-dot {
       display: inline-flex;
       align-items: center;
       gap: 5px;
       font-size: 0.65rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.85);
+    }
+    .activo-dot::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #7EEA9B;
+      box-shadow: 0 0 0 3px rgba(126,234,155,0.28);
+    }
+
+    /* Empty state */
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: 48px 32px;
+      text-align: center;
+      color: #B0BBCC;
+    }
+    .empty-state i { font-size: 2rem; margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* ── WINNERS TABLE CARD ── */
+    .table-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    .table-toolbar {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #F0F2F7;
+      gap: 12px;
+    }
+
+    .table-info {
+      font-size: 0.72rem;
       font-weight: 600;
+      color: #9AA5B8;
+    }
+    .table-info strong { color: #1B2A4A; font-size: 0.85rem; }
+
+    .winners-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .winners-table thead tr {
+      background: #F8F9FC;
+      border-bottom: 1px solid #E5E8EF;
+    }
+    .winners-table th {
+      padding: 12px 20px;
+      text-align: left;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #9AA5B8;
+      white-space: nowrap;
+    }
+    .winners-table td {
+      padding: 14px 20px;
+      border-bottom: 1px solid #F0F2F7;
+      vertical-align: middle;
+    }
+    .winners-table tbody tr:last-child td { border-bottom: none; }
+    .winners-table tbody tr:hover td { background: #FAFBFF; }
+
+    .winner-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .winner-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    [data-tipo="first"]   .winner-avatar { background: #C9972A; }
+    [data-tipo="second"]  .winner-avatar { background: #7B8FA8; }
+    [data-tipo="third"]   .winner-avatar { background: #C47D3A; }
+    [data-tipo="special"] .winner-avatar { background: #6D28D9; }
+    [data-tipo="team"]    .winner-avatar { background: #0D9488; }
+    [data-tipo="bonus"]   .winner-avatar { background: #16A34A; }
+
+    .winner-name { font-size: 0.88rem; font-weight: 700; color: #1B2A4A; }
+    .winner-sub  { font-size: 0.72rem; color: #9AA5B8; margin-top: 1px; }
+
+    .table-tipo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.65rem;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       padding: 4px 10px;
       border-radius: 100px;
-      background: #E8F5EE;
-      color: #2D8A55;
     }
+    [data-tipo="first"]   .table-tipo-pill { background: #FEF4DC; color: #B8851E; }
+    [data-tipo="second"]  .table-tipo-pill { background: #EEF1F8; color: #4A5568; }
+    [data-tipo="third"]   .table-tipo-pill { background: #FEF0D0; color: #9A5A1A; }
+    [data-tipo="special"] .table-tipo-pill { background: #F3E8FF; color: #6D28D9; }
+    [data-tipo="team"]    .table-tipo-pill { background: #CCFBF1; color: #0F766E; }
+    [data-tipo="bonus"]   .table-tipo-pill { background: #DCFCE7; color: #15803D; }
 
+    .amount-cell { font-size: 0.92rem; font-weight: 800; }
+    [data-tipo="first"]   .amount-cell { color: #C9972A; }
+    [data-tipo="second"]  .amount-cell { color: #4A5568; }
+    [data-tipo="third"]   .amount-cell { color: #A8631F; }
+    [data-tipo="special"] .amount-cell { color: #6D28D9; }
+    [data-tipo="team"]    .amount-cell { color: #0D9488; }
+    [data-tipo="bonus"]   .amount-cell { color: #15803D; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 100px;
+    }
+    .status-pill.asignado { background: #DCFCE7; color: #15803D; }
+    .status-pill.pendiente { background: #FEF9C3; color: #A16207; }
     .status-pill::before {
       content: '';
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: #2D8A55;
+      background: currentColor;
     }
 
-    .card-footer {
-      padding: 18px 48px;
-      background: #F8F9FC;
-      border-top: 1px solid #EAECF2;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-radius: 0 0 20px 20px;
+    .row-delete-btn {
+      appearance: none;
+      border: 1px solid #E5E8EF;
+      background: transparent;
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: #C4CCD8;
+      font-size: 13px;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
+    .row-delete-btn:hover { border-color: #FCA5A5; color: #EF4444; background: #FFF5F5; }
 
-    .footer-note {
-      font-size: 0.7rem;
-      color: #8A94A6;
-      letter-spacing: 0.5px;
+    .table-empty {
+      padding: 48px 32px;
+      text-align: center;
+      color: #B0BBCC;
     }
+    .table-empty i { font-size: 1.8rem; margin-bottom: 10px; opacity: 0.35; display: block; }
+    .table-empty p { font-size: 0.82rem; }
 
-    .total-block {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .total-label {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #8A94A6;
-    }
-
-    .total-value {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #1B2A4A;
-    }
-
+    /* ── MODALS ── */
     .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 9999;
+      position: fixed; inset: 0;
+      background: rgba(10,18,36,0.5);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; z-index: 9999;
     }
-
     .modal-backdrop.open { display: flex; }
 
     .modal {
-      width: 100%;
-      max-width: 540px;
+      width: 100%; max-width: 500px;
       background: #fff;
       border-radius: 16px;
-      box-shadow: 0 30px 90px rgba(0,0,0,0.25);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.22);
       overflow: hidden;
     }
 
     .modal-header {
-      padding: 16px 18px;
+      padding: 18px 22px;
       background: #F8F9FC;
-      border-bottom: 1px solid #EAECF2;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      border-bottom: 1px solid #E5E8EF;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
-
     .modal-title {
-      font-size: 0.85rem;
-      font-weight: 800;
-      letter-spacing: 2px;
-      text-transform: uppercase;
+      font-size: 0.82rem; font-weight: 800;
+      letter-spacing: 2px; text-transform: uppercase;
       color: #1B2A4A;
     }
-
     .modal-close {
       appearance: none;
-      border: 1px solid #EAECF2;
-      background: #fff;
-      border-radius: 10px;
-      width: 34px;
-      height: 34px;
-      cursor: pointer;
-      color: #8A94A6;
-      font-size: 18px;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border: 1px solid #E5E8EF; background: #fff;
+      border-radius: 10px; width: 34px; height: 34px;
+      cursor: pointer; color: #9AA5B8; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
     }
+    .modal-close:hover { border-color: #C4CCD8; color: #1B2A4A; }
 
     .modal-body {
-      padding: 18px;
+      padding: 20px 22px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 14px;
     }
 
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
+    .field { display: flex; flex-direction: column; gap: 6px; }
     .field.full { grid-column: 1 / -1; }
 
     .field label {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #8A94A6;
+      font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: #9AA5B8;
     }
-
-    .field input,
-    .field select {
+    .field input, .field select {
       border: 1px solid #D7DDEA;
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 0.9rem;
-      outline: none;
+      border-radius: 10px;
+      padding: 10px 13px;
+      font-size: 0.88rem;
       color: #1B2A4A;
       background: #fff;
+      outline: none;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.15s;
     }
+    .field input:focus, .field select:focus { border-color: #8A94A6; }
 
     .modal-footer {
-      padding: 14px 18px;
-      background: #fff;
-      border-top: 1px solid #EAECF2;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
+      padding: 14px 22px;
+      border-top: 1px solid #E5E8EF;
+      display: flex; justify-content: flex-end; gap: 10px;
     }
-
-    .btn {
-      appearance: none;
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-weight: 700;
-      font-size: 0.8rem;
-      cursor: pointer;
-      border: 1px solid #D7DDEA;
-      background: #fff;
-      color: #1B2A4A;
+    .btn-cancel {
+      appearance: none; border: 1px solid #D7DDEA; background: #fff;
+      color: #5A6478; border-radius: 10px; padding: 10px 18px;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      font-family: 'Inter', sans-serif;
     }
-
-    .btn.primary {
-      background: #1B2A4A;
-      border-color: #1B2A4A;
-      color: #fff;
+    .btn-cancel:hover { background: #F8F9FC; }
+    .btn-save {
+      appearance: none; background: #1B2A4A; border: 1px solid #1B2A4A;
+      color: #fff; border-radius: 10px; padding: 10px 22px;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      font-family: 'Inter', sans-serif;
     }
+    .btn-save:hover { background: #243659; }
 
     @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-16px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity:0; transform:translateY(-12px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .page-header { animation: fadeDown 0.5s ease both; }
+    .section      { animation: fadeDown 0.5s ease 0.1s both; }
+
+    /* ── TOAST NOTIFICATIONS ── */
+    .toast-container {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 99999;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex; align-items: center; gap: 12px;
+      background: #1B2A4A;
+      color: #fff;
+      padding: 14px 18px;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      font-size: 0.82rem;
+      font-weight: 500;
+      min-width: 260px;
+      max-width: 360px;
+      pointer-events: auto;
+      animation: toastIn 0.3s ease both;
+      border-left: 4px solid #C9972A;
+    }
+    .toast.green  { border-left-color: #16A34A; }
+    .toast.red    { border-left-color: #EF4444; }
+    .toast.purple { border-left-color: #7C3AED; }
+    .toast.teal   { border-left-color: #0D9488; }
+    .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .toast-text strong { display: block; font-weight: 700; font-size: 0.85rem; }
+    .toast-text span   { color: rgba(255,255,255,0.62); font-size: 0.75rem; }
+    @keyframes toastIn {
+      from { opacity:0; transform:translateX(30px) scale(0.95); }
+      to   { opacity:1; transform:translateX(0) scale(1); }
+    }
+    @keyframes toastOut {
+      to { opacity:0; transform:translateX(30px) scale(0.95); }
     }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @media (max-width: 600px) {
+    @media (max-width: 700px) {
+      .page-body { padding: 20px 16px; }
+      .page-header { padding: 24px 20px; }
+      .stats-strip { grid-template-columns: 1fr 1fr; }
+      .stats-strip .stat-item:last-child { grid-column: 1 / -1; border-top: 1px solid #E5E8EF; }
       .prizes-grid { grid-template-columns: 1fr; }
-      .prize-block:first-child { border-right: none; border-bottom: 1px solid #EAECF2; }
-      .header-banner, .prize-block, .table-header, .table-row, .card-footer { padding-left: 24px; padding-right: 24px; }
-      .prize-block::before { left: 24px; }
-      .table-header, .table-row { grid-template-columns: 2fr 1fr 1fr; }
-      .table-header span:last-child, .row-cell:last-child { display: none; }
+      .page-header-inner { flex-direction: column; align-items: flex-start; }
+      .winners-table th:nth-child(4),
+      .winners-table td:nth-child(4) { display: none; }
     }
   </style>
 </head>
 <body>
-  <div class="layout">
-    <nav class="sidebar sidebar-inicio" data-active="premios"></nav>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="premios"></nav>
 
-    <main class="main-content">
-      <div class="page">
+  <main class="main-content">
 
-        <div class="header-banner">
-          <div class="brand">
-            <div class="brand-icon">�</div>
-            <div class="brand-text">
-              <div class="company">Equipo de Ventas</div>
-              <div class="doc-title">Reconocimiento de Desempeño</div>
-            </div>
-          </div>
-          <div class="header-right">
-            <div class="period-label">Período de evaluación</div>
-            <div class="period-value">Promo Febrero 2026</div>
-          </div>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-inner">
+        <div>
+          <div class="page-eyebrow">Equipo de Ventas</div>
+          <h1 class="page-title">Premios &amp; Reconocimientos</h1>
         </div>
-
-        <div class="main-card">
-
-          <div class="section-label">
-            <span>Premios por mayor venta</span>
-            <div class="line"></div>
-            <div class="section-actions">
-              <button class="btn-add" id="btnOpenPremioModal" type="button">Agregar premio</button>
-            </div>
-          </div>
-
-          <div class="prizes-grid" id="prizesGrid"></div>
-
-          <div class="table-section">
-
-            <div class="table-header">
-              <span>Colaborador</span>
-              <span>Categoría</span>
-              <span>Monto</span>
-              <span>Estado</span>
-            </div>
-
-            <div id="tableRows"></div>
-
-          </div>
-
-          <div class="card-footer">
-            <div class="footer-note">Promo del 01 al 28 de Febrero · Generado automáticamente</div>
-            <div class="total-block">
-              <div class="total-label">Total premiado</div>
-              <div class="total-value" id="totalValue">$0.00</div>
-            </div>
-          </div>
-
+        <div class="period-badge">
+          <i class="fas fa-calendar-alt"></i>
+          <span id="periodText">Febrero 2026</span>
         </div>
-
       </div>
-    </main>
-  </div>
-
-  <div class="modal-backdrop" id="premioModal">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-header">
-        <div class="modal-title">Agregar premio</div>
-        <button class="modal-close" id="btnClosePremioModal" type="button">×</button>
-      </div>
-      <form id="premioForm">
-        <div class="modal-body">
-          <div class="field">
-            <label for="premioTipo">Tipo</label>
-            <select id="premioTipo" name="tipo" required>
-              <option value="first">1er Lugar</option>
-              <option value="second">2do Lugar</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="premioMonto">Monto (USD)</label>
-            <input id="premioMonto" name="monto" type="number" step="0.01" min="0" value="0" required>
-          </div>
-          <div class="field full">
-            <label for="premioCategoria">Categoría</label>
-            <input id="premioCategoria" name="categoria" type="text" value="Viáticos" required>
-          </div>
-          <div class="field">
-            <label for="premioIniciales">Iniciales</label>
-            <input id="premioIniciales" name="iniciales" type="text" maxlength="4" placeholder="RV" required>
-          </div>
-          <div class="field">
-            <label for="premioNombre">Nombre</label>
-            <input id="premioNombre" name="nombre" type="text" placeholder="Roberto Velásquez" required>
-          </div>
-          <div class="field full">
-            <label for="premioDesc">Descripción</label>
-            <input id="premioDesc" name="descripcion" type="text" value="Premio en viáticos" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" id="btnCancelPremio" type="button">Cancelar</button>
-          <button class="btn primary" type="submit">Guardar</button>
-        </div>
-      </form>
     </div>
+
+    <!-- Stats Strip -->
+    <div class="stats-strip">
+      <div class="stat-item">
+        <div class="stat-label">Premios activos</div>
+        <div class="stat-value" id="statActivos">0</div>
+        <div class="stat-sub">este período</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Ganadores</div>
+        <div class="stat-value" id="statGanadores">0</div>
+        <div class="stat-sub">asignados</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Total premiado</div>
+        <div class="stat-value" id="statTotal">$0</div>
+        <div class="stat-sub">en premios entregados</div>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- SECCIÓN 1: Premios Activos -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Premios Activos</div>
+            <div class="section-subtitle">Premios disponibles para este período</div>
+          </div>
+          <button class="btn-action" id="btnAddActivo">
+            <i class="fas fa-plus"></i> Agregar Premio
+          </button>
+        </div>
+        <div class="prizes-grid" id="activosGrid"></div>
+      </div>
+
+      <!-- SECCIÓN 2: Tabla de Premios (Ganadores) -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Tabla de Premios</div>
+            <div class="section-subtitle">Ganadores asignados del período</div>
+          </div>
+          <button class="btn-action" id="btnAddGanador">
+            <i class="fas fa-user-plus"></i> Agregar Ganador
+          </button>
+        </div>
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="table-info"><strong id="ganadoresCount">0</strong> ganadores registrados</div>
+          </div>
+          <table class="winners-table">
+            <thead>
+              <tr>
+                <th>Colaborador</th>
+                <th>Premio</th>
+                <th>Monto</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ganadoresBody"></tbody>
+          </table>
+          <div class="table-empty" id="ganadoresEmpty" style="display:none;">
+            <i class="fas fa-trophy"></i>
+            <p>No hay ganadores registrados aún. Agrega el primero.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Agregar Premio Activo -->
+<div class="modal-backdrop" id="modalActivo">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <div class="modal-title">Nuevo Premio Activo</div>
+      <button class="modal-close" data-close="modalActivo">×</button>
+    </div>
+    <form id="formActivo">
+      <div class="modal-body">
+        <div class="field">
+          <label for="aTipo">Tipo</label>
+          <select id="aTipo" name="tipo" required>
+            <option value="first">🏆  1er Lugar</option>
+            <option value="second">🥈  2do Lugar</option>
+            <option value="third">🥉  3er Lugar</option>
+            <option value="special">✨  Reconocimiento Especial</option>
+            <option value="team">👥  Premio de Equipo</option>
+            <option value="bonus">🎁  Bono</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="aMonto">Monto (USD)</label>
+          <input id="aMonto" name="monto" type="number" step="0.01" min="0" value="0" required>
+        </div>
+        <div class="field full">
+          <label for="aTitulo">Título del premio</label>
+          <input id="aTitulo" name="titulo" type="text" placeholder="Ej: Mayor número de ventas" required>
+        </div>
+        <div class="field full">
+          <label for="aDesc">Descripción / Criterio</label>
+          <input id="aDesc" name="descripcion" type="text" placeholder="Ej: Agente con más cierres del mes" required>
+        </div>
+        <div class="field full">
+          <label for="aCategoria">Categoría</label>
+          <input id="aCategoria" name="categoria" type="text" value="Viáticos" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" data-close="modalActivo">Cancelar</button>
+        <button class="btn-save" type="submit">Guardar</button>
+      </div>
+    </form>
   </div>
+</div>
 
-  <script src="/js/logout-handler.js"></script>
-  <script src="/js/user-info.js"></script>
-  <script src="js/sidebar-loader.js"></script>
+<!-- MODAL: Agregar Ganador -->
+<div class="modal-backdrop" id="modalGanador">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <div class="modal-title">Registrar Ganador</div>
+      <button class="modal-close" data-close="modalGanador">×</button>
+    </div>
+    <form id="formGanador">
+      <div class="modal-body">
+        <div class="field full">
+          <label for="gPremio">Premio</label>
+          <select id="gPremio" name="premioId" required>
+            <option value="">— Seleccionar premio activo —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="gNombre">Nombre del ganador</label>
+          <input id="gNombre" name="nombre" type="text" placeholder="Roberto Velásquez" required>
+        </div>
+        <div class="field">
+          <label for="gIniciales">Iniciales</label>
+          <input id="gIniciales" name="iniciales" type="text" maxlength="4" placeholder="RV" required>
+        </div>
+        <div class="field">
+          <label for="gFecha">Fecha</label>
+          <input id="gFecha" name="fecha" type="date" required>
+        </div>
+        <div class="field">
+          <label for="gStatus">Estado</label>
+          <select id="gStatus" name="status">
+            <option value="asignado">Asignado</option>
+            <option value="pendiente">Pendiente</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" type="button" data-close="modalGanador">Cancelar</button>
+        <button class="btn-save" type="submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-  <script>
-    (function () {
-      'use strict';
+<div class="toast-container" id="toastContainer"></div>
 
-      const STORAGE_KEY = 'premios.items.v1';
+<script src="/js/logout-handler.js"></script>
+<script src="/js/user-info.js"></script>
+<script src="js/sidebar-loader.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 
-      const defaultItems = [
-        {
-          id: 'default-1',
-          tipo: 'first',
-          nombre: 'Roberto Velásquez',
-          iniciales: 'RV',
-          categoria: 'Viáticos',
-          descripcion: 'Premio en viáticos',
-          monto: 500
-        },
-        {
-          id: 'default-2',
-          tipo: 'second',
-          nombre: 'Guadalupe Santana',
-          iniciales: 'GS',
-          categoria: 'Viáticos',
-          descripcion: 'Premio en viáticos',
-          monto: 200
-        }
-      ];
+<script>
+(function () {
+  'use strict';
 
-      function safeJsonParse(raw, fallback) {
-        try { return JSON.parse(raw); } catch (_) { return fallback; }
-      }
+  /* ── in-memory state ── */
+  let activosData   = [];
+  let ganadoresData = [];
 
-      function loadItems() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const parsed = safeJsonParse(raw, null);
-        if (Array.isArray(parsed)) return parsed;
-        return defaultItems.slice();
-      }
+  /* ── toast ── */
+  function showToast(icon, title, sub, colorClass) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const t = document.createElement('div');
+    t.className = 'toast ' + (colorClass || '');
+    t.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-text"><strong>${title}</strong><span>${sub}</span></div>`;
+    container.appendChild(t);
+    setTimeout(function () {
+      t.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(function () { t.remove(); }, 300);
+    }, 4000);
+  }
 
-      function saveItems(items) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      }
+  /* ── API helper ── */
+  function apiFetch(url, opts) {
+    opts = opts || {};
+    if (window.AUTH && AUTH.secureFetch) return AUTH.secureFetch(url, opts);
+    return fetch(url, Object.assign({ credentials: 'include' }, opts));
+  }
 
-      function money(n) {
-        const num = Number(n || 0);
-        return '$' + num.toFixed(2);
-      }
+  /* ── load from API ── */
+  async function loadActivos() {
+    try {
+      const res  = await apiFetch('/api/premios/activos');
+      const json = await res.json();
+      activosData = Array.isArray(json.data) ? json.data : [];
+    } catch (e) { console.error('[PREMIOS] loadActivos:', e); activosData = []; }
+  }
 
-      function moneyShort(n) {
-        const num = Number(n || 0);
-        if (Number.isFinite(num)) return '$' + (Math.round(num) === num ? String(num) : String(num));
-        return '$0';
-      }
+  async function loadGanadores() {
+    try {
+      const res  = await apiFetch('/api/premios/ganadores');
+      const json = await res.json();
+      ganadoresData = Array.isArray(json.data) ? json.data : [];
+    } catch (e) { console.error('[PREMIOS] loadGanadores:', e); ganadoresData = []; }
+  }
 
-      function rankBadgeText(tipo) {
-        return tipo === 'first' ? '1er Lugar' : '2do Lugar';
-      }
+  /* ── write to API ── */
+  async function apiAddActivo(data) {
+    const res  = await apiFetch('/api/premios/activos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Error');
+    return json.data;
+  }
 
-      function rankIcon(tipo) {
-        return tipo === 'first' ? '🏆' : '🥈';
-      }
+  async function apiDeleteActivo(id) {
+    const res  = await apiFetch('/api/premios/activos/' + id, { method:'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Error');
+  }
 
-      function render() {
-        const prizesGrid = document.getElementById('prizesGrid');
-        const tableRows = document.getElementById('tableRows');
-        const totalValue = document.getElementById('totalValue');
-        if (!prizesGrid || !tableRows || !totalValue) return;
+  async function apiAddGanador(data) {
+    const res  = await apiFetch('/api/premios/ganadores', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Error');
+    return json.data;
+  }
 
-        const items = loadItems();
-        prizesGrid.innerHTML = '';
-        tableRows.innerHTML = '';
+  async function apiDeleteGanador(id) {
+    const res  = await apiFetch('/api/premios/ganadores/' + id, { method:'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Error');
+  }
 
-        let total = 0;
+  /* ── Socket.io real-time ── */
+  function initSocket() {
+    try {
+      const socket = io({ transports: ['websocket','polling'] });
+      socket.on('premios-update', function (payload) {
+        const { action, coleccion, doc } = payload || {};
+        const id = doc && (doc._id ? String(doc._id) : null);
 
-        items.forEach((item) => {
-          const tipo = item.tipo === 'first' ? 'first' : 'second';
-          const monto = Number(item.monto || 0);
-          total += monto;
-
-          const block = document.createElement('div');
-          block.className = 'prize-block ' + tipo;
-          block.setAttribute('data-id', item.id);
-          block.innerHTML = `
-            <button class="prize-remove" type="button" aria-label="Eliminar">×</button>
-            <div class="rank-row">
-              <div class="rank-badge">${rankBadgeText(tipo)}</div>
-              <span class="rank-icon">${rankIcon(tipo)}</span>
-            </div>
-            <div class="prize-amount">${moneyShort(monto)}</div>
-            <div class="prize-desc">${String(item.descripcion || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-            <div class="winner-chip">
-              <div class="avatar">${String(item.iniciales || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-              <div class="winner-name-chip">${String(item.nombre || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-            </div>
-          `;
-          prizesGrid.appendChild(block);
-
-          const row = document.createElement('div');
-          row.className = 'table-row';
-          row.innerHTML = `
-            <div class="row-name">
-              <div class="row-rank-dot"></div>
-              ${String(item.nombre || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-            </div>
-            <div class="row-cell">${String(item.categoria || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-            <div class="row-cell amount">${money(monto)}</div>
-            <div class="row-cell"><span class="status-pill">Asignado</span></div>
-          `;
-          tableRows.appendChild(row);
-        });
-
-        totalValue.textContent = money(total);
-
-        prizesGrid.querySelectorAll('.prize-remove').forEach((btn) => {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            const parent = btn.closest('.prize-block');
-            const id = parent ? parent.getAttribute('data-id') : null;
-            if (!id) return;
-            const next = loadItems().filter(x => String(x.id) !== String(id));
-            saveItems(next);
-            render();
-          });
-        });
-      }
-
-      function openModal() {
-        const modal = document.getElementById('premioModal');
-        if (!modal) return;
-        modal.classList.add('open');
-      }
-
-      function closeModal() {
-        const modal = document.getElementById('premioModal');
-        if (!modal) return;
-        modal.classList.remove('open');
-      }
-
-      function uid() {
-        try {
-          if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-        } catch (_) {}
-        return 'p-' + String(Date.now()) + '-' + String(Math.floor(Math.random() * 100000));
-      }
-
-      document.addEventListener('DOMContentLoaded', function () {
-        render();
-
-        const btnOpen = document.getElementById('btnOpenPremioModal');
-        const btnClose = document.getElementById('btnClosePremioModal');
-        const btnCancel = document.getElementById('btnCancelPremio');
-        const modal = document.getElementById('premioModal');
-        const form = document.getElementById('premioForm');
-
-        if (btnOpen) btnOpen.addEventListener('click', openModal);
-        if (btnClose) btnClose.addEventListener('click', closeModal);
-        if (btnCancel) btnCancel.addEventListener('click', closeModal);
-
-        if (modal) {
-          modal.addEventListener('click', function (e) {
-            if (e.target === modal) closeModal();
-          });
+        if (coleccion === 'activos') {
+          if (action === 'add') {
+            const exists = activosData.some(function (x) { return String(x._id) === id; });
+            if (!exists) activosData.push(doc);
+            renderActivos();
+            updateStats();
+            const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
+            showToast(cfg.icon, 'Nuevo premio activo', doc.titulo || '', 'green');
+          } else if (action === 'delete') {
+            activosData = activosData.filter(function (x) { return String(x._id) !== id; });
+            renderActivos();
+            updateStats();
+            showToast('🗑️', 'Premio eliminado', 'Un premio fue removido', 'red');
+          }
         }
 
-        if (form) {
-          form.addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            const tipo = String(form.tipo.value || 'first');
-            const monto = Number(form.monto.value || 0);
-            const categoria = String(form.categoria.value || '').trim();
-            const iniciales = String(form.iniciales.value || '').trim().toUpperCase();
-            const nombre = String(form.nombre.value || '').trim();
-            const descripcion = String(form.descripcion.value || '').trim();
-
-            if (!categoria || !iniciales || !nombre || !descripcion) return;
-
-            const items = loadItems();
-            items.push({
-              id: uid(),
-              tipo: (tipo === 'second' ? 'second' : 'first'),
-              nombre,
-              iniciales,
-              categoria,
-              descripcion,
-              monto: Number.isFinite(monto) ? monto : 0
-            });
-            saveItems(items);
-            closeModal();
-            form.reset();
-            document.getElementById('premioTipo').value = 'first';
-            document.getElementById('premioMonto').value = '0';
-            document.getElementById('premioCategoria').value = 'Viáticos';
-            document.getElementById('premioDesc').value = 'Premio en viáticos';
-            render();
-          });
+        if (coleccion === 'ganadores') {
+          if (action === 'add') {
+            const exists = ganadoresData.some(function (x) { return String(x._id) === id; });
+            if (!exists) ganadoresData.push(doc);
+            renderGanadores();
+            updateStats();
+            const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
+            showToast('🏅', '¡Nuevo ganador registrado!', doc.nombre || '', 'green');
+          } else if (action === 'delete') {
+            ganadoresData = ganadoresData.filter(function (x) { return String(x._id) !== id; });
+            renderGanadores();
+            updateStats();
+            showToast('🗑️', 'Ganador eliminado', 'Un ganador fue removido', 'red');
+          }
         }
       });
-    })();
-  </script>
+    } catch (e) { console.warn('[PREMIOS] Socket.io no disponible:', e.message); }
+  }
+
+  /* ── TIPO CONFIG ── */
+  const TIPO_CFG = {
+    first:   { label: '1er Lugar',               icon: '🏆' },
+    second:  { label: '2do Lugar',               icon: '🥈' },
+    third:   { label: '3er Lugar',               icon: '🥉' },
+    special: { label: 'Reconocimiento Especial', icon: '✨' },
+    team:    { label: 'Premio de Equipo',         icon: '👥' },
+    bonus:   { label: 'Bono',                    icon: '🎁' }
+  };
+
+  /* ── helpers ── */
+  function money(n) { const v=Number(n||0); return '$'+(v%1===0?v:v.toFixed(2)); }
+  function moneyFull(n) { return '$'+Number(n||0).toFixed(2); }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function formatDate(d) {
+    if (!d) return '—';
+    try {
+      const [y,m,day] = d.slice(0,10).split('-');
+      const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      return `${parseInt(day,10)} ${months[parseInt(m,10)-1]} ${y}`;
+    } catch (_) { return d; }
+  }
+
+  /* ── render activos ── */
+  function renderActivos() {
+    const grid = document.getElementById('activosGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    if (!activosData.length) {
+      grid.innerHTML = `<div class="empty-state"><i class="fas fa-gift"></i><p>No hay premios activos. Agrega el primero.</p></div>`;
+      return;
+    }
+    activosData.forEach(function (item) {
+      const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
+      const cfg  = TIPO_CFG[tipo];
+      const id   = String(item._id);
+      const card = document.createElement('div');
+      card.className = 'prize-card';
+      card.setAttribute('data-tipo', tipo);
+      card.setAttribute('data-id', id);
+      card.innerHTML = `
+        <div class="prize-card-deco">${cfg.icon}</div>
+        <div class="prize-card-body">
+          <div class="prize-card-top">
+            <div class="tipo-pill">${cfg.icon} ${cfg.label}</div>
+            <button class="card-delete-btn" data-del-activo="${esc(id)}" title="Eliminar">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="prize-card-amount">${money(item.monto)}</div>
+          <div class="prize-card-titulo">${esc(item.titulo)}</div>
+          <div class="prize-card-desc">${esc(item.descripcion)}</div>
+          <div class="prize-card-footer">
+            <div class="categoria-chip"><i class="fas fa-tag"></i> ${esc(item.categoria)}</div>
+            <div class="activo-dot">Activo</div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  /* ── render ganadores ── */
+  function renderGanadores() {
+    const tbody = document.getElementById('ganadoresBody');
+    const empty = document.getElementById('ganadoresEmpty');
+    const count = document.getElementById('ganadoresCount');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (count) count.textContent = ganadoresData.length;
+    if (!ganadoresData.length) {
+      if (empty) empty.style.display = '';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    ganadoresData.forEach(function (item) {
+      const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
+      const cfg  = TIPO_CFG[tipo];
+      const id   = String(item._id);
+      const statusClass = item.status === 'pendiente' ? 'pendiente' : 'asignado';
+      const statusLabel = item.status === 'pendiente' ? 'Pendiente' : 'Asignado';
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-tipo', tipo);
+      tr.innerHTML = `
+        <td>
+          <div class="winner-cell">
+            <div class="winner-avatar">${esc(item.iniciales)}</div>
+            <div>
+              <div class="winner-name">${esc(item.nombre)}</div>
+              <div class="winner-sub">${formatDate(item.fecha)}</div>
+            </div>
+          </div>
+        </td>
+        <td><div class="table-tipo-pill">${cfg.icon} ${cfg.label}</div></td>
+        <td><div class="amount-cell">${moneyFull(item.monto)}</div></td>
+        <td><span style="font-size:0.82rem;color:#5A6478;">${esc(item.categoria)}</span></td>
+        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+        <td>
+          <button class="row-delete-btn" data-del-ganador="${esc(id)}" title="Eliminar">
+            <i class="fas fa-times"></i>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* ── update stats ── */
+  function updateStats() {
+    const total = ganadoresData.reduce(function (s, g) { return s + Number(g.monto||0); }, 0);
+    const sa = document.getElementById('statActivos');
+    const sg = document.getElementById('statGanadores');
+    const st = document.getElementById('statTotal');
+    if (sa) sa.textContent = activosData.length;
+    if (sg) sg.textContent = ganadoresData.length;
+    if (st) st.textContent = money(total);
+  }
+
+  function renderAll() { renderActivos(); renderGanadores(); updateStats(); }
+
+  /* ── populate ganador prize select ── */
+  function populateGPremioSelect() {
+    const sel = document.getElementById('gPremio');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Seleccionar premio —</option>';
+    activosData.forEach(function (item) {
+      const cfg = TIPO_CFG[item.tipo] || TIPO_CFG.second;
+      const opt = document.createElement('option');
+      opt.value = String(item._id);
+      opt.textContent = cfg.icon + ' ' + item.titulo + ' (' + money(item.monto) + ')';
+      opt.setAttribute('data-tipo', item.tipo);
+      opt.setAttribute('data-monto', item.monto);
+      opt.setAttribute('data-categoria', item.categoria);
+      sel.appendChild(opt);
+    });
+  }
+
+  /* ── modal helpers ── */
+  function openModal(id)  { const m=document.getElementById(id); if(m) m.classList.add('open'); }
+  function closeModal(id) { const m=document.getElementById(id); if(m) m.classList.remove('open'); }
+
+  /* ── event delegation ── */
+  document.addEventListener('click', function (e) {
+    const closeBtn = e.target.closest('[data-close]');
+    if (closeBtn) { closeModal(closeBtn.getAttribute('data-close')); return; }
+
+    if (e.target.classList.contains('modal-backdrop')) {
+      ['modalActivo','modalGanador'].forEach(closeModal);
+      return;
+    }
+
+    const delActivo = e.target.closest('[data-del-activo]');
+    if (delActivo) {
+      const id = delActivo.getAttribute('data-del-activo');
+      apiDeleteActivo(id).then(function () {
+        activosData = activosData.filter(function (x) { return String(x._id) !== id; });
+        renderActivos(); updateStats();
+      }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
+      return;
+    }
+
+    const delGanador = e.target.closest('[data-del-ganador]');
+    if (delGanador) {
+      const id = delGanador.getAttribute('data-del-ganador');
+      apiDeleteGanador(id).then(function () {
+        ganadoresData = ganadoresData.filter(function (x) { return String(x._id) !== id; });
+        renderGanadores(); updateStats();
+      }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
+      return;
+    }
+  });
+
+  /* ── DOMContentLoaded ── */
+  document.addEventListener('DOMContentLoaded', async function () {
+    const gFecha = document.getElementById('gFecha');
+    if (gFecha) gFecha.value = new Date().toISOString().slice(0,10);
+
+    await Promise.all([loadActivos(), loadGanadores()]);
+    renderAll();
+    initSocket();
+
+    const btnA = document.getElementById('btnAddActivo');
+    const btnG = document.getElementById('btnAddGanador');
+    if (btnA) btnA.addEventListener('click', function () { openModal('modalActivo'); });
+    if (btnG) btnG.addEventListener('click', function () { populateGPremioSelect(); openModal('modalGanador'); });
+
+    /* form: nuevo activo */
+    const formA = document.getElementById('formActivo');
+    if (formA) {
+      formA.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const f = formA;
+        const titulo      = f.titulo.value.trim();
+        const descripcion = f.descripcion.value.trim();
+        const categoria   = f.categoria.value.trim();
+        if (!titulo || !descripcion || !categoria) return;
+        try {
+          const doc = await apiAddActivo({ tipo: f.tipo.value||'first', titulo, descripcion, categoria, monto: Number(f.monto.value)||0 });
+          activosData.push(doc);
+          renderActivos(); updateStats();
+          closeModal('modalActivo');
+          f.reset();
+          document.getElementById('aMonto').value    = '0';
+          document.getElementById('aCategoria').value = 'Viáticos';
+        } catch (err) { showToast('⚠️', 'Error al guardar', err.message, 'red'); }
+      });
+    }
+
+    /* form: nuevo ganador */
+    const formG = document.getElementById('formGanador');
+    if (formG) {
+      formG.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const f = formG;
+        const premioId  = f.premioId.value;
+        const nombre    = f.nombre.value.trim();
+        const iniciales = f.iniciales.value.trim().toUpperCase();
+        if (!premioId || !nombre || !iniciales) return;
+
+        const premio = activosData.find(function (a) { return String(a._id) === premioId; }) || {};
+        try {
+          const doc = await apiAddGanador({
+            tipo:      premio.tipo || 'second',
+            nombre, iniciales,
+            monto:     premio.monto || 0,
+            categoria: premio.categoria || '',
+            fecha:     f.fecha.value || '',
+            status:    f.status.value || 'asignado'
+          });
+          ganadoresData.push(doc);
+          renderGanadores(); updateStats();
+          closeModal('modalGanador');
+          f.reset();
+          document.getElementById('gFecha').value = new Date().toISOString().slice(0,10);
+        } catch (err) { showToast('⚠️', 'Error al guardar', err.message, 'red'); }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
+  const KEY_GANADORES = 'premios.ganadores.v2';
+
+  const TIPO_CFG = {
+    first:   { label: '1er Lugar',               icon: '🏆' },
+    second:  { label: '2do Lugar',               icon: '🥈' },
+    third:   { label: '3er Lugar',               icon: '🥉' },
+    special: { label: 'Reconocimiento Especial', icon: '✨' },
+    team:    { label: 'Premio de Equipo',         icon: '👥' },
+    bonus:   { label: 'Bono',                    icon: '🎁' }
+  };
+
+  /* ── persistence ── */
+  function load(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; }
+    catch (_) { return fallback; }
+  }
+  function save(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+
+  const defaultActivos = [
+    { id: 'a1', tipo: 'first',  titulo: 'Mayor número de ventas', descripcion: 'Agente con más cierres del mes', categoria: 'Viáticos', monto: 500 },
+    { id: 'a2', tipo: 'second', titulo: 'Segundo lugar en ventas', descripcion: 'Agente con segundo mayor número de cierres', categoria: 'Viáticos', monto: 250 },
+    { id: 'a3', tipo: 'third',  titulo: 'Tercer lugar en ventas',  descripcion: 'Agente con tercer mayor número de cierres', categoria: 'Viáticos', monto: 100 }
+  ];
+  const defaultGanadores = [];
+
+  function getActivos()   { return load(KEY_ACTIVOS,   defaultActivos.map(x => Object.assign({}, x))); }
+  function getGanadores() { return load(KEY_GANADORES, defaultGanadores.slice()); }
+
+  /* ── helpers ── */
+  function uid() {
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (_) {}
+    return 'x-' + Date.now() + '-' + Math.floor(Math.random() * 1e5);
+  }
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function money(n) {
+    const v = Number(n || 0);
+    return '$' + (v % 1 === 0 ? v : v.toFixed(2));
+  }
+  function moneyFull(n) {
+    return '$' + Number(n || 0).toFixed(2);
+  }
+  function formatDate(d) {
+    if (!d) return '—';
+    try {
+      const [y,m,day] = d.split('-');
+      const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      return `${parseInt(day, 10)} ${months[parseInt(m,10)-1]} ${y}`;
+    } catch (_) { return d; }
+  }
+
+  /* ── render activos ── */
+  function renderActivos() {
+    const grid = document.getElementById('activosGrid');
+    if (!grid) return;
+    const items = getActivos();
+    grid.innerHTML = '';
+
+    if (!items.length) {
+      grid.innerHTML = `<div class="empty-state"><i class="fas fa-gift"></i><p>No hay premios activos. Agrega el primero.</p></div>`;
+      return;
+    }
+
+    items.forEach(function (item) {
+      const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
+      const cfg  = TIPO_CFG[tipo];
+      const card = document.createElement('div');
+      card.className = 'prize-card';
+      card.setAttribute('data-tipo', tipo);
+      card.setAttribute('data-id', item.id);
+      card.innerHTML = `
+        <div class="prize-card-deco">${cfg.icon}</div>
+        <div class="prize-card-body">
+          <div class="prize-card-top">
+            <div class="tipo-pill">${cfg.icon} ${cfg.label}</div>
+            <button class="card-delete-btn" data-del-activo="${esc(item.id)}" title="Eliminar">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="prize-card-amount">${money(item.monto)}</div>
+          <div class="prize-card-titulo">${esc(item.titulo)}</div>
+          <div class="prize-card-desc">${esc(item.descripcion)}</div>
+          <div class="prize-card-footer">
+            <div class="categoria-chip"><i class="fas fa-tag"></i> ${esc(item.categoria)}</div>
+            <div class="activo-dot">Activo</div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  /* ── render ganadores ── */
+  function renderGanadores() {
+    const tbody = document.getElementById('ganadoresBody');
+    const empty = document.getElementById('ganadoresEmpty');
+    const count = document.getElementById('ganadoresCount');
+    if (!tbody) return;
+
+    const items = getGanadores();
+    tbody.innerHTML = '';
+    if (count) count.textContent = items.length;
+
+    if (!items.length) {
+      if (empty) empty.style.display = '';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+
+    items.forEach(function (item) {
+      const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
+      const cfg  = TIPO_CFG[tipo];
+      const statusClass = item.status === 'pendiente' ? 'pendiente' : 'asignado';
+      const statusLabel = item.status === 'pendiente' ? 'Pendiente' : 'Asignado';
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-tipo', tipo);
+      tr.innerHTML = `
+        <td>
+          <div class="winner-cell">
+            <div class="winner-avatar">${esc(item.iniciales)}</div>
+            <div>
+              <div class="winner-name">${esc(item.nombre)}</div>
+              <div class="winner-sub">${formatDate(item.fecha)}</div>
+            </div>
+          </div>
+        </td>
+        <td><div class="table-tipo-pill">${cfg.icon} ${cfg.label}</div></td>
+        <td><div class="amount-cell">${moneyFull(item.monto)}</div></td>
+        <td><span style="font-size:0.82rem;color:#5A6478;">${esc(item.categoria)}</span></td>
+        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+        <td>
+          <button class="row-delete-btn" data-del-ganador="${esc(item.id)}" title="Eliminar">
+            <i class="fas fa-times"></i>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* ── update stats ── */
+  function updateStats() {
+    const activos   = getActivos();
+    const ganadores = getGanadores();
+    const total     = ganadores.reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+    const sa = document.getElementById('statActivos');
+    const sg = document.getElementById('statGanadores');
+    const st = document.getElementById('statTotal');
+    if (sa) sa.textContent = activos.length;
+    if (sg) sg.textContent = ganadores.length;
+    if (st) st.textContent = money(total);
+  }
+
+  /* ── full render ── */
+  function renderAll() {
+    renderActivos();
+    renderGanadores();
+    updateStats();
+  }
+
+  /* ── populate ganador prize select ── */
+  function populateGPremioSelect() {
+    const sel = document.getElementById('gPremio');
+    if (!sel) return;
+    const items = getActivos();
+    sel.innerHTML = '<option value="">— Seleccionar premio —</option>';
+    items.forEach(function (item) {
+      const cfg = TIPO_CFG[item.tipo] || TIPO_CFG.second;
+      const opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = cfg.icon + ' ' + item.titulo + ' (' + money(item.monto) + ')';
+      opt.setAttribute('data-tipo', item.tipo);
+      opt.setAttribute('data-monto', item.monto);
+      opt.setAttribute('data-categoria', item.categoria);
+      sel.appendChild(opt);
+    });
+  }
+
+  /* ── modal helpers ── */
+  function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.classList.add('open');
+  }
+  function closeModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.classList.remove('open');
+  }
+
+  /* ── event delegation for delete buttons ── */
+  document.addEventListener('click', function (e) {
+    /* close modal via data-close */
+    const closeBtn = e.target.closest('[data-close]');
+    if (closeBtn) { closeModal(closeBtn.getAttribute('data-close')); return; }
+
+    /* backdrop click */
+    if (e.target.classList.contains('modal-backdrop')) {
+      ['modalActivo','modalGanador'].forEach(closeModal);
+      return;
+    }
+
+    /* delete activo */
+    const delActivo = e.target.closest('[data-del-activo]');
+    if (delActivo) {
+      const id = delActivo.getAttribute('data-del-activo');
+      save(KEY_ACTIVOS, getActivos().filter(function (x) { return String(x.id) !== id; }));
+      renderAll();
+      return;
+    }
+
+    /* delete ganador */
+    const delGanador = e.target.closest('[data-del-ganador]');
+    if (delGanador) {
+      const id = delGanador.getAttribute('data-del-ganador');
+      save(KEY_GANADORES, getGanadores().filter(function (x) { return String(x.id) !== id; }));
+      renderAll();
+      return;
+    }
+  });
+
+  /* ── forms ── */
+  document.addEventListener('DOMContentLoaded', function () {
+    /* set today's date as default */
+    const gFecha = document.getElementById('gFecha');
+    if (gFecha) gFecha.value = new Date().toISOString().slice(0, 10);
+
+    renderAll();
+
+    /* open buttons */
+    const btnA = document.getElementById('btnAddActivo');
+    const btnG = document.getElementById('btnAddGanador');
+    if (btnA) btnA.addEventListener('click', function () { openModal('modalActivo'); });
+    if (btnG) btnG.addEventListener('click', function () {
+      populateGPremioSelect();
+      openModal('modalGanador');
+    });
+
+    /* form: nuevo activo */
+    const formA = document.getElementById('formActivo');
+    if (formA) {
+      formA.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const f = formA;
+        const titulo     = f.titulo.value.trim();
+        const descripcion = f.descripcion.value.trim();
+        const categoria  = f.categoria.value.trim();
+        if (!titulo || !descripcion || !categoria) return;
+        const items = getActivos();
+        items.push({
+          id: uid(),
+          tipo: f.tipo.value || 'first',
+          titulo, descripcion, categoria,
+          monto: Number(f.monto.value) || 0
+        });
+        save(KEY_ACTIVOS, items);
+        closeModal('modalActivo');
+        f.reset();
+        document.getElementById('aMonto').value = '0';
+        document.getElementById('aCategoria').value = 'Viáticos';
+        renderAll();
+      });
+    }
+
+    /* form: nuevo ganador */
+    const formG = document.getElementById('formGanador');
+    if (formG) {
+      formG.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const f = formG;
+        const premioId = f.premioId.value;
+        const nombre   = f.nombre.value.trim();
+        const iniciales = f.iniciales.value.trim().toUpperCase();
+        if (!premioId || !nombre || !iniciales) return;
+
+        /* find premio data */
+        const activos = getActivos();
+        const premio  = activos.find(function (a) { return String(a.id) === premioId; }) || {};
+
+        const ganadores = getGanadores();
+        ganadores.push({
+          id: uid(),
+          tipo: premio.tipo || 'second',
+          premioId,
+          nombre, iniciales,
+          monto: premio.monto || 0,
+          categoria: premio.categoria || '',
+          fecha: f.fecha.value || '',
+          status: f.status.value || 'asignado'
+        });
+        save(KEY_GANADORES, ganadores);
+        closeModal('modalGanador');
+        f.reset();
+        document.getElementById('gFecha').value = new Date().toISOString().slice(0, 10);
+        renderAll();
+      });
+    }
+  });
+})();
+</script>
 </body>
 </html>

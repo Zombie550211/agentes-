@@ -1744,7 +1744,29 @@
     }
   }
 
-  async function fetchUsersForFilters(){if(!AUTH.check())return null;const res=await AUTH.secureFetch('/api/users/agents');if(!res||!res.ok)return null;try{const data=await res.json();return data.agents||data.data||[];}catch(_){return null;}}
+  var __usersFromAPI=[];
+  async function fetchUsersForFilters(){
+    if(!AUTH.check())return null;
+    const res=await AUTH.secureFetch('/api/users/agents');
+    if(!res||!res.ok)return null;
+    try{
+      const data=await res.json();
+      const users=data.agents||data.data||[];
+      __usersFromAPI=users;
+      // Poblar #liberar-agente-select con todos los agentes
+      var liberarSel=document.getElementById('liberar-agente-select');
+      if(liberarSel){
+        var prevVal=liberarSel.value;
+        liberarSel.innerHTML='<option value="">-- Selecciona agente --</option>';
+        var getName=function(u){return(u.name||u.fullName||u.nombre||u.username||'').trim();};
+        users.filter(function(u){var r=String(u.role||'').toLowerCase();return r.includes('agente')||r.includes('vendedor')||r.includes('agent');})
+          .sort(function(a,b){return getName(a).localeCompare(getName(b));})
+          .forEach(function(u){var n=getName(u);if(!n)return;var o=document.createElement('option');o.value=n;o.textContent=n;liberarSel.appendChild(o);});
+        if(prevVal)liberarSel.value=prevVal;
+      }
+      return users;
+    }catch(_){return null;}
+  }
   async function fetchMonthsForFilters(){if(!AUTH.check())return null;const res=await AUTH.secureFetch('/api/leads/months?limit=120');if(!res||!res.ok)return null;try{const data=await res.json();return data.months||data.data||[];}catch(_){return null;}}
 
   /* ── RENDER ── */
@@ -1753,6 +1775,16 @@
   function refreshFilterOptions(){
     if(!__allLeadsData.length)return;
     const equipos=new Set(),agentes=new Set(),mercados=new Set(),meses=new Set();
+    // Incluir agentes de la API (usuarios registrados, aunque no tengan leads aún)
+    if(__usersFromAPI&&__usersFromAPI.length){
+      __usersFromAPI.forEach(function(u){
+        var r=String(u.role||'').toLowerCase();
+        if(r.includes('agente')||r.includes('vendedor')||r.includes('agent')){
+          var n=(u.name||u.fullName||u.nombre||u.username||'').trim();
+          if(n)agentes.add(n);
+        }
+      });
+    }
     __allLeadsData.forEach(function(lead){
       if(lead.supervisor)equipos.add(lead.supervisor);
       if(lead.agente)agentes.add(lead.agente);

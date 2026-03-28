@@ -5337,7 +5337,8 @@ router.get('/users/admin-list', protect, async (req, res) => {
       supervisorId: (u.supervisorId && u.supervisorId.toString) ? u.supervisorId.toString() : (u.supervisorId || null),
       supervisor_id: (u.supervisor_id && u.supervisor_id.toString) ? u.supervisor_id.toString() : (u.supervisor_id || null),
       supervisorObjId: (u.supervisorObjId && u.supervisorObjId.toString) ? u.supervisorObjId.toString() : (u.supervisorObjId || null),
-      supervisorObjectId: (u.supervisorObjectId && u.supervisorObjectId.toString) ? u.supervisorObjectId.toString() : (u.supervisorObjectId || null)
+      supervisorObjectId: (u.supervisorObjectId && u.supervisorObjectId.toString) ? u.supervisorObjectId.toString() : (u.supervisorObjectId || null),
+      permissions: Array.isArray(u.permissions) ? u.permissions : []
     }));
 
     return res.json({ success: true, users: sanitized, agents: sanitized });
@@ -5412,10 +5413,30 @@ router.put('/users/:id/role', protect, async (req, res) => {
     const now = new Date();
     let finalTeam = team || currentUser.team || null;
 
+    // Auto-derivar permisos según el nuevo rol
+    // Permisos reales del sistema (sincronizados con authController.js)
+    const ROLE_PERMS = {
+      'Administrador':          ['read:all','write:all','delete:all','manage:users','manage:employees'],
+      'administrador':          ['read:all','write:all','delete:all','manage:users','manage:employees'],
+      'admin':                  ['read:all','write:all','delete:all','manage:users','manage:employees'],
+      'Backoffice':             ['read:all','write:all','export:data'],
+      'backoffice':             ['read:all','write:all','export:data'],
+      'Supervisor':             ['read:team','write:team','view:reports'],
+      'supervisor':             ['read:team','write:team','view:reports'],
+      'Agente':                 ['read:own','write:own'],
+      'agente':                 ['read:own','write:own'],
+      'Agentes':                ['read:own','write:own'],
+      'vendedor':               ['read:own','write:own'],
+      'Lineas-Agentes':         ['read:own:lineas','write:own:lineas','form:lineas'],
+      'Supervisor Team Lineas': ['read:team:lineas','write:team:lineas','manage:lineas'],
+    };
+    const newPermissions = ROLE_PERMS[role] || ROLE_PERMS[role.toLowerCase()] || [];
+
     const update = {
       $set: {
         role,
         team: finalTeam,
+        permissions: newPermissions,
         updatedAt: now,
         updatedBy: req.user?.username || 'system'
       }
@@ -5584,6 +5605,42 @@ router.put('/users/:id/credentials', protect, async (req, res) => {
 
 // DELETE /api/users/:id -> Eliminar usuario (solo Admins)
 // Nota: esta operación elimina SOLO el documento del usuario y NO toca leads/u otros documentos.
+// Actualizar permisos individuales de un usuario (admin only)
+router.put('/users/:id/permissions', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Error de conexión a DB' });
+
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const adminRoles = ['admin','administrador','administrativo','administrador general'];
+    if (!adminRoles.includes(userRole)) {
+      return res.status(403).json({ success: false, message: 'No autorizado' });
+    }
+
+    const userId = req.params.id;
+    const { permissions } = req.body || {};
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ success: false, message: 'permissions debe ser un array' });
+    }
+
+    let objectId = null;
+    try { objectId = new ObjectId(String(userId)); } catch { objectId = null; }
+    const filter = objectId ? { _id: objectId } : { _id: String(userId) };
+
+    const result = await db.collection('users').updateOne(filter, {
+      $set: { permissions, updatedAt: new Date(), updatedBy: req.user?.username || 'system' }
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    return res.json({ success: true, message: 'Permisos actualizados', permissions });
+  } catch (err) {
+    console.error('[PUT /users/:id/permissions]', err);
+    return res.status(500).json({ success: false, message: 'Error interno', error: err.message });
+  }
+});
+
 // Se requiere rol administrador.
 router.delete('/users/:id', protect, async (req, res) => {
   try {

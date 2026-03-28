@@ -726,7 +726,7 @@
           <div class="field s4" id="agent-assign-field">
             <label style="display:flex;justify-content:space-between;align-items:center;">
               <span>Asignación de Agente</span>
-              <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;">Agentes Disponibles: [Lista...]</span>
+              <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;" id="agents-count-label">Cargando...</span>
             </label>
             <div class="agent-row">
               <select id="agentAssign" name="agentAssign" required><option value="">Asignar a agente</option></select>
@@ -1151,6 +1151,69 @@
     }
     setTimeout(cleanup, 300);
   })();
+</script>
+
+<script>
+// Carga dinámica de agentes y supervisores desde la API
+(function(){
+  async function loadUsersIntoSelects(){
+    try {
+      const res = await (window.AUTH ? AUTH.secureFetch('/api/users/agents') : fetch('/api/users/agents',{credentials:'include'}));
+      if(!res||!res.ok) return;
+      const data = await res.json();
+      const users = data.agents||data.data||data.users||[];
+
+      const getName = u => (u.name||u.fullName||u.nombre||u.username||'').trim();
+      const getRole = u => String(u.role||'').toLowerCase();
+
+      // Agentes para #agentAssign
+      const agentSel = document.getElementById('agentAssign');
+      if(agentSel){
+        const agentes = users
+          .filter(u => getRole(u).includes('agente') || getRole(u).includes('vendedor') || getRole(u).includes('agent'))
+          .sort((a,b)=>getName(a).localeCompare(getName(b)));
+        const prevVal = agentSel.value;
+        agentSel.innerHTML = '<option value="">Asignar a agente</option>';
+        agentes.forEach(u=>{
+          const n = getName(u);
+          if(!n) return;
+          const o = document.createElement('option');
+          o.value = n;
+          o.textContent = n;
+          agentSel.appendChild(o);
+        });
+        if(prevVal) agentSel.value = prevVal;
+        const lbl = document.getElementById('agents-count-label');
+        if(lbl) lbl.textContent = `Agentes Disponibles: ${agentes.length}`;
+      }
+
+      // Supervisores para #supervisor (mantener hardcoded + agregar nuevos de la API)
+      const supSel = document.getElementById('supervisor');
+      if(supSel){
+        const existingVals = new Set(Array.from(supSel.options).map(o=>o.value.toLowerCase().trim()));
+        const supervisors = users
+          .filter(u => getRole(u).includes('supervisor'))
+          .sort((a,b)=>getName(a).localeCompare(getName(b)));
+        supervisors.forEach(u=>{
+          const n = getName(u);
+          if(!n || existingVals.has(n.toLowerCase().trim())) return;
+          const o = document.createElement('option');
+          o.value = n;
+          o.textContent = n;
+          supSel.appendChild(o);
+        });
+      }
+    } catch(e){
+      console.warn('[lead.html] Error cargando usuarios:', e);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', loadUsersIntoSelects);
+  } else {
+    loadUsersIntoSelects();
+  }
+})();
 </script>
 
 </body>

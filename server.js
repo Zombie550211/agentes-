@@ -3018,6 +3018,7 @@ app.use('/api/llamadas-ventas-lineas', llamadasVentasLineasRoutes);
 app.use('/api/ranking',                rankingRoutes);
 app.use('/api/equipos',                equipoRoutes);
 app.use('/api/employees-of-month',     employeesOfMonthRoutes);
+try { app.use('/api/premios', require('./backend/routes/premios')); console.log('[SERVER] Rutas de premios cargadas'); } catch (e) { console.warn('[SERVER] premios route:', e?.message); }
 app.use('/api',                        apiRoutes);
 
 if (mediaProxy)  app.use('/media/proxy',  mediaProxy);
