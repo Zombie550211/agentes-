@@ -2550,7 +2550,11 @@ app.post('/api/leads', protect, async (req, res) => {
       if (!v) return '';
       try {
         const s = String(v).trim();
+        // Si ya viene en formato YYYY-MM-DD lo usamos directo (fecha local del cliente)
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // Si viene como ISO con Z (UTC), extraer solo la parte de fecha del string sin parsear
+        const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})T/);
+        if (isoMatch) return isoMatch[1];
         const d = v instanceof Date ? v : new Date(v);
         if (isNaN(d.getTime())) return '';
         const yr = d.getFullYear();
@@ -2560,9 +2564,9 @@ app.post('/api/leads', protect, async (req, res) => {
       } catch { return ''; }
     };
 
-    // Usar fecha UTC para evitar problemas de timezone entre servidor y cliente
-    const nowUTC = new Date();
-    const todayDateOnly = `${nowUTC.getUTCFullYear()}-${String(nowUTC.getUTCMonth()+1).padStart(2,'0')}-${String(nowUTC.getUTCDate()).padStart(2,'0')}`;
+    // Usar fecha LOCAL del servidor (igual que el cliente que manda YYYY-MM-DD local)
+    const nowLocal = new Date();
+    const todayDateOnly = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;
     const diaVentaDateOnly = toDateOnly(leadData.dia_venta || leadData.diaVenta || leadData.fecha);
 
     const rawStatus       = String(leadData.status || 'pending').toLowerCase();
