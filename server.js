@@ -2560,16 +2560,19 @@ app.post('/api/leads', protect, async (req, res) => {
       } catch { return ''; }
     };
 
-    const todayDateOnly    = toDateOnly(new Date());
+    // Usar fecha UTC para evitar problemas de timezone entre servidor y cliente
+    const nowUTC = new Date();
+    const todayDateOnly = `${nowUTC.getUTCFullYear()}-${String(nowUTC.getUTCMonth()+1).padStart(2,'0')}-${String(nowUTC.getUTCDate()).padStart(2,'0')}`;
     const diaVentaDateOnly = toDateOnly(leadData.dia_venta || leadData.diaVenta || leadData.fecha);
 
     const rawStatus       = String(leadData.status || 'pending').toLowerCase();
     const statusNormInput = normalizeStatus(rawStatus);
     const canBeReserva    = (statusNormInput === 'pending' || statusNormInput === 'completed');
+    // Solo es reserva si la fecha de venta es ESTRICTAMENTE anterior a hoy (no hoy, no futuro)
     const goToReserva     = !!(
       diaVentaDateOnly &&
       todayDateOnly    &&
-      diaVentaDateOnly !== todayDateOnly &&
+      diaVentaDateOnly < todayDateOnly &&
       canBeReserva
     );
 
