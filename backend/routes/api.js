@@ -3188,22 +3188,24 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       updateData.representante = repValue;  // Mantener original también
     }
 
-    // REGLA CRÍTICA: Si dia_venta < fecha actual → status = 'reserva' Y was_reserva = true
-    // Las ventas con dia_venta de días/meses anteriores NO cuentan para nadie (son reservas)
-    // Solo el botón "Liberar de Reserva" puede resetear was_reserva = false
-    if (updateData.dia_venta) {
+    // REGLA: Si dia_venta < hoy → reserva SOLO si la fecha realmente cambió y el lead está pending
+    // Evita que editar otros campos convierta leads existentes a reserva automáticamente
+    if (updateData.dia_venta && foundLead) {
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalizar a medianoche
+      today.setHours(0, 0, 0, 0);
       const diaVenta = new Date(updateData.dia_venta);
       diaVenta.setHours(0, 0, 0, 0);
-      
-      // Si dia_venta es anterior a hoy, asignar status reserva y marcar permanentemente
-      if (diaVenta < today) {
-        updateData.status = 'reserva';  // Asignar status reserva automáticamente
-        updateData.was_reserva = true;  // Marcar permanentemente
+
+      const storedDate   = String(foundLead.dia_venta || '').slice(0, 10);
+      const newDate      = String(updateData.dia_venta || '').slice(0, 10);
+      const dateChanged  = storedDate !== newDate;
+      const isPending    = String(foundLead.status || '').toLowerCase() === 'pending';
+      const wasReleased  = foundLead.was_reserva === false;
+
+      if (diaVenta < today && dateChanged && isPending && !wasReleased) {
+        updateData.status      = 'reserva';
+        updateData.was_reserva = true;
       }
-      // Si dia_venta es hoy o futuro, NO tocar el status ni was_reserva
-      // IMPORTANTE: No resetear was_reserva aquí, solo el botón "Liberar" puede hacerlo
     }
 
     // NUEVA REGLA: Si el status cambia manualmente a 'reserva', establecer was_reserva = true
