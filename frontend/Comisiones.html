@@ -244,15 +244,62 @@
     .sv-comm-amount.no-meta { color: var(--ink3); font-size: 2.4rem; }
     .sv-comm-basis { font-size: .7rem; color: var(--ink3); margin-top: 6px; }
 
-    /* Stat strip */
-    .sv-stats {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 12px; margin-bottom: 16px;
+    /* ── Mi Vista body layout ── */
+    .sv-body {
+      display: flex; flex-direction: column; gap: 14px;
     }
+    /* Row 1: 4 stat cards */
+    .sv-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    }
+    /* Row 2: track (60%) + breakdown (40%) side by side */
+    .sv-mid-row {
+      display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items: start;
+    }
+    .sv-track-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px 32px 36px;
+    }
+    /* Breakdown */
+    .sv-breakdown {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 26px 28px;
+    }
+    /* Row 3: Ventas table full width */
+    .sv-ventas-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .sv-ventas-head {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sv-ventas-head::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
+    .sv-vtable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .sv-vtable thead tr { background: var(--surface2); }
+    .sv-vtable thead th {
+      padding: 9px 16px; text-align: left; font-size: .6rem; font-weight: 700;
+      letter-spacing: .09em; text-transform: uppercase; color: var(--ink3);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .sv-vtable tbody tr { border-bottom: 1px solid var(--border); transition: background .07s; }
+    .sv-vtable tbody tr:last-child { border-bottom: none; }
+    .sv-vtable tbody tr:hover { background: var(--surface2); }
+    .sv-vtable tbody td { padding: 10px 16px; color: var(--ink2); vertical-align: middle; }
+    .sv-vtable tbody td:first-child { color: var(--ink); font-weight: 600; }
+    .sv-vbadge {
+      display: inline-flex; padding: 2px 7px; border-radius: 20px;
+      font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .sv-vbadge.colchon { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(37,99,235,.2); }
+    .sv-vbadge.venta   { background: var(--green-dim); color: var(--green); border: 1px solid rgba(22,163,74,.2); }
+
     .sv-stat {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 16px 18px;
-      display: flex; flex-direction: column; gap: 5px;
+      border-radius: 10px; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 6px;
       transition: border-color .12s;
     }
     .sv-stat:hover { border-color: var(--border2); }
@@ -263,96 +310,88 @@
       text-transform: uppercase; color: var(--ink3);
     }
     .sv-stat-val {
-      font-family: var(--fm); font-size: 1.7rem; font-weight: 500;
+      font-family: var(--fm); font-size: 2rem; font-weight: 500;
       color: var(--ink); letter-spacing: -.03em; line-height: 1;
     }
     .sv-stat-val.gold { color: var(--gold); }
     .sv-stat-val.green { color: var(--green); }
     .sv-stat-sub { font-size: .62rem; color: var(--ink3); }
 
-    /* Escala track */
-    .sv-track-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 22px 24px; margin-bottom: 16px;
-    }
+    /* Track */
     .sv-track-title {
       font-size: .62rem; font-weight: 700; letter-spacing: .1em;
-      text-transform: uppercase; color: var(--ink3); margin-bottom: 20px;
+      text-transform: uppercase; color: var(--ink3); margin-bottom: 36px;
       display: flex; align-items: center; gap: 8px;
     }
     .sv-track-title::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
-    .sv-track-wrap { position: relative; padding: 0 0 28px; }
+    .sv-track-wrap { position: relative; padding: 0 0 38px; }
     .sv-track-line {
-      position: absolute; top: 10px; left: 0; right: 0; height: 4px;
-      background: var(--surface2); border-radius: 2px; overflow: hidden;
+      position: absolute; top: 13px; left: 0; right: 0; height: 5px;
+      background: var(--surface2); border-radius: 3px; overflow: hidden;
     }
     .sv-track-line-fill {
-      height: 100%; border-radius: 2px;
+      height: 100%; border-radius: 3px;
       background: linear-gradient(90deg, var(--green) 0%, #4ade80 100%);
       transition: width .8s cubic-bezier(.4,0,.2,1);
     }
     .sv-track-nodes {
       position: relative; display: flex; justify-content: space-between;
     }
-    .sv-track-node { display: flex; flex-direction: column; align-items: center; gap: 0; }
+    .sv-track-node { display: flex; flex-direction: column; align-items: center; }
     .sv-track-dot {
-      width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border2);
+      width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border2);
       background: var(--surface2); display: flex; align-items: center; justify-content: center;
-      font-size: .55rem; font-weight: 800; color: var(--ink3);
+      font-size: .62rem; font-weight: 800; color: var(--ink3);
       transition: all .3s; position: relative; z-index: 1;
     }
     .sv-track-dot.reached {
       background: var(--green); border-color: var(--green);
-      color: #fff; box-shadow: 0 0 0 4px rgba(22,163,74,.15);
+      color: #fff; box-shadow: 0 0 0 5px rgba(22,163,74,.12);
     }
     .sv-track-dot.current {
       background: var(--gold); border-color: var(--gold);
-      color: #000; box-shadow: 0 0 0 5px rgba(196,154,0,.2);
-      width: 26px; height: 26px; font-size: .6rem;
+      color: #000; box-shadow: 0 0 0 6px rgba(196,154,0,.18);
+      width: 34px; height: 34px; font-size: .7rem;
     }
     .sv-track-node-lbl {
-      margin-top: 8px; font-family: var(--fm); font-size: .6rem;
-      font-weight: 500; color: var(--ink3); white-space: nowrap;
+      margin-top: 10px; font-family: var(--fm); font-size: .7rem;
+      font-weight: 600; color: var(--ink3); white-space: nowrap;
     }
-    .sv-track-node-lbl.reached { color: var(--green); font-weight: 700; }
-    .sv-track-node-lbl.current { color: var(--gold); font-weight: 700; }
+    .sv-track-node-lbl.reached { color: var(--green); }
+    .sv-track-node-lbl.current { color: var(--gold); }
     .sv-track-node-rate {
-      font-size: .58rem; color: var(--ink3); margin-top: 2px; white-space: nowrap;
+      font-size: .62rem; color: var(--ink3); margin-top: 4px; white-space: nowrap;
     }
     .sv-track-node-rate.reached { color: var(--green); }
-    .sv-track-node-rate.current { color: var(--gold); }
+    .sv-track-node-rate.current { color: var(--gold); font-weight: 700; }
 
     /* Breakdown */
-    .sv-breakdown {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px 24px;
-    }
     .sv-breakdown-title {
-      font-size: .62rem; font-weight: 700; letter-spacing: .1em;
-      text-transform: uppercase; color: var(--ink3); margin-bottom: 14px;
+      font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3); margin-bottom: 18px;
       display: flex; align-items: center; gap: 8px;
     }
     .sv-breakdown-title::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
     .sv-breakdown-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 7px 0; font-size: .76rem; color: var(--ink2);
+      padding: 14px 0; font-size: .9rem; color: var(--ink2);
       border-bottom: 1px solid var(--border);
     }
     .sv-breakdown-row:last-child { border-bottom: none; }
     .sv-breakdown-row.total {
-      font-weight: 700; font-size: .82rem; color: var(--ink);
-      padding-top: 10px; margin-top: 2px;
+      font-weight: 700; font-size: 1rem; color: var(--ink); padding-top: 16px;
     }
-    .sv-breakdown-val { font-family: var(--fm); font-weight: 600; color: var(--ink); }
+    .sv-breakdown-val { font-family: var(--fm); font-size: 1rem; font-weight: 600; color: var(--ink); }
     .sv-breakdown-val.gold { color: var(--gold); }
-    .sv-breakdown-val.green { color: var(--green); }
+    .sv-breakdown-val.green { color: var(--green); font-size: 1.1rem; }
 
     @media (max-width: 900px) {
-      .sv-hero { flex-direction: column; align-items: flex-start; }
-      .sv-hero-right { text-align: left; }
+      .sv-mid-row { grid-template-columns: 1fr; }
       .sv-stats { grid-template-columns: repeat(2, 1fr); }
     }
-    @media (max-width: 600px) {
+    @media (max-width: 700px) {
+      .sv-hero { flex-direction: column; align-items: flex-start; }
+      .sv-hero-right { text-align: left; }
       .sv-stats { grid-template-columns: 1fr 1fr; }
       .sv-comm-amount { font-size: 2.4rem; }
     }
@@ -852,6 +891,52 @@ function buildSelfViewHTML(agentData, ym){
   const bonus = agentData.comision - (Math.floor(p) * getTasa(p));
   const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
 
+  // ── Ventas del mes para este agente ──
+  const agentKey = agentData.rawName.toLowerCase().replace(/\./g,' ').trim();
+  const agentLeads = _leads.filter(lead => {
+    if(!cuentaParaComision(lead, ym)) return false;
+    const n = String(lead.agenteNombre||lead.agente||lead.createdBy||lead.creadoPor||lead.usuario||'')
+                .trim().toLowerCase().replace(/\./g,' ').trim();
+    return n === agentKey;
+  }).sort((a,b) => {
+    const da = String(a.dia_instalacion||a.dia_venta||'');
+    const db = String(b.dia_instalacion||b.dia_venta||'');
+    return db.localeCompare(da);
+  });
+
+  const ventasRows = agentLeads.map((lead, i) => {
+    const esColchon = isColchon(lead, ym);
+    const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
+    const cliente = String(lead.nombre||lead.nombreCliente||lead.name||lead.cliente||'—').trim();
+    const servicio = String(lead.servicios||lead.servicio||lead.service||'—').trim();
+    const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,10)||'—';
+    const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,10)||'—';
+    return `<tr>
+      <td style="color:var(--ink3);font-family:var(--fm)">${i+1}</td>
+      <td style="color:var(--ink);font-weight:600">${cliente}</td>
+      <td>${servicio}</td>
+      <td style="font-family:var(--fm)">${dv}</td>
+      <td style="font-family:var(--fm)">${di}</td>
+      <td style="font-family:var(--fm);color:var(--gold);font-weight:600">${pts.toFixed(2)}</td>
+      <td><span class="sv-vbadge ${esColchon?'colchon':'venta'}">${esColchon?'Colchón':'Venta'}</span></td>
+    </tr>`;
+  }).join('');
+
+  const ventasTable = `
+  <div class="sv-ventas-card">
+    <div class="sv-ventas-head">Ventas del mes · ${ym} <span style="margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:.7rem;color:var(--ink3)">${agentLeads.length} registros</span></div>
+    ${agentLeads.length === 0
+      ? `<div style="padding:32px;text-align:center;color:var(--ink3);font-size:.8rem">Sin ventas completed para este mes</div>`
+      : `<table class="sv-vtable">
+          <thead><tr>
+            <th>#</th><th>Cliente</th><th>Servicio</th>
+            <th>Día venta</th><th>Día instalación</th><th>Puntos</th><th>Tipo</th>
+          </tr></thead>
+          <tbody>${ventasRows}</tbody>
+        </table>`
+    }
+  </div>`;
+
   const TRACK_MAX = 36;
   const trackPct = Math.min(100, (p / TRACK_MAX) * 100).toFixed(1);
 
@@ -876,58 +961,63 @@ function buildSelfViewHTML(agentData, ym){
   }).join('');
 
   return `
-  <!-- Stats -->
-  <div class="sv-stats">
-    <div class="sv-stat">
-      <div class="sv-stat-lbl">Ventas completed</div>
-      <div class="sv-stat-val">${agentData.ventas}</div>
-      <div class="sv-stat-sub">Activas este mes</div>
-    </div>
-    <div class="sv-stat">
-      <div class="sv-stat-lbl">Colchones</div>
-      <div class="sv-stat-val">${agentData.colchones}</div>
-      <div class="sv-stat-sub">Instalados este mes</div>
-    </div>
-    <div class="sv-stat accent-gold">
-      <div class="sv-stat-lbl">Puntaje</div>
-      <div class="sv-stat-val gold">${p.toFixed(2)}</div>
-      <div class="sv-stat-sub">Puntos acumulados</div>
-    </div>
-    <div class="sv-stat accent-green">
-      <div class="sv-stat-lbl">Tasa actual</div>
-      <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${getTasa(p)}<span style="font-size:.9rem">/pto</span></div>
-      <div class="sv-stat-sub">${agentData.escala}</div>
-    </div>
-  </div>
-
-  <!-- Escala track -->
-  <div class="sv-track-card">
-    <div class="sv-track-title">Progreso de escala</div>
-    <div class="sv-track-wrap">
-      <div class="sv-track-line">
-        <div class="sv-track-line-fill" style="width:${trackPct}%"></div>
+  <div class="sv-body">
+    <!-- Row 1: 4 stat cards -->
+    <div class="sv-stats">
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Ventas completed</div>
+        <div class="sv-stat-val">${agentData.ventas}</div>
+        <div class="sv-stat-sub">Activas este mes</div>
       </div>
-      <div class="sv-track-nodes">${nodesHtml}</div>
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Colchones</div>
+        <div class="sv-stat-val">${agentData.colchones}</div>
+        <div class="sv-stat-sub">Instalados este mes</div>
+      </div>
+      <div class="sv-stat accent-gold">
+        <div class="sv-stat-lbl">Puntaje</div>
+        <div class="sv-stat-val gold">${p.toFixed(2)}</div>
+        <div class="sv-stat-sub">Puntos acumulados</div>
+      </div>
+      <div class="sv-stat accent-green">
+        <div class="sv-stat-lbl">Tasa actual</div>
+        <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${getTasa(p)}<span style="font-size:1rem">/pto</span></div>
+        <div class="sv-stat-sub">${agentData.escala}</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Breakdown -->
-  ${p >= 17 ? `
-  <div class="sv-breakdown">
-    <div class="sv-breakdown-title">Desglose de comisión</div>
-    <div class="sv-breakdown-row">
-      <span>${Math.floor(p)} pts × $${getTasa(p)}/pto</span>
-      <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * getTasa(p))}</span>
+    <!-- Row 2: track + breakdown -->
+    <div class="sv-mid-row">
+      <div class="sv-track-card">
+        <div class="sv-track-title">Progreso de escala</div>
+        <div class="sv-track-wrap">
+          <div class="sv-track-line">
+            <div class="sv-track-line-fill" style="width:${trackPct}%"></div>
+          </div>
+          <div class="sv-track-nodes">${nodesHtml}</div>
+        </div>
+      </div>
+      ${p >= 17 ? `
+      <div class="sv-breakdown">
+        <div class="sv-breakdown-title">Desglose</div>
+        <div class="sv-breakdown-row">
+          <span>${Math.floor(p)} pts × $${getTasa(p)}/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * getTasa(p))}</span>
+        </div>
+        ${bonus > 0 ? `<div class="sv-breakdown-row">
+          <span>Bono decimal (.${fracStr})</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD(bonus)}</span>
+        </div>` : ''}
+        <div class="sv-breakdown-row total">
+          <span>Total estimado</span>
+          <span class="sv-breakdown-val green">${fmtUSD(agentData.comision)}</span>
+        </div>
+      </div>` : ''}
     </div>
-    ${bonus > 0 ? `<div class="sv-breakdown-row">
-      <span>Bono decimal (.${fracStr})</span>
-      <span class="sv-breakdown-val gold">+${fmtUSD(bonus)}</span>
-    </div>` : ''}
-    <div class="sv-breakdown-row total">
-      <span>Total estimado</span>
-      <span class="sv-breakdown-val green">${fmtUSD(agentData.comision)}</span>
-    </div>
-  </div>` : ''}`;
+
+    <!-- Row 3: Ventas table -->
+    ${ventasTable}
+  </div>`;
 }
 
 function renderAgentSelfView(){
