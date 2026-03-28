@@ -1752,4 +1752,13 @@
     } catch (_) { /* ignore */ }
   })();
 
+  // ── Cargar sistema de notificaciones CRM en todas las páginas ──
+  (function() {
+    if (window.__CRM_NOTIF_LOADED__) return;
+    var s = document.createElement('script');
+    s.src = '/js/crm-notifications.js';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+
 })();
