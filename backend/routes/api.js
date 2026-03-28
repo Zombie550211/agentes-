@@ -3188,38 +3188,7 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       updateData.representante = repValue;  // Mantener original también
     }
 
-    // REGLA: Si dia_venta < hoy → reserva SOLO si la fecha realmente cambió y el lead está pending
-    // Evita que editar otros campos convierta leads existentes a reserva automáticamente
-    if (updateData.dia_venta && foundLead) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const diaVenta = new Date(updateData.dia_venta);
-      diaVenta.setHours(0, 0, 0, 0);
-
-      const storedDate   = String(foundLead.dia_venta || '').slice(0, 10);
-      const newDate      = String(updateData.dia_venta || '').slice(0, 10);
-      const dateChanged  = storedDate !== newDate;
-      const isPending    = String(foundLead.status || '').toLowerCase() === 'pending';
-      const wasReleased  = foundLead.was_reserva === false;
-
-      if (diaVenta < today && dateChanged && isPending && !wasReleased) {
-        updateData.status      = 'reserva';
-        updateData.was_reserva = true;
-      }
-    }
-
-    // NUEVA REGLA: Si el status cambia manualmente a 'reserva', establecer was_reserva = true
-    // Esto asegura que CUALQUIER venta marcada como reserva quede bloqueada hasta liberación
-    if (updateData.status && updateData.status.toLowerCase() === 'reserva') {
-      updateData.was_reserva = true;
-    }
-
-    // IMPORTANTE: Si se está liberando explícitamente (was_reserva = false), permitirlo
-    // Esto solo debe venir del botón "Liberar de Reserva" con asignación de agente
-    if (updateData.was_reserva === false) {
-      // Permitir la liberación - no hacer nada adicional
-      // El frontend ya debe haber asignado el agente correspondiente
-    }
+    // (Regla de auto-reserva se aplica más abajo, después de localizar foundLead)
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
@@ -3410,6 +3379,29 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
       }
     } catch (e) {
       console.warn('[PUT /leads/:id] Error comprobando sourceCollection:', e && e.message);
+    }
+
+    // REGLA AUTO-RESERVA: aplicar DESPUÉS de localizar foundLead para evitar TDZ
+    if (updateData.dia_venta && foundLead) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diaVenta = new Date(updateData.dia_venta);
+      diaVenta.setHours(0, 0, 0, 0);
+
+      const storedDate  = String(foundLead.dia_venta || '').slice(0, 10);
+      const newDate     = String(updateData.dia_venta || '').slice(0, 10);
+      const dateChanged = storedDate !== newDate;
+      const isPending   = String(foundLead.status || '').toLowerCase() === 'pending';
+      const wasReleased = foundLead.was_reserva === false;
+
+      if (diaVenta < today && dateChanged && isPending && !wasReleased) {
+        updateData.status      = 'reserva';
+        updateData.was_reserva = true;
+      }
+    }
+    // Si el status cambia manualmente a 'reserva', marcar was_reserva
+    if (updateData.status && updateData.status.toLowerCase() === 'reserva') {
+      updateData.was_reserva = true;
     }
 
     // Ejecutar una sola actualización en la colección encontrada

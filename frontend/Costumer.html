@@ -2254,25 +2254,9 @@
       __socket.emit('register',{username:userData.username||userData.name,role:userRole});
       __socket.on('connect',function(){ document.dispatchEvent(new Event('crm-socket-ready')); });
       document.dispatchEvent(new Event('crm-socket-ready'));
-
-      // Notificación cuando otro agente agrega nota a lead propio
-      __socket.on('note-added',function(p){
-        showToast('Nueva nota en '+(p.clientName||'Cliente'),'ok');
-        showCRMNotif('nota',{ cliente:p.clientName, actor:p.author, detalle:'Agregó una nota al lead' });
-      });
-
-      // Solo admins/backoffice reciben estos eventos
-      var isAdmin=['admin','administrador','administrator','backoffice','back office','back_office','b.o','bo'].some(function(r){return userRole===r||userRole.includes(r);});
-      if(isAdmin){
-        __socket.on('lead-updated',function(p){
-          var detalle = p.tipo==='status' ? 'Cambió el status del lead' : p.tipo==='nota' ? 'Agregó una nota' : 'Editó la información del lead';
-          var extra   = p.tipo==='status'&&p.status ? 'Nuevo status: '+p.status : '';
-          showCRMNotif(p.tipo||'edicion',{ cliente:p.clientName, actor:p.actor, detalle:detalle, extra:extra });
-        });
-        __socket.on('lead-deleted',function(p){
-          showCRMNotif('deleted',{ cliente:'ID ...'+String(p.leadId||'').slice(-6), actor:p.actor, detalle:'Eliminó un lead del sistema' });
-        });
-      }
+      // Las notificaciones (note-added, lead-updated, lead-deleted, force-logout)
+      // son manejadas por crm-notifications.js (cargado via sidebar-loader).
+      // No registrar listeners duplicados aquí.
     }catch(e){console.warn('[SOCKET]',e);}
   }
 

@@ -3103,7 +3103,7 @@ function startServer(port) {
       if (identifier) {
         socket.userId = identifier; socket.userData = userData;
         socket.join(`user:${identifier}`);
-        if (role) socket.join(`role:${role}`);
+        if (role) socket.join(`role:${String(role).toLowerCase().trim()}`);
         if (!connectedUsers.has(identifier)) connectedUsers.set(identifier, new Set());
         connectedUsers.get(identifier).add(socket.id);
         console.log(`[SOCKET] Usuario registrado: ${identifier} | rol: ${role||'(sin rol)'} | rooms: user:${identifier}, role:${role||'-'}`);
