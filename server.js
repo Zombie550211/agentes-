@@ -1721,6 +1721,113 @@ app.get('/api/recent-activity', protect, async (req, res) => {
   }
 });
 
+/* ── GET /api/agent-history ── */
+app.get('/api/agent-history', protect, async (req, res) => {
+  try {
+    const dbInst = getDb();
+    if (!dbInst) return res.status(503).json({ success: false, message: 'BD no disponible' });
+
+    const user     = req.user;
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdmin  = ['admin','administrator','administrador','administradora','backoffice','bo'].some(r => userRole.includes(r));
+    const isSup    = userRole.includes('supervisor');
+    const isAgent  = userRole.includes('agente') || userRole.includes('agent');
+
+    let { agente, fechaInicio, fechaFin, limit: limitRaw } = req.query;
+    const limit = Math.min(parseInt(limitRaw) || 300, 500);
+
+    // Restricciones de acceso: agentes solo pueden ver los suyos
+    if (isAgent && !isAdmin && !isSup) agente = user.username;
+
+    // Fechas por defecto: último mes
+    const now = new Date();
+    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const dateFrom = fechaInicio ? new Date(fechaInicio + 'T00:00:00') : defaultStart;
+    const dateTo   = fechaFin    ? new Date(fechaFin   + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    // ── Actividades del agente (colección activities) ──
+    const actFilter = {
+      timestamp: { $gte: dateFrom, $lte: dateTo }
+    };
+    if (agente) {
+      actFilter.$or = [
+        { actor_username: agente },
+        { actor_username: new RegExp('^' + agente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ];
+    }
+    const rawActivities = await dbInst.collection('activities')
+      .find(actFilter)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray();
+
+    // ── Leads del agente (costumers_unified) para stats ──
+    const leadDateFilter = { $or: [
+      { creadoEn:          { $gte: dateFrom, $lte: dateTo } },
+      { createdAt:         { $gte: dateFrom, $lte: dateTo } },
+      { dia_venta:         { $gte: dateFrom.toISOString().slice(0,10), $lte: dateTo.toISOString().slice(0,10) } },
+      { fecha_contratacion:{ $gte: dateFrom, $lte: dateTo } }
+    ]};
+    const agentLeadFilter = agente ? { $and: [
+      leadDateFilter,
+      { $or: [
+        { agenteNombre: { $regex: new RegExp('^' + agente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } },
+        { agente:       { $regex: new RegExp('^' + agente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } },
+        { usuario:      { $regex: new RegExp('^' + agente.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } }
+      ]}
+    ]} : leadDateFilter;
+
+    const leads = await dbInst.collection('costumers_unified')
+      .find(agentLeadFilter)
+      .project({ _id:1, nombre_cliente:1, status:1, servicios:1, tipo_servicios:1, puntaje:1, agenteNombre:1, creadoEn:1, createdAt:1, dia_venta:1 })
+      .limit(1000)
+      .toArray();
+
+    // ── Stats ──
+    const totalActividades = rawActivities.length;
+    const ventasCerradas   = leads.filter(l => normalizeStatus(l.status) === 'completed').length;
+    const leadsCreados     = rawActivities.filter(a => ['Lead creado','Venta ingresada'].includes(a.activity_type)).length;
+    const cancelaciones    = leads.filter(l => normalizeStatus(l.status) === 'cancelled').length;
+    const puntajeTotal     = leads.reduce((s, l) => s + (parseFloat(l.puntaje) || 0), 0);
+
+    // ── Formatear actividades ──
+    const actividades = rawActivities.map(a => ({
+      id:           a._id,
+      tipo:         a.activity_type || 'Acción',
+      cliente:      a.lead_client_name || '—',
+      descripcion:  a.description || '',
+      agente:       a.actor_username || agente || '—',
+      rol:          a.actor_role || '',
+      fecha:        a.timestamp,
+      extra:        { campos: a.campos, new_status: a.new_status, old_status: a.old_status }
+    }));
+
+    // ── Agrupar por día ──
+    const byDay = {};
+    actividades.forEach(a => {
+      const d = new Date(a.fecha);
+      const key = d.toISOString().slice(0, 10);
+      if (!byDay[key]) byDay[key] = [];
+      byDay[key].push(a);
+    });
+    const porDia = Object.entries(byDay)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([fecha, items]) => ({ fecha, total: items.length, items }));
+
+    res.json({
+      success: true,
+      agente: agente || null,
+      periodo: { desde: dateFrom.toISOString().slice(0,10), hasta: dateTo.toISOString().slice(0,10) },
+      resumen: { totalActividades, ventasCerradas, leadsCreados, cancelaciones, puntajeTotal: +puntajeTotal.toFixed(2) },
+      porDia,
+      actividades
+    });
+  } catch (e) {
+    console.error('[AGENT-HISTORY]', e);
+    res.status(500).json({ success: false, message: 'Error al cargar historial', error: e.message });
+  }
+});
+
 // ── LLAMADAS Y VENTAS ─────────────────────────────────────────
 app.get('/api/llamadas-ventas', protect, async (req, res) => {
   try {
