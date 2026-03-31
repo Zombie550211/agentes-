@@ -840,7 +840,7 @@
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
-      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/historial-agentes.html' },
+      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/historial-agentes.html', adminOnly: true },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/Reglas.html' },
       { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/Premios.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },

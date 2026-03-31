@@ -316,6 +316,16 @@
   </main>
 </div>
 
+<script>
+(function () {
+  try {
+    const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const role = String(u.role || '').toLowerCase().trim();
+    const allowed = ['admin','administrator','administrador','administradora','backoffice','bo','supervisor'];
+    if (!allowed.some(r => role.includes(r))) window.location.replace('/inicio.html');
+  } catch (_) { window.location.replace('/inicio.html'); }
+})();
+</script>
 <script src="/js/logout-handler.js"></script>
 <script src="/js/user-info.js"></script>
 <script src="js/sidebar-loader.js"></script>
