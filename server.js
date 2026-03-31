@@ -1762,11 +1762,11 @@ app.get('/api/agent-history', protect, async (req, res) => {
       .toArray();
 
     // ── Leads del agente (costumers_unified) para stats ──
+    // Solo usamos creadoEn/createdAt para reflejar cuándo el agente realmente creó el lead,
+    // evitando que dia_venta o fecha_contratacion jalaran leads de otros períodos.
     const leadDateFilter = { $or: [
-      { creadoEn:          { $gte: dateFrom, $lte: dateTo } },
-      { createdAt:         { $gte: dateFrom, $lte: dateTo } },
-      { dia_venta:         { $gte: dateFrom.toISOString().slice(0,10), $lte: dateTo.toISOString().slice(0,10) } },
-      { fecha_contratacion:{ $gte: dateFrom, $lte: dateTo } }
+      { creadoEn:  { $gte: dateFrom, $lte: dateTo } },
+      { createdAt: { $gte: dateFrom, $lte: dateTo } }
     ]};
     const agentLeadFilter = agente ? { $and: [
       leadDateFilter,
