@@ -148,6 +148,9 @@ const SCORING_TABLE = {
   'internet-viasat': {
     base: 0.75
   },
+  'internet-starlink': {
+    base: 0.35
+  },
   // Consolidated Communications / Fidium (por velocidad)
   'internet-consolidate-2g': { base: 1.25 },
   'internet-consolidate-1g': { base: 1.25 },
