@@ -948,6 +948,11 @@
           if (serviceKey === 'XFINITY 1G') return 1.0;
           if (serviceKey === 'XFINITY 500' || serviceKey === 'XFINITY 300') return 0.85;
         }
+        // Regla especial: XFINITY solo internet (puntaje según velocidad)
+        if (tipoServicio === 'XFINITY') {
+          if (serviceKey === 'XFINITY 1G') return 0.75;
+          if (serviceKey === 'XFINITY 500') return 0.60;
+        }
         
         const serviceConfig = SCORING_TABLE[serviceKey];
         if (!serviceConfig) return 0;
