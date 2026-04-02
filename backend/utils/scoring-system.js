@@ -66,7 +66,10 @@ const SCORING_TABLE = {
   'xfinity-500-plus': {
     base: 0.75
   },
-  'xfinity-double-play': {
+  'xfinity-double-play-500': {
+    base: 0.85
+  },
+  'xfinity-double-play-1g': {
     base: 1.00
   },
   'xfinity-ultimate-tv': {

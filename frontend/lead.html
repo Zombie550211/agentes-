@@ -943,10 +943,10 @@
       calculateScore: function(serviceKey, riskLevel, tipoServicio) {
         if (!serviceKey) return 0;
         
-        // Regla especial: XFINITY + DOUBLE PLAY = 1.0
-        const isXfinity = serviceKey === 'XFINITY 300' || serviceKey === 'XFINITY 500' || serviceKey === 'XFINITY 1G';
-        if (isXfinity && tipoServicio === 'DOUBLE PLAY') {
-          return 1.0;
+        // Regla especial: XFINITY + DOUBLE PLAY (puntaje según velocidad)
+        if (tipoServicio === 'DOUBLE PLAY') {
+          if (serviceKey === 'XFINITY 1G') return 1.0;
+          if (serviceKey === 'XFINITY 500' || serviceKey === 'XFINITY 300') return 0.85;
         }
         
         const serviceConfig = SCORING_TABLE[serviceKey];
