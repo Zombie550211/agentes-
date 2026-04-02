@@ -23,7 +23,7 @@ const mongoose = require('mongoose');
 const { ObjectId, GridFSBucket } = require('mongodb');
 const { Server }   = require('socket.io');
 const { Readable } = require('stream');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 if (process.env.NODE_ENV !== 'production') {
   dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -3167,7 +3167,7 @@ app.post('/api/admin/force-logout-all', protect, authorize('Administrador','admi
   }
 });
 
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: `Endpoint no encontrado: ${req.method} ${req.path}` });
   }
