@@ -1,17 +1,28 @@
-<nav class="sidebar sidebar-inicio" data-active="admin">
+<nav class="sidebar sidebar-inicio" data-active="admin" id="main-sidebar">
+
   <!-- Usuario -->
   <div class="user-info">
-    <div class="user-details">
-      <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
-        <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
-          <span class="user-avatar">U</span>
-        </div>
+    <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
+      <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
+        <span class="user-avatar">U</span>
       </div>
+      <span class="sb-status-dot"></span>
+    </div>
+    <div class="sb-user-text">
       <div id="user-name" class="user-name">Usuario</div>
       <div class="user-role-container">
         <span id="user-role" class="user-role-badge">Rol</span>
       </div>
     </div>
+    <button class="sb-collapse-btn" id="sb-collapse-btn" title="Colapsar menú">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+  </div>
+
+  <!-- Búsqueda -->
+  <div class="sb-search">
+    <i class="fas fa-search"></i>
+    <input type="text" id="sb-search-input" placeholder="Buscar...">
   </div>
 
   <!-- Menú principal -->
@@ -27,38 +38,89 @@
     <li><a href="Tabla de puntaje.html" class="btn btn-sidebar" title="Tabla de puntaje"><i class="fas fa-list"></i><span class="menu-label">Tabla de puntaje</span></a></li>
     <li><a href="multimedia.html" class="btn btn-sidebar" title="Multimedia"><i class="fas fa-photo-video"></i><span class="menu-label">Multimedia</span></a></li>
     <li><a href="empleado-del-mes.html" class="btn btn-sidebar" title="Empleado del Mes"><i class="fas fa-award"></i><span class="menu-label">Empleado del Mes</span></a></li>
-<li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
+    <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout" title="Cerrar sesión"><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar sesión</span></a></li>
   </ul>
 
-  <!-- Frase al pie -->
-  <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
+  <!-- Theme toggle -->
+  <div class="sb-theme-toggle" id="sb-theme-toggle">
+    <button class="sb-theme-opt active" data-theme="light" id="sb-light-btn">
+      <i class="fas fa-sun"></i><span>Light</span>
+    </button>
+    <button class="sb-theme-opt" data-theme="dark" id="sb-dark-btn">
+      <i class="fas fa-moon"></i><span>Dark</span>
+    </button>
+  </div>
+
 </nav>
 
 <script>
-  // Verificar rol y mostrar/ocultar elementos del menú según rol
-  (function() {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      const roleRaw = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
+(function() {
+  try {
+    /* ── Rol y permisos ── */
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const roleRaw = (userData.role || userData?.usuario?.role || '').toString().toLowerCase().trim();
 
-      // Costumer Líneas: Administrador y Back office
-      const costumerLineasMenu = document.getElementById('costumer-lineas-menu');
-      if (costumerLineasMenu) {
-        const allowedLineas = new Set([
-          'admin','administrador','administrator',
-          'backoffice','back office','back_office','bo','b.o','b:o','b-o'
-        ]);
-        costumerLineasMenu.style.display = allowedLineas.has(roleRaw) ? 'block' : 'none';
-      }
-
-      // Permisos: solo Administrador
-      const menuPermisos = document.getElementById('menu-permisos');
-      if (menuPermisos) {
-        const adminRoles = new Set(['admin','administrador','administrator']);
-        menuPermisos.style.display = adminRoles.has(roleRaw) ? 'block' : 'none';
-      }
-    } catch (error) {
-      console.warn('[Sidebar] Error verificando rol para menú:', error);
+    const costumerLineasMenu = document.getElementById('costumer-lineas-menu');
+    if (costumerLineasMenu) {
+      const allowedLineas = new Set(['admin','administrador','administrator','backoffice','back office','back_office','bo','b.o','b:o','b-o']);
+      costumerLineasMenu.style.display = allowedLineas.has(roleRaw) ? 'block' : 'none';
     }
-  })();
+
+    const menuPermisos = document.getElementById('menu-permisos');
+    if (menuPermisos) {
+      const adminRoles = new Set(['admin','administrador','administrator']);
+      menuPermisos.style.display = adminRoles.has(roleRaw) ? 'block' : 'none';
+    }
+
+    /* ── Botón colapsar ── */
+    const sidebar  = document.getElementById('main-sidebar');
+    const colBtn   = document.getElementById('sb-collapse-btn');
+    const COLLAPSED_KEY = 'sb_collapsed';
+
+    function applyCollapsed(collapsed) {
+      sidebar.classList.toggle('sb-collapsed', collapsed);
+      try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0'); } catch(e) {}
+    }
+
+    if (colBtn && sidebar) {
+      const savedCollapsed = localStorage.getItem(COLLAPSED_KEY) === '1';
+      applyCollapsed(savedCollapsed);
+      colBtn.addEventListener('click', () => applyCollapsed(!sidebar.classList.contains('sb-collapsed')));
+    }
+
+    /* ── Búsqueda ── */
+    const searchInput = document.getElementById('sb-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('#main-sidebar .menu li').forEach(li => {
+          const label = li.querySelector('.menu-label');
+          if (!label) return;
+          li.style.display = label.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+      });
+    }
+
+    /* ── Theme toggle ── */
+    const lightBtn = document.getElementById('sb-light-btn');
+    const darkBtn  = document.getElementById('sb-dark-btn');
+
+    function applyTheme(dark) {
+      document.body.classList.toggle('dark-theme', dark);
+      try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch(e) {}
+      if (lightBtn) lightBtn.classList.toggle('active', !dark);
+      if (darkBtn)  darkBtn.classList.toggle('active',  dark);
+    }
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(savedTheme === 'dark' || (!savedTheme && prefersDark));
+
+    if (lightBtn) lightBtn.addEventListener('click', () => applyTheme(false));
+    if (darkBtn)  darkBtn.addEventListener('click',  () => applyTheme(true));
+
+  } catch (error) {
+    console.warn('[Sidebar] Error:', error);
+  }
+})();
 </script>
