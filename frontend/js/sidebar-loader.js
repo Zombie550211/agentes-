@@ -896,7 +896,7 @@
         const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
         return `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
           <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
-          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
         </div><div class="submenu" id="clientes-submenu">
           ${submenuHTML}
         </div>`;
@@ -933,7 +933,7 @@
         html += `<div class="nav-block mov collapsible">
           <div class="block-header clickable" id="moviles-toggle">
             <span class="block-label">Servicios Móviles</span>
-            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="moviles-submenu" id="moviles-submenu">`;
         movilesItems.forEach(item => {
