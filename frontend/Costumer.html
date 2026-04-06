@@ -1662,15 +1662,15 @@
   /* ── COLCHÓN DETECTION ── */
   function isColchonLead(lead, refMonthStr){
     try{
-      // Si no se pasa referencia, usar el mes del filtro activo o el mes actual
-      if(!refMonthStr){
-        const sel=document.getElementById('monthFilter');
-        refMonthStr=sel&&sel.value?sel.value:(function(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');})();
-      }
       const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
       if(!dv||!di)return false;
-      return dv!==refMonthStr&&di===refMonthStr;
+      if(refMonthStr){
+        // Con filtro de mes activo: instalado ese mes pero vendido en mes anterior
+        return dv!==refMonthStr&&di===refMonthStr;
+      }
+      // Sin filtro de mes: colchón si vendido en mes diferente (anterior) a la instalación
+      return dv<di;
     }catch(_){return false;}
   }
   function isColchonActivo(lead, refMonthStr){
@@ -1842,8 +1842,8 @@
     const d=new Date(),padZ=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+padZ(d.getMonth()+1)+'-'+padZ(d.getDate());
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
-    // Mes de referencia para detectar colchón: el filtro activo o el mes actual
-    const refMes=month||curMon;
+    // Mes de referencia para detectar colchón: el filtro activo, o null (sin filtro = comparar fechas del lead)
+    const refMes=month||null;
     // Recalcular _es_colchon de cada lead según el mes de referencia
     __allLeadsData.forEach(function(lead){lead._es_colchon=isColchonLead(lead,refMes);});
 
@@ -1976,7 +1976,7 @@
   }
 
   /* ── STATUS CONFIG ── */
-  const STATUS_CFG={completed:{label:'Active',cls:'badge-active'},active:{label:'Active',cls:'badge-active'},oficina:{label:'Oficina',cls:'badge-active'},pending:{label:'Pending',cls:'badge-pending'},reserva:{label:'Reserva',cls:'badge-pending'},cancelled:{label:'Cancelled',cls:'badge-cancelled'},hold:{label:'Hold',cls:'badge-hold'},rescheduled:{label:'Rescheduled',cls:'badge-hold'}};
+  const STATUS_CFG={completed:{label:'Completed',cls:'badge-active'},active:{label:'Completed',cls:'badge-active'},oficina:{label:'Oficina',cls:'badge-active'},pending:{label:'Pending',cls:'badge-pending'},reserva:{label:'Reserva',cls:'badge-pending'},cancelled:{label:'Cancelled',cls:'badge-cancelled'},hold:{label:'Hold',cls:'badge-hold'},rescheduled:{label:'Rescheduled',cls:'badge-hold'}};
 
   function badgeHTML(status,isColchon){if(isColchon){return'<span class="badge badge-colchon">🛏 Colchón</span>';}const cfg=STATUS_CFG[status]||{label:status,cls:'badge-hold'};return'<span class="badge '+cfg.cls+'">'+escHTML(cfg.label)+'</span>';}
 
