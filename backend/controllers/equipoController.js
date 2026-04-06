@@ -279,13 +279,46 @@ async function obtenerEstadisticasEquipos(req, res) {
         ] } },
         BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
         Total: { $sum: 1 },
-        Puntaje: { $sum: '$puntajeNum' },
+        // VALIDAS = solo pending + completed/active (excluye cancelled, hold, rescheduled, etc.)
+        VALIDAS: { $sum: { $cond: [
+          { $or: [
+            { $eq: ['$statusNorm', 'pending'] },
+            { $eq: ['$statusNorm', 'pendiente'] },
+            { $eq: ['$statusNorm', 'completed'] },
+            { $eq: ['$statusNorm', 'completado'] },
+            { $eq: ['$statusNorm', 'active'] },
+            { $eq: ['$statusNorm', 'activo'] },
+            { $eq: ['$statusNorm', 'finalizado'] },
+            { $eq: ['$statusNorm', 'vendido'] },
+            { $eq: ['$activated', true] },
+            { $eq: ['$sold', true] },
+            { $eq: ['$vendido', true] }
+          ] },
+          1, 0
+        ] } },
+        // Puntaje solo de leads válidos (pending + completed/active)
+        Puntaje: { $sum: { $cond: [
+          { $or: [
+            { $eq: ['$statusNorm', 'pending'] },
+            { $eq: ['$statusNorm', 'pendiente'] },
+            { $eq: ['$statusNorm', 'completed'] },
+            { $eq: ['$statusNorm', 'completado'] },
+            { $eq: ['$statusNorm', 'active'] },
+            { $eq: ['$statusNorm', 'activo'] },
+            { $eq: ['$statusNorm', 'finalizado'] },
+            { $eq: ['$statusNorm', 'vendido'] },
+            { $eq: ['$activated', true] },
+            { $eq: ['$sold', true] },
+            { $eq: ['$vendido', true] }
+          ] },
+          '$puntajeNum', 0
+        ] } },
         PuntajeICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, '$puntajeNum', 0 ] } },
         PuntajeBAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, '$puntajeNum', 0 ] } }
       }
     });
 
-  pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
+  pipeline.push({ $project: { _id: 0, TEAM: '$_id', ICON: 1, ACTIVAS: 1, VALIDAS: 1, BAMO: 1, Total: 1, Puntaje: 1, PuntajeICON: 1, PuntajeBAMO: 1 } });
     pipeline.push({ $sort: { TEAM: 1 } });
     
     const preferUnified = String(legacy) !== '1';
