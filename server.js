@@ -2837,10 +2837,13 @@ app.get('/api/leads', protect, async (req, res) => {
       .limit(Math.min(parseInt(limit, 10) || 5000, maxLimit))
       .toArray();
 
-    const now    = new Date();
+    // Usar la fecha del filtro como referencia para colchón (no "hoy")
+    // Si el usuario ve marzo, los leads con dia_instalacion=marzo son colchón de marzo
+    const now       = new Date();
+    const refDate   = (fechaInicio && fechaFin) ? new Date(fechaFin) : now;
     const result = leads.map(lead => {
-      // _es_colchon = true solo si tiene patron de colchon Y status completed
-      const col = isColchonActivo(lead, now);
+      // _es_colchon = true si el patrón colchón aplica para el período consultado
+      const col = isColchonActivo(lead, refDate);
       // Asegurar que _id siempre llegue como string al frontend
       const base = { ...lead, _id: lead._id?.toString() || '' };
       return col ? { ...base, _es_colchon: true } : base;
@@ -2906,9 +2909,10 @@ app.get('/api/rankings-leads', protect, async (req, res) => {
       .limit(Math.min(parseInt(limit, 10) || 5000, 10000))
       .toArray();
 
-    const now    = new Date();
+    const now     = new Date();
+    const refDate = (fechaInicio && fechaFin) ? new Date(fechaFin) : now;
     const result = leads.map(lead => {
-      const col = isColchon(lead, now);
+      const col = isColchon(lead, refDate);
       return col ? { ...lead, _es_colchon: true } : lead;
     });
 

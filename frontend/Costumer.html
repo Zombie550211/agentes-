@@ -1660,18 +1660,21 @@
   function pickField(obj,keys,fallback){if(!obj)return fallback!==undefined?fallback:'';for(let i=0;i<keys.length;i++){const v=obj[keys[i]];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return fallback!==undefined?fallback:'';}
 
   /* ── COLCHÓN DETECTION ── */
-  function isColchonLead(lead){
+  function isColchonLead(lead, refMonthStr){
     try{
-      const now=new Date();
-      const curMonthStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+      // Si no se pasa referencia, usar el mes del filtro activo o el mes actual
+      if(!refMonthStr){
+        const sel=document.getElementById('monthFilter');
+        refMonthStr=sel&&sel.value?sel.value:(function(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');})();
+      }
       const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
       if(!dv||!di)return false;
-      return dv!==curMonthStr&&di===curMonthStr;
+      return dv!==refMonthStr&&di===refMonthStr;
     }catch(_){return false;}
   }
-  function isColchonActivo(lead){
-    return isColchonLead(lead) && (normalizeStatus(lead.status)==='completed'||normalizeStatus(lead.status)==='active');
+  function isColchonActivo(lead, refMonthStr){
+    return isColchonLead(lead, refMonthStr) && (normalizeStatus(lead.status)==='completed'||normalizeStatus(lead.status)==='active');
   }
 
   function extractMongoId(it, idx) {
@@ -1839,6 +1842,10 @@
     const d=new Date(),padZ=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+padZ(d.getMonth()+1)+'-'+padZ(d.getDate());
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
+    // Mes de referencia para detectar colchón: el filtro activo o el mes actual
+    const refMes=month||curMon;
+    // Recalcular _es_colchon de cada lead según el mes de referencia
+    __allLeadsData.forEach(function(lead){lead._es_colchon=isColchonLead(lead,refMes);});
 
     // ── DEBUG: log de datos del usuario logueado (solo en desarrollo) ──
     if(isSup) {
