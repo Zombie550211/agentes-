@@ -1736,7 +1736,7 @@
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
       };
-      if(!lead._es_colchon) lead._es_colchon=isColchonLead(lead);
+      if(!lead._es_colchon){const st=normalizeStatus(lead.status);lead._es_colchon=isColchonLead(lead)&&(st==='completed'||st==='active');}
       return lead;
     });
   }
@@ -1844,8 +1844,13 @@
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
     // Mes de referencia para detectar colchón: el filtro activo, o null (sin filtro = comparar fechas del lead)
     const refMes=month||null;
-    // Recalcular _es_colchon de cada lead según el mes de referencia
-    __allLeadsData.forEach(function(lead){lead._es_colchon=isColchonLead(lead,refMes);});
+    // Recalcular _es_colchon: solo si es colchón por fechas Y status completed/active
+    // Los leads cancelados/pending muestran su status real, no el badge colchón
+    __allLeadsData.forEach(function(lead){
+      const st=normalizeStatus(lead.status);
+      const isActive=st==='completed'||st==='active';
+      lead._es_colchon=isColchonLead(lead,refMes)&&isActive;
+    });
 
     // ── DEBUG: log de datos del usuario logueado (solo en desarrollo) ──
     if(isSup) {
