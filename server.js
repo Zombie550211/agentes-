@@ -1802,11 +1802,16 @@ app.get('/api/agent-history', protect, async (req, res) => {
       extra:        { campos: a.campos, new_status: a.new_status, old_status: a.old_status }
     }));
 
-    // ── Agrupar por día ──
+    // ── Agrupar por día (fecha local del servidor, no UTC) ──
     const byDay = {};
     actividades.forEach(a => {
       const d = new Date(a.fecha);
-      const key = d.toISOString().slice(0, 10);
+      // Usar fecha local para evitar desfase de zona horaria UTC vs local
+      const key = [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0')
+      ].join('-');
       if (!byDay[key]) byDay[key] = [];
       byDay[key].push(a);
     });
@@ -1817,7 +1822,10 @@ app.get('/api/agent-history', protect, async (req, res) => {
     res.json({
       success: true,
       agente: agente || null,
-      periodo: { desde: dateFrom.toISOString().slice(0,10), hasta: dateTo.toISOString().slice(0,10) },
+      periodo: {
+        desde: [dateFrom.getFullYear(), String(dateFrom.getMonth()+1).padStart(2,'0'), String(dateFrom.getDate()).padStart(2,'0')].join('-'),
+        hasta: [dateTo.getFullYear(),   String(dateTo.getMonth()+1).padStart(2,'0'),   String(dateTo.getDate()).padStart(2,'0')].join('-')
+      },
       resumen: { totalActividades, ventasCerradas, leadsCreados, cancelaciones, puntajeTotal: +puntajeTotal.toFixed(2) },
       porDia,
       actividades
@@ -2987,8 +2995,6 @@ app.post('/api/upload', protect, (req, res, next) => {
 }, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No se recibió archivo' });
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
 
     let category = (req.body?.category || req.query.category || req.headers['x-media-category'] || 'image').toLowerCase();
     if (req.file.mimetype === 'image/gif')      category = 'gif';
@@ -3018,8 +3024,20 @@ app.post('/api/upload', protect, (req, res, next) => {
 
     const now = new Date();
     const doc = { filename: req.file.filename, originalName: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, path: req.file.path, url: fileUrl, cloudinaryPublicId, source, uploadedBy: req.user.username, category, uploadDate: now, createdAt: now, updatedAt: now };
-    const inserted = await db.collection('mediafiles').insertOne(doc);
-    return res.json({ success: true, message: 'Archivo subido', file: { id: inserted.insertedId, name: doc.originalName, url: doc.url, type: doc.mimetype, size: doc.size, category: doc.category, uploadDate: doc.uploadDate, source: doc.source } });
+
+    // Guardar metadata en BD si está disponible (no bloquea si BD está caída)
+    let insertedId = null;
+    try {
+      if (!db) db = getDb();
+      if (db) {
+        const inserted = await db.collection('mediafiles').insertOne(doc);
+        insertedId = inserted.insertedId;
+      }
+    } catch (dbErr) {
+      console.warn('[UPLOAD] No se pudo guardar metadata en BD:', dbErr?.message);
+    }
+
+    return res.json({ success: true, message: 'Archivo subido', file: { id: insertedId, name: doc.originalName, url: doc.url, type: doc.mimetype, size: doc.size, category: doc.category, uploadDate: doc.uploadDate, source: doc.source } });
   } catch (e) {
     console.error('[UPLOAD]', e);
     if (req.file && fs.existsSync(req.file.path)) try { fs.unlinkSync(req.file.path); } catch (_) {}

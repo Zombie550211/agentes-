@@ -274,6 +274,15 @@
         } catch (_) { /* ignore */ }
       }
 
+      // Cargar dark-mode.css global
+      const darkModeHref = '/css/dark-mode.css?v=20260405';
+      if (!DOC.querySelector('link[rel="stylesheet"][href*="dark-mode.css"]')) {
+        const dmLink = DOC.createElement('link');
+        dmLink.rel = 'stylesheet';
+        dmLink.href = darkModeHref;
+        DOC.head.appendChild(dmLink);
+      }
+
       const hasFA = !!DOC.querySelector('link[rel="stylesheet"][href*="font-awesome"], link[rel="stylesheet"][href*="fontawesome"], link[rel="stylesheet"][href*="cdnjs.cloudflare.com/ajax/libs/font-awesome"]');
       if (!hasFA) {
         const fa = DOC.createElement('link');
@@ -653,8 +662,8 @@
 
       <div class="sidebar-footer">
         <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
-          <i class="fas fa-cog"></i>
-          <span class="item-label">Cambiar Tema</span>
+          <i class="fas fa-moon"></i>
+          <span class="item-label" id="theme-switcher-label">Modo Oscuro</span>
         </button>
         <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
@@ -1627,11 +1636,18 @@
     const icon = themeSwitcherBtn.querySelector('i');
 
     // Función para aplicar el tema
+    const labelEl = document.getElementById('theme-switcher-label');
     const applyTheme = (theme) => {
       if (theme === 'dark') {
         body.classList.add('dark-theme');
+        if (icon) { icon.className = 'fas fa-sun'; }
+        if (labelEl) labelEl.textContent = 'Modo Claro';
+        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo claro';
       } else {
         body.classList.remove('dark-theme');
+        if (icon) { icon.className = 'fas fa-moon'; }
+        if (labelEl) labelEl.textContent = 'Modo Oscuro';
+        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo oscuro';
       }
     };
 

@@ -60,8 +60,8 @@ router.get('/', async (req, res) => {
       employee: d.employee, // 'first' | 'second'
       name: d.name || '',
       description: d.description || '',
-      imageUrl: validateLocalUploadsUrl(d.imageUrl || ''),
-      imageData: d.imageData || null,
+      imageUrl: normalizeUrl(d.imageUrl || ''),
+      imageData: d.imageData ? normalizeUrl(d.imageData) : null,
       date: d.date || null,
       updatedAt: d.updatedAt || null
     }));
