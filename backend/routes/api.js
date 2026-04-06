@@ -5338,7 +5338,8 @@ router.get('/users/admin-list', protect, async (req, res) => {
       supervisor_id: (u.supervisor_id && u.supervisor_id.toString) ? u.supervisor_id.toString() : (u.supervisor_id || null),
       supervisorObjId: (u.supervisorObjId && u.supervisorObjId.toString) ? u.supervisorObjId.toString() : (u.supervisorObjId || null),
       supervisorObjectId: (u.supervisorObjectId && u.supervisorObjectId.toString) ? u.supervisorObjectId.toString() : (u.supervisorObjectId || null),
-      permissions: Array.isArray(u.permissions) ? u.permissions : []
+      permissions: Array.isArray(u.permissions) ? u.permissions : [],
+      createdAt: u.createdAt || null
     }));
 
     return res.json({ success: true, users: sanitized, agents: sanitized });
