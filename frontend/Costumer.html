@@ -476,7 +476,8 @@
     .btn-save:hover { background:var(--a-dark); box-shadow:0 4px 14px rgba(108,71,255,.4); }
     .btn-save:disabled { background:var(--ink-4); box-shadow:none; cursor:not-allowed; opacity:.6; }
 
-    .status-td { padding: 6px 10px !important; vertical-align: middle; }
+    .status-td { padding: 6px 10px !important; vertical-align: middle; display: table-cell; }
+    .status-td .badge + .badge { display: block; margin-top: 3px; }
     .status-inline-select {
       font-family: var(--f); font-size: .66rem; font-weight: 700;
       border-radius: var(--rf); border: 1px solid;
@@ -1983,19 +1984,23 @@
   /* ── STATUS CONFIG ── */
   const STATUS_CFG={completed:{label:'Completed',cls:'badge-active'},active:{label:'Completed',cls:'badge-active'},oficina:{label:'Oficina',cls:'badge-active'},pending:{label:'Pending',cls:'badge-pending'},reserva:{label:'Reserva',cls:'badge-pending'},cancelled:{label:'Cancelled',cls:'badge-cancelled'},hold:{label:'Hold',cls:'badge-hold'},rescheduled:{label:'Rescheduled',cls:'badge-hold'}};
 
-  function badgeHTML(status,isColchon){if(isColchon){return'<span class="badge badge-colchon">🛏 Colchón</span>';}const cfg=STATUS_CFG[status]||{label:status,cls:'badge-hold'};return'<span class="badge '+cfg.cls+'">'+escHTML(cfg.label)+'</span>';}
+  function badgeHTML(status,isColchon){
+    const cfg=STATUS_CFG[status]||{label:status,cls:'badge-hold'};
+    const statusBadge='<span class="badge '+cfg.cls+'">'+escHTML(cfg.label)+'</span>';
+    if(isColchon){return statusBadge+'<span class="badge badge-colchon" style="margin-top:3px;font-size:.6rem;padding:1px 6px;">🛏 Colchón</span>';}
+    return statusBadge;
+  }
 
   function statusCellHTML(leadId,currentStatus,isColchon){
     const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
     if(!isAdminOrBackoffice(role))return badgeHTML(currentStatus,isColchon);
     const lidStr=String(leadId);
     const cfg=STATUS_CFG[currentStatus]||{cls:'badge-hold'};
-    const allOpts=isColchon
-      ? [{value:'completed',label:'Completed ✓'},{value:'cancelled',label:'Cancelled'},{value:'pending',label:'Pending'},{value:'hold',label:'Hold'}]
-      : [{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}];
+    const allOpts=[{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}];
     const opts=allOpts.map(function(o){return'<option value="'+o.value+'"'+(o.value===currentStatus?' selected':'')+'>'+o.label+'</option>';}).join('');
     const colchonAttr=isColchon?' data-is-colchon="1"':'';
-    return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'"'+colchonAttr+' onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>';
+    const colchonChip=isColchon?'<span class="badge badge-colchon" style="margin-top:3px;font-size:.6rem;padding:1px 6px;display:block;">🛏 Colchón</span>':'';
+    return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'"'+colchonAttr+' onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>'+colchonChip;
   }
 
   /* ── TABLE ROWS ── */
