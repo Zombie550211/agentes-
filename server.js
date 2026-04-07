@@ -2418,57 +2418,47 @@ app.get('/api/comments', async (req, res) => {
 app.get('/api/phones-unified', protect, async (req, res) => {
   try {
     if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    
-    const { month, year } = req.query;
+
+    const { month, year, source } = req.query;
+    // source: 'residencial' → solo costumers_unified
+    //         'lineas'      → solo TEAM_LINEAS
+    //         omitido       → ambas (comportamiento legacy)
+    const useResidencial = !source || source === 'residencial';
+    const useLineas      = !source || source === 'lineas';
+
     let dateFilter = {};
-    
-    // Si se proporciona mes y año, filtrar por dia_venta
     if (month && year) {
       const monthNum = parseInt(month, 10);
-      const yearNum = parseInt(year, 10);
-      
-      // Crear rango de fechas para el mes especificado
+      const yearNum  = parseInt(year,  10);
       const startDate = new Date(yearNum, monthNum - 1, 1);
-      const endDate = new Date(yearNum, monthNum, 1);
-      
-      dateFilter = {
-        dia_venta: { $gte: startDate, $lt: endDate }
-      };
+      const endDate   = new Date(yearNum, monthNum, 1);
+      dateFilter = { dia_venta: { $gte: startDate, $lt: endDate } };
     }
-    
-    // Obtener teléfonos de la colección costumers_unified en BD crmagente
-    const mainDb = getDb(); // BD crmagente
     const query = dateFilter.dia_venta ? dateFilter : {};
-    
-    const unifiedPhones = await mainDb.collection('costumers_unified')
-      .find({ 
-        ...query,
-        telefono_principal: { $exists: true, $ne: null, $ne: '' } 
-      })
-      .project({ telefono_principal: 1, nombre_cliente: 1, dia_venta: 1, status: 1 })
-      .toArray();
 
-    // Obtener teléfonos de TODAS las colecciones en la BD TEAM_LINEAS
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    const collections = await teamLineasDb.listCollections().toArray();
-    let teamLineasPhones = [];
-    
-    for (const collectionInfo of collections) {
-      const collectionName = collectionInfo.name;
-      const phones = await teamLineasDb.collection(collectionName)
-        .find({ 
-          ...query,
-          telefono_principal: { $exists: true, $ne: null, $ne: '' } 
-        })
+    let unifiedPhones = [];
+    if (useResidencial) {
+      const mainDb = getDb();
+      unifiedPhones = await mainDb.collection('costumers_unified')
+        .find({ ...query, telefono_principal: { $exists: true, $ne: null, $ne: '' } })
         .project({ telefono_principal: 1, nombre_cliente: 1, dia_venta: 1, status: 1 })
         .toArray();
-      teamLineasPhones = teamLineasPhones.concat(phones);
     }
 
-    // Combinar ambas listas
-    const allPhones = [...unifiedPhones, ...teamLineasPhones];
+    let teamLineasPhones = [];
+    if (useLineas) {
+      const teamLineasDb = getDbFor('TEAM_LINEAS');
+      const collections = await teamLineasDb.listCollections().toArray();
+      for (const collectionInfo of collections) {
+        const phones = await teamLineasDb.collection(collectionInfo.name)
+          .find({ ...query, telefono_principal: { $exists: true, $ne: null, $ne: '' } })
+          .project({ telefono_principal: 1, nombre_cliente: 1, dia_venta: 1, status: 1 })
+          .toArray();
+        teamLineasPhones = teamLineasPhones.concat(phones);
+      }
+    }
 
-    return res.json({ success: true, phones: allPhones });
+    return res.json({ success: true, source: source || 'both', phones: [...unifiedPhones, ...teamLineasPhones] });
   } catch (e) {
     console.error('[API /api/phones-unified]', e);
     return res.status(500).json({ success: false, message: 'Error obteniendo teléfonos', error: e.message });

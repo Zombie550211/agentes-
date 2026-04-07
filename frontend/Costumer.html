@@ -1411,6 +1411,20 @@
         <!-- Telefonos Mode -->
         <div id="cuad-mode-telefonos" style="display:none;">
           <div id="cuadratura-telefonos-input-panel">
+            <!-- Fuente de datos -->
+            <div class="form-group" style="margin-bottom:12px;">
+              <label class="form-label" style="font-size:.75rem;font-weight:600;margin-bottom:6px;display:block;">Fuente de datos</label>
+              <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;">
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;background:var(--sheet);border-right:1px solid var(--line-1);font-size:.78rem;font-weight:600;">
+                  <input type="radio" name="cuad-phone-source" id="cuad-src-residencial" value="residencial" checked style="accent-color:var(--a);width:14px;height:14px;" />
+                  🏠 Servicios Residenciales
+                </label>
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;background:var(--sheet);font-size:.78rem;font-weight:600;">
+                  <input type="radio" name="cuad-phone-source" id="cuad-src-lineas" value="lineas" style="accent-color:var(--a);width:14px;height:14px;" />
+                  📡 Team Líneas
+                </label>
+              </div>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
               <div class="form-group">
                 <label class="form-label" style="font-size:.75rem;font-weight:600;">Mes del CRM</label>
@@ -1424,7 +1438,7 @@
             <div class="form-group">
               <label class="form-label">
                 <span class="label-text">Lista de números telefónicos</span>
-                <span class="label-hint">Un número por línea. Se comparan contra <b>costumers_unified</b> y <b>TEAM_LINEAS</b>. Formato: <b>1234567890</b> o <b>(123) 456-7890</b> o cualquier formato</span>
+                <span class="label-hint" id="cuad-phone-source-hint">Un número por línea. Formato: <b>1234567890</b> o <b>(123) 456-7890</b></span>
               </label>
               <textarea id="cuadraturaPhoneInput"
                 placeholder="1234567890&#10;(555) 123-4567&#10;555-987-6543&#10;+1-800-555-0100"
@@ -1435,19 +1449,36 @@
             </div>
           </div>
           <div id="cuadratura-phone-result" style="display:none;">
-            <div id="cuadratura-phone-kpis" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;"></div>
-            <div style="margin-bottom:12px;padding:10px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.75rem;font-weight:600;color:var(--ink-2);">
-              📋 Números en CRM pero NO en la lista
+            <div id="cuadratura-phone-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;"></div>
+            <div id="cuadratura-phone-info" style="margin-bottom:12px;padding:8px 12px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.72rem;color:var(--ink-3);"></div>
+            <!-- Tabla: CRM pero NO en lista -->
+            <div style="margin-bottom:6px;padding:8px 12px;background:var(--sheet-2);border:1px solid var(--line-1);border-top-left-radius:var(--r2);border-top-right-radius:var(--r2);font-size:.74rem;font-weight:700;color:var(--stop);">
+              🔴 En CRM pero NO en tu lista
             </div>
-            <div id="cuadratura-phone-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
+            <div id="cuadratura-phone-table-wrap" style="max-height:220px;overflow-y:auto;border:1px solid var(--line-1);border-bottom-left-radius:var(--r2);border-bottom-right-radius:var(--r2);margin-bottom:14px;">
               <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
                 <thead>
                   <tr style="background:var(--sheet-2);position:sticky;top:0;">
                     <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Cliente</th>
                     <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Teléfono</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Status</th>
                   </tr>
                 </thead>
                 <tbody id="cuadratura-phone-tbody"></tbody>
+              </table>
+            </div>
+            <!-- Tabla: tu lista pero NO en CRM -->
+            <div style="margin-bottom:6px;padding:8px 12px;background:var(--sheet-2);border:1px solid var(--line-1);border-top-left-radius:var(--r2);border-top-right-radius:var(--r2);font-size:.74rem;font-weight:700;color:var(--warn);">
+              ⚠️ Tu lista pero NO encontrados en CRM
+            </div>
+            <div id="cuadratura-phone-table-wrap-2" style="max-height:220px;overflow-y:auto;border:1px solid var(--line-1);border-bottom-left-radius:var(--r2);border-bottom-right-radius:var(--r2);">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Teléfono (tu lista)</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-phone-tbody-2"></tbody>
               </table>
             </div>
           </div>
@@ -2424,10 +2455,95 @@
   // ── PHONE NUMBERS CUADRATURA ──
   function normalizePhoneNumber(phone){var cleaned=String(phone||'').replace(/\D/g,'');if(cleaned.length>10){cleaned=cleaned.slice(-10);}return cleaned;}
   window.switchCuadMode=function(mode){document.querySelectorAll('[id^="cuad-mode-"]').forEach(function(el){el.style.display='none';});document.querySelectorAll('.cuad-mode-tab').forEach(function(btn){btn.classList.remove('is-active');});const modeEl=document.getElementById('cuad-mode-'+mode);if(modeEl)modeEl.style.display='block';const modeBtn=document.getElementById('cuad-tab-'+mode);if(modeBtn)modeBtn.classList.add('is-active');if(mode==='telefonos'){limpiarCuadraturaTelefonos();updateCuadraturaPhonesFilterInfo();document.getElementById('btnEjecutarCuadratura').style.display='none';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}else{limpiarCuadratura();document.getElementById('btnEjecutarCuadratura').style.display='';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}};
-  window.ejecutarCuadraturaTelefonos=function(){const ta=document.getElementById('cuadraturaPhoneInput');if(!ta||!ta.value.trim()){showToast('Pega tu lista de teléfonos primero','error');return;}const lineas=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const inputPhones=new Set();lineas.forEach(function(line){const normalized=normalizePhoneNumber(line);if(normalized){inputPhones.add(normalized);}});if(!inputPhones.size){showToast('No se encontraron números válidos','error');return;}const monthInput=document.getElementById('cuadratura-phone-month').value;let query='/api/phones-unified';if(monthInput){const parts=monthInput.split('-');query+='?month='+parts[1]+'&year='+parts[0];}AUTH.secureFetch(query).then(function(r){return r.json();}).then(function(data){if(!data.success||!data.phones){showToast('Error cargando teléfonos de servidor','error');return;}const crmPhones=[];const crmPhoneSet=new Set();data.phones.forEach(function(lead){const phone=normalizePhoneNumber(lead.telefono_principal);if(phone){crmPhoneSet.add(phone);if(!inputPhones.has(phone)){crmPhones.push({phone:phone,cliente:lead.nombre_cliente||'—',fecha:lead.dia_venta||'—',status:lead.status||'—'});}}});const missing=crmPhones;_cuadData.phones={inputCount:inputPhones.size,crmCount:crmPhoneSet.size,missingCount:missing.length,missing:missing};document.getElementById('cuadratura-telefonos-input-panel').style.display='none';document.getElementById('cuadratura-phone-result').style.display='block';document.getElementById('btn-cuadratura-limpiar-phones').style.display='';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';renderCuadPhoneKPIs();renderCuadPhoneTable();}).catch(function(e){console.error('[Cuadratura Phones]',e);showToast('Error consultando teléfonos','error');});};
-  function renderCuadPhoneKPIs(){const data=_cuadData.phones;const kpiEl=document.getElementById('cuadratura-phone-kpis');if(!kpiEl||!data)return;function kpi(icon,label,val,color){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px 12px;text-align:center;"><div style="font-size:1.1rem;">'+icon+'</div><div style="font-family:var(--f-mono);font-size:1.1rem;font-weight:800;color:'+color+';">'+val+'</div><div style="font-size:.63rem;color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em;">'+label+'</div></div>';}kpiEl.innerHTML=kpi('📋','En CRM',data.crmCount||0,'var(--info)')+kpi('🔴','Faltantes',data.missingCount||0,'var(--stop)');}
-  function renderCuadPhoneTable(){const data=_cuadData.phones;const tbody=document.getElementById('cuadratura-phone-tbody');if(!tbody||!data||!data.missing)return;if(!data.missing.length){tbody.innerHTML='<tr><td colspan="2" style="text-align:center;padding:24px;color:var(--ink-4);">✅ Todos los números en CRM tienen match en tu lista</td></tr>';return;}tbody.innerHTML=data.missing.map(function(row){return'<tr style="border-bottom:1px solid var(--line-1);"><td style="padding:8px 12px;">'+escHTML(row.cliente)+'</td><td style="padding:8px 12px;font-family:var(--f-mono);font-weight:600;">'+escHTML(row.phone)+'</td></tr>';}).join('');}
-  window.limpiarCuadraturaTelefonos=function(){const inp=document.getElementById('cuadraturaPhoneInput');const res=document.getElementById('cuadratura-phone-result');const inpP=document.getElementById('cuadratura-telefonos-input-panel');const monthInput=document.getElementById('cuadratura-phone-month');if(inp)inp.value='';if(res)res.style.display='none';if(inpP)inpP.style.display='block';if(monthInput)monthInput.value='';_cuadData.phones={inputCount:0,crmCount:0,missingCount:0,missing:[]};updateCuadraturaPhonesFilterInfo();};
+  window.ejecutarCuadraturaTelefonos=function(){
+    const ta=document.getElementById('cuadraturaPhoneInput');
+    if(!ta||!ta.value.trim()){showToast('Pega tu lista de teléfonos primero','error');return;}
+    const lineas=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    const inputPhones=new Set();
+    lineas.forEach(function(line){const n=normalizePhoneNumber(line);if(n)inputPhones.add(n);});
+    if(!inputPhones.size){showToast('No se encontraron números válidos','error');return;}
+    const monthInput=document.getElementById('cuadratura-phone-month').value;
+    const sourceEl=document.querySelector('input[name="cuad-phone-source"]:checked');
+    const source=sourceEl?sourceEl.value:'residencial';
+    let query='/api/phones-unified?source='+source;
+    if(monthInput){const parts=monthInput.split('-');query+='&month='+parts[1]+'&year='+parts[0];}
+    AUTH.secureFetch(query).then(function(r){return r.json();}).then(function(data){
+      if(!data.success||!data.phones){showToast('Error cargando teléfonos de servidor','error');return;}
+      // CRM phones NOT in input list (registros únicos del CRM ausentes de tu lista)
+      const crmNotInInput=[];
+      const crmPhoneSet=new Set();
+      const crmRawTotal=data.phones.length;
+      const crmNoPhone=data.phones.filter(function(l){return !normalizePhoneNumber(l.telefono_principal);}).length;
+      data.phones.forEach(function(lead){
+        const phone=normalizePhoneNumber(lead.telefono_principal);
+        if(!phone)return;
+        if(!crmPhoneSet.has(phone)){
+          crmPhoneSet.add(phone);
+          if(!inputPhones.has(phone)){
+            crmNotInInput.push({phone:phone,cliente:lead.nombre_cliente||'—',status:lead.status||'—'});
+          }
+        }
+      });
+      // Input phones NOT in CRM (tu lista que no existe en CRM)
+      const inputNotInCRM=[];
+      inputPhones.forEach(function(phone){
+        if(!crmPhoneSet.has(phone))inputNotInCRM.push(phone);
+      });
+      const duplicadosCRM=crmRawTotal - crmNoPhone - crmPhoneSet.size;
+      _cuadData.phones={
+        inputCount:inputPhones.size,
+        crmUniqueCount:crmPhoneSet.size,
+        crmRawTotal:crmRawTotal,
+        crmNoPhone:crmNoPhone,
+        duplicadosCRM:duplicadosCRM,
+        crmNotInInput:crmNotInInput,
+        inputNotInCRM:inputNotInCRM
+      };
+      document.getElementById('cuadratura-telefonos-input-panel').style.display='none';
+      document.getElementById('cuadratura-phone-result').style.display='block';
+      document.getElementById('btn-cuadratura-limpiar-phones').style.display='';
+      document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';
+      renderCuadPhoneKPIs();renderCuadPhoneTable();
+    }).catch(function(e){console.error('[Cuadratura Phones]',e);showToast('Error consultando teléfonos','error');});
+  };
+  function renderCuadPhoneKPIs(){
+    const data=_cuadData.phones;const kpiEl=document.getElementById('cuadratura-phone-kpis');if(!kpiEl||!data)return;
+    function kpi(icon,label,val,color){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px 12px;text-align:center;"><div style="font-size:1.1rem;">'+icon+'</div><div style="font-family:var(--f-mono);font-size:1.1rem;font-weight:800;color:'+color+';">'+val+'</div><div style="font-size:.63rem;color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em;line-height:1.3;">'+label+'</div></div>';}
+    kpiEl.innerHTML=
+      kpi('📋','Tu lista',data.inputCount||0,'var(--ink-1)')+
+      kpi('🗄️','CRM únicos',data.crmUniqueCount||0,'var(--info)')+
+      kpi('🔴','CRM no en lista',(data.crmNotInInput||[]).length,'var(--stop)')+
+      kpi('⚠️','Lista no en CRM',(data.inputNotInCRM||[]).length,'var(--warn)');
+    // Info line
+    const infoEl=document.getElementById('cuadratura-phone-info');if(!infoEl)return;
+    const parts=[];
+    parts.push('Registros totales en CRM: <b>'+(data.crmRawTotal||0)+'</b>');
+    if(data.crmNoPhone)parts.push('Sin teléfono: <b>'+data.crmNoPhone+'</b>');
+    if(data.duplicadosCRM>0)parts.push('Teléfonos duplicados (mismo número, varios registros): <b>'+data.duplicadosCRM+'</b>');
+    infoEl.innerHTML=parts.join(' &nbsp;·&nbsp; ');
+  }
+  function renderCuadPhoneTable(){
+    const data=_cuadData.phones;
+    // Table 1: CRM not in input
+    const tbody=document.getElementById('cuadratura-phone-tbody');
+    if(tbody){
+      if(!(data.crmNotInInput||[]).length){
+        tbody.innerHTML='<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--ink-4);">✅ Todos los teléfonos únicos del CRM están en tu lista</td></tr>';
+      }else{
+        tbody.innerHTML=(data.crmNotInInput||[]).map(function(row){return'<tr style="border-bottom:1px solid var(--line-1);"><td style="padding:7px 12px;">'+escHTML(row.cliente)+'</td><td style="padding:7px 12px;font-family:var(--f-mono);font-weight:600;">'+escHTML(row.phone)+'</td><td style="padding:7px 12px;font-size:.7rem;color:var(--ink-3);">'+escHTML(row.status)+'</td></tr>';}).join('');
+      }
+    }
+    // Table 2: input not in CRM
+    const tbody2=document.getElementById('cuadratura-phone-tbody-2');
+    if(tbody2){
+      if(!(data.inputNotInCRM||[]).length){
+        tbody2.innerHTML='<tr><td style="text-align:center;padding:20px;color:var(--ink-4);">✅ Todos tus números fueron encontrados en CRM</td></tr>';
+      }else{
+        tbody2.innerHTML=(data.inputNotInCRM||[]).map(function(phone){return'<tr style="border-bottom:1px solid var(--line-1);"><td style="padding:7px 12px;font-family:var(--f-mono);font-weight:600;">'+escHTML(phone)+'</td></tr>';}).join('');
+      }
+    }
+  }
+  window.limpiarCuadraturaTelefonos=function(){const inp=document.getElementById('cuadraturaPhoneInput');const res=document.getElementById('cuadratura-phone-result');const inpP=document.getElementById('cuadratura-telefonos-input-panel');const monthInput=document.getElementById('cuadratura-phone-month');if(inp)inp.value='';if(res)res.style.display='none';if(inpP)inpP.style.display='block';if(monthInput)monthInput.value='';_cuadData.phones={inputCount:0,crmUniqueCount:0,crmRawTotal:0,crmNoPhone:0,duplicadosCRM:0,crmNotInInput:[],inputNotInCRM:[]};updateCuadraturaPhonesFilterInfo();};
   function updateCuadraturaPhonesFilterInfo(){const monthInput=document.getElementById('cuadratura-phone-month');const infoEl=document.getElementById('cuadratura-phone-filter-info');if(!infoEl||!monthInput)return;if(monthInput.value){const parts=monthInput.value.split('-');const month=parseInt(parts[1],10);const meses=['','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];const monthName=meses[month]||parts[1];infoEl.innerHTML='📅 '+monthName+' '+parts[0];}else{infoEl.innerHTML='Sin mes seleccionado';}}
 
   /* ── SCROLLBAR MIRROR ── */
@@ -2713,6 +2829,15 @@
     if(cuadPhoneTA)cuadPhoneTA.addEventListener('input',function(){const lines=cuadPhoneTA.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const cnt=document.getElementById('cuadratura-phone-count');if(cnt)cnt.textContent=lines.length+' números';const btn=document.getElementById('btnEjecutarCuadraturaTelefonos');if(btn)btn.disabled=lines.length===0;});
     const cuadPhoneMonth=document.getElementById('cuadratura-phone-month');
     if(cuadPhoneMonth)cuadPhoneMonth.addEventListener('change',updateCuadraturaPhonesFilterInfo);
+    // Update hint text when source radio changes
+    document.querySelectorAll('input[name="cuad-phone-source"]').forEach(function(radio){
+      radio.addEventListener('change',function(){
+        const hint=document.getElementById('cuad-phone-source-hint');
+        if(!hint)return;
+        if(radio.value==='residencial'){hint.innerHTML='Un número por línea. Compara contra <b>costumers_unified</b> (Servicios Residenciales). Formato: <b>1234567890</b>';}
+        else{hint.innerHTML='Un número por línea. Compara contra <b>TEAM_LINEAS</b>. Formato: <b>1234567890</b>';}
+      });
+    });
 
     const canUse=canUseBulkStatus();
     const bspBtn=document.getElementById('btn-bulk-status-phone');

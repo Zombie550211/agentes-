@@ -5952,7 +5952,7 @@ router.get('/semaforo', protect, async (req, res) => {
       {
         $addFields: {
           isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
-          // isValido = solo pending + completed/active cuentan ventas y puntos
+          // isValido = PENDING + COMPLETED + ACTIVE (excluye cancelled, hold, rescheduled)
           isValido: {
             $in: ["$_statusNorm", ["PENDING", "COMPLETED", "ACTIVE"]]
           },

@@ -262,24 +262,21 @@ async function obtenerEstadisticasEquipos(req, res) {
       $group: {
         _id: '$teamNorm',
         ICON: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'ICON'] }, 1, 0 ] } },
-        ACTIVAS: { $sum: { $cond: [ 
-          { $or: [ 
+        ACTIVAS: { $sum: { $cond: [
+          { $or: [
+            { $eq: ['$statusNorm', 'pending'] },
+            { $eq: ['$statusNorm', 'pendiente'] },
             { $eq: ['$statusNorm', 'completed'] },
             { $eq: ['$statusNorm', 'completado'] },
             { $eq: ['$statusNorm', 'active'] },
-            { $eq: ['$statusNorm', 'activo'] },
-            { $eq: ['$statusNorm', 'finalizado'] },
-            { $eq: ['$statusNorm', 'vendido'] },
-            { $eq: ['$activated', true] }, 
-            { $eq: ['$sold', true] }, 
-            { $eq: ['$vendido', true] } 
-          ] }, 
-          1, 
-          0 
+            { $eq: ['$statusNorm', 'activo'] }
+          ] },
+          1,
+          0
         ] } },
         BAMO: { $sum: { $cond: [ { $eq: ['$mercadoNorm', 'BAMO'] }, 1, 0 ] } },
         Total: { $sum: 1 },
-        // VALIDAS = solo pending + completed/active (excluye cancelled, hold, rescheduled, etc.)
+        // VALIDAS = PENDING + COMPLETED + ACTIVE (excluye cancelled, hold, rescheduled, etc.)
         VALIDAS: { $sum: { $cond: [
           { $or: [
             { $eq: ['$statusNorm', 'pending'] },
@@ -287,16 +284,11 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $eq: ['$statusNorm', 'completed'] },
             { $eq: ['$statusNorm', 'completado'] },
             { $eq: ['$statusNorm', 'active'] },
-            { $eq: ['$statusNorm', 'activo'] },
-            { $eq: ['$statusNorm', 'finalizado'] },
-            { $eq: ['$statusNorm', 'vendido'] },
-            { $eq: ['$activated', true] },
-            { $eq: ['$sold', true] },
-            { $eq: ['$vendido', true] }
+            { $eq: ['$statusNorm', 'activo'] }
           ] },
           1, 0
         ] } },
-        // Puntaje solo de leads válidos (pending + completed/active)
+        // Puntaje solo de leads con status PENDING, COMPLETED o ACTIVE
         Puntaje: { $sum: { $cond: [
           { $or: [
             { $eq: ['$statusNorm', 'pending'] },
@@ -304,12 +296,7 @@ async function obtenerEstadisticasEquipos(req, res) {
             { $eq: ['$statusNorm', 'completed'] },
             { $eq: ['$statusNorm', 'completado'] },
             { $eq: ['$statusNorm', 'active'] },
-            { $eq: ['$statusNorm', 'activo'] },
-            { $eq: ['$statusNorm', 'finalizado'] },
-            { $eq: ['$statusNorm', 'vendido'] },
-            { $eq: ['$activated', true] },
-            { $eq: ['$sold', true] },
-            { $eq: ['$vendido', true] }
+            { $eq: ['$statusNorm', 'activo'] }
           ] },
           '$puntajeNum', 0
         ] } },
