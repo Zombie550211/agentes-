@@ -2090,11 +2090,21 @@
           return s.slice(0,7);
         };
         if(activeStatusTab==='colchon'){
-          // Colchón: vendido en mes anterior, instalado en el mes seleccionado
+          // Pestaña colchón: siempre filtrar por dia_instalacion
           const diaInstYM=toYM(lead.dia_instalacion);
           if(!diaInstYM||diaInstYM!==month)return false;
+        } else if(!onlyTwoMonths){
+          // Modo "Solo 2 meses": incluir colchones en la tabla general
+          // colchones filtran por dia_instalacion; el resto por dia_venta
+          if(lead._es_colchon){
+            const diaInstYM=toYM(lead.dia_instalacion);
+            if(!diaInstYM||diaInstYM!==month)return false;
+          } else {
+            const diaVentaYM=toYM(lead.dia_venta);
+            if(!diaVentaYM||diaVentaYM!==month)return false;
+          }
         } else {
-          // Normal: filtrar por dia_venta y excluir colchones
+          // Modo "Todos los meses": solo ventas del mes, sin colchón
           const diaVentaYM=toYM(lead.dia_venta);
           if(!diaVentaYM||diaVentaYM!==month)return false;
           if(lead._es_colchon)return false;
