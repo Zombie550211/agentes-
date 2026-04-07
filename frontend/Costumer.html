@@ -2089,18 +2089,16 @@
           // Fallback: slice first 7 chars
           return s.slice(0,7);
         };
-        // ONLY check dia_venta field, not any other dates
-        const diaVentaYM=toYM(lead.dia_venta);
-        if(!diaVentaYM || diaVentaYM!==month){
-          // Debug
-          if(__allLeadsData.indexOf(lead) < 3) {
-            console.log('[MONTH-FILTER] Lead: "'+lead.nombre_cliente+'" | dia_venta:'+lead.dia_venta+' | converted:'+diaVentaYM+' | selected month:'+month+' | NO MATCH');
-          }
-          return false;
+        if(activeStatusTab==='colchon'){
+          // Colchón: vendido en mes anterior, instalado en el mes seleccionado
+          const diaInstYM=toYM(lead.dia_instalacion);
+          if(!diaInstYM||diaInstYM!==month)return false;
+        } else {
+          // Normal: filtrar por dia_venta y excluir colchones
+          const diaVentaYM=toYM(lead.dia_venta);
+          if(!diaVentaYM||diaVentaYM!==month)return false;
+          if(lead._es_colchon)return false;
         }
-        // If a month is selected, always exclude colchón leads (we only show sales
-        // whose sale matches the selected month and are not colchón).
-        if(lead._es_colchon) return false;
       }
 
       // Apply the "last 2 months" limit when no specific month is selected and
