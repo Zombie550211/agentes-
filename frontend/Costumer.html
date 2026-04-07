@@ -1356,54 +1356,110 @@
     </div>
     <div class="modal-body">
       <div class="form-section">
-        <div id="cuadratura-input-panel">
-          <div class="form-group">
-            <label class="form-label">
-              <span class="label-text">Lista manual (Nombre · Puntaje)</span>
-              <span class="label-hint">Pega un cliente por línea. Formato: <b>NOMBRE, 0.75</b> o <b>NOMBRE 0.75</b> o solo <b>NOMBRE</b></span>
-            </label>
-            <textarea id="cuadraturaInput"
-              placeholder="JUAN PEREZ, 0.75&#10;MARIA LOPEZ, 1.00&#10;CARLOS GARCIA, 0.45&#10;ANA GOMEZ"
-              style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+        <!-- Tab buttons -->
+        <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
+          <button id="cuad-tab-puntaje" class="cuad-mode-tab is-active" onclick="switchCuadMode('puntaje')" style="flex:1;padding:10px;background:var(--sheet);border-right:1px solid var(--line-1);cursor:pointer;font-weight:600;font-size:.78rem;color:var(--ink-2);">⚖️ Cuadratura Puntaje</button>
+          <button id="cuad-tab-telefonos" class="cuad-mode-tab" onclick="switchCuadMode('telefonos')" style="flex:1;padding:10px;background:transparent;cursor:pointer;font-weight:600;font-size:.78rem;color:var(--ink-2);">📞 Validación Teléfonos</button>
+        </div>
+
+        <!-- Puntaje Mode -->
+        <div id="cuad-mode-puntaje">
+          <div id="cuadratura-input-panel">
+            <div class="form-group">
+              <label class="form-label">
+                <span class="label-text">Lista manual (Nombre · Puntaje)</span>
+                <span class="label-hint">Pega un cliente por línea. Formato: <b>NOMBRE, 0.75</b> o <b>NOMBRE 0.75</b> o solo <b>NOMBRE</b></span>
+              </label>
+              <textarea id="cuadraturaInput"
+                placeholder="JUAN PEREZ, 0.75&#10;MARIA LOPEZ, 1.00&#10;CARLOS GARCIA, 0.45&#10;ANA GOMEZ"
+                style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+            </div>
+            <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
+              <span id="cuadratura-count">0 líneas</span> detectadas
+              · Filtro activo: <span id="cuadratura-filter-info" style="color:var(--a);font-weight:600;">cargando…</span>
+            </div>
+            <div id="cuadratura-filter-warn" style="display:none;margin-top:8px;padding:8px 12px;background:var(--warn-bg);border:1px solid var(--warn-ln);border-radius:var(--r2);font-size:.72rem;color:var(--warn);font-weight:600;">
+              ⚠️ Sin filtro de status — se comparan TODOS los leads.
+            </div>
           </div>
-          <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
-            <span id="cuadratura-count">0 líneas</span> detectadas
-            · Filtro activo: <span id="cuadratura-filter-info" style="color:var(--a);font-weight:600;">cargando…</span>
-          </div>
-          <div id="cuadratura-filter-warn" style="display:none;margin-top:8px;padding:8px 12px;background:var(--warn-bg);border:1px solid var(--warn-ln);border-radius:var(--r2);font-size:.72rem;color:var(--warn);font-weight:600;">
-            ⚠️ Sin filtro de status — se comparan TODOS los leads.
+          <div id="cuadratura-result" style="display:none;">
+            <div id="cuadratura-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+            <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
+              <button class="cuad-tab is-active" data-tab="diff" onclick="switchCuadTab(this)">⚠️ Diferencias</button>
+              <button class="cuad-tab" data-tab="ok"   onclick="switchCuadTab(this)">✅ Coinciden</button>
+              <button class="cuad-tab" data-tab="miss" onclick="switchCuadTab(this)">❌ No en CRM</button>
+              <button class="cuad-tab" data-tab="extra" onclick="switchCuadTab(this)">🔍 Sobrantes</button>
+            </div>
+            <div id="cuadratura-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Estado</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Nombre cliente</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts manual</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts CRM</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-tbody"></tbody>
+              </table>
+            </div>
+            <div id="cuadratura-totales" style="margin-top:10px;padding:10px 14px;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r2);font-family:var(--f-mono);font-size:.74rem;display:flex;gap:20px;flex-wrap:wrap;"></div>
           </div>
         </div>
-        <div id="cuadratura-result" style="display:none;">
-          <div id="cuadratura-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
-          <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
-            <button class="cuad-tab is-active" data-tab="diff" onclick="switchCuadTab(this)">⚠️ Diferencias</button>
-            <button class="cuad-tab" data-tab="ok"   onclick="switchCuadTab(this)">✅ Coinciden</button>
-            <button class="cuad-tab" data-tab="miss" onclick="switchCuadTab(this)">❌ No en CRM</button>
-            <button class="cuad-tab" data-tab="extra" onclick="switchCuadTab(this)">🔍 Sobrantes</button>
+
+        <!-- Telefonos Mode -->
+        <div id="cuad-mode-telefonos" style="display:none;">
+          <div id="cuadratura-telefonos-input-panel">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size:.75rem;font-weight:600;">Mes del CRM</label>
+                <input type="month" id="cuadratura-phone-month" value="" style="width:100%;padding:8px;border:1px solid var(--line-1);border-radius:var(--r2);font-size:.85rem;outline:none;" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size:.75rem;font-weight:600;">⚠️ Filtro</label>
+                <div style="padding:8px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.75rem;color:var(--ink-3);" id="cuadratura-phone-filter-info">Sin mes seleccionado</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                <span class="label-text">Lista de números telefónicos</span>
+                <span class="label-hint">Un número por línea. Se comparan contra <b>costumers_unified</b> y <b>TEAM_LINEAS</b>. Formato: <b>1234567890</b> o <b>(123) 456-7890</b> o cualquier formato</span>
+              </label>
+              <textarea id="cuadraturaPhoneInput"
+                placeholder="1234567890&#10;(555) 123-4567&#10;555-987-6543&#10;+1-800-555-0100"
+                style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+            </div>
+            <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
+              <span id="cuadratura-phone-count">0 números</span> detectados
+            </div>
           </div>
-          <div id="cuadratura-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
-            <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
-              <thead>
-                <tr style="background:var(--sheet-2);position:sticky;top:0;">
-                  <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Estado</th>
-                  <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Nombre cliente</th>
-                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts manual</th>
-                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts CRM</th>
-                  <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Diferencia</th>
-                </tr>
-              </thead>
-              <tbody id="cuadratura-tbody"></tbody>
-            </table>
+          <div id="cuadratura-phone-result" style="display:none;">
+            <div id="cuadratura-phone-kpis" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;"></div>
+            <div style="margin-bottom:12px;padding:10px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.75rem;font-weight:600;color:var(--ink-2);">
+              📋 Números en CRM pero NO en la lista
+            </div>
+            <div id="cuadratura-phone-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Cliente</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Teléfono</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-phone-tbody"></tbody>
+              </table>
+            </div>
           </div>
-          <div id="cuadratura-totales" style="margin-top:10px;padding:10px 14px;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r2);font-family:var(--f-mono);font-size:.74rem;display:flex;gap:20px;flex-wrap:wrap;"></div>
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" type="button" onclick="closeCuadraturaModal()">Cerrar</button>
       <button id="btn-cuadratura-limpiar" class="btn" type="button" onclick="limpiarCuadratura()" style="display:none;">↺ Nueva comparación</button>
-      <button class="btn-save" id="btnEjecutarCuadratura" type="button" onclick="ejecutarCuadratura()" disabled>⚖️ Comparar</button>
+      <button id="btn-cuadratura-limpiar-phones" class="btn" type="button" onclick="limpiarCuadraturaTelefonos()" style="display:none;">↺ Nueva búsqueda</button>
+      <button class="btn-save" id="btnEjecutarCuadratura" type="button" onclick="ejecutarCuadratura()" disabled>⚖️ Comparar puntajes</button>
+      <button class="btn-save" id="btnEjecutarCuadraturaTelefonos" type="button" onclick="ejecutarCuadraturaTelefonos()" disabled style="display:none;">📞 Validar teléfonos</button>
     </div>
   </div>
 </div>
@@ -1742,6 +1798,31 @@
     });
   }
 
+  // Teams normalization helpers
+  let _teams = [];
+  function normalizeStringForCompare(s){
+    try{ return String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
+    catch{ return String(s||'').trim().toLowerCase(); }
+  }
+  async function loadTeams(){
+    if(!AUTH.check()) return;
+    try{
+      const res = await AUTH.secureFetch('/api/teams');
+      if(!res||!res.ok) return;
+      const data = await res.json();
+      _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
+    }catch(_){ _teams = []; }
+  }
+  function normalizeTeam(raw){
+    const r = String(raw||'').trim(); if(!r) return '';
+    const n = normalizeStringForCompare(r);
+    for(const t of (_teams||[])){
+      const candidates = [t.value, t.label, t.supervisor, t.supervisorName];
+      for(const c of candidates){ if(!c) continue; if(normalizeStringForCompare(c) === n) return t.label || t.value; }
+    }
+    return r;
+  }
+
   /* ── FETCH ── */
   async function fetchLeads() {
     if (!AUTH.check()) return [];
@@ -1808,7 +1889,7 @@
       });
     }
     __allLeadsData.forEach(function(lead){
-      if(lead.supervisor)equipos.add(lead.supervisor);
+      if(lead.supervisor) equipos.add(normalizeSupervisorName(lead.supervisor));
       if(lead.agente)agentes.add(lead.agente);
       if(lead.mercado)mercados.add(lead.mercado);
       var toYM=function(v){if(!v)return'';var s=String(v).trim();return s.length>=7?s.slice(0,7):'';};
@@ -1951,26 +2032,52 @@
       }
 
       if(month){
-        const toYM=function(v){if(!v)return'';const s=String(v).trim();return s.slice(0,7);};
-        const refs=[
-          lead.dia_venta,
-          lead.dia_instalacion,
-          lead._raw&&toYM(lead._raw.fecha_contratacion),
-          lead._raw&&toYM(lead._raw.creadoEn),
-          lead._raw&&toYM(lead._raw.createdAt),
-          lead._raw&&toYM(lead._raw.fecha_creacion),
-          lead._raw&&toYM(lead._raw.updatedAt),
-          lead._raw&&toYM(lead._raw.actualizadoEn),
-        ].map(function(r){return toYM(r);}).filter(function(r){return r&&r.length===7;});
-        const matchesMes=refs.some(function(r){return r===month;});
-        if(!matchesMes)return false;
+        // Convert any date format to YYYY-MM
+        const toYM=function(v){
+          if(!v)return'';
+          const s=String(v).trim();
+          // Try ISO format first: YYYY-MM-DD or YYYY-MM
+          if(/^\d{4}-\d{2}/.test(s)) return s.slice(0,7);
+          // Try DD/MM/YYYY or DD-MM-YYYY
+          const dmyMatch=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+          if(dmyMatch){
+            const d=String(dmyMatch[1]).padStart(2,'0');
+            const m=String(dmyMatch[2]).padStart(2,'0');
+            const y=dmyMatch[3];
+            return y+'-'+m;
+          }
+          // Try MMM DD YYYY or DD MMM YYYY (es: "01 mar 2026" or "01 MAR 2026")
+          const mmmMatch=s.match(/(\d{1,2})\s+([a-z]{3})\s+(\d{4})/i);
+          if(mmmMatch){
+            const months={'ene':'01','feb':'02','mar':'03','abr':'04','may':'05','jun':'06','jul':'07','ago':'08','sep':'09','oct':'10','nov':'11','dic':'12'};
+            const mStr=mmmMatch[2].toLowerCase();
+            const mNum=months[mStr]||'00';
+            const y=mmmMatch[3];
+            return y+'-'+mNum;
+          }
+          // Fallback: slice first 7 chars
+          return s.slice(0,7);
+        };
+        // ONLY check dia_venta field, not any other dates
+        const diaVentaYM=toYM(lead.dia_venta);
+        if(!diaVentaYM || diaVentaYM!==month){
+          // Debug
+          if(__allLeadsData.indexOf(lead) < 3) {
+            console.log('[MONTH-FILTER] Lead: "'+lead.nombre_cliente+'" | dia_venta:'+lead.dia_venta+' | converted:'+diaVentaYM+' | selected month:'+month+' | NO MATCH');
+          }
+          return false;
+        }
+        // If a month is selected, always exclude colchón leads (we only show sales
+        // whose sale matches the selected month and are not colchón).
+        if(lead._es_colchon) return false;
       }
 
-      // ── FIX: onlyTwoMonths desactivado por defecto para supervisores ──
-      if(onlyTwoMonths){
+      // Apply the "last 2 months" limit when no specific month is selected and
+      // the toggle is in 'Solo 2 meses' mode (onlyTwoMonths === false).
+      if(!month && !onlyTwoMonths){
         const limit=new Date(d.getFullYear(),d.getMonth()-1,1);
         const ref=lead._es_colchon?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);
-        if(ref&&new Date(ref)<limit)return false;
+        if(ref&&new Date(ref)<limit) return false;
       }
 
       if(from&&to){const ref=lead._es_colchon?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
@@ -2044,21 +2151,42 @@
   function updateKPIs(){
     const d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    const curMon=d.getFullYear()+'-'+pad(d.getMonth()+1);
+    // Use selected month filter if present, otherwise default to current month
+    const selectedMonth = (document.getElementById('monthFilter') && document.getElementById('monthFilter').value) ? document.getElementById('monthFilter').value : '';
+    const curMon = selectedMonth || (d.getFullYear()+'-'+pad(d.getMonth()+1));
     const inclCol=document.getElementById('check-colchon-activas')&&document.getElementById('check-colchon-activas').checked;
-    let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0};
-    __filteredLeads.forEach(function(l){
-      if(!l)return;
-      const dv=String(l.dia_venta||'').slice(0,10),st=l.status,isCol=!!l._es_colchon;
-      if(st==='oficina'){kpi.oficina++;return;}
-      if(st==='reserva'){kpi.reserva++;return;}
-      if(isCol){if(st==='completed'||st==='active')kpi.colchon++;return;}
-      if(!dv.startsWith(curMon))return;
-      if(dv===today)kpi.hoy++;
-      if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
-      else if(st==='pending'){kpi.mes++;kpi.pend++;}
-      else if(st==='cancelled'){kpi.cancel++;}
-    });
+    let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
+    
+    // When a specific month is selected, count ALL leads in __filteredLeads (they're already filtered by month)
+    if(selectedMonth){
+      kpi.mes = __filteredLeads.length; // Count all filtered leads (already filtered by month in applyFilters)
+      // Also break down by status for the other KPIs
+      __filteredLeads.forEach(function(l){
+        if(!l)return;
+        const st=l.status;
+        if(st==='completed'||st==='active')kpi.activas++;
+        else if(st==='pending')kpi.pend++;
+        else if(st==='cancelled')kpi.cancel++;
+        else if(st==='oficina')kpi.oficina++;
+        else if(st==='reserva')kpi.reserva++;
+        else if(st==='hold')kpi.hold++;
+      });
+    } else {
+      // When no month is selected, use the original logic (count by status and month range)
+      __filteredLeads.forEach(function(l){
+        if(!l)return;
+        const dv=String(l.dia_venta||'').slice(0,10),st=l.status,isCol=!!l._es_colchon;
+        if(st==='oficina'){kpi.oficina++;return;}
+        if(st==='reserva'){kpi.reserva++;return;}
+        if(isCol){if(st==='completed'||st==='active')kpi.colchon++;return;}
+        if(!dv.startsWith(curMon))return;
+        if(dv===today)kpi.hoy++;
+        if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
+        else if(st==='pending'){kpi.mes++;kpi.pend++;}
+        else if(st==='cancelled'){kpi.cancel++;}
+      });
+    }
+    
     animateCount('costumer-ventas-hoy',kpi.hoy);
     animateCount('costumer-ventas-mes',kpi.mes);
     animateCount('costumer-ventas-activas',inclCol?kpi.activas+kpi.colchon:kpi.activas);
@@ -2293,6 +2421,15 @@
   function renderCuadTable(){const tab=_cuadData.currentTab;const all=_cuadData.all;const tbody=document.getElementById('cuadratura-tbody');if(!tbody)return;const filtered=all.filter(function(r){if(tab==='ok')return r.tipo==='ok';if(tab==='diff')return r.tipo==='diff'||r.tipo==='miss-partial';if(tab==='miss')return r.tipo==='miss';if(tab==='extra')return r.tipo==='extra';return true;});if(!filtered.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-4);">Sin registros en esta categoría</td></tr>';return;}tbody.innerHTML=filtered.map(function(r){var icon='',rowCls='';if(r.tipo==='ok'){icon='✅';rowCls='cuad-row-ok';}else if(r.tipo==='diff'){icon='⚠️';rowCls='cuad-row-diff';}else if(r.tipo==='miss-partial'){icon='⚠️~';rowCls='cuad-row-diff';}else if(r.tipo==='miss'){icon='❌';rowCls='cuad-row-miss';}else if(r.tipo==='extra'){icon='🔍';rowCls='cuad-row-extra';}var ptsManual=r.puntajeManual!=null?r.puntajeManual.toFixed(2):'—';var ptsCRM=r.puntajeCRM!=null?r.puntajeCRM.toFixed(2):'—';var diffStr='—';var diffColor='';if(r.diff!=null){diffStr=(r.diff>0?'+':'')+r.diff.toFixed(2);diffColor=r.diff>0?'color:var(--warn)':r.diff<0?'color:var(--stop)':'color:var(--go)';}var nombre=escHTML(r.nombre||(r.tipo==='extra'?r.nombreCRM:''));if(r.parcial)nombre+=' <span style="font-size:.6rem;color:var(--ink-4);">(parcial)</span>';return'<tr class="'+rowCls+'"><td>'+icon+'</td><td>'+nombre+'</td><td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsManual)+'</td><td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsCRM)+'</td><td style="text-align:right;font-family:var(--f-mono);'+diffColor+'">'+escHTML(diffStr)+'</td></tr>';}).join('');}
   function renderCuadTotales(){const el=document.getElementById('cuadratura-totales');if(!el)return;const all=_cuadData.all;const totManual=all.filter(function(r){return r.tipo!=='extra';}).reduce(function(s,r){return s+(r.puntajeManual||0);},0);const totCRMMatchados=all.filter(function(r){return r.tipo!=='extra'&&r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const totCRMReal=all.filter(function(r){return r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const diff=parseFloat((totManual-totCRMMatchados).toFixed(2));const diffColor=diff===0?'var(--go)':diff>0?'var(--warn)':'var(--stop)';el.innerHTML='<span>Manual: <b>'+totManual.toFixed(2)+' pts</b></span><span>CRM (matchados): <b>'+totCRMMatchados.toFixed(2)+' pts</b></span>'+(totCRMReal!==totCRMMatchados?'<span style="color:var(--info)">CRM total: <b>'+totCRMReal.toFixed(2)+' pts</b></span>':'')+'<span style="color:'+diffColor+'">Diferencia: <b>'+(diff>0?'+':'')+diff.toFixed(2)+' pts</b></span>';}
 
+  // ── PHONE NUMBERS CUADRATURA ──
+  function normalizePhoneNumber(phone){var cleaned=String(phone||'').replace(/\D/g,'');if(cleaned.length>10){cleaned=cleaned.slice(-10);}return cleaned;}
+  window.switchCuadMode=function(mode){document.querySelectorAll('[id^="cuad-mode-"]').forEach(function(el){el.style.display='none';});document.querySelectorAll('.cuad-mode-tab').forEach(function(btn){btn.classList.remove('is-active');});const modeEl=document.getElementById('cuad-mode-'+mode);if(modeEl)modeEl.style.display='block';const modeBtn=document.getElementById('cuad-tab-'+mode);if(modeBtn)modeBtn.classList.add('is-active');if(mode==='telefonos'){limpiarCuadraturaTelefonos();updateCuadraturaPhonesFilterInfo();document.getElementById('btnEjecutarCuadratura').style.display='none';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}else{limpiarCuadratura();document.getElementById('btnEjecutarCuadratura').style.display='';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}};
+  window.ejecutarCuadraturaTelefonos=function(){const ta=document.getElementById('cuadraturaPhoneInput');if(!ta||!ta.value.trim()){showToast('Pega tu lista de teléfonos primero','error');return;}const lineas=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const inputPhones=new Set();lineas.forEach(function(line){const normalized=normalizePhoneNumber(line);if(normalized){inputPhones.add(normalized);}});if(!inputPhones.size){showToast('No se encontraron números válidos','error');return;}const monthInput=document.getElementById('cuadratura-phone-month').value;let query='/api/phones-unified';if(monthInput){const parts=monthInput.split('-');query+='?month='+parts[1]+'&year='+parts[0];}AUTH.secureFetch(query).then(function(r){return r.json();}).then(function(data){if(!data.success||!data.phones){showToast('Error cargando teléfonos de servidor','error');return;}const crmPhones=[];const crmPhoneSet=new Set();data.phones.forEach(function(lead){const phone=normalizePhoneNumber(lead.telefono_principal);if(phone){crmPhoneSet.add(phone);if(!inputPhones.has(phone)){crmPhones.push({phone:phone,cliente:lead.nombre_cliente||'—',fecha:lead.dia_venta||'—',status:lead.status||'—'});}}});const missing=crmPhones;_cuadData.phones={inputCount:inputPhones.size,crmCount:crmPhoneSet.size,missingCount:missing.length,missing:missing};document.getElementById('cuadratura-telefonos-input-panel').style.display='none';document.getElementById('cuadratura-phone-result').style.display='block';document.getElementById('btn-cuadratura-limpiar-phones').style.display='';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';renderCuadPhoneKPIs();renderCuadPhoneTable();}).catch(function(e){console.error('[Cuadratura Phones]',e);showToast('Error consultando teléfonos','error');});};
+  function renderCuadPhoneKPIs(){const data=_cuadData.phones;const kpiEl=document.getElementById('cuadratura-phone-kpis');if(!kpiEl||!data)return;function kpi(icon,label,val,color){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px 12px;text-align:center;"><div style="font-size:1.1rem;">'+icon+'</div><div style="font-family:var(--f-mono);font-size:1.1rem;font-weight:800;color:'+color+';">'+val+'</div><div style="font-size:.63rem;color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em;">'+label+'</div></div>';}kpiEl.innerHTML=kpi('📋','En CRM',data.crmCount||0,'var(--info)')+kpi('🔴','Faltantes',data.missingCount||0,'var(--stop)');}
+  function renderCuadPhoneTable(){const data=_cuadData.phones;const tbody=document.getElementById('cuadratura-phone-tbody');if(!tbody||!data||!data.missing)return;if(!data.missing.length){tbody.innerHTML='<tr><td colspan="2" style="text-align:center;padding:24px;color:var(--ink-4);">✅ Todos los números en CRM tienen match en tu lista</td></tr>';return;}tbody.innerHTML=data.missing.map(function(row){return'<tr style="border-bottom:1px solid var(--line-1);"><td style="padding:8px 12px;">'+escHTML(row.cliente)+'</td><td style="padding:8px 12px;font-family:var(--f-mono);font-weight:600;">'+escHTML(row.phone)+'</td></tr>';}).join('');}
+  window.limpiarCuadraturaTelefonos=function(){const inp=document.getElementById('cuadraturaPhoneInput');const res=document.getElementById('cuadratura-phone-result');const inpP=document.getElementById('cuadratura-telefonos-input-panel');const monthInput=document.getElementById('cuadratura-phone-month');if(inp)inp.value='';if(res)res.style.display='none';if(inpP)inpP.style.display='block';if(monthInput)monthInput.value='';_cuadData.phones={inputCount:0,crmCount:0,missingCount:0,missing:[]};updateCuadraturaPhonesFilterInfo();};
+  function updateCuadraturaPhonesFilterInfo(){const monthInput=document.getElementById('cuadratura-phone-month');const infoEl=document.getElementById('cuadratura-phone-filter-info');if(!infoEl||!monthInput)return;if(monthInput.value){const parts=monthInput.value.split('-');const month=parseInt(parts[1],10);const meses=['','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];const monthName=meses[month]||parts[1];infoEl.innerHTML='📅 '+monthName+' '+parts[0];}else{infoEl.innerHTML='Sin mes seleccionado';}}
+
   /* ── SCROLLBAR MIRROR ── */
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
@@ -2303,6 +2440,8 @@
     if(tbody)tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:48px;color:var(--ink-4);"><div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;"><div style="width:28px;height:28px;border:3px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .7s linear infinite;"></div><span style="font-size:.78rem;font-weight:500;">Cargando datos…</span></div></td></tr>';
     const valid=await AUTH.verifySession();
     if(!valid){showToast('Sesión no válida. Redirigiendo…','error');setTimeout(function(){AUTH.redirectToLogin('invalid');},1200);return;}
+    // Load canonical teams to normalize filter options
+    await loadTeams();
     Promise.all([fetchUsersForFilters(),fetchMonthsForFilters()]).catch(function(){});
     const leads=await fetchLeads();
     window.renderCostumerTable(leads);
@@ -2469,6 +2608,8 @@
     if(tmBtn)tmBtn.addEventListener('click',function(){onlyTwoMonths=!onlyTwoMonths;tmBtn.textContent=onlyTwoMonths?'Todos los meses':'Solo 2 meses';tmBtn.classList.toggle('active',onlyTwoMonths);currentPage=1;applyFiltersDebounced();});
     const btnClear=document.getElementById('btnClearDates');if(btnClear)btnClear.addEventListener('click',function(){setVal('dateFrom','');setVal('dateTo','');applyFiltersDebounced();});
     ['dateFrom','dateTo'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
+    // Add event listeners for all filter selects
+    ['monthFilter','serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
     document.querySelectorAll('.token select').forEach(function(sel){sel.addEventListener('change',function(){const token=sel.closest('.token');if(!token)return;const tvId=token.querySelector('[id^="tv-"]');if(tvId){const chosen=sel.options[sel.selectedIndex];tvId.textContent=chosen.text;token.classList.toggle('active',!!sel.value);}applyFiltersDebounced();});});
     const cuadBtn=document.getElementById('btn-cuadratura');if(cuadBtn)cuadBtn.addEventListener('click',window.openCuadraturaModal);
@@ -2568,6 +2709,10 @@
     document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(document.getElementById('editarModal-wrapper').style.display!=='none')window.cerrarModal();if(document.getElementById('bulkStatusPhoneModal').getAttribute('aria-hidden')==='false')window.closeBulkStatusPhoneModal();if(document.getElementById('cuadraturaModal')&&document.getElementById('cuadraturaModal').getAttribute('aria-hidden')==='false')window.closeCuadraturaModal();});
     const cuadTA=document.getElementById('cuadraturaInput');
     if(cuadTA)cuadTA.addEventListener('input',function(){const lines=cuadTA.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const cnt=document.getElementById('cuadratura-count');if(cnt)cnt.textContent=lines.length+' líneas';const btn=document.getElementById('btnEjecutarCuadratura');if(btn)btn.disabled=lines.length===0;});
+    const cuadPhoneTA=document.getElementById('cuadraturaPhoneInput');
+    if(cuadPhoneTA)cuadPhoneTA.addEventListener('input',function(){const lines=cuadPhoneTA.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const cnt=document.getElementById('cuadratura-phone-count');if(cnt)cnt.textContent=lines.length+' números';const btn=document.getElementById('btnEjecutarCuadraturaTelefonos');if(btn)btn.disabled=lines.length===0;});
+    const cuadPhoneMonth=document.getElementById('cuadratura-phone-month');
+    if(cuadPhoneMonth)cuadPhoneMonth.addEventListener('change',updateCuadraturaPhonesFilterInfo);
 
     const canUse=canUseBulkStatus();
     const bspBtn=document.getElementById('btn-bulk-status-phone');

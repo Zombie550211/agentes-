@@ -2371,16 +2371,16 @@ app.post('/api/create-admin', async (req, res) => {
 
 // ── TEAMS & SUPERVISORS ───────────────────────────────────────
 app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
-  res.json({ success: true, teams: [
-    { value:'TEAM IRANIA',            label:'TEAM IRANIA',            supervisor:'irania.serrano',    supervisorName:'Irania Serrano' },
-    { value:'TEAM BRYAN PLEITEZ',     label:'TEAM BRYAN PLEITEZ',     supervisor:'bryan.pleitez',     supervisorName:'Bryan Pleitez' },
-    { value:'TEAM MARISOL BELTRAN',   label:'TEAM MARISOL BELTRAN',   supervisor:'marisol.beltran',   supervisorName:'Marisol Beltrán' },
-    { value:'TEAM ROBERTO VELASQUEZ', label:'TEAM ROBERTO VELASQUEZ', supervisor:'roberto.velasquez', supervisorName:'Roberto Velásquez' },
-    { value:'team lineas jonathan',   label:'TEAM LÍNEAS - JONATHAN F', supervisor:'JONATHAN F',      supervisorName:'JONATHAN F' },
-    { value:'team lineas luis',       label:'TEAM LÍNEAS - LUIS G',   supervisor:'LUIS G',            supervisorName:'LUIS G' },
-    { value:'Backoffice',             label:'Backoffice',             supervisor:null,                supervisorName:'Sin supervisor' },
-    { value:'Administración',         label:'Administración',         supervisor:null,                supervisorName:'Sin supervisor' }
-  ]});
+  try {
+    // Use server-side canonical teams list
+    const teamsServer = require('./backend/utils/teamsServer');
+    const teams = typeof teamsServer.getTeamsForSelect === 'function' ? teamsServer.getTeamsForSelect() : [];
+    return res.json({ success: true, teams });
+  } catch (e) {
+    console.warn('[API /api/teams] Error loading teamsServer:', e.message);
+    // Fallback: empty list
+    return res.json({ success: true, teams: [] });
+  }
 });
 
 app.get('/api/supervisors/:team', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
@@ -2411,6 +2411,67 @@ app.get('/api/comments', async (req, res) => {
     return res.json({ success: true, comments: comments.map(c => ({ _id: c._id?.toString(), autor: c.autor||c.author||'Desconocido', texto: c.texto||c.text||'', fecha: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString() })) });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Error al cargar comentarios', error: e.message });
+  }
+});
+
+// ── PHONE NUMBERS FOR CUADRATURA (UNIFIED + TEAM_LINEAS) ──────
+app.get('/api/phones-unified', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    
+    const { month, year } = req.query;
+    let dateFilter = {};
+    
+    // Si se proporciona mes y año, filtrar por dia_venta
+    if (month && year) {
+      const monthNum = parseInt(month, 10);
+      const yearNum = parseInt(year, 10);
+      
+      // Crear rango de fechas para el mes especificado
+      const startDate = new Date(yearNum, monthNum - 1, 1);
+      const endDate = new Date(yearNum, monthNum, 1);
+      
+      dateFilter = {
+        dia_venta: { $gte: startDate, $lt: endDate }
+      };
+    }
+    
+    // Obtener teléfonos de la colección costumers_unified en BD crmagente
+    const mainDb = getDb(); // BD crmagente
+    const query = dateFilter.dia_venta ? dateFilter : {};
+    
+    const unifiedPhones = await mainDb.collection('costumers_unified')
+      .find({ 
+        ...query,
+        telefono_principal: { $exists: true, $ne: null, $ne: '' } 
+      })
+      .project({ telefono_principal: 1, nombre_cliente: 1, dia_venta: 1, status: 1 })
+      .toArray();
+
+    // Obtener teléfonos de TODAS las colecciones en la BD TEAM_LINEAS
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    const collections = await teamLineasDb.listCollections().toArray();
+    let teamLineasPhones = [];
+    
+    for (const collectionInfo of collections) {
+      const collectionName = collectionInfo.name;
+      const phones = await teamLineasDb.collection(collectionName)
+        .find({ 
+          ...query,
+          telefono_principal: { $exists: true, $ne: null, $ne: '' } 
+        })
+        .project({ telefono_principal: 1, nombre_cliente: 1, dia_venta: 1, status: 1 })
+        .toArray();
+      teamLineasPhones = teamLineasPhones.concat(phones);
+    }
+
+    // Combinar ambas listas
+    const allPhones = [...unifiedPhones, ...teamLineasPhones];
+
+    return res.json({ success: true, phones: allPhones });
+  } catch (e) {
+    console.error('[API /api/phones-unified]', e);
+    return res.status(500).json({ success: false, message: 'Error obteniendo teléfonos', error: e.message });
   }
 });
 

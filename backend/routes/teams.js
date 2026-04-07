@@ -52,7 +52,10 @@ router.get('/agents', protect, async (req, res) => {
       }).toArray();
     }
 
-    const out = (agentes || []).map(a => ({ id: a._id && a._id.toString ? a._id.toString() : String(a._id||''), username: a.username, name: a.name || a.nombre, role: a.role }));
+    // Ensure supervisors are not returned as agents (defensive filter)
+    agentes = (agentes || []).filter(a => { const r = String(a.role || '').toLowerCase(); return !/supervisor/i.test(r); });
+
+    const out = agentes.map(a => ({ id: a._id && a._id.toString ? a._id.toString() : String(a._id||''), username: a.username, name: a.name || a.nombre, role: a.role }));
     return res.json({ success: true, count: out.length, data: out });
   } catch (e) {
     console.error('[TEAMS ROUTE] error', e);

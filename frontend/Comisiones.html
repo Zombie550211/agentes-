@@ -643,6 +643,39 @@ function normalizeAgentName(s){
   return String(s||'').replace(/\./g,' ').trim();
 }
 
+// Teams cache loaded from backend (/api/teams)
+let _teams = [];
+
+function normalizeStringForCompare(s){
+  try{ return String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
+  catch{ return String(s||'').trim().toLowerCase(); }
+}
+
+async function loadTeams(){
+  try{
+    const res = await AUTH.sf('/api/teams');
+    if(!res||!res.ok) return;
+    const data = await res.json();
+    _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
+  }catch(_){ _teams = []; }
+}
+
+function normalizeTeam(raw){
+  const r = String(raw||'').trim();
+  if(!r) return '';
+  const n = normalizeStringForCompare(r);
+  // Try to match against canonical teams loaded from backend
+  for(const t of (_teams||[])){
+    const candidates = [t.value, t.label, t.supervisor, t.supervisorName];
+    for(const c of candidates){
+      if(!c) continue;
+      if(normalizeStringForCompare(c) === n) return t.label || t.value;
+    }
+  }
+  // No exact match; heuristics: if raw looks like 'team' in upper case, return as-is
+  return r;
+}
+
 /* ══════════════════════════════════════════════════════
    AGGREGATE — calcula puntos y comisión por agente
    a partir de leads del mes
@@ -659,7 +692,8 @@ function aggregateAgents(leads, targetYM){
     const normName = normalizeAgentName(rawName);
     const key = normName.toLowerCase();
     const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
-    const team = String(lead.supervisor||lead.equipo||lead.team||'').trim();
+    const rawTeam = String(lead.supervisor||lead.equipo||lead.team||'').trim();
+    const team = normalizeTeam(rawTeam);
     const esColchon = isColchon(lead, targetYM);
 
     if(!map[key]){
@@ -1167,6 +1201,8 @@ async function loadData(){
 
   document.getElementById('page-loader').remove();
 
+  // Load canonical teams first so aggregation normalizes team names
+  await loadTeams();
   await loadData();
 })();
 </script>

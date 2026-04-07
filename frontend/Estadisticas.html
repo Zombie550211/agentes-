@@ -661,6 +661,30 @@ function __mapToAllowedTeam(v){
   return alias[k] || '';
 }
 
+// Teams normalization helpers
+let _teams = [];
+function normalizeStringForCompare(s){
+  try{ return String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
+  catch{ return String(s||'').trim().toLowerCase(); }
+}
+async function loadTeams(){
+  try{
+    const res = await fetchWithAuth('/api/teams');
+    if(!res||!res.ok) return;
+    const data = await res.json();
+    _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
+  }catch(_){ _teams = []; }
+}
+function normalizeTeam(raw){
+  const r = String(raw||'').trim(); if(!r) return '';
+  const n = normalizeStringForCompare(r);
+  for(const t of (_teams||[])){
+    const candidates = [t.value, t.label, t.supervisor, t.supervisorName];
+    for(const c of candidates){ if(!c) continue; if(normalizeStringForCompare(c) === n) return t.label || t.value; }
+  }
+  return r;
+}
+
 async function __fetchLineasTeamAll(){
   try{const r=await fetchWithAuth('/api/lineas-team');if(!r||!r.ok)return[];const j=await r.json();return Array.isArray(j)?j:(Array.isArray(j.data)?j.data:[]);}catch(_){return[];}
 }
@@ -1004,7 +1028,8 @@ const hideMon=()=>document.getElementById('month-detail-modal')?.classList.remov
 function showDayDetailModal(){
   const store=window.DayDetailRows||{fecha:'',rows:[]},rows=Array.isArray(store.rows)?store.rows:[],ov=document.getElementById('day-detail-modal');if(!ov)return;
   const tbody=ov.querySelector('#day-detail-table tbody'),sel=ov.querySelector('#filter-team-select');ov.querySelector('#day-detail-subtitle').textContent=`Fecha: ${store.fecha}`;
-  const teams=Array.from(new Set(rows.map(r=>(r.team||'').toString().trim()).filter(Boolean))).sort();sel.innerHTML=`<option value="">Todos</option>`+teams.map(t=>`<option>${t}</option>`).join('');
+  const teams = Array.from(new Set(rows.map(r => normalizeTeam((r.team||'').toString().trim())).filter(Boolean))).sort();
+  sel.innerHTML = `<option value="">Todos</option>` + teams.map(t => `<option>${t}</option>`).join('');
   const render=ft=>{const d=rows.filter(r=>!ft||r.team===ft);tbody.innerHTML=d.map(r=>`<tr><td>${r.team||''}</td><td>${r.agente||''}</td><td>${r.servicio||''}</td><td>${r.mercado||''}</td><td>${Number(r.puntaje||0).toFixed(2)}</td><td>${typeof r.fecha==='string'?r.fecha:(r.fecha instanceof Date?r.fecha.toISOString().slice(0,10):(r.fecha||''))}</td></tr>`).join('');};
   render('');sel.onchange=()=>render(sel.value);ov.classList.add('open');
 }
@@ -1012,9 +1037,10 @@ function showDayDetailModal(){
 function showMonthDetailModal(){
   const store=window.MonthDetailRows||{rango:'',rows:[]},rows=Array.isArray(store.rows)?store.rows:[],ov=document.getElementById('month-detail-modal');if(!ov)return;
   const tbody=ov.querySelector('#month-detail-table tbody'),selT=ov.querySelector('#month-filter-team'),selA=ov.querySelector('#month-filter-agent');ov.querySelector('#month-detail-subtitle').textContent=`Período: ${store.rango}`;
-  const teams=Array.from(new Set(rows.map(r=>(r.team||'').toString().trim()).filter(Boolean))).sort();selT.innerHTML=`<option value="">Todos</option>`+teams.map(t=>`<option>${t}</option>`).join('');
-  const refA=()=>{const t=selT.value,ag=Array.from(new Set(rows.filter(r=>!t||r.team===t).map(r=>(r.agente||'').toString().trim()).filter(Boolean))).sort();selA.innerHTML=`<option value="">Todos</option>`+ag.map(a=>`<option>${a}</option>`).join('');};
-  const render=()=>{const t=selT.value,a=selA.value,d=rows.filter(r=>(!t||r.team===t)&&(!a||r.agente===a));tbody.innerHTML=d.map(r=>`<tr><td>${r.team||''}</td><td>${r.agente||''}</td><td>${r.servicio||''}</td><td>${r.mercado||''}</td><td>${Number(r.puntaje||0).toFixed(2)}</td><td>${typeof r.fecha==='string'?r.fecha:(r.fecha instanceof Date?r.fecha.toISOString().slice(0,10):(r.fecha||''))}</td></tr>`).join('');};
+  const teams2 = Array.from(new Set(rows.map(r => normalizeTeam((r.team||'').toString().trim())).filter(Boolean))).sort();
+  selT.innerHTML = `<option value="">Todos</option>` + teams2.map(t => `<option>${t}</option>`).join('');
+  const refA = () => { const t = selT.value; const ag = Array.from(new Set(rows.filter(r => !t || normalizeTeam((r.team||'').toString().trim()) === t).map(r => (r.agente||'').toString().trim()).filter(Boolean))).sort(); selA.innerHTML = `<option value="">Todos</option>` + ag.map(a => `<option>${a}</option>`).join(''); };
+  const render = () => { const t = selT.value, a = selA.value; const d = rows.filter(r => (!t || normalizeTeam((r.team||'').toString().trim()) === t) && (!a || r.agente === a)); tbody.innerHTML = d.map(r => `<tr><td>${normalizeTeam((r.team||'').toString().trim())||''}</td><td>${r.agente||''}</td><td>${r.servicio||''}</td><td>${r.mercado||''}</td><td>${Number(r.puntaje||0).toFixed(2)}</td><td>${typeof r.fecha==='string'?r.fecha:(r.fecha instanceof Date?r.fecha.toISOString().slice(0,10):(r.fecha||''))}</td></tr>`).join(''); };
   refA();render();selT.onchange=()=>{refA();render();};selA.onchange=()=>render();ov.classList.add('open');
 }
 
@@ -1043,6 +1069,8 @@ async function initializeApp(){
   try{const p=new URLSearchParams(location.search),mp=p.get('m');if(mp&&/^\d{4}-\d{2}$/.test(mp)){const[y,m]=mp.split('-').map(Number);currentProductsDate=new Date(y,m-1,15,12,0,0);}}catch(_){}
   setTimeout(adjustForExternalSidebar,300);
   setupDateFilters();
+  // Load canonical teams to normalize team values in modal filters
+  try{ await loadTeams(); }catch(_){ /* ignore */ }
   await Promise.allSettled([renderConversionTable(document.getElementById('conversion-table')),loadDayData(),loadServicePivotDay(new Date()),loadPorcentajeForMonth(window.currentPorcMonth||new Date())]);
   actualizarGraficaVentasPuntaje();loadProductsChart();
 }

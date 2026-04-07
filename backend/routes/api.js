@@ -5952,11 +5952,15 @@ router.get('/semaforo', protect, async (req, res) => {
       {
         $addFields: {
           isCancel: { $eq: ["$_statusNorm", "CANCEL"] },
+          // isValido = solo pending + completed/active cuentan ventas y puntos
+          isValido: {
+            $in: ["$_statusNorm", ["PENDING", "COMPLETED", "ACTIVE"]]
+          },
           puntajeEfectivo: {
             $cond: [
-              { $eq: ["$_statusNorm", "CANCEL"] },
-              0,
-              { $toDouble: { $ifNull: ["$puntaje", 0] } }
+              { $in: ["$_statusNorm", ["PENDING", "COMPLETED", "ACTIVE"]] },
+              { $toDouble: { $ifNull: ["$puntaje", 0] } },
+              0
             ]
           }
         }
@@ -6083,7 +6087,7 @@ router.get('/semaforo', protect, async (req, res) => {
         $group: {
           _id: "$_nameNormLower",
           nombre: { $first: "$_agenteFuente" },
-          ventas: { $sum: 1 },
+          ventas: { $sum: { $cond: ["$isValido", 1, 0] } },
           puntos: { $sum: "$puntajeEfectivo" },
           lastSaleDate: { $max: { $ifNull: ["$_diaParsed", "$createdAt"] } }
         }
