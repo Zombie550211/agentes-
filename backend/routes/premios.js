@@ -16,7 +16,8 @@ router.get('/activos', async (req, res) => {
     const db = getDb();
     if (!db) return res.status(503).json({ success: false, message: 'BD no disponible' });
     const items = await db.collection('premios_activos').find({}).sort({ createdAt: 1 }).toArray();
-    res.json({ success: true, data: items });
+    const data = items.map(d => ({ ...d, _id: d._id.toString() }));
+    res.json({ success: true, data });
   } catch (e) {
     console.error('[PREMIOS] GET activos:', e);
     res.status(500).json({ success: false, message: 'Error interno' });
@@ -46,7 +47,7 @@ router.post('/activos', protect, async (req, res) => {
     };
 
     const result = await db.collection('premios_activos').insertOne(doc);
-    doc._id = result.insertedId;
+    doc._id = result.insertedId.toString();
 
     broadcast('add', 'activos', doc);
     res.json({ success: true, data: doc });
@@ -83,7 +84,8 @@ router.get('/ganadores', async (req, res) => {
     const db = getDb();
     if (!db) return res.status(503).json({ success: false, message: 'BD no disponible' });
     const items = await db.collection('premios_ganadores').find({}).sort({ createdAt: 1 }).toArray();
-    res.json({ success: true, data: items });
+    const data = items.map(d => ({ ...d, _id: d._id.toString() }));
+    res.json({ success: true, data });
   } catch (e) {
     console.error('[PREMIOS] GET ganadores:', e);
     res.status(500).json({ success: false, message: 'Error interno' });
@@ -114,7 +116,7 @@ router.post('/ganadores', protect, async (req, res) => {
     };
 
     const result = await db.collection('premios_ganadores').insertOne(doc);
-    doc._id = result.insertedId;
+    doc._id = result.insertedId.toString();
 
     broadcast('add', 'ganadores', doc);
     res.json({ success: true, data: doc });

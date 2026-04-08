@@ -875,7 +875,7 @@
     try {
       const res  = await apiFetch('/api/premios/activos');
       const json = await res.json();
-      activosData = Array.isArray(json.data) ? json.data : [];
+      activosData = (Array.isArray(json.data) ? json.data : []).map(function(d){ return Object.assign({}, d, { _id: toIdString(d._id) }); });
     } catch (e) { console.error('[PREMIOS] loadActivos:', e); activosData = []; }
   }
 
@@ -883,7 +883,7 @@
     try {
       const res  = await apiFetch('/api/premios/ganadores');
       const json = await res.json();
-      ganadoresData = Array.isArray(json.data) ? json.data : [];
+      ganadoresData = (Array.isArray(json.data) ? json.data : []).map(function(d){ return Object.assign({}, d, { _id: toIdString(d._id) }); });
     } catch (e) { console.error('[PREMIOS] loadGanadores:', e); ganadoresData = []; }
   }
 
@@ -925,7 +925,7 @@
         if (coleccion === 'activos') {
           if (action === 'add') {
             const exists = activosData.some(function (x) { return String(x._id) === id; });
-            if (!exists) activosData.push(doc);
+            if (!exists) activosData.push(Object.assign({}, doc, { _id: id }));
             renderActivos();
             updateStats();
             const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
@@ -941,7 +941,7 @@
         if (coleccion === 'ganadores') {
           if (action === 'add') {
             const exists = ganadoresData.some(function (x) { return String(x._id) === id; });
-            if (!exists) ganadoresData.push(doc);
+            if (!exists) ganadoresData.push(Object.assign({}, doc, { _id: id }));
             renderGanadores();
             updateStats();
             const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
@@ -1164,7 +1164,7 @@
         if (!titulo || !descripcion || !categoria) return;
         try {
           const doc = await apiAddActivo({ tipo: f.tipo.value||'first', titulo, descripcion, categoria, monto: Number(f.monto.value)||0 });
-          activosData.push(doc);
+          activosData.push(Object.assign({}, doc, { _id: toIdString(doc._id) }));
           renderActivos(); updateStats();
           closeModal('modalActivo');
           f.reset();
@@ -1195,7 +1195,7 @@
             fecha:     f.fecha.value || '',
             status:    f.status.value || 'asignado'
           });
-          ganadoresData.push(doc);
+          ganadoresData.push(Object.assign({}, doc, { _id: toIdString(doc._id) }));
           renderGanadores(); updateStats();
           closeModal('modalGanador');
           f.reset();
