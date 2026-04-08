@@ -422,6 +422,9 @@
     .badge-gold { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(245,200,66,.3); }
     .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
     .badge-gray { background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid var(--border); }
+    .badge-nuevo1 { background: rgba(37,99,235,.1); color: var(--blue); border: 1px solid rgba(37,99,235,.25); cursor:pointer; }
+    .badge-nuevo2 { background: rgba(22,163,74,.1); color: var(--green); border: 1px solid rgba(22,163,74,.25); cursor:pointer; }
+    .badge-regular { background: rgba(0,0,0,.05); color: var(--ink3); border: 1px solid var(--border); cursor:pointer; }
 
     /* ── Loading ── */
     .loader-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; color: var(--ink2); font-size: .8rem; }
@@ -577,6 +580,66 @@ function getEscalaPct(p) {
 }
 
 /* ══════════════════════════════════════════════════════
+   AGENTE NUEVO LOGIC
+   Mes 1: sin meta, todos los pts × $5 + bonus decimal
+   Mes 2: meta 14 pts, desde 14 pts × $6 + bonus decimal
+══════════════════════════════════════════════════════ */
+function _bonusDecimal(p) {
+  const frac = parseFloat((p - Math.floor(p)).toFixed(2));
+  if (frac >= 0.80) return 4;
+  if (frac >= 0.75) return 3;
+  if (frac >= 0.50) return 3;
+  if (frac >= 0.35) return 2;
+  if (frac >= 0.25) return 2;
+  return 0;
+}
+
+function calcComisionNuevo(p, mes) {
+  const base = Math.floor(p);
+  const bonus = _bonusDecimal(p);
+  if (mes === 1) return (base * 5) + bonus;
+  if (mes === 2) return p < 14 ? 0 : (base * 6) + bonus;
+  return calcComision(p);
+}
+
+function getEscalaNuevo(p, mes) {
+  if (mes === 1) return p > 0 ? 'Nuevo · Mes 1' : 'Nuevo · Mes 1';
+  if (mes === 2) return p >= 14 ? 'Nuevo · Mes 2' : 'Sin meta (min. 14)';
+  return getEscala(p);
+}
+
+function getTasaNuevo(p, mes) {
+  if (mes === 1) return 5;
+  if (mes === 2) return p >= 14 ? 6 : 0;
+  return getTasa(p);
+}
+
+function getEscalaPctNuevo(p, mes) {
+  if (mes === 1) return Math.min(100, (p / 20) * 100);
+  if (mes === 2) return p < 14 ? Math.min(100, (p/14)*100) : Math.min(100, ((p-14)/10)*100+50);
+  return getEscalaPct(p);
+}
+
+// localStorage: { 'agentkey': 1 | 2 }  (0/absent = regular)
+function getNuevoMap() {
+  try { return JSON.parse(localStorage.getItem('com_nuevo_map')||'{}'); } catch { return {}; }
+}
+function getAgentMes(agentKey) { return getNuevoMap()[agentKey] || 0; }
+function setAgentMes(agentKey, mes) {
+  const m = getNuevoMap();
+  if (!mes) delete m[agentKey]; else m[agentKey] = mes;
+  localStorage.setItem('com_nuevo_map', JSON.stringify(m));
+}
+
+window.cycleAgentTipo = function(agentKey) {
+  const cur = getAgentMes(agentKey);
+  setAgentMes(agentKey, (cur + 1) % 3);
+  const ym = getYM(_month.year, _month.month);
+  _agents = aggregateAgents(_leads, ym);
+  render();
+};
+
+/* ══════════════════════════════════════════════════════
    DATA HELPERS
 ══════════════════════════════════════════════════════ */
 function normalizeStatus(s){
@@ -714,13 +777,15 @@ function aggregateAgents(leads, targetYM){
 
   return Object.values(map).map(a => {
     const p = parseFloat(a.puntos.toFixed(2));
+    const tipo = getAgentMes(a.rawName.toLowerCase());
     return {
       ...a,
       puntos: p,
-      comision: calcComision(p),
-      escala: getEscala(p),
-      tasa: getTasa(p),
-      pct: getEscalaPct(p),
+      tipo,
+      comision: tipo > 0 ? calcComisionNuevo(p, tipo) : calcComision(p),
+      escala:   tipo > 0 ? getEscalaNuevo(p, tipo)    : getEscala(p),
+      tasa:     tipo > 0 ? getTasaNuevo(p, tipo)       : getTasa(p),
+      pct:      tipo > 0 ? getEscalaPctNuevo(p, tipo)  : getEscalaPct(p),
       totalVentas: a.ventas + a.colchones,
     };
   }).sort((a,b) => b.puntos - a.puntos);
@@ -784,7 +849,7 @@ function renderAdminView(){
   const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
   const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
   const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
-  const conMeta = _agents.filter(a=>a.puntos>=17).length;
+  const conMeta = _agents.filter(a=>a.comision>0).length;
 
   const kpis = `
   <div class="kpi-strip">
@@ -815,7 +880,12 @@ function renderAdminView(){
     : `<div class="agents-grid">${_agents.map(a=>renderAgentCard(a)).join('')}</div>`;
 
   // Table
-  const tableRows = _agents.map((a,i)=>`
+  const tableRows = _agents.map((a,i)=>{
+    const tipoCls = a.tipo===1?'badge-nuevo1':a.tipo===2?'badge-nuevo2':'badge-regular';
+    const tipoLbl = a.tipo===1?'Nuevo M1':a.tipo===2?'Nuevo M2':'Regular';
+    const escalaCls = a.comision>0?'badge-gold':'badge-gray';
+    const agKey = a.rawName.toLowerCase().replace(/'/g,'\\\'');
+    return `
     <tr>
       <td>${i+1}</td>
       <td>${a.name}</td>
@@ -823,10 +893,12 @@ function renderAdminView(){
       <td class="mono">${a.puntos.toFixed(2)}</td>
       <td class="mono">${a.ventas}</td>
       <td class="mono">${a.colchones}</td>
-      <td class="mono">$${getTasa(a.puntos)}/pto</td>
+      <td class="mono">$${a.tasa}/pto</td>
       <td class="mono green" style="color:var(--green)">${fmtUSD(a.comision)}</td>
-      <td><span class="badge ${a.puntos>=17?'badge-gold':'badge-gray'}">${a.escala}</span></td>
-    </tr>`).join('');
+      <td><span class="badge ${escalaCls}">${a.escala}</span></td>
+      <td><span class="badge ${tipoCls}" onclick="cycleAgentTipo('${agKey}')" title="Click para cambiar tipo">${tipoLbl}</span></td>
+    </tr>`;
+  }).join('');
 
   return `
     ${kpis}
@@ -845,10 +917,10 @@ function renderAdminView(){
           <thead>
             <tr>
               <th>#</th><th>Agente</th><th>Team</th><th>Puntos</th>
-              <th>Ventas</th><th>Colchones</th><th>Tasa</th><th>Comisión</th><th>Escala</th>
+              <th>Ventas</th><th>Colchones</th><th>Tasa</th><th>Comisión</th><th>Escala</th><th>Tipo</th>
             </tr>
           </thead>
-          <tbody>${tableRows||`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--ink3)">Sin datos</td></tr>`}</tbody>
+          <tbody>${tableRows||`<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--ink3)">Sin datos</td></tr>`}</tbody>
         </table>
       </div>
     </div>`;
@@ -856,10 +928,12 @@ function renderAdminView(){
 
 function renderAgentCard(a){
   const pct = Math.min(100, a.pct).toFixed(0);
-  const noMeta = a.puntos < 17;
+  const noMeta = a.comision === 0;
+  const nuevoTag = a.tipo===1 ? '🆕 Agente Nuevo · Mes 1' : a.tipo===2 ? '🆕 Agente Nuevo · Mes 2' : '';
   return `
   <div class="agent-card ${noMeta?'no-meta':''}">
-    ${noMeta?'<div class="no-meta-tag">Sin meta</div>':''}
+    ${noMeta&&!a.tipo?'<div class="no-meta-tag">Sin meta</div>':''}
+    ${a.tipo?`<div class="no-meta-tag" style="background:rgba(37,99,235,.12);color:var(--blue);border-color:rgba(37,99,235,.25)">${nuevoTag}</div>`:''}
     <div class="agent-card-top">
       <div class="agent-avatar">${initials(a.name)}</div>
       <div>
@@ -882,7 +956,7 @@ function renderAgentCard(a){
       </div>
       <div class="agent-row">
         <span class="agent-row-lbl">Tasa</span>
-        <span class="agent-row-val">$${getTasa(a.puntos)}/pto · ${a.escala}</span>
+        <span class="agent-row-val">$${a.tasa}/pto · ${a.escala}</span>
       </div>
       <div class="agent-row">
         <span class="agent-row-lbl">Comisión estimada</span>
@@ -892,7 +966,7 @@ function renderAgentCard(a){
     ${!noMeta?`
     <div class="prog-wrap">
       <div class="prog-lbl"><span>Progreso escala</span><span>${pct}%</span></div>
-      <div class="prog-track"><div class="prog-fill ${a.puntos>=17?'green':''}" style="width:${pct}%"></div></div>
+      <div class="prog-track"><div class="prog-fill green" style="width:${pct}%"></div></div>
     </div>`:''}
   </div>`;
 }
@@ -934,8 +1008,9 @@ function resolveAgentData(){
 
 function buildSelfViewHTML(agentData, ym){
   const p = agentData.puntos;
-  const noMeta = p < 17;
-  const bonus = agentData.comision - (Math.floor(p) * getTasa(p));
+  const tipo = agentData.tipo || 0;
+  const noMeta = agentData.comision === 0;
+  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
   const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
 
   // ── Ventas del mes para este agente ──
@@ -984,16 +1059,37 @@ function buildSelfViewHTML(agentData, ym){
     }
   </div>`;
 
-  const TRACK_MAX = 36;
+  // Track nodes según tipo
+  let TRACK_MAX, nodes;
+  if (tipo === 1) {
+    TRACK_MAX = 20;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'     },
+      { pts: 5,  label: '5',   rate: '$5/pto'},
+      { pts: 10, label: '10',  rate: '$5/pto'},
+      { pts: 15, label: '15',  rate: '$5/pto'},
+      { pts: 20, label: '20+', rate: '$5/pto'},
+    ];
+  } else if (tipo === 2) {
+    TRACK_MAX = 30;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'     },
+      { pts: 14, label: '14',  rate: '$6/pto'},
+      { pts: 20, label: '20',  rate: '$6/pto'},
+      { pts: 25, label: '25',  rate: '$6/pto'},
+      { pts: 30, label: '30+', rate: '$6/pto'},
+    ];
+  } else {
+    TRACK_MAX = 36;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'      },
+      { pts: 17, label: '17',  rate: '$6/pto' },
+      { pts: 21, label: '21',  rate: '$12/pto'},
+      { pts: 26, label: '26',  rate: '$15/pto'},
+      { pts: 31, label: '31+', rate: '$18/pto'},
+    ];
+  }
   const trackPct = Math.min(100, (p / TRACK_MAX) * 100).toFixed(1);
-
-  const nodes = [
-    { pts: 0,  label: '0',   rate: '—'      },
-    { pts: 17, label: '17',  rate: '$6/pto' },
-    { pts: 21, label: '21',  rate: '$12/pto'},
-    { pts: 26, label: '26',  rate: '$15/pto'},
-    { pts: 31, label: '31+', rate: '$18/pto'},
-  ];
 
   const nodesHtml = nodes.map((n, i) => {
     const reached = p >= n.pts && n.pts > 0;
@@ -1028,7 +1124,7 @@ function buildSelfViewHTML(agentData, ym){
       </div>
       <div class="sv-stat accent-green">
         <div class="sv-stat-lbl">Tasa actual</div>
-        <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${getTasa(p)}<span style="font-size:1rem">/pto</span></div>
+        <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${agentData.tasa}<span style="font-size:1rem">/pto</span></div>
         <div class="sv-stat-sub">${agentData.escala}</div>
       </div>
     </div>
@@ -1044,12 +1140,12 @@ function buildSelfViewHTML(agentData, ym){
           <div class="sv-track-nodes">${nodesHtml}</div>
         </div>
       </div>
-      ${p >= 17 ? `
+      ${agentData.comision > 0 ? `
       <div class="sv-breakdown">
-        <div class="sv-breakdown-title">Desglose</div>
+        <div class="sv-breakdown-title">Desglose${tipo===1?' · Agente Nuevo Mes 1':tipo===2?' · Agente Nuevo Mes 2':''}</div>
         <div class="sv-breakdown-row">
-          <span>${Math.floor(p)} pts × $${getTasa(p)}/pto</span>
-          <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * getTasa(p))}</span>
+          <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * agentData.tasa)}</span>
         </div>
         ${bonus > 0 ? `<div class="sv-breakdown-row">
           <span>Bono decimal (.${fracStr})</span>
@@ -1071,8 +1167,8 @@ function renderAgentSelfView(){
   const ym = getYM(_month.year, _month.month);
   const { data: agentData, isAdmin: adminBrowse, idx, total } = resolveAgentData();
   const p = agentData.puntos;
-  const noMeta = p < 17;
-  const bonus = agentData.comision - (Math.floor(p) * getTasa(p));
+  const noMeta = agentData.comision === 0;
+  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
 
   const heroInner = `
     <div class="sv-hero-left">
@@ -1088,8 +1184,8 @@ function renderAgentSelfView(){
       <div class="sv-comm-amount ${noMeta ? 'no-meta' : ''}">${fmtUSD(agentData.comision)}</div>
       <div class="sv-comm-basis">
         ${noMeta
-          ? 'Sin meta — mínimo 17 puntos'
-          : `${Math.floor(p)} pts × $${getTasa(p)}/pto${bonus > 0 ? ' + bono decimal' : ''}`
+          ? (agentData.tipo===2 ? 'Sin meta — mínimo 14 puntos' : 'Sin meta — mínimo 17 puntos')
+          : `${Math.floor(p)} pts × $${agentData.tasa}/pto${bonus > 0 ? ' + bono decimal' : ''}`
         }
       </div>
     </div>`;
