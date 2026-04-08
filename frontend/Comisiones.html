@@ -664,15 +664,15 @@ async function loadUsersCreatedAt(){
   } catch(_){ _usersCreatedAt = {}; }
 }
 
-// Devuelve cuántos meses han pasado desde la creación del usuario hasta HOY
-function getMonthsWorked(agentKey){
+// Devuelve cuántos meses han pasado desde la creación del usuario hasta el mes visualizado
+function getMonthsWorked(agentKey, targetYM){
   const createdAt = _usersCreatedAt[agentKey];
   if(!createdAt) return 99; // no encontrado → regular
   const created = new Date(createdAt);
-  const now = new Date();
-  const months = (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth());
+  const [ty, tm] = targetYM.split('-').map(Number);
+  const months = (ty - created.getFullYear()) * 12 + (tm - (created.getMonth()+1));
   return months;
-  // 0-1 → Mes 1 (lleva 1 mes o menos),  2 → Mes 2,  3+ → Regular
+  // <0 → no existía aún, 0 → primer mes, 1 → segundo mes, 2+ → regular
 }
 
 // Tipo automático basado en createdAt, overrideable manualmente
@@ -689,11 +689,12 @@ function setAgentOverride(agentKey, val) {
 function getAgentMes(agentKey, targetYM) {
   const overrides = getNuevoMap();
   if(agentKey in overrides) return overrides[agentKey] === 99 ? 0 : overrides[agentKey];
-  // Auto-detect por antigüedad real desde HOY
-  const months = getMonthsWorked(agentKey);
-  if(months <= 1) return 1; // 0-1 meses = primer mes
-  if(months === 2) return 2; // 2 meses = segundo mes
-  return 0; // 3+ meses = regular
+  // Auto-detect por antigüedad relativa al mes visualizado
+  const months = getMonthsWorked(agentKey, targetYM);
+  if(months < 0) return 0;  // no existía aún → regular
+  if(months === 0) return 1; // primer mes
+  if(months === 1) return 2; // segundo mes
+  return 0; // 2+ meses → regular
 }
 
 // Click cicla: auto → forzar M1 → forzar M2 → forzar regular → auto
@@ -858,7 +859,13 @@ function aggregateAgents(leads, targetYM){
       pct:      tipo > 0 ? getEscalaPctNuevo(p, tipo)  : getEscalaPct(p),
       totalVentas: a.ventas + a.colchones,
     };
-  }).sort((a,b) => b.puntos - a.puntos);
+  }).sort((a,b) => {
+    // Primero los que comisionan (desc), luego los que no (desc por puntos)
+    if(a.comision > 0 && b.comision === 0) return -1;
+    if(b.comision > 0 && a.comision === 0) return 1;
+    if(a.comision > 0 && b.comision > 0) return b.comision - a.comision;
+    return b.puntos - a.puntos;
+  });
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1001,11 +1008,11 @@ function renderAdminView(){
 
 function renderAgentCard(a){
   const pct = Math.min(100, a.pct).toFixed(0);
-  const noMeta = a.comision === 0;
+  const noMeta = a.comision === 0 && a.tipo !== 1; // Mes 1 nunca gris (siempre comisiona)
   const nuevoTag = a.tipo===1 ? '🆕 Agente Nuevo · Mes 1' : a.tipo===2 ? '🆕 Agente Nuevo · Mes 2' : '';
   return `
   <div class="agent-card ${noMeta?'no-meta':''}">
-    ${noMeta&&!a.tipo?'<div class="no-meta-tag">Sin meta</div>':''}
+    ${noMeta?'<div class="no-meta-tag">Sin meta</div>':''}
     ${a.tipo?`<div class="no-meta-tag" style="background:rgba(37,99,235,.12);color:var(--blue);border-color:rgba(37,99,235,.25)">${nuevoTag}</div>`:''}
     <div class="agent-card-top">
       <div class="agent-avatar">${initials(a.name)}</div>
@@ -1033,7 +1040,7 @@ function renderAgentCard(a){
       </div>
       <div class="agent-row">
         <span class="agent-row-lbl">Comisión estimada</span>
-        <span class="agent-row-val ${noMeta?'':'green'}">${fmtUSD(a.comision)}</span>
+        <span class="agent-row-val ${(a.comision>0||a.tipo===1)?'green':''}">${a.tipo===1?fmtUSD(Math.round(a.puntos*10*100)/100):fmtUSD(a.comision)}</span>
       </div>
     </div>
     ${!noMeta?`
@@ -1375,6 +1382,8 @@ async function loadData(){
 
   document.getElementById('page-loader').remove();
 
+  // Limpiar overrides manuales viejos (localStorage de ciclo anterior)
+  localStorage.removeItem('com_nuevo_map');
   // Load canonical teams and user creation dates first
   await Promise.all([loadTeams(), loadUsersCreatedAt()]);
   await loadData();
