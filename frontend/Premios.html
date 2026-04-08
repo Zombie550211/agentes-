@@ -1164,7 +1164,8 @@
         if (!titulo || !descripcion || !categoria) return;
         try {
           const doc = await apiAddActivo({ tipo: f.tipo.value||'first', titulo, descripcion, categoria, monto: Number(f.monto.value)||0 });
-          activosData.push(Object.assign({}, doc, { _id: toIdString(doc._id) }));
+          const nid = toIdString(doc._id);
+          if (!activosData.some(function(x){ return x._id === nid; })) activosData.push(Object.assign({}, doc, { _id: nid }));
           renderActivos(); updateStats();
           closeModal('modalActivo');
           f.reset();
@@ -1195,7 +1196,8 @@
             fecha:     f.fecha.value || '',
             status:    f.status.value || 'asignado'
           });
-          ganadoresData.push(Object.assign({}, doc, { _id: toIdString(doc._id) }));
+          const gnid = toIdString(doc._id);
+          if (!ganadoresData.some(function(x){ return x._id === gnid; })) ganadoresData.push(Object.assign({}, doc, { _id: gnid }));
           renderGanadores(); updateStats();
           closeModal('modalGanador');
           f.reset();
