@@ -595,28 +595,51 @@ function _bonusDecimal(p) {
 }
 
 function calcComisionNuevo(p, mes) {
-  const base = Math.floor(p);
-  const bonus = _bonusDecimal(p);
-  if (mes === 1) return (base * 5) + bonus;
-  if (mes === 2) return p < 14 ? 0 : (base * 6) + bonus;
+  if (mes === 1) {
+    // Mes 1: $10 por punto incluyendo decimales, sin meta mínima
+    return Math.round(p * 10 * 100) / 100;
+  }
+  if (mes === 2) {
+    // Mes 2: misma escala que regular pero meta mínima 14 pts
+    if (p < 14) return 0;
+    const base = Math.floor(p);
+    let tasa = 0;
+    if      (base >= 31) tasa = 18;
+    else if (base >= 26) tasa = 15;
+    else if (base >= 21) tasa = 12;
+    else                 tasa = 6;
+    return (base * tasa) + _bonusDecimal(p);
+  }
   return calcComision(p);
 }
 
 function getEscalaNuevo(p, mes) {
-  if (mes === 1) return p > 0 ? 'Nuevo · Mes 1' : 'Nuevo · Mes 1';
-  if (mes === 2) return p >= 14 ? 'Nuevo · Mes 2' : 'Sin meta (min. 14)';
+  if (mes === 1) return 'Nuevo · Mes 1 ($10/pto)';
+  if (mes === 2) {
+    if (p < 14) return 'Sin meta (mín. 14)';
+    if (p >= 31) return 'Nuevo M2 · 31+';
+    if (p >= 26) return 'Nuevo M2 · 26-30';
+    if (p >= 21) return 'Nuevo M2 · 21-25';
+    return 'Nuevo M2 · 14-20';
+  }
   return getEscala(p);
 }
 
 function getTasaNuevo(p, mes) {
-  if (mes === 1) return 5;
-  if (mes === 2) return p >= 14 ? 6 : 0;
+  if (mes === 1) return 10;
+  if (mes === 2) {
+    if (p < 14) return 0;
+    if (p >= 31) return 18;
+    if (p >= 26) return 15;
+    if (p >= 21) return 12;
+    return 6;
+  }
   return getTasa(p);
 }
 
 function getEscalaPctNuevo(p, mes) {
-  if (mes === 1) return Math.min(100, (p / 20) * 100);
-  if (mes === 2) return p < 14 ? Math.min(100, (p/14)*100) : Math.min(100, ((p-14)/10)*100+50);
+  if (mes === 1) return Math.min(100, (p / 25) * 100);
+  if (mes === 2) return p < 14 ? Math.min(100, (p/14)*100) : getEscalaPct(p);
   return getEscalaPct(p);
 }
 
@@ -1143,6 +1166,11 @@ function buildSelfViewHTML(agentData, ym){
       ${agentData.comision > 0 ? `
       <div class="sv-breakdown">
         <div class="sv-breakdown-title">Desglose${tipo===1?' · Agente Nuevo Mes 1':tipo===2?' · Agente Nuevo Mes 2':''}</div>
+        ${tipo===1 ? `
+        <div class="sv-breakdown-row">
+          <span>${p.toFixed(2)} pts × $10/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD(agentData.comision)}</span>
+        </div>` : `
         <div class="sv-breakdown-row">
           <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
           <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * agentData.tasa)}</span>
@@ -1150,7 +1178,7 @@ function buildSelfViewHTML(agentData, ym){
         ${bonus > 0 ? `<div class="sv-breakdown-row">
           <span>Bono decimal (.${fracStr})</span>
           <span class="sv-breakdown-val gold">+${fmtUSD(bonus)}</span>
-        </div>` : ''}
+        </div>` : ''}`}
         <div class="sv-breakdown-row total">
           <span>Total estimado</span>
           <span class="sv-breakdown-val green">${fmtUSD(agentData.comision)}</span>
