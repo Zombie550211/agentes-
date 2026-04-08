@@ -712,8 +712,10 @@ function fmtUSD2(n){
   return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 window.updatePayKPIs = function(ym, totalCom) {
-  const cb  = parseFloat(document.getElementById('kpi-cb-input')?.value||0)||0;
-  const ant = parseFloat(document.getElementById('kpi-anticipo-input')?.value||0)||0;
+  const cbEl  = document.getElementById('kpi-cb-input');
+  const antEl = document.getElementById('kpi-anticipo-input');
+  const cb  = parseFloat((cbEl?.value  ?? cbEl?.textContent  ?? 0))||0;
+  const ant = parseFloat((antEl?.value ?? antEl?.textContent ?? 0))||0;
   _payInputs[ym+'_cb']  = cb;
   _payInputs[ym+'_ant'] = ant;
   try{ localStorage.setItem('com_pay_inputs', JSON.stringify(_payInputs)); }catch{}
@@ -1121,6 +1123,7 @@ function buildSelfViewHTML(agentData, ym){
   const p = agentData.puntos;
   const tipo = agentData.tipo || 0;
   const noMeta = agentData.comision === 0;
+  const canEditPay = isAdmin(_user?.role);
   const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
   const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
 
@@ -1227,9 +1230,12 @@ function buildSelfViewHTML(agentData, ym){
         <div class="sv-stat-lbl">CB <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
         <div class="sv-input-wrap">
           <span class="sv-input-prefix">$</span>
-          <input id="kpi-cb-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
-            value="${_payInputs[ym+'_cb']||''}"
-            oninput="updatePayKPIs('${ym}',${agentData.comision})"/>
+          ${canEditPay
+            ? `<input id="kpi-cb-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
+                value="${_payInputs[ym+'_cb']||''}"
+                oninput="updatePayKPIs('${ym}',${agentData.comision})"/>`
+            : `<span id="kpi-cb-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[ym+'_cb']||'0.00'}</span>`
+          }
         </div>
         <div class="sv-stat-sub">Resta al total</div>
       </div>
@@ -1247,9 +1253,12 @@ function buildSelfViewHTML(agentData, ym){
         <div class="sv-stat-lbl">Anticipo <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
         <div class="sv-input-wrap">
           <span class="sv-input-prefix">$</span>
-          <input id="kpi-anticipo-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
-            value="${_payInputs[ym+'_ant']||''}"
-            oninput="updatePayKPIs('${ym}',${agentData.comision})"/>
+          ${canEditPay
+            ? `<input id="kpi-anticipo-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
+                value="${_payInputs[ym+'_ant']||''}"
+                oninput="updatePayKPIs('${ym}',${agentData.comision})"/>`
+            : `<span id="kpi-anticipo-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[ym+'_ant']||'0.00'}</span>`
+          }
         </div>
         <div class="sv-stat-sub">Resta al Sub Total</div>
       </div>
