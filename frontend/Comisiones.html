@@ -607,7 +607,7 @@ function _bonusDecimal(p) {
 function calcComisionNuevo(p, mes) {
   if (mes === 1) {
     // Mes 1: $10 por punto incluyendo decimales, sin meta mínima
-    return Math.round(p * 10 * 100) / 100;
+    return parseFloat((p * 10).toFixed(2));
   }
   if (mes === 2) {
     // Mes 2: misma escala que regular pero meta mínima 14 pts
@@ -1319,15 +1319,15 @@ function buildSelfViewHTML(agentData, ym){
         </div>`:''}` : `
         <div class="sv-breakdown-row">
           <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
-          <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * agentData.tasa)}</span>
+          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p) * agentData.tasa)}</span>
         </div>
         ${bonus > 0 ? `<div class="sv-breakdown-row">
           <span>Bono decimal (.${fracStr})</span>
-          <span class="sv-breakdown-val gold">+${fmtUSD(bonus)}</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD2(bonus)}</span>
         </div>` : ''}`}
         <div class="sv-breakdown-row total">
           <span>Total estimado</span>
-          <span class="sv-breakdown-val green">${fmtUSD(agentData.comision)}</span>
+          <span class="sv-breakdown-val green">${fmtUSD2(agentData.comision)}</span>
         </div>
       </div>` : ''}
     </div>
@@ -1355,7 +1355,7 @@ function renderAgentSelfView(){
     </div>
     <div class="sv-hero-right">
       <div class="sv-comm-lbl">Comisión estimada · Residencial</div>
-      <div class="sv-comm-amount ${noMeta ? 'no-meta' : ''}">${fmtUSD(agentData.comision)}</div>
+      <div class="sv-comm-amount ${noMeta ? 'no-meta' : ''}">${fmtUSD2(agentData.comision)}</div>
       <div class="sv-comm-basis">
         ${noMeta
           ? (agentData.tipo===2 ? 'Sin meta — mínimo 14 puntos' : 'Sin meta — mínimo 17 puntos')
