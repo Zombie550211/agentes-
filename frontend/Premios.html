@@ -971,6 +971,15 @@
   function money(n) { const v=Number(n||0); return '$'+(v%1===0?v:v.toFixed(2)); }
   function moneyFull(n) { return '$'+Number(n||0).toFixed(2); }
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Convertir ObjectId a string correctamente
+  function toIdString(id) {
+    if (!id) return '';
+    if (typeof id === 'string') return id;
+    if (id.$oid) return id.$oid;
+    if (id.toString && typeof id.toString === 'function') return id.toString();
+    return String(id);
+  }
   function formatDate(d) {
     if (!d) return '—';
     try {
@@ -992,7 +1001,7 @@
     activosData.forEach(function (item) {
       const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
       const cfg  = TIPO_CFG[tipo];
-      const id   = String(item._id);
+      const id   = toIdString(item._id);
       const card = document.createElement('div');
       card.className = 'prize-card';
       card.setAttribute('data-tipo', tipo);
@@ -1035,7 +1044,7 @@
     ganadoresData.forEach(function (item) {
       const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
       const cfg  = TIPO_CFG[tipo];
-      const id   = String(item._id);
+      const id   = toIdString(item._id);
       const statusClass = item.status === 'pendiente' ? 'pendiente' : 'asignado';
       const statusLabel = item.status === 'pendiente' ? 'Pendiente' : 'Asignado';
       const tr = document.createElement('tr');
@@ -1085,7 +1094,7 @@
     activosData.forEach(function (item) {
       const cfg = TIPO_CFG[item.tipo] || TIPO_CFG.second;
       const opt = document.createElement('option');
-      opt.value = String(item._id);
+      opt.value = toIdString(item._id);
       opt.textContent = cfg.icon + ' ' + item.titulo + ' (' + money(item.monto) + ')';
       opt.setAttribute('data-tipo', item.tipo);
       opt.setAttribute('data-monto', item.monto);
@@ -1112,7 +1121,7 @@
     if (delActivo) {
       const id = delActivo.getAttribute('data-del-activo');
       apiDeleteActivo(id).then(function () {
-        activosData = activosData.filter(function (x) { return String(x._id) !== id; });
+        activosData = activosData.filter(function (x) { return toIdString(x._id) !== id; });
         renderActivos(); updateStats();
       }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
       return;
@@ -1122,7 +1131,7 @@
     if (delGanador) {
       const id = delGanador.getAttribute('data-del-ganador');
       apiDeleteGanador(id).then(function () {
-        ganadoresData = ganadoresData.filter(function (x) { return String(x._id) !== id; });
+        ganadoresData = ganadoresData.filter(function (x) { return toIdString(x._id) !== id; });
         renderGanadores(); updateStats();
       }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
       return;
