@@ -2398,6 +2398,33 @@ app.get('/api/users/agents', protect, async (req, res) => {
   }
 });
 
+// ── ADMIN-LIST (para Comisiones) ──────────────────────────
+app.get('/api/users/admin-list', protect, async (req, res) => {
+  try {
+    if (!db) { if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' }); db = getDb(); }
+    const users = await db.collection('users').find({})
+      .project({ username:1, name:1, nombre:1, fullName:1, role:1, createdAt:1, createdA:1, creadoEn:1, fechaCreacion:1 }).toArray();
+    
+    return res.json({ 
+      success: true, 
+      users: users.map(u => {
+        // Buscar la fecha de creación en varios campos posibles
+        const createdAt = u.createdAt || u.createdA || u.creadoEn || u.fechaCreacion;
+        return {
+          id: u._id?.toString()||null, 
+          username: u.username||null, 
+          name: u.name||u.nombre||u.fullName||u.username||null, 
+          role: u.role||'Usuario',
+          createdAt: createdAt ? new Date(createdAt).toISOString() : null
+        };
+      })
+    });
+  } catch (e) {
+    console.error('[API /api/users/admin-list]', e);
+    return res.status(500).json({ success: false, message: 'Error obteniendo usuarios', error: e.message });
+  }
+});
+
 // ── COMENTARIOS ───────────────────────────────────────────────
 app.get('/api/comments', async (req, res) => {
   try {

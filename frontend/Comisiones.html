@@ -540,7 +540,7 @@ function isAgentRole(role){
    Escala basada en puntos (floor):
      17-20 → $6/pto | 21-25 → $12/pto | 26-30 → $15/pto | 31+ → $18/pto
    Decimal bonus (solo si puntos >= 17):
-     .25/.35 → +$2 | .50/.75 → +$3 | .80/.85 → +$4
+     .25/.35 → +$2 | .45/.75 → +$3 | .80/.85 → +$4
 ══════════════════════════════════════════════════════ */
 function calcComision(puntos) {
   const p = (typeof puntos === 'number' ? puntos : parseFloat(puntos||0)) || 0;
@@ -558,7 +558,7 @@ function calcComision(puntos) {
   if (frac >= 0.85)      bonus = 4;
   else if (frac >= 0.80) bonus = 4;
   else if (frac >= 0.75) bonus = 3;
-  else if (frac >= 0.50) bonus = 3;
+  else if (frac >= 0.45) bonus = 3;  // Changed from 0.50 to 0.45
   else if (frac >= 0.35) bonus = 2;
   else if (frac >= 0.25) bonus = 2;
 
@@ -596,9 +596,10 @@ function getEscalaPct(p) {
 ══════════════════════════════════════════════════════ */
 function _bonusDecimal(p) {
   const frac = parseFloat((p - Math.floor(p)).toFixed(2));
+  // Redondeo: 0.45 se trata como 0.50 y paga $3
   if (frac >= 0.80) return 4;
   if (frac >= 0.75) return 3;
-  if (frac >= 0.50) return 3;
+  if (frac >= 0.45) return 3;  // Changed from 0.50 to 0.45 (includes 0.45-0.49 → $3)
   if (frac >= 0.35) return 2;
   if (frac >= 0.25) return 2;
   return 0;
@@ -659,28 +660,49 @@ let _usersCreatedAt = {};
 async function loadUsersCreatedAt(){
   try {
     const res = await AUTH.sf('/api/users/admin-list');
-    if(!res||!res.ok) return;
+    if(!res||!res.ok) {
+      console.warn('[Comisiones] /api/users/admin-list error:', res?.status);
+      return;
+    }
     const data = await res.json();
     const list = data.users || data.agents || [];
+    console.log('[Comisiones] Usuarios cargados:', list.length);
     _usersCreatedAt = {};
     list.forEach(u => {
-      if(!u.createdAt) return;
+      if(!u.createdAt) {
+        console.log('[Comisiones] Sin createdAt:', u.name||u.username);
+        return;
+      }
       const key = normalizeStringForCompare(u.name||u.username||'').replace(/\./g,' ').trim();
-      if(key) _usersCreatedAt[key] = u.createdAt;
+      if(key) {
+        _usersCreatedAt[key] = u.createdAt;
+        console.log('[Comisiones] Mapped:', key, '→', u.createdAt);
+      }
       // también por username sin puntos
       const ukey = normalizeStringForCompare(u.username||'').replace(/\./g,' ').trim();
-      if(ukey && ukey !== key) _usersCreatedAt[ukey] = u.createdAt;
+      if(ukey && ukey !== key) {
+        _usersCreatedAt[ukey] = u.createdAt;
+        console.log('[Comisiones] Mapped (alt):', ukey, '→', u.createdAt);
+      }
     });
-  } catch(_){ _usersCreatedAt = {}; }
+    console.log('[Comisiones] _usersCreatedAt total:', Object.keys(_usersCreatedAt).length);
+  } catch(e){
+    console.error('[Comisiones] Error en loadUsersCreatedAt:', e);
+    _usersCreatedAt = {};
+  }
 }
 
 // Devuelve cuántos meses han pasado desde la creación del usuario hasta el mes visualizado
 function getMonthsWorked(agentKey, targetYM){
   const createdAt = _usersCreatedAt[agentKey];
-  if(!createdAt) return 99; // no encontrado → regular
+  if(!createdAt) {
+    // console.log('[getMonthsWorked] No encontrado:', agentKey, '→ regular');
+    return 99; // no encontrado → regular
+  }
   const created = new Date(createdAt);
   const [ty, tm] = targetYM.split('-').map(Number);
   const months = (ty - created.getFullYear()) * 12 + (tm - (created.getMonth()+1));
+  console.log('[getMonthsWorked]', agentKey, 'createdAt:', createdAt, 'created month:', created.getFullYear()+'-'+(created.getMonth()+1), 'targetYM:', targetYM, 'months:', months);
   return months;
   // <0 → no existía aún, 0 → primer mes, 1 → segundo mes, 2+ → regular
 }
@@ -698,13 +720,20 @@ function setAgentOverride(agentKey, val) {
 
 function getAgentMes(agentKey, targetYM) {
   const overrides = getNuevoMap();
-  if(agentKey in overrides) return overrides[agentKey] === 99 ? 0 : overrides[agentKey];
+  if(agentKey in overrides) {
+    const val = overrides[agentKey] === 99 ? 0 : overrides[agentKey];
+    console.log('[getAgentMes]', agentKey, 'override:', overrides[agentKey], '→ tipo:', val);
+    return val;
+  }
   // Auto-detect por antigüedad relativa al mes visualizado
   const months = getMonthsWorked(agentKey, targetYM);
-  if(months < 0) return 0;  // no existía aún → regular
-  if(months === 0) return 1; // primer mes
-  if(months === 1) return 2; // segundo mes
-  return 0; // 2+ meses → regular
+  let tipo = 0;
+  if(months < 0) tipo = 0;  // no existía aún → regular
+  else if(months === 0) tipo = 1; // primer mes
+  else if(months === 1) tipo = 2; // segundo mes
+  else tipo = 0; // 2+ meses → regular
+  console.log('[getAgentMes]', agentKey, 'months:', months, '→ tipo:', tipo);
+  return tipo;
 }
 
 function fmtUSD2(n){
