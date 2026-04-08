@@ -606,8 +606,8 @@ function _bonusDecimal(p) {
 
 function calcComisionNuevo(p, mes) {
   if (mes === 1) {
-    // Mes 1: $10 por punto incluyendo decimales, sin meta mínima
-    return parseFloat((p * 10).toFixed(2));
+    // Mes 1: pts enteros × $10 + bonus decimal (misma tabla que regulares)
+    return (Math.floor(p) * 10) + _bonusDecimal(p);
   }
   if (mes === 2) {
     // Mes 2: misma escala que regular pero meta mínima 14 pts
@@ -1313,9 +1313,9 @@ function buildSelfViewHTML(agentData, ym){
           <span>${Math.floor(p)} pts × $10/pto</span>
           <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p)*10)}</span>
         </div>
-        ${parseFloat((p-Math.floor(p)).toFixed(2))>0?`<div class="sv-breakdown-row">
-          <span>Bono decimal (.${fracStr}) × $10/pto</span>
-          <span class="sv-breakdown-val gold">+${fmtUSD2(parseFloat((p-Math.floor(p)).toFixed(2))*10)}</span>
+        ${_bonusDecimal(p)>0?`<div class="sv-breakdown-row">
+          <span>Bono decimal (.${fracStr})</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD2(_bonusDecimal(p))}</span>
         </div>`:''}` : `
         <div class="sv-breakdown-row">
           <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
