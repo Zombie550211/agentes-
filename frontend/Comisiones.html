@@ -712,6 +712,14 @@ function fmtUSD2(n){
   return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 window.updatePayKPIs = function(payKey, totalCom) {
+  const el = id => document.getElementById(id);
+  if(_excluidos[payKey]) {
+    if(el('kpi-total-com'))   el('kpi-total-com').textContent   = '$0.00';
+    if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = '$0.00';
+    if(el('kpi-renta'))       el('kpi-renta').textContent       = '−$0.00';
+    if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = '$0.00';
+    return;
+  }
   const cbEl  = document.getElementById('kpi-cb-input');
   const antEl = document.getElementById('kpi-anticipo-input');
   const cb  = parseFloat((cbEl?.value  ?? cbEl?.textContent  ?? 0))||0;
@@ -722,7 +730,7 @@ window.updatePayKPIs = function(payKey, totalCom) {
   const sub   = totalCom - cb;
   const renta = sub * 0.1;
   const total = sub - renta - ant;
-  const el = id => document.getElementById(id);
+  if(el('kpi-total-com'))   el('kpi-total-com').textContent   = fmtUSD2(totalCom);
   if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = fmtUSD2(Math.max(0,sub));
   if(el('kpi-renta'))       el('kpi-renta').textContent       = '−'+fmtUSD2(Math.max(0,renta));
   if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = fmtUSD2(Math.max(0,total));
@@ -906,6 +914,28 @@ let _user = null;
 let _view = 'admin'; // 'admin' | 'agent'
 // Persistir CB y Anticipo por mes: { '2026-04_cb': 18.90, '2026-04_ant': 50 }
 let _payInputs = (()=>{ try{ return JSON.parse(localStorage.getItem('com_pay_inputs')||'{}'); }catch{ return {}; } })();
+// Agentes excluidos de comisión: { 'ym_agkey': true }
+let _excluidos = (()=>{ try{ return JSON.parse(localStorage.getItem('com_excluidos')||'{}'); }catch{ return {}; } })();
+
+window.toggleExcluido = function(payKey, totalCom) {
+  _excluidos[payKey] = !_excluidos[payKey];
+  try{ localStorage.setItem('com_excluidos', JSON.stringify(_excluidos)); }catch{}
+  // Si se excluye, poner KPIs en 0; si se incluye, recalcular
+  const excluido = !!_excluidos[payKey];
+  const chk = document.getElementById('chk-comisiona');
+  if(chk) chk.checked = !excluido;
+  if(excluido){
+    const el = id => document.getElementById(id);
+    if(el('kpi-total-com'))   el('kpi-total-com').textContent   = '$0.00';
+    if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = '$0.00';
+    if(el('kpi-renta'))       el('kpi-renta').textContent       = '−$0.00';
+    if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = '$0.00';
+  } else {
+    window.updatePayKPIs(payKey, totalCom);
+    const el = document.getElementById('kpi-total-com');
+    if(el) el.textContent = fmtUSD2(totalCom);
+  }
+};
 let _month = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
 let _leads = [];
 let _agents = [];
@@ -1123,9 +1153,10 @@ function buildSelfViewHTML(agentData, ym){
   const p = agentData.puntos;
   const tipo = agentData.tipo || 0;
   const noMeta = agentData.comision === 0;
-  const canEditPay = isAdmin(_user?.role);
+  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
   const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
   const payKey = ym+'_'+agKey; // clave única por agente y mes
+  const excluido = !!_excluidos[payKey];
   const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
   const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
 
@@ -1225,7 +1256,7 @@ function buildSelfViewHTML(agentData, ym){
     <div class="sv-stats sv-pay-strip">
       <div class="sv-stat accent-green">
         <div class="sv-stat-lbl">Total Comisión</div>
-        <div class="sv-stat-val green" id="kpi-total-com">${fmtUSD(agentData.comision)}</div>
+        <div class="sv-stat-val green" id="kpi-total-com">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
         <div class="sv-stat-sub">Calculado automático</div>
       </div>
       <div class="sv-stat sv-stat-input">
@@ -1243,12 +1274,12 @@ function buildSelfViewHTML(agentData, ym){
       </div>
       <div class="sv-stat accent-gold">
         <div class="sv-stat-lbl">Sub Total</div>
-        <div class="sv-stat-val gold" id="kpi-subtotal">${fmtUSD(agentData.comision)}</div>
+        <div class="sv-stat-val gold" id="kpi-subtotal">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
         <div class="sv-stat-sub">Total − CB</div>
       </div>
       <div class="sv-stat">
         <div class="sv-stat-lbl">Renta <span style="font-size:.6rem;color:var(--ink3)">(−10%)</span></div>
-        <div class="sv-stat-val" id="kpi-renta" style="color:var(--red)">−${fmtUSD(agentData.comision*0.1)}</div>
+        <div class="sv-stat-val" id="kpi-renta" style="color:var(--red)">${excluido ? '−$0.00' : '−'+fmtUSD2(agentData.comision*0.1)}</div>
         <div class="sv-stat-sub">10% del Sub Total</div>
       </div>
       <div class="sv-stat sv-stat-input">
@@ -1266,7 +1297,7 @@ function buildSelfViewHTML(agentData, ym){
       </div>
       <div class="sv-stat accent-green" style="border:2px solid var(--green)">
         <div class="sv-stat-lbl" style="font-weight:800">Total a Pagar</div>
-        <div class="sv-stat-val green" id="kpi-total-pagar" style="font-size:2rem">${fmtUSD(agentData.comision*0.9)}</div>
+        <div class="sv-stat-val green" id="kpi-total-pagar" style="font-size:2rem">${excluido ? '$0.00' : fmtUSD2(agentData.comision*0.9)}</div>
         <div class="sv-stat-sub">Sub Total − Renta − Anticipo</div>
       </div>
     </div>
@@ -1343,6 +1374,9 @@ function renderAgentSelfView(){
   const p = agentData.puntos;
   const noMeta = agentData.comision === 0;
   const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
+  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
+  const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
+  const payKey = ym+'_'+agKey;
 
   const heroInner = `
     <div class="sv-hero-left">
@@ -1362,6 +1396,14 @@ function renderAgentSelfView(){
           : `${Math.floor(p)} pts × $${agentData.tasa}/pto${bonus > 0 ? ' + bono decimal' : ''}`
         }
       </div>
+      ${canEditPay ? `
+      <label class="chk-comisiona-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer;font-size:.75rem;color:var(--ink2);user-select:none;">
+        <input type="checkbox" id="chk-comisiona"
+          ${!_excluidos[payKey]?'checked':''}
+          onchange="toggleExcluido('${payKey}',${agentData.comision})"
+          style="accent-color:var(--green);width:15px;height:15px;cursor:pointer;"/>
+        Comisiona este mes
+      </label>` : ''}
     </div>`;
 
   // For admins: wrap hero with prev/next nav buttons
