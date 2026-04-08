@@ -1310,9 +1310,13 @@ function buildSelfViewHTML(agentData, ym){
         <div class="sv-breakdown-title">Desglose${tipo===1?' · Agente Nuevo Mes 1':tipo===2?' · Agente Nuevo Mes 2':''}</div>
         ${tipo===1 ? `
         <div class="sv-breakdown-row">
-          <span>${p.toFixed(2)} pts × $10/pto</span>
-          <span class="sv-breakdown-val">${fmtUSD(agentData.comision)}</span>
-        </div>` : `
+          <span>${Math.floor(p)} pts × $10/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p)*10)}</span>
+        </div>
+        ${parseFloat((p-Math.floor(p)).toFixed(2))>0?`<div class="sv-breakdown-row">
+          <span>Bono decimal (.${fracStr}) × $10/pto</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD2(parseFloat((p-Math.floor(p)).toFixed(2))*10)}</span>
+        </div>`:''}` : `
         <div class="sv-breakdown-row">
           <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
           <span class="sv-breakdown-val">${fmtUSD(Math.floor(p) * agentData.tasa)}</span>
