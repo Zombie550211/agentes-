@@ -1446,8 +1446,7 @@ async function loadData(){
   _leads = leads;
   const ym = getYM(_month.year, _month.month);
   _agents = aggregateAgents(leads, ym);
-  // Cuando se recarga data, resetear índice de navegación admin
-  if(isAdmin(_user?.role) && _view === 'agent') _agentIdx = 0;
+  // No resetear _agentIdx al recargar datos para mantener posición
   _loading = false;
   render();
 }
