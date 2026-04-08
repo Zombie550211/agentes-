@@ -1320,8 +1320,6 @@ function buildSelfViewHTML(agentData, ym){
     <!-- Row 3: Ventas table -->
     ${ventasTable}
   </div>`;
-  // Inicializar KPIs de pago con valores guardados
-  setTimeout(()=>window.updatePayKPIs(ym, agentData.comision), 0);
 }
 
 function renderAgentSelfView(){
@@ -1391,6 +1389,12 @@ function render(){
       ? `<div class="loader-wrap"><div class="spinner"></div><span>Cargando datos...</span></div>`
       : (showAdminView ? renderAdminView() : renderAgentSelfView())
     }`;
+  // Inicializar KPIs de pago DESPUÉS de que el DOM esté listo
+  if(!_loading && !showAdminView){
+    const ym = getYM(_month.year, _month.month);
+    const {data: ad} = resolveAgentData();
+    window.updatePayKPIs(ym, ad.comision);
+  }
 }
 
 /* ══════════════════════════════════════════════════════
