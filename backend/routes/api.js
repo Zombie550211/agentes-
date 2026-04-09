@@ -3383,18 +3383,18 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
 
     // REGLA AUTO-RESERVA: aplicar DESPUÉS de localizar foundLead para evitar TDZ
     if (updateData.dia_venta && foundLead) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const diaVenta = new Date(updateData.dia_venta);
-      diaVenta.setHours(0, 0, 0, 0);
+      // Comparar como strings YYYY-MM-DD para evitar el bug de timezone con new Date("YYYY-MM-DD")
+      // (new Date("2026-04-09") parsea como UTC, lo que en zonas UTC-N retrocede un día al ajustar a local)
+      const nowLocal    = new Date();
+      const todayStr    = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;
+      const diaVentaStr = String(updateData.dia_venta).slice(0, 10);
 
       const storedDate  = String(foundLead.dia_venta || '').slice(0, 10);
-      const newDate     = String(updateData.dia_venta || '').slice(0, 10);
-      const dateChanged = storedDate !== newDate;
+      const dateChanged = storedDate !== diaVentaStr;
       const isPending   = String(foundLead.status || '').toLowerCase() === 'pending';
       const wasReleased = foundLead.was_reserva === false;
 
-      if (diaVenta < today && dateChanged && isPending && !wasReleased) {
+      if (diaVentaStr < todayStr && dateChanged && isPending && !wasReleased) {
         updateData.status      = 'reserva';
         updateData.was_reserva = true;
       }
