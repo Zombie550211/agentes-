@@ -2759,9 +2759,10 @@ app.post('/api/leads', protect, async (req, res) => {
       } catch { return ''; }
     };
 
-    // Usar fecha LOCAL del servidor (igual que el cliente que manda YYYY-MM-DD local)
-    const nowLocal = new Date();
-    const todayDateOnly = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;
+    // Usar timezone de El Salvador (UTC-6) para determinar "hoy".
+    // El servidor corre en UTC: a las 6 PM SV ya es medianoche UTC del día siguiente,
+    // lo que causaba que ventas del día corriente se marcaran como reserva al crearlas.
+    const todayDateOnly = new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
     const diaVentaDateOnly = toDateOnly(leadData.dia_venta || leadData.diaVenta || leadData.fecha);
 
     const rawStatus       = String(leadData.status || 'pending').toLowerCase();
