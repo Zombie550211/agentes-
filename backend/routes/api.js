@@ -3383,10 +3383,10 @@ router.put('/leads/:id', protect, authorize('Administrador','Backoffice','Superv
 
     // REGLA AUTO-RESERVA: aplicar DESPUÉS de localizar foundLead para evitar TDZ
     if (updateData.dia_venta && foundLead) {
-      // Comparar como strings YYYY-MM-DD para evitar el bug de timezone con new Date("YYYY-MM-DD")
-      // (new Date("2026-04-09") parsea como UTC, lo que en zonas UTC-N retrocede un día al ajustar a local)
-      const nowLocal    = new Date();
-      const todayStr    = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth()+1).padStart(2,'0')}-${String(nowLocal.getDate()).padStart(2,'0')}`;
+      // Usar timezone de El Salvador (UTC-6) para determinar la fecha actual.
+      // El servidor corre en UTC: a las 6 PM SV ya es medianoche UTC del día siguiente,
+      // lo que causaba que ventas del día corriente se marcaran como reserva.
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
       const diaVentaStr = String(updateData.dia_venta).slice(0, 10);
 
       const storedDate  = String(foundLead.dia_venta || '').slice(0, 10);
