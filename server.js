@@ -3400,6 +3400,74 @@ function startServer(port) {
   startServer(PORT);
 })();
 
+// ── POST /api/chat — Asistente IA con Claude ──────────────────
+app.post('/api/chat', protect, async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(503).json({ success: false, message: 'Chatbot no configurado. Agrega ANTHROPIC_API_KEY al .env' });
+
+    const { messages } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ success: false, message: 'messages[] requerido' });
+    }
+
+    // Sanitizar: solo roles válidos y texto string
+    const cleanMessages = messages
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      .slice(-20)
+      .map(m => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+
+    if (cleanMessages.length === 0 || cleanMessages[cleanMessages.length - 1].role !== 'user') {
+      return res.status(400).json({ success: false, message: 'El último mensaje debe ser del usuario' });
+    }
+
+    const fetch = require('node-fetch');
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: `Eres un asistente inteligente integrado en el CRM de un equipo de ventas de telecomunicaciones (Frontier / DIRECTV).
+
+Tu rol: ayudar a los agentes y supervisores con dudas sobre el sistema, estrategias de venta, seguimiento de leads, y gestión de clientes.
+
+Contexto del sistema CRM:
+- Statuses de ventas: pending (activo/en proceso), completed (venta cerrada exitosamente), reserva (venta de días anteriores pendiente de instalación), cancelled (cancelada), hold (en pausa), rescheduled (reagendada)
+- Mercados: BAMO, ICON
+- Supervisores: JONATHAN F y LUIS G
+- Puntaje de ventas: varía por servicio y producto vendido
+- Colchón: venta cuyo dia_venta es del mes anterior pero dia_instalacion es del mes actual
+- El agente puede ver sus propias ventas; el supervisor ve las de su equipo; admin/backoffice ve todas
+
+Reglas de comportamiento:
+- Responde siempre en español, de forma concisa y directa
+- Si no sabes algo específico del negocio, dilo claramente
+- No inventes datos de ventas o métricas que no te fueron proporcionadas
+- Puedes ayudar con: navegación del sistema, explicar statuses, estrategias de venta, dudas generales`,
+        messages: cleanMessages
+      })
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('[CHAT] Anthropic error:', apiRes.status, errText.slice(0, 200));
+      return res.status(502).json({ success: false, message: 'Error al contactar el asistente IA' });
+    }
+
+    const data = await apiRes.json();
+    const reply = data?.content?.[0]?.text || '';
+    return res.json({ success: true, reply });
+  } catch (e) {
+    console.error('[CHAT] Error:', e.message);
+    return res.status(500).json({ success: false, message: 'Error interno del chatbot' });
+  }
+});
+
 async function gracefulShutdown(signal) {
   console.log(`\n[SHUTDOWN] ${signal}...`);
   try {
