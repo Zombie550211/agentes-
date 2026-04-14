@@ -1778,17 +1778,5 @@
     document.head.appendChild(s);
   })();
 
-  // ── Tawk.to Live Chat ──
-  (function() {
-    if (window.__TAWK_LOADED__) return;
-    window.__TAWK_LOADED__ = true;
-    var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
-    var s1 = document.createElement('script'), s0 = document.getElementsByTagName('script')[0];
-    s1.async = true;
-    s1.src = 'https://embed.tawk.to/69dab4b341b0381c3a2f9cab/1jlv53nr4';
-    s1.charset = 'UTF-8';
-    s1.setAttribute('crossorigin', '*');
-    s0.parentNode.insertBefore(s1, s0);
-  })();
 
 })();
