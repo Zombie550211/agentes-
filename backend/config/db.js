@@ -48,7 +48,10 @@ async function connectToMongoDB() {
       socketTimeoutMS: SOCKET_TIMEOUT_MS,
       tlsAllowInvalidCertificates: TLS_INSECURE,
       tlsAllowInvalidHostnames: TLS_INSECURE,
-      appName: 'dashboard-backend'
+      appName: 'dashboard-backend',
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      waitQueueTimeoutMS: 10000
     });
     await client.connect();
     db = client.db(DB_NAME);

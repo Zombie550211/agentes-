@@ -15,8 +15,9 @@
   <link rel="stylesheet" href="css/costumer-table-comments.css">
   <link rel="stylesheet" href="css/costumer-calendar.css">
   <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <script src="scripts/measure_fetch_times.js"></script>
   <script src="/js/fetch-interceptor.js"></script>
@@ -1863,7 +1864,7 @@
     const isAdm = isAdminOrBackoffice(role);
     const isSup = isSupervisor(role);
     const needsAll = isAdm || isSup;
-    const limit = needsAll ? 50000 : 5000;
+    const limit = needsAll ? 5000 : 1000;
     const scope = needsAll ? '&scope=ranking' : '';
     const url = '/api/leads?limit='+limit+'&offset=0'+scope;
     const res = await AUTH.secureFetch(url);
@@ -2563,11 +2564,14 @@
     if(!AUTH.check())return;
     const tbody=document.getElementById('costumer-tbody');
     if(tbody)tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:48px;color:var(--ink-4);"><div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;"><div style="width:28px;height:28px;border:3px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .7s linear infinite;"></div><span style="font-size:.78rem;font-weight:500;">Cargando datos…</span></div></td></tr>';
-    const valid=await AUTH.verifySession();
+    // Paralelizar: verificar sesión, cargar teams y filtros al mismo tiempo
+    const [valid] = await Promise.all([
+      AUTH.verifySession(),
+      loadTeams(),
+      fetchUsersForFilters().catch(function(){}),
+      fetchMonthsForFilters().catch(function(){})
+    ]);
     if(!valid){showToast('Sesión no válida. Redirigiendo…','error');setTimeout(function(){AUTH.redirectToLogin('invalid');},1200);return;}
-    // Load canonical teams to normalize filter options
-    await loadTeams();
-    Promise.all([fetchUsersForFilters(),fetchMonthsForFilters()]).catch(function(){});
     const leads=await fetchLeads();
     window.renderCostumerTable(leads);
     setInterval(async function(){const ok=await AUTH.verifySession();if(!ok){showToast('Tu sesión ha expirado','error');setTimeout(function(){AUTH.redirectToLogin('session_timeout');},1500);}},30*60*1000);

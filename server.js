@@ -432,10 +432,44 @@ const avatarUpload = multer({
     catch (e) { console.error('[SERVER] GridFS noteFiles error:', e.message); }
     try { userAvatarsBucket = new GridFSBucket(db, { bucketName: 'userAvatars' }); console.log('[SERVER] GridFS userAvatars OK'); }
     catch (e) { console.error('[SERVER] GridFS userAvatars error:', e.message); }
+    // Crear índices en background para acelerar queries frecuentes
+    ensureIndexes(db).catch(e => console.error('[INDEXES]', e.message));
   } else {
     console.warn('[SERVER] Modo OFFLINE — operaciones de BD fallarán.');
   }
 })();
+
+async function ensureIndexes(database) {
+  const col = database.collection('costumers_unified');
+  await Promise.all([
+    // Ordenamiento principal (más usado en GET /api/leads)
+    col.createIndex({ dia_venta: -1, creadoEn: -1 }, { name: 'idx_leads_sort', background: true }),
+    // Filtros por fecha
+    col.createIndex({ dia_venta: 1 },          { name: 'idx_dia_venta',          background: true }),
+    col.createIndex({ creadoEn: 1 },           { name: 'idx_creadoEn',           background: true }),
+    col.createIndex({ createdAt: 1 },          { name: 'idx_createdAt',          background: true }),
+    col.createIndex({ dia_instalacion: 1 },    { name: 'idx_dia_instalacion',    background: true }),
+    // Filtros por agente
+    col.createIndex({ agenteNombre: 1 },       { name: 'idx_agenteNombre',       background: true }),
+    col.createIndex({ agente: 1 },             { name: 'idx_agente',             background: true }),
+    col.createIndex({ createdBy: 1 },          { name: 'idx_createdBy',          background: true }),
+    // Filtros por status y supervisor
+    col.createIndex({ status: 1 },             { name: 'idx_status',             background: true }),
+    col.createIndex({ supervisor: 1 },         { name: 'idx_supervisor',         background: true }),
+    // Activities (para historial de agentes)
+    database.collection('activities').createIndex(
+      { actor_username: 1, timestamp: -1 },    { name: 'idx_activities_actor',   background: true }
+    ),
+    database.collection('activities').createIndex(
+      { timestamp: -1 },                       { name: 'idx_activities_ts',      background: true }
+    ),
+    // Users
+    database.collection('users').createIndex(
+      { username: 1 },                         { name: 'idx_users_username',     background: true, unique: true, sparse: true }
+    )
+  ]);
+  console.log('[INDEXES] Índices verificados/creados en costumers_unified, activities y users.');
+}
 
 // ── ACTIVITY LOGGER ───────────────────────────────────────────
 async function logActivity(db, activityType, leadId, leadClientName, actorUsername, actorRole, description, extra = {}) {
