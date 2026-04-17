@@ -681,6 +681,64 @@
     body.dark-theme .costumer-table tbody tr:hover { background: rgba(108,71,255,0.10) !important; }
     body.dark-theme .costumer-table tbody tr:hover td:first-child { background: rgba(108,71,255,0.15) !important; }
     body.dark-theme .costumer-table tbody tr.row-colchon { background: rgba(108,71,255,0.08) !important; }
+
+    /* ── TABLE LOADER ──────────────────────────────────────── */
+    .crm-loader-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 60px 0;
+    }
+    .loader {
+      --main-size: 2.4em;
+      --text-color: #6C47FF;
+      --shine-color: rgba(108,71,255,0.18);
+      --shadow-color: #c4b8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      user-select: none;
+      position: relative;
+      font-size: var(--main-size);
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--text-color);
+      width: 7.3em;
+      height: 1em;
+      filter: drop-shadow(0 0 0.05em var(--shine-color));
+    }
+    body.dark-theme .loader { --text-color: #a78bfa; --shine-color: rgba(167,139,250,0.25); --shadow-color: #6c47ff; }
+    .loader .text {
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; white-space: nowrap; overflow: hidden; position: absolute;
+    }
+    .loader .text:nth-child(1)  { clip-path: polygon(0% 0%,11.11% 0%,11.11% 100%,0% 100%);     font-size:calc(var(--main-size)/20); margin-left:-2.1em;  opacity:.6; }
+    .loader .text:nth-child(2)  { clip-path: polygon(11.11% 0%,22.22% 0%,22.22% 100%,11.11% 100%); font-size:calc(var(--main-size)/16); margin-left:-0.98em; opacity:.7; }
+    .loader .text:nth-child(3)  { clip-path: polygon(22.22% 0%,33.33% 0%,33.33% 100%,22.22% 100%); font-size:calc(var(--main-size)/13); margin-left:-0.33em; opacity:.8; }
+    .loader .text:nth-child(4)  { clip-path: polygon(33.33% 0%,44.44% 0%,44.44% 100%,33.33% 100%); font-size:calc(var(--main-size)/11); margin-left:-0.05em; opacity:.9; }
+    .loader .text:nth-child(5)  { clip-path: polygon(44.44% 0%,55.55% 0%,55.55% 100%,44.44% 100%); font-size:calc(var(--main-size)/10); margin-left:0em;    opacity:1;  }
+    .loader .text:nth-child(6)  { clip-path: polygon(55.55% 0%,66.66% 0%,66.66% 100%,55.55% 100%); font-size:calc(var(--main-size)/11); margin-left:0.05em;  opacity:.9; }
+    .loader .text:nth-child(7)  { clip-path: polygon(66.66% 0%,77.77% 0%,77.77% 100%,66.66% 100%); font-size:calc(var(--main-size)/13); margin-left:0.33em;  opacity:.8; }
+    .loader .text:nth-child(8)  { clip-path: polygon(77.77% 0%,88.88% 0%,88.88% 100%,77.77% 100%); font-size:calc(var(--main-size)/16); margin-left:0.98em;  opacity:.7; }
+    .loader .text:nth-child(9)  { clip-path: polygon(88.88% 0%,100%   0%,100%   100%,88.88% 100%); font-size:calc(var(--main-size)/20); margin-left:2.1em;   opacity:.6; }
+    .loader .text span { animation: crm-scrolling 2s cubic-bezier(.1,.6,.9,.4) infinite, crm-shadow 2s cubic-bezier(.1,.6,.9,.4) infinite; }
+    .loader .text:nth-child(1) span { background:linear-gradient(to right,var(--text-color) 4%,var(--shadow-color) 7%);    background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(2) span { background:linear-gradient(to right,var(--text-color) 9%,var(--shadow-color) 13%);   background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(3) span { background:linear-gradient(to right,var(--text-color) 15%,var(--shadow-color) 18%);  background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(4) span { background:linear-gradient(to right,var(--text-color) 20%,var(--shadow-color) 23%);  background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(6) span { background:linear-gradient(to right,var(--shadow-color) 29%,var(--text-color) 32%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(7) span { background:linear-gradient(to right,var(--shadow-color) 34%,var(--text-color) 37%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(8) span { background:linear-gradient(to right,var(--shadow-color) 39%,var(--text-color) 42%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(9) span { background:linear-gradient(to right,var(--shadow-color) 45%,var(--text-color) 48%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .line { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; height:0.05em; width:calc(var(--main-size)/2); margin-top:0.9em; border-radius:0.05em; }
+    .loader .line::before { content:""; position:absolute; height:100%; width:100%; background-color:var(--text-color); opacity:0.3; }
+    .loader .line::after  { content:""; position:absolute; height:100%; width:100%; background-color:var(--text-color); border-radius:0.05em; transform:translateX(-90%); animation:crm-wobble 2s cubic-bezier(.5,.8,.5,.2) infinite; }
+    @keyframes crm-wobble   { 0%{transform:translateX(-90%)} 50%{transform:translateX(90%)}  100%{transform:translateX(-90%)} }
+    @keyframes crm-scrolling{ 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+    @keyframes crm-shadow   { 0%{background-position:-98% 0} 100%{background-position:102% 0} }
   </style>
 </head>
 <body>
@@ -2569,11 +2627,26 @@
   /* ── SCROLLBAR MIRROR ── */
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
+  /* ── LOADER HTML ── */
+  function getLoaderTR(label){
+    label = label || 'CARGANDO';
+    const txt = label.toUpperCase();
+    return '<tr><td colspan="19"><div class="crm-loader-wrap">'
+      + '<div class="loader">'
+      + ['<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>',
+         '<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>',
+         '<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>']
+        .map(function(s){ return '<div class="text">'+s+'</div>'; }).join('')
+      + '<div class="line"></div>'
+      + '</div>'
+      + '</div></td></tr>';
+  }
+
   /* ── INIT ── */
   async function loadInitialData(){
     if(!AUTH.check())return;
     const tbody=document.getElementById('costumer-tbody');
-    if(tbody)tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:48px;color:var(--ink-4);"><div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;"><div style="width:28px;height:28px;border:3px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .7s linear infinite;"></div><span style="font-size:.78rem;font-weight:500;">Cargando datos…</span></div></td></tr>';
+    if(tbody)tbody.innerHTML=getLoaderTR();
     // Paralelizar: verificar sesión, cargar teams y filtros al mismo tiempo
     const [valid] = await Promise.all([
       AUTH.verifySession(),
@@ -2753,7 +2826,7 @@
     if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
       const m=this.value||undefined;
       const tbody=document.getElementById('costumer-tbody');
-      if(tbody)tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:32px;color:var(--ink-4);"><div style="display:inline-flex;align-items:center;gap:8px;"><div style="width:20px;height:20px;border:2px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .7s linear infinite;"></div><span style="font-size:.78rem;">Cargando mes…</span></div></td></tr>';
+      if(tbody)tbody.innerHTML=getLoaderTR();
       const leads=await fetchLeads(m);
       window.renderCostumerTable(leads);
     });
