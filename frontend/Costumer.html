@@ -2463,6 +2463,46 @@
     const isCol=!!lead._es_colchon;
     const container=document.getElementById('liberar-reserva-container');
     if(container){const showBanner=(lead.status==='reserva'||lead.was_reserva)&&!isCol;container.style.display=showBanner?'block':'none';if(showBanner){const sel=document.getElementById('liberar-agente-select');if(sel){const agentSet=new Set();__allLeadsData.forEach(function(l){const a=l.agente||'';if(a.trim())agentSet.add(a.trim());});sel.innerHTML='<option value="">-- Selecciona agente --</option>';Array.from(agentSet).sort().forEach(function(a){const opt=document.createElement('option');opt.value=a;opt.textContent=a;sel.appendChild(opt);});}}}
+
+    // ── Permisos de edición: solo Admin y Backoffice pueden modificar ──
+    (function(){
+      const ud=getUserData();
+      const myRole=String(ud.role||ud.rol||'').toLowerCase();
+      const canEdit=isAdminOrBackoffice(myRole);
+      const modal=document.getElementById('editarModal');
+      if(!modal)return;
+      // Habilitar/deshabilitar todos los campos editables
+      modal.querySelectorAll('input,select,textarea').forEach(function(el){
+        if(el.id==='edit-lead-id'||el.id==='edit-id')return; // campos ocultos siempre activos
+        el.disabled=!canEdit;
+        el.style.opacity=canEdit?'':'0.6';
+        el.style.cursor=canEdit?'':'not-allowed';
+      });
+      // Botón guardar
+      const saveBtn=modal.querySelector('.btn-save');
+      if(saveBtn){
+        saveBtn.disabled=!canEdit;
+        saveBtn.style.opacity=canEdit?'':'0.45';
+        saveBtn.style.cursor=canEdit?'':'not-allowed';
+        saveBtn.title=canEdit?'':'Solo administradores y backoffice pueden guardar cambios';
+      }
+      // Banner informativo si no puede editar
+      let noEditBanner=modal.querySelector('.no-edit-banner');
+      if(!canEdit){
+        if(!noEditBanner){
+          noEditBanner=document.createElement('div');
+          noEditBanner.className='no-edit-banner';
+          noEditBanner.style.cssText='background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
+          noEditBanner.innerHTML='<span>🔒</span> Solo Administradores y Backoffice pueden editar esta información.';
+          const body=modal.querySelector('.modal-body');
+          if(body)body.insertBefore(noEditBanner,body.firstChild);
+        }
+        noEditBanner.style.display='flex';
+      } else {
+        if(noEditBanner)noEditBanner.style.display='none';
+      }
+    })();
+
     document.getElementById('editarModal-wrapper').style.display='flex';
     setTimeout(function(){const m=document.getElementById('editarModal');if(m)m.scrollTop=0;},50);
     renderNotesPanel(leadId);
