@@ -1741,11 +1741,12 @@ app.get('/api/agent-history', protect, async (req, res) => {
     // Restricciones de acceso: agentes solo pueden ver los suyos
     if (isAgent && !isAdmin && !isSup) agente = user.username;
 
-    // Fechas por defecto: último mes
-    const now = new Date();
-    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const dateFrom = fechaInicio ? new Date(fechaInicio + 'T00:00:00') : defaultStart;
-    const dateTo   = fechaFin    ? new Date(fechaFin   + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // Fechas por defecto: mes actual en timezone El Salvador
+    // Agregar sufijo -06:00 (El Salvador UTC-6) para que el rango sea correcto
+    const svNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
+    const defaultStart = new Date(svNow.getFullYear(), svNow.getMonth(), 1);
+    const dateFrom = fechaInicio ? new Date(fechaInicio + 'T00:00:00-06:00') : defaultStart;
+    const dateTo   = fechaFin    ? new Date(fechaFin   + 'T23:59:59-06:00') : new Date(svNow.getFullYear(), svNow.getMonth() + 1, 0, 23, 59, 59);
 
     // ── Actividades del agente (colección activities) ──
     const actFilter = {
@@ -1804,16 +1805,11 @@ app.get('/api/agent-history', protect, async (req, res) => {
       extra:        { campos: a.campos, new_status: a.new_status, old_status: a.old_status }
     }));
 
-    // ── Agrupar por día (fecha local del servidor, no UTC) ──
+    // ── Agrupar por día en timezone El Salvador (UTC-6) ──
     const byDay = {};
     actividades.forEach(a => {
-      const d = new Date(a.fecha);
-      // Usar fecha local para evitar desfase de zona horaria UTC vs local
-      const key = [
-        d.getFullYear(),
-        String(d.getMonth() + 1).padStart(2, '0'),
-        String(d.getDate()).padStart(2, '0')
-      ].join('-');
+      // Usar timezone El Salvador para que el día coincida con lo que ve el usuario
+      const key = new Date(a.fecha).toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
       if (!byDay[key]) byDay[key] = [];
       byDay[key].push(a);
     });

@@ -377,7 +377,11 @@
   function formatTime(dateVal) {
     const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
     if (isNaN(d)) return '—';
-    return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('es-SV', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+      timeZone: 'America/El_Salvador'
+    });
   }
 
   function initials(name) {
