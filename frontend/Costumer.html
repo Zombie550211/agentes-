@@ -1285,6 +1285,12 @@
           </select>
         </div>
         <div class="field">
+          <label for="edit-agente">Agente</label>
+          <select id="edit-agente">
+            <option value="">— Sin asignar —</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="edit-supervisor">Supervisor / Team</label>
           <input type="text" id="edit-supervisor" placeholder="Nombre del supervisor" autocomplete="off"/>
         </div>
@@ -2406,6 +2412,53 @@
     setSelectSafe('edit-status',lead.status);
     setVal('edit-supervisor',pick(['supervisor','team']));
     setVal('edit-motivo',pick(['motivo_llamada','motivo','reason']));
+
+    // ── Campo Agente: poblar con usuarios + pre-seleccionar el actual ──
+    (function(){
+      const ud=getUserData();
+      const myRole=String(ud.role||ud.rol||'').toLowerCase();
+      const canEdit=isAdminOrBackoffice(myRole)||isSupervisor(myRole);
+      const sel=document.getElementById('edit-agente');
+      if(!sel)return;
+      sel.disabled=!canEdit;
+
+      // Construir opciones: agentes de la API + agentes únicos en leads cargados
+      const names=new Set();
+      if(Array.isArray(__usersFromAPI)){
+        __usersFromAPI.forEach(function(u){
+          const r=String(u.role||'').toLowerCase();
+          if(r.includes('agente')||r.includes('vendedor')||r.includes('agent')||r.includes('lineas')){
+            const n=u.name||u.username||'';
+            if(n.trim())names.add(n.trim());
+          }
+        });
+      }
+      // Completar con agentes únicos de la tabla actual
+      if(Array.isArray(__allLeadsData)){
+        __allLeadsData.forEach(function(l){
+          const a=l.agente||l.agenteNombre||'';
+          if(a.trim())names.add(a.trim());
+        });
+      }
+
+      const currentAgent=pick(['agenteNombre','agente','createdBy','creadoPor'])||'';
+      sel.innerHTML='<option value="">— Sin asignar —</option>';
+      Array.from(names).sort().forEach(function(n){
+        const opt=document.createElement('option');
+        opt.value=n;
+        opt.textContent=n;
+        if(n.toLowerCase()===currentAgent.toLowerCase())opt.selected=true;
+        sel.appendChild(opt);
+      });
+      // Si el agente actual no está en la lista, añadirlo
+      if(currentAgent&&!Array.from(names).some(function(n){return n.toLowerCase()===currentAgent.toLowerCase();})){
+        const opt=document.createElement('option');
+        opt.value=currentAgent;
+        opt.textContent=currentAgent+' (actual)';
+        opt.selected=true;
+        sel.insertBefore(opt,sel.options[1]);
+      }
+    })();
     const idSpan=document.getElementById('modal-lead-id');if(idSpan)idSpan.textContent='#'+String(leadId).slice(-4).toUpperCase();
     const isCol=!!lead._es_colchon;
     const container=document.getElementById('liberar-reserva-container');
@@ -2499,6 +2552,9 @@
       status:          getVal('edit-status'),
       supervisor:      getVal('edit-supervisor'),
       motivo_llamada:  getVal('edit-motivo'),
+      agente:          getVal('edit-agente'),
+      agenteNombre:    getVal('edit-agente'),
+      createdBy:       getVal('edit-agente'),
     };
     Object.assign(lead, updates);
     lead._es_colchon=isColchonLead(lead);
