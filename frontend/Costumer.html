@@ -151,23 +151,78 @@
     .cmd-bar-row {
       display: flex; align-items: center; gap: 0;
       margin: 0 -20px; border-top: 1px solid var(--line-1);
-      background: var(--sheet-2); padding: 0 20px; height: 42px;
-      overflow-x: auto; scrollbar-width: none;
+      background: var(--sheet-2); padding: 0 20px; height: 62px;
+      overflow-x: auto; overflow-y: visible; scrollbar-width: none;
     }
     .cmd-bar-row::-webkit-scrollbar { display:none; }
 
-    .cmd-search {
-      display: flex; align-items: center; gap: 8px;
-      flex: 0 0 auto; width: 240px;
-      border-right: 1px solid var(--line-1);
-      height: 100%; padding: 0 14px 0 10px;
+    /* ── SEARCH INPUT (UIverse EddyBel) ── */
+    .input__container {
+      position: relative;
+      background: rgba(255,255,255,0.90);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      border-radius: 22px;
+      width: 290px;
+      flex-shrink: 0;
+      transition: box-shadow 300ms ease;
+      margin-right: 12px;
+      box-shadow: 0 4px 18px rgba(108,71,255,0.18);
     }
-    .cmd-search-icon { color: var(--ink-4); flex-shrink:0; }
-    .cmd-search input {
-      border:none; background:transparent; outline:none;
-      font-family:var(--f); font-size:.82rem; color:var(--ink-1); width:100%;
+    .input__container:focus-within {
+      box-shadow: 0 6px 28px rgba(108,71,255,0.40);
     }
-    .cmd-search input::placeholder { color:var(--ink-4); }
+    .shadow__input {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      bottom: -8px;
+      z-index: -1;
+      filter: blur(20px);
+      opacity: 0.85;
+      border-radius: 20px;
+      background-color: #999cff;
+      background-image:
+        radial-gradient(at 85% 51%, hsla(60,60%,61%,1) 0px, transparent 50%),
+        radial-gradient(at 74% 68%, hsla(235,69%,77%,1) 0px, transparent 50%),
+        radial-gradient(at 64% 79%, hsla(284,72%,73%,1) 0px, transparent 50%),
+        radial-gradient(at 75% 16%, hsla(283,60%,72%,1) 0px, transparent 50%),
+        radial-gradient(at 90% 65%, hsla(153,70%,64%,1) 0px, transparent 50%),
+        radial-gradient(at 91% 83%, hsla(283,74%,69%,1) 0px, transparent 50%),
+        radial-gradient(at 72% 91%, hsla(213,75%,75%,1) 0px, transparent 50%);
+    }
+    .input__button__shadow {
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: background 200ms;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      padding: 5px;
+      flex-shrink: 0;
+    }
+    .input__button__shadow:hover { background: rgba(108,71,255,0.1); }
+    .input__search {
+      width: 100%;
+      border-radius: 20px;
+      outline: none;
+      border: none;
+      background: transparent;
+      padding: 6px 8px;
+      font-family: var(--f);
+      font-size: .82rem;
+      color: var(--ink-1);
+    }
+    .input__search::placeholder { color: var(--ink-3); }
+    body.dark-theme .input__container { background: rgba(22,32,50,0.92); box-shadow: 0 4px 18px rgba(108,71,255,0.3); }
+    body.dark-theme .input__search { color: var(--ink-1); }
+    body.dark-theme .input__button__shadow svg path { fill: #a78bfa; }
 
     .cmd-tokens {
       display: flex; align-items: center; gap: 4px;
@@ -809,12 +864,14 @@
       </div>
 
       <div class="cmd-bar-row" role="toolbar" aria-label="Filtros">
-        <div class="cmd-search">
-          <svg class="cmd-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M14 14l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-          <input id="costumer-search" class="costumer-filter-input" type="search"
+        <div class="input__container">
+          <div class="shadow__input"></div>
+          <button class="input__button__shadow" type="button" aria-label="Buscar">
+            <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20px" width="20px">
+              <path d="M4 9a5 5 0 1110 0A5 5 0 014 9zm5-7a7 7 0 104.2 12.6.999.999 0 00.093.107l3 3a1 1 0 001.414-1.414l-3-3a.999.999 0 00-.107-.093A7 7 0 009 2z" fill-rule="evenodd" fill="#17202A"></path>
+            </svg>
+          </button>
+          <input id="costumer-search" type="search" name="text" class="input__search costumer-filter-input"
                  placeholder="Buscar cliente, tel., ZIP, cuenta…" aria-label="Buscar clientes"/>
         </div>
 
