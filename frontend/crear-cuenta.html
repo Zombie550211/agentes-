@@ -504,9 +504,29 @@ function onSupervisorChange(prefix){
     return;
   }
 
+  // Determinar palabras clave del supervisor para matching flexible
+  const supLower=supKey.toLowerCase();
+  const isJonathan=supLower.includes('jonathan');
+  const isLuis=supLower.includes('luis');
+
+  function teamMatchesSup(t){
+    // Primero intentar con supervisorKey (servidor nuevo)
+    if(t.supervisorKey) return t.supervisorKey===supKey;
+    // Fallback: matchear por supervisorName o supervisor username (servidor viejo)
+    const sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
+    if(isJonathan) return sName.includes('jonathan');
+    if(isLuis)     return sName.includes('luis');
+    return false;
+  }
+
+  function teamHasNoSup(t){
+    if('supervisorKey' in t) return !t.supervisorKey;
+    return !t.supervisorName || t.supervisorName==='Sin supervisor específico' || t.supervisorName==='Sin supervisor';
+  }
+
   const filtered = supKey==='__none__'
-    ? _teams.filter(function(t){ return !t.supervisorKey; })
-    : _teams.filter(function(t){ return t.supervisorKey===supKey; });
+    ? _teams.filter(teamHasNoSup)
+    : _teams.filter(teamMatchesSup);
 
   if(filtered.length===0){
     teamSel.innerHTML='<option value="">Sin equipo asignado</option>';
