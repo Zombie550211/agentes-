@@ -8,59 +8,35 @@
 
   // Definición de equipos con sus supervisores
   const TEAMS = {
-    'TEAM IRANIA': {
-      name: 'TEAM IRANIA',
-      supervisor: 'irania.serrano',
-      supervisorName: 'Irania Serrano',
-      color: '#667eea',
-      agents: []
-    },
-    'TEAM BRYAN PLEITEZ': {
-      name: 'TEAM BRYAN PLEITEZ',
-      supervisor: 'bryan.pleitez',
-      supervisorName: 'Bryan Pleitez',
-      color: '#764ba2',
-      agents: []
-    },
-    'TEAM MARISOL BELTRAN': {
-      name: 'TEAM MARISOL BELTRAN',
-      supervisor: 'marisol.beltran',
-      supervisorName: 'Marisol Beltrán',
-      color: '#f093fb',
-      agents: []
-    },
-    'TEAM ROBERTO VELASQUEZ': {
-      name: 'TEAM ROBERTO VELASQUEZ',
-      supervisor: 'roberto.velasquez',
-      supervisorName: 'Roberto Velásquez',
-      color: '#4facfe',
-      agents: []
-    },
-    'TEAM JOHANA': {
-      name: 'TEAM JOHANA',
-      supervisor: 'johana.supervisor',
-      supervisorName: 'Guadalupe Santana',
-      color: '#00f2fe',
-      agents: []
-    },
     'TEAM LINEAS': {
       name: 'TEAM LÍNEAS',
       supervisor: 'jonathan.figueroa',
+      supervisorKey: 'JONATHAN F',
       supervisorName: 'Jonathan Figueroa',
       color: '#43e97b',
-      agents: ['VICTOR HURTADO', 'EDWARD RAMIREZ', 'CRISTIAN RIVERA', 'ANDREA ARDON']
+      agents: ['VICTOR HURTADO', 'EDWARD RAMIREZ', 'CRISTIAN RIVERA', 'ANDREA ARDON', 'OSCAR RIVERA', 'MELANIE HURTADO', 'DENNIS VASQUEZ']
+    },
+    'TEAM LUIS G': {
+      name: 'TEAM LUIS G',
+      supervisor: 'luis.g',
+      supervisorKey: 'LUIS G',
+      supervisorName: 'Luis G',
+      color: '#fa709a',
+      agents: ['DANIEL DEL CID', 'FERNANDO BELTRAN', 'KARLA RODRIGUEZ', 'JOCELYN REYES', 'JONATHAN GARCIA', 'NANCY LOPEZ', 'TATIANA GIRON', 'CESAR CLAROS', 'KARLA PONCE', 'MANUEL FLORES']
     },
     'Backoffice': {
       name: 'Backoffice',
       supervisor: null,
-      supervisorName: 'Sin supervisor específico',
-      color: '#fa709a',
+      supervisorKey: null,
+      supervisorName: null,
+      color: '#764ba2',
       agents: []
     },
     'Administración': {
       name: 'Administración',
       supervisor: null,
-      supervisorName: 'Sin supervisor específico',
+      supervisorKey: null,
+      supervisorName: null,
       color: '#fee140',
       agents: []
     }

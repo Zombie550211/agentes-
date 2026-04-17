@@ -2404,14 +2404,22 @@ app.post('/api/create-admin', async (req, res) => {
 // ── TEAMS & SUPERVISORS ───────────────────────────────────────
 app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
   try {
-    // Use server-side canonical teams list
     const teamsServer = require('./backend/utils/teamsServer');
     const teams = typeof teamsServer.getTeamsForSelect === 'function' ? teamsServer.getTeamsForSelect() : [];
     return res.json({ success: true, teams });
   } catch (e) {
     console.warn('[API /api/teams] Error loading teamsServer:', e.message);
-    // Fallback: empty list
     return res.json({ success: true, teams: [] });
+  }
+});
+
+app.get('/api/supervisors-list', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
+  try {
+    const teamsServer = require('./backend/utils/teamsServer');
+    const supervisors = typeof teamsServer.getSupervisors === 'function' ? teamsServer.getSupervisors() : [];
+    return res.json({ success: true, supervisors });
+  } catch (e) {
+    return res.json({ success: true, supervisors: [] });
   }
 });
 

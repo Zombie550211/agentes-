@@ -1,18 +1,45 @@
 // Server-side teams utility (Node.js safe)
 // Minimal canonical teams data and helpers for server endpoints
 const TEAMS = {
-  'TEAM IRANIA': { name: 'TEAM IRANIA', supervisor: 'irania.serrano', supervisorName: 'Irania Serrano' },
-  'TEAM BRYAN PLEITEZ': { name: 'TEAM BRYAN PLEITEZ', supervisor: 'bryan.pleitez', supervisorName: 'Bryan Pleitez' },
-  'TEAM MARISOL BELTRAN': { name: 'TEAM MARISOL BELTRAN', supervisor: 'marisol.beltran', supervisorName: 'Marisol Beltrán' },
-  'TEAM ROBERTO VELASQUEZ': { name: 'TEAM ROBERTO VELASQUEZ', supervisor: 'roberto.velasquez', supervisorName: 'Roberto Velásquez' },
-  'TEAM JOHANA': { name: 'TEAM JOHANA', supervisor: 'johana.supervisor', supervisorName: 'Guadalupe Santana' },
-  'TEAM LINEAS': { name: 'TEAM LÍNEAS', supervisor: 'jonathan.figueroa', supervisorName: 'Jonathan Figueroa', agents: ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON'] },
-  'Backoffice': { name: 'Backoffice', supervisor: null, supervisorName: 'Sin supervisor específico' },
-  'Administración': { name: 'Administración', supervisor: null, supervisorName: 'Sin supervisor específico' }
+  // ── Equipo Jonathan Figueroa ──────────────────────────────
+  'TEAM LINEAS': {
+    name: 'TEAM LÍNEAS',
+    supervisor: 'jonathan.figueroa',
+    supervisorKey: 'JONATHAN F',
+    supervisorName: 'Jonathan Figueroa',
+    agents: ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','MELANIE HURTADO','DENNIS VASQUEZ']
+  },
+  // ── Equipo Luis G ─────────────────────────────────────────
+  'TEAM LUIS G': {
+    name: 'TEAM LUIS G',
+    supervisor: 'luis.g',
+    supervisorKey: 'LUIS G',
+    supervisorName: 'Luis G',
+    agents: ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','TATIANA GIRON','CESAR CLAROS','KARLA PONCE','MANUEL FLORES']
+  },
+  // ── Sin supervisor ────────────────────────────────────────
+  'Backoffice':    { name: 'Backoffice',    supervisor: null, supervisorKey: null, supervisorName: null },
+  'Administración':{ name: 'Administración',supervisor: null, supervisorKey: null, supervisorName: null }
 };
 
+// Lista de supervisores activos
+const SUPERVISORS = [
+  { key: 'JONATHAN F', name: 'Jonathan Figueroa', username: 'jonathan.figueroa' },
+  { key: 'LUIS G',     name: 'Luis G',            username: 'luis.g' }
+];
+
 function getTeamsForSelect() {
-  return Object.keys(TEAMS).map(key => ({ value: key, label: TEAMS[key].name, supervisor: TEAMS[key].supervisor || null, supervisorName: TEAMS[key].supervisorName || null }));
+  return Object.keys(TEAMS).map(key => ({
+    value: key,
+    label: TEAMS[key].name,
+    supervisor: TEAMS[key].supervisor || null,
+    supervisorKey: TEAMS[key].supervisorKey || null,
+    supervisorName: TEAMS[key].supervisorName || null
+  }));
+}
+
+function getSupervisors() {
+  return SUPERVISORS;
 }
 
 function isSupervisor(username) {
@@ -29,4 +56,4 @@ function getAgentsByTeam(teamName) {
   return agents.filter(Boolean);
 }
 
-module.exports = { getTeamsForSelect, isSupervisor, getAgentsByTeam, TEAMS };
+module.exports = { getTeamsForSelect, getSupervisors, isSupervisor, getAgentsByTeam, TEAMS, SUPERVISORS };

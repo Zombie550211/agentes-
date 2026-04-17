@@ -243,15 +243,15 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Equipo</label>
-          <select class="form-select" id="c-team" onchange="onTeamChange('c')">
-            <option value="">— Selecciona equipo —</option>
+          <label class="form-label">Supervisor</label>
+          <select class="form-select" id="c-supervisor" onchange="onSupervisorChange('c')">
+            <option value="">— Selecciona supervisor —</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Supervisor</label>
-          <select class="form-select" id="c-supervisor">
-            <option value="">— Selecciona equipo primero —</option>
+          <label class="form-label">Equipo</label>
+          <select class="form-select" id="c-team">
+            <option value="">— Selecciona supervisor primero —</option>
           </select>
         </div>
       </div>
@@ -292,11 +292,17 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Equipo</label>
-          <select class="form-select" id="r-team" onchange="onTeamChange('r')">
-            <option value="">— Selecciona equipo —</option>
+          <label class="form-label">Supervisor</label>
+          <select class="form-select" id="r-supervisor" onchange="onSupervisorChange('r')">
+            <option value="">— Selecciona supervisor —</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Equipo</label>
+        <select class="form-select" id="r-team" style="margin-bottom:12px">
+          <option value="">— Selecciona supervisor primero —</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Permisos que se asignarán</label>
@@ -426,44 +432,72 @@ const ALL_PERMS = [
 
 let _users=[], _editingId=null, _editingUsername=null;
 let _teams=[];
+let _supervisors=[];
 
 async function loadTeams(){
   try{
-    const res=await AUTH.sf('/api/teams');
-    if(!res||!res.ok)return;
-    const data=await res.json();
-    _teams=Array.isArray(data.teams)?data.teams:[];
-    ['c-team','r-team'].forEach(function(id){
+    // Cargar teams y supervisores en paralelo
+    const [resT, resS] = await Promise.all([
+      AUTH.sf('/api/teams'),
+      AUTH.sf('/api/supervisors-list')
+    ]);
+    if(resT&&resT.ok){ const d=await resT.json(); _teams=Array.isArray(d.teams)?d.teams:[]; }
+    if(resS&&resS.ok){ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }
+
+    // Poblar supervisores en ambos modales
+    ['c-supervisor','r-supervisor'].forEach(function(id){
       const sel=document.getElementById(id);
       if(!sel)return;
-      const cur=sel.value;
-      sel.innerHTML='<option value="">— Selecciona equipo —</option>';
-      _teams.forEach(function(t){
+      sel.innerHTML='<option value="">— Selecciona supervisor —</option>';
+      _supervisors.forEach(function(s){
         const opt=document.createElement('option');
-        opt.value=t.value;
-        opt.textContent=t.label;
+        opt.value=s.key;
+        opt.textContent=s.name;
         sel.appendChild(opt);
       });
-      if(cur)sel.value=cur;
+      // Opción para roles sin supervisor
+      const none=document.createElement('option');
+      none.value='__none__';
+      none.textContent='Sin supervisor (Backoffice / Admin)';
+      sel.appendChild(none);
     });
-  }catch(_){}
+  }catch(e){ console.error('[loadTeams]',e); }
 }
 
-function onTeamChange(prefix){
-  const teamVal=document.getElementById(prefix+'-team').value;
-  const supSel=document.getElementById(prefix+'-supervisor');
-  if(!supSel)return;
-  const team=_teams.find(function(t){return t.value===teamVal;});
-  supSel.innerHTML='';
-  if(!team||!team.supervisorName||team.supervisorName==='Sin supervisor'){
-    supSel.innerHTML='<option value="">Sin supervisor</option>';
-  }else{
-    const opt=document.createElement('option');
-    opt.value=team.supervisorName;
-    opt.textContent=team.supervisorName;
-    supSel.appendChild(opt);
-    supSel.value=team.supervisorName;
+function onSupervisorChange(prefix){
+  const supKey=document.getElementById(prefix+'-supervisor').value;
+  const teamSel=document.getElementById(prefix+'-team');
+  if(!teamSel)return;
+  teamSel.innerHTML='';
+
+  if(!supKey){
+    teamSel.innerHTML='<option value="">— Selecciona supervisor primero —</option>';
+    return;
   }
+
+  const filtered = supKey==='__none__'
+    ? _teams.filter(function(t){ return !t.supervisorKey; })
+    : _teams.filter(function(t){ return t.supervisorKey===supKey; });
+
+  if(filtered.length===0){
+    teamSel.innerHTML='<option value="">Sin equipo asignado</option>';
+    return;
+  }
+
+  const placeholder=document.createElement('option');
+  placeholder.value='';
+  placeholder.textContent='— Selecciona equipo —';
+  teamSel.appendChild(placeholder);
+
+  filtered.forEach(function(t){
+    const opt=document.createElement('option');
+    opt.value=t.value;
+    opt.textContent=t.label;
+    teamSel.appendChild(opt);
+  });
+
+  // Si sólo hay un equipo, selecciónalo automáticamente
+  if(filtered.length===1){ teamSel.value=filtered[0].value; }
 }
 
 function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
@@ -572,25 +606,62 @@ async function createUser(){
   const role=document.getElementById('c-role').value;
   const name=document.getElementById('c-name').value.trim();
   const team=document.getElementById('c-team').value.trim();
-  const supervisor=document.getElementById('c-supervisor').value.trim();
+  const supervisorKey=document.getElementById('c-supervisor').value.trim();
+  // Resolver nombre de supervisor a partir de la clave
+  const supObj=_supervisors.find(function(s){return s.key===supervisorKey;});
+  const supervisor=supObj?supObj.name:(supervisorKey==='__none__'?'':supervisorKey);
   if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
   if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
   const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
-  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor, permissions }) });
+  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
   if(!res){ toast('Error de conexión','err'); return; }
   const data=await res.json();
   if(res.ok&&data.success!==false){
     toast('Usuario creado correctamente','ok');
     closeModal('modal-create');
-    ['c-username','c-password','c-name','c-team','c-supervisor'].forEach(id=>{ document.getElementById(id).value=''; });
+    ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; });
     document.getElementById('c-role').value='';
+    document.getElementById('c-supervisor').value='';
+    document.getElementById('c-team').innerHTML='<option value="">— Selecciona supervisor primero —</option>';
     buildPermsGrid('c-perms-grid',[]);
     loadUsers();
   } else toast(data.message||'Error al crear usuario','err');
 }
 
-function openRoleModal(userId){ const u=_users.find(x=>(x.id||x._id)===userId); if(!u)return; _editingId=userId; _editingUsername=u.username; document.getElementById('r-user-display').textContent=`${u.name||u.username} (@${u.username})`; document.getElementById('r-role').value=u.role||'Agente'; const teamSel=document.getElementById('r-team'); if(teamSel){teamSel.value=u.team||u.equipo||''; onTeamChange('r');} onRoleChange('r'); openModal('modal-role'); }
-async function saveRole(){ const role=document.getElementById('r-role').value; const team=document.getElementById('r-team').value.trim(); if(!role){ toast('Selecciona un rol','err'); return; } const res=await AUTH.sf(`/api/users/${_editingId}/role`,{ method:'PUT', body:JSON.stringify({ role, team }) }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Rol actualizado','ok'); closeModal('modal-role'); loadUsers(); } else toast(data.message||'Error al actualizar rol','err'); }
+function openRoleModal(userId){
+  const u=_users.find(x=>(x.id||x._id)===userId);
+  if(!u)return;
+  _editingId=userId;
+  _editingUsername=u.username;
+  document.getElementById('r-user-display').textContent=`${u.name||u.username} (@${u.username})`;
+  document.getElementById('r-role').value=u.role||'Agente';
+  // Preseleccionar supervisor del usuario
+  const supSel=document.getElementById('r-supervisor');
+  if(supSel){
+    // Buscar supervisor del usuario en la lista
+    const userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
+    const matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key)||s.key.includes(userSup); });
+    supSel.value=matched?matched.key:'';
+    onSupervisorChange('r');
+    // Ahora preseleccionar el equipo
+    const teamSel=document.getElementById('r-team');
+    if(teamSel){ setTimeout(function(){ teamSel.value=u.team||u.equipo||''; },50); }
+  }
+  onRoleChange('r');
+  openModal('modal-role');
+}
+
+async function saveRole(){
+  const role=document.getElementById('r-role').value;
+  const team=document.getElementById('r-team').value.trim();
+  const supervisorKey=document.getElementById('r-supervisor')?document.getElementById('r-supervisor').value.trim():'';
+  if(!role){ toast('Selecciona un rol','err'); return; }
+  const res=await AUTH.sf(`/api/users/${_editingId}/role`,{ method:'PUT', body:JSON.stringify({ role, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'' }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data=await res.json();
+  if(res.ok&&data.success!==false){ toast('Rol actualizado','ok'); closeModal('modal-role'); loadUsers(); }
+  else toast(data.message||'Error al actualizar rol','err');
+}
 
 function openPermsModal(userId){
   const u=_users.find(x=>(x.id||x._id)===userId); if(!u)return;
