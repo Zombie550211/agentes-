@@ -440,6 +440,8 @@ const avatarUpload = multer({
 // ── ACTIVITY LOGGER ───────────────────────────────────────────
 async function logActivity(db, activityType, leadId, leadClientName, actorUsername, actorRole, description, extra = {}) {
   try {
+    const ts = new Date();
+    console.log(`[ACTIVITY-LOG] tipo=${activityType} timestamp=${ts.toISOString()} sv=${ts.toLocaleString('es-SV',{timeZone:'America/El_Salvador'})}`);
     await db.collection('activities').insertOne({
       activity_type:    activityType,
       lead_id:          leadId,
@@ -447,7 +449,7 @@ async function logActivity(db, activityType, leadId, leadClientName, actorUserna
       actor_username:   actorUsername,
       actor_role:       actorRole,
       description,
-      timestamp:        new Date(),
+      timestamp:        ts,
       ...extra
     });
   } catch (e) { console.warn('[ACTIVITY-LOG] Error:', e.message); }
