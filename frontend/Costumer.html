@@ -1857,16 +1857,26 @@
   }
 
   /* ── FETCH ── */
-  async function fetchLeads() {
+  // month: 'YYYY-MM' opcional. Si no se pasa, usa el mes actual.
+  async function fetchLeads(month) {
     if (!AUTH.check()) return [];
     const ud = getUserData();
     const role = String(ud.role||ud.rol||'').toLowerCase();
     const isAdm = isAdminOrBackoffice(role);
     const isSup = isSupervisor(role);
     const needsAll = isAdm || isSup;
-    const limit = needsAll ? 5000 : 1000;
+    const limit = needsAll ? 2000 : 500;
     const scope = needsAll ? '&scope=ranking' : '';
-    const url = '/api/leads?limit='+limit+'&offset=0'+scope;
+
+    // Calcular rango del mes — por defecto mes actual en hora El Salvador
+    const targetMonth = month || new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' }).slice(0, 7);
+    const [y, m] = targetMonth.split('-').map(Number);
+    const fi = targetMonth + '-01';
+    const lastDay = new Date(y, m, 0).getDate();
+    const ff = targetMonth + '-' + String(lastDay).padStart(2, '0');
+    const dateParams = '&fechaInicio=' + fi + '&fechaFin=' + ff;
+
+    const url = '/api/leads?limit='+limit+'&offset=0'+scope+dateParams;
     const res = await AUTH.secureFetch(url);
     if (!res) return [];
     if (!res.ok) { showToast('Error del servidor: ' + res.status, 'error'); return []; }
@@ -2728,7 +2738,7 @@
 
     const searchEl=document.getElementById('costumer-search');if(searchEl)searchEl.addEventListener('input',applyFiltersDebounced);
     const refreshBtn=document.getElementById('refresh-table');
-    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';const leads=await fetchLeads();window.renderCostumerTable(leads);refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
+    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';const m=getVal('monthFilter')||'';const leads=await fetchLeads(m||undefined);window.renderCostumerTable(leads);refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
     document.querySelectorAll('#quickStatusChips .stab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('#quickStatusChips .stab').forEach(function(b){b.classList.remove('is-active');});btn.classList.add('is-active');activeStatusTab=btn.dataset.status||'all';currentPage=1;applyFiltersDebounced();});});
     const pagePrev=document.getElementById('pagePrev'),pageNext=document.getElementById('pageNext');
     if(pagePrev)pagePrev.addEventListener('click',function(){if(currentPage>1){currentPage--;renderTableRows();}});
@@ -2738,7 +2748,16 @@
     const btnClear=document.getElementById('btnClearDates');if(btnClear)btnClear.addEventListener('click',function(){setVal('dateFrom','');setVal('dateTo','');applyFiltersDebounced();});
     ['dateFrom','dateTo'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
     // Add event listeners for all filter selects
-    ['monthFilter','serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
+    // monthFilter → re-fetch desde servidor con el mes seleccionado
+    const monthFilterEl=document.getElementById('monthFilter');
+    if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
+      const m=this.value||undefined;
+      const tbody=document.getElementById('costumer-tbody');
+      if(tbody)tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:32px;color:var(--ink-4);"><div style="display:inline-flex;align-items:center;gap:8px;"><div style="width:20px;height:20px;border:2px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .7s linear infinite;"></div><span style="font-size:.78rem;">Cargando mes…</span></div></td></tr>';
+      const leads=await fetchLeads(m);
+      window.renderCostumerTable(leads);
+    });
+    ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
     document.querySelectorAll('.token select').forEach(function(sel){sel.addEventListener('change',function(){const token=sel.closest('.token');if(!token)return;const tvId=token.querySelector('[id^="tv-"]');if(tvId){const chosen=sel.options[sel.selectedIndex];tvId.textContent=chosen.text;token.classList.toggle('active',!!sel.value);}applyFiltersDebounced();});});
     const cuadBtn=document.getElementById('btn-cuadratura');if(cuadBtn)cuadBtn.addEventListener('click',window.openCuadraturaModal);
