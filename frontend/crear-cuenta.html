@@ -441,17 +441,28 @@ async function loadTeams(){
       AUTH.sf('/api/teams'),
       AUTH.sf('/api/supervisors-list').catch(function(){ return null; })
     ]);
-    if(resT&&resT.ok){ try{ const d=await resT.json(); _teams=Array.isArray(d.teams)?d.teams:[]; }catch(e){} }
     if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
 
-    // Fallback final de teams si el API no responde
-    if(!_teams.length){
-      _teams = [
-        { value:'TEAM LINEAS', label:'TEAM LÍNEAS',  supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa' },
-        { value:'TEAM LUIS G', label:'TEAM LUIS G',  supervisorKey:'LUIS G',     supervisorName:'Luis G' },
-        { value:'Backoffice',  label:'Backoffice',   supervisorKey:null,          supervisorName:null },
-        { value:'Administración', label:'Administración', supervisorKey:null,     supervisorName:null }
-      ];
+    // Equipos canónicos actuales (siempre se usan como base)
+    const canonicalTeams = [
+      { value:'TEAM LINEAS', label:'TEAM LÍNEAS',  supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa', supervisor:'jonathan.figueroa' },
+      { value:'TEAM LUIS G', label:'TEAM LUIS G',  supervisorKey:'LUIS G',     supervisorName:'Luis G',            supervisor:'luis.g' },
+      { value:'Backoffice',  label:'Backoffice',   supervisorKey:null,          supervisorName:null },
+      { value:'Administración', label:'Administración', supervisorKey:null,     supervisorName:null }
+    ];
+
+    // Usar API sólo si devuelve datos actualizados (tiene TEAM LUIS G)
+    if(resT&&resT.ok){
+      try{
+        const d=await resT.json();
+        const apiTeams=Array.isArray(d.teams)?d.teams:[];
+        const tieneActuales=apiTeams.some(function(t){
+          return String(t.supervisorName||t.supervisor||'').toLowerCase().includes('luis') || t.supervisorKey==='LUIS G';
+        });
+        _teams = tieneActuales ? apiTeams : canonicalTeams;
+      }catch(e){ _teams=canonicalTeams; }
+    } else {
+      _teams = canonicalTeams;
     }
 
     // Fallback: si supervisors-list falló o está vacío, extraer supervisores únicos de los teams
