@@ -866,6 +866,142 @@ app.delete('/api/users/me/avatar', protect, async (req, res) => {
 });
 
 // ── ENDPOINTS TEAM LÍNEAS ─────────────────────────────────────
+
+// Round-robin state (en memoria; se reinicia con el servidor)
+const __rrIdx = {};
+let __supRrIdx = 0;
+const __supervisorKeys = ['JONATHAN F', 'LUIS G'];
+
+// Si no viene supervisor: alterna un lead a JONATHAN F, el siguiente a LUIS G, etc.
+function pickNextSupervisorKey() {
+  const key = __supervisorKeys[__supRrIdx % __supervisorKeys.length];
+  __supRrIdx = (__supRrIdx + 1) % __supervisorKeys.length;
+  return key;
+}
+
+// Dentro del equipo del supervisor, asigna al siguiente agente en rotación
+function pickAgentRoundRobin(supervisorKey) {
+  const { TEAMS } = require('./backend/utils/teamsServer');
+  const team = Object.values(TEAMS).find(t => (t.supervisorKey || '').toUpperCase() === (supervisorKey || '').toUpperCase());
+  if (!team || !Array.isArray(team.agents) || !team.agents.length) return null;
+  const agents = team.agents;
+  const key = (supervisorKey || '').toUpperCase();
+  if (typeof __rrIdx[key] !== 'number') __rrIdx[key] = 0;
+  const chosen = agents[__rrIdx[key] % agents.length];
+  __rrIdx[key] = (__rrIdx[key] + 1) % agents.length;
+  return chosen;
+}
+
+// ── WEBHOOK PÚBLICO — recibe leads desde Botpress (sin auth JWT) ──────────────
+app.post('/api/webhook/lineas', async (req, res) => {
+  try {
+    // 1. Validar API key
+    const apiKey = req.headers['x-api-key'] || req.body?.api_key || '';
+    const expectedKey = process.env.WEBHOOK_LINEAS_KEY || '';
+    if (!expectedKey || apiKey !== expectedKey) {
+      return res.status(401).json({ success: false, message: 'API key inválida' });
+    }
+
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+
+    const body = req.body || {};
+    const clean = s => String(s || '').trim();
+    const digitsOnly = s => String(s || '').replace(/\D+/g, '');
+
+    // 2. Validar campos mínimos
+    const nombre   = clean(body.nombre   || body.nombre_cliente || '');
+    const telefono = digitsOnly(body.telefono || body.telefono_principal || '');
+    if (!nombre)   return res.status(400).json({ success: false, message: 'Campo requerido: nombre' });
+    if (!telefono) return res.status(400).json({ success: false, message: 'Campo requerido: telefono' });
+
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
+
+    // 3. Construir el lead
+    const svNow    = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
+    const todayStr = svNow.toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
+    const supervisorKey = body.supervisor ? clean(body.supervisor).toUpperCase() : pickNextSupervisorKey();
+    const assignedAgent = pickAgentRoundRobin(supervisorKey) || 'SIN ASIGNAR';
+
+    const lead = {
+      nombre_cliente:    nombre.toUpperCase(),
+      telefono_principal: telefono,
+      telefono_alt:      digitsOnly(body.telefono_alt || ''),
+      direccion:         clean(body.direccion || body.address || ''),
+      zip_code:          clean(body.zip || body.zip_code || ''),
+      mercado:           String(body.mercado || 'BAMO').toUpperCase(),
+      supervisor:        supervisorKey,
+      servicio_interes:  clean(body.servicio || body.servicio_interes || ''),
+      notas:             clean(body.notas || body.mensaje || ''),
+      fuente:            clean(body.fuente || 'Chatbot AI'),
+      status:            'pending',
+      dia_venta:         new Date(todayStr),
+      creadoEn:          new Date(),
+      createdAt:         new Date(),
+      agente:            assignedAgent,
+      agenteNombre:      assignedAgent,
+      cantidad_lineas:   Number(body.cantidad_lineas) || 1,
+      _origen:           'botpress_webhook',
+    };
+
+    // 4. Guardar en colección ENTRANTES_CHATBOT dentro de TEAM_LINEAS
+    const col = teamLineasDb.collection('ENTRANTES_CHATBOT');
+    const result = await col.insertOne(lead);
+
+    console.log(`[WEBHOOK/LINEAS] Lead recibido: ${nombre} | ${telefono} | id=${result.insertedId}`);
+
+    // Emitir en tiempo real a todos los clientes conectados (Team Líneas)
+    const leadPayload = { ...lead, _id: result.insertedId?.toString(), creadoEn: lead.creadoEn.toISOString() };
+    if (global.io) global.io.emit('nuevo-lead-chatbot', leadPayload);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Lead registrado correctamente en Team Líneas',
+      id: result.insertedId?.toString()
+    });
+
+  } catch (e) {
+    console.error('[WEBHOOK/LINEAS]', e.message);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
+// GET /api/webhook/lineas — lista leads recibidos del chatbot (requiere auth)
+app.get('/api/webhook/lineas', protect, async (req, res) => {
+  try {
+    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
+
+    const { username, role } = req.user;
+    const roleLc = (role || '').toLowerCase();
+    const isAdminOrBO = ['admin','administrador','backoffice','back office','back_office','bo'].some(r => roleLc.includes(r));
+    const isSupervisor = roleLc.includes('supervisor');
+
+    let filter = {};
+    if (isAdminOrBO) {
+      filter = {}; // ven todo
+    } else if (isSupervisor) {
+      // El supervisor ve solo los leads de su equipo — buscamos su supervisorKey en teamsServer
+      const { TEAMS } = require('./backend/utils/teamsServer');
+      const myTeam = Object.values(TEAMS).find(t => (t.supervisor || '').toLowerCase() === username.toLowerCase());
+      const supKey = myTeam ? myTeam.supervisorKey : null;
+      filter = supKey ? { supervisor: supKey } : { supervisor: '__none__' };
+    } else {
+      // Agente: solo ve los leads asignados a él
+      filter = { $or: [{ agente: username }, { agenteNombre: username }] };
+    }
+
+    const { limit = 100, skip = 0 } = req.query;
+    const col = teamLineasDb.collection('ENTRANTES_CHATBOT');
+    const leads = await col.find(filter).sort({ creadoEn: -1 }).skip(Number(skip)).limit(Math.min(Number(limit), 500)).toArray();
+    return res.json({ success: true, data: leads, total: leads.length });
+  } catch (e) {
+    console.error('[WEBHOOK/LINEAS GET]', e.message);
+    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
+  }
+});
+
 app.get('/api/lineas', protect, async (req, res) => {
   try {
     if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });

@@ -137,12 +137,179 @@
         </div>
       </form>
       </div>
+
+      <!-- Leads recibidos del chatbot -->
+      <div id="chatbot-section-placeholder"></div>
+
     </main>
   </div>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="/js/sidebar-loader.js"></script>
+  <style>
+    #chatbot-section {
+      max-width:900px; margin:16px auto 32px; background:#fff;
+      border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;
+      box-shadow:0 2px 8px rgba(0,0,0,.06);
+    }
+    #chatbot-section .cb-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 20px;
+      background:linear-gradient(90deg,#0f172a 0%,#1e3a5f 100%);
+      color:#fff;
+    }
+    #chatbot-section .cb-header h3 { margin:0; font-size:15px; font-weight:700; }
+    #chatbot-section .cb-badge {
+      background:#22d3ee; color:#0f172a; font-size:11px; font-weight:800;
+      padding:2px 9px; border-radius:999px; margin-left:8px;
+    }
+    #chatbot-section .cb-table-wrap { overflow-x:auto; }
+    #chatbot-section table { width:100%; border-collapse:collapse; font-size:13px; }
+    #chatbot-section th {
+      background:#f1f5f9; color:#475569; text-align:left;
+      padding:8px 12px; font-weight:600; border-bottom:1px solid #e2e8f0;
+    }
+    #chatbot-section td { padding:8px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b; }
+    #chatbot-section tr:last-child td { border-bottom:none; }
+    #chatbot-section tr.new-row { animation:flash-row .8s ease; }
+    @keyframes flash-row {
+      0%   { background:#d1fae5; }
+      100% { background:transparent; }
+    }
+    #chatbot-section .status-pending {
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      background:#fef9c3; color:#92400e; font-size:11px; font-weight:700;
+    }
+    .cb-toast {
+      position:fixed; bottom:24px; right:24px; z-index:9999;
+      background:#0f172a; color:#fff; padding:12px 20px; border-radius:10px;
+      font-size:14px; font-weight:600; display:none;
+      box-shadow:0 4px 16px rgba(0,0,0,.25);
+      border-left:4px solid #22d3ee;
+    }
+  </style>
+
+  <!-- Toast global -->
+  <div class="cb-toast" id="cb-toast"></div>
+
+  <!-- Sección Leads Chatbot -->
+  <div id="chatbot-section">
+    <div class="cb-header">
+      <span><h3 style="display:inline;">📡 Leads Recibidos del Chatbot</h3><span class="cb-badge" id="cb-count">0</span></span>
+      <button onclick="loadChatbotLeads()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">↺ Actualizar</button>
+    </div>
+    <div class="cb-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Agente Asignado</th>
+            <th>Supervisor</th>
+            <th>Fuente</th>
+            <th>Status</th>
+            <th>Recibido</th>
+          </tr>
+        </thead>
+        <tbody id="cb-tbody">
+          <tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function showCbToast(msg) {
+      const t = document.getElementById('cb-toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.style.display = 'none'; }, 4000);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return d.toLocaleString('es-SV', { dateStyle:'short', timeStyle:'short' });
+    }
+
+    function renderCbRow(lead, prepend) {
+      const tbody = document.getElementById('cb-tbody');
+      const tr = document.createElement('tr');
+      if (prepend) tr.classList.add('new-row');
+      tr.innerHTML = `
+        <td>${lead.nombre_cliente || '-'}</td>
+        <td>${lead.telefono_principal || '-'}</td>
+        <td><strong>${lead.agenteNombre || lead.agente || 'SIN ASIGNAR'}</strong></td>
+        <td>${lead.supervisor || '-'}</td>
+        <td>${lead.fuente || 'Chatbot AI'}</td>
+        <td><span class="status-pending">${lead.status || 'pending'}</span></td>
+        <td>${formatDate(lead.creadoEn || lead.createdAt)}</td>`;
+      if (prepend) tbody.prepend(tr);
+      else tbody.appendChild(tr);
+    }
+
+    async function loadChatbotLeads() {
+      const tbody = document.getElementById('cb-tbody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Cargando...</td></tr>';
+      try {
+        const r = await fetch('/api/webhook/lineas', { credentials: 'include' });
+        const data = await r.json();
+        tbody.innerHTML = '';
+        const leads = data.data || [];
+        document.getElementById('cb-count').textContent = leads.length;
+        if (!leads.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Sin leads del chatbot todavía</td></tr>';
+          return;
+        }
+        leads.forEach(l => renderCbRow(l, false));
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#b91c1c;padding:24px;">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    // Socket.io: actualización en tiempo real
+    (function initSocket() {
+      try {
+        const me = (function() {
+          try { return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}'); } catch { return {}; }
+        })();
+        const myUsername = String(me.username || '').toLowerCase();
+        const myRole = String(me.role || '').toLowerCase();
+        const isAdminOrBO = ['admin','administrador','backoffice','back office','bo'].some(r => myRole.includes(r));
+        const isSupervisor = myRole.includes('supervisor');
+
+        const socket = io({ transports: ['websocket','polling'] });
+        socket.on('connect', () => console.log('[Chatbot WS] conectado'));
+        socket.on('nuevo-lead-chatbot', (lead) => {
+          // Filtrar visibilidad igual que el servidor
+          const leadAgente = String(lead.agente || '').toLowerCase();
+          const isMyLead = isAdminOrBO
+            || (isSupervisor) // supervisor ve todos los del socket (el servidor filtra en GET)
+            || (leadAgente === myUsername);
+          if (!isMyLead) return;
+
+          const tbody = document.getElementById('cb-tbody');
+          if (tbody && tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+          renderCbRow(lead, true);
+          const cnt = document.getElementById('cb-count');
+          if (cnt) cnt.textContent = Number(cnt.textContent || 0) + 1;
+          showCbToast(`📡 Nuevo lead asignado: ${lead.nombre_cliente} | ${lead.telefono_principal}`);
+        });
+      } catch(e) { console.warn('[Chatbot WS] no disponible:', e.message); }
+    })();
+
+    // Mover sección al lugar correcto dentro del layout y cargar datos
+    document.addEventListener('DOMContentLoaded', function() {
+      const placeholder = document.getElementById('chatbot-section-placeholder');
+      const section = document.getElementById('chatbot-section');
+      if (placeholder && section) placeholder.replaceWith(section);
+      loadChatbotLeads();
+    });
+  </script>
+
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
