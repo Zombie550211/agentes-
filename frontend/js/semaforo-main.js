@@ -362,11 +362,11 @@
     const getRowStatus = (pos) => pos<=3?'top':(pos===4?'warning':'danger');
     const getRowSub = (s) => s==='top'?'Excelente desempeño':s==='warning'?'Necesita mejorar':'Requiere atención';
     const getRowBadge = (pos) => {
-      if (pos===1) return '<img src="images/semaforo/billete%20500.png" alt="$500">';
-      if (pos===2) return '<img class="badge-200" src="images/semaforo/billete%20200.png" alt="$200">';
-      if (pos===3) return '<img src="images/semaforo/billete-alas.webp" alt="TOP">';
-      if (pos===4) return '<img src="images/semaforo/siga-participando.webp" alt="Siga participando">';
-      if (pos===5) return '<img src="images/semaforo/grupo-fracasados.webp" alt="Grupo de fracasados">';
+      if (pos===1) return '<span class="pos-badge pos-1">🥇 $500</span>';
+      if (pos===2) return '<span class="pos-badge pos-2">🥈 $200</span>';
+      if (pos===3) return '<span class="pos-badge pos-3">🥉 TOP</span>';
+      if (pos===4) return '<span class="pos-badge pos-warn">⚠️ ALERTA</span>';
+      if (pos===5) return '<span class="pos-badge pos-danger">🚨 PELIGRO</span>';
       return '';
     };
 
