@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>El Semáforo</title>
-  <link rel="stylesheet" href="css/theme.css?v=20251124f">
+  <link rel="stylesheet" href="css/theme.css?v=20251124f"
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -834,6 +834,170 @@
   </style>
 </head>
 <body>
+
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="semaforo"></nav>
+    <main class="main-content">
+      <div class="page-wrap">
+
+        <!-- HEADER -->
+        <div class="page-header">
+          <div class="page-header-left">
+            <h1>El Semáforo</h1>
+            <p>Desempeño mensual del equipo de ventas</p>
+            <div class="month-nav" id="month-nav">
+              <button type="button" class="month-nav-btn" id="btn-month-prev" aria-label="Mes anterior">&#9664;</button>
+              <div class="month-nav-label" id="month-nav-label">—</div>
+              <button type="button" class="month-nav-btn" id="btn-month-next" aria-label="Mes siguiente">&#9654;</button>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button id="btn-cuadratura-final" type="button" class="btn btn-outline">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Cuadratura Final</span>
+            </button>
+            <button id="btn-toggle-view" type="button" class="btn btn-primary">
+              <i class="fa-solid fa-users"></i>
+              <span id="btn-toggle-view-text">Ver agentes</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- METRICS -->
+        <div class="metrics-strip">
+          <div class="metric-card mc-green">
+            <div class="metric-label">Equipos en TOP</div>
+            <div class="metric-value" id="metric-top3">0</div>
+          </div>
+          <div class="metric-card mc-yellow">
+            <div class="metric-label">Equipos en Alerta</div>
+            <div class="metric-value" id="metric-warning">0</div>
+          </div>
+          <div class="metric-card mc-red">
+            <div class="metric-label">Equipos en Peligro</div>
+            <div class="metric-value" id="metric-danger">0</div>
+          </div>
+          <div class="metric-card mc-blue">
+            <div class="metric-label">Total de Ventas</div>
+            <div class="metric-value" id="metric-total">0</div>
+          </div>
+        </div>
+
+        <!-- VIEW STACK -->
+        <div class="view-stack" id="view-stack">
+
+          <!-- SEMAFORO VIEW -->
+          <div id="semaforo-view" class="view-panel is-visible">
+            <div class="section-heading">Clasificación del Mes</div>
+            <div class="ranking-section" id="ranking-table"></div>
+            <div class="ranking-legend">
+              <div class="legend-item">
+                <div class="legend-dot top"></div>
+                <span class="legend-text">TOP — Excelente desempeño</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot warning"></div>
+                <span class="legend-text">ALERTA — Debe mejorar</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot danger"></div>
+                <span class="legend-text">PELIGRO — Requiere atención</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AGENTS VIEW -->
+          <div id="agents-view" class="view-panel is-hidden">
+            <div class="agents-panel">
+              <div class="agents-header">
+                <div class="agents-title">Lista de Agentes</div>
+                <div id="agents-count" class="agents-count">0 agentes</div>
+              </div>
+              <div id="agents-list" class="agents-list"></div>
+            </div>
+          </div>
+
+        </div><!-- /view-stack -->
+      </div><!-- /page-wrap -->
+    </main>
+  </div>
+
+  <!-- CUADRATURA MODAL -->
+  <!-- FIX: removed HTML `hidden` attribute — visibility controlled exclusively via .is-open class -->
+  <div class="cuadratura-modal" id="cuadratura-modal" aria-hidden="true">
+    <div class="cuadratura-card" role="dialog" aria-modal="true" aria-labelledby="cuadratura-title">
+      <div class="cuadratura-card-header">
+        <h3 id="cuadratura-title">Cuadratura Final — Excel vs CRM</h3>
+        <button type="button" class="btn btn-ghost" id="btn-cuadratura-close">
+          <i class="fa-solid fa-xmark"></i> Cerrar
+        </button>
+      </div>
+      <div class="cuadratura-card-body">
+        <div class="cuadratura-actions">
+          <select id="cuadratura-team-select"></select>
+          <label>
+            <input type="checkbox" id="cuadratura-include-excluded" />
+            <span>Incluir excluidos por status</span>
+          </label>
+          <input type="file" id="cuadratura-file" accept=".xlsx,.xls" style="display:none;" />
+          <button type="button" class="btn btn-outline" id="btn-cuadratura-pick" disabled>
+            <i class="fa-solid fa-upload"></i> Subir Excel
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-cuadratura-run" disabled>
+            <i class="fa-solid fa-clipboard-check"></i> Analizar
+          </button>
+          <div id="cuadratura-status"></div>
+        </div>
+
+        <div class="cuadratura-kpis">
+          <div class="cuadratura-kpi">
+            <div class="label">Ventas Existentes</div>
+            <div class="value" id="cuadratura-kpi-existentes">0</div>
+          </div>
+          <div class="cuadratura-kpi">
+            <div class="label">Faltantes en CRM</div>
+            <div class="value" id="cuadratura-kpi-faltantes">0</div>
+          </div>
+          <div class="cuadratura-kpi">
+            <div class="label">Duplicadas en CRM</div>
+            <div class="value" id="cuadratura-kpi-duplicadas">0</div>
+          </div>
+          <div class="cuadratura-kpi">
+            <div class="label">Extras en CRM</div>
+            <div class="value" id="cuadratura-kpi-extras">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <div class="cuadratura-section-title">Desglose por TEAM</div>
+          <div id="cuadratura-team-breakdown"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="cuadratura-section-title">Diagnóstico</div>
+          <div id="cuadratura-debug" class="muted"></div>
+        </div>
+
+        <div class="cuadratura-lists">
+          <div class="cuadratura-list">
+            <h4>Faltantes en CRM</h4>
+            <div class="body" id="cuadratura-list-faltantes"></div>
+          </div>
+          <div class="cuadratura-list">
+            <h4>Duplicadas en CRM</h4>
+            <div class="body" id="cuadratura-list-duplicadas"></div>
+          </div>
+          <div class="cuadratura-list">
+            <h4>Extras en CRM</h4>
+            <div class="body" id="cuadratura-list-extras"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLTIP -->
+  <div id="tooltip-floating" class="tooltip-floating" aria-hidden="true"></div>
   <script src="js/semaforo-main.js" defer></script>
 </body>
 </html>
