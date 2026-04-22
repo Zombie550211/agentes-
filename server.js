@@ -879,29 +879,44 @@ app.delete('/api/users/me/avatar', protect, async (req, res) => {
 
 // ── ENDPOINTS TEAM LÍNEAS ─────────────────────────────────────
 
-// Round-robin state (en memoria; se reinicia con el servidor)
-const __rrIdx = {};
-let __supRrIdx = 0;
+// Round-robin persistente en MongoDB (_rr_config)
+// Usa findOneAndUpdate con $inc para incremento atómico que sobrevive reinicios
 const __supervisorKeys = ['JONATHAN F', 'LUIS G'];
 
-// Si no viene supervisor: alterna un lead a JONATHAN F, el siguiente a LUIS G, etc.
-function pickNextSupervisorKey() {
-  const key = __supervisorKeys[__supRrIdx % __supervisorKeys.length];
-  __supRrIdx = (__supRrIdx + 1) % __supervisorKeys.length;
-  return key;
+async function pickNextSupervisorKey() {
+  try {
+    const cfg = getDb().collection('_rr_config');
+    const doc = await cfg.findOneAndUpdate(
+      { _id: 'rr_supervisor' },
+      { $inc: { idx: 1 } },
+      { upsert: true, returnDocument: 'after' }
+    );
+    const idx = ((doc.idx || 1) - 1) % __supervisorKeys.length;
+    return __supervisorKeys[idx];
+  } catch (_) {
+    // Fallback en memoria si BD no disponible
+    return __supervisorKeys[Math.floor(Math.random() * __supervisorKeys.length)];
+  }
 }
 
-// Dentro del equipo del supervisor, asigna al siguiente agente en rotación
-function pickAgentRoundRobin(supervisorKey) {
+async function pickAgentRoundRobin(supervisorKey) {
   const { TEAMS } = require('./backend/utils/teamsServer');
   const team = Object.values(TEAMS).find(t => (t.supervisorKey || '').toUpperCase() === (supervisorKey || '').toUpperCase());
   if (!team || !Array.isArray(team.agents) || !team.agents.length) return null;
   const agents = team.agents;
   const key = (supervisorKey || '').toUpperCase();
-  if (typeof __rrIdx[key] !== 'number') __rrIdx[key] = 0;
-  const chosen = agents[__rrIdx[key] % agents.length];
-  __rrIdx[key] = (__rrIdx[key] + 1) % agents.length;
-  return chosen;
+  try {
+    const cfg = getDb().collection('_rr_config');
+    const doc = await cfg.findOneAndUpdate(
+      { _id: `rr_agent_${key}` },
+      { $inc: { idx: 1 } },
+      { upsert: true, returnDocument: 'after' }
+    );
+    const idx = ((doc.idx || 1) - 1) % agents.length;
+    return agents[idx];
+  } catch (_) {
+    return agents[Math.floor(Math.random() * agents.length)];
+  }
 }
 
 // ── WEBHOOK PÚBLICO — recibe leads desde Botpress (sin auth JWT) ──────────────
@@ -932,8 +947,8 @@ app.post('/api/webhook/lineas', async (req, res) => {
     // 3. Construir el lead
     const svNow    = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
     const todayStr = svNow.toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
-    const supervisorKey = body.supervisor ? clean(body.supervisor).toUpperCase() : pickNextSupervisorKey();
-    const assignedAgent = pickAgentRoundRobin(supervisorKey) || 'SIN ASIGNAR';
+    const supervisorKey = body.supervisor ? clean(body.supervisor).toUpperCase() : await pickNextSupervisorKey();
+    const assignedAgent = (await pickAgentRoundRobin(supervisorKey)) || 'SIN ASIGNAR';
 
     const lead = {
       nombre_cliente:    nombre.toUpperCase(),
