@@ -468,7 +468,19 @@ async function ensureIndexes(database) {
       { username: 1 },                         { name: 'idx_users_username',     background: true, unique: true, sparse: true }
     )
   ]);
-  console.log('[INDEXES] Índices verificados/creados en costumers_unified, activities y users.');
+  // Índices para colección ENTRANTES_CHATBOT (usa su propia DB TEAM_LINEAS)
+  try {
+    const teamLineasDb = getDbFor('TEAM_LINEAS');
+    if (teamLineasDb) {
+      const cb = teamLineasDb.collection('ENTRANTES_CHATBOT');
+      await Promise.all([
+        cb.createIndex({ creadoEn: -1 },  { name: 'idx_cb_creadoEn',  background: true }),
+        cb.createIndex({ agente: 1 },     { name: 'idx_cb_agente',    background: true }),
+        cb.createIndex({ supervisor: 1 }, { name: 'idx_cb_supervisor', background: true }),
+      ]);
+    }
+  } catch (_) {}
+  console.log('[INDEXES] Índices verificados/creados en costumers_unified, activities, users y ENTRANTES_CHATBOT.');
 }
 
 // ── ACTIVITY LOGGER ───────────────────────────────────────────
