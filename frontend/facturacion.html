@@ -879,11 +879,11 @@ function buscarCamposPorFecha(fecha) {
     nuevos[11] = camposAntiguos[9] || '';
     nuevos[12] = camposAntiguos[10] || '';
     nuevos[13] = camposAntiguos[11] || '';
-    nuevos[15] = camposAntiguos[12] || ''; // Total día
-    nuevos[16] = camposAntiguos[13] || ''; // Total ventas
-    nuevos[17] = camposAntiguos[14] || ''; // Valor venta
-    nuevos[18] = camposAntiguos[15] || ''; // Puntos
-    // nuevos[19] = CPA puntos (calculado, no se carga del backend)
+    nuevos[14] = camposAntiguos[12] || ''; // Total día
+    nuevos[15] = camposAntiguos[13] || ''; // Total ventas
+    nuevos[16] = camposAntiguos[14] || ''; // Valor venta
+    nuevos[17] = camposAntiguos[15] || ''; // Puntos
+    // nuevos[18] = CPA puntos (calculado, no se carga del backend)
     return nuevos;
   }
   return Array(19).fill('');
@@ -1069,16 +1069,16 @@ async function guardarTodoFacturacion() {
       campos17.push(txt);
     }
     
-    // 12-15: Totales (frontend idx 15-17: Total día, Total ventas, Valor venta)
+    // 12-14: Total día, Total ventas, Valor venta (tds[15..17])
     for (let i = 15; i <= 17; i++) {
-      let txt = tds[i+1].textContent.trim();
+      let txt = tds[i].textContent.trim();
       if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
       if (txt.includes(",")) txt = txt.replace(/,/g, "");
       campos17.push(txt);
     }
-    
-    // 16: Puntos (frontend col 18 = tds[19] porque tds incluye col 0 de fecha)
-    let puntos = tds[19].textContent.trim();
+
+    // 15: Puntos (tds[18])
+    let puntos = tds[18].textContent.trim();
     if (puntos.startsWith("$")) puntos = puntos.replace(/[^0-9.\-]/g, "");
     if (puntos.includes(",")) puntos = puntos.replace(/,/g, "");
     campos17.push(puntos);
@@ -1153,7 +1153,7 @@ async function actualizarGrafica() {
           datalabels: {
             anchor: 'end', align: 'end', offset: -28,
             color: '#94a3b8',
-            font: { family: "'DM Mono', monospace", weight: '500', size: 11 },
+            font: { family: "'DM Mono', monospace", weight: '700', size: 11 },
             formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ''
           }
         }]
