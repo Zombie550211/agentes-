@@ -325,12 +325,14 @@
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
     // Mes de referencia para detectar colchón: el filtro activo, o null (sin filtro = comparar fechas del lead)
     const refMes=month||null;
-    // Recalcular _es_colchon: solo si es colchón por fechas Y status completed/active
-    // Los leads cancelados/pending muestran su status real, no el badge colchón
+    // _es_colchon_route: lead's "home month" is dia_instalacion (all statuses)
+    // _es_colchon:       shows the colchón badge (only completed/active)
     __allLeadsData.forEach(function(lead){
       const st=normalizeStatus(lead.status);
       const isActive=st==='completed'||st==='active';
-      lead._es_colchon=isColchonLead(lead,refMes)&&isActive;
+      const isRoute=isColchonLead(lead,refMes);
+      lead._es_colchon_route=isRoute;
+      lead._es_colchon=isRoute&&isActive;
     });
 
     // ── DEBUG: log de datos del usuario logueado (solo en desarrollo) ──
@@ -460,24 +462,23 @@
           const diaInstYM=toYM(lead.dia_instalacion);
           if(!diaInstYM||diaInstYM!==month)return false;
         } else if(!onlyTwoMonths){
-          // Modo "Solo 2 meses": incluir colchones en la tabla general
-          // colchones filtran por dia_instalacion; el resto por dia_venta
-          if(lead._es_colchon){
+          // Modo "Solo 2 meses": leads con dia_instalacion diferente al dia_venta
+          // se enrutan por dia_instalacion (cualquier status).
+          if(lead._es_colchon_route){
             const diaInstYM=toYM(lead.dia_instalacion);
             if(!diaInstYM||diaInstYM!==month)return false;
           } else {
             const diaVentaYM=toYM(lead.dia_venta);
             if(!diaVentaYM||diaVentaYM!==month)return false;
-            // Exclude leads sold this month but installed in a later month:
-            // they are colchones for the installation month and must not appear here.
+            // Safety net: exclude leads with a future installation month not caught by route flag
             const diaInstYM=toYM(lead.dia_instalacion);
-            if(diaInstYM&&diaInstYM>month&&(lead.status==='completed'||lead.status==='active'))return false;
+            if(diaInstYM&&diaInstYM>month)return false;
           }
         } else {
-          // Modo "Todos los meses": solo ventas del mes, sin colchón
+          // Modo "Todos los meses": solo ventas del mes, sin colchones de ningún tipo
           const diaVentaYM=toYM(lead.dia_venta);
           if(!diaVentaYM||diaVentaYM!==month)return false;
-          if(lead._es_colchon)return false;
+          if(lead._es_colchon_route)return false;
         }
       }
 
@@ -485,15 +486,15 @@
       // the toggle is in 'Solo 2 meses' mode (onlyTwoMonths === false).
       if(!month && !onlyTwoMonths){
         const limit=new Date(d.getFullYear(),d.getMonth()-1,1);
-        const ref=lead._es_colchon?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);
+        const ref=lead._es_colchon_route?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);
         if(ref&&new Date(ref)<limit) return false;
       }
 
-      if(from&&to){const ref=lead._es_colchon?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
+      if(from&&to){const ref=lead._es_colchon_route?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
       return true;
     });
 
-    __filteredLeads.sort(function(a,b){const ra=a._es_colchon?(a.dia_instalacion||a.dia_venta):(a.dia_venta||a.dia_instalacion);const rb=b._es_colchon?(b.dia_instalacion||b.dia_venta):(b.dia_venta||b.dia_instalacion);return(rb||'').localeCompare(ra||'');});
+    __filteredLeads.sort(function(a,b){const ra=a._es_colchon_route?(a.dia_instalacion||a.dia_venta):(a.dia_venta||a.dia_instalacion);const rb=b._es_colchon_route?(b.dia_instalacion||b.dia_venta):(b.dia_venta||b.dia_instalacion);return(rb||'').localeCompare(ra||'');});
     currentPage=1;renderTableRows();updateKPIs();setTimeout(refreshFilterOptions,0);
   }
 
