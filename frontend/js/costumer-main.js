@@ -424,7 +424,7 @@
       if(mercado&&lead.mercado!==mercado)return false;
 
       if(activeStatusTab&&activeStatusTab!=='all'){
-        if(activeStatusTab==='colchon'){if(!lead._es_colchon)return false;}
+        if(activeStatusTab==='colchon'){if(!lead._es_colchon_route)return false;}
         else if(activeStatusTab==='completed'){if(lead.status!=='completed'&&lead.status!=='active')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
         else if(activeStatusTab==='pending'){if(lead.status!=='pending')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
         else{if(lead.status!==activeStatusTab)return false;}
@@ -526,7 +526,7 @@
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
     if(!paged.length){tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead){
-      const lid=String(lead._id),isCol=!!lead._es_colchon,rowClass=isCol?' class="row-colchon"':'';
+      const lid=String(lead._id),isCol=!!lead._es_colchon_route,rowClass=isCol?' class="row-colchon"':'';
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+'>'+
         '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+'<span class="row-actions" style="margin-left:6px;"><button class="rab" onclick="editLead(\''+lid+'\')" title="Editar" aria-label="Editar '+escHTML(lead.nombre_cliente)+'">✎</button><button class="rab delete-btn" onclick="deleteLead(\''+lid+'\')" title="Eliminar" aria-label="Eliminar '+escHTML(lead.nombre_cliente)+'">✕</button></span></td>'+
         cell(lead.telefono?'<span class="mono">'+escHTML(lead.telefono)+'</span>':'—')+
