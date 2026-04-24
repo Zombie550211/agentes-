@@ -29,84 +29,12 @@ if (process.env.NODE_ENV !== 'production') {
   dns.setServers(['8.8.8.8', '8.8.4.4']);
 }
 
-// ── STATUS NORMALIZATION (fuente única de verdad) ─────────────
-const STATUS_COMPLETED = new Set([
-  'completed','active','completado','activo','activa',
-  'vendido','cerrado','cerrada','venta cerrada'
-]);
-const STATUS_PENDING   = new Set(['pending','pendiente','pendientes']);
-const STATUS_CANCELLED = new Set(['cancelled','canceled','cancelado','cancelada']);
-const STATUS_HOLD      = new Set(['hold','en hold','pausado','pausa']);
-const STATUS_RESERVA   = new Set(['reserva','ventas en reserva','reserved','reservation']);
-const STATUS_OFICINA   = new Set(['oficina','active_oficina']);
-const STATUS_RESCHEDULED = new Set(['rescheduled','reagendado','reagendada','reprogramado','reprogramada']);
-
-function normalizeStatus(raw) {
-  const s = String(raw || '').trim().toLowerCase();
-  if (!s) return 'pending';
-  if (STATUS_COMPLETED.has(s))    return 'completed';
-  if (STATUS_PENDING.has(s))      return 'pending';
-  if (STATUS_CANCELLED.has(s))    return 'cancelled';
-  if (STATUS_HOLD.has(s))         return 'hold';
-  if (STATUS_RESERVA.has(s))      return 'reserva';
-  if (STATUS_OFICINA.has(s))      return 'oficina';
-  if (STATUS_RESCHEDULED.has(s))  return 'rescheduled';
-  if (s.includes('cancel'))                                           return 'cancelled';
-  if (s.includes('pend'))                                             return 'pending';
-  if (s.includes('complet') || s.includes('activ') ||
-      s.includes('cerr')    || s.includes('vend'))                   return 'completed';
-  if (s.includes('hold'))                                             return 'hold';
-  if (s.includes('reser'))                                            return 'reserva';
-  if (s.includes('resched') || s.includes('reagend') ||
-      s.includes('reprogram'))                                        return 'rescheduled';
-  if (s.includes('oficina'))                                          return 'oficina';
-  return 'pending';
-}
-
-function isCompleted(status)  { return normalizeStatus(status) === 'completed'; }
-function isCancelled(status)  { return normalizeStatus(status) === 'cancelled'; }
-function isPending(status)    { return normalizeStatus(status) === 'pending'; }
-function isReserva(status)    { return normalizeStatus(status) === 'reserva'; }
-function isOficina(status)    { return normalizeStatus(status) === 'oficina'; }
-
-// MongoDB $expr para usar en aggregates
-const COMPLETED_VALUES_LOWER = ['completed','active','completado','activo','activa','vendido','cerrado','cerrada'];
-const completedMatchExpr = { $in: [{ $toLower: { $ifNull: ['$status',''] } }, COMPLETED_VALUES_LOWER] };
-
-// ── COLCHÓN DETECTION ─────────────────────────────────────────
-// Una venta es colchón geográficamente cuando:
-//   - dia_venta está en un mes DIFERENTE al mes de referencia
-//   - dia_instalacion está en el mes de referencia
-// IMPORTANTE: El status NO se valida aquí.
-// Para CONTAR en rankings solo cuentan los colchones con status completed.
-function isColchon(lead, referenceDate) {
-  try {
-    const dv = String(lead.dia_venta       || lead.diaVenta       || '').slice(0, 7);
-    const di = String(lead.dia_instalacion || lead.diaInstalacion || '').slice(0, 7);
-
-    if (!dv || !di) return false;
-
-    if (referenceDate) {
-      // Con fecha de referencia: instalado ese mes pero vendido en mes anterior
-      const curYear     = referenceDate.getFullYear();
-      const curMonth    = String(referenceDate.getMonth() + 1).padStart(2, '0');
-      const curMonthStr = `${curYear}-${curMonth}`;
-      return dv !== curMonthStr && di === curMonthStr;
-    }
-
-    // Sin fecha de referencia (carga general): colchón si vendido antes del mes de instalación
-    return dv < di;
-  } catch {
-    return false;
-  }
-}
-
-// Una venta colchón CUENTA en rankings SOLO si tiene status completed/active
-// Si está pending/hold/etc. muestra el badge pero NO cuenta en rankings
-function isColchonActivo(lead, referenceDate) {
-  return isColchon(lead, referenceDate) && isCompleted(lead.status);
-}
-// ── FIN STATUS + COLCHÓN NORMALIZATION ───────────────────────
+// ── STATUS + COLCHÓN NORMALIZATION ───────────────────────────
+const {
+  normalizeStatus, isCompleted, isCancelled, isPending, isReserva, isOficina,
+  isColchon, isColchonActivo,
+  COMPLETED_VALUES_LOWER, completedMatchExpr,
+} = require('./backend/utils/statusNormalizer');
 
 // 2. APP
 const app = express();
@@ -224,8 +152,6 @@ let mediaProxy = null;
 try { mediaProxy = require('./backend/routes/mediaProxy'); } catch (e) { console.warn('[INIT] mediaProxy:', e.message); }
 let debugRoutes = null;
 try { debugRoutes = require('./backend/routes/debug'); } catch (e) { console.warn('[INIT] debug route:', e.message); }
-let debugNoAuthRoutes = null;
-try { debugNoAuthRoutes = require('./backend/routes/debug_noauth'); } catch (e) { console.warn('[INIT] debug_noauth:', e.message); }
 
 // 9. ESTADO GLOBAL
 let gridFSBucket      = null;
@@ -878,393 +804,9 @@ app.delete('/api/users/me/avatar', protect, async (req, res) => {
 });
 
 // ── ENDPOINTS TEAM LÍNEAS ─────────────────────────────────────
+// Rutas extraídas a backend/routes/lineas.js
 
-// Round-robin persistente en MongoDB (_rr_config)
-// Usa findOneAndUpdate con $inc para incremento atómico que sobrevive reinicios
-const __supervisorKeys = ['JONATHAN F', 'LUIS G'];
-
-async function pickNextSupervisorKey() {
-  try {
-    const cfg = getDb().collection('_rr_config');
-    const doc = await cfg.findOneAndUpdate(
-      { _id: 'rr_supervisor' },
-      { $inc: { idx: 1 } },
-      { upsert: true, returnDocument: 'after' }
-    );
-    const idx = ((doc.idx || 1) - 1) % __supervisorKeys.length;
-    return __supervisorKeys[idx];
-  } catch (_) {
-    // Fallback en memoria si BD no disponible
-    return __supervisorKeys[Math.floor(Math.random() * __supervisorKeys.length)];
-  }
-}
-
-async function pickAgentRoundRobin(supervisorKey) {
-  const { TEAMS } = require('./backend/utils/teamsServer');
-  const team = Object.values(TEAMS).find(t => (t.supervisorKey || '').toUpperCase() === (supervisorKey || '').toUpperCase());
-  if (!team || !Array.isArray(team.agents) || !team.agents.length) return null;
-  const agents = team.agents;
-  const key = (supervisorKey || '').toUpperCase();
-  try {
-    const cfg = getDb().collection('_rr_config');
-    const doc = await cfg.findOneAndUpdate(
-      { _id: `rr_agent_${key}` },
-      { $inc: { idx: 1 } },
-      { upsert: true, returnDocument: 'after' }
-    );
-    const idx = ((doc.idx || 1) - 1) % agents.length;
-    return agents[idx];
-  } catch (_) {
-    return agents[Math.floor(Math.random() * agents.length)];
-  }
-}
-
-// ── WEBHOOK PÚBLICO — recibe leads desde Botpress (sin auth JWT) ──────────────
-app.post('/api/webhook/lineas', async (req, res) => {
-  try {
-    // 1. Validar API key
-    const apiKey = req.headers['x-api-key'] || req.body?.api_key || '';
-    const expectedKey = process.env.WEBHOOK_LINEAS_KEY || '';
-    if (!expectedKey || apiKey !== expectedKey) {
-      return res.status(401).json({ success: false, message: 'API key inválida' });
-    }
-
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-
-    const body = req.body || {};
-    const clean = s => String(s || '').trim();
-    const digitsOnly = s => String(s || '').replace(/\D+/g, '');
-
-    // 2. Validar campos mínimos
-    const nombre   = clean(body.nombre   || body.nombre_cliente || '');
-    const telefono = digitsOnly(body.telefono || body.telefono_principal || '');
-    if (!nombre)   return res.status(400).json({ success: false, message: 'Campo requerido: nombre' });
-    if (!telefono) return res.status(400).json({ success: false, message: 'Campo requerido: telefono' });
-
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
-
-    // 3. Construir el lead
-    const svNow    = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/El_Salvador' }));
-    const todayStr = svNow.toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
-    const supervisorKey = body.supervisor ? clean(body.supervisor).toUpperCase() : await pickNextSupervisorKey();
-    const assignedAgent = (await pickAgentRoundRobin(supervisorKey)) || 'SIN ASIGNAR';
-
-    const lead = {
-      nombre_cliente:    nombre.toUpperCase(),
-      telefono_principal: telefono,
-      telefono_alt:      digitsOnly(body.telefono_alt || ''),
-      direccion:         clean(body.direccion || body.address || ''),
-      zip_code:          clean(body.zip || body.zip_code || ''),
-      mercado:           String(body.mercado || 'BAMO').toUpperCase(),
-      supervisor:        supervisorKey,
-      servicio_interes:  clean(body.servicio || body.servicio_interes || ''),
-      notas:             clean(body.notas || body.mensaje || ''),
-      fuente:            clean(body.fuente || 'Chatbot AI'),
-      status:            'pending',
-      dia_venta:         new Date(todayStr),
-      creadoEn:          new Date(),
-      createdAt:         new Date(),
-      agente:            assignedAgent,
-      agenteNombre:      assignedAgent,
-      cantidad_lineas:   Number(body.cantidad_lineas) || 1,
-      _origen:           'botpress_webhook',
-    };
-
-    // 4. Guardar en colección ENTRANTES_CHATBOT dentro de TEAM_LINEAS
-    const col = teamLineasDb.collection('ENTRANTES_CHATBOT');
-    const result = await col.insertOne(lead);
-
-    console.log(`[WEBHOOK/LINEAS] Lead recibido: ${nombre} | ${telefono} | id=${result.insertedId}`);
-
-    // Emitir en tiempo real a todos los clientes conectados (Team Líneas)
-    const leadPayload = { ...lead, _id: result.insertedId?.toString(), creadoEn: lead.creadoEn.toISOString() };
-    if (global.io) global.io.emit('nuevo-lead-chatbot', leadPayload);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Lead registrado correctamente en Team Líneas',
-      id: result.insertedId?.toString()
-    });
-
-  } catch (e) {
-    console.error('[WEBHOOK/LINEAS]', e.message);
-    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
-  }
-});
-
-// GET /api/webhook/lineas — lista leads recibidos del chatbot (requiere auth)
-app.get('/api/webhook/lineas', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
-
-    const { username, role } = req.user;
-    const roleLc = (role || '').toLowerCase();
-    const isAdminOrBO = ['admin','administrador','backoffice','back office','back_office','bo'].some(r => roleLc.includes(r));
-    const isSupervisor = roleLc.includes('supervisor');
-
-    let filter = {};
-    if (isAdminOrBO) {
-      filter = {}; // ven todo
-    } else if (isSupervisor) {
-      // El supervisor ve solo los leads de su equipo — buscamos su supervisorKey en teamsServer
-      const { TEAMS } = require('./backend/utils/teamsServer');
-      const myTeam = Object.values(TEAMS).find(t => (t.supervisor || '').toLowerCase() === username.toLowerCase());
-      const supKey = myTeam ? myTeam.supervisorKey : null;
-      filter = supKey ? { supervisor: supKey } : { supervisor: '__none__' };
-    } else {
-      // Agente: solo ve los leads asignados a él
-      filter = { $or: [{ agente: username }, { agenteNombre: username }] };
-    }
-
-    const { limit = 100, skip = 0 } = req.query;
-    const col = teamLineasDb.collection('ENTRANTES_CHATBOT');
-    const leads = await col.find(filter).sort({ creadoEn: -1 }).skip(Number(skip)).limit(Math.min(Number(limit), 500)).toArray();
-    return res.json({ success: true, data: leads, total: leads.length });
-  } catch (e) {
-    console.error('[WEBHOOK/LINEAS GET]', e.message);
-    return res.status(500).json({ success: false, message: 'Error interno', error: e.message });
-  }
-});
-
-app.get('/api/lineas', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
-    const { username, role } = req.user;
-    const privilegedRoles = ['admin','administrador','backoffice','back office','back_office','bo','b.o','supervisor','supervisor team lineas'];
-    const isPrivileged = privilegedRoles.some(r => (role||'').toLowerCase() === r || (role||'').toLowerCase().includes(r));
-    const filter = isPrivileged ? {} : {
-      $or: [{ agente: username },{ agenteNombre: username },{ createdBy: username },{ registeredBy: username }]
-    };
-    const registros = await db.collection('Lineas').find(filter).sort({ creadoEn: -1 }).toArray();
-    return res.json({ success: true, data: registros, count: registros.length, user: username, filtered: !isPrivileged });
-  } catch (e) {
-    console.error('[GET /api/lineas]', e);
-    return res.status(500).json({ success: false, message: 'Error al consultar Lineas', error: e.message });
-  }
-});
-
-app.post('/api/lineas', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const body     = req.body || {};
-    const user     = req.user;
-    const username = user?.username || '';
-
-    const toUpper  = s => (s == null ? '' : String(s).trim().toUpperCase());
-    const digitsOnly = s => (s == null ? '' : String(s).replace(/\D+/g,''));
-    const asDate   = s => { if (!s) return null; return normalizeDateToString(s) || null; };
-    const normalizeCollectionName = s => {
-      try {
-        return String(s||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .replace(/[^A-Za-z0-9_\s-]/g,' ').replace(/[\s-]+/g,'_').replace(/_+/g,'_')
-          .replace(/^_+|_+$/g,'').toUpperCase() || 'UNKNOWN';
-      } catch { return String(s||'').trim().replace(/[\s-]+/g,'_').toUpperCase() || 'UNKNOWN'; }
-    };
-    const normalizeAgentDisplay = s => String(s||'').trim().replace(/_/g,' ').replace(/\s+/g,' ').toUpperCase();
-
-    const errors   = [];
-    const required = ['nombre_cliente','telefono_principal','numero_cuenta','autopay','pin_seguridad','direccion','dia_venta','dia_instalacion','status','cantidad_lineas','id','mercado','supervisor'];
-    for (const f of required) {
-      if (body[f] == null || body[f] === '' || (Array.isArray(body[f]) && !body[f].length)) errors.push(`Campo requerido: ${f}`);
-    }
-    if (errors.length) return res.status(400).json({ success: false, message: 'Validación fallida', errors });
-
-    const cantidadLineas = Number(body.cantidad_lineas || 0);
-    const telefonos = (Array.isArray(body.telefonos) ? body.telefonos : []).map(digitsOnly).filter(Boolean);
-    const servicios  = Array.isArray(body.servicios) ? body.servicios.map(String) : [];
-
-    const autopayVal = String(body.autopay || '').toLowerCase();
-    if (!['si','no'].includes(autopayVal)) errors.push('autopay debe ser si | no');
-
-    const statusNorm = normalizeStatus(body.status);
-    if (!['pending','rescheduled'].includes(statusNorm)) errors.push('status inválido (permitidos: pending, repro/rescheduled)');
-
-    const mercado = String(body.mercado||'').toLowerCase();
-    if (!['bamo','icon'].includes(mercado)) errors.push('mercado debe ser bamo | icon');
-
-    let supervisorVal = String(body.supervisor||'').toLowerCase();
-    if (!supervisorVal && user.supervisor) supervisorVal = String(user.supervisor).toLowerCase();
-    else if (!supervisorVal && user.team) {
-      const t = String(user.team).toLowerCase();
-      if (t.includes('jonathan')) supervisorVal = 'jonathan f';
-      else if (t.includes('luis')) supervisorVal = 'luis g';
-    }
-    if (!supervisorVal) errors.push('No se pudo determinar el supervisor');
-    if (!['jonathan f','luis g'].includes(supervisorVal)) errors.push('supervisor inválido (permitidos: JONATHAN F, LUIS G)');
-    if (!cantidadLineas || isNaN(cantidadLineas) || cantidadLineas < 1 || cantidadLineas > 5) errors.push('cantidad_lineas debe ser 1-5');
-    if (telefonos.length !== cantidadLineas) errors.push('La cantidad de teléfonos debe coincidir con cantidad_lineas');
-    if (errors.length) return res.status(400).json({ success: false, message: 'Validación fallida', errors });
-
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
-
-    let targetAgent = username;
-    if ((user.role||'').toLowerCase().includes('supervisor') && body.agenteAsignado) targetAgent = body.agenteAsignado;
-    const targetCollectionName = normalizeCollectionName(targetAgent);
-
-    const payloadLines    = Array.isArray(body.lines) ? body.lines : (Array.isArray(body.lineas) ? body.lineas : []);
-    const payloadLineasSt = (body.lineas_status && typeof body.lineas_status === 'object') ? body.lineas_status : null;
-    const normalizeLineSt = v => String(v||'').trim().toUpperCase() || '';
-
-    const initialLineasStatus = {};
-    const initialLines = [];
-    for (let i = 0; i < cantidadLineas; i++) {
-      let st = '';
-      if (payloadLineasSt && Object.prototype.hasOwnProperty.call(payloadLineasSt, i)) st = normalizeLineSt(payloadLineasSt[i]);
-      if (!st && payloadLines[i]) st = normalizeLineSt(payloadLines[i].estado ?? payloadLines[i].status ?? '');
-      if (!st) st = statusNorm === 'pending' ? 'PENDING' : statusNorm.toUpperCase();
-      initialLineasStatus[i] = st;
-      initialLines.push({ telefono: telefonos[i]||digitsOnly(payloadLines[i]?.telefono)||'', servicio: servicios[i]||String(payloadLines[i]?.servicio||''), estado: st });
-    }
-
-    const now = new Date();
-    const doc = {
-      team: 'team lineas', nombre_cliente: toUpper(body.nombre_cliente),
-      telefono_principal: digitsOnly(body.telefono_principal), numero_cuenta: String(body.numero_cuenta||'').trim(),
-      autopay: autopayVal === 'si', pin_seguridad: String(body.pin_seguridad||'').trim(),
-      direccion: String(body.direccion||'').trim(), servicios,
-      dia_venta: asDate(body.dia_venta), dia_instalacion: asDate(body.dia_instalacion),
-      status: statusNorm.toUpperCase(), cantidad_lineas: cantidadLineas, telefonos,
-      ID: String(body.id||'').trim(), mercado: mercado.toUpperCase(), supervisor: supervisorVal.toUpperCase(),
-      userId: user?._id || user?.id || null,
-      agente:                    normalizeAgentDisplay(username),
-      agenteAsignado:            normalizeAgentDisplay(targetAgent),
-      agenteAsignadoCollection:  targetCollectionName,
-      lineas_status: initialLineasStatus, lines: initialLines,
-      creadoEn: now, actualizadoEn: now, _raw: body
-    };
-
-    const result = await teamLineasDb.collection(targetCollectionName).insertOne(doc);
-    return res.status(201).json({ success: true, message: `Guardado en TEAM_LINEAS > ${targetCollectionName}`, id: result.insertedId?.toString(), data: doc });
-  } catch (e) {
-    console.error('[POST /api/lineas]', e);
-    return res.status(500).json({ success: false, message: 'Error al crear registro de Líneas', error: e.message });
-  }
-});
-
-app.put('/api/lineas-team/update', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const body     = req.body || {};
-    const clientId = body.id;
-    if (!clientId) return res.status(400).json({ success: false, message: 'ID requerido' });
-
-    const toUpper = s => (s == null ? '' : String(s).trim().toUpperCase());
-    const asDate  = s => { if (!s) return null; return normalizeDateToString(s) || null; };
-
-    const updateData = {
-      nombre_cliente:     body.nombre_cliente     ? toUpper(body.nombre_cliente) : undefined,
-      telefono_principal: body.telefono_principal ? String(body.telefono_principal).replace(/\D+/g,'') : undefined,
-      numero_cuenta:      body.numero_cuenta      ? String(body.numero_cuenta).trim() : undefined,
-      cantidad_lineas:    body.cantidad_lineas    ? Number(body.cantidad_lineas) : undefined,
-      status:             body.status             ? normalizeStatus(body.status).toUpperCase() : undefined,
-      dia_venta:          body.dia_venta          ? asDate(body.dia_venta) : undefined,
-      dia_instalacion:    body.dia_instalacion    ? asDate(body.dia_instalacion) : undefined,
-      actualizadoEn:      new Date()
-    };
-    Object.keys(updateData).forEach(k => updateData[k] === undefined && delete updateData[k]);
-
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
-
-    const cols = (await teamLineasDb.listCollections().toArray()).map(c => c.name).filter(Boolean);
-    let updated = false;
-    for (const colName of cols) {
-      try {
-        let filter;
-        try { filter = { _id: new ObjectId(clientId) }; } catch (_) { filter = { _id: clientId }; }
-        const result = await teamLineasDb.collection(colName).updateOne(filter, { $set: updateData });
-        if (result && result.matchedCount > 0) { updated = true; break; }
-      } catch (_) {}
-    }
-    if (!updated) return res.status(404).json({ success: false, message: 'Registro no encontrado' });
-    return res.json({ success: true, message: 'Registro actualizado' });
-  } catch (e) {
-    console.error('[PUT /api/lineas-team/update]', e);
-    return res.status(500).json({ success: false, message: 'Error al actualizar Líneas', error: e.message });
-  }
-});
-
-app.post('/api/lineas-team/notes', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
-    const { clientId, texto, type } = req.body || {};
-    if (!clientId) return res.status(400).json({ success: false, message: 'clientId requerido' });
-    let leadObjectId;
-    try { leadObjectId = new ObjectId(clientId); } catch { leadObjectId = clientId; }
-    const nota = { leadId: leadObjectId, texto: String(texto||'').slice(0, 1000), type: type || 'general', autor: req.user?.username || 'Sistema', createdAt: new Date() };
-    await db.collection('lineas_notes').insertOne(nota);
-    return res.json({ success: true, message: 'Nota guardada', data: nota });
-  } catch (e) {
-    console.error('[POST /api/lineas-team/notes]', e);
-    return res.status(500).json({ success: false, message: 'Error al guardar nota', error: e.message });
-  }
-});
-
-app.post('/api/lineas-team/notes/edit', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
-    const { clientId, noteId, texto } = req.body || {};
-    if (!clientId || !noteId) return res.status(400).json({ success: false, message: 'clientId y noteId requeridos' });
-    let noteObjectId;
-    try { noteObjectId = new ObjectId(noteId); } catch { noteObjectId = noteId; }
-    const result = await db.collection('lineas_notes').updateOne(
-      { _id: noteObjectId },
-      { $set: { texto: String(texto||'').slice(0,1000), updatedAt: new Date(), updatedBy: req.user?.username } }
-    );
-    if (!result.matchedCount) return res.status(404).json({ success: false, message: 'Nota no encontrada' });
-    return res.json({ success: true, message: 'Nota actualizada' });
-  } catch (e) {
-    console.error('[POST /api/lineas-team/notes/edit]', e);
-    return res.status(500).json({ success: false, message: 'Error al editar nota', error: e.message });
-  }
-});
-
-app.post('/api/lineas-team/notes/delete', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
-    const { noteId } = req.body || {};
-    if (!noteId) return res.status(400).json({ success: false, message: 'noteId requerido' });
-    let noteObjectId;
-    try { noteObjectId = new ObjectId(noteId); } catch { noteObjectId = noteId; }
-    const result = await db.collection('lineas_notes').deleteOne({ _id: noteObjectId });
-    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Nota no encontrada' });
-    return res.json({ success: true, message: 'Nota eliminada' });
-  } catch (e) {
-    console.error('[POST /api/lineas-team/notes/delete]', e);
-    return res.status(500).json({ success: false, message: 'Error al eliminar nota', error: e.message });
-  }
-});
-
-app.delete('/api/lineas-team/delete', protect, async (req, res) => {
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const clientId = (req.body || {}).id;
-    if (!clientId) return res.status(400).json({ success: false, message: 'ID requerido' });
-    const teamLineasDb = getDbFor('TEAM_LINEAS');
-    if (!teamLineasDb) return res.status(503).json({ success: false, message: 'BD de Team Líneas no disponible' });
-    const cols = (await teamLineasDb.listCollections().toArray()).map(c => c.name).filter(Boolean);
-    let deleted = false;
-    for (const colName of cols) {
-      try {
-        const result = await teamLineasDb.collection(colName).deleteOne({ _id: new ObjectId(clientId) });
-        if (result.deletedCount > 0) { deleted = true; break; }
-      } catch (_) {}
-    }
-    if (!deleted) return res.status(404).json({ success: false, message: 'Registro no encontrado' });
-    return res.json({ success: true, message: 'Registro eliminado' });
-  } catch (e) {
-    console.error('[DELETE /api/lineas-team/delete]', e);
-    return res.status(500).json({ success: false, message: 'Error al eliminar registro de Líneas', error: e.message });
-  }
-});
+try { app.use('/api', require('./backend/routes/lineas')); console.log('[SERVER] Rutas de Team Líneas cargadas'); } catch (e) { console.warn('[SERVER] lineas route:', e?.message); }
 
 // ── INIT-DASHBOARD ────────────────────────────────────────────
 app.get('/api/init-dashboard', protect, async (req, res) => {
@@ -1300,10 +842,14 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       { fecha:              { $gte: monthStart, $lt: monthEnd } }
     ];
 
+    // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
+    const monthStartStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
+    const _nextDate     = new Date(curYear, curMonth + 1, 1);
+    const monthEndStr   = `${_nextDate.getFullYear()}-${String(_nextDate.getMonth() + 1).padStart(2, '0')}-01`;
     const colchonCondition = {
       $and: [
-        { dia_instalacion: { $gte: monthStart, $lt: monthEnd } },
-        { dia_venta:       { $lt: monthStart } },
+        { dia_instalacion: { $gte: monthStartStr, $lt: monthEndStr } },
+        { dia_venta:       { $lt: monthStartStr } },
         { $or: [
           { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
         ]}
@@ -1414,15 +960,6 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
   } catch (e) {
     console.error('[INIT-DASHBOARD] Error:', e);
     res.status(500).json({ success: false, message: 'Error al cargar dashboard', error: e.message });
-  }
-});
-
-app.get('/api/init-dashboard-debug', protect, (req, res) => {
-  try {
-    const cache = global.initDashboardCache || { data: null, updatedAt: 0 };
-    return res.json({ success: true, cache });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
   }
 });
 
@@ -2272,153 +1809,6 @@ app.patch('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res
   }
 });
 
-// ── DEBUG ENDPOINTS ───────────────────────────────────────────
-app.get('/api/crm/debug-fields', protect, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
-  try {
-    const { agent } = req.query;
-    if (!agent) return res.status(400).json({ success: false, message: 'Parámetro agent requerido' });
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    const database    = getDb();
-    const collections = await database.listCollections().toArray();
-    const names       = collections.map(c => c.name).filter(n => /^costumers|^customers_unified/i.test(n));
-    let sampleDoc = null, sourceCollection = null;
-    for (const colName of names) {
-      try {
-        sampleDoc = await database.collection(colName).findOne({
-          $or: [{ agente: { $regex: agent, $options:'i' } },{ agenteNombre: { $regex: agent, $options:'i' } },{ nombreAgente: { $regex: agent, $options:'i' } }]
-        });
-        if (sampleDoc) { sourceCollection = colName; break; }
-      } catch (_) {}
-    }
-    if (!sampleDoc) return res.status(404).json({ success: false, message: `No se encontraron documentos para: ${agent}` });
-    const fields = Object.keys(sampleDoc).sort();
-    return res.json({ success: true, agent, sourceCollection, totalFields: fields.length, fields: fields.map(f => ({ name: f, value: sampleDoc[f], type: typeof sampleDoc[f] })) });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: 'Error al inspeccionar documentos', error: e.message });
-  }
-});
-
-app.get('/api/debug/ingrid-score', protect, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
-  try {
-    const database = getDb();
-    if (!database) return res.status(503).json({ error: 'BD no disponible' });
-    const agentPatterns = [
-      { agente: 'INGRID.GARCIA' },{ agenteNombre: 'INGRID.GARCIA' },{ nombreAgente: 'INGRID.GARCIA' },
-      { createdBy: 'INGRID.GARCIA' },{ registeredBy: 'INGRID.GARCIA' },{ vendedor: 'INGRID.GARCIA' }
-    ];
-    const decFilter = { $and: [
-      { $or: agentPatterns },
-      { $or: [{ dia_venta: { $gte: '2025-12-01', $lte: '2025-12-31' } },{ createdAt: { $gte: new Date(2025,11,1), $lte: new Date(2025,11,31) } }] }
-    ]};
-    const col   = database.collection('costumers_unified');
-    const count = await col.countDocuments(decFilter);
-    let result  = { count: 0, totalPuntaje: 0, avgPuntaje: 0 };
-    if (count > 0) {
-      const agg = await col.aggregate([
-        { $match: decFilter },
-        { $group: { _id: null, count: { $sum:1 }, totalPuntaje: { $sum: { $toDouble: '$puntaje' } }, avgPuntaje: { $avg: { $toDouble: '$puntaje' } } } }
-      ]).toArray();
-      result = agg[0] || result;
-    }
-    res.json({ costumers_unified: result });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/debug/user', protect, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
-  try {
-    let dbUser = null;
-    if (req.user?._id && isConnected()) {
-      if (!db) db = getDb();
-      try { dbUser = await db.collection('users').findOne({ _id: new ObjectId(req.user._id) }); } catch (_) {}
-    }
-    res.json({ success: true, tokenUser: req.user, dbUser, canCreateAccounts: ['Administrador','admin','administrador','Administrativo'].includes(req.user?.role) });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.get('/api/debug/users', protect, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
-  try {
-    if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
-    if (!db) db = getDb();
-    const users = await db.collection('users').find({}).project({ username:1, role:1, team:1, createdAt:1 }).toArray();
-    res.json({ success: true, users: users.map(u => ({ _id: u._id, username: u.username, role: u.role, team: u.team, createdAt: u.createdAt })) });
-  } catch (e) {
-    console.error('[debug/users]', e);
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.get('/api/auth/debug-storage', protect, (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ message: 'Not found' });
-  res.json({ success: true, message: 'Endpoint de debugging', note: 'Para verificar token usa /api/auth/verify-server' });
-});
-
-// ── DEV ENDPOINTS ─────────────────────────────────────────────
-function isLocalhost(req) {
-  const ip = req.ip || (req.connection && req.connection.remoteAddress) || '';
-  return ip === '::1' || ip === '127.0.0.1' || ip.endsWith('::1') || ip.startsWith('127.');
-}
-
-app.post('/api/auth/test-token', (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
-  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Allowed only from localhost' });
-  const { username = 'dev.admin', role = 'Administrador' } = req.body || {};
-  const token = jwt.sign({ username, role }, JWT_SECRET_EFFECTIVE, { expiresIn: '2h' });
-  return res.json({ success: true, token, payload: { username, role } });
-});
-
-app.post('/api/dev/populate-test-data', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
-  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
-  try {
-    const database = getDb();
-    if (!database) return res.status(500).json({ success: false, message: 'Database not connected' });
-    const users = database.collection('users');
-    let testUser = await users.findOne({ username: 'test.agent' });
-    if (!testUser) {
-      const hashedPassword = await bcrypt.hash('123456', 10);
-      await users.insertOne({ username: 'test.agent', password: hashedPassword, name: 'Agente Test', email: 'test@example.com', role: 'agente', team: 'Test', createdAt: new Date(), verified: true });
-      testUser = { username: 'test.agent' };
-    }
-    const costumers = database.collection('costumers_unified');
-    const existing  = await costumers.countDocuments({ agenteNombre: 'test.agent' });
-    if (existing === 0) {
-      await costumers.insertMany([
-        { nombre: 'María López',  telefono:'1234567890', agenteNombre:'test.agent', servicios:['Internet 100MB'], tipo_servicio:'Internet Hogar', puntaje:1,    status:'completed', dia_venta: new Date() },
-        { nombre: 'Carlos Pérez', telefono:'9876543210', agenteNombre:'test.agent', servicios:['TV Premium'],    tipo_servicio:'TV',             puntaje:0.75, status:'completed', dia_venta: new Date() },
-        { nombre: 'Ana Torres',   telefono:'5551234567', agenteNombre:'test.agent', servicios:['Combo 200MB'],   tipo_servicio:'Combo',          puntaje:1.5,  status:'completed', dia_venta: new Date() }
-      ]);
-    }
-    return res.json({ success: true, message: 'Test data populated', user: testUser.username, leads: await costumers.countDocuments({ agenteNombre: 'test.agent' }) });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.post('/api/dev/assign-real-leads-to-admin', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(403).json({ success: false, message: 'Not allowed in production' });
-  if (!isLocalhost(req)) return res.status(403).json({ success: false, message: 'Only allowed from localhost' });
-  try {
-    const database = getDb();
-    if (!database) return res.status(500).json({ success: false, message: 'Database not connected' });
-    const costumers = database.collection('costumers_unified');
-    const total     = await costumers.countDocuments();
-    if (!req.body?.confirm || req.body.confirm !== 'YES_I_UNDERSTAND_THIS_OVERWRITES_ALL') {
-      return res.status(400).json({ success: false, message: 'Debes enviar { "confirm": "YES_I_UNDERSTAND_THIS_OVERWRITES_ALL" } en el body.' });
-    }
-    const result = await costumers.updateMany({}, { $set: { agenteNombre: 'admin' } });
-    return res.json({ success: true, message: 'All leads assigned to admin', before: { totalLeads: total }, after: { modifiedCount: result.modifiedCount } });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
 
 // ── AUTH ENDPOINTS ────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -3067,10 +2457,12 @@ app.get('/api/leads', protect, async (req, res) => {
         ]
       };
 
+      // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
+      const colchonMonthStartStr = `${fiYear}-${String(fiMonth + 1).padStart(2, '0')}-01`;
       const colchonFilter = {
         $and: [
-          { dia_instalacion: { $gte: fi, $lte: ft } },
-          { dia_venta:       { $lt: colchonMonthStart } },
+          { dia_instalacion: { $gte: fechaInicio, $lte: fechaFin } },
+          { dia_venta:       { $lt: colchonMonthStartStr } },
           {
             $or: [
               { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
@@ -3167,10 +2559,12 @@ app.get('/api/rankings-leads', protect, async (req, res) => {
         ]
       };
 
+      // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
+      const colchonMonthStartStr = `${fiYear}-${String(fiMonth + 1).padStart(2, '0')}-01`;
       const colchonFilter = {
         $and: [
-          { dia_instalacion: { $gte: fi, $lte: ft } },
-          { dia_venta:       { $lt: colchonMonthStart } },
+          { dia_instalacion: { $gte: fechaInicio, $lte: fechaFin } },
+          { dia_venta:       { $lt: colchonMonthStartStr } },
           { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } }
         ]
       };
@@ -3433,12 +2827,6 @@ app.use('/api',                        apiRoutes);
 
 if (mediaProxy)  app.use('/media/proxy',  mediaProxy);
 if (debugRoutes) app.use('/api/debug',    debugRoutes);
-if (debugNoAuthRoutes && process.env.NODE_ENV !== 'production') {
-  app.use('/api/debug-noauth', debugNoAuthRoutes);
-  console.log('[SERVER] /api/debug-noauth montada (solo dev)');
-}
-
-try { const r = require('./backend/routes/debug-paola');       app.use('/api/debug-paola', r); }          catch (_) {}
 try { const r = require('./backend/routes/bulk-status-phone'); app.use('/api/leads', r); console.log('[SERVER] bulk-status-phone cargado'); } catch (e) { console.warn('[SERVER] bulk-status-phone:', e?.message); }
 try { const r = require('./backend/routes/migrate');           app.use('/api/migrate', r); console.log('[SERVER] Rutas de migración cargadas'); } catch (e) { console.warn('[SERVER] migrate:', e?.message); }
 
