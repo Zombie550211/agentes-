@@ -335,7 +335,6 @@
 
     // ── DEBUG: log de datos del usuario logueado (solo en desarrollo) ──
     if(isSup) {
-      console.log('[SUP-DEBUG] Usuario:', userName, '| username:', userUsername, '| team:', ud.team, '| role:', role);
     }
 
     __filteredLeads=__allLeadsData.filter(function(lead){
@@ -380,7 +379,6 @@
         if(isSup) {
           // Debug solo para primeros 3 leads para no saturar consola
           if(__allLeadsData.indexOf(lead) < 3) {
-            console.log('[SUP-DEBUG] Lead supervisor:"'+leadSup+'" | keywords:'+JSON.stringify(keywords)+' | keywordMatch:'+keywordMatch+' | normMatch:'+normMatch);
           }
         }
 
@@ -470,6 +468,10 @@
           } else {
             const diaVentaYM=toYM(lead.dia_venta);
             if(!diaVentaYM||diaVentaYM!==month)return false;
+            // Exclude leads sold this month but installed in a later month:
+            // they are colchones for the installation month and must not appear here.
+            const diaInstYM=toYM(lead.dia_instalacion);
+            if(diaInstYM&&diaInstYM>month&&(lead.status==='completed'||lead.status==='active'))return false;
           }
         } else {
           // Modo "Todos los meses": solo ventas del mes, sin colchón
@@ -491,7 +493,7 @@
       return true;
     });
 
-    __filteredLeads.sort(function(a,b){return(b.dia_venta||b.dia_instalacion||'').localeCompare(a.dia_venta||a.dia_instalacion||'');});
+    __filteredLeads.sort(function(a,b){const ra=a._es_colchon?(a.dia_instalacion||a.dia_venta):(a.dia_venta||a.dia_instalacion);const rb=b._es_colchon?(b.dia_instalacion||b.dia_venta):(b.dia_venta||b.dia_instalacion);return(rb||'').localeCompare(ra||'');});
     currentPage=1;renderTableRows();updateKPIs();setTimeout(refreshFilterOptions,0);
   }
 
@@ -1056,7 +1058,6 @@
       const raw=localStorage.getItem('user')||sessionStorage.getItem('user')||localStorage.getItem('crm_user')||sessionStorage.getItem('crm_user');
       let userData={};try{userData=raw?JSON.parse(raw):{};}catch(_){}
       const userRole=String(userData.role||userData.rol||userData.rol_nombre||'').toLowerCase();
-      console.log('[SOCKET] Registrando con rol:', userRole, '| usuario:', userData.username||userData.name);
       __socket.emit('register',{username:userData.username||userData.name,role:userRole});
       __socket.on('connect',function(){ document.dispatchEvent(new Event('crm-socket-ready')); });
       document.dispatchEvent(new Event('crm-socket-ready'));
