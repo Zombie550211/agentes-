@@ -3049,7 +3049,7 @@ Reglas de comportamiento:
       console.error('[CHAT] Anthropic error:', apiRes.status, errText.slice(0, 200));
       return res.status(502).json({ success: false, message: 'Error al contactar el asistente IA' });
     }
-
+  
     const data = await apiRes.json();
     const reply = data?.content?.[0]?.text || '';
     return res.json({ success: true, reply });
