@@ -955,8 +955,9 @@ function recalcularFila(tr) {
 
   tds[17].textContent  = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
 
+  const valorVenta     = totalVentas > 0 ? totalDia / totalVentas : 0;
   const puntos         = raw(18);
-  tds[19].textContent  = puntos > 0 ? formatMoneyTrunc(totalDia / puntos) : "";
+  tds[19].textContent  = puntos > 0 ? formatMoneyTrunc(valorVenta / puntos) : "";
 }
 
 excelBody.addEventListener('input', function(e) {
@@ -997,7 +998,7 @@ function renderFilaTotalesFacturacion() {
   totales[15] = totales[1] + totales[4] + totales[7] + totales[12]; // Total día
   totales[16] = totales[2] + totales[5] + totales[8] + totales[13]; // Total ventas
   totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0; // Valor venta = Total día / Total ventas
-  totales[19] = totales[18] > 0 ? totales[15] / totales[18] : 0;
+  totales[19] = totales[18] > 0 ? totales[17] / totales[18] : 0;
 
   for (let i = 1; i < numCols; i++) {
     const el = document.getElementById('total-col-' + i);
