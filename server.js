@@ -65,7 +65,9 @@ const defaultAllowed = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:10000',
   'https://agentes-49dr.onrender.com',
-  'https://agentes-frontend.onrender.com'
+  'https://agentes-frontend.onrender.com',
+  'https://www.connecting.lat',
+  'https://connecting.lat'
 ];
 if (process.env.NODE_ENV === 'production') {
   const renderDomains = [
