@@ -529,8 +529,8 @@
       const lid=String(lead._id),isCol=!!lead._es_colchon_route,rowClass=isCol?' class="row-colchon"':'';
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+'>'+
         '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+'<span class="row-actions" style="margin-left:6px;"><button class="rab" onclick="editLead(\''+lid+'\')" title="Editar" aria-label="Editar '+escHTML(lead.nombre_cliente)+'">✎</button><button class="rab delete-btn" onclick="deleteLead(\''+lid+'\')" title="Eliminar" aria-label="Eliminar '+escHTML(lead.nombre_cliente)+'">✕</button></span></td>'+
-        cell(lead.telefono?'<span class="mono">'+escHTML(lead.telefono)+'</span>':'—')+
-        cell(lead.telefono_alt?'<span class="mono">'+escHTML(lead.telefono_alt)+'</span>':'—')+
+        cell(lead.telefono?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono))+'</span>':'—')+
+        cell(lead.telefono_alt?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</span>':'—')+
         cell('<span class="mono">'+escHTML(lead.numero_cuenta)+'</span>')+
         cell(escHTML(lead.autopago))+cell(escHTML(lead.direccion))+cell(escHTML(lead.tipo_servicio))+cell(escHTML(lead.sistema))+cell(escHTML(lead.riesgo))+
         cell(fmtDate(lead.dia_venta))+cell(fmtDate(lead.dia_instalacion))+
