@@ -71,17 +71,26 @@ router.get('/supervisors-list', protect, async (req, res) => {
     if (!db) return res.status(500).json({ success: false, message: 'DB not connected' });
 
     const usersCol = db.collection('users');
+    console.log('[SUPERVISORS LIST] Buscando usuarios con rol supervisor...');
+
     const supervisors = await usersCol.find({
-      role: { $regex: /supervisor/i }
+      $or: [
+        { role: { $regex: /supervisor/i } },
+        { role: 'Supervisor' },
+        { role: 'supervisor' }
+      ]
     }).project({
       username: 1,
       name: 1,
       nombre: 1,
       fullName: 1,
       team: 1,
+      role: 1,
       supervisor: 1,
       supervisorName: 1
     }).toArray();
+
+    console.log('[SUPERVISORS LIST] Supervisores encontrados:', supervisors.length);
 
     // Normalizar nombres y crear formato esperado por el frontend
     const normalized = supervisors.map(s => {
@@ -103,6 +112,7 @@ router.get('/supervisors-list', protect, async (req, res) => {
       };
     });
 
+    console.log('[SUPERVISORS LIST] Supervisores normalizados:', normalized);
     return res.json({ success: true, supervisors: normalized });
   } catch (e) {
     console.error('[SUPERVISORS LIST] error', e);
