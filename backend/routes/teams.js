@@ -63,4 +63,51 @@ router.get('/agents', protect, async (req, res) => {
   }
 });
 
+// GET /api/supervisors-list
+// Devuelve lista de todos los supervisores del sistema
+router.get('/supervisors-list', protect, async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'DB not connected' });
+
+    const usersCol = db.collection('users');
+    const supervisors = await usersCol.find({
+      role: { $regex: /supervisor/i }
+    }).project({
+      username: 1,
+      name: 1,
+      nombre: 1,
+      fullName: 1,
+      team: 1,
+      supervisor: 1,
+      supervisorName: 1
+    }).toArray();
+
+    // Normalizar nombres y crear formato esperado por el frontend
+    const normalized = supervisors.map(s => {
+      const name = s.name || s.nombre || s.fullName || s.username || '';
+      // Crear key para matching (primera letra de cada palabra en mayúscula)
+      const key = name
+        .toString()
+        .toUpperCase()
+        .split(/\s+/)
+        .map(w => w.charAt(0))
+        .join('')
+        || s.username.toUpperCase();
+
+      return {
+        key: key,
+        name: name,
+        username: s.username || '',
+        team: s.team || ''
+      };
+    });
+
+    return res.json({ success: true, supervisors: normalized });
+  } catch (e) {
+    console.error('[SUPERVISORS LIST] error', e);
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;
