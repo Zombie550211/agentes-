@@ -465,6 +465,21 @@ async function loadTeams(){
       _teams = canonicalTeams;
     }
 
+    // Si los supervisores vienen con team, incluirlos como opciones de equipo
+    // para que al seleccionar supervisor aparezca su team aunque /api/teams no lo traiga.
+    if(Array.isArray(_supervisors) && _supervisors.length){
+      const seenTeamKey = new Set((_teams||[]).map(t => String(t.supervisorKey||'') + '|' + String(t.value||'')));
+      _supervisors.forEach(function(s){
+        const t = (s && s.team) ? String(s.team).trim() : '';
+        if(!t) return;
+        const key = String(s.key||'').trim();
+        const uniq = key + '|' + t;
+        if(!key || seenTeamKey.has(uniq)) return;
+        seenTeamKey.add(uniq);
+        _teams.push({ value: t, label: t, supervisorKey: key, supervisorName: s.name || key, supervisor: s.username || '' });
+      });
+    }
+
     // Fallback: si supervisors-list falló o está vacío, extraer supervisores únicos de los teams
     if(!_supervisors.length && _teams.length){
       const seen=new Set();
