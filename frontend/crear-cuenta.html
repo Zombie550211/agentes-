@@ -439,7 +439,7 @@ async function loadTeams(){
     // Cargar teams y (opcionalmente) supervisores en paralelo
     const [resT, resS] = await Promise.all([
       AUTH.sf('/api/teams'),
-      AUTH.sf('/api/supervisors-list').catch(function(){ return null; })
+      AUTH.sf('/api/teams/supervisors-list').catch(function(){ return null; })
     ]);
     if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
 
