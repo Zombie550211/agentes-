@@ -73,6 +73,7 @@ router.get('/supervisors-list', protect, async (req, res) => {
     const usersCol = db.collection('users');
     console.log('[SUPERVISORS LIST] Buscando usuarios con rol supervisor...');
 
+    // 1. Buscar supervisores en la base de datos
     const supervisors = await usersCol.find({
       $or: [
         { role: { $regex: /supervisor/i } },
@@ -90,12 +91,11 @@ router.get('/supervisors-list', protect, async (req, res) => {
       supervisorName: 1
     }).toArray();
 
-    console.log('[SUPERVISORS LIST] Supervisores encontrados:', supervisors.length);
+    console.log('[SUPERVISORS LIST] Supervisores encontrados en DB:', supervisors.length);
 
     // Normalizar nombres y crear formato esperado por el frontend
     const normalized = supervisors.map(s => {
       const name = s.name || s.nombre || s.fullName || s.username || '';
-      // Crear key para matching (primera letra de cada palabra en mayúscula)
       const key = name
         .toString()
         .toUpperCase()
@@ -112,7 +112,24 @@ router.get('/supervisors-list', protect, async (req, res) => {
       };
     });
 
-    console.log('[SUPERVISORS LIST] Supervisores normalizados:', normalized);
+    // 2. Merge con lista completa de teamsServer.js para no perder ninguno
+    try {
+      const teamsServer = require('../utils/teamsServer');
+      const allKnown = (typeof teamsServer.getSupervisors === 'function') ? teamsServer.getSupervisors() : [];
+      const seenKeys = new Set(normalized.map(n => n.key));
+      allKnown.forEach(function(known) {
+        if (!seenKeys.has(known.key)) {
+          normalized.push({
+            key: known.key,
+            name: known.name,
+            username: known.username || '',
+            team: known.team || ''
+          });
+        }
+      });
+    } catch (e) { /* no-op: teamsServer no disponible */ }
+
+    console.log('[SUPERVISORS LIST] Total supervisores devueltos:', normalized.length);
     return res.json({ success: true, supervisors: normalized });
   } catch (e) {
     console.error('[SUPERVISORS LIST] error', e);

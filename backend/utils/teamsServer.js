@@ -22,10 +22,14 @@ const TEAMS = {
   'Administración':{ name: 'Administración',supervisor: null, supervisorKey: null, supervisorName: null }
 };
 
-// Lista de supervisores activos
+// Lista de supervisores activos (todos los conocidos del sistema)
 const SUPERVISORS = [
-  { key: 'JONATHAN F', name: 'Jonathan Figueroa', username: 'jonathan.figueroa' },
-  { key: 'LUIS G',     name: 'Luis G',            username: 'luis.g' }
+  { key: 'JONATHAN F',     name: 'Jonathan Figueroa',  username: 'jonathan.figueroa' },
+  { key: 'LUIS G',         name: 'Luis G',             username: 'luis.g' },
+  { key: 'IRANIA S',       name: 'Irania Serrano',     username: 'irania.serrano' },
+  { key: 'BRYAN P',        name: 'Bryan Pleitez',      username: 'bryan.pleitez' },
+  { key: 'ROBERTO V',      name: 'Roberto Velasquez',  username: 'roberto.velasquez' },
+  { key: 'JOHANA',         name: 'Johana',             username: 'johana' }
 ];
 
 function getTeamsForSelect() {
