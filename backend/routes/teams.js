@@ -116,16 +116,24 @@ router.get('/supervisors-list', protect, async (req, res) => {
     try {
       const teamsServer = require('../utils/teamsServer');
       const allKnown = (typeof teamsServer.getSupervisors === 'function') ? teamsServer.getSupervisors() : [];
+      const allTeams = (typeof teamsServer.getTeamsForSelect === 'function') ? teamsServer.getTeamsForSelect() : [];
       const seenKeys = new Set(normalized.map(n => n.key));
+      const seenNames = new Set(normalized.map(n => String(n.name).toLowerCase().trim()));
       allKnown.forEach(function(known) {
-        if (!seenKeys.has(known.key)) {
-          normalized.push({
-            key: known.key,
-            name: known.name,
-            username: known.username || '',
-            team: known.team || ''
-          });
-        }
+        const knownNameLower = String(known.name).toLowerCase().trim();
+        // Evitar duplicados por key o por nombre
+        if (seenKeys.has(known.key) || seenNames.has(knownNameLower)) return;
+        seenKeys.add(known.key);
+        seenNames.add(knownNameLower);
+        // Buscar el team asociado a este supervisor
+        const teamObj = allTeams.find(function(t) { return t.supervisorKey === known.key; });
+        const teamName = teamObj ? teamObj.value : (known.team || '');
+        normalized.push({
+          key: known.key,
+          name: known.name,
+          username: known.username || '',
+          team: teamName
+        });
       });
     } catch (e) { /* no-op: teamsServer no disponible */ }
 

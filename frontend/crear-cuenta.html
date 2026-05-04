@@ -542,7 +542,10 @@ function onSupervisorChange(prefix){
     const sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
     if(isJonathan) return sName.includes('jonathan');
     if(isLuis)     return sName.includes('luis');
-    return false;
+    // Para cualquier otro supervisor, hacer matching por key o nombre
+    // Evitar que equipos sin supervisorName hagan match (string vacío includes todo)
+    if(!sName) return false;
+    return sName.includes(supLower) || supLower.includes(sName);
   }
 
   function teamHasNoSup(t){

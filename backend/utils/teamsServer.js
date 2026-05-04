@@ -17,6 +17,38 @@ const TEAMS = {
     supervisorName: 'Luis G',
     agents: ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','TATIANA GIRON','CESAR CLAROS','KARLA PONCE','MANUEL FLORES']
   },
+  // ── Equipo Irania Serrano ─────────────────────────────────
+  'TEAM IRANIA S': {
+    name: 'TEAM IRANIA S',
+    supervisor: 'irania.serrano',
+    supervisorKey: 'IRANIA S',
+    supervisorName: 'Irania Serrano',
+    agents: ['JOSUE RENDEROS','TATIANA AYALA','GISELLE DIAZ','MIGUEL NUNEZ','ROXANA MARTINEZ']
+  },
+  // ── Equipo Bryan Pleitez ──────────────────────────────────
+  'TEAM BRYAN P': {
+    name: 'TEAM BRYAN P',
+    supervisor: 'bryan.pleitez',
+    supervisorKey: 'BRYAN P',
+    supervisorName: 'Bryan Pleitez',
+    agents: ['ABIGAIL GALDAMEZ','ALEXANDER RIVERA','DIEGO MEJIA','EVELIN GARCIA','FABRICIO PANAMENO','LUIS CHAVARRIA','STEVEN VARELA']
+  },
+  // ── Equipo Roberto Velasquez ──────────────────────────────
+  'TEAM ROBERTO V': {
+    name: 'TEAM ROBERTO V',
+    supervisor: 'roberto.velasquez',
+    supervisorKey: 'ROBERTO V',
+    supervisorName: 'Roberto Velasquez',
+    agents: ['CINDY FLORES','DANIELA BONILLA','FRANCISCO AGUILAR','LEVY CEREN','LISBETH CORTEZ','LUCIA FERMAN','NELSON CEREN']
+  },
+  // ── Equipo Johana ─────────────────────────────────────────
+  'TEAM JOHANA': {
+    name: 'TEAM JOHANA',
+    supervisor: 'johana',
+    supervisorKey: 'JOHANA',
+    supervisorName: 'Johana',
+    agents: ['ANDERSON GUZMAN','CARLOS GRANDE','GUADALUPE SANTANA','JULIO CHAVEZ','PRISCILA HERNANDEZ','RIQUELMI TORRES']
+  },
   // ── Sin supervisor ────────────────────────────────────────
   'Backoffice':    { name: 'Backoffice',    supervisor: null, supervisorKey: null, supervisorName: null },
   'Administración':{ name: 'Administración',supervisor: null, supervisorKey: null, supervisorName: null }
