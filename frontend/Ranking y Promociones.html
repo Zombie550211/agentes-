@@ -1336,19 +1336,19 @@
     /* Posicionamiento espec├¡fico - astronautas parados ENCIMA de los cilindros */
     .second-pos {
       left: 25% !important;
-      top: 15% !important; /* Astronauta parado sobre el cilindro izquierdo */
+      top: 22% !important; /* Astronauta parado sobre el cilindro izquierdo */
       transform: translateX(-50%) !important;
     }
     
     .first-pos {
       left: 50% !important;
-      top: -20% !important; /* Astronauta del primer lugar m├ís arriba a├║n */
+      top: -18% !important; /* Astronauta del primer lugar más arriba aún */
       transform: translateX(-50%) !important;
     }
     
     .third-pos {
       left: 75% !important; /* un poco m├ís a la izquierda */
-      top: 22% !important; /* Astronauta parado sobre el cilindro derecho (m├ís bajo) */
+      top: 20% !important; /* Astronauta parado sobre el cilindro derecho */
       transform: translateX(-50%) !important;
     }
     
@@ -1442,16 +1442,16 @@
     }
     
     /* Ajustar posicionamiento espec├¡fico por lugar - en la cara frontal de cada cilindro */
-    .first-pos .astronaut-info { 
-      bottom: -230px !important; /* subir a├║n m├ís en la base central */
+    .first-pos .astronaut-info {
+      bottom: -200px !important; /* subir a├║n m├ís en la base central */
       width: 180px !important;
     }
-    .second-pos .astronaut-info { 
-      bottom: -110px !important; /* subir a├║n m├ís en la base izquierda */
+    .second-pos .astronaut-info {
+      bottom: -40px !important; /* subir a├║n m├ís en la base izquierda */
       width: 170px !important;
     }
-    .third-pos .astronaut-info { 
-      bottom: -85px !important; /* subir a├║n m├ís en la base derecha */
+    .third-pos .astronaut-info {
+      bottom: -80px !important; /* subir a├║n m├ís en la base derecha */
       transform: translateX(-66%) !important;
       width: 170px !important;
     }
@@ -1896,19 +1896,29 @@
     }
   </style>
   <style>
-    .promo-hero{width:100%;max-width:1100px;margin:24px auto 20px auto;display:none;flex-direction:column;align-items:center;gap:10px;visibility:visible;opacity:1}
-    .ranking-panel { margin-top: 16px !important; }
-    .promo-media{width:100%;border-radius:20px;overflow:hidden;background:#0f172a0d;box-shadow:0 10px 30px rgba(2,132,199,.12);border:1px solid rgba(15,23,42,.08);position:relative;min-height:180px;max-height:420px;transition:height .2s ease}
-    .promo-media .promo-placeholder{min-height:200px;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:500;font-size:1.2rem;padding:20px;text-align:center;background:linear-gradient(135deg,#f8fafc,#e2e8f0);border:2px dashed #cbd5e1;border-radius:20px}
+    /* Card principal con fondo Spline */
+    .ranking-main-card{width:calc(100% - 40px)!important;max-width:1600px!important;border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:20px 0;display:flex!important;flex-direction:column;gap:20px;position:relative!important;overflow:hidden;height:500px!important;min-height:500px!important;max-height:500px!important;flex-shrink:0!important;background:#0a0e2a}
+    .ranking-main-card spline-viewer{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent}
+    .spline-watermark-cover{position:absolute;bottom:0;right:0;width:210px;height:52px;background:#0a0e2a;z-index:10;border-radius:10px 0 0 0}
+    /* Layout top: promo izquierda + podio derecha */
+    .ranking-top-row{display:flex;gap:24px;width:100%;align-items:stretch;margin:0;position:relative;z-index:1;min-height:440px}
+    /* Promo: angosta con orillas redondeadas */
+    .promo-hero{flex:0 0 38%;min-width:0;display:flex!important;flex-direction:column;gap:10px;margin:0!important;width:auto!important;max-width:none!important;min-height:420px;border-radius:18px;overflow:hidden}
+    .promo-media{border-radius:18px!important;min-height:380px!important;max-height:none!important;flex:1}
+    /* Podio: ocupa el resto */
+    .ranking-top-row .ranking-podium-final{flex:1;min-width:0;margin:0!important;max-width:none!important;min-height:420px;padding-top:140px!important}
+    .promo-media{width:100%;border-radius:20px;overflow:hidden;background:#0f172a0d;box-shadow:0 10px 30px rgba(2,132,199,.12);border:1px solid rgba(15,23,42,.08);position:relative;min-height:320px;max-height:480px;transition:height .2s ease}
+    .promo-media .promo-placeholder{min-height:320px;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:500;font-size:1.2rem;padding:20px;text-align:center;background:linear-gradient(135deg,#f8fafc,#e2e8f0);border:2px dashed #cbd5e1;border-radius:20px}
     .promo-media img,.promo-media video{width:100%;height:100%;display:block;object-fit:cover}
     .promo-media.contain img,.promo-media.contain video{object-fit:contain;background:#0f172a0d}
-    .promo-actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;width:100%;max-width:1100px}
+    .promo-actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;width:100%;margin-top:8px}
     .upload-btn{cursor:pointer;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 6px 18px rgba(102,126,234,.25)}
     .upload-btn:hover{filter:brightness(1.05)}
     .upload-hint{font-size:.85rem;color:#64748b}
-    .promo-hero.hidden { display: none !important; }
-    .promo-actions { display: none; }
+    .promo-hero.hidden{display:none!important}
+    @media(max-width:900px){.ranking-top-row{flex-direction:column}}
   </style>
+  <script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.92/build/spline-viewer.js"></script>
 </head>
 <body>
   <div class="layout">
@@ -1916,76 +1926,79 @@
     <nav class="sidebar sidebar-inicio" data-active="ranking" style="overflow-y: visible;"></nav>
     <main class="main-content">
 
-      <!-- Hero Promocional -->
-      <section class="promo-hero">
-        <div class="promo-media" id="promo-media">
-          <div class="promo-placeholder">📡 Sin promoción disponible<br><small>Sube una imagen o video para mostrar aquí</small></div>
-        </div>
-        <div class="promo-actions" id="promo-actions" style="display:none;">
-          <form id="promo-upload-form">
-            <label class="upload-btn" title="Subir imagen o video promocional">
-              <input type="file" id="promo-file" name="file" accept="image/*,video/*" hidden>
-              <i class="fas fa-upload"></i> Subir imagen/video promocional
-            </label>
-            <span class="upload-hint">Formatos: JPG, PNG, GIF, MP4 (hasta 50MB)</span>
-          </form>
-        </div>
-      </section>
+      <!-- Card principal con fondo morado -->
+      <div class="ranking-main-card">
+        <spline-viewer url="https://prod.spline.design/T26rKj1S55JM3BnF/scene.splinecode"></spline-viewer>
+        <div class="spline-watermark-cover"></div>
 
-      <!-- Ranking de Agentes -->
-      <div class="ranking-panel">
-        <div class="ranking-header">
-          <div class="ranking-icon">
-            <i class="fas fa-trophy"></i>
+      <!-- Top: Promociones (izquierda) + Podio (derecha) -->
+      <div class="ranking-top-row">
+
+        <!-- Promociones -->
+        <section class="promo-hero">
+          <div class="promo-media" id="promo-media">
+            <div class="promo-placeholder">📡 Sin promoción disponible<br><small>Sube una imagen o video para mostrar aquí</small></div>
           </div>
-          <h1 class="ranking-title">Ranking de Agentes</h1>
-          <p class="ranking-subtitle">Clasificación por desempeño mensual</p>
-        </div>
+          <div class="promo-actions" id="promo-actions" style="display:none;">
+            <form id="promo-upload-form">
+              <label class="upload-btn" title="Subir imagen o video promocional">
+                <input type="file" id="promo-file" name="file" accept="image/*,video/*" hidden>
+                <i class="fas fa-upload"></i> Subir imagen/video promocional
+              </label>
+              <span class="upload-hint">Formatos: JPG, PNG, GIF, MP4 (hasta 50MB)</span>
+            </form>
+          </div>
+        </section>
 
-        <div class="ranking-content">
-          <!-- Podio -->
-          <div class="ranking-podium-final">
-            <img src="images/podio.png" alt="Podio Ranking" class="ranking-base-image">
-            <div class="astronauts-overlay">
-              <!-- Segundo Lugar -->
-              <div class="astronaut-position second-pos">
-                <div class="astronaut-wrapper">
-                  <img src="images/segundo lugar.png" class="astronaut-image" alt="" />
-                  <div class="position-badge">2</div>
-                </div>
-                <div class="astronaut-info">
-                  <div class="astronaut-name">—</div>
-                  <div class="astronaut-score">0</div>
-                </div>
+        <!-- Podio + Astronautas -->
+        <div class="ranking-podium-final">
+          <img src="images/podio.png" alt="Podio Ranking" class="ranking-base-image">
+          <div class="astronauts-overlay">
+            <!-- Segundo Lugar -->
+            <div class="astronaut-position second-pos">
+              <div class="astronaut-wrapper">
+                <img src="images/segundo lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge">2</div>
               </div>
-
-              <!-- Primer Lugar -->
-              <div class="astronaut-position first-pos">
-                <div class="astronaut-wrapper winner">
-                  <img src="images/primer lugar.png" class="astronaut-image" alt="" />
-                  <div class="position-badge gold">1</div>
-                </div>
-                <div class="astronaut-info">
-                  <div class="astronaut-name">—</div>
-                  <div class="astronaut-score winner">0</div>
-                </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score">0</div>
               </div>
+            </div>
 
-              <!-- Tercer Lugar -->
-              <div class="astronaut-position third-pos">
-                <div class="astronaut-wrapper">
-                  <img src="images/tercer lugar.png" class="astronaut-image" alt="" />
-                  <div class="position-badge">3</div>
-                </div>
-                <div class="astronaut-info">
-                  <div class="astronaut-name">—</div>
-                  <div class="astronaut-score">0</div>
-                </div>
+            <!-- Primer Lugar -->
+            <div class="astronaut-position first-pos">
+              <div class="astronaut-wrapper winner">
+                <img src="images/primer lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge gold">1</div>
+              </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score winner">0</div>
+              </div>
+            </div>
+
+            <!-- Tercer Lugar -->
+            <div class="astronaut-position third-pos">
+              <div class="astronaut-wrapper">
+                <img src="images/tercer lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge">3</div>
+              </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score">0</div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Resto del ranking -->
+      </div>
+
+      </div><!-- /ranking-main-card -->
+
+      <!-- Otros Participantes -->
+      <div class="ranking-panel">
+        <div class="ranking-content">
           <div class="other-ranks">
             <div class="other-ranks-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
               <h3 style="margin:0;">Otros Participantes</h3>

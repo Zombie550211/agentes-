@@ -53,7 +53,10 @@
     'crearcuenta': 'crearcuenta',
     'crear-cuenta': 'crearcuenta',
     'register': 'crearcuenta',
-    'registro': 'crearcuenta'
+    'registro': 'crearcuenta',
+    'chat': 'chat',
+    'mensajes': 'chat',
+    'messages': 'chat'
   };
 
   const AVATAR_FIELD_CANDIDATES = [
@@ -211,6 +214,7 @@
       if (/lead/.test(path)) return 'lead';
       if (/crear/.test(path) && /cuenta/.test(path)) return 'crearcuenta';
       if (/register/.test(path)) return 'crearcuenta';
+      if (/chat\.html?$/.test(path)) return 'chat';
       if (/reset-password/.test(path)) return 'inicio';
       if (/inicio/.test(path) || /index\.html?$/.test(path)) return 'inicio';
     } catch (e) {
@@ -402,10 +406,8 @@
           if (isClientesPage && clientesSubmenu) {
             clientesSubmenu.classList.add('open');
             clientesToggle.classList.add('open');
-            console.log('[Sidebar] Submenu clientes abierto automáticamente (página de Lista de Clientes)');
           }
           
-          console.log('✅ Event listener del submenu clientes inicializado');
         }
       } catch (e) {
         console.warn('Error inicializando submenu clientes:', e);
@@ -440,10 +442,8 @@
           if (isMovilesPage) {
             movilesSubmenu.classList.add('open');
             movilesToggle.classList.add('open');
-            console.log('[Sidebar] Submenu moviles abierto automáticamente (página de Servicios Móviles)');
           }
           
-          console.log('✅ Event listener del submenu moviles inicializado');
         }
       } catch (e) {
         console.warn('Error inicializando submenu moviles:', e);
@@ -472,17 +472,14 @@
               body.classList.remove('sidebar-pinned');
               pinBtn.classList.remove('active');
               localStorage.setItem('sidebar-pinned', 'false');
-              console.log('[Sidebar] Desfijado');
             } else {
               // Fijar
               body.classList.add('sidebar-pinned');
               body.classList.add('show-sidebar');
               pinBtn.classList.add('active');
               localStorage.setItem('sidebar-pinned', 'true');
-              console.log('[Sidebar] Fijado');
             }
           });
-          console.log('✅ Botón de pin del sidebar inicializado');
         }
       } catch (e) {
         console.warn('Error inicializando botón de pin:', e);
@@ -491,8 +488,6 @@
       // Emitir evento de sidebar cargado
       document.dispatchEvent(new Event('sidebar:loaded'));
       loadedOk = true;
-      console.log('✅ Sidebar cargado correctamente para rol:', user.role);
-
       // Inicializar el interruptor de tema
       setupThemeSwitcher();
     } catch (error) {
@@ -556,7 +551,6 @@
             // normalizar propiedad username
             const userFromStorage = Object.assign({}, parsed);
             if (!userFromStorage.username) userFromStorage.username = userFromStorage.name || userFromStorage.email || 'Usuario';
-            console.log('👤 Usuario cargado desde localStorage/sessionStorage para sidebar:', userFromStorage);
             return userFromStorage;
           }
         }
@@ -583,7 +577,6 @@
       }
 
       const user = data.user;
-      console.log('👤 Usuario cargado en sidebar (servidor):', user);
       return user;
     } catch (error) {
       // No usar console.error para errores esperados (p. ej. sesión ausente). Mostrar warning y devolver fallback.
@@ -743,7 +736,6 @@
   // Obtener items del menú según rol
   function getMenuItems(role, activePage, ctx = {}) {
     const normalizedRole = normalizeRole(role);
-    console.log('🔍 Generando menú para rol bruto/normalizado:', role, '->', normalizedRole);
     const normalizedActive = normalizeActiveKey(activePage);
     
     // Array ordenado de items del menú (orden específico)
@@ -768,7 +760,8 @@
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },
       { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: 'multimedia.html', roles: allRoles },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: allRoles },
-      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles }
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles },
+      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: 'chat.html', roles: allRoles }
     ];
 
     // Redirigir a páginas específicas de Team Líneas si corresponde
@@ -829,7 +822,6 @@
       }
     }
 
-    console.log('✅ Items visibles para este rol:', visibleItems);
     return menuHTML;
   }
 
@@ -862,7 +854,8 @@
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
-      { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true }
+      { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
+      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html' }
     ];
 
     // Sección 4: Servicios Móviles
@@ -891,8 +884,6 @@
     const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
     // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
     const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
-    
-    console.log('[Sidebar] Visibilidad - Role:', normalizedRole, 'isLineas:', isLineas, 'showResidencial:', showResidencial, 'showMoviles:', showMoviles);
     
     let html = '';
 
@@ -966,38 +957,29 @@
 
   // Toggle del submenu de Servicios Móviles - definir globalmente
   window.toggleMovilesSubmenu = function() {
-    console.log('[Sidebar] toggleMovilesSubmenu llamado');
     const toggle = document.getElementById('moviles-toggle');
     const submenu = document.getElementById('moviles-submenu');
     if (!toggle || !submenu) return;
     const isOpen = submenu.classList.contains('open');
     submenu.classList.toggle('open', !isOpen);
     toggle.classList.toggle('open', !isOpen);
-    console.log('[Sidebar] Submenu moviles toggled:', !isOpen ? 'ABIERTO' : 'CERRADO');
   };
 
   // Toggle del submenu de clientes - definir globalmente
   window.toggleClientesSubmenu = function() {
-    console.log('[Sidebar] toggleClientesSubmenu llamado');
     const toggle = document.getElementById('clientes-toggle');
     const submenu = document.getElementById('clientes-submenu');
-    console.log('[Sidebar] toggle:', toggle, 'submenu:', submenu);
     if (!toggle || !submenu) {
       console.warn('[Sidebar] No se encontraron elementos clientes-toggle o clientes-submenu');
       return;
     }
     const isOpen = submenu.classList.contains('open');
-    console.log('[Sidebar] Estado actual isOpen:', isOpen);
     submenu.classList.toggle('open', !isOpen);
     toggle.classList.toggle('open', !isOpen);
-    console.log('[Sidebar] Submenu clientes toggled:', !isOpen ? 'ABIERTO' : 'CERRADO');
-    console.log('[Sidebar] Clases del submenu después del toggle:', submenu.className);
   };
 
   // Función para filtrar clientes por team sin recargar la página
   window.filterByTeam = function(teamName) {
-    console.log('[Sidebar] Filtrando por team:', teamName);
-    
     // Si existe una función de filtrado en Costumer.html, usarla
     if (typeof window.applyTeamFilter === 'function') {
       window.applyTeamFilter(teamName);
@@ -1012,7 +994,6 @@
         return leadTeam.includes(teamName.toLowerCase());
       });
       window.renderCostumerTable(filtered);
-      console.log('[Sidebar] Filtrado con renderCostumerTable. Leads visibles:', filtered.length);
       return;
     }
     
@@ -1042,7 +1023,6 @@
       }
     });
     
-    console.log('[Sidebar] Filtrado completado. Filas visibles:', visibleCount);
   };
 
   // Normalizar roles (inglés -> español)
@@ -1673,7 +1653,6 @@
 
   // Recargar sidebar cuando el usuario se autentique (para actualizar el rol)
   document.addEventListener('user:authenticated', function(event) {
-    console.log('🔄 Evento user:authenticated recibido, recargando sidebar...');
     setTimeout(() => {
       window.loadSidebar(true);
     }, 100);

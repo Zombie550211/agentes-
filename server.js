@@ -2825,6 +2825,7 @@ app.use('/api/ranking',                rankingRoutes);
 app.use('/api/equipos',                equipoRoutes);
 app.use('/api/employees-of-month',     employeesOfMonthRoutes);
 try { app.use('/api/premios', require('./backend/routes/premios')); console.log('[SERVER] Rutas de premios cargadas'); } catch (e) { console.warn('[SERVER] premios route:', e?.message); }
+try { app.use('/api/chat',   require('./backend/routes/chat'));   console.log('[SERVER] Rutas de chat cargadas'); }   catch (e) { console.warn('[SERVER] chat route:', e?.message); }
 app.use('/api',                        apiRoutes);
 
 if (mediaProxy)  app.use('/media/proxy',  mediaProxy);
@@ -2920,12 +2921,24 @@ function startServer(port) {
       }
     });
 
+    // Chat: indicador de escritura
+    socket.on('chat:typing', ({ to, from, typing }) => {
+      if (to) io.to(`user:${to}`).emit('chat:typing', { from, typing });
+    });
+
     socket.on('disconnect', () => {
       if (socket.userId) {
         const s = connectedUsers.get(socket.userId);
         if (s) { s.delete(socket.id); if (!s.size) connectedUsers.delete(socket.userId); }
+        // Notificar desconexión a contactos activos
+        io.emit('chat:presence', { username: socket.userId, online: false });
       }
       dashboardSubscribers.delete(socket.id);
+    });
+
+    // Notificar conexión
+    socket.on('register', () => {
+      if (socket.userId) io.emit('chat:presence', { username: socket.userId, online: true });
     });
   });
 

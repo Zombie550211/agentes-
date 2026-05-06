@@ -52,19 +52,14 @@
       overflow: hidden;
     }
 
-    /* ─── BACKGROUND ─── */
-    .bg-image { position: fixed; inset: 0; background: var(--bg); z-index: 0; }
-    .bg-image::before {
-      content: '';
-      position: absolute; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-      pointer-events: none;
+    /* ─── BACKGROUND VIDEO ─── */
+    .bg-video {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: 0; pointer-events: none;
     }
-    .bg-image::after {
-      content: '';
-      position: absolute; top: -15%; left: -10%;
-      width: 55vw; height: 55vw; border-radius: 50%;
-      background: radial-gradient(circle, rgba(192,57,43,0.05) 0%, transparent 65%);
+    .bg-overlay {
+      position: fixed; inset: 0; z-index: 0;
+      background: rgba(0,0,0,0.45);
       pointer-events: none;
     }
 
@@ -77,8 +72,9 @@
     /* ─── LEFT PANEL ─── */
     .left-panel {
       display: flex; flex-direction: column; justify-content: space-between;
-      padding: 52px 60px; border-right: 1px solid var(--border);
+      padding: 52px 60px; border-right: 1px solid rgba(255,255,255,0.1);
       position: relative; overflow: hidden;
+      background: rgba(10,10,20,0.3);
     }
     .left-panel::before {
       content: ''; position: absolute; top: 0; right: 0; width: 1px; height: 100%;
@@ -101,8 +97,8 @@
       color: var(--accent); font-size: 18px; background: var(--accent-dim);
       flex-shrink: 0; box-shadow: var(--shadow-sm);
     }
-    .brand-name { font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
-    .brand-sub  { font-size: 10px; color: var(--text-2); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+    .brand-name { font-family: var(--serif); font-size: 20px; font-weight: 600; color: #fff; letter-spacing: 0.02em; }
+    .brand-sub  { font-size: 10px; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
     .hero { animation: fadeUp 0.7s 0.1s var(--transition) both; }
     .hero-eyebrow {
       font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase;
@@ -111,23 +107,24 @@
     .hero-eyebrow::before { content: ''; display: block; width: 32px; height: 1px; background: var(--accent); opacity: 0.5; }
     .hero-title {
       font-family: var(--serif); font-size: clamp(36px, 4vw, 58px); font-weight: 900;
-      line-height: 1.05; letter-spacing: -0.02em; color: var(--text); margin-bottom: 28px;
+      line-height: 1.05; letter-spacing: -0.02em; color: #fff; margin-bottom: 28px;
     }
     .hero-title em { font-style: italic; color: var(--accent); }
     .hero-quote {
-      font-size: 13px; font-weight: 300; color: var(--text-2); line-height: 1.7;
-      max-width: 380px; border-left: 2px solid rgba(192,57,43,0.25); padding-left: 20px;
+      font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.7); line-height: 1.7;
+      max-width: 380px; border-left: 2px solid rgba(192,57,43,0.5); padding-left: 20px;
     }
     .left-footer { display: flex; gap: 40px; animation: fadeUp 0.7s 0.2s var(--transition) both; }
     .stat-value { font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
-    .stat-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-2); margin-top: 2px; }
+    .stat-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-top: 2px; }
 
     /* ─── RIGHT PANEL ─── */
     .right-panel {
       display: flex; flex-direction: column; justify-content: center;
-      padding: 40px 48px; background: var(--surface);
+      padding: 40px 48px; background: rgba(255,255,255,0.92);
       position: relative; overflow-y: auto;
-      box-shadow: -8px 0 32px rgba(28,25,23,0.06);
+      box-shadow: -8px 0 32px rgba(0,0,0,0.25);
+      backdrop-filter: blur(12px);
     }
     .right-panel::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -373,7 +370,10 @@
 </head>
 
 <body>
-  <div class="bg-image"></div>
+  <video class="bg-video" autoplay loop muted playsinline>
+    <source src="images/videos/VIDEO DE FONDO CONNECTING.mp4" type="video/mp4">
+  </video>
+  <div class="bg-overlay"></div>
 
   <div class="page">
     <!-- ════════════════ LEFT PANEL ════════════════ -->

@@ -45,6 +45,8 @@
     deleted: { color: '#ef4444', bg: '#fef2f2', icon: '🗑️',  label: 'Lead Eliminado'    },
     info:    { color: '#3b82f6', bg: '#eff6ff', icon: 'ℹ️',  label: 'Notificación'      },
     warn:    { color: '#f59e0b', bg: '#fffbeb', icon: '⚠️',  label: 'Aviso'             },
+    chat:    { color: '#6366f1', bg: '#eef2ff', icon: '💬',  label: 'Mensaje nuevo'     },
+    email:   { color: '#0ea5e9', bg: '#f0f9ff', icon: '📧',  label: 'Correo nuevo'      },
   };
 
   if (!document.getElementById('crm-notif-kf')) {
@@ -198,7 +200,6 @@
 
     socket.on('connect', function () {
       socket.emit('register', { username: userName, role: userRole });
-      console.log('[CRM-NOTIF] Socket conectado | usuario:', userName, '| rol:', userRole);
     });
 
     // Nota agregada al propio lead
@@ -224,6 +225,21 @@
         showCRMNotif('deleted', { cliente: 'ID ...' + String(p.leadId || '').slice(-6), actor: p.actor, detalle: 'Eliminó un lead del sistema' });
       });
     }
+
+    // Mensajes de chat/correo entrantes — en TODAS las páginas excepto chat.html
+    // (en chat.html lo gestiona chat-page.js para evitar duplicados)
+    socket.on('chat:message', function (msg) {
+      if (msg.to !== userName) return;
+      if (window.location.pathname.toLowerCase().includes('chat.html')) return;
+      var tipo = (msg.type === 'email') ? 'email' : 'chat';
+      var preview = String(msg.body || '').replace(/<[^>]+>/g, '').slice(0, 80);
+      showCRMNotif(tipo, {
+        cliente: msg.fromName || msg.from || 'Alguien',
+        actor:   msg.fromName || msg.from || '',
+        detalle: preview || '(mensaje sin texto)',
+        extra:   msg.subject ? 'Asunto: ' + msg.subject : ''
+      });
+    });
 
     // Force logout emitido por el admin
     socket.on('force-logout', function () {

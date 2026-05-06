@@ -2,8 +2,6 @@
 // This file contains helpers, ranking loaders, promo media handlers and init logic
 (function(){
   'use strict';
-  try { console.log('[RANKING] loaded external ranking-page.js v=20251222-08'); } catch(e){}
-
   // Utilities
   const escapeHtml = (value) => String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -326,7 +324,6 @@
               if (fullList.length > list.length) {
                 data = dataAll; // sustituir por la versión completa
                 cacheKey = baseCacheKey + ':all';
-                console.log('[RANKING] all=1 devolvió más registros:', { original: list.length, expanded: fullList.length });
               }
             }
           } catch (e) {
@@ -486,7 +483,6 @@
         };
       }
 
-      console.log('[RANKING] ✅ Podio actualizado desde BD');
     } catch (err) { console.error('[RANKING] ❌ Error cargando top 3:', err); }
   }
 

@@ -8,7 +8,6 @@
         const storedTimestamp = sessionStorage.getItem('rankingsTimestamp');
         
         if (!storedData || !storedTimestamp) {
-          console.log('[PRECACHE-RANKINGS] ℹ️ Sin datos en caché, usando API');
           return null;
         }
 
@@ -17,20 +16,12 @@
         const TTL = 5 * 60 * 1000;
         
         if (cacheAge > TTL) {
-          console.log(`[PRECACHE-RANKINGS] ⏰ Caché expirado (${Math.round(cacheAge/1000)}s > ${Math.round(TTL/1000)}s)`);
           sessionStorage.removeItem('rankingsData');
           sessionStorage.removeItem('rankingsTimestamp');
           return null;
         }
 
         const data = JSON.parse(storedData);
-        console.log('[PRECACHE-RANKINGS] ✅ Usando datos cacheados:', {
-          currentMonthRanking: data.currentMonthRanking?.length || 0,
-          topThree: !!data.topThree,
-          monthlyRankings: Object.keys(data.monthlyRankings || {}).length,
-          age: `${Math.round(cacheAge/1000)}s`
-        });
-
         // Retornar los datos cacheados para usar en la página
         return {
           success: true,
@@ -49,11 +40,9 @@
       const precachedResponse = tryLoadFromPrecachedRankings();
       
       if (precachedResponse) {
-        console.log('[RANKING-INIT] ⚡ FAST PATH: Usando datos precacheados');
         // Los datos están disponibles en precachedResponse.data
         window.__precachedRankingsData = precachedResponse.data;
       } else {
-        console.log('[RANKING-INIT] 🔄 SLOW PATH: Cargando datos desde API');
         // La página cargará datos normalmente desde la API cuando sea necesario
       }
       
@@ -61,8 +50,6 @@
       await new Promise(resolve => setTimeout(resolve, 100));
       
       try {
-        console.log('­ƒöì Obteniendo datos del usuario autenticado...');
-        
         // Obtener datos del usuario desde sessionStorage (establecido por auth-check.js)
         let user = null;
         const storedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
@@ -70,7 +57,6 @@
         if (storedUser) {
           try {
             user = JSON.parse(storedUser);
-            console.log('­ƒæñ Usuario encontrado en storage:', user);
           } catch (e) {
             console.error('ÔØî Error parseando usuario guardado:', e);
           }
@@ -78,7 +64,6 @@
         
         // Si no hay usuario en storage, intentar obtenerlo del servidor
         if (!user) {
-          console.log('­ƒöä Obteniendo usuario del servidor...');
           const res = await fetch('/api/auth/verify', { method: 'GET', credentials: 'include' });
           
           if (res.ok) {
@@ -96,8 +81,6 @@
           return;
         }
         
-        console.log('Ô£à Datos de usuario v├ílidos:', user.username);
-
         // Mostrar nombre de usuario en el sidebar
         const welcomeMessage = document.getElementById('welcome-message');
         if (welcomeMessage) {
@@ -119,23 +102,17 @@
 
         // Mostrar nombre de usuario en el perfil de usuario
         const userNameElement = document.getElementById('user-name');
-        console.log('Elemento user-name encontrado:', userNameElement);
         if (userNameElement) {
           userNameElement.textContent = user.username || 'Usuario';
-          console.log('Nombre actualizado a:', user.username);
         } else {
-          console.log('ERROR: No se encontr├│ el elemento user-name');
         }
 
         // Mostrar rol del usuario
         const userRoleElement = document.getElementById('user-role');
-        console.log('Elemento user-role encontrado:', userRoleElement);
         if (userRoleElement) {
           const role = user.role || 'usuario';
           userRoleElement.textContent = role.charAt(0).toUpperCase() + role.slice(1);
-          console.log('Rol actualizado a:', role);
         } else {
-          console.log('ERROR: No se encontr├│ el elemento user-role');
         }
 
         // Mostrar opci├│n de "Crear cuenta" solo si es ADMIN
@@ -252,12 +229,6 @@
       setText('sidebar-user-sales', userSales);
       setText('sidebar-user-points', userPoints.toFixed(1));
 
-      console.log('[USER-STATS] Actualizadas estad├¡sticas desde el ranking:', {
-        sales: userSales,
-        points: userPoints,
-        team: user.team,
-        ranking: userRanking
-      });
     }
 
     // Funci├│n para crear gr├íficos
@@ -377,11 +348,7 @@
     }
 
     // Debug: Verificar elementos del sidebar
-    console.log('Verificando elementos del sidebar...');
-
       document.addEventListener('DOMContentLoaded', async () => {
-        console.log('­ƒÄ» Ranking y Promociones - Script cargado correctamente');
-
         // --- Funciones de utilidad y l├│gica de la p├ígina ---
         const escapeHtml = (value) => String(value == null ? '' : value)
           .replace(/&/g, '&amp;')
@@ -612,7 +579,6 @@
           const file = input.files[0];
           if (!file) return;
 
-          console.log('[PROMO] ­ƒôñ Iniciando subida de archivo:', file.name);
           const formData = new FormData();
           formData.append('file', file);
           formData.append('category', 'marketing'); // identifica como material de marketing
@@ -628,8 +594,6 @@
             if (!res.ok) throw new Error('upload failed');
             
             const result = await res.json();
-            console.log('[PROMO] Ô£à Archivo subido exitosamente:', result);
-            
             // Esperar un momento para que la BD se actualice
             setTimeout(async () => {
               await loadLatestMedia();
@@ -706,37 +670,25 @@
           if (!mediaBox) return;
           
           try {
-            console.log('[PROMO] ­ƒöä Cargando promoci├│n m├ís reciente (categor├¡a marketing)...');
             const url = `/api/media?category=marketing&limit=1&sort=desc&orderBy=uploadDate&t=${Date.now()}`;
             const res = await fetch(url, { credentials: 'include' });
             if (!res.ok) throw new Error('Server response not OK');
 
             const list = await res.json();
-            console.log('[PROMO] ­ƒôï Respuesta (marketing):', list);
             const last = Array.isArray(list) && list.length ? list[0] : null;
 
             if (!last || !last.url) {
-              console.log('[PROMO] ÔØî No hay promociones disponibles');
               mediaBox.innerHTML = '<div class="promo-placeholder">­ƒô¡ Sin promoci├│n disponible</div>';
               return;
             }
             
-            console.log('[PROMO] ­ƒôü Archivo encontrado:', {
-              name: last.name,
-              url: last.url,
-              uploadDate: last.uploadDate,
-              type: last.type
-            });
-            
             const headUrl = maybeProxyMedia(last.url) || last.url;
             const fileResponse = await fetch(headUrl, { method: 'HEAD' });
             if (!fileResponse.ok) {
-              console.log('[PROMO] ÔØî Archivo no accesible:', last.url);
               mediaBox.innerHTML = '<div class="promo-placeholder">­ƒô¡ Archivo no encontrado</div>';
               return;
             }
 
-            console.log('[PROMO] Ô£à Renderizando promoci├│n:', last.name);
             renderPromo(mediaBox, last);
           } catch(e){
             console.error('[PROMO] Error cargando multimedia:', e);
@@ -758,10 +710,6 @@
         const allowUpload = user && isAdmin(user.role);
         if (promoActions) promoActions.style.display = allowUpload ? 'flex' : 'none';
         if (allowUpload && promoFileInput) promoFileInput.addEventListener('change', handleUpload);
-        console.log(`[PROMO] Estado multimedia ÔÇö role=${user?.role||'N/A'}, uploadAllowed=${allowUpload}`);
-
-        console.log('[PROMO] Ô£à Carga inicial completada');
-
         // Cargar ranking siempre (independiente del rol)
         try { 
           await loadRankingTop3(); 
@@ -982,7 +930,6 @@
 
       // Escuchar evento de precalentamiento desde login.html
       window.addEventListener('rankingsPreheated', (event) => {
-        console.log('[RANKING-PREHEATED] 🎯 Datos precalculados recibidos:', event.detail);
         sessionStorage.setItem('rankingsData', JSON.stringify(event.detail));
         window.__precachedRankingsData = event.detail;
       });
@@ -1006,14 +953,12 @@
           if (resp && resp.ok) {
             const json = await resp.json();
             users = Array.isArray(json.users) ? json.users : (Array.isArray(json.data) ? json.data : []);
-            console.log('[RoleBar] Usuarios cargados desde admin-list:', users.length, users.slice(0,2));
           } else {
             // si no permite admin-list, intentar obtener solo agentes y construir placeholders
             const resp2 = await fetch('/api/users/agents', opts);
             if (resp2 && resp2.ok) {
               const j2 = await resp2.json();
               users = Array.isArray(j2.agents) ? j2.agents : [];
-              console.log('[RoleBar] Usuarios cargados desde agents:', users.length);
             }
           }
         } catch(e){ console.warn('[RoleBar] error fetching users', e); }
@@ -1034,8 +979,6 @@
             if (me && (me.role||'').toString().toLowerCase().includes('admin')) byRole.admin.push({ id: me.id || me._id, username: me.username, name: me.name || me.username, avatarUrl: me.avatarUrl });
           }catch(e){}
         }
-
-        console.log('[RoleBar] Usuarios por rol:', { backoffice: byRole.backoffice.length, supervisor: byRole.supervisor.length, admin: byRole.admin.length });
 
         // Render avatars helper
         const renderAvatars = (elId, arr) => {
