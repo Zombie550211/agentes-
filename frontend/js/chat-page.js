@@ -23,6 +23,7 @@
     return name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase() || '?';
   }
 
+  // Para listas de conversaciones: muestra "Ayer" o fecha corta
   function formatTime(ts) {
     if (!ts) return '';
     const d = new Date(ts);
@@ -33,6 +34,16 @@
     const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
     if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
     return d.toLocaleDateString('es', { day: '2-digit', month: 'short' });
+  }
+
+  // Para bubbles del chat: siempre muestra HH:MM (+ fecha si es de otro día)
+  function formatBubbleTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const now = new Date();
+    const time = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === now.toDateString()) return time;
+    return d.toLocaleDateString('es', { day: '2-digit', month: 'short' }) + ' ' + time;
   }
 
   function avatarEl(name, url, size = 38) {
@@ -89,8 +100,11 @@
     socket.on('chat:message', msg => {
       // Actualizar conversación activa si coincide
       if (activePeer && (msg.from === activePeer.username || msg.to === activePeer.username)) {
-        appendMessage(msg);
-        scrollToBottom();
+        // No re-agregar mensajes propios (ya se hizo el append optimista)
+        if (msg.from !== currentUser.username) {
+          appendMessage(msg);
+          scrollToBottom();
+        }
         // Marcar como leído si somos el destinatario
         if (msg.to === currentUser.username) {
           apiFetch(`/api/chat/messages/${msg._id}/read`, { method: 'PATCH' }).catch(() => {});
@@ -325,7 +339,7 @@
 
     row.innerHTML = `
       <div class="msg-bubble">${escapeHtml(msg.body)}</div>
-      <span class="msg-time">${formatTime(msg.timestamp)}</span>
+      <span class="msg-time">${formatBubbleTime(msg.timestamp)}</span>
     `;
     container.insertBefore(row, typingEl);
   }

@@ -2905,10 +2905,12 @@ function startServer(port) {
       if (identifier) {
         socket.userId = identifier; socket.userData = userData;
         socket.join(`user:${identifier}`);
+        // Siempre unir también por username para que los emits por username funcionen
+        if (username && username !== identifier) socket.join(`user:${username}`);
         if (role) socket.join(`role:${String(role).toLowerCase().trim()}`);
         if (!connectedUsers.has(identifier)) connectedUsers.set(identifier, new Set());
         connectedUsers.get(identifier).add(socket.id);
-        console.log(`[SOCKET] Usuario registrado: ${identifier} | rol: ${role||'(sin rol)'} | rooms: user:${identifier}, role:${role||'-'}`);
+        console.log(`[SOCKET] Usuario registrado: ${identifier} | username: ${username||'-'} | rol: ${role||'(sin rol)'}`);
       }
     });
 
