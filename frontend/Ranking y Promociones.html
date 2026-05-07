@@ -7,11 +7,16 @@
   <link rel="icon" type="image/png" href="images/favicon.png">
   <link rel="stylesheet" href="css/theme.css?v=20251124f">
   
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome (async para no bloquear render) -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+
+  <!-- Google Fonts (async para no bloquear render) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet"></noscript>
   
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
@@ -81,8 +86,6 @@
   
   <!-- Scripts -->
   <script src="js/fetch-interceptor.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
   <script src="js/sidebar-loader.js" defer></script>
@@ -1898,7 +1901,11 @@
   <style>
     /* Card principal con fondo Spline */
     .ranking-main-card{width:calc(100% - 40px)!important;max-width:1600px!important;border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:20px 0;display:flex!important;flex-direction:column;gap:20px;position:relative!important;overflow:hidden;height:500px!important;min-height:500px!important;max-height:500px!important;flex-shrink:0!important;background:#0a0e2a}
-    #spline-container spline-viewer{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent}
+    #spline-container{overflow:hidden}
+    #spline-container::before,#spline-container::after{content:'';position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;animation:orb-drift 12s ease-in-out infinite alternate;will-change:transform}
+    #spline-container::before{width:55%;height:90%;top:-20%;left:-10%;background:radial-gradient(circle,#6366f1 0%,#4338ca 40%,transparent 70%)}
+    #spline-container::after{width:50%;height:80%;bottom:-20%;right:-5%;background:radial-gradient(circle,#9333ea 0%,#7c3aed 40%,transparent 70%);animation-delay:-6s;animation-direction:alternate-reverse}
+    @keyframes orb-drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.06)}100%{transform:translate(-3%,5%) scale(.96)}}
     .spline-watermark-cover{position:absolute;bottom:0;right:0;width:210px;height:52px;background:#0a0e2a;z-index:10;border-radius:10px 0 0 0}
     /* Layout top: promo izquierda + podio derecha */
     .ranking-top-row{display:flex;gap:24px;width:100%;align-items:stretch;margin:0;position:relative;z-index:1;min-height:440px}
@@ -2082,42 +2089,6 @@
     </div>
   </div>
 
-  <script>
-    // Cargar Spline en diferido: espera a que la página cargue y el usuario no esté en un
-    // dispositivo de bajo rendimiento (detectado por navigator.hardwareConcurrency < 4)
-    (function () {
-      var container = document.getElementById('spline-container');
-      if (!container) return;
-
-      // En dispositivos con pocos núcleos (móvil/bajo gama) no cargar el 3D
-      var cores = navigator.hardwareConcurrency || 2;
-      if (cores < 4) {
-        container.style.background = 'linear-gradient(135deg,#1e1b4b,#312e81)';
-        return;
-      }
-
-      // Cargar el script de Spline solo después de que la página haya terminado de renderizar
-      function loadSpline() {
-        var script = document.createElement('script');
-        script.type = 'module';
-        script.src = 'https://unpkg.com/@splinetool/viewer@1.12.92/build/spline-viewer.js';
-        script.onload = function () {
-          var viewer = document.createElement('spline-viewer');
-          viewer.setAttribute('url', 'https://prod.spline.design/T26rKj1S55JM3BnF/scene.splinecode');
-          viewer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent';
-          container.appendChild(viewer);
-        };
-        document.head.appendChild(script);
-      }
-
-      // Usar requestIdleCallback si está disponible, sino setTimeout de 2s
-      if (window.requestIdleCallback) {
-        requestIdleCallback(loadSpline, { timeout: 3000 });
-      } else {
-        setTimeout(loadSpline, 2000);
-      }
-    })();
-  </script>
 
 </body>
 </html>

@@ -46,9 +46,6 @@
         // La página cargará datos normalmente desde la API cuando sea necesario
       }
       
-      // Esperar a que auth-check.js termine su verificación
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       try {
         // Obtener datos del usuario desde sessionStorage (establecido por auth-check.js)
         let user = null;
