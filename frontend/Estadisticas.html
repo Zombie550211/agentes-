@@ -849,44 +849,8 @@ async function renderConversionTable(root){
     const tot=td.reduce((a,r)=>({ICON:a.ICON+(r.ICON||0),BAMO:a.BAMO+(r.BAMO||0),Total:a.Total+(r.Total||0),Puntaje:a.Puntaje+parseFloat(r.Puntaje||0),ACTIVAS:a.ACTIVAS+(r.ACTIVAS||0)}),{ICON:0,BAMO:0,Total:0,Puntaje:0,ACTIVAS:0});
     renderMainTable('conversion-table',td,tot);renderLineasPanel('month-lineas-panel',ld);
 
-    // Cargar detalle mensual (filas) para el modal "Detalle Mensual"
-    let monthLeads=[];
-    try{
-      const det=await fetchWithAuth(`/api/leads?fechaInicio=${fi}&fechaFin=${ff}&limit=5000&offset=0`);
-      if(det&&det.ok){
-        const j=await det.json();
-        monthLeads=Array.isArray(j)?j:(Array.isArray(j.data)?j.data:(Array.isArray(j.leads)?j.leads:[]));
-      }
-    }catch(_){ monthLeads=[]; }
-
-    const gP=(o,p)=>{try{return p.split('.').reduce((a,k)=>(a&&a[k]!==undefined?a[k]:undefined),o);}catch(_){return undefined;}};
-    const fF=(o,ps)=>{for(const p of ps){const v=gP(o,p);if(v!==undefined&&v!==null&&v!=='')return v;}return undefined;};
-    const tnOf=l=>{
-      const rawTeam=(fF(l,[
-        'SUPERVISOR','supervisor','Supervisor',
-        '_raw.SUPERVISOR','_raw.supervisor','_raw.Supervisor',
-        'TEAM','team','equipo','grupo','department','team_name','Team'
-      ])||'').toString().trim();
-      const mapped=__mapToAllowedTeam(rawTeam);
-      return mapped || (rawTeam||'Sin equipo');
-    };
-    const nrAg=l=>(fF(l,['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor'])||'').toString().trim();
-    const nrSv=l=>{const r=fF(l,['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);return Array.isArray(r)?r.map(s=>String(s).trim()).filter(Boolean).join(', '):(r?String(r):'').trim();};
-    const mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase();
-    const ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
-    const crP=['dia_venta','diaVenta','fecha_contratacion','fechaContratacion','_raw.dia_venta','_raw.fecha_contratacion'];
-
-    window.MonthDetailRows={
-      rango:mesT,
-      rows:(Array.isArray(monthLeads)?monthLeads:[]).map(l=>({
-        team:tnOf(l),
-        agente:nrAg(l),
-        servicio:nrSv(l),
-        mercado:mkOf(l),
-        puntaje:Number(ptOf(l)),
-        fecha:fF(l,crP)
-      }))
-    };
+    // Detalle mensual cargado bajo demanda al abrir el modal (lazy)
+    window.MonthDetailRows={ rango:mesT, fi, ff, rows:null };
 
     const tkpis=[{name:'Total',Total:tot.Total,ICON:tot.ICON,ACTIVAS:tot.ACTIVAS,Puntaje:tot.Puntaje}];updateKPIs(tkpis);
   }catch(e){console.warn('renderConversionTable',e);root.innerHTML='<div class="empty-st"><div class="empty-ic"><i class="fas fa-exclamation-triangle"></i></div><div class="empty-tx">Error al cargar datos</div></div>';}
@@ -1036,14 +1000,38 @@ function showDayDetailModal(){
   render('');sel.onchange=()=>render(sel.value);ov.classList.add('open');
 }
 
-function showMonthDetailModal(){
-  const store=window.MonthDetailRows||{rango:'',rows:[]},rows=Array.isArray(store.rows)?store.rows:[],ov=document.getElementById('month-detail-modal');if(!ov)return;
-  const tbody=ov.querySelector('#month-detail-table tbody'),selT=ov.querySelector('#month-filter-team'),selA=ov.querySelector('#month-filter-agent');ov.querySelector('#month-detail-subtitle').textContent=`Período: ${store.rango}`;
-  const teams2 = Array.from(new Set(rows.map(r => normalizeTeam((r.team||'').toString().trim())).filter(Boolean))).sort();
-  selT.innerHTML = `<option value="">Todos</option>` + teams2.map(t => `<option>${t}</option>`).join('');
-  const refA = () => { const t = selT.value; const ag = Array.from(new Set(rows.filter(r => !t || normalizeTeam((r.team||'').toString().trim()) === t).map(r => (r.agente||'').toString().trim()).filter(Boolean))).sort(); selA.innerHTML = `<option value="">Todos</option>` + ag.map(a => `<option>${a}</option>`).join(''); };
-  const render = () => { const t = selT.value, a = selA.value; const d = rows.filter(r => (!t || normalizeTeam((r.team||'').toString().trim()) === t) && (!a || r.agente === a)); tbody.innerHTML = d.map(r => `<tr><td>${normalizeTeam((r.team||'').toString().trim())||''}</td><td>${r.agente||''}</td><td>${r.servicio||''}</td><td>${r.mercado||''}</td><td>${Number(r.puntaje||0).toFixed(2)}</td><td>${typeof r.fecha==='string'?r.fecha:(r.fecha instanceof Date?r.fecha.toISOString().slice(0,10):(r.fecha||''))}</td></tr>`).join(''); };
-  refA();render();selT.onchange=()=>{refA();render();};selA.onchange=()=>render();ov.classList.add('open');
+async function showMonthDetailModal(){
+  const store=window.MonthDetailRows||{rango:'',fi:'',ff:'',rows:null};
+  const ov=document.getElementById('month-detail-modal');if(!ov)return;
+  ov.querySelector('#month-detail-subtitle').textContent=`Período: ${store.rango||''}`;
+  ov.classList.add('open');
+  // Lazy: cargar leads solo la primera vez que se abre el modal
+  if(store.rows===null){
+    const tbody=ov.querySelector('#month-detail-table tbody');
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:#7a86a8;">Cargando detalle del mes…</td></tr>';
+    try{
+      const fi=store.fi,ff=store.ff;
+      const det=fi&&ff?await fetchWithAuth(`/api/leads?fechaInicio=${fi}&fechaFin=${ff}&limit=5000&offset=0`):null;
+      let mL=[];if(det&&det.ok){const j=await det.json();mL=Array.isArray(j)?j:(Array.isArray(j.data)?j.data:(Array.isArray(j.leads)?j.leads:[]));}
+      const gP=(o,p)=>{try{return p.split('.').reduce((a,k)=>(a&&a[k]!==undefined?a[k]:undefined),o);}catch(_){return undefined;}};
+      const fF=(o,ps)=>{for(const p of ps){const v=gP(o,p);if(v!==undefined&&v!==null&&v!=='')return v;}return undefined;};
+      const tnOf=l=>{const rT=(fF(l,['SUPERVISOR','supervisor','Supervisor','_raw.SUPERVISOR','_raw.supervisor','_raw.Supervisor','TEAM','team','equipo','grupo','department','team_name','Team'])||'').toString().trim();return __mapToAllowedTeam(rT)||(rT||'Sin equipo');};
+      const nrAg=l=>(fF(l,['agenteNombre','agente','createdBy','registeredBy','usuario','vendedor'])||'').toString().trim();
+      const nrSv=l=>{const r=fF(l,['servicios_texto','servicios','producto','servicio','tipoProducto','producto.nombre']);return Array.isArray(r)?r.map(s=>String(s).trim()).filter(Boolean).join(', '):(r?String(r):'').trim();};
+      const mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase();
+      const ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
+      const crP=['dia_venta','diaVenta','fecha_contratacion','fechaContratacion','_raw.dia_venta','_raw.fecha_contratacion'];
+      store.rows=mL.map(l=>({team:tnOf(l),agente:nrAg(l),servicio:nrSv(l),mercado:mkOf(l),puntaje:Number(ptOf(l)),fecha:fF(l,crP)}));
+      window.MonthDetailRows=store;
+    }catch(_){store.rows=[];window.MonthDetailRows=store;}
+  }
+  const rows=Array.isArray(store.rows)?store.rows:[];
+  const tbody=ov.querySelector('#month-detail-table tbody'),selT=ov.querySelector('#month-filter-team'),selA=ov.querySelector('#month-filter-agent');
+  const teams2=Array.from(new Set(rows.map(r=>normalizeTeam((r.team||'').toString().trim())).filter(Boolean))).sort();
+  selT.innerHTML=`<option value="">Todos</option>`+teams2.map(t=>`<option>${t}</option>`).join('');
+  const refA=()=>{const t=selT.value;const ag=Array.from(new Set(rows.filter(r=>!t||normalizeTeam((r.team||'').toString().trim())===t).map(r=>(r.agente||'').toString().trim()).filter(Boolean))).sort();selA.innerHTML=`<option value="">Todos</option>`+ag.map(a=>`<option>${a}</option>`).join('');};
+  const render=()=>{const t=selT.value,a=selA.value;const d=rows.filter(r=>(!t||normalizeTeam((r.team||'').toString().trim())===t)&&(!a||r.agente===a));tbody.innerHTML=d.map(r=>`<tr><td>${normalizeTeam((r.team||'').toString().trim())||''}</td><td>${r.agente||''}</td><td>${r.servicio||''}</td><td>${r.mercado||''}</td><td>${Number(r.puntaje||0).toFixed(2)}</td><td>${typeof r.fecha==='string'?r.fecha:(r.fecha instanceof Date?r.fecha.toISOString().slice(0,10):(r.fecha||''))}</td></tr>`).join('');};
+  refA();render();selT.onchange=()=>{refA();render();};selA.onchange=()=>render();
 }
 
 document.getElementById('day-detail-close').addEventListener('click',hideDay);
@@ -1071,10 +1059,13 @@ async function initializeApp(){
   try{const p=new URLSearchParams(location.search),mp=p.get('m');if(mp&&/^\d{4}-\d{2}$/.test(mp)){const[y,m]=mp.split('-').map(Number);currentProductsDate=new Date(y,m-1,15,12,0,0);window.currentPorcMonth=new Date(y,m-1,15,12,0,0);}}catch(_){}
   setTimeout(adjustForExternalSidebar,300);
   setupDateFilters();
-  // Load canonical teams to normalize team values in modal filters
-  try{ await loadTeams(); }catch(_){ /* ignore */ }
-  await Promise.allSettled([renderConversionTable(document.getElementById('conversion-table')),loadDayData(),loadServicePivotDay(new Date()),loadPorcentajeForMonth(window.currentPorcMonth||new Date())]);
-  actualizarGraficaVentasPuntaje();loadProductsChart();
+  loadTeams().catch(()=>{}); // no bloqueante
+  // Disparar todas las cargas en paralelo — sin esperar unas a otras
+  renderConversionTable(document.getElementById('conversion-table'));
+  loadDayData(); // ya incluye Servicios del Día internamente
+  loadPorcentajeForMonth(window.currentPorcMonth||new Date());
+  actualizarGraficaVentasPuntaje();
+  loadProductsChart();
 }
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',initializeApp):initializeApp();

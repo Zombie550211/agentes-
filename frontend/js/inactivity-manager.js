@@ -14,7 +14,6 @@
 
   // Función para cerrar sesión
   function logout() {
-    console.log('⏰ Sesión cerrada por inactividad');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('username');
@@ -53,7 +52,6 @@
   // Inicializar el sistema de inactividad
   function init() {
     if (!window.CRM_CONFIG || !window.CRM_CONFIG.ENABLE_INACTIVITY) {
-      console.log('Sistema de inactividad deshabilitado');
       return;
     }
 
@@ -65,7 +63,6 @@
     // Iniciar timers
     resetTimers();
 
-    console.log('✅ Sistema de inactividad inicializado');
   }
 
   // Inicializar cuando el DOM esté listo

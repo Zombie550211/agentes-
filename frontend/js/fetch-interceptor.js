@@ -47,6 +47,4 @@
       });
   };
 
-  console.log('✅ Fetch interceptor inicializado');
-
 })();

@@ -46,15 +46,12 @@
 
   // Inicializar sistema
   async function init() {
-    console.log('🚀 Inicializando CRM...');
-    
     // Verificar autenticación
     const isAuth = await checkAuth();
     if (!isAuth) {
       return;
     }
 
-    console.log('✅ CRM inicializado correctamente');
   }
 
   // Ejecutar cuando el DOM esté listo

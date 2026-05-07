@@ -31,8 +31,6 @@ class DashboardInitManager {
    */
   async initDashboard() {
     try {
-      console.log('🚀 [INIT] Iniciando carga de dashboard...');
-      
       // 1. Petición al nuevo endpoint /api/init-dashboard
       const response = await fetch('/api/init-dashboard', {
         method: 'GET',
@@ -58,9 +56,6 @@ class DashboardInitManager {
       sessionStorage.setItem('dashboardData', JSON.stringify(data));
       sessionStorage.setItem('dashboardTimestamp', new Date().toISOString());
       
-      console.log('✅ [INIT] Datos del dashboard cargados y guardados en sessionStorage');
-      console.log('📊 [INIT] Datos:', data);
-
       // 3. Emitir evento para que las vistas puedan reaccionar
       this.emit('dashboardInitialized', data);
 
@@ -91,12 +86,9 @@ class DashboardInitManager {
    */
   connectWebSocket() {
     try {
-      console.log('🔌 [WS] Conectando WebSocket para actualizaciones en vivo...');
-
       this.ws = new WebSocket(this.wsUrl);
 
       this.ws.onopen = () => {
-        console.log('✅ [WS] WebSocket conectado');
         // Enviar mensaje de registro como usuario del dashboard
         const msg = {
           type: 'subscribe',
@@ -109,8 +101,6 @@ class DashboardInitManager {
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('📨 [WS] Mensaje recibido:', message);
-
           if (message.type === 'dashboard-update') {
             this.handleDashboardUpdate(message.data);
           }
@@ -139,8 +129,6 @@ class DashboardInitManager {
    */
   handleDashboardUpdate(updateData) {
     try {
-      console.log('🔄 [UPDATE] Actualizando datos del dashboard:', updateData);
-
       // Fusionar datos nuevos con los existentes
       if (this.data) {
         this.data = {
@@ -158,7 +146,6 @@ class DashboardInitManager {
       // Emitir evento para que las vistas se actualicen en vivo
       this.emit('dashboardUpdated', updateData);
 
-      console.log('✅ [UPDATE] Dashboard actualizado');
     } catch (error) {
       console.error('❌ [UPDATE] Error actualizando dashboard:', error);
     }
@@ -226,7 +213,6 @@ class DashboardInitManager {
     }
     this.data = null;
     this.listeners.clear();
-    console.log('🧹 [CLEANUP] Dashboard limpiado');
   }
 }
 

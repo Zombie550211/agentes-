@@ -111,7 +111,6 @@
           pointsElement.textContent = totalPoints.toFixed(1);
         }
 
-        console.log(`✅ Estadísticas actualizadas: ${userLeads.length} ventas, ${totalPoints.toFixed(1)} puntos`);
       }
     } catch (error) {
       console.error('Error cargando estadísticas del usuario:', error);

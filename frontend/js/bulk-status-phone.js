@@ -1,7 +1,5 @@
 // Script para cambio masivo de status por números telefónicos
 (function() {
-  console.log('[BULK STATUS PHONE] Script cargado correctamente');
-  
   // Normalizar número telefónico (eliminar todo excepto dígitos)
   function normalizePhone(phone) {
     return String(phone || '').replace(/\D/g, '');
@@ -9,7 +7,6 @@
 
   // Abrir modal
   window.openBulkStatusPhoneModal = function() {
-    console.log('[BULK STATUS PHONE] Intentando abrir modal');
     const modal = document.getElementById('bulkStatusPhoneModal');
     if (modal) {
       modal.setAttribute('aria-hidden', 'false');
@@ -114,10 +111,6 @@
       const data = await response.json();
       
       // DEBUG: Verificar qué datos recibimos
-      console.log('[BULK STATUS PHONE] Respuesta del servidor:', data);
-      console.log('[BULK STATUS PHONE] foundPhones:', data.foundPhones);
-      console.log('[BULK STATUS PHONE] notFoundPhones:', data.notFoundPhones);
-      
       if (data.success) {
         // Mostrar resultado dentro del modal
         showResultInModal(data);
@@ -242,15 +235,11 @@
 
   // Event listeners
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('[BULK STATUS PHONE] DOMContentLoaded - Registrando event listeners');
     const btnOpen = document.getElementById('btn-bulk-status-phone');
-    console.log('[BULK STATUS PHONE] Botón encontrado:', btnOpen);
     if (btnOpen) {
       btnOpen.addEventListener('click', function() {
-        console.log('[BULK STATUS PHONE] Click en botón detectado');
         window.openBulkStatusPhoneModal();
       });
-      console.log('[BULK STATUS PHONE] Event listener registrado correctamente');
     } else {
       console.error('[BULK STATUS PHONE] ERROR: Botón btn-bulk-status-phone no encontrado');
     }

@@ -29,7 +29,6 @@
     // Configurar actualizaciones periódicas
     updateTimer = setInterval(updateUserInfo, UPDATE_INTERVAL);
     
-    console.log('✅ Actualizaciones periódicas de usuario iniciadas');
   }
 
   // Detener actualizaciones

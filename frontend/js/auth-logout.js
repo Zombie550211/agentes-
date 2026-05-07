@@ -11,7 +11,6 @@
   try {
     // Evitar cargarlo dos veces si ya existe
     if (window.__logoutHandlerLoaded) {
-      console.log('✅ Auth logout: logout-handler ya estaba cargado');
       return;
     }
 
@@ -20,7 +19,6 @@
     script.async = false; // mantener orden razonable
     script.onload = function() {
       window.__logoutHandlerLoaded = true;
-      console.log('✅ Auth logout: logout-handler cargado correctamente');
     };
     script.onerror = function(e) {
       console.warn('⚠️ Auth logout: no se pudo cargar js/logout-handler.js', e);

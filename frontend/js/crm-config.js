@@ -22,4 +22,3 @@ window.CRM_CONFIG = {
   }
 };
 
-console.log('✅ CRM Config cargado');

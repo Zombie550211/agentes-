@@ -85,7 +85,6 @@
       button.addEventListener('click', handleLogout, true);
     });
     
-    console.log('✅ Logout handler inicializado -', logoutButtons.length, 'botón(es) encontrado(s)');
   }
 
   // Inicializar cuando el sidebar se cargue
