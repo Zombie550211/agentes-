@@ -2541,15 +2541,51 @@ app.get('/api/rankings-leads', protect, async (req, res) => {
     if (!isConnected()) return res.status(503).json({ success: false, message: 'BD no disponible' });
     if (!db) db = getDb();
 
-    const { fechaInicio, fechaFin, limit = 5000 } = req.query;
+    const { fechaInicio, fechaFin, targetMonth, limit = 5000 } = req.query;
 
     let dateFilter = {};
-    if (fechaInicio && fechaFin) {
+
+    if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) {
+      // Modo preciso: filtra solo el mes objetivo con comparación de strings
+      // dia_venta y dia_instalacion se almacenan como "YYYY-MM-DD"
+      const [ty, tm] = targetMonth.split('-').map(Number);
+      const startDate = new Date(ty, tm - 1, 1);
+      const endDate   = new Date(ty, tm, 1);
+      const startStr  = `${targetMonth}-01`;
+      const endStr    = `${targetMonth}-31`;
+
+      // Ventas normales: dia_venta en el mes objetivo (string o Date)
+      const ventasMesFilter = { $or: [
+        { dia_venta: { $gte: startStr, $lte: endStr } },           // string YYYY-MM-DD
+        { dia_venta: { $gte: startDate, $lt: endDate } },          // Date object
+        { $and: [                                                   // fallback: createdAt si dia_venta vacío
+          { $or: [{ dia_venta: { $exists: false } }, { dia_venta: '' }, { dia_venta: null }] },
+          { createdAt: { $gte: startDate, $lt: endDate } }
+        ]}
+      ]};
+
+      // Colchones: dia_instalacion en el mes objetivo, independientemente de dia_venta
+      const colchonFilter = { $and: [
+        { $or: [
+          { dia_instalacion: { $gte: startStr, $lte: endStr } },
+          { dia_instalacion: { $gte: startDate, $lt: endDate } }
+        ]},
+        { status: { $regex: /^(completed|active|pending|completado|activo|activa|vendido)$/i } },
+        // Solo es colchon si dia_venta NO está en el mes objetivo
+        { dia_venta: { $not: { $regex: `^${targetMonth}` } } }
+      ]};
+
+      // Excluir statuses que nunca cuentan
+      const statusExclude = { status: { $not: /^(cancelled|hold|rescheduled|reserva|oficina|cancelado|cancelada)$/i } };
+
+      dateFilter = { $and: [statusExclude, { $or: [ventasMesFilter, colchonFilter] }] };
+
+    } else if (fechaInicio && fechaFin) {
+      // Modo legado: rango amplio (por compatibilidad)
       const fi = new Date(fechaInicio);
       const ft = new Date(fechaFin + 'T23:59:59');
       const fiYear  = fi.getFullYear();
       const fiMonth = fi.getMonth();
-      const colchonMonthStart = new Date(fiYear, fiMonth, 1);
 
       const normalFilter = {
         $or: [
@@ -2561,7 +2597,6 @@ app.get('/api/rankings-leads', protect, async (req, res) => {
         ]
       };
 
-      // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
       const colchonMonthStartStr = `${fiYear}-${String(fiMonth + 1).padStart(2, '0')}-01`;
       const colchonFilter = {
         $and: [
@@ -2587,7 +2622,10 @@ app.get('/api/rankings-leads', protect, async (req, res) => {
       .limit(Math.min(parseInt(limit, 10) || 5000, 10000))
       .toArray();
 
-    const refDate = (fechaInicio && fechaFin) ? new Date(fechaFin) : null;
+    const refDate = targetMonth
+      ? new Date(Number(targetMonth.split('-')[0]), Number(targetMonth.split('-')[1]) - 1 + 1, 0)
+      : (fechaInicio && fechaFin) ? new Date(fechaFin) : null;
+
     const result = leads.map(lead => {
       const col = isColchon(lead, refDate);
       return col ? { ...lead, _es_colchon: true } : lead;

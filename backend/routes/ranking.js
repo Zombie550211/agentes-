@@ -40,8 +40,18 @@ function buildRankingPipeline({ startOfMonth, startOfNextMonth, filterAtt = fals
     return { $sort: { ventas: -1, puntos: -1, nombre: 1 } };
   })();
 
-  // Nota: mantenemos la misma lógica de parsing/normalización que ya usa /api/ranking
+  // Pre-filtro temprano usando índice de createdAt para reducir documentos antes del $addFields costoso
+  const earlyMatch = {
+    $match: {
+      $or: [
+        { createdAt: { $gte: new Date(startOfMonth.getFullYear() - 1, 0, 1), $lt: startOfNextMonth } },
+        { [String(dateFieldPrimary || 'dia_venta')]: { $gte: `${startOfMonth.getFullYear() - 1}-01-01`, $lte: `${startOfNextMonth.getFullYear()}-12-31` } }
+      ]
+    }
+  };
+
   const pipeline = [
+    earlyMatch,
     {
       $addFields: {
         _diaParsed: {
@@ -611,8 +621,8 @@ router.get('/', protect, async (req, res) => {
     const hardLimit = useAllCollections ? (parseInt(limitParam, 10) || 500) : (parseInt(limitParam, 10) || 100);
 
     // Construir cacheKey solo ahora que disponemos de las variables de req.query y el rango calculado
-    const defaultCacheTtl = Number(process.env.RANKING_CACHE_TTL_MS || 30 * 1000); // 30s
-    const allCacheTtl = Number(process.env.RANKING_CACHE_ALL_TTL_MS || 5 * 60 * 1000); // 5min por defecto para all=1
+    const defaultCacheTtl = Number(process.env.RANKING_CACHE_TTL_MS || 2 * 60 * 1000); // 2min
+    const allCacheTtl = Number(process.env.RANKING_CACHE_ALL_TTL_MS || 5 * 60 * 1000); // 5min para all=1
     const CACHE_TTL_MS = useAllCollections ? allCacheTtl : defaultCacheTtl;
 
     const cacheKey = JSON.stringify({ fechaInicio: startDate, fechaFin: endDate, all: useAllCollections, limitParam, field, agente, statuses: allowedStatuses });
@@ -678,7 +688,19 @@ router.get('/', protect, async (req, res) => {
 
     // Pipeline simplificado que funciona con los datos reales
     const useCreatedAt = String(field).toLowerCase() === 'createdat';
+
+    // Pre-filtro temprano usando índice de createdAt/dia_venta para reducir el conjunto antes de $addFields costosos
+    const earlyMatchStage = {
+      $match: {
+        $or: [
+          { createdAt:  { $gte: startOfMonth, $lt: startOfNextMonth } },
+          { dia_venta:  { $gte: `${targetYear}-${targetMonthPadded}-01`, $lte: `${targetYear}-${targetMonthPadded}-31` } }
+        ]
+      }
+    };
+
     const pipelineBase = [
+      earlyMatchStage,
       // 0-pre) Si el cliente pide field=createdAt, usarlo directamente como base de fecha
       ...(useCreatedAt ? [{
         $addFields: {

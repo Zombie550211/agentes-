@@ -754,38 +754,16 @@ function detectServices(lead) {
 
 /* ══════════════════════════════════════════════
    FETCH LEADS
-   FIX: pide desde el mes anterior al targetYM
-   para capturar colchones (venta mes pasado,
-   instalacion mes actual). También cubre dic
-   del año anterior si el mes es enero.
+   Usa targetMonth=YYYY-MM para que el backend
+   filtre precisamente: ventas del mes +
+   colchones (dia_instalacion en el mes).
+   El backend maneja ambos casos sin necesitar
+   el rango completo del año.
 ══════════════════════════════════════════════ */
 async function fetchLeadsForMonth(ym) {
-  var parts = ym.split('-');
-  var y = parseInt(parts[0], 10);
-  var m = parseInt(parts[1], 10);
-
-  // Fin del mes seleccionado (último día)
-  var lastDay  = new Date(y, m, 0).getDate();
-  var rangeEnd = ym + '-' + String(lastDay).padStart(2, '0');
-
-  // FIX: pedimos desde el 1 de enero del año seleccionado.
-  // Necesitamos todo el año porque:
-  // - Ventas normales: dia_venta en el mes seleccionado (pueden ser de cualquier mes del año)
-  // - Colchones: dia_venta en mes anterior + dia_instalacion en mes seleccionado
-  // Si solo pedimos desde el mes anterior, perdemos ventas de enero/febrero/etc.
-  var rangeStart = y + '-01-01';
-
-  // Además traemos diciembre del año anterior para colchones de enero
-  // (venta en diciembre, instalacion en enero)
-  if (m === 1) {
-    rangeStart = (y - 1) + '-12-01';
-  }
-
   try {
     var res = await fetchWithAuth(
-      '/api/rankings-leads?fechaInicio=' + rangeStart +
-      '&fechaFin='    + rangeEnd +
-      '&limit=5000&scope=ranking'
+      '/api/rankings-leads?targetMonth=' + ym + '&limit=2000&scope=ranking'
     );
     if (!res || !res.ok) return [];
     var j = await res.json();
@@ -794,7 +772,6 @@ async function fetchLeadsForMonth(ym) {
     if (Array.isArray(j.leads)) return j.leads;
     return [];
   } catch(e) {
-
     return [];
   }
 }

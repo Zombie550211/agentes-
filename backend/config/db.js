@@ -59,6 +59,19 @@ async function connectToMongoDB() {
     isConnected = true;
     console.log(`[DB] Conexión nativa a MongoDB ${connectionTarget} establecida.`);
 
+    // Crear índices en background sin bloquear el startup
+    setImmediate(() => {
+      const col = db.collection('costumers_unified');
+      Promise.all([
+        col.createIndex({ dia_venta:       1 }, { background: true, sparse: true }),
+        col.createIndex({ dia_instalacion: 1 }, { background: true, sparse: true }),
+        col.createIndex({ createdAt:       1 }, { background: true }),
+        col.createIndex({ agenteNombre:    1 }, { background: true, sparse: true }),
+        col.createIndex({ status:          1 }, { background: true, sparse: true }),
+      ]).then(() => console.log('[DB] Índices de costumers_unified verificados'))
+        .catch(e => console.warn('[DB] Índices (no crítico):', e.message));
+    });
+
     // Sincronizar conexión de Mongoose
     mongoose.connect(connectionUri, {
       serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
