@@ -625,7 +625,18 @@
       const box = container; const boxW = box.clientWidth || 1100; const ratio = naturalW && naturalH ? (naturalW / naturalH) : (16/9); let targetH = Math.min(420, Math.max(200, Math.round(boxW / ratio))); box.style.height = targetH + 'px'; box.classList.toggle('contain', ratio < 1.6);
     };
     if (isVideo){
-      const v = document.createElement('video'); v.src = mediaUrl || versionedUrl; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true; v.controls = true; v.addEventListener('loadedmetadata', () => applyFit(v, v.videoWidth, v.videoHeight)); v.addEventListener('error', () => { container.innerHTML = '<div class="promo-placeholder">Archivo multimedia no disponible</div>'; }); container.appendChild(v);
+      const v = document.createElement('video');
+      v.preload = 'metadata';   // descarga solo headers, no el archivo completo
+      v.muted = true; v.loop = true; v.playsInline = true; v.controls = true;
+      v.addEventListener('loadedmetadata', () => applyFit(v, v.videoWidth, v.videoHeight));
+      v.addEventListener('error', () => { container.innerHTML = '<div class="promo-placeholder">Archivo multimedia no disponible</div>'; });
+      v.src = mediaUrl || versionedUrl;
+      container.appendChild(v);
+      // Reproducir solo cuando el video esté en pantalla, pausar al salir
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { v.play().catch(() => {}); } else { v.pause(); } });
+      }, { threshold: 0.1 });
+      obs.observe(v);
     } else {
       const img = document.createElement('img'); img.src = mediaUrl || versionedUrl; img.alt = file.name || 'Promoción'; img.addEventListener('load', () => applyFit(img, img.naturalWidth, img.naturalHeight)); img.addEventListener('error', () => { container.innerHTML = '<div class="promo-placeholder">Archivo multimedia no disponible</div>'; }); container.appendChild(img);
     }
