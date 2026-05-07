@@ -425,7 +425,7 @@
         };
 
         function resolveDisplayName(agent) {
-          if (!agent) return 'ÔÇö';
+          if (!agent) return '—';
           const usernameCandidates = [
             agent.username,
             agent.usuario?.username,
@@ -451,7 +451,7 @@
               return candidate.trim();
             }
           }
-          return 'ÔÇö';
+          return '—';
         }
 
         const renderAvatarHtml = (agent, altText = 'Avatar') => {
@@ -867,10 +867,10 @@
             anchor.parentNode.insertBefore(el, anchor);
             return el;
           })();
-          label.textContent = `Ranking ÔÇö ${monthNames[m]} ${y}`;
+          label.textContent = `Ranking — ${monthNames[m]} ${y}`;
           try {
             const modalTitle = document.getElementById('full-ranking-title');
-            if (modalTitle) modalTitle.textContent = `Ranking completo ÔÇö ${monthNames[m]} ${y}`;
+            if (modalTitle) modalTitle.textContent = `Ranking completo — ${monthNames[m]} ${y}`;
           } catch (_) {}
         }
 
