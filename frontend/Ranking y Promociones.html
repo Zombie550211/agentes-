@@ -1898,7 +1898,7 @@
   <style>
     /* Card principal con fondo Spline */
     .ranking-main-card{width:calc(100% - 40px)!important;max-width:1600px!important;border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:20px 0;display:flex!important;flex-direction:column;gap:20px;position:relative!important;overflow:hidden;height:500px!important;min-height:500px!important;max-height:500px!important;flex-shrink:0!important;background:#0a0e2a}
-    .ranking-main-card spline-viewer{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent}
+    #spline-container spline-viewer{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent}
     .spline-watermark-cover{position:absolute;bottom:0;right:0;width:210px;height:52px;background:#0a0e2a;z-index:10;border-radius:10px 0 0 0}
     /* Layout top: promo izquierda + podio derecha */
     .ranking-top-row{display:flex;gap:24px;width:100%;align-items:stretch;margin:0;position:relative;z-index:1;min-height:440px}
@@ -1918,7 +1918,6 @@
     .promo-hero.hidden{display:none!important}
     @media(max-width:900px){.ranking-top-row{flex-direction:column}}
   </style>
-  <script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.92/build/spline-viewer.js"></script>
 </head>
 <body>
   <div class="layout">
@@ -1928,7 +1927,7 @@
 
       <!-- Card principal con fondo morado -->
       <div class="ranking-main-card">
-        <spline-viewer url="https://prod.spline.design/T26rKj1S55JM3BnF/scene.splinecode"></spline-viewer>
+        <div id="spline-container" style="position:absolute;inset:0;width:100%;height:100%;z-index:0;"></div>
         <div class="spline-watermark-cover"></div>
 
       <!-- Top: Promociones (izquierda) + Podio (derecha) -->
@@ -2082,6 +2081,43 @@
       <div class="role-count" id="adminCount"></div>
     </div>
   </div>
+
+  <script>
+    // Cargar Spline en diferido: espera a que la página cargue y el usuario no esté en un
+    // dispositivo de bajo rendimiento (detectado por navigator.hardwareConcurrency < 4)
+    (function () {
+      var container = document.getElementById('spline-container');
+      if (!container) return;
+
+      // En dispositivos con pocos núcleos (móvil/bajo gama) no cargar el 3D
+      var cores = navigator.hardwareConcurrency || 2;
+      if (cores < 4) {
+        container.style.background = 'linear-gradient(135deg,#1e1b4b,#312e81)';
+        return;
+      }
+
+      // Cargar el script de Spline solo después de que la página haya terminado de renderizar
+      function loadSpline() {
+        var script = document.createElement('script');
+        script.type = 'module';
+        script.src = 'https://unpkg.com/@splinetool/viewer@1.12.92/build/spline-viewer.js';
+        script.onload = function () {
+          var viewer = document.createElement('spline-viewer');
+          viewer.setAttribute('url', 'https://prod.spline.design/T26rKj1S55JM3BnF/scene.splinecode');
+          viewer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;--background-color:transparent';
+          container.appendChild(viewer);
+        };
+        document.head.appendChild(script);
+      }
+
+      // Usar requestIdleCallback si está disponible, sino setTimeout de 2s
+      if (window.requestIdleCallback) {
+        requestIdleCallback(loadSpline, { timeout: 3000 });
+      } else {
+        setTimeout(loadSpline, 2000);
+      }
+    })();
+  </script>
 
 </body>
 </html>
