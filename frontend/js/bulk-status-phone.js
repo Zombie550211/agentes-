@@ -87,12 +87,11 @@
       return;
     }
     
-    const confirm = window.confirm(
-      `¿Estás seguro de actualizar el status a "${newStatus}" para ${uniquePhones.length} número(s) telefónico(s)?`
-    );
-    
-    if (!confirm) return;
-    
+    const ok = await (window.confirmAsync
+      ? window.confirmAsync('¿Actualizar status?', `¿Actualizar a "${newStatus}" para ${uniquePhones.length} número(s)?`)
+      : Promise.resolve(window.confirm(`¿Actualizar a "${newStatus}" para ${uniquePhones.length} número(s)?`)));
+    if (!ok) return;
+
     btn.disabled = true;
     btn.textContent = '⏳ Procesando...';
     

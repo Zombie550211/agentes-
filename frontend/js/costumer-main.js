@@ -848,7 +848,7 @@
   window.deleteLead=async function(leadId){
     const lead=__allLeadsData.find(function(l){return String(l._id)===String(leadId);});
     if(!lead){showToast('Lead no encontrado','error');return;}
-    if(!confirm('¿Eliminar a '+(lead.nombre_cliente||'este cliente')+'?\nEsta acción no se puede deshacer.'))return;
+    if(!await window.confirmAsync('¿Eliminar a '+(lead.nombre_cliente||'este cliente')+'?','Esta acción no se puede deshacer.'))return;
     const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'DELETE'});
     if(res&&res.ok){showToast('Cliente eliminado ✓','ok');const idx=__allLeadsData.findIndex(function(l){return String(l._id)===String(leadId);});if(idx!==-1)__allLeadsData.splice(idx,1);applyFilters();}
     else if(res){res.json().then(function(d){showToast(d.message||'No se pudo eliminar','error');}).catch(function(){showToast('No se pudo eliminar','error');});}
@@ -861,7 +861,7 @@
     if(!lead){showToast('Lead no encontrado','error');return;}
     const agente=document.getElementById('liberar-agente-select')&&document.getElementById('liberar-agente-select').value;
     if(!agente){showToast('⚠️ Selecciona el agente que envió el lead','error');return;}
-    if(!confirm('¿Confirmas liberar esta venta y asignarla a '+agente+'?'))return;
+    if(!await window.confirmAsync('¿Liberar venta?','¿Confirmas asignarla a '+agente+'?'))return;
     lead.was_reserva=false;lead.agente=agente;lead.agenteNombre=agente;
     const container=document.getElementById('liberar-reserva-container');if(container)container.style.display='none';
     const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({was_reserva:false,agente:agente,agenteNombre:agente})});
@@ -1243,7 +1243,7 @@
     if(flBtn){
       if(isAdminOrBackoffice(role)) flBtn.style.display='';
       flBtn.addEventListener('click',async function(){
-        if(!confirm('¿Cerrar sesión de TODOS los usuarios?\nTendrán que iniciar sesión nuevamente.'))return;
+        if(!await window.confirmAsync('¿Cerrar sesión global?','Todos los usuarios tendrán que iniciar sesión nuevamente.'))return;
         flBtn.disabled=true; flBtn.textContent='⏳ Cerrando sesiones…';
         try{
           const res=await AUTH.secureFetch('/api/admin/force-logout-all',{method:'POST'});
