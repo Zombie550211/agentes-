@@ -1001,10 +1001,16 @@ function displayKPIsImmediately(data, user) {
     document.getElementById('hkpi-pos').textContent = '#' + (userStats.posicionUsuario || '—');
     document.getElementById('hkpi-eq').textContent = kpis.mejor_team || '—';
     
-    document.getElementById('kpi-ventas').textContent = kpis.ventas || 0;
-    document.getElementById('kpi-puntos').textContent = (kpis.puntos || 0).toFixed(0);
+    document.getElementById('kpi-ventas').textContent = userStats.ventasUsuario || 0;
+    document.getElementById('kpi-puntos').textContent = ((userStats.puntosUsuario || 0) > 0 ? (userStats.puntosUsuario).toFixed(0) : '0');
     document.getElementById('kpi-seller').textContent = kpis.mayor_vendedor || '—';
     document.getElementById('kpi-team').textContent = kpis.mejor_team || '—';
+
+    const isAdminRole = user && ['admin','administrador','backoffice'].includes((user.role||'').toLowerCase());
+    const lblVentas = document.getElementById('kpi-ventas')?.nextElementSibling;
+    const lblPuntos = document.getElementById('kpi-puntos')?.nextElementSibling;
+    if (lblVentas) lblVentas.textContent = isAdminRole ? 'Ventas totales del mes' : 'Mis ventas del mes';
+    if (lblPuntos) lblPuntos.textContent = isAdminRole ? 'Puntos totales del mes' : 'Mis puntos del mes';
     
     document.getElementById('month-sales-count').textContent = kpis.ventas || 0;
     document.getElementById('user-sales-count').textContent = userStats.ventasUsuario || 0;
