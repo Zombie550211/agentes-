@@ -1261,19 +1261,13 @@ function createTeamsChartFromData(teamsData) {
 
 function createProductsChartFromData(productsData) {
   try {
-    const chartElement = document.getElementById('productsChart');
-    if (!chartElement || typeof Chart === 'undefined') {
-      setTimeout(() => createProductsChartFromData(productsData), 150);
-      return;
-    }
-    
     let labels = [], counts = [];
-    
+
     if (productsData && !Array.isArray(productsData) && Array.isArray(productsData.labels)) {
       labels = productsData.labels;
       counts = productsData.data || [];
     } else if (Array.isArray(productsData)) {
-      labels = productsData.map(p => p.nombre || p.name || '—');
+      labels = productsData.map(p => p.servicio || p.nombre || p.name || '—');
       counts = productsData.map(p => p.count || p.total || 0);
     }
     

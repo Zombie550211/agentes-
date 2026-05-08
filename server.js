@@ -83,7 +83,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdnjs.cloudflare.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
@@ -891,7 +891,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
 
     const leads = await dbInst.collection('costumers_unified')
       .find(filter)
-      .project({ _id:1, agenteNombre:1, agente:1, usuario:1, servicios:1, tipo_servicios:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1, creadoEn:1, createdAt:1, nombre_cliente:1 })
+      .project({ _id:1, agenteNombre:1, agente:1, usuario:1, servicios:1, tipo_servicios:1, tipo_servicio:1, servicios_texto:1, puntaje:1, status:1, dia_venta:1, dia_instalacion:1, creadoEn:1, createdAt:1, nombre_cliente:1 })
       .sort({ dia_venta: -1 })
       .limit(20000)
       .toArray();
@@ -944,7 +944,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     ventasLeads.forEach(lead => {
       const agent = lead.agenteNombre || lead.agente || 'Sin asignar';
       agentMap[agent] = (agentMap[agent] || 0) + 1;
-      let services = lead.servicios || lead.tipo_servicios || [];
+      let services = lead.servicios || lead.tipo_servicios || lead.tipo_servicio || lead.servicios_texto || [];
       if (typeof services === 'string') services = [services];
       if (!Array.isArray(services)) services = [];
       services.forEach(s => { if (s) productMap[s] = (productMap[s] || 0) + 1; });
@@ -975,7 +975,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       success: true, timestamp: new Date().toISOString(), loadTime: elapsed,
       user: { username: user?.username, role: user?.role, team: user?.team || 'Sin equipo', name: user?.name || username },
       kpis,
-      userStats: { ventasUsuario: userPersonalStats.ventasPersonales, puntosUsuario: userPersonalStats.puntosPersonales, equipoUsuario: user?.team || 'Sin equipo' },
+      userStats: { ventasUsuario: isAdmOrBO ? kpis.ventas : userPersonalStats.ventasPersonales, puntosUsuario: isAdmOrBO ? Math.round(kpis.puntos * 100) / 100 : userPersonalStats.puntosPersonales, equipoUsuario: user?.team || 'Sin equipo' },
       userPersonalStats, chartTeams, chartProductos,
       isAdmin, isBackoffice: isBO, isSupervisor: isSup, isAgent,
       roleInfo: { supervisorAgents: isSup ? supervisorAgents : [], viewAllUsers: isAdmOrBO },
