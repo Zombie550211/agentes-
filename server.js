@@ -80,14 +80,35 @@ if (process.env.NODE_ENV === 'production') {
 const corsWhitelist = () => Array.from(new Set([...defaultAllowed, ...envOrigins]));
 
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com'],
+      connectSrc: ["'self'", 'wss:', 'https://res.cloudinary.com', 'https://api.cloudinary.com'],
+      mediaSrc: ["'self'", 'blob:', 'https://res.cloudinary.com'],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    }
+  },
   hsts: process.env.NODE_ENV === 'production'
 }));
+
+const DEV_ORIGINS = new Set([
+  'http://localhost:3000',
+  'http://localhost:10000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:10000',
+]);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return callback(null, true);
+    if (DEV_ORIGINS.has(origin)) return callback(null, true);
     const whitelist = corsWhitelist();
     if (whitelist.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origen no permitido — ${origin}`));
@@ -97,8 +118,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With','X-Admin-Setup-Secret']
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // 5. LOGS EN PRODUCCIÓN
 if (process.env.NODE_ENV === 'production') {
@@ -142,6 +163,7 @@ const authRoutes                 = require('./backend/routes/auth');
 const forgotPasswordRoutes       = require('./backend/routes/auth-forgot-password');
 const apiRoutes                  = require('./backend/routes/api');
 const rankingRoutes              = require('./backend/routes/ranking');
+const preLeadsRoutes             = require('./backend/routes/pre-leads');
 const equipoRoutes               = require('./backend/routes/equipoRoutes');
 const employeesOfMonthRoutes     = require('./backend/routes/employeesOfMonth');
 const facturacionRoutes          = require('./backend/routes/facturacion');
@@ -1815,6 +1837,9 @@ app.patch('/api/llamadas-ventas-excel/sheets/:sheetId', protect, async (req, res
 // ── AUTH ENDPOINTS ────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', forgotPasswordRoutes);
+
+// ── PRE-LEADS ─────────────────────────────────────────────────
+app.use('/api/pre-leads', preLeadsRoutes);
 
 app.post('/api/login', loginLimiter, async (req, res) => {
   try {

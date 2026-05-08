@@ -1,8 +1,12 @@
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../config/db');
 
-// Configuración JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
+// Configuración JWT — mismo fallback que server.js para desarrollo
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev_only_insecure_key_do_not_use_in_prod' : null);
+if (!JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET no definido en producción.');
+  process.exit(1);
+}
 
 /**
  * Middleware de protección: verifica autenticación JWT
@@ -122,6 +126,9 @@ const authorize = (...roles) => {
         const r = normRole(v);
         const r2 = r.replace(/\s+/g, '_').replace(/-+/g, '_');
         if (r2 === 'rol_icon' || r2 === 'rol_bamo') return 'backoffice';
+        if (r.includes('procesamiento') && r.includes('icon')) return 'procesamiento_icon';
+        if (r.includes('procesamiento') && r.includes('bamo')) return 'procesamiento_bamo';
+        if (r.startsWith('procesamiento')) return 'procesamiento';
         return r;
       };
       const userRole = canonicalRole(req.user.role);
@@ -167,7 +174,10 @@ const checkPermission = (permission) => {
         'Administrativo': ['read', 'write', 'manage_teams'],
         'Backoffice': ['read', 'write', 'manage_users'],
         'Supervisor': ['read', 'write'],
-        'Agente': ['read']
+        'Agente': ['read'],
+        'Procesamiento': ['read', 'write'],
+        'procesamiento_icon': ['read', 'write'],
+        'procesamiento_bamo': ['read', 'write'],
       };
 
       const normRole = (v) => String(v || '')

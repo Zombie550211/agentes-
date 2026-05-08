@@ -37,32 +37,42 @@
     .sidebar.sidebar-inicio .sidebar-footer-quote { display: none !important; }
   </style>
   <style>
-    .rank-side-arrow{
-      position: fixed; top: 50%; transform: translateY(-50%);
-      z-index: 2000; width: 44px; height: 44px;
+    /* ── NAVEGACIÓN DE FECHA ── */
+    .rank-date-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin: 14px auto 16px auto;
+      width: fit-content;
+      background: white;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 40px;
+      padding: 8px 22px;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.07);
+    }
+    .rank-nav-btn {
+      width: 32px; height: 32px;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,.92);
-      border: 1px solid #cbd5e1; color: #0b2447;
-      opacity: .88; border-radius: 999px;
-      box-shadow: 0 6px 18px rgba(2,6,23,.15);
-      font-size: 24px; line-height: 1; cursor: pointer;
-      transition: opacity .2s, transform .2s, box-shadow .2s;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 50%;
+      color: #4f46e5;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.18s;
       user-select: none;
     }
-    .rank-side-arrow:hover{ opacity: .98; transform: translateY(-50%) scale(1.05); box-shadow: 0 10px 24px rgba(2,6,23,.22); }
-    .rank-side-arrow:active{ opacity: 1; transform: translateY(-50%) scale(.97); }
-    .rank-side-arrow.left{ left: calc(260px + 18px); }
-    .rank-side-arrow.right{ right: 18px; }
-    @media (max-width: 1024px){
-      .rank-side-arrow{ width: 40px; height: 40px; font-size: 22px; }
-      .rank-side-arrow.left{ left: calc(260px + 14px); }
-      .rank-side-arrow.right{ right: 14px; }
-    }
-    /* ── DARK MODE ── */
-    body.dark-theme .rank-side-arrow {
-      background: rgba(30,41,59,.92) !important;
-      border-color: #334155 !important;
-      color: #e2e8f0 !important;
+    .rank-nav-btn:hover { background: #6366f1; color: white; transform: scale(1.10); }
+    .rank-nav-btn:active { transform: scale(0.95); }
+    #rank-period-label {
+      font-family: 'Rajdhani', sans-serif !important;
+      font-size: 1rem !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.07em !important;
+      color: #0b2447 !important;
+      min-width: 160px;
+      text-align: center;
     }
   </style>
   <!-- Override global de overflow para esta p├ígina -->
@@ -1339,26 +1349,26 @@
     /* Posicionamiento espec├¡fico - astronautas parados ENCIMA de los cilindros */
     .second-pos {
       left: 25% !important;
-      top: 22% !important; /* Astronauta parado sobre el cilindro izquierdo */
+      top: 26% !important;
       transform: translateX(-50%) !important;
     }
-    
+
     .first-pos {
       left: 50% !important;
-      top: -18% !important; /* Astronauta del primer lugar más arriba aún */
+      top: -11% !important;
       transform: translateX(-50%) !important;
     }
-    
+
     .third-pos {
-      left: 75% !important; /* un poco m├ís a la izquierda */
-      top: 20% !important; /* Astronauta parado sobre el cilindro derecho */
+      left: 75% !important;
+      top: 24% !important;
       transform: translateX(-50%) !important;
     }
     
-    /* Wrapper de astronautas - tama├▒o original restaurado */
+    /* Wrapper de astronautas */
     .astronaut-wrapper {
-      width: 380px !important;
-      height: 380px !important;
+      width: 310px !important;
+      height: 310px !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
@@ -1367,10 +1377,10 @@
       background: transparent !important;
       box-shadow: none !important;
     }
-    
+
     .astronaut-wrapper.winner {
-      width: 460px !important;
-      height: 460px !important;
+      width: 375px !important;
+      height: 375px !important;
     }
     
     /* Im├ígenes de astronautas */
@@ -1387,8 +1397,8 @@
 
     /* Ajustes SOLO para el TERCER lugar: m├ís peque├▒o y centrado */
     .third-pos .astronaut-wrapper {
-      width: 320px !important;
-      height: 320px !important;
+      width: 260px !important;
+      height: 260px !important;
       justify-content: center !important;
       align-items: center !important; /* anclar abajo para que "pise" */
     }
@@ -1446,15 +1456,15 @@
     
     /* Ajustar posicionamiento espec├¡fico por lugar - en la cara frontal de cada cilindro */
     .first-pos .astronaut-info {
-      bottom: -200px !important; /* subir a├║n m├ís en la base central */
+      bottom: -140px !important;
       width: 180px !important;
     }
     .second-pos .astronaut-info {
-      bottom: -40px !important; /* subir a├║n m├ís en la base izquierda */
+      bottom: 20px !important;
       width: 170px !important;
     }
     .third-pos .astronaut-info {
-      bottom: -50px !important;
+      bottom: -16px !important;
       transform: translateX(-66%) !important;
       width: 170px !important;
     }
@@ -1907,23 +1917,49 @@
     #spline-container::after{width:50%;height:80%;bottom:-20%;right:-5%;background:radial-gradient(circle,#9333ea 0%,#7c3aed 40%,transparent 70%);animation-delay:-6s;animation-direction:alternate-reverse}
     @keyframes orb-drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.06)}100%{transform:translate(-3%,5%) scale(.96)}}
     .spline-watermark-cover{position:absolute;bottom:0;right:0;width:210px;height:52px;background:#0a0e2a;z-index:10;border-radius:10px 0 0 0}
-    /* Layout top: promo izquierda + podio derecha */
+    /* Layout top: motivacional izquierda + podio derecha */
     .ranking-top-row{display:flex;gap:24px;width:100%;align-items:stretch;margin:0;position:relative;z-index:1;min-height:440px}
-    /* Promo: angosta con orillas redondeadas */
-    .promo-hero{flex:0 0 38%;min-width:0;display:flex!important;flex-direction:column;gap:10px;margin:0!important;width:auto!important;max-width:none!important;min-height:420px;border-radius:18px;overflow:hidden}
-    .promo-media{border-radius:18px!important;min-height:380px!important;max-height:none!important;flex:1}
-    /* Podio: ocupa el resto */
     .ranking-top-row .ranking-podium-final{flex:1;min-width:0;margin:0!important;max-width:none!important;min-height:420px;padding-top:140px!important}
-    .promo-media{width:100%;border-radius:20px;overflow:hidden;background:#0f172a0d;box-shadow:0 10px 30px rgba(2,132,199,.12);border:1px solid rgba(15,23,42,.08);position:relative;min-height:320px;max-height:480px;transition:height .2s ease}
-    .promo-media .promo-placeholder{min-height:320px;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:500;font-size:1.2rem;padding:20px;text-align:center;background:linear-gradient(135deg,#f8fafc,#e2e8f0);border:2px dashed #cbd5e1;border-radius:20px}
-    .promo-media img,.promo-media video{width:100%;height:100%;display:block;object-fit:cover}
-    .promo-media.contain img,.promo-media.contain video{object-fit:contain;background:#0f172a0d}
-    .promo-actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;width:100%;margin-top:8px}
-    .upload-btn{cursor:pointer;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 6px 18px rgba(102,126,234,.25)}
-    .upload-btn:hover{filter:brightness(1.05)}
-    .upload-hint{font-size:.85rem;color:#64748b}
-    .promo-hero.hidden{display:none!important}
-    @media(max-width:900px){.ranking-top-row{flex-direction:column}}
+    /* Card motivacional */
+    .motiv-card{
+      flex:0 0 36%;min-width:0;
+      display:flex;flex-direction:column;justify-content:center;
+      gap:18px;padding:36px 32px;
+      background:linear-gradient(145deg,#1a1060 0%,#0f0a3a 60%,#1e1070 100%);
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,0.08);
+      box-shadow:0 12px 40px rgba(0,0,0,0.35);
+      position:relative;overflow:hidden;
+    }
+    .motiv-card::before{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at 20% 30%,rgba(102,126,234,0.25) 0%,transparent 60%),
+                 radial-gradient(ellipse at 80% 80%,rgba(118,75,162,0.20) 0%,transparent 55%);
+      pointer-events:none;
+    }
+    .motiv-heading{
+      font-family:'Rajdhani',sans-serif;
+      font-size:clamp(1.9rem,3vw,2.8rem);
+      font-weight:900;
+      line-height:1.1;
+      color:#fff;
+      letter-spacing:-0.01em;
+      position:relative;
+    }
+    .motiv-heading span{color:#a78bfa;}
+    .motiv-body{
+      font-size:1rem;
+      line-height:1.65;
+      color:rgba(255,255,255,0.72);
+      font-family:'Exo 2',sans-serif;
+      position:relative;
+    }
+    .motiv-divider{
+      width:48px;height:4px;
+      background:linear-gradient(90deg,#818cf8,#c084fc);
+      border-radius:4px;
+    }
+    @media(max-width:900px){.ranking-top-row{flex-direction:column}.motiv-card{flex:unset;min-height:220px;}}
   </style>
 </head>
 <body>
@@ -1940,21 +1976,16 @@
       <!-- Top: Promociones (izquierda) + Podio (derecha) -->
       <div class="ranking-top-row">
 
-        <!-- Promociones -->
-        <section class="promo-hero">
-          <div class="promo-media" id="promo-media">
-            <div class="promo-placeholder">📡 Sin promoción disponible<br><small>Sube una imagen o video para mostrar aquí</small></div>
+        <!-- Card motivacional -->
+        <div class="motiv-card">
+          <div class="motiv-divider"></div>
+          <div class="motiv-heading">¡Sigue subiendo<br>en el <span>ranking!</span></div>
+          <div class="motiv-body">
+            Cada venta te acerca al primer lugar.<br>
+            Demuestra tu potencial, supera tus metas<br>
+            y conviértete en el mejor agente del mes.
           </div>
-          <div class="promo-actions" id="promo-actions" style="display:none;">
-            <form id="promo-upload-form">
-              <label class="upload-btn" title="Subir imagen o video promocional">
-                <input type="file" id="promo-file" name="file" accept="image/*,video/*" hidden>
-                <i class="fas fa-upload"></i> Subir imagen/video promocional
-              </label>
-              <span class="upload-hint">Formatos: JPG, PNG, GIF, MP4 (hasta 50MB)</span>
-            </form>
-          </div>
-        </section>
+        </div>
 
         <!-- Podio + Astronautas -->
         <div class="ranking-podium-final">
@@ -2002,6 +2033,13 @@
 
       </div><!-- /ranking-main-card -->
 
+      <!-- Navegación de fecha -->
+      <div class="rank-date-nav">
+        <button class="rank-nav-btn" id="rank-prev" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+        <span id="rank-period-label">Ranking — …</span>
+        <button class="rank-nav-btn" id="rank-next" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+
       <!-- Otros Participantes -->
       <div class="ranking-panel">
         <div class="ranking-content">
@@ -2046,10 +2084,6 @@
   </div>
 
   <script src="js/ranking-main.js" defer></script>
-
-  <!-- Flechas laterales para navegación -->
-  <button class="rank-side-arrow left" id="rank-prev" aria-label="Anterior">&#x2039;</button>
-  <button class="rank-side-arrow right" id="rank-next" aria-label="Siguiente">&#x203A;</button>
 
   <!-- Barra inferior: Roles y Avatares -->
   <style>

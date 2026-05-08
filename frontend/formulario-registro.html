@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulario de Registro de Lead Corporativo</title>
+
+<!-- Scripts críticos de redirección -->
+<script>
+  function isTeamLineasUser() {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const username = (userData.username || '').toLowerCase();
+      const role = (userData.role || '').toLowerCase();
+      const team = (userData.team || '').toLowerCase();
+      
+      if (role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas') {
+        return true;
+      }
+      
+      if (role === 'supervisor' && team.includes('lineas')) {
+        return true;
+      }
+      
+      if (team.includes('lineas')) {
+        return true;
+      }
+      
+      if (username.startsWith('lineas-')) {
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isAdminUser() {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      const role = String(userData.role || '').toLowerCase().trim();
+      return role === 'admin';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  (function(){
+    const applyRoleVisibility = () => {
+      try {
+        const field = document.getElementById('agent-assign-field');
+        if (!field) return;
+        if (isAdminUser()) return;
+        field.style.display = 'none';
+        const sel = document.getElementById('agentAssign');
+        if (sel) { sel.value = ''; sel.disabled = true; }
+      } catch (e) {}
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyRoleVisibility);
+    } else {
+      applyRoleVisibility();
+    }
+  })();
+
+  if (isTeamLineasUser() && !window.location.pathname.endsWith('LEAD-LINEAS.html')) {
+    window.location.replace('/TEAM LINEAS/LEAD-LINEAS.html');
+  }
+</script>
+
+<!-- Interceptor de API -->
+<script>
+  (function(){
+    try {
+      var ENABLE_REMOTE=false;
+      if (ENABLE_REMOTE) {
+        // espacio reservado
+      } else {
+        window.__API_INTERCEPTOR_LOADED__ = false;
+      }
+    } catch(_){}
+  })();
+</script>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Custom CSS -->
+<link rel="stylesheet" href="/css/theme.css?v=20251124f">
+<link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
+<link rel="stylesheet" href="/css/form-styles.css?v=20250916">
+<link rel="stylesheet" href="/css/responsive-grid.css">
+<link rel="stylesheet" href="/css/responsive-tables.css">
+<link rel="stylesheet" href="/css/responsive-sidebar.css">
+<link rel="stylesheet" href="/css/responsive-components.css">
+
+<!-- Scripts -->
+<script src="js/fetch-interceptor.js"></script>
+<script src="/js/logout-handler.js"></script>
+<script src="/js/user-info.js"></script>
+<script src="js/crm-config.js"></script>
+<script src="js/inactivity-manager.js"></script>
+<script src="js/crm-init.js"></script>
+<script src="/js/sidebar-loader.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+
+<script>
+  window.authChecked = true;
+</script>
+
+<script>
+  (function() {
+    try {
+      const shouldSilence = typeof localStorage !== 'undefined' && localStorage.getItem('silenceLogs') === '1';
+      if (shouldSilence && typeof console !== 'undefined') {
+        const noop = function(){};
+        console.log = noop;
+        console.info = noop;
+      }
+    } catch (e) {}
+  })();
+</script>
+
+<script src="/js/logout-handler.js?v=20250905-163930"></script>
+<script src="/js/user-info.js?v=20250905-163930"></script>
+
+<script>
+  (function(){
+    try {
+      var ENABLE_REMOTE=false;
+      if (ENABLE_REMOTE) {
+        // espacio reservado
+      } else {
+        window.FORM_CONFIG = window.FORM_CONFIG || {};
+        window.FORM_CONFIG.endpoints = window.FORM_CONFIG.endpoints || {};
+        window.FORM_CONFIG.features = window.FORM_CONFIG.features || {};
+        window.__FORM_CONFIG_OK__ = false;
+      }
+    } catch(_){}
+  })();
+</script>
+
+<script src="/utils/teams.js?v=20250905-163930"></script>
+
+<script>
+  (function(){
+    try {
+      const norm = (s)=>String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' ');
+      const ALLOW = new Set(['jonathan figueroa','lineas-carlos','lineas-cristian r','lineas-edward','lineas-jocelyn','lineas-luis g','lineas-oscar r','lineas- karla','lineas-karla','lineas- daniel','lineas-daniel','lineas-sandy'].map(norm));
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
+      const user = JSON.parse(userStr||'{}');
+      const candidates = [user?.username, user?.name, user?.nombre, user?.fullName].map(norm).filter(Boolean);
+      let isLineas = candidates.some(n=>ALLOW.has(n));
+      try {
+        if (!isLineas && window.Teams && typeof window.Teams.getTeamForUser==='function') {
+          const t = window.Teams.getTeamForUser(user) || '';
+          const tk = norm(t);
+          isLineas = (tk === 'team lineas' || tk === 'team lineas 1' || tk === 'team lineas 2');
+        }
+      } catch {}
+      if (isLineas) { document.addEventListener('DOMContentLoaded', ()=>document.body.classList.add('team-lineas')); }
+    } catch {}
+  })();
+</script>
+
+<style>
+  :root {
+    --accent: #0d9488;
+    --accent-light: rgba(13,148,136,0.09);
+    --accent-border: rgba(13,148,136,0.26);
+    --text: #1a2e3b;
+    --text-dim: #5a7a8a;
+    --label: #2a6a78;
+    --border: #d0dde6;
+    --input-bg: #f6fafb;
+    --input-border: #c5d5df;
+    --section-bg: #eef6f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #dce8f0;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(13,148,136,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(2,132,199,0.05) 0%, transparent 50%);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 8px 40px;
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+  }
+
+  .form-wrapper {
+    width: 100%;
+    max-width: none;
+    background: #ffffff;
+    border: 1.5px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.09);
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .form-header {
+    padding: 12px 80px;
+    background: linear-gradient(90deg, #e5f4f2, #f2fafa, #e5f4f2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .header-icon {
+    width: 30px; height: 30px;
+    background: white;
+    border: 1.5px solid var(--accent-border);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(13,148,136,0.10);
+    flex-shrink: 0;
+  }
+  .header-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 2; }
+  h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.10em;
+    color: #0a3d38;
+    text-transform: uppercase;
+  }
+
+  /* BODY */
+  .form-body { padding: 14px 80px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* CARD */
+  .card { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .card-header {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 12px;
+    background: var(--section-bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header svg { width: 12px; height: 12px; stroke: var(--accent); fill: none; stroke-width: 2.2; flex-shrink: 0; }
+  .card-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+  .card-body { padding: 11px 13px; }
+
+  /* GRIDS */
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px 14px; }
+  .g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 9px 14px; }
+  .s2 { grid-column: span 2; }
+  .s3 { grid-column: span 3; }
+  .s4 { grid-column: span 4; }
+
+  /* FIELD */
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+
+  input[type="text"], input[type="date"], select, textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 12px;
+    transition: border-color 0.17s, box-shadow 0.17s;
+    outline: none;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 38px;
+  }
+  input[type="text"]::placeholder { color: #b0c8d2; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.10);
+    background: #fff;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%230d9488' opacity='.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 22px;
+    cursor: pointer;
+  }
+  select option { background: #fff; color: var(--text); }
+  textarea { resize: vertical; min-height: 75px; }
+  input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
+  /* CHIPS */
+  .chips-wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: all 0.17s;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--accent-border); color: var(--text); background: #f0fafa; }
+  .chip.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .chip svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.2; flex-shrink: 0; }
+
+  /* RADIO STATUS */
+  .radio-group { display: flex; gap: 5px; height: 100%; }
+  .radio-btn {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    transition: all 0.17s;
+    user-select: none;
+  }
+  .radio-btn input { display: none; }
+  .radio-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--input-border); background: white; flex-shrink: 0; transition: all 0.17s; }
+  .radio-btn.checked { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .radio-btn.checked .radio-dot { border-color: var(--accent); background: var(--accent); }
+
+  /* SCORE */
+  .score-panel {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, #e5f4f2, #f2fafa);
+    border: 1px solid var(--accent-border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    height: 100%;
+  }
+  .score-left { display: flex; align-items: center; gap: 8px; }
+  .score-icon {
+    width: 26px; height: 26px;
+    background: white; border: 1px solid var(--accent-border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .score-icon svg { width: 12px; height: 12px; stroke: var(--accent); fill: none; stroke-width: 2; }
+  .score-text strong { font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.07em; color: var(--text); display: block; }
+  .score-text span { font-size: 0.72rem; color: var(--text-dim); font-weight: 600; }
+  .gauge-wrap { display: flex; align-items: center; gap: 7px; }
+  .gauge-ring {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: conic-gradient(var(--accent) 0%, rgba(13,148,136,0.12) 0%);
+    display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
+  }
+  .gauge-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #f0fafa; }
+  .gauge-label { position: relative; z-index: 1; font-family: 'Rajdhani', sans-serif; font-size: 0.72rem; font-weight: 800; color: var(--text-dim); }
+  .score-num { font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; font-weight: 600; }
+  .score-num b { color: var(--accent); font-size: 0.95rem; display: block; font-weight: 800; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 9px 0; }
+
+  /* AGENT */
+  .agent-row { display: flex; gap: 5px; }
+  .agent-row select { flex: 1; }
+  .search-btn {
+    background: var(--accent-light); border: 1px solid var(--accent-border); border-radius: 5px;
+    color: var(--accent); cursor: pointer; padding: 0 8px; transition: background 0.17s;
+    display: flex; align-items: center; flex-shrink: 0;
+  }
+  .search-btn:hover { background: rgba(13,148,136,0.17); }
+  .search-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+  .agents-note { font-size: 0.58rem; color: #8aacb8; margin-top: 3px; font-style: italic; }
+
+  /* FOOTER */
+  .form-footer { padding: 12px 80px 16px; border-top: 1px solid var(--border); background: #f5f9fa; display: flex; justify-content: center; }
+  .save-btn {
+    background: linear-gradient(90deg, #0a7a72, #0d9488, #0a7a72);
+    border: 1.5px solid #0d9488; border-radius: 40px; color: #fff; cursor: pointer;
+    font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 800;
+    letter-spacing: 0.18em; text-transform: uppercase; padding: 12px 56px;
+    transition: all 0.22s; box-shadow: 0 4px 14px rgba(13,148,136,0.22);
+  }
+  .save-btn:hover { background: linear-gradient(90deg, #0c9088, #0fb5a5, #0c9088); box-shadow: 0 6px 20px rgba(13,148,136,0.32); transform: translateY(-1px); }
+  .save-btn:active { transform: translateY(0); }
+  .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+
+  @media (max-width: 900px) {
+    .g3, .g4 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .g2,.g3,.g4,.chips-wrap { grid-template-columns: 1fr 1fr; }
+    .s2,.s3,.s4 { grid-column: span 2; }
+    h1 { font-size: 0.95rem; }
+    .form-body { padding: 14px 16px 18px; }
+    .form-header { padding: 12px 16px; }
+    .form-footer { padding: 12px 16px 16px; }
+  }
+
+  /* ── DARK MODE ── */
+  body.dark-theme {
+    --accent: #2dd4bf;
+    --accent-light: rgba(45,212,191,0.09);
+    --accent-border: rgba(45,212,191,0.26);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --label: #94a3b8;
+    --border: #334155;
+    --input-bg: #1e293b;
+    --input-border: #334155;
+    --section-bg: #162032;
+    background: #0d1a28 !important;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(45,212,191,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(56,189,248,0.04) 0%, transparent 50%) !important;
+  }
+  body.dark-theme .form-wrapper {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  body.dark-theme .form-header { background: #162032 !important; }
+  body.dark-theme .form-footer { background: #162032 !important; }
+  body.dark-theme .card-section  { background: var(--section-bg) !important; border-color: #334155 !important; }
+  body.dark-theme .chip { background: #162032 !important; border-color: #334155 !important; color: #94a3b8 !important; }
+  body.dark-theme .chip.selected { background: rgba(45,212,191,0.12) !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+  body.dark-theme select option { background: #1e293b !important; color: #e2e8f0 !important; }
+  body.dark-theme .gauge-ring::before { background: #1e293b !important; }
+</style>
+</head>
+<body>
+<div class="form-wrapper">
+
+  <!-- HEADER -->
+  <div class="form-header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <h1>Formulario de Registro de Lead Corporativo</h1>
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+    </div>
+  </div>
+
+  <div class="form-body">
+
+    <!-- ① DATOS DE CONTACTO -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="card-title">Datos de Contacto</span>
+      </div>
+      <div class="card-body">
+        <div class="g4">
+          <div class="field s2">
+            <label>Nombre del Cliente</label>
+            <input type="text" id="nombre-cliente" name="nombre_cliente" required>
+          </div>
+          <div class="field">
+            <label>Teléfono Principal</label>
+            <input type="text" id="telefono-principal" name="telefono_principal" required>
+          </div>
+          <div class="field">
+            <label>Teléfono Alterno</label>
+            <input type="text" id="telefono_2" name="telefono_2" required>
+          </div>
+          <div class="field s2">
+            <label>Dirección</label>
+            <input type="text" id="direccion" name="direccion" required>
+          </div>
+          <div class="field">
+            <label>Zip Code</label>
+            <input type="text" id="zip-code" name="zip-code" required>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② SERVICIOS Y CATEGORIZACIÓN -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span class="card-title">Detalles de Servicio y Categorización</span>
+        <svg viewBox="0 0 24 24" style="margin-left:4px;"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M12 11v4"/></svg>
+      </div>
+      <div class="card-body">
+
+        <!-- Fila 1: Servicios + Tipo + Cuenta + Mercado -->
+        <div class="g4">
+          <div class="field">
+            <label>Servicios</label>
+            <select id="servicios" name="servicios" required>
+              <option value="">Elige</option>
+              <optgroup label="DIRECTV (Video)">
+                <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
+                <option value="VIDEO DIRECTV VIA SATELITE">VIDEO DIRECTV VIA SATELITE</option>
+              </optgroup>
+              <optgroup label="AT&T Internet">
+                <option value="ATT AIR">ATT AIR</option>
+                <option value="ATT 18 - 25 MB">ATT 18 - 25 MB</option>
+                <option value="ATT 50 - 100 MB">ATT 50 - 100 MB</option>
+                <option value="ATT 100 FIBRA">ATT 100 FIBRA</option>
+                <option value="ATT 300">ATT 300</option>
+                <option value="ATT 500">ATT 500</option>
+                <option value="ATT 1G">ATT 1G</option>
+              </optgroup>
+              <optgroup label="Spectrum">
+                <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
+                <option value="SPECTRUM 500">SPECTRUM 500</option>
+                <option value="SPECTRUM 500MBPS+">SPECTRUM 500MBPS+</option>
+                <option value="SPECTRUM 1G">SPECTRUM 1G</option>
+                <option value="SPECTRUM 2G">SPECTRUM 2G</option>
+              </optgroup>
+              <optgroup label="Frontier">
+                <option value="FRONTIER 200 MB">FRONTIER 200 MB</option>
+                <option value="FRONTIER 500 MB">FRONTIER 500 MB</option>
+                <option value="FRONTIER 1G">FRONTIER 1G</option>
+                <option value="FRONTIER 2G">FRONTIER 2G</option>
+              </optgroup>
+              <optgroup label="Consolidated">
+                <option value="CONSOLIDATED">CONSOLIDATED</option>
+              </optgroup>
+              <optgroup label="Xfinity">
+                <option value="XFINITY 300">XFINITY 300</option>
+                <option value="XFINITY 500">XFINITY 500</option>
+                <option value="XFINITY 1G">XFINITY 1G</option>
+              </optgroup>
+              <optgroup label="Brightspeed">
+                <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+              </optgroup>
+              <optgroup label="Earthlink">
+                <option value="INTERNET EARTHLINK 300 MB">INTERNET EARTHLINK 300 MB</option>
+                <option value="EARTHLINK">EARTHLINK</option>
+              </optgroup>
+              <optgroup label="Ziply Fiber">
+                <option value="ZIPLY FIBER 10G">ZIPLY FIBER 10G</option>
+                <option value="ZIPLY FIBER 5G">ZIPLY FIBER 5G</option>
+                <option value="ZIPLY FIBER 2G">ZIPLY FIBER 2G</option>
+                <option value="ZIPLY FIBER 1G">ZIPLY FIBER 1G</option>
+                <option value="ZIPLY FIBER 300">ZIPLY FIBER 300</option>
+                <option value="ZIPLY FIBER 200">ZIPLY FIBER 200</option>
+              </optgroup>
+              <optgroup label="AltaFiber">
+                <option value="ALTAFIBER 100 MB">ALTAFIBER 100 MB</option>
+                <option value="ALTAFIBER 200 MB">ALTAFIBER 200 MB</option>
+                <option value="ALTAFIBER 300 MB">ALTAFIBER 300 MB</option>
+                <option value="ALTAFIBER 400 MB">ALTAFIBER 400 MB</option>
+                <option value="ALTAFIBER 500 MB">ALTAFIBER 500 MB</option>
+                <option value="ALTAFIBER 600 MB">ALTAFIBER 600 MB</option>
+                <option value="ALTAFIBER 800 MB">ALTAFIBER 800 MB</option>
+                <option value="ALTAFIBER 1G">ALTAFIBER 1G</option>
+              </optgroup>
+              <optgroup label="Otros Proveedores">
+                <option value="OPTIMUM">OPTIMUM</option>
+                <option value="WOW">WOW</option>
+                <option value="WINDSTREAM">WINDSTREAM</option>
+                <option value="HUGHESNET">HUGHESNET</option>
+                <option value="VIASAT">VIASAT</option>
+                <option value="STARLINK">STARLINK</option>
+                <option value="CENTURYLINK">CENTURYLINK</option>
+                <option value="METRONET">METRONET</option>
+                <option value="HAWAIIAN">HAWAIIAN</option>
+                <option value="VIVINT">VIVINT</option>
+                <option value="MOBILITY">MOBILITY</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tipo de Servicios</label>
+            <select id="tipo-servicio" name="tipo_servicio" required>
+              <option value="">Elige</option>
+              <option value="VIDEO">VIDEO</option>
+              <option value="INTERNET">INTERNET</option>
+              <option value="AT&T AIR">AT&T AIR</option>
+              <option value="WIRELESS">WIRELESS</option>
+              <option value="SINGLE INTERNET">SINGLE INTERNET</option>
+              <option value="FRONTIER">FRONTIER</option>
+              <option value="WINDSTREAM">WINDSTREAM</option>
+              <option value="OPTIMUM">OPTIMUM</option>
+              <option value="WOW">WOW</option>
+              <option value="ALTAFIBER">ALTAFIBER</option>
+              <option value="CONSOLIDATE">CONSOLIDATE</option>
+              <option value="HUGHESNET">HUGHESNET</option>
+              <option value="VIASAT">VIASAT</option>
+              <option value="STARLINK">STARLINK</option>
+              <option value="CENTURYLINK">CENTURYLINK</option>
+              <option value="METRONET">METRONET</option>
+              <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+              <option value="HAWAIIAN">HAWAIIAN</option>
+              <option value="DOUBLE PLAY">DOUBLE PLAY</option>
+              <option value="VIVINT">VIVINT</option>
+              <option value="EARTHLINK">EARTHLINK</option>
+              <option value="XFINITY">XFINITY</option>
+              <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+              <option value="ATT 300">ATT 300</option>
+              <option value="ATT 500">ATT 500</option>
+              <option value="ATT 1G">ATT 1G</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Número de Cuenta</label>
+            <input type="text" id="numero-cuenta" name="numero_cuenta" required>
+          </div>
+          <div class="field">
+            <label>Mercado</label>
+            <select id="mercado" name="mercado" required>
+              <option value="">Elige</option>
+              <option value="ICON">ICON</option>
+              <option value="BAMO">BAMO</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Fila 2: Categorización (chips, 4 cols) -->
+        <div style="margin-bottom:9px;">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--label);margin-bottom:5px;">¿Por qué llamó el cliente?</div>
+          <div class="chips-wrap">
+            <div class="chip active" data-value="BILL ALTO" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Bill Alto</div>
+            <div class="chip" data-value="PROBLEMAS DE INTERNET" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><path d="M1 6l11 11L23 6"/></svg>Problemas Internet</div>
+            <div class="chip" data-value="ADQUIRIR SERVICIOS" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Adquirir Servicios</div>
+            <div class="chip" data-value="MUDANZA" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Mudanza</div>
+            <div class="chip" data-value="CANCELAR SERVICIOS" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar Servicios</div>
+            <div class="chip" data-value="PAGAR BILL" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pagar Bill</div>
+            <div class="chip" data-value="ATENCION AL CLIENTE" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Atención Cliente</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Fila 3: Status + Autopago + Sistema + Riesgo | Comentario + Puntaje -->
+        <div class="g4">
+          <div class="field">
+            <label>Status</label>
+            <div class="radio-group">
+              <label class="radio-btn checked" id="rb-pending" onclick="selectRadio('pending')">
+                <input type="radio" name="status" value="PENDING" required><span class="radio-dot"></span>Pending
+              </label>
+              <label class="radio-btn" id="rb-repro" onclick="selectRadio('repro')">
+                <input type="radio" name="status" value="REPRO" required><span class="radio-dot"></span>Repro
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Autopago</label>
+            <select id="autopago" name="autopay" required>
+              <option value="">Elige</option>
+              <option value="SI">SI</option>
+              <option value="NO">NO</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Sistema</label>
+            <select id="sistema" name="sistema" required>
+              <option value="">Elige</option>
+              <option value="SARA">SARA</option>
+              <option value="B.O">B.O</option>
+              <option value="N/A">N/A</option>
+              <option value="CHUZO">CHUZO</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Riesgo</label>
+            <select id="riesgo" name="riesgo" required>
+              <option value="">Elige</option>
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH</option>
+              <option value="N/A">N/A</option>
+            </select>
+          </div>
+          <div class="field s2">
+            <label>Comentario</label>
+            <textarea id="comentario" name="comentario" required></textarea>
+          </div>
+          <div class="field s2">
+            <label>Indicadores de Puntaje</label>
+            <div class="score-panel">
+              <div class="score-left">
+                <div class="score-icon">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div class="score-text">
+                  <strong>PUNTAJE (Auto)</strong>
+                  <span>Seleccione servicio y riesgo para el cálculo</span>
+                </div>
+              </div>
+              <div class="gauge-wrap">
+                <div class="gauge-ring"><span class="gauge-label">--</span></div>
+                <div class="score-num">Puntaje:<b id="score-num">--</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ③ LOGÍSTICA Y ASIGNACIÓN -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span class="card-title">Logística y Asignación</span>
+      </div>
+      <div class="card-body">
+        <div class="g4">
+          <div class="field">
+            <label>Día de Venta</label>
+            <input type="date" id="dia-venta" name="dia_venta" required>
+          </div>
+          <div class="field">
+            <label>Día de Instalación</label>
+            <input type="date" id="dia-instalacion" name="dia_instalacion" required>
+          </div>
+          <div class="field">
+            <label>Supervisor</label>
+            <select id="supervisor" name="supervisor" required>
+              <option value="">Supervisor</option>
+              <option value="Irania Serrano">IRANIA</option>
+              <option value="Roberto Velasquez">ROBERTO</option>
+              <option value="Marisol Beltran">MARISOL</option>
+              <option value="Bryan Pleitez">PLEITEZ</option>
+              <option value="Johana">JOHANA</option>
+            </select>
+          </div>
+          <div class="field s4" id="agent-assign-field">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span>Asignación de Agente</span>
+              <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;" id="agents-count-label">Cargando...</span>
+            </label>
+            <div class="agent-row">
+              <select id="agentAssign" name="agentAssign" required><option value="">Asignar a agente</option></select>
+              <button type="button" class="search-btn">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+            </div>
+            <div class="agents-note">Si la lista no aparece, el nombre del agente se enviará como asignación.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="form-footer">
+    <button class="save-btn" id="save-btn">Guardar Lead</button>
+  </div>
+
+</div>
+
+<script>
+  // Mapeo de Servicios a Tipo y Sistema
+  const SERVICE_TYPE_MAP = {
+    'VIDEO DIRECTV VIA INTERNET': 'VIDEO',
+    'VIDEO DIRECTV VIA SATELITE': 'VIDEO',
+    'ATT AIR': 'AT&T AIR',
+    'ATT 18 - 25 MB': 'INTERNET',
+    'ATT 50 - 100 MB': 'INTERNET',
+    'ATT 100 FIBRA': 'INTERNET',
+    'ATT 300': 'INTERNET',
+    'ATT 500': 'INTERNET',
+    'ATT 1G': 'INTERNET',
+    'SPECTRUM 400 MBPS': 'INTERNET',
+    'SPECTRUM 500': 'INTERNET',
+    'SPECTRUM 500MBPS+': 'DOUBLE PLAY',
+    'SPECTRUM 1G': 'INTERNET',
+    'SPECTRUM 2G': 'INTERNET',
+    'FRONTIER 200 MB': 'FRONTIER',
+    'FRONTIER 500 MB': 'FRONTIER',
+    'FRONTIER 1G': 'FRONTIER',
+    'CONSOLIDATED': 'CONSOLIDATE',
+    'XFINITY 300': 'XFINITY',
+    'XFINITY 500': 'XFINITY',
+    'XFINITY 1G': 'XFINITY',
+    'BRIGHTSPEED': 'BRIGHTSPEED',
+    'INTERNET EARTHLINK 300 MB': 'EARTHLINK',
+    'EARTHLINK': 'EARTHLINK',
+    'OPTIMUM': 'OPTIMUM',
+    'WOW': 'WOW',
+    'ALTAFIBER': 'ALTAFIBER',
+    'ALTAFIBER 100 MB': 'ALTAFIBER',
+    'ALTAFIBER 200 MB': 'ALTAFIBER',
+    'ALTAFIBER 300 MB': 'ALTAFIBER',
+    'ALTAFIBER 400 MB': 'ALTAFIBER',
+    'ALTAFIBER 500 MB': 'ALTAFIBER',
+    'ALTAFIBER 600 MB': 'ALTAFIBER',
+    'ALTAFIBER 800 MB': 'ALTAFIBER',
+    'ALTAFIBER 1G':     'ALTAFIBER',
+    'WINDSTREAM': 'WINDSTREAM',
+    'HUGHESNET': 'HUGHESNET',
+    'VIASAT': 'VIASAT',
+    'STARLINK': 'STARLINK',
+    'CENTURYLINK': 'CENTURYLINK',
+    'METRONET': 'METRONET',
+    'ZIPLY FIBER 10G': 'ZIPLY FIBER',
+    'ZIPLY FIBER 5G': 'ZIPLY FIBER',
+    'ZIPLY FIBER 2G': 'ZIPLY FIBER',
+    'ZIPLY FIBER 1G': 'ZIPLY FIBER',
+    'ZIPLY FIBER 300': 'ZIPLY FIBER',
+    'ZIPLY FIBER 200': 'ZIPLY FIBER',
+    'ZIPLY FIBER': 'ZIPLY FIBER',
+    'HAWAIIAN': 'HAWAIIAN',
+    'VIVINT': 'VIVINT',
+    'MOBILITY': 'WIRELESS'
+  };
+
+  // Mapeo de Servicios a Sistema Automático
+  const SERVICE_SYSTEM_MAP = {
+    'VIDEO DIRECTV VIA INTERNET': 'SARA',
+    'VIDEO DIRECTV VIA SATELITE': 'SARA',
+    'ATT AIR': 'SARA',
+    'ATT 18 - 25 MB': 'SARA',
+    'ATT 50 - 100 MB': 'SARA',
+    'ATT 100 FIBRA': 'SARA',
+    'ATT 300': 'SARA',
+    'ATT 500': 'SARA',
+    'ATT 1G': 'SARA',
+    'SPECTRUM 400 MBPS': 'SARA',
+    'SPECTRUM 500': 'SARA',
+    'SPECTRUM 500MBPS+': 'SARA',
+    'SPECTRUM 1G': 'SARA',
+    'SPECTRUM 2G': 'SARA',
+    'FRONTIER 200 MB': 'SARA',
+    'FRONTIER 500 MB': 'SARA',
+    'FRONTIER 1G': 'SARA',
+    'CONSOLIDATED': 'SARA',
+    'XFINITY 300': 'N/A',
+    'XFINITY 500': 'N/A',
+    'XFINITY 1G': 'N/A',
+    'BRIGHTSPEED': 'SARA',
+    'INTERNET EARTHLINK 300 MB': 'SARA',
+    'EARTHLINK': 'SARA',
+    'OPTIMUM': 'SARA',
+    'WOW': 'SARA',
+    'ALTAFIBER': 'SARA',
+    'ALTAFIBER 100 MB': 'SARA',
+    'ALTAFIBER 200 MB': 'SARA',
+    'ALTAFIBER 300 MB': 'SARA',
+    'ALTAFIBER 400 MB': 'SARA',
+    'ALTAFIBER 500 MB': 'SARA',
+    'ALTAFIBER 600 MB': 'SARA',
+    'ALTAFIBER 800 MB': 'SARA',
+    'ALTAFIBER 1G':     'SARA',
+    'WINDSTREAM': 'SARA',
+    'HUGHESNET': 'CHUZO',
+    'VIASAT': 'CHUZO',
+    'STARLINK': 'CHUZO',
+    'CENTURYLINK': 'SARA',
+    'METRONET': 'SARA',
+    'ZIPLY FIBER 10G': 'SARA',
+    'ZIPLY FIBER 5G': 'SARA',
+    'ZIPLY FIBER 2G': 'SARA',
+    'ZIPLY FIBER 1G': 'SARA',
+    'ZIPLY FIBER 300': 'SARA',
+    'ZIPLY FIBER 200': 'SARA',
+    'ZIPLY FIBER': 'SARA',
+    'HAWAIIAN': 'SARA',
+    'VIVINT': 'CHUZO',
+    'MOBILITY': 'CHUZO'
+  };
+
+  // Tabla de puntajes - CORRECTA DEL BACKEND
+  const SCORING_TABLE = {
+    'VIDEO DIRECTV VIA INTERNET': { byRisk: { 'LOW': 1.0, 'MEDIUM': 0.35, 'HIGH': 0.35, 'N/A': 1.0 } },
+    'VIDEO DIRECTV VIA SATELITE': { byRisk: { 'LOW': 1.0, 'MEDIUM': 0.35, 'HIGH': 1.0, 'N/A': 1.0 } },
+    'ATT AIR': { base: 0.45 },
+    'ATT 18 - 25 MB': { base: 0.25 },
+    'ATT 50 - 100 MB': { base: 0.35 },
+    'ATT 100 FIBRA': { base: 0.70 },
+    'ATT 300': { base: 1.25 },
+    'ATT 500': { base: 1.25 },
+    'ATT 1G': { base: 1.5 },
+    'XFINITY 300': { base: 0.75 },
+    'XFINITY 500': { base: 0.75 },
+    'XFINITY 1G': { base: 0.75 },
+    'SPECTRUM 400 MBPS': { base: 0.75 },
+    'SPECTRUM 500': { base: 0.75 },
+    'SPECTRUM 500MBPS+': { base: 1.0 },
+    'SPECTRUM 1G': { base: 1.0 },
+    'SPECTRUM 2G': { base: 1.25 },
+    'FRONTIER 200 MB': { base: 1.0 },
+    'FRONTIER 500 MB': { base: 1.0 },
+    'FRONTIER 1G': { base: 1.25 },
+    'FRONTIER 2G': { base: 1.5 },
+    'CONSOLIDATED': { base: 0.35 },
+    'BRIGHTSPEED': { base: 1.0 },
+    'INTERNET EARTHLINK 300 MB': { base: 1.0 },
+    'EARTHLINK': { base: 1.0 },
+    'INTERNET ZIPLY FIBER': { base: 0.35 },
+    'ZIPLY FIBER 10G': { base: 1.25 },
+    'ZIPLY FIBER 5G': { base: 1.25 },
+    'ZIPLY FIBER 2G': { base: 1.0 },
+    'ZIPLY FIBER 1G': { base: 1.0 },
+    'ZIPLY FIBER 300': { base: 0.35 },
+    'ZIPLY FIBER 200': { base: 0.35 },
+    'ZIPLY FIBER': { base: 0.35 },
+    'INTERNET WINDSTREAM': { base: 1.0 },
+    'WINDSTREAM': { base: 1.0 },
+    'INTERNET WOW': { base: 1.0 },
+    'WOW': { base: 1.0 },
+    'INTERNET ALTAFIBER': { base: 0.25 },
+    'ALTAFIBER': { base: 0.25 },
+    'ALTAFIBER 100 MB': { base: 0.25 },
+    'ALTAFIBER 200 MB': { base: 0.25 },
+    'ALTAFIBER 300 MB': { base: 0.25 },
+    'ALTAFIBER 400 MB': { base: 0.25 },
+    'ALTAFIBER 500 MB': { base: 0.25 },
+    'ALTAFIBER 600 MB': { base: 0.25 },
+    'ALTAFIBER 800 MB': { base: 0.35 },
+    'ALTAFIBER 1G':     { base: 0.35 },
+    'INTERNET HUGHESNET': { base: 0.35 },
+    'HUGHESNET': { base: 0.35 },
+    'INTERNET VIASAT': { base: 0.75 },
+    'VIASAT': { base: 0.75 },
+    'STARLINK': { base: 0.35 },
+    'INTERNET CENTURYLINK': { base: 1.0 },
+    'CENTURYLINK': { base: 1.0 },
+    'INTERNET METRONET': { base: 1.0 },
+    'METRONET': { base: 1.0 },
+    'INTERNET HAWAIIAN': { base: 1.0 },
+    'HAWAIIAN': { base: 1.0 },
+    'INTERNET OPTIMUM': { base: 1.0 },
+    'OPTIMUM': { base: 1.0 },
+    'VIVINT': { base: 1.0 },
+    'MOBILITY': { base: 0.5 }
+  };
+
+  // Sistema de Scoring
+  if (!window.ScoringSystem) {
+    window.ScoringSystem = {
+      calculateScore: function(serviceKey, riskLevel, tipoServicio) {
+        if (!serviceKey) return 0;
+        
+        // Regla especial: XFINITY + DOUBLE PLAY (puntaje según velocidad)
+        if (tipoServicio === 'DOUBLE PLAY') {
+          if (serviceKey === 'XFINITY 1G') return 1.0;
+          if (serviceKey === 'XFINITY 500' || serviceKey === 'XFINITY 300') return 0.85;
+        }
+        // Regla especial: XFINITY solo internet (puntaje según velocidad)
+        if (tipoServicio === 'XFINITY') {
+          if (serviceKey === 'XFINITY 1G') return 0.75;
+          if (serviceKey === 'XFINITY 500') return 0.60;
+        }
+        
+        const serviceConfig = SCORING_TABLE[serviceKey];
+        if (!serviceConfig) return 0;
+        if (serviceConfig.base !== undefined) return serviceConfig.base;
+        if (serviceConfig.byRisk) return serviceConfig.byRisk[riskLevel] || serviceConfig.byRisk['N/A'] || 0;
+        return 0;
+      }
+    };
+  }
+
+  // Elementos del DOM
+  const selServicio = document.getElementById('servicios');
+  const selRiesgo = document.getElementById('riesgo');
+  const selTipoServicio = document.getElementById('tipo-servicio');
+  const selSistema = document.getElementById('sistema');
+  const gaugeRing = document.querySelector('.gauge-ring');
+  const gaugeLabel = document.querySelector('.gauge-label');
+  const scoreNum = document.getElementById('score-num');
+
+  // Calcular score
+  function calcScore() {
+    const svc = selServicio.value;
+    const riesgo = selRiesgo.value;
+    const tipoServicio = selTipoServicio.value;
+    if (!svc || !riesgo) {
+      gaugeLabel.textContent = '--'; scoreNum.textContent = '--';
+      gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)'; return;
+    }
+    const score = window.ScoringSystem.calculateScore(svc, riesgo, tipoServicio);
+    gaugeLabel.textContent = score; scoreNum.textContent = score;
+    // Normalizar puntaje para visualización (0-100)
+    const normalized = Math.round((score / 1.5) * 100);
+    gaugeRing.style.background = `conic-gradient(#0d9488 ${Math.min(normalized, 100)}%, rgba(13,148,136,0.12) 0%)`;
+  }
+
+  // Llenar tipo de servicio y sistema automáticamente
+  function updateServiceType() {
+    const serviceValue = selServicio.value;
+    const tipoMapeado = SERVICE_TYPE_MAP[serviceValue] || '';
+    const sistemaMapeado = SERVICE_SYSTEM_MAP[serviceValue] || '';
+    if (tipoMapeado) {
+      selTipoServicio.value = tipoMapeado;
+    }
+    if (sistemaMapeado) {
+      selSistema.value = sistemaMapeado;
+    }
+  }
+
+  // Event listeners para scoring, tipo de servicio y sistema
+  selServicio.addEventListener('change', function() {
+    updateServiceType();
+    calcScore();
+  });
+  selRiesgo.addEventListener('change', calcScore);
+  selTipoServicio.addEventListener('change', calcScore);
+
+  // Toggle chips
+  function toggleChip(el) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Select radio buttons
+  function selectRadio(val) {
+    document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('checked'));
+    const el = document.getElementById('rb-' + val);
+    if (el) el.classList.add('checked');
+  }
+
+  // Toast notification system
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      z-index: 9999;
+      animation: slideIn 0.3s ease;
+      background: ${type === 'error' ? '#ef4444' : type === 'ok' ? '#10b981' : '#3b82f6'};
+      color: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  // Save button handler
+  document.getElementById('save-btn').addEventListener('click', async function() {
+    const btn = this;
+    
+    // Validar: todos los campos deben estar llenos (ignorando ocultos/deshabilitados)
+    const isVisible = (el) => {
+      if (!el) return false;
+      if (el.disabled) return false;
+      if (el.type === 'hidden') return false;
+      const style = window.getComputedStyle(el);
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+      if (el.offsetParent === null) return false;
+      return true;
+    };
+    
+    const normalizeValue = (el) => {
+      if (!el) return '';
+      const v = (el.value ?? '');
+      return typeof v === 'string' ? v.trim() : String(v);
+    };
+    
+    const requiredEls = Array.from(document.querySelectorAll('input, select, textarea'))
+      .filter(isVisible);
+    
+    const missingRadioGroups = (() => {
+      const radios = requiredEls.filter(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name);
+      const names = Array.from(new Set(radios.map(r => r.name)));
+      return names.filter(n => !radios.some(r => r.name === n && r.checked));
+    })();
+    
+    const missingCheckboxes = requiredEls
+      .filter(el => el.tagName === 'INPUT' && el.type === 'checkbox')
+      .filter(el => !el.checked);
+    
+    const emptyEls = requiredEls.filter(el => {
+      // No validar botones
+      if (el.tagName === 'BUTTON') return false;
+      if (el.type === 'button' || el.type === 'submit') return false;
+      if (el.type === 'radio' || el.type === 'checkbox') return false;
+      return normalizeValue(el) === '';
+    });
+    
+    const motivo = Array.from(document.querySelectorAll('.chip.active'))
+      .map(c => (c.dataset.value || c.textContent.trim()))
+      .join(', ')
+      .trim();
+    
+    if (emptyEls.length > 0 || missingRadioGroups.length > 0 || missingCheckboxes.length > 0 || !motivo) {
+      if (emptyEls[0] && typeof emptyEls[0].focus === 'function') {
+        emptyEls[0].focus();
+      } else if (missingRadioGroups.length > 0) {
+        const firstRadio = requiredEls.find(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name === missingRadioGroups[0]);
+        if (firstRadio && typeof firstRadio.focus === 'function') firstRadio.focus();
+      } else if (missingCheckboxes[0] && typeof missingCheckboxes[0].focus === 'function') {
+        missingCheckboxes[0].focus();
+      }
+      showToast('❌ Debes completar todos los campos del formulario', 'error');
+      return;
+    }
+
+    // Construir objeto de datos
+    const data = {
+      nombre_cliente: document.getElementById('nombre-cliente').value.trim(),
+      telefono_principal: document.getElementById('telefono-principal').value.trim(),
+      telefono_2: document.getElementById('telefono_2').value.trim(),
+      direccion: document.getElementById('direccion').value.trim(),
+      zip_code: document.getElementById('zip-code').value.trim(),
+      servicios: document.getElementById('servicios').value.trim(),
+      tipo_servicio: document.getElementById('tipo-servicio').value.trim(),
+      numero_cuenta: document.getElementById('numero-cuenta').value.trim(),
+      mercado: document.getElementById('mercado').value.trim(),
+      motivo_llamada: motivo,
+      status: (document.querySelector('.radio-btn.checked input')?.value) || 'PENDING',
+      autopago: document.getElementById('autopago').value.trim(),
+      sistema: document.getElementById('sistema').value.trim(),
+      riesgo: document.getElementById('riesgo').value.trim(),
+      comentario: document.getElementById('comentario').value.trim() || '',
+      puntaje: document.getElementById('score-num').textContent.trim(),
+      dia_venta: document.getElementById('dia-venta').value,
+      dia_instalacion: document.getElementById('dia-instalacion').value,
+      supervisor: document.getElementById('supervisor').value.trim(),
+      agente: document.getElementById('agentAssign').value.trim(),
+      creadoEn: new Date().toISOString()
+    };
+
+    // Deshabilitar botón
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+      // Enviar POST a /api/leads
+      const token = (localStorage.getItem('token') || '').trim();
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Éxito
+      showToast('✅ Lead guardado exitosamente', 'ok');
+      console.log('Lead guardado:', result);
+      
+      // Limpiar formulario
+      document.querySelectorAll('input[type="text"], input[type="date"], select, textarea').forEach(el => el.value = '');
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.chip')[0]?.classList.add('active');
+      document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('checked'));
+      document.getElementById('rb-pending')?.classList.add('checked');
+      document.getElementById('score-num').textContent = '--';
+      
+    } catch (error) {
+      console.error('❌ Error guardando lead:', error);
+      showToast('❌ Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  // Team Líneas cleanup
+  (function(){
+    const cleanup = () => {
+      try {
+        if (!document.body.classList.contains('team-lineas')) return;
+        // Limpiar si es necesario
+      } catch (e) { console.warn('[Team Lineas] cleanup error:', e); }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', cleanup);
+    } else {
+      cleanup();
+    }
+    setTimeout(cleanup, 300);
+  })();
+</script>
+
+<script>
+// Carga dinámica de agentes y supervisores desde la API
+(function(){
+  async function loadUsersIntoSelects(){
+    try {
+      const res = await (window.AUTH ? AUTH.secureFetch('/api/users/agents') : fetch('/api/users/agents',{credentials:'include'}));
+      if(!res||!res.ok) return;
+      const data = await res.json();
+      const users = data.agents||data.data||data.users||[];
+
+      const getName = u => (u.name||u.fullName||u.nombre||u.username||'').trim();
+      const getRole = u => String(u.role||'').toLowerCase();
+
+      // Agentes para #agentAssign
+      const agentSel = document.getElementById('agentAssign');
+      if(agentSel){
+        const agentes = users
+          .filter(u => getRole(u).includes('agente') || getRole(u).includes('vendedor') || getRole(u).includes('agent'))
+          .sort((a,b)=>getName(a).localeCompare(getName(b)));
+        const prevVal = agentSel.value;
+        agentSel.innerHTML = '<option value="">Asignar a agente</option>';
+        agentes.forEach(u=>{
+          const n = getName(u);
+          if(!n) return;
+          const o = document.createElement('option');
+          o.value = n;
+          o.textContent = n;
+          agentSel.appendChild(o);
+        });
+        if(prevVal) agentSel.value = prevVal;
+        const lbl = document.getElementById('agents-count-label');
+        if(lbl) lbl.textContent = `Agentes Disponibles: ${agentes.length}`;
+      }
+
+      // Supervisores para #supervisor (mantener hardcoded + agregar nuevos de la API)
+      const supSel = document.getElementById('supervisor');
+      if(supSel){
+        const existingVals = new Set(Array.from(supSel.options).map(o=>o.value.toLowerCase().trim()));
+        const supervisors = users
+          .filter(u => getRole(u).includes('supervisor'))
+          .sort((a,b)=>getName(a).localeCompare(getName(b)));
+        supervisors.forEach(u=>{
+          const n = getName(u);
+          if(!n || existingVals.has(n.toLowerCase().trim())) return;
+          const o = document.createElement('option');
+          o.value = n;
+          o.textContent = n;
+          supSel.appendChild(o);
+        });
+      }
+    } catch(e){
+      console.warn('[lead.html] Error cargando usuarios:', e);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', loadUsersIntoSelects);
+  } else {
+    loadUsersIntoSelects();
+  }
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COMUNICADO STARLINK — aparece cada visita por 7 días
+     Activo: 2026-04-01 → 2026-04-08
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  var EXPIRY = new Date('2026-04-08T23:59:59');
+  if (new Date() > EXPIRY) return;
+
+  function showStarlinkAnnouncement() {
+    /* ── keyframes ── */
+    if (!document.getElementById('sl-ann-kf')) {
+      var kf = document.createElement('style');
+      kf.id = 'sl-ann-kf';
+      kf.textContent = [
+        '@keyframes sl-fadein{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}',
+        '@keyframes sl-star{0%,100%{opacity:.15}50%{opacity:.7}}',
+        '@keyframes sl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,.45)}70%{box-shadow:0 0 0 10px rgba(56,189,248,0)}}',
+        '@keyframes sl-badge{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}'
+      ].join('');
+      document.head.appendChild(kf);
+    }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'sl-ann-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,8,23,.75);z-index:110000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px);font-family:system-ui,sans-serif;';
+
+    overlay.innerHTML = [
+      /* ── card ── */
+      '<div style="background:#0c1830;border-radius:22px;max-width:500px;width:100%;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.7);animation:sl-fadein .4s cubic-bezier(.16,1,.3,1) both;border:1px solid rgba(56,189,248,.18);">',
+
+        /* header */
+        '<div style="background:linear-gradient(135deg,#0f2554 0%,#0e3a6e 50%,#0b4a7a 100%);padding:28px 28px 22px;text-align:center;position:relative;overflow:hidden;">',
+          /* stars bg */
+          '<div style="position:absolute;inset:0;pointer-events:none;">',
+            '<span style="position:absolute;top:12%;left:8%;font-size:.55rem;color:#fff;animation:sl-star 2.1s infinite;">✦</span>',
+            '<span style="position:absolute;top:30%;left:18%;font-size:.4rem;color:#7dd3fc;animation:sl-star 3.3s infinite .4s;">✦</span>',
+            '<span style="position:absolute;top:15%;right:10%;font-size:.5rem;color:#fff;animation:sl-star 2.7s infinite .9s;">✦</span>',
+            '<span style="position:absolute;top:55%;right:6%;font-size:.35rem;color:#bae6fd;animation:sl-star 1.9s infinite .2s;">✦</span>',
+            '<span style="position:absolute;top:70%;left:6%;font-size:.45rem;color:#7dd3fc;animation:sl-star 2.5s infinite 1s;">✦</span>',
+            '<span style="position:absolute;top:8%;left:50%;font-size:.4rem;color:#fff;animation:sl-star 3s infinite .5s;">✦</span>',
+          '</div>',
+          '<div style="font-size:3rem;margin-bottom:10px;filter:drop-shadow(0 0 18px rgba(56,189,248,.6));">🛰️</div>',
+          '<div style="display:inline-block;background:linear-gradient(90deg,#38bdf8,#818cf8);color:#fff;font-size:.65rem;font-weight:800;letter-spacing:.12em;padding:3px 12px;border-radius:99px;margin-bottom:10px;animation:sl-badge 2s ease-in-out infinite;">COMUNICADO OFICIAL</div>',
+          '<div style="font-size:1.4rem;font-weight:900;color:#fff;letter-spacing:.04em;text-shadow:0 2px 16px rgba(56,189,248,.5);">NUEVO PRODUCTO</div>',
+          '<div style="font-size:2rem;font-weight:900;background:linear-gradient(90deg,#38bdf8,#7dd3fc,#bae6fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:.06em;line-height:1.1;">STARLINK</div>',
+          '<div style="font-size:.75rem;color:#7dd3fc;margin-top:6px;opacity:.85;">A partir de hoy iniciamos la venta oficial</div>',
+        '</div>',
+
+        /* body */
+        '<div style="padding:20px 24px 10px;overflow-y:auto;max-height:52vh;color:#e2e8f0;">',
+
+          /* comisión */
+          '<div style="background:linear-gradient(90deg,rgba(56,189,248,.12),rgba(56,189,248,.04));border:1px solid rgba(56,189,248,.25);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">',
+            '<span style="font-size:1.6rem;">💰</span>',
+            '<div>',
+              '<div style="font-size:.72rem;font-weight:800;color:#38bdf8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Comisión Starlink</div>',
+              '<div style="font-size:.82rem;color:#cbd5e1;">Tabla de comisiones — Puntaje: <strong style="color:#38bdf8;font-size:1rem;">0.35</strong></div>',
+            '</div>',
+          '</div>',
+
+          /* bono lanzamiento */
+          '<div style="background:linear-gradient(90deg,rgba(251,146,60,.13),rgba(251,146,60,.04));border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">',
+              '<span style="font-size:1.4rem;">🔥</span>',
+              '<span style="font-size:.72rem;font-weight:800;color:#fb923c;text-transform:uppercase;letter-spacing:.08em;">Bono Especial de Lanzamiento</span>',
+            '</div>',
+            '<div style="font-size:.8rem;color:#cbd5e1;line-height:1.6;">',
+              'Los <strong style="color:#fbbf24;">primeros 5 agentes</strong> en vender Starlink recibirán:<br>',
+              '<span style="color:#4ade80;font-weight:700;">➡ $10 dólares adicionales por cada venta</span><br>',
+              '<span style="color:#94a3b8;font-size:.73rem;">• Se paga en efectivo &nbsp;• Al cierre de las primeras ventas &nbsp;• Solo los primeros 5 vendedores</span>',
+            '</div>',
+          '</div>',
+
+          /* proceso */
+          '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;margin-bottom:12px;">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">',
+              '<span style="font-size:1.2rem;">⚙️</span>',
+              '<span style="font-size:.72rem;font-weight:800;color:#a5b4fc;text-transform:uppercase;letter-spacing:.08em;">Proceso de Venta</span>',
+            '</div>',
+            '<ol style="margin:0;padding-left:18px;font-size:.78rem;color:#cbd5e1;line-height:2;">',
+              '<li>Crear el ID del cliente</li>',
+              '<li>Subir la información a <strong style="color:#a5b4fc;">FastGem</strong></li>',
+              '<li>Enviar a <strong style="color:#a5b4fc;">Procesamiento</strong></li>',
+              '<li>Procesamiento realiza: cierre del paquete, toma de datos y tarjeta de crédito</li>',
+            '</ol>',
+          '</div>',
+
+          /* política datos */
+          '<div style="background:linear-gradient(90deg,rgba(239,68,68,.1),rgba(239,68,68,.03));border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:12px 16px;margin-bottom:12px;">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">',
+              '<span style="font-size:1.2rem;">⚠️</span>',
+              '<span style="font-size:.72rem;font-weight:800;color:#f87171;text-transform:uppercase;letter-spacing:.08em;">Política de Datos — Importante</span>',
+            '</div>',
+            '<div style="font-size:.78rem;color:#fca5a5;line-height:1.9;">',
+              '❌ No solicitar datos personales sensibles<br>',
+              '❌ No tomar tarjetas de crédito<br>',
+              '❌ No guardar información bancaria<br>',
+              '❌ No procesar pagos directamente<br>',
+              '<span style="color:#94a3b8;">Esto lo maneja <strong style="color:#f87171;">únicamente Procesamiento</strong></span>',
+            '</div>',
+          '</div>',
+
+          /* cobertura */
+          '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;margin-bottom:4px;">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">',
+              '<span style="font-size:1.2rem;">🌎</span>',
+              '<span style="font-size:.72rem;font-weight:800;color:#a5b4fc;text-transform:uppercase;letter-spacing:.08em;">Cobertura Starlink</span>',
+            '</div>',
+            '<div style="font-size:.78rem;color:#cbd5e1;line-height:1.8;">',
+              '➡ Verificar con el departamento de <strong style="color:#38bdf8;">Lealtad</strong><br>',
+              '➡ Como disponibilidad normal (<strong style="color:#38bdf8;">dispo</strong>)<br>',
+              '<span style="color:#94a3b8;">Validar cobertura <strong>antes</strong> de ofrecer el producto</span>',
+            '</div>',
+          '</div>',
+
+        '</div>',
+
+        /* footer */
+        '<div style="padding:16px 24px 20px;border-top:1px solid rgba(255,255,255,.07);">',
+          '<button id="sl-ann-close" style="width:100%;background:linear-gradient(90deg,#0ea5e9,#6366f1);color:#fff;border:none;border-radius:12px;padding:13px;font-size:.92rem;font-weight:800;cursor:pointer;letter-spacing:.03em;animation:sl-pulse 2s infinite;">🛰️ Entendido — ¡A vender Starlink!</button>',
+          '<div style="text-align:center;font-size:.65rem;color:#475569;margin-top:8px;">Este anuncio se muestra hasta el 8 de abril de 2026</div>',
+        '</div>',
+
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(overlay);
+
+    document.getElementById('sl-ann-close').addEventListener('click', function () {
+      overlay.style.transition = 'opacity .25s';
+      overlay.style.opacity = '0';
+      setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 260);
+    });
+
+    /* click en overlay cierra */
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) document.getElementById('sl-ann-close').click();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(showStarlinkAnnouncement, 800); });
+  } else {
+    setTimeout(showStarlinkAnnouncement, 800);
+  }
+})();
+</script>
+
+</body>
+</html>

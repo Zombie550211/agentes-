@@ -27,7 +27,9 @@
     'llamadas y ventas por team': 'llamadas-team',
     'lead': 'lead',
     'leads': 'lead',
-    'nuevo-lead': 'lead',
+    'formulario': 'formulario',
+    'formulario-registro': 'formulario',
+    'nuevo-lead': 'nuevo-lead',
     'costumer': 'costumer',
     'clientes': 'costumer',
     'ranking': 'ranking',
@@ -211,6 +213,8 @@
       if (/multimedia/.test(path)) return 'multimedia';
       if (/regla/.test(path)) return 'reglas';
       if (/costumer/.test(path) || /cliente/.test(path)) return 'costumer';
+      if (/nuevo-lead/.test(path)) return 'nuevo-lead';
+      if (/formulario-registro/.test(path)) return 'formulario';
       if (/lead/.test(path)) return 'lead';
       if (/crear/.test(path) && /cuenta/.test(path)) return 'crearcuenta';
       if (/register/.test(path)) return 'crearcuenta';
@@ -829,11 +833,13 @@
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
     
-    // Sección 1: Principal (sin título) - Inicio, Nuevo Lead, Lista de Clientes
+    // Sección 1: Principal (sin título) - Inicio, Formulario, Lead, Nuevo Lead, Lista de Clientes
     const principalItems = [
-      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html' },
-      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lead.html' },
-      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
+      { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/inicio.html' },
+      { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/formulario-registro.html' },
+      { key: 'lead',        icon: 'fa-file-alt',   text: 'Lead',        href: '/lead.html' },
+      { key: 'nuevo-lead',  icon: 'fa-inbox',      text: 'Nuevo Lead',  href: '/nuevo-lead.html', procOnly: true },
+      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
     ];
     
     // Sección 2: Estadísticas
@@ -877,6 +883,7 @@
     ];
 
     const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
+    const isProcesamiento = normalizedRole.startsWith('procesamiento');
     const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
     const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
     
@@ -890,6 +897,7 @@
     // Helper para renderizar items
     const renderItem = (item, activeClass = 'active-res') => {
       if (item.adminOnly && !isAdmin) return '';
+      if (item.procOnly && !isAdmin && !isProcesamiento) return '';
       const isActive = item.key === normalizedActive ? activeClass : '';
       
       if (item.hasSubmenu) {
@@ -1681,7 +1689,9 @@
   (function setupAdminLocalSidebarButtonNav(){
     const LABEL_TO_HREF = {
       'inicio': '/inicio.html',
-      'nuevo lead': '/lead.html',
+      'formulario': '/formulario-registro.html',
+      'lead': '/lead.html',
+      'nuevo lead': '/nuevo-lead.html',
       'lista de clientes': '/Costumer.html',
       'ranking y promociones': '/Ranking y Promociones.html',
       'estadisticas': '/Estadisticas.html',

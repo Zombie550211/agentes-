@@ -7,6 +7,13 @@ const { getDb } = require('../config/db');
 const { protect, authorize } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 
+// Rate limiter para login: 20 intentos cada 10 minutos por IP
+let loginRateLimit = (req, res, next) => next();
+try {
+  const { rateLimit } = require('express-rate-limit');
+  loginRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false });
+} catch (_) {}
+
 /**
  * @route POST /api/auth/register
  * @desc Registrar nuevo usuario
@@ -352,7 +359,7 @@ router.post('/reset-password', protect, authorize('admin', 'Administrador', 'adm
  * @desc Iniciar sesión
  * @access Public
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginRateLimit, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -735,22 +742,5 @@ router.get('/verify', (req, res) => {
   }
 });
 
-/**
- * @route GET /api/auth/debug-storage
- * @desc Endpoint de debug para verificar storage
- * @access Public
- */
-router.get('/debug-storage', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Este endpoint es solo para debugging',
-    note: 'Para verificar si hay token, usa /api/auth/verify-server',
-    cookies: req.cookies,
-    headers: {
-      cookie: req.headers.cookie,
-      authorization: req.headers.authorization
-    }
-  });
-});
 
 module.exports = router;

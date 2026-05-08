@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuevo Lead — Procesamiento</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=20251124f">
+<link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
+<link rel="stylesheet" href="/css/responsive-sidebar.css">
+
+<script src="js/fetch-interceptor.js"></script>
+<script src="/js/logout-handler.js"></script>
+<script src="/js/user-info.js"></script>
+<script src="js/crm-config.js"></script>
+<script src="js/inactivity-manager.js"></script>
+<script src="js/crm-init.js"></script>
+<script src="/js/sidebar-loader.js"></script>
+<script>window.authChecked = true;</script>
+
+<style>
+  :root {
+    --accent: #0d9488;
+    --accent-light: rgba(13,148,136,0.09);
+    --accent-border: rgba(13,148,136,0.26);
+    --text: #1a2e3b;
+    --text-dim: #5a7a8a;
+    --label: #2a6a78;
+    --border: #d0dde6;
+    --input-bg: #f6fafb;
+    --input-border: #c5d5df;
+    --section-bg: #eef6f7;
+    --page-bg: #dce8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--page-bg);
+    min-height: 100vh;
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+  }
+
+  .main-content {
+    padding: 28px 32px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── HEADER ── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .page-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0a3d38;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .page-title i { color: var(--accent); }
+  .badge-count {
+    background: var(--accent);
+    color: white;
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  /* ── FILTROS ── */
+  .filters-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-btn {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: all 0.17s;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .search-box {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 220px;
+  }
+  .search-box i { padding: 0 10px; color: var(--text-dim); font-size: 0.85rem; }
+  .search-box input {
+    border: none;
+    background: transparent;
+    padding: 8px 10px 8px 0;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.88rem;
+    color: var(--text);
+    outline: none;
+    width: 100%;
+  }
+
+  /* ── TABLA ── */
+  .table-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.07);
+  }
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    min-width: 1100px;
+  }
+  thead th {
+    background: var(--section-bg);
+    color: var(--label);
+    font-size: 0.70rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 11px 12px;
+    border-bottom: 2px solid var(--border);
+    text-align: left;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    background: white;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  /* Neutraliza el tr:hover oscuro de theme.css global */
+  tbody tr:hover { background: transparent !important; }
+  .tr-main { cursor: pointer; }
+  .tr-main:hover td { background: #e6f7f5 !important; }
+  .tr-main.open td { background: rgba(13,148,136,0.07) !important; border-bottom: none; }
+  body.dark-theme tbody td { background: #1e293b; }
+  body.dark-theme .tr-main:hover td { background: #1f3a42 !important; }
+  body.dark-theme .tr-main.open td { background: rgba(13,148,136,0.12) !important; }
+
+  /* ── FILA DE DETALLE ── */
+  .tr-detail td {
+    padding: 0 !important;
+    background: var(--section-bg) !important;
+    border-bottom: 2px solid var(--accent-border) !important;
+  }
+  .lead-detail-panel {
+    display: flex;
+    gap: 24px;
+    padding: 20px 24px;
+    animation: slideDown 0.22s ease;
+  }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .detail-section { display: flex; flex-direction: column; gap: 8px; }
+  .detail-section-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .detail-nota  { flex: 0 0 360px; }
+  .detail-edit  { flex: 0 0 420px; }
+  .detail-images {
+    flex: 0 0 260px;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  body.dark-theme .detail-images { background: #1e293b; border-color: #334155; }
+
+  /* ── NOTA MÁS GRANDE EN PANEL ── */
+  .detail-nota .nota-wrap { height: 100%; }
+  .detail-nota .textarea-nota {
+    height: 150px;
+    width: 100%;
+    resize: vertical;
+  }
+
+  /* ── FORM DE EDICIÓN ── */
+  .edit-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+  .edit-form .span-2 { grid-column: span 2; }
+  .edit-field { display: flex; flex-direction: column; gap: 3px; }
+  .edit-field label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .edit-input {
+    background: white;
+    border: 1.5px solid var(--input-border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.82rem;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.17s, box-shadow 0.17s;
+    width: 100%;
+  }
+  .edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,148,136,0.10); }
+  .btn-save-edit {
+    grid-column: span 2;
+    margin-top: 4px;
+    background: linear-gradient(135deg, #0a7a72, #0d9488);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity 0.17s, transform 0.17s;
+  }
+  .btn-save-edit:hover { opacity: 0.88; transform: translateY(-1px); }
+  body.dark-theme .edit-input { background: #0d1a28; border-color: #334155; color: #e2e8f0; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 2px dashed var(--accent-border);
+    border-radius: 10px;
+    padding: 14px 10px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--section-bg);
+  }
+  .upload-zone:hover { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .upload-zone i { font-size: 1.6rem; }
+
+  /* ── GALERÍA ── */
+  .img-gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    flex: 1;
+  }
+  .thumb-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.17s, border-color 0.17s;
+    display: block;
+  }
+  .thumb-img:hover { transform: scale(1.06); border-color: var(--accent); }
+  .no-imgs {
+    grid-column: span 3;
+    font-size: 0.76rem;
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: center;
+    padding: 8px 0;
+  }
+  .uploading-spinner {
+    font-size: 0.8rem;
+    color: var(--accent);
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.dark-theme .tr-detail td { background: #162032 !important; }
+  body.dark-theme .upload-zone { background: #0d1a28; }
+  body.dark-theme .lead-detail-panel { background: #162032; }
+  body.dark-theme .detail-images { background: #1e293b !important; border-color: #334155 !important; }
+
+  /* ── BADGE STATUS ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.70rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-pendiente   { background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
+  .badge-completada  { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+  .badge-venta-pend  { background: rgba(99,102,241,0.12); color: #4f46e5; border: 1px solid rgba(99,102,241,0.3); }
+
+  /* ── SELECT STATUS ── */
+  .select-status {
+    background: white;
+    border: 1.5px solid var(--input-border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 8px 30px 8px 10px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%230d9488'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    min-width: 168px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    transition: border-color 0.17s, box-shadow 0.17s;
+  }
+  .select-status:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,148,136,0.13); }
+  .select-status option { background: #0f2d38; color: #e2f4f2; }
+  .select-status option:checked, .select-status option:hover { background: #0d9488; color: #fff; }
+  .select-status option[value=""] { color: #6a9aaa; font-style: italic; }
+
+  /* ── INPUT FECHA ── */
+  .fechas-cell { display: flex; flex-direction: column; gap: 7px; }
+  .fecha-field { display: flex; flex-direction: column; gap: 3px; }
+  .fecha-field-label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .input-fecha {
+    background: white;
+    border: 1.5px solid var(--input-border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 500;
+    padding: 7px 10px;
+    outline: none;
+    width: 140px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    transition: border-color 0.17s, box-shadow 0.17s;
+  }
+  .input-fecha:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+
+  /* ── NOTA ── */
+  .nota-wrap { position: relative; }
+  .textarea-nota {
+    background: white;
+    border: 1.5px dashed var(--input-border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.82rem;
+    padding: 8px 36px 8px 10px;
+    resize: none;
+    height: 68px;
+    width: 200px;
+    outline: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    transition: border-color 0.17s, border-style 0.17s;
+  }
+  .textarea-nota:focus { border-color: var(--accent); border-style: solid; }
+  .btn-save-nota {
+    position: absolute;
+    bottom: 7px;
+    right: 7px;
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.70rem;
+    transition: background 0.17s, transform 0.17s;
+    flex-shrink: 0;
+  }
+  .btn-save-nota:hover { background: #0a7a72; transform: scale(1.08); }
+
+  /* ── BOTONES ACCIÓN ── */
+  .actions-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 170px; }
+  .btn-completada, .btn-pendiente {
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-completada {
+    background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(5,150,105,0.35);
+  }
+  .btn-completada:hover { box-shadow: 0 6px 20px rgba(5,150,105,0.45); transform: translateY(-2px); }
+  .btn-pendiente {
+    background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.32);
+  }
+  .btn-pendiente:hover { box-shadow: 0 6px 20px rgba(79,70,229,0.42); transform: translateY(-2px); }
+  .btn-completada:disabled, .btn-pendiente:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Fila resuelta */
+  tr.resuelta td { opacity: 0.6; }
+  tr.resuelta-completada { background: rgba(16,185,129,0.04) !important; }
+
+  /* ── EMPTY ── */
+  .empty-row td {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-dim);
+    font-size: 0.92rem;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 22px;
+    right: 24px;
+    background: #0d9488;
+    color: white;
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    z-index: 9999;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { background: #e53e3e; }
+
+  /* ── DARK MODE ── */
+  body.dark-theme {
+    --accent: #2dd4bf;
+    --accent-light: rgba(45,212,191,0.07);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --label: #94a3b8;
+    --border: #334155;
+    --input-bg: #1e293b;
+    --input-border: #334155;
+    --section-bg: #162032;
+    --page-bg: #0d1a28;
+  }
+  body.dark-theme .table-card { background: #1e293b; }
+  body.dark-theme table { color: #e2e8f0; }
+  body.dark-theme .page-title { color: #e2e8f0; }
+  body.dark-theme .filter-btn { background: #1e293b; color: #94a3b8; }
+  body.dark-theme .search-box { background: #1e293b; }
+  body.dark-theme .search-box input { color: #e2e8f0; }
+
+  @media (max-width: 768px) {
+    .page-content { padding: 16px; }
+    .search-box { min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast"><i class="fas fa-check-circle"></i><span id="toast-msg"></span></div>
+
+<div class="main-content">
+
+  <div class="page-header">
+    <div class="page-title">
+      <i class="fas fa-inbox"></i>
+      Nuevo Lead
+      <span class="badge-count" id="total-count">0</span>
+    </div>
+    <button class="filter-btn" onclick="cargarLeads()" title="Actualizar">
+      <i class="fas fa-sync-alt"></i> Actualizar
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-bar">
+    <button class="filter-btn active" data-filtro="todos" onclick="filtrar('todos', this)">Todos</button>
+    <button class="filter-btn" data-filtro="pendiente" onclick="filtrar('pendiente', this)">Pendientes</button>
+    <button class="filter-btn" data-filtro="Venta Completada" onclick="filtrar('Venta Completada', this)">Completados</button>
+    <button class="filter-btn" data-filtro="Venta Pendiente" onclick="filtrar('Venta Pendiente', this)">Venta Pendiente</button>
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" id="search-input" placeholder="Buscar por nombre, ID, agente..." oninput="buscar(this.value)">
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Teléfono 1</th>
+            <th>Teléfono 2</th>
+            <th>Dirección</th>
+            <th>Correo</th>
+            <th>F. Nacimiento</th>
+            <th>Servicio</th>
+            <th>Mercado</th>
+            <th>Nota Agente</th>
+            <th>Agente</th>
+            <th>Status</th>
+            <th>Fechas</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="leads-tbody">
+          <tr class="empty-row"><td colspan="14"><i class="fas fa-spinner fa-spin"></i> Cargando leads...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STATUSES = [
+  'Fee $100','Fee $50','Fee $25','Fee $20',
+  'Depósito de $50',
+  'Análisis',
+  'Tarjeta Declined',
+  'Error de Cobertura',
+  'Cuenta Activa AT&T',
+  'Cuenta Activa Xfinity',
+  'Cargo de instalación',
+  'No Contesta',
+  'Venta Completada',
+  'Venta Pendiente',
+];
+
+let todosLeads = [];
+let filtroActual = 'todos';
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  const m = document.getElementById('toast-msg');
+  m.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  t.querySelector('i').className = isError ? 'fas fa-times-circle' : 'fas fa-check-circle';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+function getUser() {
+  try { return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}'); } catch { return {}; }
+}
+
+function checkAcceso() {
+  const user = getUser();
+  const role = String(user.role || '').toLowerCase().trim();
+  const allowed = ['admin','administrador','administrator'].includes(role) || role.startsWith('procesamiento');
+  if (!allowed) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Rajdhani,sans-serif;font-size:1.3rem;color:#e53e3e;">
+      <div style="text-align:center"><i class="fas fa-lock" style="font-size:3rem;margin-bottom:16px;display:block;"></i>Acceso restringido</div>
+    </div>`;
+  }
+}
+
+async function cargarLeads() {
+  try {
+    const res = await fetch('/api/pre-leads', { credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Error');
+    todosLeads = data.leads || [];
+    document.getElementById('total-count').textContent = todosLeads.length;
+    renderTabla(todosLeads);
+  } catch (err) {
+    document.getElementById('leads-tbody').innerHTML =
+      `<tr class="empty-row"><td colspan="14"><i class="fas fa-exclamation-triangle"></i> ${err.message}</td></tr>`;
+  }
+}
+
+function filtrar(valor, btn) {
+  filtroActual = valor;
+  document.querySelectorAll('.filter-btn[data-filtro]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  let lista = todosLeads;
+  if (valor !== 'todos') {
+    if (valor === 'pendiente') {
+      lista = lista.filter(l => !l.resolucion);
+    } else {
+      lista = lista.filter(l => l.resolucion === valor);
+    }
+  }
+
+  const q = document.getElementById('search-input').value.toLowerCase();
+  if (q) lista = lista.filter(l => buscarMatch(l, q));
+  renderTabla(lista);
+}
+
+function buscar(q) {
+  let lista = todosLeads;
+  if (filtroActual !== 'todos') {
+    if (filtroActual === 'pendiente') lista = lista.filter(l => !l.resolucion);
+    else lista = lista.filter(l => l.resolucion === filtroActual);
+  }
+  if (q) lista = lista.filter(l => buscarMatch(l, q));
+  renderTabla(lista);
+}
+
+function buscarMatch(l, q) {
+  return [l.leadId, l.nombre, l.agenteName, l.servicio, l.mercado].some(
+    v => String(v || '').toLowerCase().includes(q)
+  );
+}
+
+function renderTabla(lista) {
+  const tbody = document.getElementById('leads-tbody');
+  if (lista.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="14"><i class="fas fa-inbox"></i> No hay leads para mostrar.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lista.map(lead => {
+    const id = String(lead._id);
+    const resuelta = !!lead.resolucion;
+    const esCompletada = lead.resolucion === 'Venta Completada';
+    const rowClass = resuelta ? (esCompletada ? 'resuelta resuelta-completada' : 'resuelta') : '';
+
+    const badgeResolucion = resuelta
+      ? (esCompletada
+          ? '<span class="badge badge-completada"><i class="fas fa-check"></i> Completada</span>'
+          : '<span class="badge badge-venta-pend"><i class="fas fa-clock"></i> V. Pendiente</span>')
+      : '<span class="badge badge-pendiente">Sin resolver</span>';
+
+    const statusOptions = STATUSES.map(s =>
+      `<option value="${s}" ${lead.status === s ? 'selected' : ''}>${s}</option>`
+    ).join('');
+
+    const btnsDisabled = resuelta ? 'disabled' : '';
+
+    const imagenes = lead.imagenes || [];
+    const imgHTML = imagenes.length
+      ? imagenes.map(url => `<img src="${url}" class="thumb-img" onclick="verImagen('${url}')" title="Ver imagen">`).join('')
+      : '<span class="no-imgs">Sin imágenes aún</span>';
+
+    return `
+      <tr class="tr-main ${rowClass}" data-id="${id}" onclick="toggleDetalle('${id}')">
+        <td><strong>#${lead.leadId}</strong></td>
+        <td>${lead.nombre}</td>
+        <td>${lead.phone1}</td>
+        <td>${lead.phone2 || '—'}</td>
+        <td style="max-width:160px;white-space:normal;">${lead.direccion}</td>
+        <td style="font-size:0.78rem;">${lead.correo || '—'}</td>
+        <td>${lead.fechaNacimiento || '—'}</td>
+        <td style="font-size:0.78rem;white-space:nowrap;">${lead.servicio}</td>
+        <td>${lead.mercado || '—'}</td>
+        <td style="max-width:160px;white-space:normal;font-size:0.8rem;color:var(--text-dim);">${lead.nota || '—'}</td>
+        <td style="font-size:0.8rem;">${lead.agenteName || '—'}</td>
+        <td onclick="event.stopPropagation()">
+          ${resuelta
+            ? badgeResolucion
+            : `<select class="select-status" onchange="guardarCambio('${id}','status',this.value)">
+                <option value="">— Sin status —</option>
+                ${statusOptions}
+               </select>`
+          }
+        </td>
+        <td onclick="event.stopPropagation()">
+          <div class="fechas-cell">
+            <div class="fecha-field">
+              <span class="fecha-field-label">Venta</span>
+              <input type="date" class="input-fecha" id="fventa-${id}" value="${lead.fechaVenta || ''}" ${resuelta ? 'readonly' : ''} onchange="guardarCambio('${id}','fechaVenta',this.value)">
+            </div>
+            <div class="fecha-field">
+              <span class="fecha-field-label">Instalación</span>
+              <input type="date" class="input-fecha" id="finst-${id}" value="${lead.fechaInstalacion || ''}" ${resuelta ? 'readonly' : ''} onchange="guardarCambio('${id}','fechaInstalacion',this.value)">
+            </div>
+          </div>
+        </td>
+        <td onclick="event.stopPropagation()">
+          <div class="actions-wrap">
+            ${resuelta
+              ? badgeResolucion
+              : `<button class="btn-completada" ${btnsDisabled} onclick="resolver('${id}','Venta Completada')">
+                   <i class="fas fa-check-circle"></i> Venta Completada
+                 </button>
+                 <button class="btn-pendiente" ${btnsDisabled} onclick="resolver('${id}','Venta Pendiente')">
+                   <i class="fas fa-clock"></i> Venta Pendiente
+                 </button>`
+            }
+          </div>
+        </td>
+      </tr>
+      <tr class="tr-detail" id="detail-${id}" style="display:none;">
+        <td colspan="14">
+          <div class="lead-detail-panel" onclick="event.stopPropagation()">
+
+            <!-- NOTA -->
+            <div class="detail-section detail-nota">
+              <div class="detail-section-title"><i class="fas fa-sticky-note"></i> Nota de Procesamiento</div>
+              <div class="nota-wrap">
+                <textarea class="textarea-nota" id="nota-${id}" placeholder="Agregar nota...">${lead.notaProcesamiento || ''}</textarea>
+                <button class="btn-save-nota" title="Guardar nota" onclick="guardarNota('${id}')"><i class="fas fa-save"></i></button>
+              </div>
+            </div>
+
+            <!-- EDITAR DATOS -->
+            <div class="detail-section detail-edit">
+              <div class="detail-section-title"><i class="fas fa-pencil-alt"></i> Editar Datos del Lead</div>
+              <div class="edit-form">
+                <div class="edit-field">
+                  <label>Nombre</label>
+                  <input class="edit-input" id="ed-nombre-${id}" value="${(lead.nombre||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field">
+                  <label>Correo</label>
+                  <input class="edit-input" id="ed-correo-${id}" value="${(lead.correo||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field">
+                  <label>Teléfono 1</label>
+                  <input class="edit-input" id="ed-phone1-${id}" value="${(lead.phone1||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field">
+                  <label>Teléfono 2</label>
+                  <input class="edit-input" id="ed-phone2-${id}" value="${(lead.phone2||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field span-2">
+                  <label>Dirección</label>
+                  <input class="edit-input" id="ed-direccion-${id}" value="${(lead.direccion||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field">
+                  <label>Servicio</label>
+                  <input class="edit-input" id="ed-servicio-${id}" value="${(lead.servicio||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field">
+                  <label>Mercado</label>
+                  <input class="edit-input" id="ed-mercado-${id}" value="${(lead.mercado||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="edit-field span-2">
+                  <label>Nota del Agente</label>
+                  <textarea class="edit-input" id="ed-nota-${id}" rows="3" style="resize:vertical;">${lead.nota || ''}</textarea>
+                </div>
+                <button class="btn-save-edit span-2" onclick="guardarEdicion('${id}')">
+                  <i class="fas fa-check"></i> Guardar Cambios
+                </button>
+              </div>
+            </div>
+
+            <!-- IMÁGENES -->
+            <div class="detail-section detail-images">
+              <div class="detail-section-title"><i class="fas fa-images"></i> Imágenes <span style="font-size:0.68rem;color:var(--text-dim);text-transform:none;letter-spacing:0;font-family:'Exo 2',sans-serif;">(clic para ampliar)</span></div>
+              <div class="upload-zone" onclick="document.getElementById('img-input-${id}').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Subir imagen — clic o arrastra</span>
+                <input type="file" id="img-input-${id}" accept="image/*" multiple style="display:none" onchange="subirImagenes('${id}',this)">
+              </div>
+              <div class="img-gallery" id="gallery-${id}">${imgHTML}</div>
+            </div>
+
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleDetalle(id) {
+  const detail = document.getElementById(`detail-${id}`);
+  const mainRow = document.querySelector(`.tr-main[data-id="${id}"]`);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  // Cerrar todos
+  document.querySelectorAll('.tr-detail').forEach(r => { r.style.display = 'none'; });
+  document.querySelectorAll('.tr-main.open').forEach(r => r.classList.remove('open'));
+  // Abrir este si estaba cerrado
+  if (!isOpen) {
+    detail.style.display = 'table-row';
+    mainRow && mainRow.classList.add('open');
+  }
+}
+
+async function subirImagenes(id, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const gallery = document.getElementById(`gallery-${id}`);
+  const noImgs = gallery.querySelector('.no-imgs');
+
+  for (const file of files) {
+    const spinner = document.createElement('span');
+    spinner.className = 'uploading-spinner';
+    spinner.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    gallery.appendChild(spinner);
+
+    const fd = new FormData();
+    fd.append('image', file);
+    try {
+      const res = await fetch(`/api/pre-leads/${id}/images`, {
+        method: 'POST',
+        credentials: 'include',
+        body: fd
+      });
+      const data = await res.json();
+      gallery.removeChild(spinner);
+      if (!res.ok || !data.success) throw new Error(data.message);
+      if (noImgs) noImgs.remove();
+      const img = document.createElement('img');
+      img.src = data.url;
+      img.className = 'thumb-img';
+      img.title = 'Ver imagen';
+      img.onclick = () => verImagen(data.url);
+      gallery.appendChild(img);
+      showToast('Imagen subida', false);
+    } catch (err) {
+      gallery.removeChild(spinner);
+      showToast('Error: ' + err.message, true);
+    }
+  }
+  input.value = '';
+}
+
+function verImagen(url) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
+  overlay.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">`;
+  overlay.onclick = () => document.body.removeChild(overlay);
+  document.body.appendChild(overlay);
+}
+
+async function guardarEdicion(id) {
+  const campos = ['nombre','correo','phone1','phone2','direccion','servicio','mercado','nota'];
+  const body = {};
+  campos.forEach(c => {
+    const el = document.getElementById(`ed-${c}-${id}`);
+    if (el) body[c] = el.value.trim();
+  });
+
+  try {
+    const res = await fetch(`/api/pre-leads/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Error');
+
+    // Actualizar datos locales
+    const lead = todosLeads.find(l => String(l._id) === id);
+    if (lead) Object.assign(lead, body);
+
+    // Refrescar celdas visibles en la fila principal
+    const row = document.querySelector(`.tr-main[data-id="${id}"]`);
+    if (row) {
+      const cells = row.querySelectorAll('td');
+      // índices: 0=ID, 1=Nombre, 2=Phone1, 3=Phone2, 4=Dir, 5=Correo, 7=Servicio, 8=Mercado
+      if (cells[1]) cells[1].textContent = body.nombre || '';
+      if (cells[2]) cells[2].textContent = body.phone1 || '';
+      if (cells[3]) cells[3].textContent = body.phone2 || '—';
+      if (cells[4]) cells[4].textContent = body.direccion || '';
+      if (cells[5]) cells[5].textContent = body.correo || '—';
+      if (cells[7]) cells[7].textContent = body.servicio || '';
+      if (cells[8]) cells[8].textContent = body.mercado || '—';
+    }
+
+    showToast('Lead actualizado', false);
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function guardarNota(id) {
+  const nota = document.getElementById(`nota-${id}`).value.trim();
+  await guardarCambio(id, 'notaProcesamiento', nota);
+}
+
+async function guardarCambio(id, campo, valor) {
+  try {
+    const res = await fetch(`/api/pre-leads/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ [campo]: valor })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Error');
+    showToast('Guardado', false);
+    const lead = todosLeads.find(l => String(l._id) === id);
+    if (lead) lead[campo] = valor;
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+async function resolver(id, resolucion) {
+  const nota   = document.getElementById(`nota-${id}`)?.value.trim() || '';
+  const fventa = document.getElementById(`fventa-${id}`)?.value || '';
+  const finst  = document.getElementById(`finst-${id}`)?.value || '';
+
+  try {
+    const res = await fetch(`/api/pre-leads/${id}/resolver`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ resolucion, notaProcesamiento: nota, fechaVenta: fventa, fechaInstalacion: finst })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Error al resolver');
+    showToast(`Lead marcado como: ${resolucion}`, false);
+    await cargarLeads();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkAcceso();
+  cargarLeads();
+});
+</script>
+</body>
+</html>
