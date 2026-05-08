@@ -1047,12 +1047,16 @@ document.getElementById('btn-refresh').addEventListener('click',()=>{mostrarNoti
 
 /* ── Detect external sidebar width dynamically ────── */
 function adjustForExternalSidebar(){
-  const extSidebar=document.querySelector('body > nav, body > aside, #sidebar, .app-sidebar, [data-sidebar]');
-  if(extSidebar&&extSidebar!==document.querySelector('.sidebar')){
-    const w=extSidebar.getBoundingClientRect().width;
-    if(w>0)document.documentElement.style.setProperty('--ext-sidebar-w',w+'px');
+  const sb = document.querySelector('.sidebar, nav.sidebar-inicio, aside.sidebar-inicio');
+  if(sb){
+    const w = sb.getBoundingClientRect().width || sb.offsetWidth;
+    if(w > 0) document.documentElement.style.setProperty('--ext-sidebar-w', w + 'px');
   }
 }
+// Ajustar cuando el sidebar-loader termina de renderizar
+document.addEventListener('sidebar:loaded', function(){
+  setTimeout(adjustForExternalSidebar, 80);
+});
 
 async function initializeApp(){
   if(!checkAuth())return;
