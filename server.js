@@ -2929,6 +2929,23 @@ app.post('/api/admin/force-logout-all', protect, authorize('Administrador','admi
   }
 });
 
+// ── MIGRACIÓN: ATT AIR → AIR ───────────────────────────────────
+app.post('/api/admin/rename-att-air', protect, authorize('Administrador','admin','administrador'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Sin conexión a DB' });
+    const results = {};
+    for (const col of ['costumers_unified', 'leads']) {
+      const r = await db.collection(col).updateMany({ servicios: 'ATT AIR' }, { $set: { servicios: 'AIR' } });
+      results[col] = { matched: r.matchedCount, modified: r.modifiedCount };
+    }
+    console.log('[ADMIN] rename-att-air:', results, 'por', req.user?.username);
+    res.json({ success: true, results });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.get('/{*splat}', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: `Endpoint no encontrado: ${req.method} ${req.path}` });
