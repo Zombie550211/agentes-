@@ -8,7 +8,6 @@ function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
   // Items de Servicios Residenciales
   const residencialItems = [
     { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html' },
-    { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lead.html' },
     { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true },
     { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
     { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },

@@ -1190,13 +1190,15 @@
     initSocketNotifications();initScrollMirror();
     const ud=getUserData(),role=String(ud.role||'').toLowerCase();
 
-    // ── FIX: Supervisores arrancan sin "Solo 2 meses" para ver todos sus leads ──
+    // Sincronizar onlyTwoMonths con el estado inicial del monthFilter
+    // Si arranca en "Todos" (vacío), mostrar todos los meses sin límite de 2 meses
     const isSup=isSupervisor(role);
-    onlyTwoMonths=false; // siempre false al iniciar
+    const initMonth=(document.getElementById('monthFilter')||{}).value||'';
+    onlyTwoMonths=!initMonth; // true si Todos, false si hay mes específico
     const tmBtn=document.getElementById('toggleMonthsBtn');
     if(tmBtn){
-      tmBtn.textContent='Solo 2 meses'; // siempre muestra "Solo 2 meses" al inicio
-      tmBtn.classList.remove('active');
+      tmBtn.textContent=onlyTwoMonths?'Todos los meses':'Solo 2 meses';
+      tmBtn.classList.toggle('active',onlyTwoMonths);
     }
 
     const colchonCb=document.getElementById('check-colchon-activas');
@@ -1217,10 +1219,12 @@
     // monthFilter → re-fetch desde servidor con el mes seleccionado
     const monthFilterEl=document.getElementById('monthFilter');
     if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
-      const m=this.value||undefined;
+      const m=this.value;
+      // Cuando se elige "Todos", desactivar el límite de 2 meses para mostrar todo
+      if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
       const tbody=document.getElementById('costumer-tbody');
       if(tbody)tbody.innerHTML=getLoaderTR();
-      const leads=await fetchLeads(m);
+      const leads=await fetchLeads(m||undefined);
       window.renderCostumerTable(leads);
     });
     ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});

@@ -747,7 +747,6 @@
     const adminBackofficeRoles = ['admin', 'backoffice'];
     const menuItemsOrder = [
       { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: allRoles },
-      { key: 'lead', icon: 'fa-user-plus', text: 'Nuevo Lead', href: 'lead.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
       { key: 'premios', icon: 'fa-award', text: 'Premios', href: 'Premios.html', roles: allRoles },
@@ -837,8 +836,6 @@
     const principalItems = [
       { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/inicio.html' },
       { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/formulario-registro.html' },
-      { key: 'lead',        icon: 'fa-file-alt',   text: 'Lead',        href: '/lead.html' },
-      { key: 'nuevo-lead',  icon: 'fa-inbox',      text: 'Nuevo Lead',  href: '/nuevo-lead.html', procOnly: true },
       { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
     ];
     
