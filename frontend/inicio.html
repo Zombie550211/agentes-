@@ -652,7 +652,7 @@ body.dark-theme .p-av        { border-color: rgba(30,50,80,0.80) !important; }
 
   <!-- SHORTCUTS -->
   <div class="sc-grid">
-    <a class="sc" href="lead.html" style="--sc-c:rgba(37,99,235,.25)">
+    <a class="sc" href="lead.html" style="--sc-c:rgba(37,99,235,.25)" id="sc-nuevo-lead">
       <div class="sc-icon" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);box-shadow:0 5px 14px rgba(37,99,235,.28)"><i class="fas fa-plus-circle"></i></div>
       <div class="sc-title">Nuevo Lead</div>
       <div class="sc-desc">Registrar cliente potencial</div>
@@ -835,10 +835,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     const authData = await authRes.json();
-    const user = authData.data?.user || {};
+    const user = authData.user || authData.data?.user || {};
     
     console.log('[INICIO] Usuario autenticado:', user.username, '|', user.role);
-    
+
+    const roleLC = (user.role || '').toLowerCase();
+    const isAgente = roleLC.startsWith('agente') || roleLC === 'agent';
+    if (isAgente) {
+      const scNuevoLead = document.getElementById('sc-nuevo-lead');
+      if (scNuevoLead) scNuevoLead.style.display = 'none';
+    }
+
     const navName = document.getElementById('nav-name');
     if (navName) navName.textContent = user.username || 'Usuario';
     const navRole = document.getElementById('nav-role');

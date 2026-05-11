@@ -465,8 +465,12 @@ async function refreshInitDashboardCache(_db) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
+    const _msStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const _meDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+    const _meStr  = `${_meDate.getFullYear()}-${String(_meDate.getMonth()+1).padStart(2,'0')}-01`;
     const dateConditions = [
       { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: _msStr, $lt: _meStr } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
       { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
       { createdAt:          { $gte: monthStart, $lt: monthEnd } },
@@ -858,18 +862,19 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     let usersForData = null;
     if (isSup) usersForData = supervisorAgents;
 
+    // dia_venta se almacena como string "YYYY-MM-DD" — necesita comparación por string además de Date
+    const monthStartStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
+    const _nextDate     = new Date(curYear, curMonth + 1, 1);
+    const monthEndStr   = `${_nextDate.getFullYear()}-${String(_nextDate.getMonth() + 1).padStart(2, '0')}-01`;
+
     const dateConditions = [
       { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: monthStartStr, $lt: monthEndStr } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
       { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
       { createdAt:          { $gte: monthStart, $lt: monthEnd } },
       { fecha:              { $gte: monthStart, $lt: monthEnd } }
     ];
-
-    // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
-    const monthStartStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
-    const _nextDate     = new Date(curYear, curMonth + 1, 1);
-    const monthEndStr   = `${_nextDate.getFullYear()}-${String(_nextDate.getMonth() + 1).padStart(2, '0')}-01`;
     const colchonCondition = {
       $and: [
         { dia_instalacion: { $gte: monthStartStr, $lt: monthEndStr } },
