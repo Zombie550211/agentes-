@@ -485,7 +485,7 @@ async function refreshInitDashboardCache(_db) {
       .limit(2000)
       .toArray();
 
-    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    const ventasLeads  = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now));
     const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // solo colchones completed
 
     const kpis = {
@@ -902,7 +902,8 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       .toArray();
 
     const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // Solo colchones completed cuentan
-    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    // Ventas = completed + pending (igual que ACTIVAS en equipoController), excluyendo colchones
+    const ventasLeads  = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now));
     const totalPuntos  = ventasLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0);
 
     const kpis = {
@@ -959,7 +960,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
 
     let userPersonalStats = { ventasPersonales:0, puntosPersonales:0, posicionRanking:'-', nombreUsuario: user?.name || username };
     if (!isAdmOrBO) {
-      const userLeads = leads.filter(l => isCompleted(l.status) && !isColchon(l, now) && normText(l.agenteNombre || l.agente || l.usuario || '') === normText(username));
+      const userLeads = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now) && normText(l.agenteNombre || l.agente || l.usuario || '') === normText(username));
       userPersonalStats.ventasPersonales = userLeads.length;
       userPersonalStats.puntosPersonales = Math.round(userLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0) * 100) / 100;
     }
