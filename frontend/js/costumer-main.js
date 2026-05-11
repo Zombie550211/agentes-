@@ -224,15 +224,18 @@
     const limit = needsAll ? 2000 : 500;
     const scope = needsAll ? '&scope=ranking' : '';
 
-    // Calcular rango del mes — por defecto mes actual en hora El Salvador
-    const targetMonth = month || new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' }).slice(0, 7);
-    const [y, m] = targetMonth.split('-').map(Number);
-    const fi = targetMonth + '-01';
-    const lastDay = new Date(y, m, 0).getDate();
-    const ff = targetMonth + '-' + String(lastDay).padStart(2, '0');
-    const dateParams = '&fechaInicio=' + fi + '&fechaFin=' + ff;
+    // Calcular rango del mes — si no hay mes (Todos) no se aplica filtro de fecha
+    let dateParams = '';
+    if (month) {
+      const [y, m] = month.split('-').map(Number);
+      const fi = month + '-01';
+      const lastDay = new Date(y, m, 0).getDate();
+      const ff = month + '-' + String(lastDay).padStart(2, '0');
+      dateParams = '&fechaInicio=' + fi + '&fechaFin=' + ff;
+    }
+    const fetchLimit = needsAll ? (month ? 2000 : 10000) : (month ? 500 : 5000);
 
-    const url = '/api/leads?limit='+limit+'&offset=0'+scope+dateParams;
+    const url = '/api/leads?limit='+fetchLimit+'&offset=0'+scope+dateParams;
     const res = await AUTH.secureFetch(url);
     if (!res) return [];
     if (!res.ok) { showToast('Error del servidor: ' + res.status, 'error'); return []; }
@@ -414,7 +417,7 @@
           if(h.indexOf(search)===-1) return false;
         }
       }
-      if(svc&&String(lead.tipo_servicio||'').toUpperCase().indexOf(svc.toUpperCase())===-1)return false;
+      if(svc){const svcUp=svc.toUpperCase();const inSvc=String(lead.servicios||'').toUpperCase().indexOf(svcUp)!==-1;const inTipo=String(lead.tipo_servicio||'').toUpperCase().indexOf(svcUp)!==-1;if(!inSvc&&!inTipo)return false;}
       if(team&&String(lead.supervisor||'').toUpperCase().indexOf(team.toUpperCase())===-1)return false;
       if(agent){
         const normA=function(s){return String(s||'').replace(/\./g,' ').trim().toLowerCase();};
@@ -785,7 +788,7 @@
       'VIDEO DIRECTV VIA INTERNET':1.0,'VIDEO DIRECTV VIA SATELITE':1.0,
       'ATT AIR':0.45,'ATT 18 - 25 MB':0.25,'ATT 50 - 100 MB':0.35,'ATT 100 FIBRA':0.70,
       'ATT 300':1.25,'ATT 500':1.25,'ATT 1G':1.5,
-      'XFINITY 300':0.75,'XFINITY 500':0.75,'XFINITY 1G':0.75,
+      'XFINITY 300':0.35,'XFINITY 500':0.75,'XFINITY 1G':0.75,
       'SPECTRUM 400 MBPS':0.75,'SPECTRUM 500':0.75,'SPECTRUM 500MBPS+':1.0,'SPECTRUM 1G':1.0,'SPECTRUM 2G':1.25,
       'FRONTIER 200 MB':1.0,'FRONTIER 500 MB':1.0,'FRONTIER 1G':1.25,'FRONTIER 2G':1.5,
       'CONSOLIDATED':0.35,'BRIGHTSPEED':1.0,'INTERNET EARTHLINK 300 MB':1.0,'EARTHLINK':1.0,
