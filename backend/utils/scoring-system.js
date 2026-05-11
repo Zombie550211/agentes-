@@ -34,8 +34,11 @@ const SCORING_TABLE = {
     base: 1.0
   },
 
-  // ========== AT&T AIR ==========
+  // ========== AIR (AT&T Internet Air) ==========
   'att-air': {
+    base: 0.45
+  },
+  'air': {
     base: 0.45
   },
 
