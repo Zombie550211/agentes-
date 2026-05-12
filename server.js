@@ -1988,7 +1988,7 @@ app.post('/api/create-admin', async (req, res) => {
 });
 
 // ── TEAMS & SUPERVISORS ───────────────────────────────────────
-app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
+app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo','Supervisor','supervisor','Supervisor Team Lineas'), (req, res) => {
   try {
     const teamsServer = require('./backend/utils/teamsServer');
     const teams = typeof teamsServer.getTeamsForSelect === 'function' ? teamsServer.getTeamsForSelect() : [];

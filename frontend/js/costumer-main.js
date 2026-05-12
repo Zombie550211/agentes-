@@ -365,7 +365,8 @@
         const leadSup = String(lead.supervisor || '').trim().toUpperCase();
 
         // Palabras clave del nombre del usuario (ej: "GUADALUPE SANTANA" → ["GUADALUPE","SANTANA"])
-        const userNombreUpper = userName.trim().toUpperCase();
+        // Convertir puntos a espacios para manejar usernames como "riquelmi.torres"
+        const userNombreUpper = userName.replace(/\./g,' ').trim().toUpperCase();
         const userWords = userNombreUpper.split(/\s+/).filter(function(w){ return w.length >= 4; });
 
         // Palabras clave del team (ej: "TEAM GUADALUPE SANTANA" → ["GUADALUPE","SANTANA"])
