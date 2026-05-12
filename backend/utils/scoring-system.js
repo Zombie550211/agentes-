@@ -161,12 +161,18 @@ const SCORING_TABLE = {
     base: 0.35
   },
   // Consolidated Communications / Fidium (por velocidad)
-  'internet-consolidate-2g': { base: 1.25 },
-  'internet-consolidate-1g': { base: 1.25 },
+  'internet-consolidate-2g':   { base: 1.25 },
+  'internet-consolidate-1g':   { base: 1.25 },
   'internet-consolidate-300m': { base: 0.35 },
   'internet-consolidate-100m': { base: 0.35 },
+  // Alias display-name (frontend usa estos valores directamente)
+  'CONSOLIDATED 2G':   { base: 1.25 },
+  'CONSOLIDATED 1G':   { base: 1.25 },
+  'CONSOLIDATED 300 MB': { base: 0.35 },
+  'CONSOLIDATED 100 MB': { base: 0.35 },
   // Compatibilidad genérica si no se detecta velocidad
   'internet-consolidate': { base: 0.35 },
+  'CONSOLIDATED':         { base: 0.35 },
   'internet-centurylink': {
     base: 1.0
   },
