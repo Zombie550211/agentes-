@@ -1,8 +1,9 @@
 (function () {
   'use strict';
 
-  let __allLeadsData  = [];
-  let __filteredLeads = [];
+  let __allLeadsData      = [];
+  let __filteredLeads     = [];
+  let __allAvailableMonths = new Set(); // acumulador — nunca se encoge
   let currentPage     = 1;
   let pageSize        = 100;
   let activeStatusTab = 'all';
@@ -304,10 +305,12 @@
       ].map(toYM).filter(function(f){return f&&f.length===7&&/^\d{4}-\d{2}$/.test(f);});
       fechas.forEach(function(f){meses.add(f);});
     });
+    // Acumular meses persistentemente (nunca se encoge)
+    meses.forEach(function(m){__allAvailableMonths.add(m);});
     function updateSelect(id,items){const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML='<option value="">Todos</option>';Array.from(items).sort().forEach(function(v){const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});el.value=cur;}
     updateSelect('teamFilter',equipos);updateSelect('agentFilter',agentes);updateSelect('mercadoFilter',mercados);
     const monthEl=document.getElementById('monthFilter');
-    if(monthEl){const cur=monthEl.value;monthEl.innerHTML='<option value="">Todos</option>';const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];Array.from(meses).sort().reverse().forEach(function(m){const o=document.createElement('option');const parts=m.split('-');o.value=m;o.textContent=mn[parseInt(parts[1],10)-1]+' '+parts[0];monthEl.appendChild(o);});monthEl.value=cur;}
+    if(monthEl){const cur=monthEl.value;monthEl.innerHTML='<option value="">Todos</option>';const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];Array.from(__allAvailableMonths).sort().reverse().forEach(function(m){const o=document.createElement('option');const parts=m.split('-');o.value=m;o.textContent=mn[parseInt(parts[1],10)-1]+' '+parts[0];monthEl.appendChild(o);});monthEl.value=cur;}
   }
   window._refreshFilterOptions=refreshFilterOptions;
 
