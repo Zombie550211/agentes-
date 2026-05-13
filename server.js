@@ -465,8 +465,12 @@ async function refreshInitDashboardCache(_db) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
+    const _msStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const _meDate = new Date(now.getFullYear(), now.getMonth()+1, 1);
+    const _meStr  = `${_meDate.getFullYear()}-${String(_meDate.getMonth()+1).padStart(2,'0')}-01`;
     const dateConditions = [
       { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: _msStr, $lt: _meStr } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
       { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
       { createdAt:          { $gte: monthStart, $lt: monthEnd } },
@@ -481,7 +485,7 @@ async function refreshInitDashboardCache(_db) {
       .limit(2000)
       .toArray();
 
-    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    const ventasLeads  = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now));
     const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // solo colchones completed
 
     const kpis = {
@@ -858,18 +862,19 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
     let usersForData = null;
     if (isSup) usersForData = supervisorAgents;
 
+    // dia_venta se almacena como string "YYYY-MM-DD" — necesita comparación por string además de Date
+    const monthStartStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
+    const _nextDate     = new Date(curYear, curMonth + 1, 1);
+    const monthEndStr   = `${_nextDate.getFullYear()}-${String(_nextDate.getMonth() + 1).padStart(2, '0')}-01`;
+
     const dateConditions = [
       { dia_venta:          { $gte: monthStart, $lt: monthEnd } },
+      { dia_venta:          { $gte: monthStartStr, $lt: monthEndStr } },
       { fecha_contratacion: { $gte: monthStart, $lt: monthEnd } },
       { creadoEn:           { $gte: monthStart, $lt: monthEnd } },
       { createdAt:          { $gte: monthStart, $lt: monthEnd } },
       { fecha:              { $gte: monthStart, $lt: monthEnd } }
     ];
-
-    // dia_instalacion/dia_venta se guardan como strings "YYYY-MM-DD", usar comparación string
-    const monthStartStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
-    const _nextDate     = new Date(curYear, curMonth + 1, 1);
-    const monthEndStr   = `${_nextDate.getFullYear()}-${String(_nextDate.getMonth() + 1).padStart(2, '0')}-01`;
     const colchonCondition = {
       $and: [
         { dia_instalacion: { $gte: monthStartStr, $lt: monthEndStr } },
@@ -897,7 +902,8 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
       .toArray();
 
     const colchonLeads = leads.filter(l => isColchonActivo(l, now)); // Solo colchones completed cuentan
-    const ventasLeads  = leads.filter(l => isCompleted(l.status) && !isColchon(l, now));
+    // Ventas = completed + pending (igual que ACTIVAS en equipoController), excluyendo colchones
+    const ventasLeads  = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now));
     const totalPuntos  = ventasLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0);
 
     const kpis = {
@@ -954,7 +960,7 @@ app.get('/api/init-dashboard', protect, async (req, res) => {
 
     let userPersonalStats = { ventasPersonales:0, puntosPersonales:0, posicionRanking:'-', nombreUsuario: user?.name || username };
     if (!isAdmOrBO) {
-      const userLeads = leads.filter(l => isCompleted(l.status) && !isColchon(l, now) && normText(l.agenteNombre || l.agente || l.usuario || '') === normText(username));
+      const userLeads = leads.filter(l => (isCompleted(l.status) || isPending(l.status)) && !isColchon(l, now) && normText(l.agenteNombre || l.agente || l.usuario || '') === normText(username));
       userPersonalStats.ventasPersonales = userLeads.length;
       userPersonalStats.puntosPersonales = Math.round(userLeads.reduce((s, l) => s + parseFloat(l.puntaje || 0), 0) * 100) / 100;
     }
@@ -1982,7 +1988,7 @@ app.post('/api/create-admin', async (req, res) => {
 });
 
 // ── TEAMS & SUPERVISORS ───────────────────────────────────────
-app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo'), (req, res) => {
+app.get('/api/teams', protect, authorize('Administrador','admin','administrador','Administrativo','Supervisor','supervisor','Supervisor Team Lineas'), (req, res) => {
   try {
     const teamsServer = require('./backend/utils/teamsServer');
     const teams = typeof teamsServer.getTeamsForSelect === 'function' ? teamsServer.getTeamsForSelect() : [];
@@ -2919,6 +2925,23 @@ app.post('/api/admin/force-logout-all', protect, authorize('Administrador','admi
     if (global.io) global.io.emit('force-logout', { message: 'Sesión cerrada por el administrador', ts });
     console.log(`[ADMIN] force-logout-all ejecutado por ${req.user?.username} en ${new Date(ts).toISOString()}`);
     res.json({ success: true, message: 'Todas las sesiones han sido cerradas', ts });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ── MIGRACIÓN: ATT AIR → AIR ───────────────────────────────────
+app.post('/api/admin/rename-att-air', protect, authorize('Administrador','admin','administrador'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Sin conexión a DB' });
+    const results = {};
+    for (const col of ['costumers_unified', 'leads']) {
+      const r = await db.collection(col).updateMany({ servicios: 'ATT AIR' }, { $set: { servicios: 'AIR' } });
+      results[col] = { matched: r.matchedCount, modified: r.modifiedCount };
+    }
+    console.log('[ADMIN] rename-att-air:', results, 'por', req.user?.username);
+    res.json({ success: true, results });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
