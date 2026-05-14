@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../config/db');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 // GET /api/debug/ranking-raw?agente=NAME&fecha=YYYY-MM-DD&skipDate=1
 // Devuelve documentos crudos para el agente en todas las colecciones costumers*
-router.get('/ranking-raw', protect, async (req, res) => {
+router.get('/ranking-raw', protect, authorize('Administrador', 'admin', 'administrador'), async (req, res) => {
   try {
     const db = getDb();
     if (!db) return res.status(500).json({ success: false, message: 'DB not connected' });
