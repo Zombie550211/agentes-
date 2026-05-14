@@ -1,8 +1,9 @@
 (function () {
   'use strict';
 
-  let __allLeadsData  = [];
-  let __filteredLeads = [];
+  let __allLeadsData      = [];
+  let __filteredLeads     = [];
+  let __allAvailableMonths = new Set(); // acumulador — nunca se encoge
   let currentPage     = 1;
   let pageSize        = 100;
   let activeStatusTab = 'all';
@@ -224,15 +225,18 @@
     const limit = needsAll ? 2000 : 500;
     const scope = needsAll ? '&scope=ranking' : '';
 
-    // Calcular rango del mes — por defecto mes actual en hora El Salvador
-    const targetMonth = month || new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' }).slice(0, 7);
-    const [y, m] = targetMonth.split('-').map(Number);
-    const fi = targetMonth + '-01';
-    const lastDay = new Date(y, m, 0).getDate();
-    const ff = targetMonth + '-' + String(lastDay).padStart(2, '0');
-    const dateParams = '&fechaInicio=' + fi + '&fechaFin=' + ff;
+    // Calcular rango del mes — si no hay mes (Todos) no se aplica filtro de fecha
+    let dateParams = '';
+    if (month) {
+      const [y, m] = month.split('-').map(Number);
+      const fi = month + '-01';
+      const lastDay = new Date(y, m, 0).getDate();
+      const ff = month + '-' + String(lastDay).padStart(2, '0');
+      dateParams = '&fechaInicio=' + fi + '&fechaFin=' + ff;
+    }
+    const fetchLimit = needsAll ? (month ? 2000 : 10000) : (month ? 500 : 5000);
 
-    const url = '/api/leads?limit='+limit+'&offset=0'+scope+dateParams;
+    const url = '/api/leads?limit='+fetchLimit+'&offset=0'+scope+dateParams;
     const res = await AUTH.secureFetch(url);
     if (!res) return [];
     if (!res.ok) { showToast('Error del servidor: ' + res.status, 'error'); return []; }
@@ -301,10 +305,12 @@
       ].map(toYM).filter(function(f){return f&&f.length===7&&/^\d{4}-\d{2}$/.test(f);});
       fechas.forEach(function(f){meses.add(f);});
     });
+    // Acumular meses persistentemente (nunca se encoge)
+    meses.forEach(function(m){__allAvailableMonths.add(m);});
     function updateSelect(id,items){const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML='<option value="">Todos</option>';Array.from(items).sort().forEach(function(v){const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});el.value=cur;}
     updateSelect('teamFilter',equipos);updateSelect('agentFilter',agentes);updateSelect('mercadoFilter',mercados);
     const monthEl=document.getElementById('monthFilter');
-    if(monthEl){const cur=monthEl.value;monthEl.innerHTML='<option value="">Todos</option>';const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];Array.from(meses).sort().reverse().forEach(function(m){const o=document.createElement('option');const parts=m.split('-');o.value=m;o.textContent=mn[parseInt(parts[1],10)-1]+' '+parts[0];monthEl.appendChild(o);});monthEl.value=cur;}
+    if(monthEl){const cur=monthEl.value;monthEl.innerHTML='<option value="">Todos</option>';const mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];Array.from(__allAvailableMonths).sort().reverse().forEach(function(m){const o=document.createElement('option');const parts=m.split('-');o.value=m;o.textContent=mn[parseInt(parts[1],10)-1]+' '+parts[0];monthEl.appendChild(o);});monthEl.value=cur;}
   }
   window._refreshFilterOptions=refreshFilterOptions;
 
@@ -359,7 +365,8 @@
         const leadSup = String(lead.supervisor || '').trim().toUpperCase();
 
         // Palabras clave del nombre del usuario (ej: "GUADALUPE SANTANA" → ["GUADALUPE","SANTANA"])
-        const userNombreUpper = userName.trim().toUpperCase();
+        // Convertir puntos a espacios para manejar usernames como "riquelmi.torres"
+        const userNombreUpper = userName.replace(/\./g,' ').trim().toUpperCase();
         const userWords = userNombreUpper.split(/\s+/).filter(function(w){ return w.length >= 4; });
 
         // Palabras clave del team (ej: "TEAM GUADALUPE SANTANA" → ["GUADALUPE","SANTANA"])
@@ -414,7 +421,7 @@
           if(h.indexOf(search)===-1) return false;
         }
       }
-      if(svc&&String(lead.tipo_servicio||'').toUpperCase().indexOf(svc.toUpperCase())===-1)return false;
+      if(svc){const svcUp=svc.toUpperCase();const inSvc=String(lead.servicios||'').toUpperCase().indexOf(svcUp)!==-1;const inTipo=String(lead.tipo_servicio||'').toUpperCase().indexOf(svcUp)!==-1;if(!inSvc&&!inTipo)return false;}
       if(team&&String(lead.supervisor||'').toUpperCase().indexOf(team.toUpperCase())===-1)return false;
       if(agent){
         const normA=function(s){return String(s||'').replace(/\./g,' ').trim().toLowerCase();};
@@ -751,12 +758,12 @@
   (function(){
     var EDIT_TYPE_MAP={
       'VIDEO DIRECTV VIA INTERNET':'VIDEO','VIDEO DIRECTV VIA SATELITE':'VIDEO',
-      'ATT AIR':'AT&T AIR','ATT 18 - 25 MB':'INTERNET','ATT 50 - 100 MB':'INTERNET',
+      'AIR':'AT&T AIR','ATT AIR':'AT&T AIR','ATT 18 - 25 MB':'INTERNET','ATT 50 - 100 MB':'INTERNET',
       'ATT 100 FIBRA':'INTERNET','ATT 300':'ATT 300','ATT 500':'ATT 500','ATT 1G':'ATT 1G',
       'SPECTRUM 400 MBPS':'INTERNET','SPECTRUM 500':'INTERNET','SPECTRUM 500MBPS+':'INTERNET',
       'SPECTRUM 1G':'INTERNET','SPECTRUM 2G':'INTERNET',
       'FRONTIER 200 MB':'FRONTIER','FRONTIER 500 MB':'FRONTIER','FRONTIER 1G':'FRONTIER','FRONTIER 2G':'FRONTIER',
-      'CONSOLIDATED':'CONSOLIDATE',
+      'CONSOLIDATED 100 MB':'CONSOLIDATE','CONSOLIDATED 300 MB':'CONSOLIDATE','CONSOLIDATED 1G':'CONSOLIDATE','CONSOLIDATED 2G':'CONSOLIDATE','CONSOLIDATED':'CONSOLIDATE',
       'XFINITY 300':'XFINITY','XFINITY 500':'XFINITY','XFINITY 1G':'XFINITY',
       'BRIGHTSPEED':'BRIGHTSPEED',
       'INTERNET EARTHLINK 300 MB':'EARTHLINK','EARTHLINK':'EARTHLINK',
@@ -769,11 +776,11 @@
     };
     var EDIT_SYS_MAP={
       'VIDEO DIRECTV VIA INTERNET':'SARA','VIDEO DIRECTV VIA SATELITE':'SARA',
-      'ATT AIR':'SARA','ATT 18 - 25 MB':'SARA','ATT 50 - 100 MB':'SARA','ATT 100 FIBRA':'SARA',
+      'AIR':'SARA','ATT AIR':'SARA','ATT 18 - 25 MB':'SARA','ATT 50 - 100 MB':'SARA','ATT 100 FIBRA':'SARA',
       'ATT 300':'SARA','ATT 500':'SARA','ATT 1G':'SARA',
       'SPECTRUM 400 MBPS':'SARA','SPECTRUM 500':'SARA','SPECTRUM 500MBPS+':'SARA','SPECTRUM 1G':'SARA','SPECTRUM 2G':'SARA',
       'FRONTIER 200 MB':'SARA','FRONTIER 500 MB':'SARA','FRONTIER 1G':'SARA','FRONTIER 2G':'SARA',
-      'CONSOLIDATED':'SARA','XFINITY 300':'N/A','XFINITY 500':'N/A','XFINITY 1G':'N/A',
+      'CONSOLIDATED 100 MB':'SARA','CONSOLIDATED 300 MB':'SARA','CONSOLIDATED 1G':'SARA','CONSOLIDATED 2G':'SARA','CONSOLIDATED':'SARA','XFINITY 300':'N/A','XFINITY 500':'N/A','XFINITY 1G':'N/A',
       'BRIGHTSPEED':'SARA','INTERNET EARTHLINK 300 MB':'SARA','EARTHLINK':'SARA',
       'ZIPLY FIBER 10G':'SARA','ZIPLY FIBER 5G':'SARA','ZIPLY FIBER 2G':'SARA',
       'ZIPLY FIBER 1G':'SARA','ZIPLY FIBER 300':'SARA','ZIPLY FIBER 200':'SARA','ZIPLY FIBER':'SARA',
@@ -783,12 +790,12 @@
     };
     var EDIT_SCORE_MAP={
       'VIDEO DIRECTV VIA INTERNET':1.0,'VIDEO DIRECTV VIA SATELITE':1.0,
-      'ATT AIR':0.45,'ATT 18 - 25 MB':0.25,'ATT 50 - 100 MB':0.35,'ATT 100 FIBRA':0.70,
+      'AIR':0.45,'ATT AIR':0.45,'ATT 18 - 25 MB':0.25,'ATT 50 - 100 MB':0.35,'ATT 100 FIBRA':0.70,
       'ATT 300':1.25,'ATT 500':1.25,'ATT 1G':1.5,
-      'XFINITY 300':0.75,'XFINITY 500':0.75,'XFINITY 1G':0.75,
+      'XFINITY 300':0.35,'XFINITY 500':0.75,'XFINITY 1G':0.75,
       'SPECTRUM 400 MBPS':0.75,'SPECTRUM 500':0.75,'SPECTRUM 500MBPS+':1.0,'SPECTRUM 1G':1.0,'SPECTRUM 2G':1.25,
       'FRONTIER 200 MB':1.0,'FRONTIER 500 MB':1.0,'FRONTIER 1G':1.25,'FRONTIER 2G':1.5,
-      'CONSOLIDATED':0.35,'BRIGHTSPEED':1.0,'INTERNET EARTHLINK 300 MB':1.0,'EARTHLINK':1.0,
+      'CONSOLIDATED 100 MB':0.35,'CONSOLIDATED 300 MB':0.35,'CONSOLIDATED 1G':1.25,'CONSOLIDATED 2G':1.25,'CONSOLIDATED':0.35,'BRIGHTSPEED':1.0,'INTERNET EARTHLINK 300 MB':1.0,'EARTHLINK':1.0,
       'ZIPLY FIBER 10G':1.25,'ZIPLY FIBER 5G':1.25,'ZIPLY FIBER 2G':1.0,'ZIPLY FIBER 1G':1.0,
       'ZIPLY FIBER 300':0.35,'ZIPLY FIBER 200':0.35,'ZIPLY FIBER':0.35,
       'WINDSTREAM':1.0,'WOW':1.0,'ALTAFIBER':1.0,'HUGHESNET':0.35,'VIASAT':0.75,
@@ -1187,13 +1194,15 @@
     initSocketNotifications();initScrollMirror();
     const ud=getUserData(),role=String(ud.role||'').toLowerCase();
 
-    // ── FIX: Supervisores arrancan sin "Solo 2 meses" para ver todos sus leads ──
+    // Sincronizar onlyTwoMonths con el estado inicial del monthFilter
+    // Si arranca en "Todos" (vacío), mostrar todos los meses sin límite de 2 meses
     const isSup=isSupervisor(role);
-    onlyTwoMonths=false; // siempre false al iniciar
+    const initMonth=(document.getElementById('monthFilter')||{}).value||'';
+    onlyTwoMonths=!initMonth; // true si Todos, false si hay mes específico
     const tmBtn=document.getElementById('toggleMonthsBtn');
     if(tmBtn){
-      tmBtn.textContent='Solo 2 meses'; // siempre muestra "Solo 2 meses" al inicio
-      tmBtn.classList.remove('active');
+      tmBtn.textContent=onlyTwoMonths?'Todos los meses':'Solo 2 meses';
+      tmBtn.classList.toggle('active',onlyTwoMonths);
     }
 
     const colchonCb=document.getElementById('check-colchon-activas');
@@ -1214,10 +1223,12 @@
     // monthFilter → re-fetch desde servidor con el mes seleccionado
     const monthFilterEl=document.getElementById('monthFilter');
     if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
-      const m=this.value||undefined;
+      const m=this.value;
+      // Cuando se elige "Todos", desactivar el límite de 2 meses para mostrar todo
+      if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
       const tbody=document.getElementById('costumer-tbody');
       if(tbody)tbody.innerHTML=getLoaderTR();
-      const leads=await fetchLeads(m);
+      const leads=await fetchLeads(m||undefined);
       window.renderCostumerTable(leads);
     });
     ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});

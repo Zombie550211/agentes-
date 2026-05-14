@@ -348,4 +348,32 @@ router.post('/populate-was-reserva', protect, authorize('Administrador', 'admin'
   }
 });
 
+/**
+ * POST /api/migrate/rename-att-air
+ * Renombra servicios de "ATT AIR" → "AIR" en leads y costumers_unified
+ */
+router.post('/rename-att-air', protect, authorize('Administrador', 'admin'), async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(500).json({ success: false, message: 'Sin conexión a DB' });
+
+    const collections = ['costumers_unified', 'leads'];
+    const results = {};
+
+    for (const col of collections) {
+      const filter   = { servicios: 'ATT AIR' };
+      const update   = { $set: { servicios: 'AIR' } };
+      const preview  = await db.collection(col).countDocuments(filter);
+      if (preview === 0) { results[col] = { matched: 0, modified: 0 }; continue; }
+      const r = await db.collection(col).updateMany(filter, update);
+      results[col] = { matched: r.matchedCount, modified: r.modifiedCount };
+    }
+
+    res.json({ success: true, message: 'Migración ATT AIR → AIR completada', results });
+  } catch (err) {
+    console.error('[MIGRATE rename-att-air]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
