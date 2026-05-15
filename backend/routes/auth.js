@@ -3,9 +3,28 @@ const router = express.Router();
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 const { getDb } = require('../config/db');
 const { protect, authorize } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
+
+// ── MAINTENANCE STATE ──────────────────────────────────────────
+const MAINTENANCE_FILE = path.join(__dirname, '../../maintenance.json');
+
+function loadMaintenance() {
+  try {
+    if (fs.existsSync(MAINTENANCE_FILE))
+      return JSON.parse(fs.readFileSync(MAINTENANCE_FILE, 'utf8'));
+  } catch (_) {}
+  return { active: false, message: '', activeSince: null };
+}
+
+function saveMaintenance(state) {
+  try { fs.writeFileSync(MAINTENANCE_FILE, JSON.stringify(state, null, 2)); } catch (_) {}
+}
+
+let maintenanceState = loadMaintenance();
 
 // Rate limiter para login: 20 intentos cada 10 minutos por IP
 let loginRateLimit = (req, res, next) => next();
@@ -601,6 +620,17 @@ router.get('/verify-server', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('[VERIFY-SERVER] Token válido para usuario:', decoded.username);
 
+    // Token emitido antes de activar mantenimiento → forzar re-login
+    if (maintenanceState.active && maintenanceState.activeSince && decoded.iat < maintenanceState.activeSince) {
+      console.log('[VERIFY-SERVER] Token anterior al mantenimiento, rechazado:', decoded.username);
+      return res.json({
+        success: false,
+        authenticated: false,
+        maintenance: true,
+        maintenanceMessage: maintenanceState.message
+      });
+    }
+
     // Construir respuesta con datos del JWT
     const userData = {
       id: decoded.id,
@@ -691,6 +721,17 @@ router.get('/verify', (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log('[VERIFY] Token válido para usuario:', decoded.username);
 
+    // Token emitido antes de activar mantenimiento → forzar re-login
+    if (maintenanceState.active && maintenanceState.activeSince && decoded.iat < maintenanceState.activeSince) {
+      console.log('[VERIFY] Token anterior al mantenimiento, rechazado:', decoded.username);
+      return res.status(401).json({
+        success: false,
+        authenticated: false,
+        maintenance: true,
+        maintenanceMessage: maintenanceState.message
+      });
+    }
+
     const baseUser = {
       id: decoded.id,
       username: decoded.username,
@@ -742,5 +783,42 @@ router.get('/verify', (req, res) => {
   }
 });
 
+
+// ── MAINTENANCE ENDPOINTS ──────────────────────────────────────
+
+/**
+ * @route GET /api/auth/maintenance
+ * @desc Estado de mantenimiento (público)
+ */
+router.get('/maintenance', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    success: true,
+    active: maintenanceState.active,
+    message: maintenanceState.message,
+    activeSince: maintenanceState.activeSince
+  });
+});
+
+/**
+ * @route POST /api/auth/maintenance
+ * @desc Activar o desactivar mantenimiento (solo Administrador)
+ * @body { active: bool, message?: string }
+ */
+router.post('/maintenance', protect, authorize('Administrador', 'admin', 'administrador', 'Administrativo'), (req, res) => {
+  const { active, message } = req.body;
+  if (active) {
+    maintenanceState = {
+      active: true,
+      message: message || 'El sistema se encuentra en mantenimiento. Por favor, intenta más tarde.',
+      activeSince: Math.floor(Date.now() / 1000)
+    };
+  } else {
+    maintenanceState = { active: false, message: '', activeSince: null };
+  }
+  saveMaintenance(maintenanceState);
+  console.log('[MAINTENANCE]', active ? 'Activado' : 'Desactivado', 'por', req.user?.username);
+  res.json({ success: true, maintenance: maintenanceState });
+});
 
 module.exports = router;

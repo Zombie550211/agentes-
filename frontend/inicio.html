@@ -835,8 +835,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     const authData = await authRes.json();
+    if (!authData.authenticated) {
+      console.warn('[INICIO] Sesión inválida, redirigiendo a login...');
+      window.location.replace('login.html');
+      return;
+    }
     const user = authData.user || authData.data?.user || {};
-    
+
     console.log('[INICIO] Usuario autenticado:', user.username, '|', user.role);
 
     const roleLC = (user.role || '').toLowerCase();

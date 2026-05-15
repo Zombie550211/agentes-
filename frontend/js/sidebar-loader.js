@@ -576,8 +576,9 @@
 
       const data = await response.json();
       if (!data || !data.authenticated || !data.user) {
-        console.warn('Usuario no autenticado en /api/auth/verify-server, usando fallback');
-        throw new Error('Usuario no autenticado');
+        console.warn('Usuario no autenticado en /api/auth/verify-server, redirigiendo a login');
+        window.location.replace('/login.html');
+        return null;
       }
 
       const user = data.user;
