@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Any
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
-from bson import ObjectId
-import datetime as _dt, re
+import datetime as _dt, re, calendar
 
 router = APIRouter(tags=["Llamadas Ventas"])
 
 _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
+_DATE_RE     = re.compile(r"^(0[1-9]|1[0-2])/(0[1-9]|[12]\d|3[01])/\d{4}$")
 
 
 def _is_admin(role: str) -> bool:
@@ -16,7 +17,19 @@ def _is_admin(role: str) -> bool:
     return any(a in r for a in _ADMIN_ROLES)
 
 
-# ── LLAMADAS-VENTAS ──────────────────────────────────────────────
+def _check_excel_access(user: dict):
+    if not _is_admin(user.get("role", "")):
+        raise HTTPException(403, "No autorizado")
+
+
+def _sid(sheet_id: str) -> int:
+    try:
+        return int(sheet_id)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "sheetId inválido")
+
+
+# ── LLAMADAS-VENTAS ──────────────────────────────────────────────────
 
 @router.get("/api/llamadas-ventas")
 async def get_llamadas_ventas(
@@ -27,33 +40,36 @@ async def get_llamadas_ventas(
     if not _is_admin(user.get("role", "")):
         raise HTTPException(403, "No autorizado")
 
-    db  = get_db()
-    now = _dt.datetime.utcnow()
+    now          = _dt.datetime.utcnow()
     target_month = month if month else now.month
     target_year  = year  if year  else now.year
 
-    import calendar
     _, last_day = calendar.monthrange(target_year, target_month)
-    start_date = _dt.datetime(target_year, target_month, 1)
-    end_date   = _dt.datetime(target_year, target_month, last_day, 23, 59, 59)
+    start_date  = f"{target_year}-{target_month:02d}-01"
+    end_date    = f"{target_year}-{target_month:02d}-{last_day:02d}"
 
-    pipeline = [
-        {"$match": {"fecha": {"$gte": start_date, "$lte": end_date}}},
-        {"$addFields": {"__fechaKey": {"$dateToString": {"format": "%Y-%m-%d", "date": "$fecha"}}}},
-        {"$sort": {"actualizadoEn": -1, "creadoEn": -1, "_id": -1}},
-        {"$group": {
-            "_id": {"fechaKey": "$__fechaKey", "team": "$team", "tipo": "$tipo"},
-            "doc": {"$first": "$$ROOT"}
-        }},
-        {"$replaceRoot": {"newRoot": "$doc"}},
-        {"$project": {"__fechaKey": 0}},
-        {"$sort": {"fecha": 1, "team": 1, "tipo": 1}},
-    ]
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, fecha, team, tipo, valor, created_at, created_by, updated_at, updated_by
+            FROM llamadas_ventas
+            WHERE fecha BETWEEN :s AND :e
+            ORDER BY fecha ASC, team ASC, tipo ASC
+        """), {"s": start_date, "e": end_date})
+        rows = r.mappings().all()
 
-    registros = await db["llamadas_ventas"].aggregate(pipeline).to_list(None)
-    for r in registros:
-        r["_id"] = str(r["_id"])
-    return {"success": True, "data": registros, "count": len(registros), "month": target_month, "year": target_year}
+    registros = []
+    for row in rows:
+        d = dict(row)
+        d["_id"] = str(d["id"])
+        for col in ("fecha", "created_at", "updated_at"):
+            if d.get(col) is not None:
+                d[col] = str(d[col])
+        registros.append(d)
+
+    return {
+        "success": True, "data": registros,
+        "count": len(registros), "month": target_month, "year": target_year,
+    }
 
 
 class LlamadasVentasBody(BaseModel):
@@ -68,8 +84,6 @@ async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(cu
     if not _is_admin(user.get("role", "")):
         raise HTTPException(403, "No autorizado")
 
-    db = get_db()
-
     if body.type in ("LLAMADAS", "VENTAS"):
         raw = str(body.value or "").strip()
         if not raw or raw == "-":
@@ -79,58 +93,56 @@ async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(cu
         except ValueError:
             raise HTTPException(400, "Valor no numérico para LLAMADAS/VENTAS")
 
-    now  = _dt.datetime.utcnow()
-    day  = int(body.day)
-    fecha_start = _dt.datetime(now.year, now.month, day)
-    fecha_end   = _dt.datetime(now.year, now.month, day) + _dt.timedelta(days=1)
+    now         = _dt.datetime.utcnow()
+    day         = int(body.day)
+    fecha       = f"{now.year}-{now.month:02d}-{day:02d}"
     valor_final = body.value if body.type == "TOTALES" else (float(body.value) if body.value is not None else 0)
+    by          = user.get("username", "unknown")
 
-    result = await db["llamadas_ventas"].update_many(
-        {"fecha": {"$gte": fecha_start, "$lt": fecha_end}, "team": body.team, "tipo": body.type},
-        {
-            "$set": {"valor": valor_final, "actualizadoEn": now, "actualizadoPor": user.get("username", "unknown")},
-            "$setOnInsert": {"fecha": fecha_start, "creadoEn": now, "creadoPor": user.get("username", "unknown")},
-        },
-        upsert=True,
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            INSERT INTO llamadas_ventas
+                (fecha, team, tipo, valor, created_at, created_by, updated_at, updated_by)
+            VALUES
+                (:fecha, :team, :tipo, :valor, :now, :by, :now, :by)
+            ON DUPLICATE KEY UPDATE
+                valor = :valor, updated_at = :now, updated_by = :by
+        """), {
+            "fecha": fecha, "team": body.team, "tipo": body.type,
+            "valor": valor_final, "now": now, "by": by,
+        })
+        await s.commit()
+
     return {
         "success": True, "message": "Datos guardados",
         "data": {
             "day": day, "team": body.team, "type": body.type, "value": valor_final,
-            "modifiedCount": result.modified_count, "upsertedCount": 1 if result.upserted_id else 0,
-        }
+        },
     }
 
 
-# ── LLAMADAS-VENTAS-EXCEL ────────────────────────────────────────
-_SHEETS_COL = "llamadas_ventas_excel_sheets"
-_DATA_COL   = "llamadas_ventas_excel_data"
-_USERS_COL  = "llamadas_ventas_excel_users"
-_DATE_RE    = re.compile(r"^(0[1-9]|1[0-2])/(0[1-9]|[12]\d|3[01])/\d{4}$")
-
-
-def _check_excel_access(user: dict):
-    if not _is_admin(user.get("role", "")):
-        raise HTTPException(403, "No autorizado")
-
-
-def _sid_to_oid(sid: str) -> ObjectId:
-    try:
-        return ObjectId(sid)
-    except Exception:
-        raise HTTPException(400, "sheetId inválido")
-
+# ── LLAMADAS-VENTAS-EXCEL ─────────────────────────────────────────────
 
 @router.get("/api/llamadas-ventas-excel/sheets")
 async def excel_get_sheets(user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db = get_db()
-    sheets = await db[_SHEETS_COL].find(
-        {}, {"_id": 1, "name": 1, "createdAt": 1, "createdBy": 1, "updatedAt": 1, "updatedBy": 1}
-    ).sort([("createdAt", 1), ("_id", 1)]).to_list(None)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, name, created_at, created_by, updated_at, updated_by
+            FROM lv_excel_sheets
+            ORDER BY created_at ASC, id ASC
+        """))
+        sheets = r.mappings().all()
+
     return {"success": True, "data": [
-        {"_id": str(s["_id"]), "name": s.get("name"), "createdAt": s.get("createdAt"),
-         "createdBy": s.get("createdBy"), "updatedAt": s.get("updatedAt"), "updatedBy": s.get("updatedBy")}
+        {
+            "_id":       str(s["id"]),
+            "name":      s.get("name"),
+            "createdAt": str(s["created_at"]) if s.get("created_at") else None,
+            "createdBy": s.get("created_by"),
+            "updatedAt": str(s["updated_at"]) if s.get("updated_at") else None,
+            "updatedBy": s.get("updated_by"),
+        }
         for s in sheets
     ]}
 
@@ -142,29 +154,60 @@ class CreateSheetBody(BaseModel):
 @router.post("/api/llamadas-ventas-excel/sheets")
 async def excel_create_sheet(body: CreateSheetBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db  = get_db()
-    now = _dt.datetime.utcnow()
+    now       = _dt.datetime.utcnow()
     base_name = (body.name or "").strip() or now.strftime("%Y-%m-%d")
-    name = base_name
-    if await db[_SHEETS_COL].find_one({"name": name}):
-        name = f"{base_name} ({now.strftime('%H:%M:%S')})"
-    doc = {"name": name, "createdAt": now, "createdBy": user.get("username", "unknown"),
-           "updatedAt": now, "updatedBy": user.get("username", "unknown")}
-    result = await db[_SHEETS_COL].insert_one(doc)
-    return {"success": True, "data": {"_id": str(result.inserted_id), **{k: v for k, v in doc.items()}}}
+    by        = user.get("username", "unknown")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id FROM lv_excel_sheets WHERE name = :n LIMIT 1"), {"n": base_name})
+        if r.first():
+            base_name = f"{base_name} ({now.strftime('%H:%M:%S')})"
+
+        r2 = await s.execute(text("""
+            INSERT INTO lv_excel_sheets (name, created_at, created_by, updated_at, updated_by)
+            VALUES (:name, :now, :by, :now, :by)
+        """), {"name": base_name, "now": now, "by": by})
+        await s.commit()
+        new_id = r2.lastrowid
+
+    return {"success": True, "data": {
+        "_id":       str(new_id),
+        "name":      base_name,
+        "createdAt": str(now),
+        "createdBy": by,
+        "updatedAt": str(now),
+        "updatedBy": by,
+    }}
 
 
 @router.get("/api/llamadas-ventas-excel/sheets/{sheet_id}")
 async def excel_get_sheet(sheet_id: str, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db  = get_db()
-    oid = _sid_to_oid(sheet_id)
-    sheet = await db[_SHEETS_COL].find_one({"_id": oid}, {"name": 1})
-    if not sheet:
-        raise HTTPException(404, "Sheet no encontrado")
-    data  = await db[_DATA_COL].find({"sheetId": sheet_id}, {"_id": 0, "kind": 1, "team": 1, "person": 1, "col": 1, "metric": 1, "value": 1}).to_list(None)
-    users = await db[_USERS_COL].find({"sheetId": sheet_id}, {"_id": 0, "name": 1, "role": 1, "team": 1}).to_list(None)
-    return {"success": True, "sheet": {"_id": str(sheet["_id"]), "name": sheet.get("name")}, "data": data, "users": users}
+    sid = _sid(sheet_id)
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id, name FROM lv_excel_sheets WHERE id = :id"), {"id": sid})
+        sheet = r.mappings().first()
+        if not sheet:
+            raise HTTPException(404, "Sheet no encontrado")
+
+        r2 = await s.execute(text("""
+            SELECT kind, team, person, col, metric, value
+            FROM lv_excel_data WHERE sheet_id = :sid
+        """), {"sid": sid})
+        data = [dict(row) for row in r2.mappings().all()]
+
+        r3 = await s.execute(text("""
+            SELECT name, role, team FROM lv_excel_users WHERE sheet_id = :sid
+        """), {"sid": sid})
+        users = [dict(row) for row in r3.mappings().all()]
+
+    return {
+        "success": True,
+        "sheet":   {"_id": str(sheet["id"]), "name": sheet["name"]},
+        "data":    data,
+        "users":   users,
+    }
 
 
 class ExcelCellBody(BaseModel):
@@ -179,40 +222,57 @@ class ExcelCellBody(BaseModel):
 @router.post("/api/llamadas-ventas-excel/cell")
 async def excel_save_cell(body: ExcelCellBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db  = get_db()
-    sid = body.sheetId.strip()
-    if not sid:
-        raise HTTPException(400, "Falta sheetId")
-
+    sid = _sid(body.sheetId.strip())
     now = _dt.datetime.utcnow()
     v   = str(body.value or "").strip()
+    by  = user.get("username", "unknown")
 
     if body.metric:
         kind   = "summary"
-        filt   = {"sheetId": sid, "kind": kind, "metric": str(body.metric).strip().upper()}
+        metric = str(body.metric).strip().upper()
+        where  = "sheet_id = :sid AND kind = :kind AND metric = :metric"
+        wp     = {"sid": sid, "kind": kind, "metric": metric}
+        ins    = {"metric": metric, "team": None, "person": None, "col": None}
     else:
         if not body.team or not body.person or not body.col:
             raise HTTPException(400, "Faltan campos: team, person, col")
-        kind = "cell"
-        filt = {"sheetId": sid, "kind": kind, "team": str(body.team).strip(),
-                "person": str(body.person).strip(), "col": str(body.col).strip().upper()}
+        kind   = "cell"
+        team   = str(body.team).strip()
+        person = str(body.person).strip()
+        col    = str(body.col).strip().upper()
+        where  = "sheet_id = :sid AND kind = :kind AND team = :team AND person = :person AND col = :col"
+        wp     = {"sid": sid, "kind": kind, "team": team, "person": person, "col": col}
+        ins    = {"metric": None, "team": team, "person": person, "col": col}
 
-    if v == "":
-        await db[_DATA_COL].delete_one(filt)
-    else:
-        await db[_DATA_COL].update_one(
-            filt,
-            {"$set": {"value": v, "updatedAt": now, "updatedBy": user.get("username", "unknown")},
-             "$setOnInsert": {"sheetId": sid, "kind": kind, "createdAt": now, "createdBy": user.get("username", "unknown")}},
-            upsert=True,
-        )
-    try:
-        await db[_SHEETS_COL].update_one(
-            {"_id": ObjectId(sid)},
-            {"$set": {"updatedAt": now, "updatedBy": user.get("username", "unknown")}}
-        )
-    except Exception:
-        pass
+    async with AsyncSessionLocal() as s:
+        if v == "":
+            await s.execute(text(f"DELETE FROM lv_excel_data WHERE {where}"), wp)
+        else:
+            r = await s.execute(text(f"""
+                UPDATE lv_excel_data
+                SET value = :v, updated_at = :now, updated_by = :by
+                WHERE {where}
+            """), {**wp, "v": v, "now": now, "by": by})
+            if r.rowcount == 0:
+                await s.execute(text("""
+                    INSERT INTO lv_excel_data
+                        (sheet_id, kind, team, person, col, metric, value,
+                         created_at, created_by, updated_at, updated_by)
+                    VALUES
+                        (:sid, :kind, :team, :person, :col, :metric, :v,
+                         :now, :by, :now, :by)
+                """), {
+                    "sid": sid, "kind": kind, "v": v, "now": now, "by": by,
+                    **ins,
+                })
+
+        await s.execute(text("""
+            UPDATE lv_excel_sheets
+            SET updated_at = :now, updated_by = :by
+            WHERE id = :id
+        """), {"now": now, "by": by, "id": sid})
+        await s.commit()
+
     return {"success": True}
 
 
@@ -226,21 +286,31 @@ class ExcelUserBody(BaseModel):
 @router.post("/api/llamadas-ventas-excel/user")
 async def excel_save_user(body: ExcelUserBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db  = get_db()
-    sid = body.sheetId.strip()
-    if not sid or not body.name or not body.team:
-        raise HTTPException(400, "Faltan campos: sheetId, name, team")
-    now  = _dt.datetime.utcnow()
-    name = body.name.strip().upper()
-    team = body.team.strip()
-    doc  = {"sheetId": sid, "name": name, "role": (body.role or "").strip(), "team": team,
-            "updatedAt": now, "updatedBy": user.get("username", "unknown")}
-    await db[_USERS_COL].update_one(
-        {"sheetId": sid, "name": name, "team": team},
-        {"$set": doc, "$setOnInsert": {"createdAt": now, "createdBy": user.get("username", "unknown")}},
-        upsert=True,
-    )
-    return {"success": True, "data": {"name": name, "role": doc["role"], "team": team}}
+    sid = _sid(body.sheetId.strip())
+    if not body.name or not body.team:
+        raise HTTPException(400, "Faltan campos: name, team")
+    now    = _dt.datetime.utcnow()
+    name   = body.name.strip().upper()
+    team   = body.team.strip()
+    role   = (body.role or "").strip()
+    by     = user.get("username", "unknown")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            UPDATE lv_excel_users
+            SET role = :role, updated_at = :now, updated_by = :by
+            WHERE sheet_id = :sid AND name = :name AND team = :team
+        """), {"role": role, "now": now, "by": by, "sid": sid, "name": name, "team": team})
+        if r.rowcount == 0:
+            await s.execute(text("""
+                INSERT INTO lv_excel_users
+                    (sheet_id, name, role, team, created_at, created_by, updated_at, updated_by)
+                VALUES
+                    (:sid, :name, :role, :team, :now, :by, :now, :by)
+            """), {"sid": sid, "name": name, "role": role, "team": team, "now": now, "by": by})
+        await s.commit()
+
+    return {"success": True, "data": {"name": name, "role": role, "team": team}}
 
 
 class ExcelUserDeleteBody(BaseModel):
@@ -252,27 +322,39 @@ class ExcelUserDeleteBody(BaseModel):
 @router.post("/api/llamadas-ventas-excel/user-delete")
 async def excel_delete_user(body: ExcelUserDeleteBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db   = get_db()
-    sid  = body.sheetId.strip()
+    sid  = _sid(body.sheetId.strip())
     name = body.name.strip().upper()
     team = body.team.strip()
-    if not sid or not name or not team:
-        raise HTTPException(400, "Faltan campos: sheetId, name, team")
-    await db[_USERS_COL].delete_one({"sheetId": sid, "name": name, "team": team})
-    await db[_DATA_COL].delete_many({"sheetId": sid, "kind": "cell", "team": team, "person": name})
+    if not name or not team:
+        raise HTTPException(400, "Faltan campos: name, team")
+
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            DELETE FROM lv_excel_users
+            WHERE sheet_id = :sid AND name = :name AND team = :team
+        """), {"sid": sid, "name": name, "team": team})
+        await s.execute(text("""
+            DELETE FROM lv_excel_data
+            WHERE sheet_id = :sid AND kind = 'cell' AND team = :team AND person = :name
+        """), {"sid": sid, "team": team, "name": name})
+        await s.commit()
+
     return {"success": True}
 
 
 @router.delete("/api/llamadas-ventas-excel/sheets/{sheet_id}")
 async def excel_delete_sheet(sheet_id: str, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db  = get_db()
-    oid = _sid_to_oid(sheet_id)
-    r   = await db[_SHEETS_COL].delete_one({"_id": oid})
-    if not r.deleted_count:
-        raise HTTPException(404, "Sheet no encontrado")
-    await db[_USERS_COL].delete_many({"sheetId": sheet_id})
-    await db[_DATA_COL].delete_many({"sheetId": sheet_id})
+    sid = _sid(sheet_id)
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("DELETE FROM lv_excel_sheets WHERE id = :id"), {"id": sid})
+        if r.rowcount == 0:
+            raise HTTPException(404, "Sheet no encontrado")
+        await s.execute(text("DELETE FROM lv_excel_users WHERE sheet_id = :sid"), {"sid": sid})
+        await s.execute(text("DELETE FROM lv_excel_data  WHERE sheet_id = :sid"), {"sid": sid})
+        await s.commit()
+
     return {"success": True, "message": "Sheet eliminado"}
 
 
@@ -283,18 +365,22 @@ class PatchSheetBody(BaseModel):
 @router.patch("/api/llamadas-ventas-excel/sheets/{sheet_id}")
 async def excel_rename_sheet(sheet_id: str, body: PatchSheetBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    db       = get_db()
-    oid      = _sid_to_oid(sheet_id)
+    sid      = _sid(sheet_id)
     new_name = body.name.strip()
     if not new_name:
-        raise HTTPException(400, "sheetId y nombre requeridos")
+        raise HTTPException(400, "Nombre requerido")
     if not _DATE_RE.match(new_name):
         raise HTTPException(400, "Formato de fecha inválido. Use MM/DD/YYYY")
-    now    = _dt.datetime.utcnow()
-    result = await db[_SHEETS_COL].update_one(
-        {"_id": oid},
-        {"$set": {"name": new_name, "updatedAt": now, "updatedBy": user.get("username", "unknown")}}
-    )
-    if not result.matched_count:
-        raise HTTPException(404, "Sheet no encontrado")
+
+    now = _dt.datetime.utcnow()
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            UPDATE lv_excel_sheets
+            SET name = :name, updated_at = :now, updated_by = :by
+            WHERE id = :id
+        """), {"name": new_name, "now": now, "by": user.get("username", "unknown"), "id": sid})
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "Sheet no encontrado")
+
     return {"success": True, "message": "Nombre actualizado", "data": {"name": new_name}}

@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ── LEADS / COSTUMERS UNIFIED ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS leads (
     id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    mongo_id            VARCHAR(24),          -- _id original de Mongo
+    mongo_id            VARCHAR(200),         -- _id original de Mongo (puede ser compuesto)
     nombre_cliente      VARCHAR(200),
     telefono_principal  VARCHAR(30),
     telefono            VARCHAR(30),
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS leads (
     team                VARCHAR(100),
     equipo              VARCHAR(100),
     direccion           VARCHAR(300),
-    zip_code            VARCHAR(20),
-    numero_cuenta       VARCHAR(100),
+    zip_code            VARCHAR(100),
+    numero_cuenta       VARCHAR(200),
     autopago            BOOLEAN,
     pin_seguridad       VARCHAR(30),
     mercado             VARCHAR(80),
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS leads (
     created_by          VARCHAR(150),
     updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by          VARCHAR(150),
-    INDEX idx_mongo_id       (mongo_id),
+    UNIQUE INDEX idx_mongo_id (mongo_id),
     INDEX idx_dia_venta      (dia_venta),
     INDEX idx_status         (status),
     INDEX idx_agente         (agente),
@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS pre_leads (
 -- ── CLIENTES TEAM LÍNEAS ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lineas_clientes (
     id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    mongo_id          VARCHAR(24),
+    mongo_id          VARCHAR(200),
     collection_name   VARCHAR(100),   -- colección origen en TEAM_LINEAS
     nombre_cliente    VARCHAR(200),
     telefono_principal VARCHAR(30),
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS lineas_clientes (
     cantidad_lineas   TINYINT UNSIGNED DEFAULT 1,
     servicios         JSON,            -- array de servicios
     lineas_status     JSON,            -- {0: "PENDING", 1: "ACTIVE", ...}
-    lines             JSON,            -- array de {telefono, servicio, estado}
+    lines_data        JSON,            -- array de {telefono, servicio, estado}
     agente            VARCHAR(150),
     agente_nombre     VARCHAR(150),
     agente_asignado   VARCHAR(150),
@@ -312,6 +312,100 @@ CREATE TABLE IF NOT EXISTS rr_config (
     rr_key     VARCHAR(100) NOT NULL UNIQUE,
     idx        SMALLINT UNSIGNED DEFAULT 0,
     INDEX idx_rr_key (rr_key)
+) ENGINE=InnoDB;
+
+-- ── NOTAS DE LINEAS TEAM ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS lineas_notes (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    lead_id    VARCHAR(200),
+    texto      TEXT,
+    type       VARCHAR(50) DEFAULT 'general',
+    autor      VARCHAR(150),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_lead_id (lead_id)
+) ENGINE=InnoDB;
+
+-- ── LINEAS INTERNAS (db["Lineas"]) ──────────────────────────────
+CREATE TABLE IF NOT EXISTS lineas_internal (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    mongo_id   VARCHAR(24),
+    agente     VARCHAR(150),
+    agente_nombre VARCHAR(150),
+    created_by VARCHAR(150),
+    registered_by VARCHAR(150),
+    status     VARCHAR(50),
+    data       JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_agente (agente)
+) ENGINE=InnoDB;
+
+-- ── LLAMADAS Y VENTAS DIARIAS ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS llamadas_ventas (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    fecha      DATE NOT NULL,
+    team       VARCHAR(100) NOT NULL,
+    tipo       VARCHAR(50) NOT NULL,
+    valor      DOUBLE DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(150),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(150),
+    UNIQUE INDEX idx_fecha_team_tipo (fecha, team, tipo)
+) ENGINE=InnoDB;
+
+-- ── LLAMADAS VENTAS LINEAS ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS llamadas_ventas_lineas (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    fecha      VARCHAR(20) NOT NULL UNIQUE,
+    equipos    JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(150),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(150),
+    INDEX idx_fecha (fecha)
+) ENGINE=InnoDB;
+
+-- ── EXCEL SHEETS (llamadas_ventas_excel) ─────────────────────────
+CREATE TABLE IF NOT EXISTS lv_excel_sheets (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(150),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(150),
+    INDEX idx_name (name)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS lv_excel_data (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    sheet_id   INT UNSIGNED NOT NULL,
+    kind       VARCHAR(20) DEFAULT 'cell',
+    team       VARCHAR(100),
+    person     VARCHAR(150),
+    col        VARCHAR(50),
+    metric     VARCHAR(100),
+    value      VARCHAR(500),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(150),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(150),
+    INDEX idx_sheet (sheet_id),
+    INDEX idx_sheet_kind (sheet_id, kind)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS lv_excel_users (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    sheet_id   INT UNSIGNED NOT NULL,
+    name       VARCHAR(150) NOT NULL,
+    role       VARCHAR(80),
+    team       VARCHAR(100),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(150),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by VARCHAR(150),
+    INDEX idx_sheet (sheet_id)
 ) ENGINE=InnoDB;
 
 -- ── INSERCIONES INICIALES ───────────────────────────────────────

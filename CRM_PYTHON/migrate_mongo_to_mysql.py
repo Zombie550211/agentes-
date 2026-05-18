@@ -16,6 +16,10 @@ import sys
 from datetime import datetime, date
 from typing import Any
 
+# Force UTF-8 output on Windows consoles
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 import aiomysql
@@ -48,12 +52,28 @@ def _str(v) -> str | None:
     return str(v) if v is not None else None
 
 def _date(v) -> str | None:
-    """Convierte datetime, date o string YYYY-MM-DD a string para MySQL DATE."""
+    """Convierte datetime, date o string a YYYY-MM-DD para MySQL DATE."""
     if v is None: return None
     if isinstance(v, datetime): return v.strftime("%Y-%m-%d")
     if isinstance(v, date):     return v.isoformat()
-    s = str(v).strip()[:10]
-    return s if len(s) == 10 else None
+    s = str(v).strip()
+    # Intentar DD/MM/YYYY
+    if len(s) == 10 and s[2] == '/' and s[5] == '/':
+        try:
+            from datetime import datetime as _dtt
+            return _dtt.strptime(s, "%d/%m/%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            return None
+    # YYYY-MM-DD (puede ser inválida como 2026-02-29)
+    iso = s[:10]
+    if len(iso) == 10:
+        try:
+            from datetime import datetime as _dtt
+            _dtt.strptime(iso, "%Y-%m-%d")
+            return iso
+        except ValueError:
+            return None
+    return None
 
 def _dt(v) -> str | None:
     """Convierte a string DATETIME para MySQL."""
@@ -135,7 +155,7 @@ async def migrate_leads(mongo_db, conn):
             servicios = d.get("servicios") or d.get("tipo_servicios") or d.get("tipo_servicio")
             if isinstance(servicios, str): servicios = [servicios]
             await cursor.execute("""
-                INSERT INTO leads
+                INSERT IGNORE INTO leads
                   (mongo_id, nombre_cliente, telefono_principal, telefono, telefono_alterno,
                    telefonos, status, dia_venta, dia_instalacion, fecha_contratacion,
                    servicios, tipo_servicio, puntaje, agente, agente_nombre, usuario,
@@ -276,7 +296,7 @@ async def migrate_lineas(mongo_lineas_db, conn):
                        telefonos, numero_cuenta, autopago, pin_seguridad, direccion, zip_code,
                        mercado, supervisor, team, servicio_interes, notas, status,
                        dia_venta, dia_instalacion, cantidad_lineas, servicios,
-                       lineas_status, lines, agente, agente_nombre, agente_asignado,
+                       lineas_status, lines_data, agente, agente_nombre, agente_asignado,
                        puntaje, fuente, created_at, updated_at)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                             %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)

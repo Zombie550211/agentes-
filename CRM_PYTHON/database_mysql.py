@@ -56,7 +56,7 @@ async def init_mysql():
     """Crea las tablas si no existen (usa schema.sql o Alembic)."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("[MySQL] Conexión establecida ✓")
+    print("[MySQL] Conexion establecida OK")
 
 
 async def close_mysql():

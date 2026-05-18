@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from bson import ObjectId
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
 import re
 
@@ -9,27 +9,27 @@ router = APIRouter(tags=["Teams"])
 
 @router.get("/api/teams")
 async def list_teams(user: dict = Depends(current_user)):
-    db = get_db()
-    # Obtener supervisores activos de la BD
-    cursor = db["users"].find(
-        {"role": {"$regex": "supervisor", "$options": "i"}},
-        {"username": 1, "name": 1, "nombre": 1, "fullName": 1, "team": 1}
-    )
-    supervisors = await cursor.to_list(None)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT username, name, team, role FROM users
+            WHERE LOWER(role) LIKE '%supervisor%'
+            ORDER BY team
+        """))
+        supervisors = r.mappings().all()
 
     teams = []
     seen = set()
-    for s in supervisors:
-        team_val = s.get("team", "").strip()
+    for s_row in supervisors:
+        team_val = (s_row.get("team") or "").strip()
         if not team_val or team_val in seen:
             continue
         seen.add(team_val)
-        sup_name = s.get("name") or s.get("nombre") or s.get("fullName") or s.get("username") or ""
+        sup_name = (s_row.get("name") or s_row.get("username") or "").strip()
         teams.append({
             "value":          team_val,
             "label":          team_val,
-            "supervisor":     s.get("username", ""),
-            "supervisorName": sup_name.strip(),
+            "supervisor":     s_row.get("username", ""),
+            "supervisorName": sup_name,
         })
 
     teams.sort(key=lambda t: t["value"])
@@ -40,58 +40,47 @@ async def list_teams(user: dict = Depends(current_user)):
 async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
     if not supervisor:
         raise HTTPException(400, "Missing supervisor parameter")
-    db = get_db()
-    users_col = db["users"]
 
-    sup_user = None
-    if re.match(r"^[a-fA-F0-9]{24}$", supervisor):
-        try:
-            sup_user = await users_col.find_one({"_id": ObjectId(supervisor)})
-        except Exception:
-            pass
-    if not sup_user:
-        sup_user = await users_col.find_one({
-            "$or": [{"username": supervisor}, {"name": supervisor},
-                    {"nombre": supervisor}, {"email": supervisor}]
-        })
+    async with AsyncSessionLocal() as s:
+        # Try numeric ID first
+        sup_user = None
+        if supervisor.isdigit():
+            r = await s.execute(text("SELECT id, username, name, team FROM users WHERE id = :id LIMIT 1"), {"id": int(supervisor)})
+            sup_user = r.mappings().first()
+        if not sup_user:
+            r = await s.execute(text("""
+                SELECT id, username, name, team FROM users
+                WHERE username = :s OR name = :s OR email = :s LIMIT 1
+            """), {"s": supervisor})
+            sup_user = r.mappings().first()
 
-    agentes = []
-    if sup_user:
-        sup_name = (sup_user.get("username") or sup_user.get("name") or "").strip()
-        or_query = [
-            {"supervisorId": str(sup_user["_id"])},
-        ]
-        if sup_name:
-            or_query += [
-                {"supervisor":     {"$regex": sup_name, "$options": "i"}},
-                {"supervisorName": {"$regex": sup_name, "$options": "i"}},
-            ]
-        if sup_user.get("team"):
-            or_query.append({"team": sup_user["team"]})
+        agentes = []
+        if sup_user:
+            sup_name = (sup_user.get("username") or sup_user.get("name") or "").strip()
+            team_cond = ""
+            params: dict = {"sup_id": sup_user["id"], "sup_name": sup_name}
+            if sup_user.get("team"):
+                team_cond = "OR team = :team"
+                params["team"] = sup_user["team"]
 
-        cursor = users_col.find({
-            "$and": [
-                {"$or": or_query},
-                {"_id": {"$ne": sup_user["_id"]}},
-                {"role": {"$not": re.compile("supervisor", re.IGNORECASE)}}
-            ]
-        })
-        agentes = await cursor.to_list(None)
-    else:
-        cursor = users_col.find({
-            "$and": [
-                {"$or": [
-                    {"supervisor":     {"$regex": supervisor, "$options": "i"}},
-                    {"supervisorName": {"$regex": supervisor, "$options": "i"}}
-                ]},
-                {"role": {"$not": re.compile("supervisor", re.IGNORECASE)}}
-            ]
-        })
-        agentes = await cursor.to_list(None)
+            r2 = await s.execute(text(f"""
+                SELECT id, username, name, role FROM users
+                WHERE id != :sup_id
+                  AND LOWER(role) NOT LIKE '%supervisor%'
+                  AND (supervisor = :sup_name {team_cond})
+            """), params)
+            agentes = r2.mappings().all()
+        else:
+            r2 = await s.execute(text("""
+                SELECT id, username, name, role FROM users
+                WHERE LOWER(role) NOT LIKE '%supervisor%'
+                  AND (supervisor LIKE :s OR supervisor LIKE :s)
+            """), {"s": f"%{supervisor}%"})
+            agentes = r2.mappings().all()
 
     out = [
-        {"id": str(a["_id"]), "username": a.get("username"),
-         "name": a.get("name") or a.get("nombre"), "role": a.get("role")}
+        {"id": str(a["id"]), "username": a.get("username"),
+         "name": a.get("name"), "role": a.get("role")}
         for a in agentes
         if not re.search("supervisor", str(a.get("role", "")), re.IGNORECASE)
     ]
@@ -101,20 +90,21 @@ async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
 @router.get("/api/supervisors-list")
 @router.get("/api/teams/supervisors-list")
 async def supervisors_list(user: dict = Depends(current_user)):
-    db = get_db()
-    cursor = db["users"].find(
-        {"role": {"$regex": "supervisor", "$options": "i"}},
-        {"username": 1, "name": 1, "nombre": 1, "fullName": 1, "team": 1, "role": 1}
-    )
-    supervisors = await cursor.to_list(None)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT username, name, team, role FROM users
+            WHERE LOWER(role) LIKE '%supervisor%'
+            ORDER BY name
+        """))
+        supervisors = r.mappings().all()
 
     normalized = []
-    for s in supervisors:
-        name = s.get("name") or s.get("nombre") or s.get("fullName") or s.get("username") or ""
-        key = "".join(w[0].upper() for w in name.split() if w) or s.get("username", "").upper()
+    for s_row in supervisors:
+        name = (s_row.get("name") or s_row.get("username") or "").strip()
+        key = "".join(w[0].upper() for w in name.split() if w) or (s_row.get("username") or "").upper()
         normalized.append({
             "key": key, "name": name,
-            "username": s.get("username", ""), "team": s.get("team", "")
+            "username": s_row.get("username", ""), "team": s_row.get("team", "")
         })
 
     return {"success": True, "supervisors": normalized}

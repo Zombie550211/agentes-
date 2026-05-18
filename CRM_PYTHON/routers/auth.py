@@ -3,8 +3,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 import bcrypt as _bcrypt
 from jose import jwt, JWTError
-from bson import ObjectId
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from pathlib import Path
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
@@ -13,10 +13,9 @@ from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-# ── Configuración ────────────────────────────────────────────────
 JWT_SECRET  = os.getenv("JWT_SECRET", "tu_clave_secreta_super_segura")
 JWT_ALGO    = "HS256"
-JWT_EXPIRES = 7 * 24 * 3600          # 7 días en segundos
+JWT_EXPIRES = 7 * 24 * 3600
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 
 def _hash_pwd(plain: str) -> str:
@@ -30,7 +29,6 @@ def _verify_pwd(plain: str, hashed: str) -> bool:
 
 MAINTENANCE_FILE = Path(__file__).parent.parent.parent / "maintenance.json"
 
-# ── Modelos ──────────────────────────────────────────────────────
 class LoginBody(BaseModel):
     username: str
     password: str
@@ -82,16 +80,42 @@ def _username_variants(raw: str) -> list[str]:
     ]
     return list(dict.fromkeys(v for v in raw_list if v))
 
-def _build_query(variants: list[str]) -> dict:
-    ors = []
-    for v in variants:
-        pattern = re.compile(rf"^\s*{re.escape(v)}\s*$", re.IGNORECASE)
-        ors += [{"username": pattern}, {"name": pattern}]
-    return {"$or": ors}
+def _row_to_user(row) -> dict:
+    u = dict(row)
+    for col in ("aliases", "permissions"):
+        v = u.get(col)
+        if isinstance(v, str):
+            try: u[col] = json.loads(v)
+            except: u[col] = []
+        elif v is None:
+            u[col] = []
+    u["_id"] = str(u["id"])
+    u["password"] = u.pop("password_hash", "") or ""
+    return u
+
+async def _find_user_by_variants(variants: list[str]) -> dict | None:
+    async with AsyncSessionLocal() as s:
+        for v in variants:
+            v = v.strip()
+            if not v:
+                continue
+            q = text("SELECT * FROM users WHERE TRIM(username) = :v OR TRIM(name) = :v LIMIT 1")
+            r = await s.execute(q, {"v": v})
+            row = r.mappings().first()
+            if row:
+                return _row_to_user(row)
+    return None
+
+async def _find_user_by_username(username: str) -> dict | None:
+    async with AsyncSessionLocal() as s:
+        q = text("SELECT * FROM users WHERE username = :u LIMIT 1")
+        r = await s.execute(q, {"u": username})
+        row = r.mappings().first()
+        return _row_to_user(row) if row else None
 
 def _make_token(user: dict) -> str:
     payload = {
-        "id":         str(user["_id"]),
+        "id":         str(user.get("_id") or user.get("id")),
         "username":   user.get("username", ""),
         "role":       user.get("role", ""),
         "team":       user.get("team", ""),
@@ -139,7 +163,6 @@ def _set_token_cookie(response: Response, token: str):
         path="/",
     )
 
-# ── Dependencia: usuario autenticado ────────────────────────────
 async def current_user(request: Request) -> dict:
     token = _get_token(request)
     if not token:
@@ -162,25 +185,18 @@ ADMIN_ROLES = ("Administrador", "admin", "administrador", "Administrativo")
 
 @router.post("/login")
 async def login(body: LoginBody, response: Response):
-    db = get_db()
-    if db is None:
-        raise HTTPException(500, "DB no disponible")
-
     variants = _username_variants(body.username)
-    query    = _build_query(variants)
-    user     = await db["users"].find_one(query)
-
+    user = await _find_user_by_variants(variants)
     if not user or not _verify_pwd(body.password, user.get("password", "")):
         raise HTTPException(401, "Credenciales inválidas")
 
     token = _make_token(user)
     _set_token_cookie(response, token)
-
     return {
         "success": True,
         "message": "Inicio de sesión exitoso",
         "user": {
-            "id":         str(user["_id"]),
+            "id":         str(user.get("_id") or user.get("id")),
             "username":   user.get("username"),
             "role":       user.get("role"),
             "team":       user.get("team"),
@@ -199,14 +215,11 @@ async def logout(response: Response):
 
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
-    db = get_db()
-    doc = await db["users"].find_one(
-        {"username": user["username"]},
-        {"password": 0}
-    )
+    doc = await _find_user_by_username(user["username"])
     if not doc:
         raise HTTPException(404, "Usuario no encontrado")
-    doc["id"] = str(doc.pop("_id"))
+    doc.pop("password", None)
+    doc["id"] = doc.get("_id")
     return {"success": True, "user": doc}
 
 
@@ -220,34 +233,25 @@ async def verify_server(request: Request):
     if not decoded:
         return {"success": False, "authenticated": False, "role": None, "username": None}
 
-    # Verificar mantenimiento
     maint = _load_maintenance()
     if maint.get("active") and maint.get("activeSince") and decoded.get("iat", 0) < maint["activeSince"]:
         return {"success": False, "authenticated": False, "maintenance": True, "maintenanceMessage": maint["message"]}
 
-    # Enriquecer con datos de BD
-    db = get_db()
     user_data = {
-        "id":         decoded.get("id"),
-        "username":   decoded.get("username"),
-        "role":       decoded.get("role"),
-        "team":       decoded.get("team"),
-        "supervisor": decoded.get("supervisor"),
+        "id":          decoded.get("id"),
+        "username":    decoded.get("username"),
+        "role":        decoded.get("role"),
+        "team":        decoded.get("team"),
+        "supervisor":  decoded.get("supervisor"),
         "permissions": decoded.get("permissions", []),
     }
-    if db is not None:
-        doc = await db["users"].find_one(
-            {"username": decoded["username"]},
-            {"avatarUrl": 1, "name": 1, "nombre": 1, "fullName": 1,
-             "team": 1, "role": 1, "supervisor": 1, "supervisorName": 1}
-        )
-        if doc:
-            name = doc.get("name") or doc.get("nombre") or doc.get("fullName")
-            if name:           user_data["name"]           = name
-            if doc.get("team"):           user_data["team"]           = doc["team"]
-            if doc.get("role"):           user_data["role"]           = doc["role"]
-            if doc.get("avatarUrl"):      user_data["avatarUrl"]      = doc["avatarUrl"]
-            if doc.get("supervisorName"): user_data["supervisorName"] = doc["supervisorName"]
+
+    doc = await _find_user_by_username(decoded["username"])
+    if doc:
+        if doc.get("name"):       user_data["name"]       = doc["name"]
+        if doc.get("team"):       user_data["team"]       = doc["team"]
+        if doc.get("role"):       user_data["role"]       = doc["role"]
+        if doc.get("avatar_url"): user_data["avatarUrl"]  = doc["avatar_url"]
 
     return {"success": True, "authenticated": True, "user": user_data}
 
@@ -356,60 +360,48 @@ def _canon_sup_key(v: str) -> str:
 
 @router.post("/register")
 async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
-    db = get_db()
     username = body.username.strip()
     if not username or not body.password or not body.role:
         raise HTTPException(400, "Faltan campos obligatorios (usuario, contraseña, rol)")
 
-    exists = await db["users"].find_one({"username": username})
-    if exists:
-        raise HTTPException(409, "El usuario ya existe")
+    async with AsyncSessionLocal() as s:
+        exists = await s.execute(text("SELECT id FROM users WHERE username = :u LIMIT 1"), {"u": username})
+        if exists.first():
+            raise HTTPException(409, "El usuario ya existe")
 
-    hashed = _hash_pwd(body.password)
-    now = __import__("datetime").datetime.utcnow()
+        hashed = _hash_pwd(body.password)
 
-    team_key = _norm_team_key(body.team)
-    normalized_team = TEAM_CODE_MAP.get(team_key, body.team.strip())
+        team_key = _norm_team_key(body.team)
+        normalized_team = TEAM_CODE_MAP.get(team_key, body.team.strip())
 
-    sup_key = _canon_sup_key(body.supervisor or body.supervisorName)
-    team_from_supervisor = SUPERVISOR_ALIAS_TO_TEAM.get(sup_key, "")
-    normalized_team_final = team_from_supervisor or normalized_team or ""
+        sup_key = _canon_sup_key(body.supervisor or body.supervisorName)
+        team_from_supervisor = SUPERVISOR_ALIAS_TO_TEAM.get(sup_key, "")
+        normalized_team_final = team_from_supervisor or normalized_team or ""
 
-    derived_sup = TEAM_SUPERVISOR_MAP.get(normalized_team_final) or {}
-    use_derived = bool(team_from_supervisor)
+        derived_sup = TEAM_SUPERVISOR_MAP.get(normalized_team_final) or {}
+        use_derived = bool(team_from_supervisor)
 
-    sup_name_final = (derived_sup.get("supervisorName") or body.supervisorName or body.supervisor or "").strip() if use_derived else (body.supervisorName or derived_sup.get("supervisorName") or body.supervisor or "").strip()
-    sup_user_final = (derived_sup.get("supervisor") or body.supervisor or "").strip() if use_derived else (body.supervisor or derived_sup.get("supervisor") or "").strip()
+        sup_name_final = (derived_sup.get("supervisorName") or body.supervisorName or body.supervisor or "").strip() if use_derived else (body.supervisorName or derived_sup.get("supervisorName") or body.supervisor or "").strip()
+        sup_user_final = (derived_sup.get("supervisor") or body.supervisor or "").strip() if use_derived else (body.supervisor or derived_sup.get("supervisor") or "").strip()
 
-    sup_id_final = body.supervisorId
-    if not sup_id_final and (sup_name_final or sup_user_final):
-        ors = []
-        if sup_user_final:
-            ors.append({"username": re.compile(rf"^\s*{re.escape(sup_user_final)}\s*$", re.IGNORECASE)})
-        if sup_name_final:
-            rx = re.compile(rf"^\s*{re.escape(sup_name_final)}\s*$", re.IGNORECASE)
-            ors += [{"name": rx}, {"nombre": rx}, {"fullName": rx}]
-        if ors:
-            sup_doc = await db["users"].find_one({"$or": ors}, {"_id": 1})
-            if sup_doc:
-                sup_id_final = str(sup_doc["_id"])
+        await s.execute(text("""
+            INSERT INTO users (username, password_hash, role, permissions, team, name, email, supervisor)
+            VALUES (:username, :password_hash, :role, :permissions, :team, :name, :email, :supervisor)
+        """), {
+            "username":      username,
+            "password_hash": hashed,
+            "role":          body.role,
+            "permissions":   json.dumps(body.permissions),
+            "team":          normalized_team_final,
+            "name":          body.name,
+            "email":         body.email,
+            "supervisor":    sup_user_final or sup_name_final,
+        })
+        await s.commit()
+        result = await s.execute(text("SELECT LAST_INSERT_ID() as lid"))
+        new_id = result.scalar()
 
-    user_doc = {
-        "username": username,
-        "password": hashed,
-        "role": body.role,
-        "permissions": body.permissions,
-        "team": normalized_team_final,
-        "name": body.name,
-        "email": body.email,
-        "supervisor": sup_user_final or sup_name_final,
-        "supervisorName": sup_name_final,
-        "supervisorId": sup_id_final,
-        "createdAt": now,
-        "updatedAt": now,
-    }
-    result = await db["users"].insert_one(user_doc)
-    return {"success": True, "message": "Usuario creado", "userId": str(result.inserted_id)}
+    return {"success": True, "message": "Usuario creado", "userId": str(new_id)}
 
 
 # ── Password reset helpers ────────────────────────────────────────
@@ -421,8 +413,7 @@ _verify_code = _verify_pwd
 
 
 def _gen_code() -> str:
-    n = secrets.randbelow(900000) + 100000
-    return str(n)
+    return str(secrets.randbelow(900000) + 100000)
 
 
 def _gen_reset_token() -> str:
@@ -440,16 +431,15 @@ def _mask_email(email: str) -> str:
 
 @router.post("/forgot-password")
 async def forgot_password(body: ForgotPasswordBody):
-    db = get_db()
     username = body.username.strip()
     if not username or len(username) < 3:
         return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}
 
-    user_doc = await db["users"].find_one(
-        {"username": username},
-        {"_id": 1, "username": 1, "email": 1}
-    )
-    if not user_doc or not user_doc.get("email"):
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id, username, email FROM users WHERE username = :u LIMIT 1"), {"u": username})
+        row = r.mappings().first()
+
+    if not row or not row.get("email"):
         return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}
 
     code       = _gen_code()
@@ -457,17 +447,18 @@ async def forgot_password(body: ForgotPasswordBody):
     expires_at = _dt.datetime.utcnow() + _dt.timedelta(seconds=_RESET_EXPIRY_MS)
     expiry_min = _RESET_EXPIRY_MS // 60
 
-    await db["users"].update_one(
-        {"_id": user_doc["_id"]},
-        {"$set": {
-            "reset_code_hash": code_hash,
-            "reset_code_expires_at": expires_at,
-            "reset_code_attempts": 0,
-            "reset_token_hash": None,
-            "reset_token_expires_at": None,
-            "reset_token_used": False,
-        }}
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            UPDATE users SET
+                reset_code_hash = :hash,
+                reset_code_expires_at = :exp,
+                reset_code_attempts = 0,
+                reset_token_hash = NULL,
+                reset_token_expires_at = NULL,
+                reset_token_used = FALSE
+            WHERE username = :u
+        """), {"hash": code_hash, "exp": expires_at, "u": username})
+        await s.commit()
 
     html = f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"></head>
@@ -499,52 +490,51 @@ async def forgot_password(body: ForgotPasswordBody):
 </body></html>"""
 
     try:
-        _send_email(user_doc["email"], "Código de verificación — Restablecer contraseña", html)
+        _send_email(row["email"], "Código de verificación — Restablecer contraseña", html)
     except Exception:
-        pass  # Never reveal whether send succeeded
+        pass
 
-    masked = _mask_email(user_doc["email"])
+    masked = _mask_email(row["email"])
     return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo.", "maskedEmail": masked}
 
 
 @router.post("/verify-reset-code")
 async def verify_reset_code(body: VerifyCodeBody):
-    db = get_db()
     username = body.username.strip()
     code     = body.code.strip()
     if not username or not code or not re.match(r"^\d{6}$", code):
         raise HTTPException(400, "Datos inválidos.")
 
-    user_doc = await db["users"].find_one(
-        {"username": username},
-        {"_id": 1, "reset_code_hash": 1, "reset_code_expires_at": 1, "reset_code_attempts": 1}
-    )
-    if not user_doc or not user_doc.get("reset_code_hash"):
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, reset_code_hash, reset_code_expires_at, reset_code_attempts
+            FROM users WHERE username = :u LIMIT 1
+        """), {"u": username})
+        row = r.mappings().first()
+
+    if not row or not row.get("reset_code_hash"):
         raise HTTPException(400, "No hay solicitud de recuperación activa. Vuelve al paso 1.")
 
     now = _dt.datetime.utcnow()
-    if user_doc.get("reset_code_expires_at") and now > user_doc["reset_code_expires_at"]:
-        await db["users"].update_one(
-            {"_id": user_doc["_id"]},
-            {"$set": {"reset_code_hash": None, "reset_code_expires_at": None, "reset_code_attempts": 0}}
-        )
+    exp = row["reset_code_expires_at"]
+    if exp and now > exp:
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("UPDATE users SET reset_code_hash=NULL, reset_code_expires_at=NULL, reset_code_attempts=0 WHERE username=:u"), {"u": username})
+            await s.commit()
         raise HTTPException(400, "El código ha expirado. Solicita uno nuevo.")
 
-    attempts = user_doc.get("reset_code_attempts", 0)
+    attempts = row.get("reset_code_attempts") or 0
     if attempts >= _MAX_ATTEMPTS:
-        await db["users"].update_one(
-            {"_id": user_doc["_id"]},
-            {"$set": {"reset_code_hash": None, "reset_code_expires_at": None, "reset_code_attempts": 0}}
-        )
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("UPDATE users SET reset_code_hash=NULL, reset_code_expires_at=NULL, reset_code_attempts=0 WHERE username=:u"), {"u": username})
+            await s.commit()
         raise HTTPException(400, "Superaste el máximo de intentos. Solicita un nuevo código.")
 
-    await db["users"].update_one(
-        {"_id": user_doc["_id"]},
-        {"$inc": {"reset_code_attempts": 1}}
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("UPDATE users SET reset_code_attempts = reset_code_attempts + 1 WHERE username = :u"), {"u": username})
+        await s.commit()
 
-    valid = _verify_code(code, user_doc["reset_code_hash"])
-    if not valid:
+    if not _verify_code(code, row["reset_code_hash"]):
         remaining = _MAX_ATTEMPTS - (attempts + 1)
         msg = (f"Código incorrecto. Te quedan {remaining} intento{'s' if remaining != 1 else ''}."
                if remaining > 0 else "Código incorrecto. Sin intentos restantes. Solicita un nuevo código.")
@@ -554,24 +544,24 @@ async def verify_reset_code(body: VerifyCodeBody):
     reset_token_hash = _hash_code(reset_token)
     token_expiry     = now + _dt.timedelta(seconds=_RESET_TOKEN_SECS)
 
-    await db["users"].update_one(
-        {"_id": user_doc["_id"]},
-        {"$set": {
-            "reset_code_hash": None,
-            "reset_code_expires_at": None,
-            "reset_code_attempts": 0,
-            "reset_token_hash": reset_token_hash,
-            "reset_token_expires_at": token_expiry,
-            "reset_token_used": False,
-        }}
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            UPDATE users SET
+                reset_code_hash = NULL,
+                reset_code_expires_at = NULL,
+                reset_code_attempts = 0,
+                reset_token_hash = :th,
+                reset_token_expires_at = :te,
+                reset_token_used = FALSE
+            WHERE username = :u
+        """), {"th": reset_token_hash, "te": token_expiry, "u": username})
+        await s.commit()
 
     return {"success": True, "resetToken": reset_token}
 
 
 @router.post("/reset-password")
 async def reset_password(body: ResetPasswordBody, request: Request):
-    db = get_db()
     username     = body.username.strip()
     new_password = body.newPassword
 
@@ -580,51 +570,52 @@ async def reset_password(body: ResetPasswordBody, request: Request):
     if len(new_password) < 8:
         raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres.")
 
-    # Forgot-password flow: uses resetToken (no auth required)
     if body.resetToken:
         reset_token = body.resetToken
         if len(reset_token) != 64:
             raise HTTPException(400, "Token de recuperación inválido.")
-        if len(new_password) < 8 or not re.search(r"[A-Z]", new_password) or not re.search(r"[0-9]", new_password):
+        if not re.search(r"[A-Z]", new_password) or not re.search(r"[0-9]", new_password):
             raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.")
         if len(new_password) > 128:
             raise HTTPException(400, "La contraseña es demasiado larga.")
 
-        user_doc = await db["users"].find_one(
-            {"username": username},
-            {"_id": 1, "reset_token_hash": 1, "reset_token_expires_at": 1, "reset_token_used": 1}
-        )
-        if not user_doc or not user_doc.get("reset_token_hash"):
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT id, reset_token_hash, reset_token_expires_at, reset_token_used
+                FROM users WHERE username = :u LIMIT 1
+            """), {"u": username})
+            row = r.mappings().first()
+
+        if not row or not row.get("reset_token_hash"):
             raise HTTPException(400, "Token de recuperación no válido o ya utilizado.")
 
         now = _dt.datetime.utcnow()
-        if user_doc.get("reset_token_expires_at") and now > user_doc["reset_token_expires_at"]:
-            await db["users"].update_one(
-                {"_id": user_doc["_id"]},
-                {"$set": {"reset_token_hash": None, "reset_token_expires_at": None, "reset_token_used": True}}
-            )
+        if row.get("reset_token_expires_at") and now > row["reset_token_expires_at"]:
+            async with AsyncSessionLocal() as s:
+                await s.execute(text("UPDATE users SET reset_token_hash=NULL, reset_token_expires_at=NULL, reset_token_used=TRUE WHERE username=:u"), {"u": username})
+                await s.commit()
             raise HTTPException(400, "El token de recuperación ha expirado. Inicia el proceso nuevamente.")
 
-        if user_doc.get("reset_token_used"):
+        if row.get("reset_token_used"):
             raise HTTPException(400, "Este token ya fue utilizado.")
 
-        token_valid = _verify_code(reset_token, user_doc["reset_token_hash"])
-        if not token_valid:
+        if not _verify_code(reset_token, row["reset_token_hash"]):
             raise HTTPException(400, "Token de recuperación inválido.")
 
         hashed = _hash_pwd(new_password)
-        await db["users"].update_one(
-            {"_id": user_doc["_id"]},
-            {"$set": {
-                "password": hashed,
-                "reset_token_hash": None,
-                "reset_token_expires_at": None,
-                "reset_token_used": True,
-            }}
-        )
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("""
+                UPDATE users SET
+                    password_hash = :h,
+                    reset_token_hash = NULL,
+                    reset_token_expires_at = NULL,
+                    reset_token_used = TRUE
+                WHERE username = :u
+            """), {"h": hashed, "u": username})
+            await s.commit()
         return {"success": True, "message": "Contraseña actualizada exitosamente."}
 
-    # Admin reset flow: requires admin auth, no resetToken
+    # Admin reset flow
     token = _get_token(request)
     if not token:
         raise HTTPException(401, "Acceso denegado. Token no proporcionado.")
@@ -639,18 +630,13 @@ async def reset_password(body: ResetPasswordBody, request: Request):
         re.sub(r"[.\s]+", " ", username),
         re.sub(r"[.\s]+", ".", username),
     ]))
-    ors = []
-    for v in variants:
-        rx = re.compile(rf"^\s*{re.escape(v)}\s*$", re.IGNORECASE)
-        ors += [{"username": rx}, {"name": rx}]
 
-    user_doc = await db["users"].find_one({"$or": ors})
+    user_doc = await _find_user_by_variants(variants)
     if not user_doc:
         raise HTTPException(404, "Usuario no encontrado")
 
     hashed = _hash_pwd(new_password)
-    await db["users"].update_one(
-        {"_id": user_doc["_id"]},
-        {"$set": {"password": hashed, "updatedAt": _dt.datetime.utcnow()}},
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("UPDATE users SET password_hash = :h WHERE id = :id"), {"h": hashed, "id": user_doc["id"]})
+        await s.commit()
     return {"success": True, "message": "Contraseña restablecida"}

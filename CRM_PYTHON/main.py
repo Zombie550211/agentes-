@@ -2,19 +2,15 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import ENCODERS_BY_TYPE
 from contextlib import asynccontextmanager
 from pathlib import Path
-from bson import ObjectId
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Serializar ObjectId de MongoDB automáticamente en todas las respuestas JSON
-ENCODERS_BY_TYPE[ObjectId] = str
-
-from database import connect, disconnect
+from database_mysql import init_mysql, close_mysql
+from database import connect as mongo_connect, disconnect as mongo_disconnect
 from routers import auth as auth_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
@@ -38,9 +34,11 @@ COMPONENTS   = BASE_DIR / "components"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect()
+    await init_mysql()
+    await mongo_connect()
     yield
-    await disconnect()
+    await close_mysql()
+    await mongo_disconnect()
 
 app = FastAPI(
     title="CRM Connecting — Python",

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 router = APIRouter(prefix="/api/equipos", tags=["Equipos"])
@@ -12,13 +13,36 @@ def _to_ymd(d: datetime) -> str:
 
 
 SAMPLE_DATA = [
-    {"TEAM": "TEAM IRANIA",          "Icon": 8,  "BAMO": 7,  "Total": 15, "Puntaje": 46.7},
+    {"TEAM": "TEAM IRANIA",           "Icon": 8,  "BAMO": 7,  "Total": 15, "Puntaje": 46.7},
     {"TEAM": "TEAM ROBERTO VELASQUEZ","Icon": 12, "BAMO": 11, "Total": 23, "Puntaje": 47.8},
-    {"TEAM": "TEAM BRYAN PLEITEZ",   "Icon": 9,  "BAMO": 9,  "Total": 18, "Puntaje": 50.0},
-    {"TEAM": "TEAM MARISOL BELTRAN", "Icon": 6,  "BAMO": 6,  "Total": 12, "Puntaje": 50.0},
-    {"TEAM": "TEAM RANDAL MARTINEZ", "Icon": 11, "BAMO": 9,  "Total": 20, "Puntaje": 45.0},
-    {"TEAM": "TEAM LINEA",           "Icon": 4,  "BAMO": 4,  "Total": 8,  "Puntaje": 50.0},
+    {"TEAM": "TEAM BRYAN PLEITEZ",    "Icon": 9,  "BAMO": 9,  "Total": 18, "Puntaje": 50.0},
+    {"TEAM": "TEAM MARISOL BELTRAN",  "Icon": 6,  "BAMO": 6,  "Total": 12, "Puntaje": 50.0},
+    {"TEAM": "TEAM RANDAL MARTINEZ",  "Icon": 11, "BAMO": 9,  "Total": 20, "Puntaje": 45.0},
+    {"TEAM": "TEAM LINEA",            "Icon": 4,  "BAMO": 4,  "Total": 8,  "Puntaje": 50.0},
 ]
+
+# Alias map: last-name fragment → normalized team key
+_TEAM_ALIAS = {
+    "PLEITEZ":   "PLEITEZ",
+    "VELASQUEZ": "ROBERTO",
+    "BELTRAN":   "MARISOL",
+    "SERRANO":   "IRANIA",
+    "JOHANA":    "JOHANA",
+    "SANTANA":   "JOHANA",
+    "JONATHAN":  "JONATHAN F",
+    "LUIS":      "LUIS G",
+}
+
+
+def _normalize_team(team_raw: str) -> str:
+    if not team_raw:
+        return "SIN EQUIPO"
+    parts = team_raw.strip().upper().split()
+    last = parts[-1] if parts else team_raw.upper()
+    for fragment, alias in _TEAM_ALIAS.items():
+        if fragment in last:
+            return alias
+    return last or "SIN EQUIPO"
 
 
 @router.get("/test")
@@ -28,13 +52,14 @@ async def equipo_test(user: dict = Depends(current_user)):
 
 @router.get("/lista")
 async def equipo_lista(user: dict = Depends(current_user)):
-    db = get_db()
-    try:
-        teams = await db["costumers_unified"].distinct("supervisor")
-        teams = [str(t).strip().upper() for t in teams if t]
-        teams = sorted(set(teams))
-    except Exception:
-        teams = []
+    async with AsyncSessionLocal() as s:
+        try:
+            r = await s.execute(text(
+                "SELECT DISTINCT UPPER(TRIM(supervisor)) as sup FROM leads WHERE supervisor IS NOT NULL AND supervisor != ''"
+            ))
+            teams = sorted({row["sup"] for row in r.mappings().all() if row["sup"]})
+        except Exception:
+            teams = []
     return {"success": True, "data": teams, "total": len(teams)}
 
 
@@ -45,124 +70,88 @@ async def equipo_estadisticas(
     scope:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    db = get_db()
-
     now = datetime.utcnow()
     if not fechaInicio or not fechaFin:
-        start_month = datetime(now.year, now.month, 1)
-        fechaInicio = _to_ymd(start_month)
-        fechaFin    = _to_ymd(now)
+        fi = _to_ymd(datetime(now.year, now.month, 1))
+        ff = _to_ymd(now)
         if scope == "day":
-            fechaInicio = _to_ymd(now)
-            fechaFin    = _to_ymd(now)
+            fi = ff = _to_ymd(now)
+        fechaInicio, fechaFin = fi, ff
 
-    # Stages comunes de filtro y agrupación
-    common_stages = [
-        {"$addFields": {
-            "_dateRaw": {"$ifNull": ["$dia_venta", {"$ifNull": ["$fecha_contratacion", {"$ifNull": ["$createdAt", None]}]}]}
-        }},
-        {"$addFields": {
-            "_date": {"$cond": [
-                {"$eq": [{"$type": "$_dateRaw"}, "date"]},
-                "$_dateRaw",
-                {"$cond": [
-                    {"$eq": [{"$type": "$_dateRaw"}, "string"]},
-                    {"$dateFromString": {"dateString": {"$toString": "$_dateRaw"}, "timezone": "-06:00", "onError": None, "onNull": None}},
-                    None
-                ]}
-            ]}
-        }},
-        {"$match": {
-            "_date": {"$ne": None},
-            "$expr": {"$and": [
-                {"$gte": [{"$dateToString": {"format": "%Y-%m-%d", "date": "$_date"}}, fechaInicio]},
-                {"$lte": [{"$dateToString": {"format": "%Y-%m-%d", "date": "$_date"}}, fechaFin]},
-            ]},
-        }},
-        {"$addFields": {
-            "_statusLower": {"$toLower": {"$trim": {"input": {"$toString": {"$ifNull": ["$status",""]}}}}},
-            "_teamRaw": {"$toUpper": {"$trim": {"input": {"$ifNull": ["$supervisor", {"$ifNull": ["$team", {"$ifNull": ["$equipo", ""]}]}]}}}},
-            "_mercadoNorm": {"$toUpper": {"$trim": {"input": {"$ifNull": ["$mercado", "SIN MERCADO"]}}}},
-            "_puntaje": {"$toDouble": {"$ifNull": ["$puntaje", 0]}},
-        }},
-        # Normalizar supervisor: extraer último apellido ("Bryan Pleitez" → "PLEITEZ")
-        # y mapear alias conocidos
-        {"$addFields": {
-            "_teamParts": {"$split": ["$_teamRaw", " "]},
-        }},
-        {"$addFields": {
-            "_teamLast": {"$cond": [
-                {"$gt": [{"$size": "$_teamParts"}, 1]},
-                {"$arrayElemAt": ["$_teamParts", -1]},
-                "$_teamRaw"
-            ]},
-        }},
-        {"$addFields": {
-            "_teamNorm": {"$switch": {
-                "branches": [
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "PLEITEZ"}}, "then": "PLEITEZ"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "VELASQUEZ"}}, "then": "ROBERTO"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "BELTRAN"}}, "then": "MARISOL"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "SERRANO"}}, "then": "IRANIA"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "JOHANA|SANTANA"}}, "then": "JOHANA"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "JONATHAN"}}, "then": "JONATHAN F"},
-                    {"case": {"$regexMatch": {"input": "$_teamLast", "regex": "LUIS"}}, "then": "LUIS G"},
-                ],
-                "default": {"$cond": [{"$eq": ["$_teamRaw", ""]}, "SIN EQUIPO", "$_teamLast"]}
-            }},
-        }},
-        {"$addFields": {
-            "_isCounted": {"$not": {"$regexMatch": {"input": "$_statusLower", "regex": r"cancel|reserva"}}},
-            "_isActive":  {"$regexMatch": {"input": "$_statusLower", "regex": r"completed|completado|complete|active|activo|activa"}},
-            "_isRepro":   {"$regexMatch": {"input": "$_statusLower", "regex": r"repro|rescheduled|reagendado"}},
-        }},
-        {"$group": {
-            "_id":     "$_teamNorm",
-            "ICON":    {"$sum": {"$cond": [{"$and": ["$_isCounted", {"$regexMatch": {"input": "$_mercadoNorm", "regex": "ICON"}}]}, 1, 0]}},
-            "BAMO":    {"$sum": {"$cond": [{"$and": ["$_isCounted", {"$regexMatch": {"input": "$_mercadoNorm", "regex": "BAMO"}}]}, 1, 0]}},
-            "Total":   {"$sum": {"$cond": ["$_isCounted", 1, 0]}},
-            "ACTIVAS": {"$sum": {"$cond": ["$_isActive", 1, 0]}},
-            "Repro":   {"$sum": {"$cond": ["$_isRepro", 1, 0]}},
-            "Puntaje": {"$sum": {"$cond": ["$_isCounted", "$_puntaje", 0]}},
-        }},
-    ]
-
-    pipeline = common_stages + [
-        {"$project": {
-            "_id": 0,
-            "TEAM":    "$_id",
-            "ICON":    1, "BAMO": 1, "Total": 1, "ACTIVAS": 1,
-            "Puntaje": 1, "Repro": 1,
-        }},
-        {"$match": {"Total": {"$gt": 0}}},
-        {"$sort": {"Total": -1}},
-    ]
+    params = {"fi": fechaInicio, "ff": fechaFin}
 
     try:
-        data = await db["costumers_unified"].aggregate(pipeline, allowDiskUse=True).to_list(None)
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT
+                    UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    UPPER(TRIM(COALESCE(mercado, 'SIN MERCADO')))       AS mercado_norm,
+                    LOWER(TRIM(COALESCE(status, '')))                   AS status_lower,
+                    COALESCE(puntaje, 0)                                AS puntaje
+                FROM leads
+                WHERE dia_venta BETWEEN :fi AND :ff
+                   OR (created_at BETWEEN :fi AND :ff AND dia_venta IS NULL)
+            """), params)
+            rows = r.mappings().all()
     except Exception as e:
-        import logging
-        logging.getLogger("equipo").error("aggregate error: %s", e)
-        return {"success": False, "message": f"Error al obtener estadísticas: {e}", "data": []}
+        return {"success": False, "message": f"Error: {e}", "data": []}
+
+    # Aggregate in Python with team normalization
+    agg: dict = {}
+    cancel_re  = {"cancel", "reserva"}
+    active_re  = {"completed", "completado", "complete", "active", "activo", "activa"}
+    repro_re   = {"repro", "rescheduled", "reagendado"}
+
+    for row in rows:
+        team_norm  = _normalize_team(row["team_raw"])
+        mercado    = row["mercado_norm"]
+        sl         = row["status_lower"]
+        puntaje    = float(row["puntaje"] or 0)
+        is_cancel  = any(c in sl for c in cancel_re)
+        is_counted = not is_cancel
+        is_active  = any(a in sl for a in active_re)
+        is_repro   = any(r in sl for r in repro_re)
+
+        if team_norm not in agg:
+            agg[team_norm] = {"TEAM": team_norm, "ICON": 0, "BAMO": 0, "Total": 0,
+                              "ACTIVAS": 0, "Repro": 0, "Puntaje": 0.0}
+        entry = agg[team_norm]
+        if is_counted:
+            entry["Total"]  += 1
+            entry["Puntaje"] += puntaje
+            if "ICON" in mercado:
+                entry["ICON"] += 1
+            elif "BAMO" in mercado:
+                entry["BAMO"] += 1
+        if is_active:
+            entry["ACTIVAS"] += 1
+        if is_repro:
+            entry["Repro"] += 1
+
+    data = [v for v in agg.values() if v["Total"] > 0]
+    data.sort(key=lambda x: -x["Total"])
 
     return {
-        "success": True,
-        "data": data,
-        "total": len(data),
+        "success":     True,
+        "data":        data,
+        "total":       len(data),
         "fechaInicio": fechaInicio,
-        "fechaFin": fechaFin,
+        "fechaFin":    fechaFin,
     }
 
 
 @router.get("/debug")
 async def equipo_debug(user: dict = Depends(current_user)):
-    db = get_db()
     try:
-        sample = await db["costumers_unified"].find(
-            {}, {"supervisor":1,"team":1,"equipo":1,"mercado":1,"status":1,"dia_venta":1}
-        ).limit(10).to_list(None)
-        for d in sample:
-            d["_id"] = str(d["_id"])
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT id, supervisor, team, equipo, mercado, status, dia_venta
+                FROM leads LIMIT 10
+            """))
+            sample = [dict(row) for row in r.mappings().all()]
+            for d in sample:
+                d["id"] = str(d["id"])
+                if d.get("dia_venta"): d["dia_venta"] = str(d["dia_venta"])
     except Exception as e:
         sample = [{"error": str(e)}]
     return {"success": True, "sample": sample}

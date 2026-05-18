@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
 from datetime import datetime
 from typing import List
@@ -31,10 +32,6 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"\s+", " ", str(name or "").strip()).lower()
 
 
-def _escape_regex(s: str) -> str:
-    return re.escape(str(s or ""))
-
-
 class BulkByPhoneBody(BaseModel):
     phones: List[str]
     newStatus: str
@@ -58,58 +55,65 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
     if not input_phones:
         raise HTTPException(400, "Sin números válidos de 10 dígitos")
 
-    db = get_db()
-    coll = db["costumers_unified"]
+    now = datetime.utcnow()
+    found_rows = []
 
-    phone_regexes = [re.compile(_escape_regex(p) + "$") for p in input_phones]
-    query = {
-        "$or": [
-            {"telefono": {"$in": input_phones}},
-            {"telefono_principal": {"$in": input_phones}},
-            {"telefono_alterno": {"$in": input_phones}},
-            {"telefono": {"$in": phone_regexes}},
-            {"telefono_principal": {"$in": phone_regexes}},
-            {"telefono_alterno": {"$in": phone_regexes}},
-        ]
-    }
+    async with AsyncSessionLocal() as s:
+        for phone in input_phones:
+            r = await s.execute(text("""
+                SELECT id, nombre_cliente, telefono, telefono_principal, telefono_alterno, status
+                FROM leads
+                WHERE telefono_principal LIKE :p
+                   OR telefono LIKE :p
+                   OR telefono_alterno LIKE :p
+            """), {"p": f"%{phone}"})
+            found_rows.extend(r.mappings().all())
 
-    found_leads = await coll.find(
-        query,
-        {"_id": 1, "nombre_cliente": 1, "telefono": 1, "telefono_principal": 1, "telefono_alterno": 1, "status": 1}
-    ).to_list(None)
+        if not found_rows:
+            return {
+                "success": True, "updated": 0, "found": 0,
+                "notFound": len(input_phones), "foundPhones": [],
+                "notFoundPhones": input_phones, "updatedLeads": [],
+                "message": "No se encontraron leads con esos teléfonos",
+            }
 
-    if not found_leads:
-        return {
-            "success": True, "updated": 0, "found": 0,
-            "notFound": len(input_phones), "foundPhones": [],
-            "notFoundPhones": input_phones, "updatedLeads": [],
-            "message": "No se encontraron leads con esos teléfonos",
-        }
-
-    lead_ids = [l["_id"] for l in found_leads]
-    update_result = await coll.update_many(
-        {"_id": {"$in": lead_ids}},
-        {"$set": {"status": body.newStatus, "updatedAt": datetime.utcnow(), "updatedBy": user.get("username", "Sistema")}},
-    )
+        lead_ids = list({row["id"] for row in found_rows})
+        placeholders = ",".join([f":id{i}" for i in range(len(lead_ids))])
+        params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
+        for i, lid in enumerate(lead_ids):
+            params[f"id{i}"] = lid
+        r2 = await s.execute(text(f"""
+            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
+            WHERE id IN ({placeholders})
+        """), params)
+        await s.commit()
+        updated = r2.rowcount
 
     found_phones_set = set()
-    for l in found_leads:
-        p = _normalize_phone(l.get("telefono_principal") or l.get("telefono") or l.get("telefono_alterno") or "")
+    for row in found_rows:
+        p = _normalize_phone(
+            row.get("telefono_principal") or row.get("telefono") or row.get("telefono_alterno") or ""
+        )
         if p:
             found_phones_set.add(p)
 
     not_found_phones = [p for p in input_phones if p not in found_phones_set]
     updated_leads = [
-        {"id": str(l["_id"]), "nombre_cliente": str(l.get("nombre_cliente") or "").strip(),
-         "telefono": _normalize_phone(l.get("telefono_principal") or l.get("telefono") or l.get("telefono_alterno") or "")}
-        for l in found_leads
+        {
+            "id": str(row["id"]),
+            "nombre_cliente": str(row.get("nombre_cliente") or "").strip(),
+            "telefono": _normalize_phone(
+                row.get("telefono_principal") or row.get("telefono") or row.get("telefono_alterno") or ""
+            ),
+        }
+        for row in found_rows
     ]
 
     return {
         "success": True,
-        "message": f"{update_result.modified_count} lead(s) actualizados a \"{body.newStatus}\"",
-        "updated": update_result.modified_count,
-        "found": len(found_leads),
+        "message": f"{updated} lead(s) actualizados a \"{body.newStatus}\"",
+        "updated": updated,
+        "found": len(lead_ids),
         "notFound": len(not_found_phones),
         "foundPhones": list(found_phones_set),
         "notFoundPhones": not_found_phones,
@@ -131,41 +135,54 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
     if not normalized_names:
         raise HTTPException(400, "Sin nombres válidos (mínimo 3 caracteres)")
 
-    db = get_db()
-    coll = db["costumers_unified"]
+    now = datetime.utcnow()
+    found_rows = []
 
-    regexes = [re.compile(f"^{_escape_regex(n)}$", re.IGNORECASE) for n in normalized_names[:300]]
-    found_leads = await coll.find(
-        {"nombre_cliente": {"$in": regexes}},
-        {"_id": 1, "nombre_cliente": 1, "telefono": 1, "telefono_principal": 1, "status": 1},
-    ).to_list(None)
+    async with AsyncSessionLocal() as s:
+        for name in normalized_names[:300]:
+            r = await s.execute(text("""
+                SELECT id, nombre_cliente, telefono, telefono_principal, status
+                FROM leads WHERE LOWER(nombre_cliente) = :name
+            """), {"name": name})
+            found_rows.extend(r.mappings().all())
 
-    if not found_leads:
-        return {
-            "success": True, "updated": 0, "found": 0,
-            "notFound": len(normalized_names), "foundNames": [],
-            "notFoundNames": normalized_names, "updatedLeads": [],
-            "message": "No se encontraron leads con esos nombres",
-        }
+        if not found_rows:
+            return {
+                "success": True, "updated": 0, "found": 0,
+                "notFound": len(normalized_names), "foundNames": [],
+                "notFoundNames": normalized_names, "updatedLeads": [],
+                "message": "No se encontraron leads con esos nombres",
+            }
 
-    lead_ids = [l["_id"] for l in found_leads]
-    update_result = await coll.update_many(
-        {"_id": {"$in": lead_ids}},
-        {"$set": {"status": body.newStatus, "updatedAt": datetime.utcnow(), "updatedBy": user.get("username", "Sistema")}},
-    )
+        lead_ids = list({row["id"] for row in found_rows})
+        placeholders = ",".join([f":id{i}" for i in range(len(lead_ids))])
+        params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
+        for i, lid in enumerate(lead_ids):
+            params[f"id{i}"] = lid
+        r2 = await s.execute(text(f"""
+            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
+            WHERE id IN ({placeholders})
+        """), params)
+        await s.commit()
+        updated = r2.rowcount
 
-    found_names_set = {_normalize_name(l.get("nombre_cliente") or "") for l in found_leads}
+    found_names_set = {_normalize_name(row.get("nombre_cliente") or "") for row in found_rows}
     not_found_names = [n for n in normalized_names if n not in found_names_set]
     updated_leads = [
-        {"id": str(l["_id"]), "nombre_cliente": str(l.get("nombre_cliente") or "").strip(),
-         "telefono": _normalize_phone(l.get("telefono_principal") or l.get("telefono") or "")}
-        for l in found_leads
+        {
+            "id": str(row["id"]),
+            "nombre_cliente": str(row.get("nombre_cliente") or "").strip(),
+            "telefono": _normalize_phone(
+                row.get("telefono_principal") or row.get("telefono") or ""
+            ),
+        }
+        for row in found_rows
     ]
 
     return {
         "success": True,
-        "message": f"{update_result.modified_count} lead(s) actualizados a \"{body.newStatus}\"",
-        "updated": update_result.modified_count,
+        "message": f"{updated} lead(s) actualizados a \"{body.newStatus}\"",
+        "updated": updated,
         "found": len(found_names_set),
         "notFound": len(not_found_names),
         "foundNames": list(found_names_set),
