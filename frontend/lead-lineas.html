@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script>
+    (function immediateRedirect(){
+      try{
+        const s = sessionStorage.getItem('user') || localStorage.getItem('user') || '{}';
+        const u = JSON.parse(s||'{}');
+        const role = String(u.role||'').toLowerCase();
+        const username = String(u.username||'').toLowerCase();
+        const team = String(u.team||'').toLowerCase();
+        const isTL = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
+        const to = isTL ? '/TEAM LINEAS/LEAD-LINEAS.html' : '/lead.html';
+        if (!location.pathname.endsWith(to.replace(/^\//,''))) {
+          window.location.replace(to);
+        }
+      }catch(e){ /* ignore */ }
+    })();
+  </script>
+  <script>
+    // Verificar autenticación y permisos
+    (function() {
+      try {
+        // Verificar si el usuario está autenticado
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+          window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+          return;
+        }
+        
+        // Verificar si el usuario es de Team Líneas
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+        const username = (userData.username || '').toLowerCase();
+        const role = (userData.role || '').toLowerCase();
+        const team = (userData.team || '').toLowerCase();
+        
+        // Verificar si el usuario es de Team Líneas
+        const isTeamLineas = role === 'teamlineas' || 
+                            role === 'lineas-agentes' || 
+                            role === 'supervisor team lineas' ||
+                            (role === 'supervisor' && team.includes('lineas')) ||
+                            team.includes('lineas') ||
+                            username.startsWith('lineas-');
+        
+        // Si el usuario no es de Team Líneas, redirigir a la página de inicio
+        if (!isTeamLineas) {
+          window.location.href = '/inicio.html';
+        }
+      } catch (e) {
+        console.error('Error de autenticación:', e);
+        window.location.href = '/login.html';
+      }
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRM Agente - Team Líneas</title>
+  
+  <!-- Interceptor de API para manejo de permisos -->
+  <script src="js/api-interceptor.js"></script>
+  <script>
+    // Versionado para romper caché
+    window.__APP_VERSION__ = '20250915-1200';
+    console.info('[lead-lineas.html] version', window.__APP_VERSION__);
+  </script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Hojas de estilo -->
+  <link rel="stylesheet" href="css/theme.css?v=20251124f" />
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f" />
+  <link rel="stylesheet" href="css/costumer-page.css?v=20250915-1200" />
+  
+  <!-- Scripts de terceros -->
+  <script src="js/fetch-interceptor.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+  
+  <!-- Sistema de Inactividad -->
+  <script src="js/crm-config.js"></script>
+  <script src="js/inactivity-manager.js"></script>
+  <script src="js/crm-init.js"></script>
+  
+  <!-- Scripts de la aplicación -->
+  <script>
+    // Verificación de autenticación
+    window.authChecked = true;
+    
+    // Opción para silenciar logs
+    (function() {
+      try {
+        const shouldSilence = typeof localStorage !== 'undefined' && localStorage.getItem('silenceLogs') === '1';
+        if (shouldSilence && typeof console !== 'undefined') {
+          const noop = function(){};
+          console.log = noop;
+          console.info = noop;
+        }
+      } catch (e) {
+        // Ignorar si localStorage no está disponible
+      }
+    })();
+  </script>
+  
+  <!-- Scripts locales -->
+  <script src="agentes-clean/agentes/js/auth-check.js?v=20250915-1200"></script>
+  <script src="/utils/teams.js?v=20250915-1200"></script>
+  
+  <!-- Estilos específicos para Team Líneas -->
+  <style>
+    /* Asegurar que el contenido principal no se solape con el sidebar */
+    body { 
+      padding-left: 0 !important;
+      overflow-x: hidden !important;
+    }
+    
+    .main-content {
+      margin-left: 260px !important;
+      width: calc(100% - 260px) !important;
+      padding: 0 !important;
+    }
+    
+    /* Ajustes para móviles */
+    @media (max-width: 768px) {
+      body { padding-left: 0 !important; }
+      .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
+      .sidebar.sidebar-inicio {
+        transform: translateX(-100%) !important;
+      }
+      .sidebar.sidebar-inicio.active {
+        transform: translateX(0) !important;
+      }
+    }
+    
+    /* Estilos adicionales para el botón de menú móvil */
+    .menu-toggle {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      z-index: 1001;
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    .menu-toggle:hover {
+      background: #2980b9;
+    }
+
+    /* Estilos profesionales para el formulario de Team Líneas */
+    .form-section {
+      flex: 1;
+      max-width: 600px;
+      margin: 20px 0 20px 0;
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .form-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4, #10b981);
+    }
+    
+    .form-section h2 {
+      color: #1e293b;
+      margin-bottom: 2rem;
+      text-align: left;
+      font-size: 2rem;
+      font-weight: 700;
+      position: relative;
+      padding-bottom: 1rem;
+    }
+    
+    .form-section h2::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      border-radius: 2px;
+    }
+    
+    .form-fields-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* Exactamente 2 columnas iguales */
+      gap: 1.2rem 1.8rem;
+      max-height: 75vh;
+      overflow-y: auto;
+      padding: 1rem 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f1f5f9;
+    }
+    
+    .form-fields-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .form-fields-container::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    
+    .form-fields-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    
+    .form-fields-container::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    
+    .form-group {
+      margin-bottom: 0;
+      position: relative;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.6rem;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.95rem;
+      letter-spacing: 0.025em;
+    }
+    
+    /* No agregar '*' automático a todos los labels para evitar confusión en campos opcionales */
+    
+    .form-control {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      background: #ffffff;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    
+    .form-control:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      background: #fefefe;
+    }
+    
+    .form-control:hover {
+      border-color: #cbd5e1;
+    }
+    
+    .form-control::placeholder {
+      color: #9ca3af;
+      font-weight: 400;
+    }
+    
+    /* Estilos específicos para diferentes tipos de input */
+    input[type="date"].form-control,
+    input[type="tel"].form-control,
+    input[type="password"].form-control {
+      font-family: inherit;
+    }
+    
+    select.form-control {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.75rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      padding-right: 2.5rem;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+    
+    textarea.form-control {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    .btn-submit {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      border: none;
+      padding: 0.9rem 1.6rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1.05rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: block;
+      width: auto;
+      min-width: 220px;
+      margin: 1.2rem auto 0 auto;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      letter-spacing: 0.025em;
+    }
+    
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+    
+    .btn-submit:disabled {
+      background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    /* Estilos para el contenedor de teléfonos dinámicos */
+    .telefonos-container {
+      grid-column: 1 / -1;
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    .telefonos-container h4 {
+      color: #374151;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .telefono-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.2rem;
+      margin-bottom: 1.5rem;
+      padding: 1.2rem;
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .telefono-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    /* Estilos para radio buttons */
+    .radio-group {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-weight: 500;
+      color: #374151;
+      transition: color 0.2s ease;
+    }
+    
+    .radio-label:hover {
+      color: #3b82f6;
+    }
+    
+    .radio-label input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #3b82f6;
+      cursor: pointer;
+    }
+    
+    /* Estilos para campos que ocupan todo el ancho */
+    .form-group[style*="grid-column"] {
+      background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    /* Mejoras para el textarea de comentarios */
+    .form-group[style*="grid-column"] textarea {
+      background: #ffffff;
+      border: 2px solid #e2e8f0;
+    }
+    
+    .form-group[style*="grid-column"] label {
+      color: #374151;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+    
+    /* Estilos para la sección de gráfica */
+    .chart-section {
+      flex: 1;
+      max-width: 1000px;
+      height: fit-content;
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      padding: 1.8rem;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      position: relative;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    
+    .chart-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4, #10b981);
+    }
+    
+    .chart-section h3 {
+      color: #1e293b;
+      margin-bottom: 1rem;
+      text-align: left;
+      font-size: 1.4rem;
+      font-weight: 700;
+      position: relative;
+      padding-bottom: 0.5rem;
+    }
+    
+    .chart-section h3::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 50px;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      border-radius: 2px;
+    }
+    
+    .chart-container {
+      position: relative;
+      height: 280px;
+      width: 100%;
+    }
+    
+    /* Responsive para la gráfica */
+    @media (max-width: 1200px) {
+      .lead-content-row {
+        flex-direction: column !important;
+      }
+      
+      .chart-section {
+        max-width: none;
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+<body class="team-lineas">
+<div class="layout">
+  <!-- SIDEBAR (contenido estático como respaldo) -->
+  <nav class="sidebar sidebar-inicio" data-active="lead">
+    <!-- Usuario -->
+    <div class="user-info">
+      <div class="avatar"><i class="fas fa-user-circle"></i>  
+  <!-- Scripts de sidebar unificado -->
+  <script src="js/auth-logout.js"></script>
+  <script src="js/user-info-updater.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+</div>
+      <div class="user-details">
+        <span id="user-name" class="user-name">Usuario</span>
+        <span id="user-role" class="user-role">Team Líneas</span>
+      </div>
+    </div>
+
+    <!-- Menú principal -->
+    <ul class="menu">
+      <li><a href="inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i>Inicio</a></li>
+      <li><a href="/TEAM LINEAS/LEAD-LINEAS.html" class="btn btn-sidebar"><i class="fas fa-user-plus"></i>Lead</a></li>
+      <li><a href="Costumer.html" class="btn btn-sidebar"><i class="fas fa-users"></i>Customer</a></li>
+      <li><a href="facturacion.html" class="btn btn-sidebar"><i class="fas fa-file-invoice"></i>Facturación</a></li>
+      <li><a href="Estadisticas.html" class="btn btn-sidebar"><i class="fas fa-chart-bar"></i>Estadísticas</a></li>
+      <li><a href="#" id="logoutBtn" data-logout-button class="btn btn-sidebar btn-logout"><i class="fas fa-sign-out-alt"></i>Cerrar sesión</a></li>
+    </ul>
+
+    <!-- Frase al pie -->
+    <div class="sidebar-footer-quote">"Conectando tu éxito, un cliente a la vez"</div>
+  </nav>
+  
+  <main class="main-content">
+    <h2>Redireccionando...</h2>
+  </main>
+</div>
+
+</body>
+</html>

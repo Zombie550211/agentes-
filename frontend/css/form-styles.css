@@ -1,0 +1,215 @@
+/* Estilos unificados para el formulario en lead.html */
+
+.form-section {
+  background: #fcfafa;
+  border-radius: 16px;
+  padding: 56px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  max-width: 2000px;
+  margin: 25px auto;
+  border: 1px solid #ffffff;
+  position: relative;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.form-section:hover {
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+.form-section h2 {
+  color: #2c3e50;
+  margin: 0 0 14px 0;
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.form-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 2px;
+}
+
+.form-fields-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-right: -8px;
+  padding-bottom: 84px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(540px, 1fr));
+  gap: 14px 24px;
+  align-items: start;
+  padding-top: 6px;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;
+  grid-template-areas:
+    "nombre telefono"
+    "direccion telefono2"
+    "servicios tipo_servicios"
+    "motivo numero"
+    "motivo autopago"
+    "motivo sistema"
+    "status riesgo"
+    "dia_venta dia_instalacion"
+    "mercado supervisor"
+    "comentario zip"
+    "puntaje .";
+}
+
+.form-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 60px;
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 7px;
+  font-weight: 700;
+  color: #25a9dd;
+}
+
+.form-control {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 7px;
+  font-size: 1.12em;
+  background: #f8fcff;
+  border: 1.5px solid #e4e6f1;
+  color: #0f172a;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 0;
+  min-height: 40px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.radio-label:hover {
+  background: #f8fafc;
+  border-color: #c9d2de;
+}
+
+.btn-submit {
+  background: linear-gradient(135deg, #3498db, #2ecc71);
+  color: #fff;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 18px 40px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 400px;
+  margin: 15px auto 0;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+}
+
+/* --- Dark Theme Adjustments --- */
+body.dark-theme .form-section {
+  background: #0f172a !important; /* Fondo más oscuro forzado */
+  border-color: #334155 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.dark-theme .form-section h2,
+body.dark-theme .form-group label {
+  color: #f1f5f9 !important; /* Etiquetas y título más blancos forzado */
+}
+
+body.dark-theme .form-control,
+body.dark-theme #puntaje-display {
+  background: #1e293b !important; /* Fondo de input forzado */
+  border-color: #334155 !important;
+  color: #f1f5f9 !important; /* Texto de input forzado */
+}
+
+body.dark-theme .form-control::placeholder {
+  color: #64748b !important;
+}
+
+body.dark-theme .form-control:focus {
+  background: #283449 !important;
+  border-color: var(--primary-color, #3b82f6) !important;
+}
+
+body.dark-theme .radio-label {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-theme .radio-label:hover {
+  background: #283449 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-theme .radio-label input[type="radio"]:checked + span {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Estilo para el texto de los selects en tema oscuro */
+body.dark-theme .form-control option {
+    background: #1e293b;
+    color: #f1f5f9;
+}
+
+.form-button-container {
+    background: white;
+    border-top: 1px solid #e2e8f0;
+}
+
+body.dark-theme .form-button-container {
+    background: #0f172a !important; /* Fondo oscuro para el contenedor del botón */
+    border-top: 1px solid #334155 !important; /* Borde superior oscuro */
+}
+

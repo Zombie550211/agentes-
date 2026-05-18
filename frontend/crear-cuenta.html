@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Panel de Permisos · CRM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <script src="js/fetch-interceptor.js" defer></script>
+  <script src="js/sidebar-loader.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <style>
+    :root {
+      --bg:        #f1f3f7;
+      --surface:   #ffffff;
+      --surface2:  #f8f9fb;
+      --border:    rgba(0,0,0,.07);
+      --border2:   rgba(0,0,0,.13);
+      --ink:       #0c0e14;
+      --ink2:      #4a5068;
+      --ink3:      #9098b0;
+      --gold:      #c49a00;
+      --gold-dim:  rgba(196,154,0,.09);
+      --green:     #16a34a;
+      --green-dim: rgba(22,163,74,.1);
+      --red:       #dc2626;
+      --red-dim:   rgba(220,38,38,.09);
+      --blue:      #2563eb;
+      --blue-dim:  rgba(37,99,235,.09);
+      --purple:    #7c3aed;
+      --nav-w:     220px;
+      --f:         'Syne', sans-serif;
+      --fm:        'DM Mono', monospace;
+      --r:         10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body { font-family: var(--f); background: var(--bg); color: var(--ink); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: var(--nav-w); min-height: 100vh; position: fixed; top:0; left:0; z-index:200; background:var(--ink); }
+    .main { margin-left: var(--nav-w); flex:1; padding: 28px 32px 60px; max-width: 1500px; }
+
+    .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
+    .page-title-block { display:flex; flex-direction:column; gap:4px; }
+    .page-eyebrow { font-size:.68rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:var(--gold); font-family:var(--fm); }
+    .page-title { font-size:1.8rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); line-height:1; }
+    .page-subtitle { font-size:.8rem; color:var(--ink2); margin-top:2px; }
+
+    .stats-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px 18px; }
+    .stat-lbl { font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); margin-bottom:6px; }
+    .stat-val { font-family:var(--fm); font-size:1.9rem; font-weight:500; color:var(--ink); letter-spacing:-.03em; line-height:1; }
+    .stat-val.gold  { color:var(--gold); }
+    .stat-val.blue  { color:var(--blue); }
+    .stat-val.green { color:var(--green); }
+    .stat-val.purple{ color:var(--purple); }
+
+    .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+    .search-box { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border2); border-radius:var(--r); padding:8px 14px; flex:1; min-width:220px; max-width:360px; }
+    .search-box input { border:none; outline:none; font-family:var(--f); font-size:.82rem; color:var(--ink); background:transparent; flex:1; }
+    .search-box input::placeholder { color:var(--ink3); }
+    .search-box i { color:var(--ink3); font-size:.82rem; }
+    .filter-role { background:var(--surface); border:1px solid var(--border2); border-radius:var(--r); padding:8px 12px; font-family:var(--f); font-size:.8rem; color:var(--ink2); cursor:pointer; outline:none; }
+
+    .btn { display:inline-flex; align-items:center; gap:7px; padding:8px 16px; border-radius:var(--r); font-family:var(--f); font-size:.78rem; font-weight:700; cursor:pointer; border:none; transition:all .12s; letter-spacing:.02em; }
+    .btn-primary { background:var(--ink); color:#fff; }
+    .btn-primary:hover { background:#222; }
+    .btn-danger  { background:var(--red); color:#fff; }
+    .btn-danger:hover  { background:#b91c1c; }
+    .btn-ghost  { background:transparent; border:1px solid var(--border2); color:var(--ink2); }
+    .btn-ghost:hover { background:var(--surface2); color:var(--ink); }
+    .btn-icon { width:32px; height:32px; padding:0; border-radius:7px; justify-content:center; border:1px solid var(--border); background:var(--surface); color:var(--ink2); font-size:.78rem; }
+    .btn-icon:hover { border-color:var(--border2); color:var(--ink); background:var(--surface2); }
+    .btn-icon.danger:hover { border-color:rgba(220,38,38,.3); color:var(--red); background:var(--red-dim); }
+    .btn-sm { padding:5px 10px; font-size:.72rem; }
+
+    .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+    .ptable { width:100%; border-collapse:collapse; font-size:.8rem; }
+    .ptable thead tr { background:var(--surface2); }
+    .ptable thead th { padding:10px 14px; text-align:left; font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); border-bottom:1px solid var(--border); white-space:nowrap; }
+    .ptable tbody tr { border-bottom:1px solid var(--border); transition:background .08s; }
+    .ptable tbody tr:last-child { border-bottom:none; }
+    .ptable tbody tr:hover { background:var(--surface2); }
+    .ptable tbody td { padding:12px 14px; color:var(--ink2); vertical-align:middle; }
+
+    .user-cell { display:flex; align-items:center; gap:10px; }
+    .user-av { width:34px; height:34px; border-radius:8px; background:var(--surface2); border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.72rem; color:var(--ink2); flex-shrink:0; letter-spacing:.04em; }
+
+    .role-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:.62rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+    .role-admin      { background:rgba(196,154,0,.12); color:#a07800; border:1px solid rgba(196,154,0,.3); }
+    .role-backoffice { background:rgba(124,58,237,.1);  color:var(--purple); border:1px solid rgba(124,58,237,.25); }
+    .role-supervisor { background:var(--blue-dim); color:var(--blue); border:1px solid rgba(37,99,235,.25); }
+    .role-agente     { background:var(--green-dim); color:var(--green); border:1px solid rgba(22,163,74,.25); }
+    .role-lineas     { background:rgba(8,145,178,.1); color:#0891b2; border:1px solid rgba(8,145,178,.25); }
+    .role-other      { background:var(--surface2); color:var(--ink2); border:1px solid var(--border2); }
+
+    .perm-chips { display:flex; flex-wrap:wrap; gap:4px; max-width:320px; }
+    .perm-chip { display:inline-flex; align-items:center; padding:2px 7px; border-radius:4px; font-size:.58rem; font-weight:600; letter-spacing:.03em; background:var(--surface2); color:var(--ink3); border:1px solid var(--border); white-space:nowrap; }
+    .perm-chip.active { background:rgba(37,99,235,.08); color:var(--blue); border-color:rgba(37,99,235,.2); }
+
+    .actions-cell { display:flex; gap:5px; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--surface); border-radius:16px; width:100%; max-width:520px; box-shadow:0 20px 60px rgba(0,0,0,.18); overflow:hidden; }
+    .modal.wide { max-width:640px; }
+    .modal.xlarge { max-width:820px; }
+    .modal.xlarge .modal-body { max-height:78vh; overflow-y:auto; }
+    .perm-section-title { font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:18px 0 10px; display:flex; align-items:center; gap:10px; }
+    .perm-section-title::after { content:''; flex:1; height:1px; background:var(--border2); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding:22px 26px 18px; border-bottom:1px solid var(--border); }
+    .modal-title { font-size:1rem; font-weight:800; color:var(--ink); }
+    .modal-close { width:30px; height:30px; border:none; border-radius:7px; background:transparent; cursor:pointer; color:var(--ink3); font-size:1rem; display:flex; align-items:center; justify-content:center; transition:all .1s; }
+    .modal-close:hover { background:var(--surface2); color:var(--ink); }
+    .modal-body { padding:24px 26px; }
+    .modal-foot { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:16px 26px 22px; border-top:1px solid var(--border); }
+
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-group { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+    .form-group:last-child { margin-bottom:0; }
+    .form-label { font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); }
+    .form-input, .form-select { width:100%; padding:9px 12px; border:1px solid var(--border2); border-radius:8px; font-family:var(--f); font-size:.82rem; color:var(--ink); background:var(--surface); outline:none; transition:border-color .12s; }
+    .form-input:focus, .form-select:focus { border-color:var(--blue); }
+    .form-hint { font-size:.65rem; color:var(--ink3); }
+
+    .perm-group { margin-bottom:18px; }
+    .perm-group-title { font-size:.62rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .perm-group-title::before { content:''; display:block; width:14px; height:2px; background:var(--gold); border-radius:2px; }
+    .perm-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .perm-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); cursor:pointer; transition:all .1s; }
+    .perm-item:hover { border-color:var(--border2); background:var(--surface2); }
+    .perm-item.checked { border-color:rgba(37,99,235,.3); background:rgba(37,99,235,.05); }
+    .perm-item input[type=checkbox] { accent-color:var(--blue); cursor:pointer; }
+    .perm-item-label { font-size:.74rem; color:var(--ink2); }
+    .perm-item.checked .perm-item-label { color:var(--blue); font-weight:600; }
+
+    .danger-box { background:var(--red-dim); border:1px solid rgba(220,38,38,.2); border-radius:var(--r); padding:16px; }
+    .danger-box p { font-size:.8rem; color:var(--ink2); }
+    .danger-box strong { color:var(--red); }
+
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:10px 20px; border-radius:8px; font-size:.8rem; font-weight:700; z-index:9999; animation:toastIn .2s ease; box-shadow:0 4px 20px rgba(0,0,0,.25); pointer-events:none; }
+    .toast.ok  { background:var(--green); color:#fff; }
+    .toast.err { background:var(--red);   color:#fff; }
+    .toast.warn{ background:var(--gold);  color:#000; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+    .loader-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:60px 20px; color:var(--ink2); font-size:.8rem; }
+    .spinner { width:28px; height:28px; border:3px solid var(--border2); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:48px 20px; color:var(--ink2); font-size:.78rem; text-align:center; }
+    .empty-icon { font-size:2rem; opacity:.3; }
+    .divider { border:none; border-top:1px solid var(--border); margin:16px 0; }
+
+    @media(max-width:768px){
+      .main{ margin-left:0; padding:16px; }
+      .sidebar{ display:none; }
+      .form-row{ grid-template-columns:1fr; }
+      .perm-grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="crearcuenta"></nav>
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Administración</div>
+        <div class="page-title">Panel de Permisos</div>
+        <div class="page-subtitle">Gestión de usuarios, roles y permisos del sistema</div>
+      </div>
+      <button class="btn btn-primary" onclick="buildPermsGrid('c-perms-grid',[]); openModal('modal-create')">
+        <i class="fas fa-user-plus"></i> Nuevo Usuario
+      </button>
+    </div>
+
+    <div class="stats-strip" id="stats-strip">
+      <div class="stat-card"><div class="stat-lbl">Total</div><div class="stat-val" id="st-total">—</div></div>
+      <div class="stat-card"><div class="stat-lbl">Administradores</div><div class="stat-val gold" id="st-admin">—</div></div>
+      <div class="stat-card"><div class="stat-lbl">Supervisores</div><div class="stat-val blue" id="st-sup">—</div></div>
+      <div class="stat-card"><div class="stat-lbl">Agentes</div><div class="stat-val green" id="st-agent">—</div></div>
+      <div class="stat-card"><div class="stat-lbl">Backoffice</div><div class="stat-val purple" id="st-bo">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="search-input" placeholder="Buscar usuario, nombre, equipo..." oninput="filterTable()"/>
+      </div>
+      <select class="filter-role" id="filter-role" onchange="filterTable()">
+        <option value="">Todos los roles</option>
+        <option value="admin">Administrador</option>
+        <option value="backoffice">Backoffice</option>
+        <option value="supervisor">Supervisor</option>
+        <option value="agente">Agente</option>
+        <option value="lineas">Líneas</option>
+      </select>
+    </div>
+
+    <div id="table-container">
+      <div class="loader-wrap"><div class="spinner"></div><span>Cargando usuarios...</span></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: CREAR USUARIO -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal xlarge">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-user-plus" style="color:var(--blue);margin-right:8px"></i>Nuevo Usuario</div>
+      <button class="modal-close" onclick="closeModal('modal-create')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-input" id="c-name" type="text" placeholder="Ej. María López"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Usuario <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="c-username" type="text" placeholder="Ej. maria.lopez"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Contraseña <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="c-password" type="password" placeholder="Mínimo 8 caracteres"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rol <span style="color:var(--red)">*</span></label>
+          <select class="form-select" id="c-role" onchange="onRoleChange('c')">
+            <option value="">— Selecciona —</option>
+            <option value="Administrador">Administrador</option>
+            <option value="Backoffice">Backoffice</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Agente">Agente</option>
+            <option value="Supervisor Team Lineas">Supervisor Team Líneas</option>
+            <option value="Lineas-Agentes">Líneas Agentes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Supervisor</label>
+          <select class="form-select" id="c-supervisor" onchange="onSupervisorChange('c')">
+            <option value="">— Selecciona supervisor —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Equipo</label>
+          <select class="form-select" id="c-team">
+            <option value="">— Selecciona supervisor primero —</option>
+          </select>
+        </div>
+      </div>
+      <div class="perm-section-title">Permisos del usuario</div>
+      <div style="font-size:.72rem;color:var(--ink3);margin-bottom:12px">Al seleccionar un rol se marcan automáticamente los permisos correspondientes. Puedes ajustarlos manualmente.</div>
+      <div id="c-perms-grid"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create')">Cancelar</button>
+      <button class="btn btn-primary" onclick="createUser()"><i class="fas fa-check"></i> Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR ROL -->
+<div class="modal-overlay" id="modal-role">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-id-badge" style="color:var(--blue);margin-right:8px"></i>Editar Rol</div>
+      <button class="modal-close" onclick="closeModal('modal-role')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <div id="r-user-display" style="font-weight:700;font-size:.9rem;color:var(--ink);padding:8px 0"></div>
+      </div>
+      <hr class="divider"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nuevo rol <span style="color:var(--red)">*</span></label>
+          <select class="form-select" id="r-role" onchange="onRoleChange('r')">
+            <option value="Administrador">Administrador</option>
+            <option value="Backoffice">Backoffice</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Agente">Agente</option>
+            <option value="Supervisor Team Lineas">Supervisor Team Líneas</option>
+            <option value="Lineas-Agentes">Líneas Agentes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supervisor</label>
+          <select class="form-select" id="r-supervisor" onchange="onSupervisorChange('r')">
+            <option value="">— Selecciona supervisor —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Equipo</label>
+        <select class="form-select" id="r-team" style="margin-bottom:12px">
+          <option value="">— Selecciona supervisor primero —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Permisos que se asignarán</label>
+        <div id="r-perms-preview" class="perm-chips" style="margin-top:4px"></div>
+        <div class="form-hint" style="margin-top:6px">Los permisos se actualizan automáticamente con el rol. Puedes ajustarlos después.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-role')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRole()"><i class="fas fa-save"></i> Guardar rol</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR PERMISOS -->
+<div class="modal-overlay" id="modal-perms">
+  <div class="modal wide">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-key" style="color:var(--gold);margin-right:8px"></i>Editar Permisos</div>
+      <button class="modal-close" onclick="closeModal('modal-perms')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modal-perms-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="selectAllPerms(false)">Quitar todos</button>
+      <button class="btn btn-ghost btn-sm" onclick="selectAllPerms(true)">Todos</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-perms')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePerms()"><i class="fas fa-save"></i> Guardar permisos</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CAMBIAR CONTRASEÑA -->
+<div class="modal-overlay" id="modal-pwd">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-lock" style="color:var(--ink2);margin-right:8px"></i>Cambiar Contraseña</div>
+      <button class="modal-close" onclick="closeModal('modal-pwd')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <div id="p-user-display" style="font-weight:700;font-size:.9rem;color:var(--ink);padding:8px 0"></div>
+      </div>
+      <hr class="divider"/>
+      <div class="form-group">
+        <label class="form-label">Nueva contraseña <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="p-password" type="password" placeholder="Mínimo 8 caracteres"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirmar contraseña <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="p-confirm" type="password" placeholder="Repite la contraseña"/>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pwd')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePwd()"><i class="fas fa-save"></i> Cambiar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ELIMINAR -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-trash" style="color:var(--red);margin-right:8px"></i>Eliminar Usuario</div>
+      <button class="modal-close" onclick="closeModal('modal-delete')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="danger-box">
+        <p>¿Estás seguro de eliminar al usuario <strong id="d-user-display">—</strong>?</p>
+        <p style="margin-top:8px;font-size:.75rem;color:var(--ink3)">Esta acción es irreversible. No se eliminan los leads asociados.</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelete()"><i class="fas fa-trash"></i> Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const AUTH = (function(){
+  function getToken(){ return localStorage.getItem('token')||sessionStorage.getItem('token')||null; }
+  function getUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; } }
+  function redirectLogin(){ window.location.replace('/login.html'); }
+  function check(){ const t=getToken(); if(!t){ redirectLogin(); return null; } return t; }
+  async function sf(url,opts){
+    const t=check(); if(!t) return null;
+    const headers=Object.assign({'Authorization':'Bearer '+t,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
+    try{ const res=await fetch(url,Object.assign({},opts,{headers})); if(res.status===401){ redirectLogin(); return null; } return res; }catch(e){ return null; }
+  }
+  return { getToken, getUser, check, sf, redirectLogin };
+})();
+
+function isAdminRole(role){ const r=String(role||'').toLowerCase(); return ['admin','administrador','administrator','administrativo'].includes(r); }
+
+const ROLE_PERMS = {
+  'Administrador':          ['read:all','write:all','delete:all','manage:users','manage:employees'],
+  'Backoffice':             ['read:all','write:all','export:data'],
+  'Supervisor':             ['read:team','write:team','view:reports'],
+  'Agente':                 ['read:own','write:own'],
+  'Agentes':                ['read:own','write:own'],
+  'Supervisor Team Lineas': ['read:team:lineas','write:team:lineas','manage:lineas'],
+  'Lineas-Agentes':         ['read:own:lineas','write:own:lineas','form:lineas'],
+};
+
+const ALL_PERMS = [
+  { key:'read:all',          label:'Leer todos los leads',     group:'General' },
+  { key:'write:all',         label:'Editar todos los leads',   group:'General' },
+  { key:'delete:all',        label:'Eliminar leads',           group:'General' },
+  { key:'read:own',          label:'Leer propios',             group:'General' },
+  { key:'write:own',         label:'Editar propios',           group:'General' },
+  { key:'read:team',         label:'Leer equipo',              group:'Equipo' },
+  { key:'write:team',        label:'Editar equipo',            group:'Equipo' },
+  { key:'view:reports',      label:'Ver reportes',             group:'Equipo' },
+  { key:'read:team:lineas',  label:'Leer equipo Líneas',       group:'Líneas' },
+  { key:'write:team:lineas', label:'Editar equipo Líneas',     group:'Líneas' },
+  { key:'read:own:lineas',   label:'Leer propios Líneas',      group:'Líneas' },
+  { key:'write:own:lineas',  label:'Editar propios Líneas',    group:'Líneas' },
+  { key:'form:lineas',       label:'Formulario Líneas',        group:'Líneas' },
+  { key:'manage:lineas',     label:'Gestionar Líneas',         group:'Líneas' },
+  { key:'export:data',       label:'Exportar datos',           group:'Admin' },
+  { key:'manage:users',      label:'Gestionar usuarios',       group:'Admin' },
+  { key:'manage:employees',  label:'Gestionar empleados',      group:'Admin' },
+];
+
+let _users=[], _editingId=null, _editingUsername=null;
+let _teams=[];
+let _supervisors=[];
+
+async function loadTeams(){
+  try{
+    // Cargar teams y (opcionalmente) supervisores en paralelo
+    const [resT, resS] = await Promise.all([
+      AUTH.sf('/api/teams'),
+      AUTH.sf('/api/teams/supervisors-list').catch(function(){ return null; })
+    ]);
+    if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
+
+    // Equipos canónicos actuales (siempre se usan como base)
+    const canonicalTeams = [
+      { value:'TEAM LINEAS', label:'TEAM LÍNEAS',  supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa', supervisor:'jonathan.figueroa' },
+      { value:'TEAM LUIS G', label:'TEAM LUIS G',  supervisorKey:'LUIS G',     supervisorName:'Luis G',            supervisor:'luis.g' },
+      { value:'Backoffice',  label:'Backoffice',   supervisorKey:null,          supervisorName:null },
+      { value:'Administración', label:'Administración', supervisorKey:null,     supervisorName:null }
+    ];
+
+    // Usar API sólo si devuelve datos actualizados (tiene TEAM LUIS G)
+    if(resT&&resT.ok){
+      try{
+        const d=await resT.json();
+        const apiTeams=Array.isArray(d.teams)?d.teams:[];
+        const tieneActuales=apiTeams.some(function(t){
+          return String(t.supervisorName||t.supervisor||'').toLowerCase().includes('luis') || t.supervisorKey==='LUIS G';
+        });
+        _teams = tieneActuales ? apiTeams : canonicalTeams;
+      }catch(e){ _teams=canonicalTeams; }
+    } else {
+      _teams = canonicalTeams;
+    }
+
+    // Si los supervisores vienen con team, incluirlos como opciones de equipo
+    // para que al seleccionar supervisor aparezca su team aunque /api/teams no lo traiga.
+    if(Array.isArray(_supervisors) && _supervisors.length){
+      const seenTeamKey = new Set((_teams||[]).map(t => String(t.supervisorKey||'') + '|' + String(t.value||'')));
+      _supervisors.forEach(function(s){
+        const t = (s && s.team) ? String(s.team).trim() : '';
+        if(!t) return;
+        const key = String(s.key||'').trim();
+        const uniq = key + '|' + t;
+        if(!key || seenTeamKey.has(uniq)) return;
+        seenTeamKey.add(uniq);
+        _teams.push({ value: t, label: t, supervisorKey: key, supervisorName: s.name || key, supervisor: s.username || '' });
+      });
+    }
+
+    // Fallback: si supervisors-list falló o está vacío, extraer supervisores únicos de los teams
+    if(!_supervisors.length && _teams.length){
+      const seen=new Set();
+      _teams.forEach(function(t){
+        if(t.supervisorKey && !seen.has(t.supervisorKey)){
+          seen.add(t.supervisorKey);
+          _supervisors.push({ key: t.supervisorKey, name: t.supervisorName || t.supervisorKey, username: t.supervisor || '' });
+        }
+      });
+    }
+
+    // Fallback final: lista hardcodeada si el API no responde
+    if(!_supervisors.length){
+      _supervisors = [
+        { key:'JONATHAN F', name:'Jonathan Figueroa', username:'jonathan.figueroa' },
+        { key:'LUIS G',     name:'Luis G',            username:'luis.g' }
+      ];
+    }
+
+    // Poblar supervisores en ambos modales
+    ['c-supervisor','r-supervisor'].forEach(function(id){
+      const sel=document.getElementById(id);
+      if(!sel)return;
+      sel.innerHTML='<option value="">— Selecciona supervisor —</option>';
+      _supervisors.forEach(function(s){
+        const opt=document.createElement('option');
+        opt.value=s.key;
+        opt.textContent=s.name;
+        sel.appendChild(opt);
+      });
+      // Opción para roles sin supervisor
+      const none=document.createElement('option');
+      none.value='__none__';
+      none.textContent='Sin supervisor (Backoffice / Admin)';
+      sel.appendChild(none);
+    });
+  }catch(e){ console.error('[loadTeams]',e); }
+}
+
+function onSupervisorChange(prefix){
+  const supKey=document.getElementById(prefix+'-supervisor').value;
+  const teamSel=document.getElementById(prefix+'-team');
+  if(!teamSel)return;
+  teamSel.innerHTML='';
+
+  if(!supKey){
+    teamSel.innerHTML='<option value="">— Selecciona supervisor primero —</option>';
+    return;
+  }
+
+  // Determinar palabras clave del supervisor para matching flexible
+  const supLower=supKey.toLowerCase();
+  const isJonathan=supLower.includes('jonathan');
+  const isLuis=supLower.includes('luis');
+
+  function teamMatchesSup(t){
+    // Primero intentar con supervisorKey (servidor nuevo)
+    if(t.supervisorKey) return t.supervisorKey===supKey;
+    // Fallback: matchear por supervisorName o supervisor username (servidor viejo)
+    const sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
+    if(isJonathan) return sName.includes('jonathan');
+    if(isLuis)     return sName.includes('luis');
+    // Para cualquier otro supervisor, hacer matching por key o nombre
+    // Evitar que equipos sin supervisorName hagan match (string vacío includes todo)
+    if(!sName) return false;
+    return sName.includes(supLower) || supLower.includes(sName);
+  }
+
+  function teamHasNoSup(t){
+    if('supervisorKey' in t) return !t.supervisorKey;
+    return !t.supervisorName || t.supervisorName==='Sin supervisor específico' || t.supervisorName==='Sin supervisor';
+  }
+
+  const filtered = supKey==='__none__'
+    ? _teams.filter(teamHasNoSup)
+    : _teams.filter(teamMatchesSup);
+
+  if(filtered.length===0){
+    teamSel.innerHTML='<option value="">Sin equipo asignado</option>';
+    return;
+  }
+
+  const placeholder=document.createElement('option');
+  placeholder.value='';
+  placeholder.textContent='— Selecciona equipo —';
+  teamSel.appendChild(placeholder);
+
+  filtered.forEach(function(t){
+    const opt=document.createElement('option');
+    opt.value=t.value;
+    opt.textContent=t.label;
+    teamSel.appendChild(opt);
+  });
+
+  // Si sólo hay un equipo, selecciónalo automáticamente
+  if(filtered.length===1){ teamSel.value=filtered[0].value; }
+}
+
+function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
+function initials(s){ return String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'??'; }
+function capFirst(s){ return String(s||'').trim().split(/\s+/).map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'').join(' '); }
+function getRoleClass(role){ const r=String(role||'').toLowerCase(); if(r.includes('admin'))return 'role-admin'; if(r.includes('backoffice')||r.includes('back'))return 'role-backoffice'; if(r.includes('supervisor'))return 'role-supervisor'; if(r.includes('agente')||r.includes('vendedor')||r.includes('agent'))return 'role-agente'; if(r.includes('lineas')||r.includes('líneas')||r.includes('team'))return 'role-lineas'; return 'role-other'; }
+function getRoleLabel(role){ const r=String(role||'').trim(); const map={'Administrador':'Administrador','administrador':'Administrador','admin':'Admin','Backoffice':'Backoffice','backoffice':'Backoffice','back office':'Back Office','Supervisor':'Supervisor','supervisor':'Supervisor','Agente':'Agente','agente':'Agente','vendedor':'Agente','Supervisor Team Lineas':'Sup. Líneas','Lineas-Agentes':'Líneas Agente'}; return map[r]||r||'—'; }
+function getPermLabel(key){ const p=ALL_PERMS.find(x=>x.key===key); return p?p.label:key; }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click',e=>{ if(e.target===ov)ov.classList.remove('open'); }); });
+
+async function loadUsers(){
+  document.getElementById('table-container').innerHTML='<div class="loader-wrap"><div class="spinner"></div><span>Cargando usuarios...</span></div>';
+  const res=await AUTH.sf('/api/users/admin-list');
+  if(!res||!res.ok){ document.getElementById('table-container').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><span>Error al cargar usuarios</span></div>'; return; }
+  const data=await res.json();
+  _users=Array.isArray(data)?data:(data.users||data.data||[]);
+  renderStats(); renderTable(_users);
+}
+
+function renderStats(){
+  document.getElementById('st-total').textContent=_users.length;
+  document.getElementById('st-admin').textContent=_users.filter(u=>isAdminRole(u.role)).length;
+  document.getElementById('st-sup').textContent=_users.filter(u=>String(u.role||'').toLowerCase().includes('supervisor')).length;
+  document.getElementById('st-agent').textContent=_users.filter(u=>['agente','vendedor','agent'].includes(String(u.role||'').toLowerCase())).length;
+  document.getElementById('st-bo').textContent=_users.filter(u=>String(u.role||'').toLowerCase().includes('backoffice')||String(u.role||'').toLowerCase().includes('back')).length;
+}
+
+function renderTable(users){
+  if(!users.length){ document.getElementById('table-container').innerHTML='<div class="empty"><div class="empty-icon">👥</div><span>Sin usuarios para mostrar</span></div>'; return; }
+  const rows=users.map(u=>{
+    const savedPerms=Array.isArray(u.permissions)?u.permissions:[];
+    const derivedPerms=savedPerms.length?savedPerms:(ROLE_PERMS[u.role]||ROLE_PERMS[(u.role||'').trim()]||[]);
+    const isDerived=savedPerms.length===0&&derivedPerms.length>0;
+    const perms=derivedPerms;
+    const visiblePerms=perms.slice(0,5);
+    const extra=perms.length>5?`<span class="perm-chip" title="${perms.slice(5).map(getPermLabel).join(', ')}">+${perms.length-5} más</span>`:'';
+    const chipsHtml=visiblePerms.map(p=>`<span class="perm-chip active" title="${getPermLabel(p)}">${getPermLabel(p)}</span>`).join('')+(perms.length?extra:'<span style="color:var(--ink3);font-size:.7rem">—</span>')+(isDerived?`<span class="perm-chip" style="opacity:.5;font-style:italic" title="Derivados del rol">rol</span>`:'');
+    const displayName=u.name||u.fullName||u.nombre||u.username||'—';
+    const team=u.team||u.equipo||u.TEAM||'—';
+    const ava=u.avatarUrl?`<img src="${u.avatarUrl}" style="width:34px;height:34px;border-radius:8px;object-fit:cover">`:`<div class="user-av" style="background:${roleAvatarBg(u.role)}">${initials(displayName)}</div>`;
+    const memberSince=timeAgo(u.createdAt);
+    return `<tr data-id="${u.id||u._id}" data-search="${String(displayName+' '+u.username+' '+team+' '+u.role).toLowerCase()}">
+      <td><div class="user-cell">${ava}<div><div style="font-weight:700;color:var(--ink);font-size:.82rem">${capFirst(displayName)}</div><div style="font-size:.68rem;color:var(--ink3);font-family:var(--fm)">@${u.username||'—'}</div></div></div></td>
+      <td><span class="role-badge ${getRoleClass(u.role)}">${getRoleLabel(u.role)}</span></td>
+      <td style="color:var(--ink);font-size:.78rem">${team}</td>
+      <td><div class="perm-chips">${chipsHtml}</div></td>
+      <td style="font-size:.75rem;color:var(--ink3);white-space:nowrap" title="${u.createdAt?new Date(u.createdAt).toLocaleString('es-ES'):'Fecha desconocida'}">${memberSince}</td>
+      <td><div class="actions-cell">
+        <button class="btn btn-icon" title="Editar rol" onclick="openRoleModal('${u.id||u._id}')"><i class="fas fa-id-badge"></i></button>
+        <button class="btn btn-icon" title="Editar permisos" onclick="openPermsModal('${u.id||u._id}')"><i class="fas fa-key"></i></button>
+        <button class="btn btn-icon" title="Cambiar contraseña" onclick="openPwdModal('${u.id||u._id}')"><i class="fas fa-lock"></i></button>
+        <button class="btn btn-icon danger" title="Eliminar" onclick="openDeleteModal('${u.id||u._id}')"><i class="fas fa-trash"></i></button>
+      </div></td></tr>`;
+  }).join('');
+  document.getElementById('table-container').innerHTML=`<div class="table-wrap"><table class="ptable"><thead><tr><th>Usuario</th><th>Rol</th><th>Equipo</th><th>Permisos</th><th>Miembro desde</th><th>Acciones</th></tr></thead><tbody id="table-body">${rows}</tbody></table></div>`;
+}
+
+function roleAvatarBg(role){ const r=String(role||'').toLowerCase(); if(r.includes('admin'))return 'rgba(196,154,0,.12)'; if(r.includes('back'))return 'rgba(124,58,237,.1)'; if(r.includes('supervisor'))return 'rgba(37,99,235,.1)'; if(r.includes('lineas'))return 'rgba(8,145,178,.1)'; return 'var(--surface2)'; }
+
+function timeAgo(dateStr){
+  if(!dateStr) return '—';
+  const diff=Date.now()-new Date(dateStr).getTime();
+  if(isNaN(diff)||diff<0) return '—';
+  const mins=Math.floor(diff/60000);
+  if(mins<60) return mins<=1?'Hace 1 min':`Hace ${mins} min`;
+  const hrs=Math.floor(mins/60);
+  if(hrs<24) return hrs===1?'Hace 1 hora':`Hace ${hrs} horas`;
+  const days=Math.floor(hrs/24);
+  if(days<30) return days===1?'Hace 1 día':`Hace ${days} días`;
+  const months=Math.floor(days/30);
+  if(months<12) return months===1?'Hace 1 mes':`Hace ${months} meses`;
+  const years=Math.floor(months/12);
+  return years===1?'Hace 1 año':`Hace ${years} años`;
+}
+
+function filterTable(){
+  const q=document.getElementById('search-input').value.toLowerCase().trim();
+  const rf=document.getElementById('filter-role').value.toLowerCase();
+  document.querySelectorAll('#table-body tr').forEach(row=>{ const s=row.dataset.search||''; row.style.display=((!q||s.includes(q))&&(!rf||s.includes(rf)))?'':'none'; });
+}
+
+function buildPermsGrid(containerId, checkedKeys){
+  const groups={};
+  ALL_PERMS.forEach(p=>{ if(!groups[p.group])groups[p.group]=[]; groups[p.group].push(p); });
+  document.getElementById(containerId).innerHTML=Object.entries(groups).map(([group,perms])=>`
+    <div class="perm-group"><div class="perm-group-title">${group}</div><div class="perm-grid">
+      ${perms.map(p=>`<label class="perm-item${checkedKeys.includes(p.key)?' checked':''}">
+        <input type="checkbox" value="${p.key}" ${checkedKeys.includes(p.key)?'checked':''}
+          onchange="this.closest('.perm-item').classList.toggle('checked',this.checked)"/>
+        <span class="perm-item-label">${p.label}</span></label>`).join('')}
+    </div></div>`).join('');
+}
+
+function onRoleChange(prefix){
+  const role=document.getElementById(prefix+'-role').value;
+  const perms=ROLE_PERMS[role]||[];
+  if(prefix==='r') document.getElementById('r-perms-preview').innerHTML=perms.map(p=>`<span class="perm-chip active">${getPermLabel(p)}</span>`).join('')||'<span style="color:var(--ink3);font-size:.7rem">Sin permisos base</span>';
+  if(prefix==='c') buildPermsGrid('c-perms-grid',perms);
+}
+
+async function createUser(){
+  const username=document.getElementById('c-username').value.trim();
+  const password=document.getElementById('c-password').value;
+  const role=document.getElementById('c-role').value;
+  const name=document.getElementById('c-name').value.trim();
+  const team=document.getElementById('c-team').value.trim();
+  const supervisorKey=document.getElementById('c-supervisor').value.trim();
+  // Resolver nombre de supervisor a partir de la clave
+  const supObj=_supervisors.find(function(s){return s.key===supervisorKey;});
+  const supervisor=supObj?supObj.name:(supervisorKey==='__none__'?'':supervisorKey);
+  if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
+  if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
+  const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
+  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data=await res.json();
+  if(res.ok&&data.success!==false){
+    toast('Usuario creado correctamente','ok');
+    closeModal('modal-create');
+    ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('c-role').value='';
+    document.getElementById('c-supervisor').value='';
+    document.getElementById('c-team').innerHTML='<option value="">— Selecciona supervisor primero —</option>';
+    buildPermsGrid('c-perms-grid',[]);
+    loadUsers();
+  } else toast(data.message||'Error al crear usuario','err');
+}
+
+function openRoleModal(userId){
+  const u=_users.find(x=>(x.id||x._id)===userId);
+  if(!u)return;
+  _editingId=userId;
+  _editingUsername=u.username;
+  document.getElementById('r-user-display').textContent=`${u.name||u.username} (@${u.username})`;
+  document.getElementById('r-role').value=u.role||'Agente';
+  // Preseleccionar supervisor del usuario
+  const supSel=document.getElementById('r-supervisor');
+  if(supSel){
+    // Buscar supervisor del usuario en la lista
+    const userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
+    const matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key)||s.key.includes(userSup); });
+    supSel.value=matched?matched.key:'';
+    onSupervisorChange('r');
+    // Ahora preseleccionar el equipo
+    const teamSel=document.getElementById('r-team');
+    if(teamSel){ setTimeout(function(){ teamSel.value=u.team||u.equipo||''; },50); }
+  }
+  onRoleChange('r');
+  openModal('modal-role');
+}
+
+async function saveRole(){
+  const role=document.getElementById('r-role').value;
+  const team=document.getElementById('r-team').value.trim();
+  const supervisorKey=document.getElementById('r-supervisor')?document.getElementById('r-supervisor').value.trim():'';
+  if(!role){ toast('Selecciona un rol','err'); return; }
+  const res=await AUTH.sf(`/api/users/${_editingId}/role`,{ method:'PUT', body:JSON.stringify({ role, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'' }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data=await res.json();
+  if(res.ok&&data.success!==false){ toast('Rol actualizado','ok'); closeModal('modal-role'); loadUsers(); }
+  else toast(data.message||'Error al actualizar rol','err');
+}
+
+function openPermsModal(userId){
+  const u=_users.find(x=>(x.id||x._id)===userId); if(!u)return;
+  _editingId=userId; _editingUsername=u.username;
+  const savedPerms=Array.isArray(u.permissions)?u.permissions:[];
+  const currentPerms=savedPerms.length?savedPerms:(ROLE_PERMS[u.role]||[]);
+  const groups={}; ALL_PERMS.forEach(p=>{ if(!groups[p.group])groups[p.group]=[]; groups[p.group].push(p); });
+  let html=`<p style="font-size:.78rem;color:var(--ink2);margin-bottom:16px">Usuario: <strong>${u.name||u.username} (@${u.username})</strong></p>`;
+  Object.entries(groups).forEach(([grp,perms])=>{
+    html+=`<div class="perm-group"><div class="perm-group-title">${grp}</div><div class="perm-grid">
+      ${perms.map(p=>{ const on=currentPerms.includes(p.key); return `<label class="perm-item ${on?'checked':''}" onclick="togglePermItem(this)"><input type="checkbox" value="${p.key}" ${on?'checked':''} onclick="event.stopPropagation();this.parentElement.classList.toggle('checked',this.checked)"/><span class="perm-item-label">${p.label}</span></label>`; }).join('')}
+    </div></div>`;
+  });
+  document.getElementById('modal-perms-body').innerHTML=html;
+  openModal('modal-perms');
+}
+
+function togglePermItem(el){ const cb=el.querySelector('input[type=checkbox]'); cb.checked=!cb.checked; el.classList.toggle('checked',cb.checked); }
+function selectAllPerms(val){ document.querySelectorAll('#modal-perms-body input[type=checkbox]').forEach(cb=>{ cb.checked=val; cb.closest('.perm-item').classList.toggle('checked',val); }); }
+async function savePerms(){ const perms=Array.from(document.querySelectorAll('#modal-perms-body input[type=checkbox]:checked')).map(cb=>cb.value); const res=await AUTH.sf(`/api/users/${_editingId}/permissions`,{ method:'PUT', body:JSON.stringify({ permissions:perms }) }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Permisos actualizados','ok'); closeModal('modal-perms'); loadUsers(); } else toast(data.message||'Error al actualizar permisos','err'); }
+
+function openPwdModal(userId){ const u=_users.find(x=>(x.id||x._id)===userId); if(!u)return; _editingId=userId; _editingUsername=u.username; document.getElementById('p-user-display').textContent=`${u.name||u.username} (@${u.username})`; document.getElementById('p-password').value=''; document.getElementById('p-confirm').value=''; openModal('modal-pwd'); }
+async function savePwd(){ const pwd=document.getElementById('p-password').value; const conf=document.getElementById('p-confirm').value; if(!pwd){ toast('Ingresa la nueva contraseña','err'); return; } if(pwd.length<8){ toast('Mínimo 8 caracteres','err'); return; } if(pwd!==conf){ toast('Las contraseñas no coinciden','err'); return; } const res=await AUTH.sf('/api/auth/reset-password',{ method:'POST', body:JSON.stringify({ username:_editingUsername, newPassword:pwd }) }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Contraseña actualizada','ok'); closeModal('modal-pwd'); } else toast(data.message||'Error al cambiar contraseña','err'); }
+
+function openDeleteModal(userId){ const u=_users.find(x=>(x.id||x._id)===userId); if(!u)return; _editingId=userId; document.getElementById('d-user-display').textContent=`${u.name||u.username} (@${u.username})`; openModal('modal-delete'); }
+async function confirmDelete(){ const res=await AUTH.sf(`/api/users/${_editingId}`,{ method:'DELETE' }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Usuario eliminado','ok'); closeModal('modal-delete'); loadUsers(); } else toast(data.message||'Error al eliminar','err'); }
+
+(function init(){
+  if(!AUTH.check())return;
+  const user=AUTH.getUser();
+  if(!isAdminRole(user.role)){
+    document.querySelector('.main').innerHTML=`<div class="empty" style="height:70vh"><div class="empty-icon" style="font-size:3rem">🔒</div><span style="font-size:1rem;font-weight:700">Acceso restringido</span><span>Solo los administradores pueden ver esta página</span></div>`;
+    return;
+  }
+  loadUsers();
+  loadTeams();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <title>CRM Agente - Reglas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/theme.css?v=20251124f"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+  
+  <!-- Protección de autenticación en frontend -->
+  <script src="agentes/js/auth-check.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+  <script src="js/monthly-cutoff.js"></script>
+  <!-- Teams API: definición de equipos, supervisores y agentes -->
+  <script src="utils/teams.js?v=20250904"></script>
+  
+  <style>
+    /* Estilos del sidebar unificados en css/sidebar.css */
+    /* Nota: Estilos del bloque de usuario del sidebar se definen en css/sidebar-inicio.css */
+
+    /* Estilos generales */
+    :root {
+      --primary: #1976d2;
+      --primary-dark: #1565c0;
+      --accent: #ff9800;
+      --text: #333;
+      --text-light: #666;
+      --border: #e0e0e0;
+      --background: #f5f7fa;
+      --card-bg: #ffffff;
+      --success: #4caf50;
+      --warning: #ff9800;
+      --danger: #f44336;
+      --info: #2196f3;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    body {
+      background-color: var(--background);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      position: relative;
+      top: 0;
+    }
+
+    /* Sidebar Styles: Usar reglas unificadas desde css/sidebar-shared.css */
+    /* Estilos para el contenido principal */
+    .main-content {
+      padding: 30px;
+      min-height: 100vh;
+      background-color: #f8fafc;
+      position: relative;
+    }
+
+    /* Contenedor de reglas */
+    .rules-container {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 40px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h1 {
+      color: #333;
+      font-size: 2.5em;
+      margin-bottom: 40px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .section {
+      margin-bottom: 50px;
+    }
+
+    .section-title {
+      color: #333;
+      font-size: 1.5em;
+      margin-bottom: 20px;
+      font-weight: 600;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #000;
+    }
+
+    .rules-list {
+      list-style: none;
+    }
+
+    .rule-item {
+      background: #f9f9f9;
+      border-left: 4px solid #000;
+      padding: 15px 20px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      transition: all 0.3s ease;
+    }
+
+    .rule-item:hover {
+      transform: translateX(10px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .rule-item p {
+      color: #333;
+      line-height: 1.8;
+      font-size: 1.02em;
+    }
+
+    .rule-item strong {
+      color: #000;
+    }
+
+    .important {
+      background: #f9f9f9;
+      border-left-color: #000;
+    }
+
+    .critical {
+      background: #f9f9f9;
+      border-left-color: #000;
+    }
+
+    .critical p, .critical strong {
+      color: #333;
+    }
+
+    .subsection {
+      margin-top: 20px;
+      padding-left: 15px;
+    }
+
+    .subsection-title {
+      color: #667eea;
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    .bullet-point {
+      color: #667eea;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .warning-box {
+      background: linear-gradient(135deg, #ff9ff3 0%, #feca57 100%);
+      border: 3px solid #ee5a6f;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+      text-align: center;
+      font-weight: bold;
+      color: #2d3748;
+      font-size: 1.1em;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 20px;
+      }
+
+      .rules-container {
+        padding: 25px;
+      }
+
+      h1 {
+        font-size: 2em;
+      }
+
+      .section-title {
+        font-size: 1.3em;
+      }
+
+      .rule-item {
+        padding: 12px 15px;
+      }
+    }
+
+    /* Protecciones Section Styles */
+    .protecciones-section { width: 100%; max-width: 1200px; margin: 30px auto 40px; }
+    .protecciones-header { text-align: center; margin-bottom: 30px; }
+    .protecciones-header h3 { font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 10px; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .protecciones-header p { font-size: 1.1rem; color: #64748b; margin: 0; }
+    .protecciones-card { background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 4px 20px rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.1); transition: all .3s ease; position: relative; overflow: hidden; }
+    .protecciones-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg,#dc2626,#ef4444); }
+    .protecciones-card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px rgba(220,38,38,.15); }
+    .protecciones-icon { width: 60px; height: 60px; border-radius: 12px; background: #fef2f2; display: flex; align-items: center; justify-content: center; color: #dc2626; margin-bottom: 20px; font-size: 1.5rem; }
+    .protecciones-content h4 { font-size: 1.3rem; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 10px; }
+    .protecciones-content h4 i { color: #dc2626; }
+    .protecciones-rule { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; border-radius: 8px; margin: 15px 0; }
+    .protecciones-rule p { margin: 0; color: #374151; font-size: 1rem; }
+    .protecciones-rule p strong { font-weight: 500; }
+    .protecciones-warning { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; margin-top: 15px; }
+    .protecciones-warning i { color: #f59e0b; font-size: 1.2rem; margin-top: 2px; }
+    .protecciones-warning p { margin: 0; color: #92400e; font-size: .9rem; line-height: 1.5; }
+
+    /* ── DARK MODE ── */
+    body.dark-theme {
+      --text:       #e2e8f0;
+      --text-light: #94a3b8;
+      --border:     #334155;
+      --background: #0f172a;
+      --card-bg:    #1e293b;
+    }
+    body.dark-theme .card,
+    body.dark-theme .rule-card,
+    body.dark-theme .section-card,
+    body.dark-theme .protecciones-card { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark-theme .protecciones-icon { background: rgba(220,38,38,0.15) !important; }
+    body.dark-theme .protecciones-content h4 { color: #e2e8f0 !important; }
+    body.dark-theme .protecciones-rule { background: #2d0c0c !important; border-left-color: #ef4444 !important; }
+    body.dark-theme .protecciones-rule p { color: #e2e8f0 !important; }
+    body.dark-theme .protecciones-warning { background: #2d1f00 !important; border-color: #d97706 !important; }
+    body.dark-theme .protecciones-warning p { color: #fde68a !important; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- SIDEBAR (cargado dinámicamente) -->
+    <nav class="sidebar sidebar-inicio" data-active="reglas"></nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="rules-container">
+        <h1>📋 Reglas y Políticas</h1>
+
+        <!-- REGLA: CX YA ES VENTA Y QUIERE OTRO SERVICIO -->
+        <div class="section">
+          <div class="section-title">CX YA ES VENTA Y QUIERE ADQUIRIR OTRO SERVICIO</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p><strong>Si un CX ya es venta y llama para adquirir otro servicio, lo trabajará quien tome la llamada.</strong><br>
+              Si validación dice que es CX de un agente específico, deben pasar esa llamada a ese agente. Si es de inbound, le queda a quien conteste.</p>
+            </li>
+          </ul>
+
+          <div class="subsection">
+            <div class="subsection-title">Aplica solamente si:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX quiere adquirir servicio de internet en una nueva dirección <strong>(NO MUDANZA)</strong>.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX quiere adquirir otro servicio, ya sea servicio de canales o líneas.</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- PROTECCIONES -->
+        <div class="protecciones-section">
+          <div class="protecciones-header">
+            <h3><i class="fas fa-shield-alt"></i> PROTECCIONES</h3>
+            <p>Reglas importantes para el manejo de protecciones</p>
+          </div>
+          
+          <div class="protecciones-card">
+            <div class="protecciones-icon">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            
+            <div class="protecciones-content">
+              <h4><i class="fas fa-edit"></i> Redacción de Protecciones</h4>
+              
+              <div class="protecciones-rule">
+                <p><strong>Toda protección debe de ir bien redactada al momento de pasarla a B.O ya que de lo contrario, no se podrá modificar ningún dato de la protección.</strong></p>
+              </div>
+              
+              <div class="protecciones-warning">
+                <i class="fas fa-exclamation-circle"></i>
+                <p><strong>Importante:</strong> Revisa cuidadosamente todos los datos antes de enviar la protección a Back Office. Una vez procesada, los cambios no serán posibles.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- SECCIÓN CALLBACK -->
+        <div class="section">
+          <div class="section-title">CALLBACK</div>
+          <ul class="rules-list">
+            <li class="rule-item">
+              <p><strong>No hay protecciones para callback de ningún tipo.</strong></p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>Callback aplica si se le cortó llamada:</strong> Tienen 3 minutos nada más para contactarlo de nuevo. Luego de eso, lo puede llamar y cerrar quien quiera.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>En caso de bajones de energía:</strong> Si se va del todo y no tipificó, se revisarán los audios y tiempos para saber a quién le queda.</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN CALIFICACIONES -->
+        <div class="section">
+          <div class="section-title">CALIFICACIONES</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p><strong>SE RESPETA SIEMPRE LA HORA DE CALI:</strong> Se respetará el tiempo del correo de calificación siempre y cuando tenga tipificación. Caso contrario se pasará gestión. Si el CX no contesta, no aplica enviar o tipificar cali si no hay respaldo.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>BAMO:</strong> Siempre tipificar respuesta de BAMO porque el departamento de procesamiento de ellos no tipifica en XENCALL.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si no hay tipificación de cali o de callback, si hay gestión se enviará y si no, se indicará que se trabaje con la info de XENCALL.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si no tipifican que CX ya es venta y ya pasó la hora de cali y soliciten gestión, se brinda y quedará para la persona que lo solicitó.</p>
+            </li>
+          </ul>
+
+          <div class="subsection">
+            <div class="subsection-title">NO SE BRINDA GESTIÓN POR:</div>
+            <ul class="rules-list">
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> NO HA PASADO TIEMPO DE CALI (1h desde que el depto. de procesamiento ya dio respuesta).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> NO TIENE RESPUESTA DE CALI (en correo de gestión no aparece respuesta del depto. de procesamiento).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI EL DEPTO DE PROCESAMIENTO (ambos mercados) INDICA QUE HAY PROBLEMAS EN SISTEMA.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> EN XENCALL YA ESTÁ TIPIFICADA COMO PROTEGIDA (revisen antes de solicitar gestión).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI YA TIENE LOS 3 INTENTOS SOLO CON AUTORIZACIÓN SE BRINDARÁ GESTIÓN.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> DEALER SUPPORT INDICA QUE HAY CUENTA.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> YA SOBREPASÓ LÍMITE DE CRÉDITO.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> ORDER SE CERRÓ CON OTRO DEALER.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI CX YA FUE PROCESADO EN OTRO MERCADO.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="warning-box">
+            ⚠️ SI DESPUÉS DE 5 MINUTOS NO RECIBE GESTIÓN POR FAVOR NOTIFICAR EN EL GRUPO DE TODOS ⚠️
+          </div>
+
+          <ul class="rules-list">
+            <li class="rule-item">
+              <p>Si hay fallas en sistema no se pueden asignar gestiones. Cuando ya se tenga sistema se dará 1H para cerrarlo, después de eso queda libre.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>Las gestiones de LÍNEAS NO SE BRINDAN</strong> (únicamente entre el mismo Team de Líneas).</p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>PUBLICIDAD:</strong> No está autorizado a brindar gestiones del día, y las de 24H debe consultar al área de B.O CONNECTING el porqué no se brindan antes de pasarla.</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN VENTAS QUE PASAN A OFICINA -->
+        <div class="section">
+          <div class="section-title">VENTAS QUE PASAN A OFICINA</div>
+          
+          <div class="subsection">
+            <div class="subsection-title">MUDANZA:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><strong>AT&T:</strong> Toda cuenta que sea traslado se podrá vender siempre y cuando sea mudanza. OJO: NO ES VENDER CUENTA SOBRE CUENTA Y TENDRÁ UN MENOS PUNTAJE.</p>
+              </li>
+              <li class="rule-item">
+                <p><strong>XFINITY:</strong> La dirección debe aparecer libre para mudanza. Si un cliente tiene y lo mudara a una dirección libre sí se podría vender, pero NO se puede si tiene cancelar la orden y hacer una nueva, eso no se activa y es chargeback.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><strong>DIRECTV:</strong> NO pueden vender mudanzas, eso no se activa es chargeback.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><strong>FRONTIER:</strong> NO pueden vender mudanzas, eso no se activa es chargeback.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="subsection">
+            <div class="subsection-title">CUENTA SOBRE CUENTA:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Cambio de plan Essential a mayor velocidad.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX nuevo (misma dirección pero con otro nombre ya sea por fallas en sistema o aumento de bill).</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Reactivar cuenta (cuenta suspendida por pago).</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Incremento de velocidad.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Si NO hay audio de venta (en XENCALL).</p>
+              </li>
+              <li class="rule-item important">
+                <p><span class="bullet-point">•</span> Si la venta se completó por OPEN, labor de venta debe realizarse previamente por medio de XENCALL.</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- SECCIÓN PARÁMETROS PREMIOS -->
+        <div class="section">
+          <div class="section-title">PARÁMETROS PREVIOS</div>
+          <ul class="rules-list">
+            <li class="rule-item critical">
+              <p><strong>NO COACCIONAR AL CX.</strong></p>
+            </li>
+            <li class="rule-item">
+              <p>Llamadas de más de 25 minutos (excepciones).</p>
+            </li>
+            <li class="rule-item critical">
+              <p><strong>SI OFRECEN ACP:</strong> REPORTARLOS INMEDIATAMENTE porque por regla de la empresa van SUSPENDIDOS 3 DÍAS.</p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>BRINDAR INFORMACIÓN COMPLETA</strong> del servicio ofertado (beneficios, precios, contrato).</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Mentirle al CX sobre el producto que ofrece y de la compañía por la que llama.</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Identificarse como "X" compañía.</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Transferir llamada (a otro compañero o que se la transfieran) - Excepción: Líneas.</p>
+            </li>
+            <li class="rule-item">
+              <p>Que NO haga la labor de venta y el SUP termine cerrando la venta (con excepción si se identifica que el cliente está renuente de no tomar los servicios).</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN PARÁMETROS DE COMISIÓN -->
+        <div class="section">
+          <div class="section-title">PARÁMETROS DE COMISIÓN</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p>Para validar <strong>AT&T AIR</strong> el 90% debe ser con audio reciente del cliente (27 o 03 de cada mes).</p>
+            </li>
+            <li class="rule-item">
+              <p>No se validarán CX's en collection's o en mora, si no está con cuenta al día para el 03 de cada mes.</p>
+            </li>
+            <li class="rule-item">
+              <p>CX's que estén como alerta de chargeback no se validará si no hay confirmación de audio con el CX y que esté activo con nuestro número de cuenta.</p>
+            </li>
+            <li class="rule-item">
+              <p>CX's ilocalizables o posible cancelación no se valorarán por sistema si el CX no contesta ningún número o envía a buzón, aunque salga cuenta activa, CX debe confirmar.</p>
+            </li>
+            <li class="rule-item critical">
+              <p><strong>NO se validará ningún CX por medio de mensaje de texto,</strong> debe tener audio reciente (27 o 03 de c/mes y siempre se verificará que sea con nuestro número de cuenta). Capturas de pantalla de sistema NO se aceptan como válidas.</p>
+            </li>
+            <li class="rule-item">
+              <p>Todo <strong>AT&T o DTV</strong> (que no sea AT&T AIR y DTV vía internet) satelital se validará por medio de audio y sistema. Si la dirección aparece libre, esa cuenta ya esté cancel o no es la nuestra, aunque CX valide que es el mismo servicio.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si el CX se cambia de dirección no se validará servicio como activo, ni cuenta para el mes siguiente porque es mudanza.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si el CX posee fallas en el servicio de no estar solvente a más tardar el día 03, no se tomará en cuenta para la comisión.</p>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Función para verificar autenticación (página pública)
+    // Nota: Reglas será accesible para todos; no se harán redirecciones ni validaciones de rol
+    function checkAuth() {
+      return true;
+    }
+    
+    // Función para realizar peticiones autenticadas
+    async function fetchWithAuth(url, options = {}) {
+      if (!checkAuth()) return null;
+      
+      const defaultHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...defaultHeaders,
+          ...(options.headers || {})
+        },
+        credentials: 'include' // Importante para enviar las cookies de autenticación
+      });
+      
+      return response;
+    }
+
+    // Inicialización de la página
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Página de Reglas cargada correctamente');
+    });
+  </script>
+</body>
+</html>
