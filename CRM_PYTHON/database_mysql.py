@@ -1,33 +1,40 @@
 """
 Capa de base de datos MySQL — SQLAlchemy 2.0 async
-Coexiste con database.py (Mongo) durante la transición.
-Cuando la migración esté completa, database.py será eliminado.
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from dotenv import load_dotenv
-import os
+import ssl, os
 
 load_dotenv()
 
-# ── URL de conexión ──────────────────────────────────────────────
-# Formato: mysql+aiomysql://usuario:password@host:puerto/dbname
 MYSQL_URL = os.getenv(
     "MYSQL_URL",
     "mysql+aiomysql://root:@localhost:3306/crm_connecting?charset=utf8mb4"
 )
 
-# ── Engine async ─────────────────────────────────────────────────
-engine = create_async_engine(
-    MYSQL_URL,
-    echo=False,          # True para ver SQL en consola (desarrollo)
-    pool_pre_ping=True,  # Verifica conexión antes de usarla
-    pool_size=10,
-    max_overflow=20,
-    pool_recycle=3600,
+# Habilitar SSL si la URL es remota (Aiven, Railway, etc.) o si MYSQL_SSL=1
+_use_ssl = os.getenv("MYSQL_SSL", "").lower() in ("1", "true", "yes") or (
+    "localhost" not in MYSQL_URL and "127.0.0.1" not in MYSQL_URL
 )
 
-# ── Session factory ──────────────────────────────────────────────
+_connect_args: dict = {}
+if _use_ssl:
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode   = ssl.CERT_NONE  # sin verificar CA (acepta cualquier cert)
+    _connect_args["ssl"] = _ssl_ctx
+
+engine = create_async_engine(
+    MYSQL_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=1800,
+    connect_args=_connect_args,
+)
+
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
@@ -36,12 +43,11 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
 )
 
-# ── Base para modelos ORM ────────────────────────────────────────
+
 class Base(DeclarativeBase):
     pass
 
 
-# ── Dependency para FastAPI (get_mysql_db) ───────────────────────
 async def get_mysql_db():
     async with AsyncSessionLocal() as session:
         try:
@@ -53,7 +59,6 @@ async def get_mysql_db():
 
 
 async def init_mysql():
-    """Crea las tablas si no existen (usa schema.sql o Alembic)."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("[MySQL] Conexion establecida OK")
@@ -61,4 +66,4 @@ async def init_mysql():
 
 async def close_mysql():
     await engine.dispose()
-    print("[MySQL] Conexión cerrada")
+    print("[MySQL] Conexion cerrada")
