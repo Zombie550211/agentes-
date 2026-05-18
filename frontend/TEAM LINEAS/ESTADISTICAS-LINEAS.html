@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estadísticas - Team Líneas</title>
+  <script>
+    // Sin restricción - acceso permitido para todos
+  </script>
+  <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Highcharts 3D -->
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f5f5; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { flex: 0 0 auto; }
+    .main-content { flex: 1; overflow-y: auto; }
+    .content-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    h1 { color: #111827; margin-top: 0; margin-bottom: 30px; font-size: 28px; }
+
+    /* Team Section */
+    .team-section { 
+      margin-bottom: 40px; 
+      background: white; 
+      border-radius: 12px; 
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .team-title { 
+      font-size: 20px; 
+      font-weight: 600; 
+      color: #111827; 
+      margin: 0 0 20px 0;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    /* Team Content - Grid for Chart + KPI */
+    .team-content { 
+      display: grid; 
+      grid-template-columns: 2fr 1fr; 
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Chart Container */
+    .chart-container { 
+      position: relative; 
+      height: 500px;
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .chart-container canvas { max-height: 470px; }
+
+    /* KPI Card */
+    .kpi-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: #f9fafb;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .kpi-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 12px;
+    }
+
+    .kpi-item:last-child { border-bottom: none; }
+
+    .kpi-icon {
+      width: 4px;
+      height: 40px;
+      background: #3b82f6;
+      border-radius: 2px;
+    }
+
+    .kpi-content {
+      flex: 1;
+    }
+
+    .kpi-label {
+      font-size: 12px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0;
+    }
+
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #3b82f6;
+      margin: 4px 0 0 0;
+    }
+
+    /* Loading State */
+    .loading { text-align: center; color: #6b7280; padding: 20px; }
+    .spinner { display: inline-block; border: 3px solid #e5e7eb; border-top: 3px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Efecto 3D para KPIs globales */
+    .kpi-global-card {
+      position: relative;
+      overflow: visible;
+      transform-style: preserve-3d;
+      transform: perspective(1000px) rotateX(5deg) rotateY(-2deg);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.15),
+        0 5px 15px rgba(0, 0, 0, 0.1),
+        inset 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .kpi-global-card::after {
+      content: '';
+      position: absolute;
+      bottom: -20px;
+      left: 10%;
+      width: 80%;
+      height: 20px;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.2) 0%, transparent 70%);
+      filter: blur(10px);
+      z-index: -1;
+    }
+    
+    .kpi-global-card:hover {
+      transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-10px) scale(1.02);
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.2),
+        0 15px 30px rgba(0, 0, 0, 0.15),
+        inset 0 -3px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .team-content { grid-template-columns: 1fr; }
+      .chart-container { height: 400px; }
+    }
+    @media (max-width: 1280px) {
+      .content-container > div:first-of-type { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="estadisticas-lineas"></nav>
+    <main class="main-content">
+      <div class="content-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <h1 style="margin: 0;">📊 Estadísticas - Team Líneas</h1>
+          
+          <!-- Navegación Mensual -->
+          <div style="display: flex; align-items: center; gap: 16px; background: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <button id="btn-prev-month" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-chevron-left"></i> Anterior
+            </button>
+            <div style="text-align: center; min-width: 180px;">
+              <div style="font-size: 18px; font-weight: 700; color: #111827;" id="current-month-display">Cargando...</div>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 2px;" id="date-range-display"></div>
+            </div>
+            <button id="btn-next-month" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+              Siguiente <i class="fas fa-chevron-right"></i>
+            </button>
+            <button id="btn-current-month" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              Mes Actual
+            </button>
+          </div>
+        </div>
+
+        <!-- KPIs Globales -->
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 32px;">
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-shopping-cart" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Clientes</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #0b0f19 0%, #000000 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-layer-group" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500; color: #ffffff;">Cantidad de Líneas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700; color: #ffffff;" id="kpi-global-ventas-lineas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #6B8E23 0%, #556B2F 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Activas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-activas">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-clock" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Pendientes</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-lineas-pendientes">-</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-times-circle" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500; color: #ffffff;">Líneas Canceladas</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700; color: #ffffff;" id="kpi-global-lineas-canceladas">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Jonathan F -->
+        <div class="team-section">
+          <h2 class="team-title" id="team-title-jonathan">Team Jonathan F</h2>
+          <div class="team-content">
+            <div class="chart-container">
+              <div class="loading" id="loading-jonathan">
+                <div class="spinner"></div>
+              </div>
+              <div id="chartJonathan" style="width: 100%; height: 100%;"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Cantidad de Clientes</p>
+                  <p class="kpi-value" id="kpi-jonathan-ventas">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #111827;">Cantidad de Líneas</p>
+                  <p class="kpi-value" id="kpi-jonathan-ventas-lineas" style="color: #111827;">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #22c55e;">Líneas Activas</p>
+                  <p class="kpi-value" id="kpi-jonathan-activas" style="color: #22c55e;">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Líneas Pendientes</p>
+                  <p class="kpi-value" id="kpi-jonathan-lineas-pendientes">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #f87171;">Líneas Canceladas</p>
+                  <p class="kpi-value" id="kpi-jonathan-lineas-canceladas" style="color: #f87171;">-</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Luis G -->
+        <div class="team-section">
+          <h2 class="team-title" id="team-title-luis">Team Luis G</h2>
+          <div class="team-content">
+            <div class="chart-container">
+              <div class="loading" id="loading-luis">
+                <div class="spinner"></div>
+              </div>
+              <div id="chartLuis" style="width: 100%; height: 100%;"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Cantidad de Clientes</p>
+                  <p class="kpi-value" id="kpi-luis-ventas">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #111827;">Cantidad de Líneas</p>
+                  <p class="kpi-value" id="kpi-luis-ventas-lineas" style="color: #111827;">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #22c55e;">Líneas Activas</p>
+                  <p class="kpi-value" id="kpi-luis-activas" style="color: #22c55e;">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label">Líneas Pendientes</p>
+                  <p class="kpi-value" id="kpi-luis-lineas-pendientes">-</p>
+                </div>
+              </div>
+              <div class="kpi-item">
+                <div class="kpi-icon"></div>
+                <div class="kpi-content">
+                  <p class="kpi-label" style="color: #f87171;">Líneas Canceladas</p>
+                  <p class="kpi-value" id="kpi-luis-lineas-canceladas" style="color: #f87171;">-</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js"></script>
+  <script>if(typeof Highcharts!=='undefined'){Highcharts.setOptions({accessibility:{enabled:false}});}</script>
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
+  <script>
+    // Variables para instancias de Highcharts
+    let chartJonathanInstance = null;
+    let chartLuisInstance = null;
+    
+    // Estado global del mes seleccionado
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth() + 1; // 1-12
+
+    // Funciones de utilidad para manejo de fechas
+    const __urlParams = (() => {
+      try { return new URLSearchParams(window.location.search || ''); } catch (_) { return new URLSearchParams(); }
+    })();
+    const __rangeFrom = String(__urlParams.get('from') || '').trim();
+    const __rangeTo = String(__urlParams.get('to') || '').trim();
+    const __rangeTeam = String(__urlParams.get('team') || '').trim();
+
+    function getMonthName(month) {
+      const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      return months[month - 1];
+    }
+
+    function updateMonthDisplay() {
+      const monthName = getMonthName(currentMonth);
+      document.getElementById('current-month-display').textContent = `${monthName} ${currentYear}`;
+      
+      // Calcular rango de fechas
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      const hasRange = !!(__rangeFrom && __rangeTo);
+      document.getElementById('date-range-display').textContent = hasRange ? `${__rangeFrom} al ${__rangeTo}` : `${startDate} al ${endDate}`;
+    }
+
+    function goToPreviousMonth() {
+      currentMonth--;
+      if (currentMonth < 1) {
+        currentMonth = 12;
+        currentYear--;
+      }
+      updateMonthDisplay();
+      loadEstadisticas();
+    }
+
+    function goToNextMonth() {
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+      updateMonthDisplay();
+      loadEstadisticas();
+    }
+
+    function goToCurrentMonth() {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth() + 1;
+      updateMonthDisplay();
+      loadEstadisticas();
+    }
+
+    function filterLeadsByMonth(leads) {
+      const hasRange = !!(__rangeFrom && __rangeTo);
+      const startDate = hasRange ? __rangeFrom : `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const endDate = hasRange ? __rangeTo : `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+      
+      // Calcular rango del mes anterior para el "colchón"
+      const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
+      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+      const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
+      const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
+      const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
+      
+      console.log(`[filterLeadsByMonth] Filtrando por rango: ${startDate} a ${endDate}`);
+      console.log(`[filterLeadsByMonth] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
+      console.log(`[filterLeadsByMonth] Total de leads a filtrar: ${leads.length}`);
+      console.log(`[filterLeadsByMonth] LÓGICA: ${hasRange ? 'RANGO EXPLÍCITO (sin colchón)' : 'Incluir ventas del mes anterior con instalación en mes actual'}`);
+      
+      let sinFecha = 0;
+      let fueraRango = 0;
+      let dentroRango = 0;
+      let colchonCount = 0;
+      
+      const filtered = leads.filter(lead => {
+        const diaVenta = lead.dia_venta || lead.fecha_venta || '';
+        const diaInstalacion = lead.dia_instalacion || lead.fecha_instalacion || '';
+        
+        // Si no tiene dia_venta, excluir
+        if (!diaVenta) {
+          sinFecha++;
+          return false;
+        }
+        
+        // Caso 1: Venta del mes actual (normal)
+        const ventaMesActual = diaVenta >= startDate && diaVenta <= endDate;
+        
+        // Caso 2: COLCHÓN - Venta del mes anterior CON instalación en mes actual
+        const ventaMesAnterior = diaVenta >= prevStartDate && diaVenta <= prevEndDate;
+        const instalacionMesActual = diaInstalacion && diaInstalacion >= startDate && diaInstalacion <= endDate;
+        const esColchon = !hasRange && ventaMesAnterior && instalacionMesActual;
+        
+        if (ventaMesActual) {
+          dentroRango++;
+          return true;
+        } else if (esColchon) {
+          colchonCount++;
+          return true;
+        } else {
+          fueraRango++;
+          return false;
+        }
+      });
+      
+      console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} ventas del mes actual, ${colchonCount} ventas colchón (mes anterior con instalación actual), ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
+
+      try {
+        const normalizeSupervisor = (sup) => {
+          const s = String(sup || '').trim().toUpperCase();
+          if (s.includes('JONATHAN')) return 'JONATHAN F';
+          if (s.includes('LUIS')) return 'LUIS G';
+          return s || 'SIN SUPERVISOR';
+        };
+
+        const getLineCount = (lead) => {
+          try {
+            const fromField = Number(lead?.cantidad_lineas || 0) || 0;
+            const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
+            const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
+            return Math.max(fromField, fromLines, fromPhones, 1);
+          } catch (_) {
+            return 1;
+          }
+        };
+        const sumLines = (arr) => {
+          try { return (arr || []).reduce((a, l) => a + getLineCount(l), 0); } catch (_) { return 0; }
+        };
+
+        const monthLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          return dv >= startDate && dv <= endDate;
+        });
+        const colchonLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          const di = l.dia_instalacion || l.fecha_instalacion || '';
+          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+        });
+
+        const toRow = (l) => ({
+          id: l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente,
+          dia_venta: l.dia_venta || l.fecha_venta,
+          dia_instalacion: l.dia_instalacion || l.fecha_instalacion,
+          supervisor: normalizeSupervisor(l.supervisor),
+          agente: l.agenteAsignado || l._collection,
+          status: l.status
+        });
+
+        const splitByTeam = (arr) => {
+          const out = { 'JONATHAN F': [], 'LUIS G': [], 'OTROS': [] };
+          (arr || []).forEach(l => {
+            const sup = normalizeSupervisor(l.supervisor);
+            if (sup === 'JONATHAN F') out['JONATHAN F'].push(l);
+            else if (sup === 'LUIS G') out['LUIS G'].push(l);
+            else out['OTROS'].push(l);
+          });
+          return out;
+        };
+
+        const monthByTeam = splitByTeam(monthLeads);
+        const colchonByTeam = splitByTeam(colchonLeads);
+
+        console.groupCollapsed(`[filterLeadsByMonth] LISTADO MES ACTUAL (${monthLeads.length})`);
+        console.log('[MES ACTUAL] Conteo por team:', {
+          'JONATHAN F': monthByTeam['JONATHAN F'].length,
+          'LUIS G': monthByTeam['LUIS G'].length,
+          'OTROS': monthByTeam['OTROS'].length
+        });
+        console.log('[MES ACTUAL] Líneas por team:', {
+          'JONATHAN F': sumLines(monthByTeam['JONATHAN F']),
+          'LUIS G': sumLines(monthByTeam['LUIS G']),
+          'OTROS': sumLines(monthByTeam['OTROS'])
+        });
+        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - JONATHAN F (${monthByTeam['JONATHAN F'].length})`);
+        console.table(monthByTeam['JONATHAN F'].map(toRow));
+        console.groupEnd();
+        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - LUIS G (${monthByTeam['LUIS G'].length})`);
+        console.table(monthByTeam['LUIS G'].map(toRow));
+        console.groupEnd();
+        if (monthByTeam['OTROS'].length) {
+          console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - OTROS (${monthByTeam['OTROS'].length})`);
+          console.table(monthByTeam['OTROS'].map(toRow));
+          console.groupEnd();
+        }
+        console.groupEnd();
+
+        console.groupCollapsed(`[filterLeadsByMonth] LISTADO COLCHÓN (${colchonLeads.length})`);
+        console.log('[COLCHÓN] Conteo por team:', {
+          'JONATHAN F': colchonByTeam['JONATHAN F'].length,
+          'LUIS G': colchonByTeam['LUIS G'].length,
+          'OTROS': colchonByTeam['OTROS'].length
+        });
+        console.log('[COLCHÓN] Líneas por team:', {
+          'JONATHAN F': sumLines(colchonByTeam['JONATHAN F']),
+          'LUIS G': sumLines(colchonByTeam['LUIS G']),
+          'OTROS': sumLines(colchonByTeam['OTROS'])
+        });
+        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - JONATHAN F (${colchonByTeam['JONATHAN F'].length})`);
+        console.table(colchonByTeam['JONATHAN F'].map(toRow));
+        console.groupEnd();
+        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - LUIS G (${colchonByTeam['LUIS G'].length})`);
+        console.table(colchonByTeam['LUIS G'].map(toRow));
+        console.groupEnd();
+        if (colchonByTeam['OTROS'].length) {
+          console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - OTROS (${colchonByTeam['OTROS'].length})`);
+          console.table(colchonByTeam['OTROS'].map(toRow));
+          console.groupEnd();
+        }
+        console.groupEnd();
+      } catch (e) {
+        console.warn('[filterLeadsByMonth] No se pudo imprimir listado mes/colchón:', e?.message);
+      }
+      
+      // Log específico para KARLA_RODRIGUEZ
+      const karlaLeads = filtered.filter(l => {
+        const col = (l._collection || '').toUpperCase();
+        const asig = (l.agenteAsignado || '').toUpperCase();
+        return col.includes('KARLA') || asig.includes('KARLA');
+      });
+      console.log(`[filterLeadsByMonth] Leads de KARLA RODRIGUEZ en este mes: ${karlaLeads.length}`);
+      
+      // Mostrar muestra de leads de Karla para ver estructura
+      if (karlaLeads.length > 0) {
+        console.log('[filterLeadsByMonth] Muestra de leads de KARLA:', karlaLeads.slice(0, 3).map(l => ({
+          _collection: l._collection,
+          agenteAsignado: l.agenteAsignado,
+          dia_venta: l.dia_venta,
+          dia_instalacion: l.dia_instalacion,
+          supervisor: l.supervisor
+        })));
+      }
+      
+      // Mostrar leads del colchón si hay
+      if (colchonCount > 0) {
+        const colchonLeads = filtered.filter(l => {
+          const dv = l.dia_venta || l.fecha_venta || '';
+          const di = l.dia_instalacion || l.fecha_instalacion || '';
+          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+        });
+        console.log(`[filterLeadsByMonth] Muestra de leads COLCHÓN (primeros 3):`, colchonLeads.slice(0, 3).map(l => ({
+          dia_venta: l.dia_venta,
+          dia_instalacion: l.dia_instalacion,
+          supervisor: l.supervisor,
+          agente: l.agenteAsignado || l._collection
+        })));
+      }
+      
+      return filtered;
+    }
+
+    function __dedupeLeads(leads) {
+      try {
+        const byId = new Map();
+        let dup = 0;
+        (Array.isArray(leads) ? leads : []).forEach(l => {
+          const key = String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || l?._raw?._id || '').trim();
+          if (!key) {
+            // Si no hay ID, mantener el registro (no se puede deduplicar)
+            byId.set(Symbol('noid'), l);
+            return;
+          }
+          if (byId.has(key)) {
+            dup++;
+            return;
+          }
+          byId.set(key, l);
+        });
+        const out = Array.from(byId.values());
+        if (dup > 0) console.warn('[__dedupeLeads] Duplicados detectados y removidos:', dup, '=>', out.length);
+        return out;
+      } catch (_) {
+        return Array.isArray(leads) ? leads : [];
+      }
+    }
+
+    // Datos mock iniciales (reemplazar con datos reales después)
+    const mockLeads = [
+      // Team Jonathan F
+      { id: '1', nombre_cliente: 'Cliente A', telefono_principal: '532-1234', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 3 },
+      { id: '2', nombre_cliente: 'Cliente B', telefono_principal: '532-1235', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-10', cantidad_lineas: 2 },
+      { id: '3', nombre_cliente: 'Cliente C', telefono_principal: '532-1236', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 1 },
+      { id: '4', nombre_cliente: 'Cliente D', telefono_principal: '532-1237', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 2 },
+      { id: '5', nombre_cliente: 'Cliente E', telefono_principal: '532-1238', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
+      { id: '6', nombre_cliente: 'Cliente F', telefono_principal: '532-1239', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
+      { id: '7', nombre_cliente: 'Cliente G', telefono_principal: '532-1240', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 1 },
+      { id: '8', nombre_cliente: 'Cliente H', telefono_principal: '532-1241', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 3 },
+      { id: '9', nombre_cliente: 'Cliente I', telefono_principal: '532-1242', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-20', cantidad_lineas: 2 },
+
+      // Team Luis G
+      { id: '10', nombre_cliente: 'Cliente J', telefono_principal: '532-2001', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 4 },
+      { id: '11', nombre_cliente: 'Cliente K', telefono_principal: '532-2002', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'complete', dia_venta: '2026-01-10', cantidad_lineas: 3 },
+      { id: '12', nombre_cliente: 'Cliente L', telefono_principal: '532-2003', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 2 },
+      { id: '13', nombre_cliente: 'Cliente M', telefono_principal: '532-2004', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 1 },
+      { id: '14', nombre_cliente: 'Cliente N', telefono_principal: '532-2005', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
+      { id: '15', nombre_cliente: 'Cliente O', telefono_principal: '532-2006', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
+      { id: '16', nombre_cliente: 'Cliente P', telefono_principal: '532-2007', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 3 },
+      { id: '17', nombre_cliente: 'Cliente Q', telefono_principal: '532-2008', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 2 },
+    ];
+
+    async function loadEstadisticas() {
+      try {
+        let allLeads = [];
+        
+        // Obtener datos reales de la API de Team Líneas (todos los datos)
+        try {
+          console.log('[loadEstadisticas] Obteniendo datos de /api/leads-lineas...');
+          const response = await fetch('/api/leads-lineas?allData=true');
+          if (response.ok) {
+            const result = await response.json();
+            allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);
+            console.log('[loadEstadisticas] Datos reales obtenidos de TEAM_LINEAS:', allLeads.length, 'leads totales');
+            console.log('[loadEstadisticas] Metadata:', result.meta);
+          } else {
+            console.warn('[loadEstadisticas] Error en respuesta:', response.status);
+            allLeads = mockLeads;
+          }
+        } catch (err) {
+          console.warn('[loadEstadisticas] No se pudieron obtener datos reales, usando mock:', err.message);
+          allLeads = mockLeads;
+        }
+
+        // Si aun así no hay datos, usar mock
+        if (!allLeads || allLeads.length === 0) {
+          console.log('[loadEstadisticas] Usando datos mock');
+          allLeads = mockLeads;
+        }
+
+        // Mostrar distribución de supervisores ANTES del filtrado mensual
+        const supervisoresAntes = {};
+        const agentesPorSupervisor = {};
+        
+        allLeads.forEach(l => {
+          const sup = l.supervisor || 'Sin supervisor';
+          // Usar agenteAsignado si existe, sino _collection
+          const agente = l.agenteAsignado || l._collection || 'Sin agente';
+          
+          supervisoresAntes[sup] = (supervisoresAntes[sup] || 0) + 1;
+          
+          if (!agentesPorSupervisor[sup]) {
+            agentesPorSupervisor[sup] = {};
+          }
+          agentesPorSupervisor[sup][agente] = (agentesPorSupervisor[sup][agente] || 0) + 1;
+        });
+        
+        console.log('[loadEstadisticas] Distribución TOTAL de leads por supervisor (todos los meses):', supervisoresAntes);
+        console.log('[loadEstadisticas] Leads por agente de LUIS G (TODOS los meses):', agentesPorSupervisor['LUIS G']);
+        
+        // Filtrar por mes/rango seleccionado usando dia_venta
+        let leads = filterLeadsByMonth(allLeads);
+        leads = __dedupeLeads(leads);
+        console.log(`[loadEstadisticas] Leads filtrados para ${getMonthName(currentMonth)} ${currentYear}:`, leads.length);
+        
+        // Mostrar distribución DESPUÉS del filtrado mensual
+        const supervisoresDespues = {};
+        const agentesDespues = {};
+        
+        leads.forEach(l => {
+          const sup = l.supervisor || 'Sin supervisor';
+          // Usar agenteAsignado si existe, sino _collection
+          const agente = l.agenteAsignado || l._collection || 'Sin agente';
+          
+          supervisoresDespues[sup] = (supervisoresDespues[sup] || 0) + 1;
+          
+          if (!agentesDespues[sup]) {
+            agentesDespues[sup] = {};
+          }
+          agentesDespues[sup][agente] = (agentesDespues[sup][agente] || 0) + 1;
+        });
+        
+        console.log(`[loadEstadisticas] Distribución de leads por supervisor en ${getMonthName(currentMonth)} ${currentYear}:`, supervisoresDespues);
+        console.log(`[loadEstadisticas] Leads por agente de LUIS G en ${getMonthName(currentMonth)} ${currentYear}:`, agentesDespues['LUIS G']);
+
+        // Detectar supervisores únicos en los datos
+        const supervisoresUnicos = [...new Set(leads.map(l => (l.supervisor || 'Sin asignar')).filter(s => s.trim() !== ''))];
+        supervisoresUnicos.sort();
+        console.log('[loadEstadisticas] Total de leads obtenidos:', leads.length);
+        console.log('[loadEstadisticas] Supervisores encontrados:', supervisoresUnicos);
+        console.log('[loadEstadisticas] Muestra de leads (primeros 5):', leads.slice(0, 5).map(l => ({
+          supervisor: l.supervisor,
+          nombre_agente: l.nombre_agente,
+          _collection: l._collection,
+          status: l.status
+        })));
+
+        // Filtrar específicamente por los supervisores de Team Líneas
+        // Normalizar nombres de supervisores (pueden venir como "JONATHAN F", "Jonathan F", etc.)
+        const normalizeSupervisor = (sup) => {
+          const s = String(sup || '').trim().toUpperCase();
+          if (s.includes('JONATHAN')) return 'JONATHAN F';
+          if (s.includes('LUIS')) return 'LUIS G';
+          return s;
+        };
+
+        // Filtrar leads por supervisor específico de Team Líneas
+        const normalizedTeamParam = (() => {
+          const s = String(__rangeTeam || '').trim().toUpperCase();
+          if (!s) return '';
+          if (s.includes('JONATHAN')) return 'JONATHAN F';
+          if (s.includes('LUIS')) return 'LUIS G';
+          return s;
+        })();
+
+        let team1Leads = leads.filter(l => {
+          const sup = normalizeSupervisor(l.supervisor);
+          return sup === 'JONATHAN F';
+        });
+
+        let team2Leads = leads.filter(l => {
+          const sup = normalizeSupervisor(l.supervisor);
+          return sup === 'LUIS G';
+        });
+
+        team1Leads = __dedupeLeads(team1Leads);
+        team2Leads = __dedupeLeads(team2Leads);
+
+        // Diagnóstico: identificar si hay "extras" en teams vs (mes actual + colchón) por ID
+        try {
+          const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+          const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+          const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+          const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
+          const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+          const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
+          const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
+          const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
+
+          const getId = (l) => String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || '').trim();
+          const bucketMonth = (l) => {
+            const dv = l.dia_venta || l.fecha_venta || '';
+            return dv >= startDate && dv <= endDate;
+          };
+          const bucketColchon = (l) => {
+            const dv = l.dia_venta || l.fecha_venta || '';
+            const di = l.dia_instalacion || l.fecha_instalacion || '';
+            return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
+          };
+
+          const inBuckets = (l) => bucketMonth(l) || bucketColchon(l);
+          const jonExtra = team1Leads.filter(l => !inBuckets(l));
+          const luisExtra = team2Leads.filter(l => !inBuckets(l));
+          if (jonExtra.length || luisExtra.length) {
+            console.warn('[loadEstadisticas][diagnostico] Leads en team pero fuera de buckets mes/colchón (revisar formato de fechas):', {
+              jonExtra: jonExtra.length,
+              luisExtra: luisExtra.length
+            });
+            if (jonExtra.length) console.table(jonExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
+            if (luisExtra.length) console.table(luisExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
+          }
+        } catch (_) {}
+
+        // Si viene ?team=..., limitar la pantalla a ese team para comparar con COSTUMER-LINEAS
+        if (normalizedTeamParam) {
+          if (normalizedTeamParam === 'JONATHAN F') team2Leads = [];
+          if (normalizedTeamParam === 'LUIS G') team1Leads = [];
+        }
+
+        console.log('[loadEstadisticas] Team JONATHAN F:', team1Leads.length, 'leads');
+        console.log('[loadEstadisticas] Team LUIS G:', team2Leads.length, 'leads');
+
+        // Procesar datos y renderizar
+        if (team1Leads.length > 0) {
+          renderTeamData('JONATHAN F', team1Leads, 'chartJonathan', 'kpi-jonathan-');
+        } else {
+          console.warn('[loadEstadisticas] No hay datos para JONATHAN F en este mes');
+          // Mostrar mensaje en la gráfica
+          const loadingEl = document.getElementById('loading-jonathan');
+          if (loadingEl) {
+            loadingEl.innerHTML = '<p style="color: #6b7280; font-size: 14px;">No hay datos para este mes</p>';
+            loadingEl.style.display = 'block';
+          }
+          // Resetear KPIs
+          document.getElementById('kpi-jonathan-ventas').textContent = '0';
+          document.getElementById('kpi-jonathan-activas').textContent = '0';
+          document.getElementById('kpi-jonathan-lineas-pendientes').textContent = '0';
+          document.getElementById('kpi-jonathan-lineas-canceladas').textContent = '0';
+          document.getElementById('kpi-jonathan-ventas-lineas').textContent = '0';
+        }
+        
+        if (team2Leads.length > 0) {
+          renderTeamData('LUIS G', team2Leads, 'chartLuis', 'kpi-luis-');
+        } else {
+          console.warn('[loadEstadisticas] No hay datos para LUIS G en este mes');
+          // Mostrar mensaje en la gráfica
+          const loadingEl = document.getElementById('loading-luis');
+          if (loadingEl) {
+            loadingEl.innerHTML = '<p style="color: #6b7280; font-size: 14px;">No hay datos para este mes</p>';
+            loadingEl.style.display = 'block';
+          }
+          // Resetear KPIs
+          document.getElementById('kpi-luis-ventas').textContent = '0';
+          document.getElementById('kpi-luis-activas').textContent = '0';
+          document.getElementById('kpi-luis-lineas-pendientes').textContent = '0';
+          document.getElementById('kpi-luis-lineas-canceladas').textContent = '0';
+          document.getElementById('kpi-luis-ventas-lineas').textContent = '0';
+        }
+        
+        // Actualizar KPIs globales (suma de ambos teams)
+        updateGlobalKPIs(__dedupeLeads([...team1Leads, ...team2Leads]));
+
+      } catch (error) {
+        console.error('[loadEstadisticas] Error fatal:', error);
+      }
+    }
+
+    function __lineasStatNormalizeStatus(v) {
+      const s = String(v || '').trim();
+      if (!s) return '';
+      return s.toUpperCase();
+    }
+
+    function __isActiveLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return (
+        s === 'ACTIVE' ||
+        s === 'ACTIVA' ||
+        s.includes('ACTIV') ||
+        s === 'COMPLETED' ||
+        s.includes('COMPLET') ||
+        s.includes('FINALIZ')
+      );
+    }
+
+    function __isPendingLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return s === 'PENDING' || s === 'PENDIENTE';
+    }
+
+    function __isCancelledLikeStatus(stUpper) {
+      const s = String(stUpper || '').toUpperCase();
+      return s === 'CANCELLED' || s === 'CANCELADA' || s === 'CANCELADO';
+    }
+
+    function __getLineCount(lead) {
+      const fromField = Number(lead?.cantidad_lineas || 0) || 0;
+      const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
+      const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
+      return Math.max(fromField, fromLines, fromPhones, 1);
+    }
+
+    function __getLineStatus(lead, idx) {
+      // Regla: si es 1 sola línea, el status del lead manda
+      try {
+        const lineCount = __getLineCount(lead);
+        if (lineCount === 1) {
+          const global = lead?.status ?? lead?.STATUS ?? lead?.estado;
+          const norm = __lineasStatNormalizeStatus(global);
+          if (norm) return norm;
+        }
+      } catch (_) {}
+
+      // Multi-línea: preferir lineas_status (suele ser la fuente más confiable en TEAM_LINEAS)
+      try {
+        const ls = lead?.lineas_status || lead?.lineasStatus || lead?.lineasStatusMap || null;
+        if (ls && Object.prototype.hasOwnProperty.call(ls, idx)) {
+          return __lineasStatNormalizeStatus(ls[idx]);
+        }
+      } catch (_) {}
+
+      try {
+        const rawLs = lead?._raw?.lineas_status || lead?._raw?.lineasStatus || lead?._raw?.lineasStatusMap || null;
+        if (rawLs && Object.prototype.hasOwnProperty.call(rawLs, idx)) {
+          return __lineasStatNormalizeStatus(rawLs[idx]);
+        }
+      } catch (_) {}
+
+      // Fallback: lead.lines[idx].status/estado
+      try {
+        const lines = Array.isArray(lead?.lines) ? lead.lines : (Array.isArray(lead?.lineas) ? lead.lineas : null);
+        const row = lines && lines[idx] ? lines[idx] : null;
+        if (row && (row.estado || row.status)) {
+          return __lineasStatNormalizeStatus(row.estado || row.status);
+        }
+      } catch (_) {}
+
+      try {
+        const global = lead?.status ?? lead?.STATUS ?? lead?.estado;
+        const norm = __lineasStatNormalizeStatus(global);
+        if (norm) return norm;
+      } catch (_) {}
+
+      return 'PENDING';
+    }
+
+    function updateGlobalKPIs(allLeads) {
+      console.log('[updateGlobalKPIs] Calculando KPIs globales con', allLeads.length, 'leads totales');
+      
+      const totalVentas = allLeads.length;
+      let totalLineasActivas = 0;
+      let totalLineasPendientes = 0;
+      let totalLineasCanceladas = 0;
+      let totalVentasPendientes = 0; // Leads con status pending
+      let totalVentasLineas = 0; // Total de líneas sin importar status
+      
+      allLeads.forEach(lead => {
+        const cantidadLineas = __getLineCount(lead);
+        const statusGlobal = (lead.status || '').toLowerCase();
+        
+        totalVentasLineas += cantidadLineas;
+        
+        // Contar ventas pendientes (leads con status pending)
+        if (statusGlobal.includes('pending')) {
+          totalVentasPendientes++;
+        }
+
+        for (let i = 0; i < cantidadLineas; i++) {
+          const lineStatus = __getLineStatus(lead, i);
+          if (__isActiveLikeStatus(lineStatus)) totalLineasActivas++;
+          else if (__isPendingLikeStatus(lineStatus)) totalLineasPendientes++;
+          else if (__isCancelledLikeStatus(lineStatus)) totalLineasCanceladas++;
+        }
+      });
+      
+      // Actualizar KPIs globales en el DOM
+      document.getElementById('kpi-global-ventas').textContent = totalVentas;
+      document.getElementById('kpi-global-activas').textContent = totalLineasActivas;
+      document.getElementById('kpi-global-lineas-pendientes').textContent = totalLineasPendientes;
+      document.getElementById('kpi-global-lineas-canceladas').textContent = totalLineasCanceladas;
+      document.getElementById('kpi-global-ventas-lineas').textContent = totalVentasLineas;
+      
+      console.log('[updateGlobalKPIs] Totales:', {
+        ventas: totalVentas,
+        lineasActivas: totalLineasActivas,
+        lineasPendientes: totalLineasPendientes,
+        lineasCanceladas: totalLineasCanceladas,
+        ventasLineas: totalVentasLineas
+      });
+    }
+
+    function renderTeamData(teamName, leads, canvasId, kpiPrefix) {
+      if (leads.length === 0) {
+        console.warn(`[renderTeamData] No hay leads para ${teamName}`);
+        return;
+      }
+
+      console.log(`[renderTeamData] Renderizando ${teamName} con ${leads.length} leads`);
+      
+      // Ocultar spinner de carga
+      const loadingId = canvasId === 'chartJonathan' ? 'loading-jonathan' : 'loading-luis';
+      const loadingEl = document.getElementById(loadingId);
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      // Agrupar por agente (excluyendo supervisores)
+      const agentData = {};
+      const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
+
+      const normalizeAgentName = (name) => {
+        return String(name || '')
+          .trim()
+          .replace(/_/g, ' ')
+          .replace(/\s+/g, ' ')
+          .toUpperCase();
+      };
+      
+      console.log(`[renderTeamData] Procesando ${leads.length} leads para ${teamName}`);
+      
+      // Log de status de todos los leads para debugging
+      const statusCount = {};
+      leads.forEach(l => {
+        const st = (l.status || 'sin status').toLowerCase();
+        statusCount[st] = (statusCount[st] || 0) + 1;
+      });
+      console.log(`[renderTeamData] Distribución de status para ${teamName}:`, statusCount);
+      
+      leads.forEach((lead, index) => {
+        // En TEAM_LINEAS, el nombre del agente puede estar en agenteAsignado o _collection
+        // nombre_agente contiene el supervisor
+        const agenteRaw = lead.agenteAsignado || lead._collection || lead.agenteNombre || lead.agente || 'Sin asignar';
+        const agente = normalizeAgentName(agenteRaw) || 'SIN ASIGNAR';
+        
+        // Log de los primeros 3 leads para debugging
+        if (index < 3) {
+          console.log(`[renderTeamData] Lead ${index + 1}:`, {
+            _collection: lead._collection,
+            nombre_agente: lead.nombre_agente,
+            supervisor: lead.supervisor,
+            agenteUsado: agenteRaw,
+            agenteNormalizado: agente
+          });
+        }
+        
+        // Excluir supervisores de las gráficas (por si acaso)
+        const esSupervisor = supervisores.some(sup => agente.includes(sup));
+        
+        if (esSupervisor) {
+          console.log(`[renderTeamData] Excluyendo supervisor de gráfica: ${agente}`);
+          return; // Skip este lead
+        }
+        
+        if (!agentData[agente]) {
+          agentData[agente] = {
+            ventas: 0,
+            lineas: 0
+          };
+        }
+
+        // Contar TODOS los leads como ventas (sin importar status)
+        agentData[agente].ventas++;
+
+        // Sumar líneas
+        agentData[agente].lineas += (lead.cantidad_lineas || 1);
+      });
+      
+      console.log(`[renderTeamData] Agentes procesados para ${teamName}:`, Object.keys(agentData));
+      
+      // Log detallado de ventas por agente
+      console.log(`\n========== VENTAS DETALLADAS - ${teamName} ==========`);
+      const ventasPorAgente = {};
+      
+      leads.forEach(lead => {
+        const agenteRaw = lead.agenteAsignado || lead._collection || 'Sin agente';
+        const agente = normalizeAgentName(agenteRaw) || 'SIN AGENTE';
+        const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
+        const esSupervisor = supervisores.some(sup => agente.includes(sup));
+        
+        if (esSupervisor) return; // Excluir supervisores
+        
+        if (!ventasPorAgente[agente]) {
+          ventasPorAgente[agente] = [];
+        }
+        
+        ventasPorAgente[agente].push({
+          cliente: lead.nombre_cliente || 'Sin nombre',
+          telefono: lead.telefono_principal || 'Sin teléfono',
+          lineas: lead.cantidad_lineas || 1,
+          status: lead.status || 'Sin status'
+        });
+      });
+      
+      // Mostrar ventas de cada agente
+      Object.keys(ventasPorAgente).sort().forEach(agente => {
+        const ventas = ventasPorAgente[agente];
+        const totalLineas = ventas.reduce((sum, v) => sum + v.lineas, 0);
+        
+        console.log(`\n📊 ${agente} - ${ventas.length} ventas, ${totalLineas} líneas totales`);
+        console.log('─'.repeat(80));
+        
+        ventas.forEach((venta, index) => {
+          console.log(`  ${index + 1}. ${venta.cliente}`);
+          console.log(`     📞 ${venta.telefono} | 📶 ${venta.lineas} líneas | Status: ${venta.status}`);
+        });
+      });
+      
+      console.log(`\n${'='.repeat(80)}\n`);
+
+      // Calcular KPIs globales - TODOS los leads cuentan como ventas
+      const ventas = leads.length; // Contar TODOS los leads
+      
+      // Contar líneas activas, pendientes y canceladas: sumar líneas individuales por status
+      let lineasActivas = 0;
+      let lineasPendientes = 0;
+      let lineasCanceladas = 0;
+      let ventasLineas = 0;
+      
+      leads.forEach(lead => {
+        const cantidadLineas = __getLineCount(lead);
+        ventasLineas += cantidadLineas;
+
+        for (let i = 0; i < cantidadLineas; i++) {
+          const lineStatus = __getLineStatus(lead, i);
+          if (__isActiveLikeStatus(lineStatus)) lineasActivas++;
+          else if (__isPendingLikeStatus(lineStatus)) lineasPendientes++;
+          else if (__isCancelledLikeStatus(lineStatus)) lineasCanceladas++;
+        }
+      });
+      
+      const activas = lineasActivas;
+      const pendientes = lineasPendientes;
+      const canceladas = lineasCanceladas;
+
+      // Actualizar KPIs
+      document.getElementById(kpiPrefix + 'ventas').textContent = ventas;
+      document.getElementById(kpiPrefix + 'activas').textContent = activas;
+      document.getElementById(kpiPrefix + 'lineas-pendientes').textContent = pendientes;
+      document.getElementById(kpiPrefix + 'lineas-canceladas').textContent = canceladas;
+      document.getElementById(kpiPrefix + 'ventas-lineas').textContent = ventasLineas;
+
+      // Preparar datos para gráfica de barras
+      const agentes = Object.keys(agentData).sort();
+      const ventasData = agentes.map(a => agentData[a].ventas);
+      const lineasData = agentes.map(a => agentData[a].lineas);
+
+      console.log(`[renderTeamData] Agentes para ${teamName}:`, agentes);
+
+      // Renderizar gráfica con Highcharts 3D
+      const chartElement = document.getElementById(canvasId);
+      if (!chartElement) {
+        console.error(`[renderTeamData] Elemento ${canvasId} no encontrado`);
+        return;
+      }
+
+      if (window[canvasId + 'Instance']) {
+        window[canvasId + 'Instance'].destroy();
+      }
+
+      window[canvasId + 'Instance'] = Highcharts.chart(canvasId, {
+        chart: {
+          type: 'column',
+          options3d: {
+            enabled: true,
+            alpha: 15,
+            beta: 0,
+            depth: 100,
+            viewDistance: 35
+          },
+          backgroundColor: '#ffffff'
+        },
+        title: {
+          text: `Rendimiento por Agente - ${teamName}`,
+          style: {
+            fontSize: '18px',
+            fontWeight: 'bold'
+          }
+        },
+        xAxis: {
+          categories: agentes,
+          labels: {
+            skew3d: false,
+            style: {
+              fontSize: '11px',
+              fontWeight: '600'
+            },
+            rotation: -45
+          }
+        },
+        yAxis: {
+          title: {
+            text: null
+          },
+          labels: {
+            enabled: false
+          },
+          gridLineWidth: 0
+        },
+        tooltip: {
+          headerFormat: '<b>{point.key}</b><br>',
+          pointFormat: '{series.name}: {point.y}'
+        },
+        plotOptions: {
+          column: {
+            depth: 70,
+            dataLabels: {
+              enabled: true,
+              format: '{point.y}',
+              style: {
+                color: '#000',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                textOutline: 'none'
+              }
+            },
+            groupZPadding: 10,
+            borderWidth: 0
+          }
+        },
+        legend: {
+          align: 'center',
+          verticalAlign: 'top',
+          layout: 'horizontal',
+          itemStyle: {
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }
+        },
+        series: [
+          {
+            name: 'Ventas',
+            data: ventasData,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, '#3b82f6'],
+                [0.5, '#2563eb'],
+                [1, '#1d4ed8']
+              ]
+            }
+          },
+          {
+            name: 'Líneas',
+            data: lineasData,
+            color: {
+              linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+              stops: [
+                [0, '#ef4444'],
+                [0.5, '#dc2626'],
+                [1, '#b91c1c']
+              ]
+            }
+          }
+        ]
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.loadSidebar) window.loadSidebar();
+      
+      // Configurar navegación mensual
+      updateMonthDisplay();
+      
+      document.getElementById('btn-prev-month').addEventListener('click', goToPreviousMonth);
+      document.getElementById('btn-next-month').addEventListener('click', goToNextMonth);
+      document.getElementById('btn-current-month').addEventListener('click', goToCurrentMonth);
+      
+      // Cargar estadísticas del mes actual
+      loadEstadisticas();
+    });
+  </script>
+</body>
+</html>

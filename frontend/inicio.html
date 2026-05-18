@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM — Inicio</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
+<link rel="stylesheet" href="/css/responsive-sidebar.css">
+<link rel="stylesheet" href="/css/responsive-components.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+<script src="js/fetch-interceptor.js" defer></script>
+<script src="/js/logout-handler.js" defer></script>
+<script src="/js/user-info.js" defer></script>
+<script src="js/crm-config.js" defer></script>
+<script src="js/inactivity-manager.js" defer></script>
+<script src="js/crm-init.js" defer></script>
+<script src="/js/sidebar-loader.js" defer></script>
+<script src="js/dashboard-init.js" defer></script>
+<style>
+/* ══════════════════════════════════════
+   RESET & ROOT
+══════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #dde6f5;
+  --glass:   rgba(255,255,255,0.55);
+  --glass-b: rgba(255,255,255,0.80);
+  --text:    #0d1420;
+  --t2:      #4a5e78;
+  --t3:      #8fa3bb;
+  --blue:    #2563eb;
+  --violet:  #7c3aed;
+  --green:   #059669;
+  --amber:   #d97706;
+  --red:     #dc2626;
+  --teal:    #0d9488;
+  --pink:    #db2777;
+  --r:       13px;
+  --nav-h:   50px;
+  --sh:      0 2px 12px rgba(37,99,235,0.07), 0 1px 3px rgba(0,0,0,0.04);
+  --sh-lg:   0 8px 28px rgba(0,0,0,0.10);
+}
+
+/* ══════════════════════════════════════
+   FULL-SCREEN LAYOUT
+   html > body > .topnav + .main-content
+   .main-content > .page (flex col, fills height)
+   .page > hero + slabel + sc-grid + main-row + bot-row
+   main-row and bot-row share remaining height via flex
+══════════════════════════════════════ */
+html { height: 100%; overflow: hidden; }
+body {
+  height: 100%; overflow: hidden;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+
+  background-image:
+    radial-gradient(ellipse 80% 55% at 5%  -5%,  rgba(99,102,241,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 50% at 95%  8%,  rgba(16,185,129,.15) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 65% at 85% 95%,  rgba(139,92,246,.18) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 40% at 15% 92%,  rgba(59,130,246,.14) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50% 50%,  rgba(219,234,254,.60) 0%, transparent 70%);
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+
+/* ── Shell ── */
+/* sidebar-loader.js injects a sidebar — we account for it */
+:root { --sidebar-w: 56px; } /* collapsed sidebar default */
+
+.main-content {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 12px 8px;
+  overflow: hidden;
+}
+
+/* Fixed-height sections (never grow) */
+.hero, .slabel, .sc-grid { flex-shrink: 0; }
+
+/* Growing sections */
+.main-row { flex: 55 1 0; min-height: 0; }
+.bot-row  { flex: 45 1 0; min-height: 0; }
+
+/* ══════════════════════════════════════
+   TOP NAV
+══════════════════════════════════════ */
+.topnav {
+  display: none;
+  position: sticky; top: 0; z-index: 200;
+  height: var(--nav-h); flex-shrink: 0;
+  background: rgba(255,255,255,0.70);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,.88);
+  box-shadow: 0 1px 10px rgba(37,99,235,.06);
+  display: flex; align-items: center;
+  padding: 0 20px;
+}
+.nav-brand { display: flex; align-items: center; gap: 9px; margin-right: 20px; flex-shrink: 0; }
+.nav-logo {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 12px;
+  box-shadow: 0 3px 10px rgba(37,99,235,.30);
+}
+.brand-txt { font-family: 'Space Grotesk', sans-serif; font-size: .90rem; font-weight: 700; }
+.nav-links { display: flex; gap: 1px; flex: 1; overflow: hidden; }
+.nl {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 9px; border-radius: 8px;
+  font-size: .74rem; font-weight: 500; color: var(--t2);
+  cursor: pointer; text-decoration: none;
+  transition: all .15s; white-space: nowrap; flex-shrink: 0;
+}
+.nl i { font-size: 10px; opacity: .7; }
+.nl:hover { background: rgba(37,99,235,.07); color: var(--blue); }
+.nl.active { background: rgba(37,99,235,.10); color: var(--blue); font-weight: 600; border: 1px solid rgba(37,99,235,.18); }
+.nav-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.nsearch {
+  background: var(--glass); border: 1px solid var(--glass-b);
+  border-radius: 9px; display: flex; align-items: center;
+  gap: 6px; padding: 0 10px; height: 30px; width: 180px;
+}
+.nsearch i { color: var(--t3); font-size: 10px; }
+.nsearch input { border: none; background: transparent; outline: none; font-family: inherit; font-size: .74rem; color: var(--text); width: 100%; }
+.nsearch input::placeholder { color: var(--t3); }
+.nibtn {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--glass); border: 1px solid var(--glass-b);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--t2); font-size: 11px;
+  position: relative; transition: all .15s;
+}
+.nibtn:hover { background: #fff; color: var(--blue); }
+.npip { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--red); border: 1.5px solid #fff; }
+.nusr {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 10px 3px 3px;
+  background: var(--glass); border: 1px solid var(--glass-b);
+  border-radius: 50px; cursor: pointer; transition: all .15s;
+}
+.nusr:hover { background: #fff; border-color: rgba(37,99,235,.22); }
+.nav-av {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 9px; font-weight: 800;
+  box-shadow: 0 2px 6px rgba(37,99,235,.26);
+}
+.nuname { font-size: .72rem; font-weight: 600; }
+.nurole { font-size: .60rem; color: var(--t3); }
+
+/* ══════════════════════════════════════
+   HERO
+══════════════════════════════════════ */
+.hero {
+  background: var(--glass);
+  border: 1px solid var(--glass-b);
+  border-radius: 16px;
+  backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: var(--sh);
+  padding: 11px 20px;
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 16px; align-items: center;
+  position: relative; overflow: hidden;
+  animation: up .4s ease both;
+}
+.hero::before {
+  content: ''; position: absolute; top: -70px; right: -70px;
+  width: 220px; height: 220px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,102,241,.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-greet { font-size: .64rem; color: var(--t2); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+.hero-name {
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.35rem; font-weight: 700;
+  background: linear-gradient(100deg, #0d1420 20%, #2563eb 80%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1;
+}
+.hero-sub { font-size: .72rem; color: var(--t2); margin-top: 2px; }
+.hero-kpis { display: flex; gap: 6px; }
+.hkpi {
+  background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.92);
+  border-radius: 11px; padding: 7px 13px; text-align: center; min-width: 68px;
+  position: relative; overflow: hidden; transition: all .3s cubic-bezier(0.23, 1, 0.320, 1);
+  box-shadow: 0 4px 15px rgba(37,99,235,.12), 0 2px 6px rgba(0,0,0,.08);
+  transform-style: preserve-3d; perspective: 1200px;
+}
+.hkpi:hover { background: #fff; transform: translateY(-4px) rotateX(8deg) rotateZ(-1deg); box-shadow: 0 12px 32px rgba(37,99,235,.18), 0 4px 12px rgba(0,0,0,.12); }
+.hkpi-glow { position: absolute; inset: 0; background: radial-gradient(circle at 50% 130%, var(--c, rgba(37,99,235,.10)) 0%, transparent 65%); }
+.hkpi-val { font-family: Arial, sans-serif; font-size: 1.15rem; font-weight: 400; color: var(--text); position: relative; z-index: 1; line-height: 1; }
+.hkpi-lbl { font-size: .55rem; color: var(--t2); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; position: relative; z-index: 1; }
+
+/* ══════════════════════════════════════
+   SECTION LABEL
+══════════════════════════════════════ */
+.slabel { font-size: .60rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--t3); }
+
+/* ══════════════════════════════════════
+   SHORTCUTS
+══════════════════════════════════════ */
+.sc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; animation: up .4s .05s ease both; }
+.sc {
+  background: var(--glass); border: 1px solid var(--glass-b);
+  border-radius: var(--r); backdrop-filter: blur(18px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08), 0 2px 8px rgba(37,99,235,.10);
+  padding: 11px 8px 9px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; text-decoration: none; color: var(--text);
+  transition: all .25s cubic-bezier(0.23, 1, 0.320, 1);
+  transform-style: preserve-3d; perspective: 1200px;
+  position: relative; overflow: hidden;
+}
+.sc::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 115%, var(--sc-c, rgba(37,99,235,.10)) 0%, transparent 65%);
+  opacity: 0; transition: opacity .20s;
+}
+.sc:hover { background: #fff; color: var(--text); border-color: var(--sc-c, rgba(37,99,235,.28)); transform: translateY(-5px) rotateX(10deg) rotateZ(2deg) scale(1.02); box-shadow: 0 16px 40px rgba(37,99,235,.15), 0 6px 16px rgba(0,0,0,.12); }
+.sc:hover::before { opacity: 1; }
+.sc:hover .sc-icon { transform: scale(1.08) rotate(-3deg); }
+.sc-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: #fff; transition: transform .20s; position: relative; z-index: 1;
+}
+.sc-title { font-size: .74rem; font-weight: 700; text-align: center; position: relative; z-index: 1; }
+.sc-desc  { font-size: .59rem; color: var(--t2); text-align: center; line-height: 1.2; position: relative; z-index: 1; }
+
+/* ══════════════════════════════════════
+   SHARED PANEL
+══════════════════════════════════════ */
+.main-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
+  animation: up .4s .10s ease both;
+  overflow: hidden;
+}
+.bot-row {
+  display: grid; grid-template-columns: 2fr 1.5fr; gap: 7px;
+  animation: up .4s .16s ease both;
+  overflow: hidden;
+}
+.gpanel {
+  background: var(--glass); border: 1px solid var(--glass-b);
+  border-radius: var(--r);
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 8px 24px rgba(0,0,0,.10), 0 3px 10px rgba(37,99,235,.08);
+  display: flex; flex-direction: column;
+  overflow: hidden; min-height: 0;
+  transition: all .3s cubic-bezier(0.23, 1, 0.320, 1);
+  transform-style: preserve-3d; perspective: 1200px;
+}
+.gpanel:hover { transform: translateY(-4px) rotateX(6deg); box-shadow: 0 14px 36px rgba(0,0,0,.14), 0 6px 16px rgba(37,99,235,.12); }
+.ph {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(0,0,0,.055);
+  flex-shrink: 0;
+}
+.ph i { font-size: 10px; color: var(--t3); }
+.ph-title { font-size: .73rem; font-weight: 700; flex: 1; }
+.ph-link  { font-size: .66rem; color: var(--blue); font-weight: 600; text-decoration: none; opacity: .9; transition: opacity .14s; white-space: nowrap; position: relative; z-index: 5; pointer-events: auto; }
+.ph-link:hover { opacity: .6; }
+/* inner body of panel — flex col, fills space */
+.pb { padding: 7px 11px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ══════════════════════════════════════
+   METRIC CARDS — fill panel height evenly
+══════════════════════════════════════ */
+.metrics-col { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
+.mcard {
+  flex: 1; min-height: 0;
+  background: rgba(255,255,255,.60); border: 1px solid rgba(255,255,255,.85);
+  border-radius: 16px; padding: 0 11px;
+  display: flex; align-items: center; gap: 10px;
+  position: relative; overflow: hidden; transition: all .25s cubic-bezier(0.23, 1, 0.320, 1);
+  transform-style: preserve-3d; perspective: 1000px;
+  box-shadow: 0 6px 18px rgba(128,128,128,.18), 0 2px 8px rgba(100,100,100,.12);
+}
+.mcard:hover { background: #fff; transform: translateX(4px) translateY(-3px) rotateY(6deg) rotateX(4deg); box-shadow: 0 10px 26px rgba(128,128,128,.22), 0 4px 10px rgba(100,100,100,.14); }
+.mcard-line { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c, var(--blue)); }
+.mcard-icon {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.13);
+}
+.mcard-body { flex: 1; min-width: 0; }
+.mcard-val { font-family: Arial, sans-serif; font-size: 1.15rem; font-weight: 400; color: var(--text); line-height: 1; }
+.mcard-val.sm { font-size: .80rem; line-height: 1.25; }
+.mcard-lbl { font-size: .62rem; color: var(--t2); margin-top: 1px; }
+.badge { font-size: .58rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.b-up   { background: rgba(5,150,105,.10);  color: var(--green); }
+.b-down { background: rgba(220,38,38,.10);   color: var(--red); }
+.b-neu  { background: rgba(0,0,0,.06);       color: var(--t3); }
+
+/* ══════════════════════════════════════
+   ACTIVITY — rows fill panel
+══════════════════════════════════════ */
+.act-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 0 6px; }
+/* each row takes equal share of available height */
+.arow {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  position: relative;
+  transform: translateZ(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+.arow:last-child { border-bottom: none; }
+.arow:hover { 
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #d1d5db;
+  transform: translateY(-2px) translateZ(0) scale(1.02);
+  box-shadow: 
+    0 12px 24px rgba(0,0,0,0.15),
+    0 8px 16px rgba(0,0,0,0.1),
+    0 4px 8px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.aav {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 800; color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.10);
+}
+.ainfo { flex: 1; min-width: 0; }
+.atitle { font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asub   { font-size: .62rem; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atime  { font-size: .56rem; color: var(--t3); }
+.atag   { font-size: .57rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; align-self: center; flex-shrink: 0; white-space: nowrap; }
+.tg { background: rgba(5,150,105,.10);  color: var(--green); }
+.tb { background: rgba(37,99,235,.10);  color: var(--blue); }
+.ta { background: rgba(217,119,6,.10);  color: var(--amber); }
+.tr { background: rgba(220,38,38,.10);  color: var(--red); }
+.tv { background: rgba(124,58,237,.10); color: var(--violet); }
+.tw { background: rgba(0,0,0,.06);      color: var(--t3); }
+   RANKING — podium + rows fill panel
+══════════════════════════════════════ */
+.ranking-inner { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.podium {
+  flex-shrink: 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 6px; padding: 6px 10px 2px;
+}
+.p-col { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; max-width: 76px; }
+.p-av {
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.13); position: relative; z-index: 1;
+}
+.p-av.first { width: 38px; height: 38px; font-size: 13px; }
+.p-av.rest  { width: 30px; height: 30px; font-size: 10px; }
+.p-pedestal { width: 100%; border-radius: 4px 4px 0 0; }
+.p-badge { width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .50rem; font-weight: 900; color: #fff; margin-top: 2px; }
+.p-name { font-size: .60rem; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.p-pts  { font-size: .56rem; color: var(--t2); }
+.rank-rows { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; padding: 0 4px; }
+.rrow {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 7px;
+  border-top: none;
+  margin: 0 4px; border-radius: 10px;
+  background: rgba(255,255,255,.55);
+  transition: all .12s; cursor: default;
+  box-shadow: 0 4px 12px rgba(128,128,128,.14), 0 1px 4px rgba(100,100,100,.08);
+  flex-shrink: 0;
+}
+.rrow:hover { background: #fff; box-shadow: 0 6px 16px rgba(128,128,128,.18), 0 2px 6px rgba(100,100,100,.10); }
+.rpos  { font-size: .60rem; font-weight: 800; color: var(--t3); width: 12px; text-align: center; flex-shrink: 0; }
+.rav   { width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.10); }
+.rinfo { flex: 1; min-width: 0; }
+.rnm   { font-size: .60rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rteam { font-size: .52rem; color: var(--t3); }
+.rpts  { font-size: .60rem; font-weight: 700; color: var(--blue); white-space: nowrap; }
+.bar-area { display: flex; align-items: flex-end; gap: 5px; flex: 1; min-height: 0; perspective: 1200px; }
+.bw { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-height: 0; }
+.bbar {
+  width: 100%; border-radius: 4px 4px 2px 2px; min-height: 3px;
+  transition: all .28s cubic-bezier(.34,.1,.68,.55);
+  cursor: default;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 12px rgba(37,99,235,.08), 0 2px 6px rgba(0,0,0,.06);
+}
+.bbar:hover {
+  transform: translateY(-3px) rotateY(8deg) scale(1.03);
+  box-shadow: 0 8px 20px rgba(37,99,235,.12), 0 3px 8px rgba(0,0,0,.10);
+}
+.bval { font-size: .57rem; font-weight: 700; color: var(--t2); flex-shrink: 0; }
+.blbl { font-size: .53rem; color: var(--t3); flex-shrink: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.bar-labels { display: flex; gap: 5px; flex-shrink: 0; }
+
+/* ══════════════════════════════════════
+   SEMÁFORO — items fill panel height
+══════════════════════════════════════ */
+.sem-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 0 6px; overflow: hidden; }
+.sitem {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px; border-radius: 14px;
+  background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.82);
+  transition: all .16s;
+  box-shadow: 0 4px 12px rgba(128,128,128,.14), 0 1px 4px rgba(100,100,100,.08);
+}
+.sitem:hover { background: #fff; transform: translateX(3px); box-shadow: 0 6px 16px rgba(128,128,128,.18), 0 2px 6px rgba(100,100,100,.10); }
+.sdot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sname { font-size: .69rem; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbar  { width: 90px; flex-shrink: 0; background: rgba(0,0,0,.08); border-radius: 4px; height: 5px; overflow: hidden; }
+.sfill { height: 100%; border-radius: 4px; transition: width .7s cubic-bezier(.34,1.56,.64,1); }
+.svals { display: flex; flex-direction: column; gap: 1px; align-items: flex-end; flex-shrink: 0; min-width: 64px; }
+.spct  { font-size: .64rem; font-weight: 800; text-align: right; white-space: nowrap; }
+.sem-note {
+  flex-shrink: 0; margin-top: 5px; padding: 6px 9px;
+  background: rgba(37,99,235,.06); border: 1px solid rgba(37,99,235,.13);
+  border-radius: 8px; display: flex; gap: 6px; align-items: center;
+}
+.sem-note i    { color: var(--blue); font-size: 10px; flex-shrink: 0; }
+.sem-note span { font-size: .62rem; color: var(--t2); line-height: 1.4; }
+
+/* ══════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════ */
+@keyframes up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════ */
+/* ══ RESPONSIVE GRIDS ══ */
+
+/* All grids use minmax so they never overflow */
+.sc-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.main-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.bot-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
+}
+
+/* Clamp fonts/padding on narrow viewports */
+@media (max-width: 1200px) {
+  .sc-desc  { display: none; }
+  .sc       { padding: 10px 6px 8px; gap: 5px; }
+  .sc-icon  { width: 34px; height: 34px; font-size: 14px; }
+  .sc-title { font-size: .70rem; }
+}
+
+@media (max-width: 1050px) {
+  /* 3-col shortcuts */
+  .sc-grid  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 2-col main row */
+  .main-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .main-row > :last-child { grid-column: auto; }
+  /* stack bot row */
+  .bot-row  { grid-template-columns: 1fr; }
+  /* switch to scroll */
+  html, body { overflow: auto; height: auto; }
+  .main-content {
+    position: static !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    left: auto !important; right: auto !important;
+    top: auto !important; bottom: auto !important;
+  }
+  .topnav {
+    position: sticky !important;
+    left: 0 !important; right: 0 !important;
+  }
+  .page { overflow: visible; flex: none; padding-bottom: 24px; }
+  .main-row, .bot-row { flex: none; height: auto; }
+  .gpanel { min-height: 220px; max-height: 380px; }
+}
+
+@media (max-width: 768px) {
+  .sc-grid  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .main-row { grid-template-columns: 1fr; }
+  .main-row > :last-child { grid-column: span 1; }
+  .nav-links, .nsearch { display: none; }
+  .hero-kpis { display: none; }
+  .hero { grid-template-columns: 1fr; }
+  .page { padding: 6px 8px 20px; }
+  .gpanel { max-height: 300px; }
+}
+
+@media (max-width: 480px) {
+  .sc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-name { font-size: 1.1rem; }
+}
+
+/* ══════════════════════════════════════
+   DARK MODE OVERRIDES
+══════════════════════════════════════ */
+body.dark-theme {
+  --bg:      #0d1420;
+  --glass:   rgba(20, 36, 64, 0.72);
+  --glass-b: rgba(15, 30, 55, 0.90);
+  --text:    #e2e8f0;
+  --t2:      #94a3b8;
+  --t3:      #64748b;
+  background: #0d1420 !important;
+  background-image:
+    radial-gradient(ellipse 80% 55% at 5%  -5%,  rgba(99,102,241,.12) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 50% at 95%  8%,  rgba(16,185,129,.08) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 65% at 85% 95%,  rgba(139,92,246,.10) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 40% at 15% 92%,  rgba(59,130,246,.08) 0%, transparent 55%) !important;
+}
+body.dark-theme .hero,
+body.dark-theme .gpanel,
+body.dark-theme .sc {
+  background: var(--glass) !important;
+  border-color: rgba(30,50,80,0.80) !important;
+}
+body.dark-theme .sc:hover    { background: rgba(30,50,80,0.92) !important; }
+body.dark-theme .mcard       { background: rgba(20,35,60,0.78) !important; border-color: rgba(30,50,80,0.85) !important; }
+body.dark-theme .mcard:hover { background: rgba(30,50,80,0.92) !important; }
+body.dark-theme .arow        { background: #1e293b !important; border-color: #334155 !important; }
+body.dark-theme .arow:hover  { background: #253351 !important; border-color: #475569 !important; }
+body.dark-theme .rrow        { background: rgba(20,36,64,0.75) !important; }
+body.dark-theme .rrow:hover  { background: rgba(30,50,80,0.92) !important; }
+body.dark-theme .sitem       { background: rgba(20,36,64,0.75) !important; border-color: rgba(30,50,80,0.85) !important; }
+body.dark-theme .sitem:hover { background: rgba(30,50,80,0.92) !important; }
+body.dark-theme .topnav      { background: rgba(13,20,32,0.90) !important; border-bottom-color: rgba(30,50,80,0.50) !important; }
+body.dark-theme .nsearch     { background: rgba(20,35,60,0.65) !important; border-color: rgba(30,50,80,0.80) !important; }
+body.dark-theme .ph          { border-bottom-color: rgba(30,50,80,0.70) !important; }
+body.dark-theme .nibtn:hover,
+body.dark-theme .nusr:hover  { background: rgba(30,50,80,0.90) !important; border-color: rgba(99,102,241,.25) !important; }
+body.dark-theme .npip        { border-color: #0d1420 !important; }
+body.dark-theme .hero-name   {
+  background: linear-gradient(100deg, #e2e8f0 20%, #818cf8 80%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+}
+body.dark-theme .sem-note    { background: rgba(99,102,241,.08) !important; border-color: rgba(99,102,241,.18) !important; }
+body.dark-theme .sbar        { background: rgba(255,255,255,.08) !important; }
+body.dark-theme .p-av        { border-color: rgba(30,50,80,0.80) !important; }
+
+</style>
+
+<script>
+// Detect sidebar width and set CSS variable so layout compensates correctly
+(function detectSidebar() {
+  function measure() {
+    // Common sidebar selectors used by CRM sidebar-loader.js
+    const selectors = [
+      '#sidebar', '.sidebar', '#app-sidebar', '.app-sidebar',
+      '[class*="sidebar"]:not(.topnav)', 'aside', 'nav.side',
+      '.side-nav', '.sidenav', '.left-panel', '#left-panel'
+    ];
+    let sidebarEl = null;
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && el.offsetWidth > 20 && el.offsetWidth < 300) {
+        sidebarEl = el;
+        break;
+      }
+    }
+    const w = sidebarEl ? sidebarEl.offsetWidth : 0;
+    document.documentElement.style.setProperty('--real-sidebar-w', w + 'px');
+    return w;
+  }
+
+  // Run immediately and after DOM loads
+  measure();
+  document.addEventListener('DOMContentLoaded', () => {
+    measure();
+    // Re-measure after sidebar scripts have had time to run
+    setTimeout(measure, 200);
+    setTimeout(measure, 600);
+    setTimeout(measure, 1200);
+    // Watch for sidebar DOM changes
+    const obs = new MutationObserver(() => measure());
+    obs.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ['style','class'] });
+  });
+})();
+</script>
+</head>
+<body>
+
+<!-- ══════════════ PAGE ══════════════ -->
+<div class="main-content">
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div>
+      <div class="hero-greet" id="hero-greet">BUENOS DÍAS 👋</div>
+      <div class="hero-name" id="hero-name">Bienvenido/a</div>
+      <div class="hero-sub" id="hero-sub"><span id="hero-role">Usuario</span> &nbsp;·&nbsp; <span id="hero-date"></span></div>
+    </div>
+    <div class="hero-kpis">
+      <div class="hkpi" style="--c:rgba(37,99,235,.12)">
+        <div class="hkpi-glow"></div>
+        <div class="hkpi-val" id="hkpi-ventas">—</div>
+        <div class="hkpi-lbl">Ventas</div>
+      </div>
+      <div class="hkpi" style="--c:rgba(124,58,237,.10)">
+        <div class="hkpi-glow"></div>
+        <div class="hkpi-val" id="hkpi-puntos">—</div>
+        <div class="hkpi-lbl">Puntos</div>
+      </div>
+      <div class="hkpi" style="--c:rgba(5,150,105,.10)">
+        <div class="hkpi-glow"></div>
+        <div class="hkpi-val" id="hkpi-pos">#—</div>
+        <div class="hkpi-lbl">Posición</div>
+      </div>
+      <div class="hkpi" style="--c:rgba(217,119,6,.10)">
+        <div class="hkpi-glow"></div>
+        <div class="hkpi-val" id="hkpi-eq" style="font-size:.78rem;padding-top:4px">—</div>
+        <div class="hkpi-lbl">Mejor team</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LABEL -->
+  <div class="slabel">Acceso rápido</div>
+
+  <!-- SHORTCUTS -->
+  <div class="sc-grid">
+    <a class="sc" href="lead.html" style="--sc-c:rgba(37,99,235,.25)" id="sc-nuevo-lead">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);box-shadow:0 5px 14px rgba(37,99,235,.28)"><i class="fas fa-plus-circle"></i></div>
+      <div class="sc-title">Nuevo Lead</div>
+      <div class="sc-desc">Registrar cliente potencial</div>
+    </a>
+    <a class="sc" href="Costumer.html" style="--sc-c:rgba(5,150,105,.22)">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#047857,#10b981);box-shadow:0 5px 14px rgba(5,150,105,.26)"><i class="fas fa-users"></i></div>
+      <div class="sc-title">Clientes</div>
+      <div class="sc-desc">Base de datos completa</div>
+    </a>
+    <a class="sc" href="Estadisticas.html" style="--sc-c:rgba(124,58,237,.22)">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#6d28d9,#8b5cf6);box-shadow:0 5px 14px rgba(124,58,237,.26)"><i class="fas fa-chart-bar"></i></div>
+      <div class="sc-title">Estadísticas</div>
+      <div class="sc-desc">Análisis y reportes</div>
+    </a>
+    <a class="sc" href="Ranking%20y%20Promociones.html" style="--sc-c:rgba(217,119,6,.22)">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#b45309,#f59e0b);box-shadow:0 5px 14px rgba(217,119,6,.26)"><i class="fas fa-trophy"></i></div>
+      <div class="sc-title">Ranking</div>
+      <div class="sc-desc">Top vendedores del mes</div>
+    </a>
+    <a class="sc" href="El%20semaforo.html" style="--sc-c:rgba(13,148,136,.22)">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#0f766e,#14b8a6);box-shadow:0 5px 14px rgba(13,148,136,.26)"><i class="fas fa-traffic-light"></i></div>
+      <div class="sc-title">Semáforo</div>
+      <div class="sc-desc">Desempeño del equipo</div>
+    </a>
+    <a class="sc" href="empleado-del-mes.html" style="--sc-c:rgba(219,39,119,.20)">
+      <div class="sc-icon" style="background:linear-gradient(135deg,#be185d,#ec4899);box-shadow:0 5px 14px rgba(219,39,119,.24)"><i class="fas fa-award"></i></div>
+      <div class="sc-title">Empleado del Mes</div>
+      <div class="sc-desc">Reconocimientos</div>
+    </a>
+  </div>
+
+  <!-- MAIN ROW -->
+  <div class="main-row">
+
+    <!-- Métricas -->
+    <div class="gpanel">
+      <div class="ph"><i class="fas fa-chart-line"></i><span class="ph-title">Mis métricas del mes</span></div>
+      <div class="pb">
+        <div class="metrics-col">
+          <div class="mcard">
+            <div class="mcard-line" style="--c:#2563eb"></div>
+            <div class="mcard-icon" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6)"><i class="fas fa-chart-line"></i></div>
+            <div class="mcard-body"><div class="mcard-val" id="kpi-ventas">0</div><div class="mcard-lbl">Ventas totales del mes</div></div>
+            <span class="badge b-up"><i class="fas fa-arrow-up"></i> 12%</span>
+          </div>
+          <div class="mcard">
+            <div class="mcard-line" style="--c:#7c3aed"></div>
+            <div class="mcard-icon" style="background:linear-gradient(135deg,#6d28d9,#8b5cf6)"><i class="fas fa-star"></i></div>
+            <div class="mcard-body"><div class="mcard-val" id="kpi-puntos">0</div><div class="mcard-lbl">Puntos totales</div></div>
+            <span class="badge b-up"><i class="fas fa-arrow-up"></i> 8%</span>
+          </div>
+          <div class="mcard">
+            <div class="mcard-line" style="--c:#d97706"></div>
+            <div class="mcard-icon" style="background:linear-gradient(135deg,#b45309,#f59e0b)"><i class="fas fa-trophy"></i></div>
+            <div class="mcard-body"><div class="mcard-val sm" id="kpi-seller">—</div><div class="mcard-lbl">Mejor vendedor del mes</div></div>
+            <span class="badge b-neu">Mes actual</span>
+          </div>
+          <div class="mcard">
+            <div class="mcard-line" style="--c:#059669"></div>
+            <div class="mcard-icon" style="background:linear-gradient(135deg,#047857,#10b981)"><i class="fas fa-users"></i></div>
+            <div class="mcard-body"><div class="mcard-val sm" id="kpi-team">—</div><div class="mcard-lbl">Mejor team del mes</div></div>
+            <span class="badge b-neu">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="gpanel">
+      <div class="ph"><i class="fas fa-medal"></i><span class="ph-title">Ranking del mes</span><a href="Ranking%20y%20Promociones.html" class="ph-link">Ver completo →</a></div>
+      <div class="ranking-inner" id="ranking-container"></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bot-row">
+
+    <!-- Bar chart -->
+    <div class="gpanel">
+      <div class="ph"><i class="fas fa-box"></i><span class="ph-title">Productos vendidos este mes</span><a href="Estadisticas.html" class="ph-link">Ver detalle →</a></div>
+      <div class="pb">
+        <div class="chart-area">
+          <div class="bar-area" id="bars"></div>
+          <div class="bar-labels" id="blbs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semáforo -->
+    <div class="gpanel">
+      <div class="ph"><i class="fas fa-traffic-light" style="color:var(--green)"></i><span class="ph-title">Semáforo del mes</span><a href="El%20semaforo.html" class="ph-link">Ver completo →</a></div>
+      <div class="pb" style="padding-top:0">
+        <div class="sem-wrap" id="semaforo-items"></div>
+        <div class="sem-note">
+          <i class="fas fa-info-circle"></i>
+          <span>Actualizado hoy <strong id="update-time">09:30 AM</strong>. Próxima actualización en 4h.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Hidden elements for compatibility with existing scripts -->
+<span id="welcome-user-name" style="display:none"></span>
+<span id="welcome-user-role" style="display:none"></span>
+<span id="month-sales-count" style="display:none"></span>
+<span id="user-sales-count" style="display:none"></span>
+<span id="month-points-total" style="display:none"></span>
+<span id="user-points-total" style="display:none"></span>
+<span id="best-seller-name" style="display:none"></span>
+<span id="best-team-name" style="display:none"></span>
+<span id="user-team-name" style="display:none"></span>
+<span id="user-ranking" style="display:none"></span>
+<span id="user-name" style="display:none"></span>
+<span id="user-role" style="display:none"></span>
+<span id="cancelled-count" style="display:none"></span>
+<span id="pending-count" style="display:none"></span>
+<span id="sidebar-user-sales" style="display:none"></span>
+<span id="sidebar-user-points" style="display:none"></span>
+<span id="sidebar-user-team" style="display:none"></span>
+<canvas id="productsChart" style="display:none"></canvas>
+<canvas id="teamsChart" style="display:none"></canvas>
+<canvas id="chartsDetails" style="display:none"></canvas>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORE DASHBOARD FUNCTIONALITY - Integrated from old inicio.html
+// ═══════════════════════════════════════════════════════════════════════════════
+
+console.log('[INICIO-V2] Dashboard v2 initialized');
+
+// Chart references
+let teamsChartRefMain = null;
+let productsChartRefMain = null;
+
+// Greeting + date
+const now = new Date(), h = now.getHours();
+document.getElementById('hero-greet').textContent =
+  (h < 12 ? 'BUENOS DÍAS' : h < 19 ? 'BUENAS TARDES' : 'BUENAS NOCHES') + ' 👋';
+document.getElementById('hero-date').textContent =
+  now.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+document.getElementById('update-time').textContent = 
+  now.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+
+// Cache function
+function tryLoadFromPrecachedRankings() {
+  try {
+    const cached = sessionStorage.getItem('rankingsData');
+    const ts = sessionStorage.getItem('rankingsTimestamp');
+    if (!cached || !ts) return null;
+    const diff = Date.now() - parseInt(ts);
+    if (diff > 300000) {
+      sessionStorage.removeItem('rankingsData');
+      sessionStorage.removeItem('rankingsTimestamp');
+      return null;
+    }
+    const data = JSON.parse(cached);
+    console.log('[PRECACHE-RANKINGS] Datos del ranking recuperados del cache');
+    return data;
+  } catch (e) {
+    console.warn('[PRECACHE-RANKINGS] Error recuperando cache:', e);
+    return null;
+  }
+}
+
+// Main initialization
+document.addEventListener('DOMContentLoaded', async function() {
+  console.log('[INICIO] DOMContentLoaded iniciado');
+  
+  try {
+    const authRes = await fetch('/api/auth/verify-server', { credentials: 'include' });
+    
+    if (!authRes.ok) {
+      console.error('[INICIO] No autenticado, redirigiendo a login...');
+      window.location.href = 'login.html';
+      return;
+    }
+    
+    const authData = await authRes.json();
+    if (!authData.authenticated) {
+      console.warn('[INICIO] Sesión inválida, redirigiendo a login...');
+      window.location.replace('login.html');
+      return;
+    }
+    const user = authData.user || authData.data?.user || {};
+
+    console.log('[INICIO] Usuario autenticado:', user.username, '|', user.role);
+
+    const roleLC = (user.role || '').toLowerCase();
+    const isAgente = roleLC.startsWith('agente') || roleLC === 'agent';
+    if (isAgente) {
+      const scNuevoLead = document.getElementById('sc-nuevo-lead');
+      if (scNuevoLead) scNuevoLead.style.display = 'none';
+    }
+
+    const navName = document.getElementById('nav-name');
+    if (navName) navName.textContent = user.username || 'Usuario';
+    const navRole = document.getElementById('nav-role');
+    if (navRole) navRole.textContent = user.role || 'Rol';
+    document.getElementById('hero-name').textContent = `Bienvenido/a, ${user.username || 'Usuario'}`;
+    document.getElementById('hero-role').textContent = user.role || 'Usuario';
+    
+    document.getElementById('welcome-user-name').textContent = user.username || 'Usuario';
+    document.getElementById('welcome-user-role').textContent = user.role || '';
+    document.getElementById('user-name').textContent = user.username || 'Usuario';
+    document.getElementById('user-role').textContent = user.role || '';
+    
+    await loadDashboardData(user);
+    
+    try { await updateBestSeller(); } catch(e) { console.warn('[INICIO] updateBestSeller error:', e); }
+    
+  } catch (error) {
+    console.error('[INICIO] Error en inicialización:', error.message);
+  }
+});
+
+// Función para obtener el mejor team del mes desde el ranking de equipos
+async function getMejorTeamFromRanking() {
+  try {
+    console.log('[MEJOR-TEAM] Obteniendo mejor team desde ranking de equipos...');
+    
+    // Obtener fecha actual para filtrar por mes actual
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const startStr = startOfMonth.toISOString().split('T')[0];
+    const endStr = endOfMonth.toISOString().split('T')[0];
+    
+    // Obtener estadísticas de equipos del mes actual
+    const response = await fetch(`/api/equipos/estadisticas?fechaInicio=${startStr}&fechaFin=${endStr}`, { 
+      credentials: 'include' 
+    });
+    
+    if (!response.ok) {
+      console.warn('[MEJOR-TEAM] Error obteniendo estadísticas de equipos:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    const teamData = Array.isArray(data?.data) ? data.data : [];
+    
+    console.log('[MEJOR-TEAM] Estructura de datos de equipos:', data);
+    console.log('[MEJOR-TEAM] Array de equipos:', teamData);
+    
+    if (teamData.length === 0) {
+      console.log('[MEJOR-TEAM] No hay datos de equipos para el mes actual');
+      return null;
+    }
+    
+    console.log('[MEJOR-TEAM] Analizando equipos para encontrar el mejor:');
+    teamData.forEach((team, index) => {
+      console.log(`[MEJOR-TEAM] Equipo ${index}:`, team);
+      console.log(`[MEJOR-TEAM] Campos disponibles:`, Object.keys(team));
+    });
+    
+    // Encontrar el equipo con más ventas
+    const bestTeam = teamData.reduce((max, team) => {
+      const teamVentas = team.Total || 0;
+      const maxVentas = max.Total || 0;
+      return teamVentas > maxVentas ? team : max;
+    }, teamData[0]);
+    
+    console.log('[MEJOR-TEAM] Mejor equipo seleccionado:', bestTeam);
+    console.log('[MEJOR-TEAM] Campos del mejor equipo:', Object.keys(bestTeam));
+    
+    const teamName = bestTeam.TEAM || 'Sin equipo';
+    const teamVentas = bestTeam.Total || 0;
+    
+    console.log('[MEJOR-TEAM] Team encontrado:', { teamName, teamVentas, bestTeam });
+    return teamName;
+    
+  } catch (error) {
+    console.error('[MEJOR-TEAM] Error obteniendo mejor team:', error);
+    return null;
+  }
+}
+
+async function loadDashboardData(user) {
+  try {
+    console.log('[INICIO] Cargando datos del dashboard...');
+    
+    const response = await fetch('/api/init-dashboard', { credentials: 'include' });
+    
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    
+    const dashboardData = await response.json();
+    console.log('[INICIO] Datos recibidos:', dashboardData);
+    
+    // Obtener mejor team del mes desde el ranking de equipos
+    const mejorTeamFromRanking = await getMejorTeamFromRanking();
+    console.log('[INICIO] Mejor team desde ranking:', mejorTeamFromRanking);
+    
+    if (dashboardData.success && dashboardData) {
+      displayKPIsImmediately({
+        kpis: {
+          ventas: dashboardData.kpis?.ventas || 0,
+          puntos: dashboardData.kpis?.puntos || 0,
+          mayor_vendedor: dashboardData.kpis?.mayor_vendedor || '—',
+          mejor_team: mejorTeamFromRanking || dashboardData.kpis?.mejor_team || '—',
+          canceladas: dashboardData.kpis?.canceladas || 0,
+          pendientes: dashboardData.kpis?.pendientes || 0
+        },
+        userStats: {
+          ventasUsuario: dashboardData.userStats?.ventasUsuario || 0,
+          puntosUsuario: dashboardData.userStats?.puntosUsuario || 0,
+          posicionUsuario: dashboardData.userPersonalStats?.posicionRanking || '—',
+          equipoUsuario: dashboardData.userStats?.equipoUsuario || '—'
+        },
+        activity: dashboardData.activityData || [],
+        ranking: dashboardData.rankingData || [],
+        products: dashboardData.productsData || []
+      }, user);
+      
+      setTimeout(() => {
+        try { 
+          if (dashboardData.chartTeams) createTeamsChartFromData(dashboardData.chartTeams);
+          if (dashboardData.chartProductos) createProductsChartFromData(dashboardData.chartProductos);
+        } catch(e) {
+          console.warn('[INICIO] Error creando gráficos:', e);
+        }
+      }, 100);
+      
+      // loadRecentActivity();
+      renderRanking(dashboardData.chartTeams);
+      
+      setTimeout(async () => {
+        try {
+          await loadProductsFromAPI();
+          await loadSemaforoFromAPI();
+        } catch (e) {
+          console.warn('[INICIO] Error cargando productos y semáforo:', e);
+        }
+      }, 600);
+      
+      window.__dashboardLoaded = true;
+    } else {
+      throw new Error('No data in response');
+    }
+    
+  } catch (error) {
+    console.error('[INICIO] Error en loadDashboardData:', error.message);
+    window.__dashboardLoaded = true;
+  }
+}
+
+function displayKPIsImmediately(data, user) {
+  try {
+    const kpis = data.kpis || {};
+    const userStats = data.userStats || {};
+    
+    document.getElementById('hkpi-ventas').textContent = userStats.ventasUsuario || 0;
+    document.getElementById('hkpi-puntos').textContent = 
+      ((userStats.puntosUsuario || 0) > 0 ? (userStats.puntosUsuario || 0).toFixed(0) : '0');
+    document.getElementById('hkpi-pos').textContent = '#' + (userStats.posicionUsuario || '—');
+    document.getElementById('hkpi-eq').textContent = kpis.mejor_team || '—';
+    
+    document.getElementById('kpi-ventas').textContent = userStats.ventasUsuario || 0;
+    document.getElementById('kpi-puntos').textContent = ((userStats.puntosUsuario || 0) > 0 ? (userStats.puntosUsuario).toFixed(0) : '0');
+    document.getElementById('kpi-seller').textContent = kpis.mayor_vendedor || '—';
+    document.getElementById('kpi-team').textContent = kpis.mejor_team || '—';
+
+    const isAdminRole = user && ['admin','administrador','backoffice'].includes((user.role||'').toLowerCase());
+    const lblVentas = document.getElementById('kpi-ventas')?.nextElementSibling;
+    const lblPuntos = document.getElementById('kpi-puntos')?.nextElementSibling;
+    if (lblVentas) lblVentas.textContent = isAdminRole ? 'Ventas totales del mes' : 'Mis ventas del mes';
+    if (lblPuntos) lblPuntos.textContent = isAdminRole ? 'Puntos totales del mes' : 'Mis puntos del mes';
+    
+    document.getElementById('month-sales-count').textContent = kpis.ventas || 0;
+    document.getElementById('user-sales-count').textContent = userStats.ventasUsuario || 0;
+    document.getElementById('month-points-total').textContent = kpis.puntos || 0;
+    document.getElementById('user-points-total').textContent = userStats.puntosUsuario || 0;
+    document.getElementById('best-seller-name').textContent = kpis.mayor_vendedor || '—';
+    document.getElementById('best-team-name').textContent = kpis.mejor_team || '—';
+    document.getElementById('user-team-name').textContent = userStats.equipoUsuario || '—';
+    document.getElementById('user-ranking').textContent = userStats.posicionUsuario || '—';
+    
+    console.log('✅ KPIs mostrados');
+  } catch (e) {
+    console.warn('[INICIO] Error displayKPIs:', e);
+  }
+}
+
+async function loadRecentActivity() {
+  try {
+    console.log('[INICIO] Cargando actividad reciente...');
+    const res = await fetch('/api/recent-activity', { credentials: 'include' });
+    
+    if (!res.ok) {
+      console.warn('[INICIO] Error fetching recent activity:', res.status);
+      renderActivity([]);
+      return;
+    }
+    
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      renderActivity(json.data);
+    } else {
+      console.warn('[INICIO] Respuesta inválida de recent-activity:', json);
+      renderActivity([]);
+    }
+  } catch (e) {
+    console.warn('[INICIO] Error loading recent activity:', e);
+    renderActivity([]);
+  }
+}
+
+function renderActivity(activities) {
+  try {
+    const list = document.getElementById('activity-list');
+    if (!list) return;
+    
+    if (!Array.isArray(activities) || activities.length === 0) {
+      list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--t3);font-size:0.82rem">No hay actividad reciente</div>';
+      return;
+    }
+    
+    // Mapeo de tipos de actividad a colores y etiquetas
+    const activityTypeMap = {
+      'venta ingresada': { tag: 'tg', title: 'Venta', subtitle: 'Venta ingresada', color: '#059669' },
+      'lead creado': { tag: 'tb', title: 'Nuevo', subtitle: 'Lead creado', color: '#3b82f6' },
+      'venta cerrada': { tag: 'tg', title: 'Venta', subtitle: 'Venta cerrada', color: '#10b981' },
+      'cambio de status': { tag: 'ta', title: 'Cambio', subtitle: 'Status actualizado', color: '#f59e0b' },
+      'nota agregada': { tag: 'tv', title: 'Nota', subtitle: 'Nota agregada', color: '#8b5cf6' },
+      'lead eliminado': { tag: 'tr', title: 'Eliminado', subtitle: 'Lead eliminado', color: '#ef4444' },
+      'formulario enviado': { tag: 'tw', title: 'Enviado', subtitle: 'Formulario enviado', color: '#6366f1' }
+    };
+    
+    list.innerHTML = activities.slice(0, 6).map(act => {
+      const clientName = act.nombre_cliente || '—';
+      const agentName = act.agente || '—';
+      const activityType = act.tipo_actividad || 'Actividad';
+      const tiempoRelativo = act.tiempo_relativo || 'Hace poco';
+      const description = act.description || '';
+      
+      // Obtener configuración de actividad
+      const typeKey = activityType.toLowerCase();
+      const config = activityTypeMap[typeKey] || { tag: 'tw', title: 'Actividad', subtitle: activityType, color: '#6b7280' };
+      
+      const initials = (agentName || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+      
+      // Construir subtítulo dinámico según tipo
+      let subtitle = '';
+      if (typeKey === 'venta ingresada') {
+        subtitle = `Venta ingresada · Por ${agentName}`;
+      } else if (typeKey === 'venta cerrada') {
+        subtitle = `Venta cerrada · Por ${agentName}`;
+      } else if (typeKey === 'cambio de status') {
+        subtitle = `Cambio de Status · Por ${agentName}`;
+      } else if (typeKey === 'nota agregada') {
+        subtitle = `Nota agregada · Por ${agentName}`;
+      } else if (typeKey === 'lead creado') {
+        subtitle = `Lead creado · Por ${agentName}`;
+      } else {
+        subtitle = `${config.subtitle} · Por ${agentName}`;
+      }
+      
+      return `
+        <div class="arow">
+          <div class="aav" style="background:linear-gradient(135deg,${config.color}cc,${config.color}88)">${initials}</div>
+          <div class="ainfo">
+            <div class="atitle">${config.title} — ${clientName}</div>
+            <div class="asub">${subtitle}</div>
+            <div class="atime">${tiempoRelativo}</div>
+          </div>
+          <span class="atag ${config.tag}">${config.title}</span>
+        </div>
+      `;
+    }).join('');
+    
+    console.log('✅ Actividad renderizada:', activities.length, 'elementos');
+  } catch (e) {
+    console.warn('[INICIO] Error rendering activity:', e);
+  }
+}
+
+function renderRanking(chartTeams) {
+  try {
+    const container = document.getElementById('ranking-container');
+    if (!container || !chartTeams || !Array.isArray(chartTeams)) {
+      if (container) container.innerHTML = '<div style="padding:14px;text-align:center;color:var(--t3)">Cargando ranking...</div>';
+      return;
+    }
+    if (chartTeams.length === 0) {
+      container.innerHTML = '<div style="padding:32px 14px;text-align:center;color:var(--t3);font-size:.85rem"><i class="fas fa-trophy" style="font-size:2rem;opacity:.2;display:block;margin-bottom:10px"></i>Sin ventas completadas este mes aún</div>';
+      return;
+    }
+
+    const colors = ['#b45309', '#64748b', '#c2410c'];
+    const top3 = chartTeams.slice(0, 3);
+    const rest = chartTeams.slice(3, 33);
+    
+    container.className = 'ranking-inner';
+    let html = '<div class="podium">';
+    
+    if (top3[1]) {
+      const initials = ((top3[1].nombre || top3[1].name || '').substring(0, 2) || '??').toUpperCase();
+      html += `<div class="p-col">
+        <div class="p-av rest" style="background:linear-gradient(135deg,${colors[1]}dd,${colors[1]}99)">${initials}</div>
+        <div class="p-pedestal" style="height:28px;background:linear-gradient(180deg,rgba(100,116,139,.28),rgba(100,116,139,.06))"></div>
+        <div class="p-badge" style="background:#64748b">2</div>
+        <div class="p-name">${top3[1].nombre || top3[1].name || '—'}</div>
+        <div class="p-pts">${top3[1].count || 0} leads</div>
+      </div>`;
+    }
+    
+    if (top3[0]) {
+      const initials = ((top3[0].nombre || top3[0].name || '').substring(0, 2) || '??').toUpperCase();
+      html += `<div class="p-col">
+        <div style="font-size:13px;margin-bottom:2px;animation:bounce 2s ease-in-out infinite">👑</div>
+        <div class="p-av first" style="background:linear-gradient(135deg,${colors[0]},${colors[0]}dd);box-shadow:0 0 16px rgba(180,83,9,.28)">${initials}</div>
+        <div class="p-pedestal" style="height:42px;background:linear-gradient(180deg,rgba(217,119,6,.26),rgba(217,119,6,.04))"></div>
+        <div class="p-badge" style="background:${colors[0]}">1</div>
+        <div class="p-name" style="font-weight:800;color:var(--amber)">${top3[0].nombre || top3[0].name || '—'}</div>
+        <div class="p-pts" style="color:var(--amber);font-weight:700">${top3[0].count || 0} leads</div>
+      </div>`;
+    }
+    
+    if (top3[2]) {
+      const initials = ((top3[2].nombre || top3[2].name || '').substring(0, 2) || '??').toUpperCase();
+      html += `<div class="p-col">
+        <div class="p-av rest" style="background:linear-gradient(135deg,${colors[2]}dd,${colors[2]}99)">${initials}</div>
+        <div class="p-pedestal" style="height:18px;background:linear-gradient(180deg,rgba(194,65,12,.20),rgba(194,65,12,.04))"></div>
+        <div class="p-badge" style="background:${colors[2]}">3</div>
+        <div class="p-name">${top3[2].nombre || top3[2].name || '—'}</div>
+        <div class="p-pts">${top3[2].count || 0} leads</div>
+      </div>`;
+    }
+    
+    html += '</div><div class="rank-rows">';
+    
+    rest.forEach((item, idx) => {
+      const pos = idx + 4;
+      const colorList = ['#4338ca', '#0f766e', '#9d174d', '#1e40af'];
+      const color = colorList[idx] || '#2563eb';
+      const initials = ((item.nombre || item.name || '').substring(0, 2) || '??').toUpperCase();
+      html += `<div class="rrow">
+        <div class="rpos">${pos}</div>
+        <div class="rav" style="background:linear-gradient(135deg,${color}dd,${color}99)">${initials}</div>
+        <div class="rinfo">
+          <div class="rnm">${item.nombre || item.name || '—'}</div>
+          <div class="rteam">Equipo</div>
+        </div>
+        <div class="rpts">${item.count || 0} leads</div>
+      </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+    console.log('✅ Ranking renderizado');
+  } catch (e) {
+    console.warn('[INICIO] Error rendering ranking:', e);
+  }
+}
+
+async function updateBestSeller() {
+  try {
+    console.log('[INICIO] Actualizando best seller...');
+    const res = await fetch('/api/init-rankings', { credentials: 'include' });
+    if (!res.ok) throw new Error('API Error');
+    
+    const data = await res.json();
+    if (data.success && data.data?.top1?.[0]) {
+      const seller = data.data.top1[0];
+      document.getElementById('kpi-seller').textContent = seller.nombre || seller.username || '—';
+      document.getElementById('best-seller-name').textContent = seller.nombre || seller.username || '—';
+    }
+  } catch (e) {
+    console.warn('[INICIO] updateBestSeller error:', e);
+  }
+}
+
+function createTeamsChartFromData(teamsData) {
+  try {
+    const chartElement = document.getElementById('teamsChart');
+    if (!chartElement || typeof Chart === 'undefined') {
+      setTimeout(() => createTeamsChartFromData(teamsData), 150);
+      return;
+    }
+    
+    let labels = [], counts = [];
+    
+    if (teamsData && !Array.isArray(teamsData) && Array.isArray(teamsData.labels)) {
+      labels = teamsData.labels;
+      counts = teamsData.data || [];
+    } else if (Array.isArray(teamsData)) {
+      labels = teamsData.map(t => t.nombre || t.name || t._id || 'SIN EQUIPO');
+      counts = teamsData.map(t => t.count || t.total || 0);
+    }
+    
+    const colors = ['#2563eb', '#7c3aed', '#ec4899', '#f59e0b', '#10b981'];
+    
+    if (teamsChartRefMain?.destroy) teamsChartRefMain.destroy();
+    
+    const ctx = chartElement.getContext('2d');
+    teamsChartRefMain = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels.map(String),
+        datasets: [{
+          data: counts.map(x => Number(x) || 0),
+          backgroundColor: colors.slice(0, counts.length),
+          borderColor: '#fff',
+          borderWidth: 2,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } }
+        }
+      }
+    });
+    console.log('✅ Gráfico de teams creado');
+  } catch (e) {
+    console.error('[INICIO] Error en teams chart:', e);
+  }
+}
+
+function createProductsChartFromData(productsData) {
+  try {
+    let labels = [], counts = [];
+
+    if (productsData && !Array.isArray(productsData) && Array.isArray(productsData.labels)) {
+      labels = productsData.labels;
+      counts = productsData.data || [];
+    } else if (Array.isArray(productsData)) {
+      labels = productsData.map(p => p.servicio || p.nombre || p.name || '—');
+      counts = productsData.map(p => p.count || p.total || 0);
+    }
+    
+    const colors = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0d9488', '#db2777'];
+    
+    const mx = Math.max(...counts.map(Number), 1);
+    document.getElementById('bars').innerHTML = counts.map((count, i) =>
+      `<div class="bw"><div class="bval">${count}</div><div class="bbar" style="height:${Math.round((Number(count)/mx)*100)}px;background:linear-gradient(180deg,${colors[i]}cc,${colors[i]}44)"></div></div>`
+    ).join('');
+    
+    document.getElementById('blbs').innerHTML = labels.map(label =>
+      `<div class="bw"><div class="blbl">${label}</div></div>`
+    ).join('');
+    
+    console.log('✅ Gráfico de productos creado');
+  } catch (e) {
+    console.error('[INICIO] Error en products chart:', e);
+  }
+}
+
+async function loadProductsFromAPI() {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const startStr = fmt(monthStart);
+    const endStr = fmt(monthEnd);
+    
+    console.log('[INICIO] Cargando productos vendidos:', { startStr, endStr });
+    
+    const res = await fetch(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}&limit=5000`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Error fetching leads');
+    
+    const json = await res.json();
+    const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
+    
+    const normalizeProduct = (val) => {
+      let k = String(val || '').trim();
+      if (!k) return 'SIN PRODUCTO';
+      try { k = k.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
+      k = k.replace(/[-_]/g, ' ');
+      k = k.replace(/\s+/g, ' ').trim().toUpperCase();
+      k = k.replace(/&/g, '');
+      k = k.replace(/\bXFINTY\b/g, 'XFINITY');
+      k = k.replace(/\bAT\s*T\b/g, 'ATT');
+      k = k.replace(/\bAT\s+T\b/g, 'ATT');
+      k = k.replace(/\bATT\s+AIR\b/g, 'AIR');
+      k = k.replace(/\bXFINITY\s+500\s*PLUS\b/g, 'XFINITY 500 PLUS');
+      k = k.replace(/\bINTERNET\s+EARTHLINK\b/g, 'INTERNET EARTHLINK');
+      // Separar productos compuestos ATT
+      if (k.includes('ATT 300-500') || k.includes('ATT 300 500')) {
+        return 'ATT 300';
+      }
+      if (k.includes('ATT 500') && !k.includes('ATT 300-500') && !k.includes('ATT 300 500')) {
+        return 'ATT 500';
+      }
+      // Separar XFINITY por velocidad
+      if (k.includes('XFINITY 1G') || k.includes('XFINITY 1000')) {
+        return 'XFINITY 1G';
+      }
+      if (k.includes('XFINITY 500') && !k.includes('XFINITY 500 PLUS')) {
+        return 'XFINITY 500';
+      }
+      if (k.includes('XFINITY 300')) {
+        return 'XFINITY 300';
+      }
+      return k || 'SIN PRODUCTO';
+    };
+
+    const counts = {};
+    leads.forEach(l => {
+      const prod = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || l.service || l.servicio || 'SIN PRODUCTO';
+      const key = normalizeProduct(prod);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const productsData = {
+      labels: entries.map(e => e[0]),
+      data: entries.map(e => e[1])
+    };
+    
+    console.log('[INICIO] Productos cargados:', productsData);
+    createProductsChartFromData(productsData);
+  } catch (e) {
+    console.warn('[INICIO] Error loading products:', e);
+  }
+}
+
+async function loadSemaforoFromAPI() {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const startStr = fmt(monthStart);
+    const endStr = fmt(monthEnd);
+    
+    console.log('[INICIO] Cargando semáforo de equipos:', { startStr, endStr });
+    
+    const res = await fetch(`/api/equipos/estadisticas?fechaInicio=${startStr}&fechaFin=${endStr}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Error fetching teams');
+    
+    const json = await res.json();
+    const teamData = Array.isArray(json?.data) ? json.data : [];
+    
+    const teams = teamData.map(team => {
+      const name = team.TEAM || team.name || team.team || 'Sin equipo';
+      const ventas = parseFloat(team.Total || 0);
+      const puntos = parseFloat(team.Puntaje || 0);
+      
+      let estado = puntos > 100 ? 'verde' : puntos >= 50 ? 'amarillo' : 'rojo';
+      
+      return { nombre: name, estado, ventas, puntos };
+    }).sort((a, b) => b.puntos - a.puntos);
+    
+    console.log('[INICIO] Semáforo cargado:', teams);
+    renderSemaforoFromTeams(teams);
+  } catch (e) {
+    console.warn('[INICIO] Error loading semaforo:', e);
+  }
+}
+
+function renderSemaforoFromTeams(teams) {
+  try {
+    const container = document.getElementById('semaforo-items');
+    if (!container || !Array.isArray(teams) || teams.length === 0) return;
+    
+    const statusColors = { 'verde': 'var(--green)', 'amarillo': 'var(--amber)', 'rojo': 'var(--red)' };
+    const fillColors   = { 'verde': '#10b981',      'amarillo': '#f59e0b',      'rojo': '#ef4444' };
+    
+    container.className = 'sem-wrap';
+    container.innerHTML = teams.map(team => {
+      const status = team.estado?.toLowerCase() || 'rojo';
+      const color = statusColors[status] || 'var(--text)';
+      const fillColor = fillColors[status] || '#2563eb';
+      
+      const maxPuntos = Math.max(...teams.map(t => t.puntos || 0), 100);
+      const barWidth = Math.round((team.puntos / maxPuntos) * 100);
+      
+      return `<div class="sitem">
+        <div class="sdot" style="background:${color}"></div>
+        <div class="sname">${team.nombre || '—'}</div>
+        <div class="sbar"><div class="sfill" style="width:${barWidth}%;background:linear-gradient(90deg,${fillColor},${fillColor}99)"></div></div>
+        <div class="svals">
+          <div class="spct" style="color:${color}">${team.ventas || 0} v</div>
+          <div class="spct" style="color:${color}">${team.puntos ? team.puntos.toFixed(1) : 0} pts</div>
+        </div>
+      </div>`;
+    }).join('');
+    
+    console.log('✅ Semáforo renderizado');
+  } catch (e) {
+    console.warn('[INICIO] Error rendering semaforo:', e);
+  }
+}
+
+// Initials updater
+const hn = document.getElementById('hero-name');
+if (hn) {
+  const updateInitials = () => {
+    const match = hn.textContent.match(/,\s*(.+)/) || hn.textContent.match(/(.+)/);
+    if (match && match[1]) {
+      const ini = match[1].trim().split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('');
+      if (ini) {
+        const navAv = document.getElementById('nav-av');
+        if (navAv) navAv.textContent = ini;
+      }
+    }
+  };
+  updateInitials();
+  new MutationObserver(updateInitials).observe(hn, { childList: true, subtree: true, characterData: true });
+}
+</script>
+</body>
+</html>

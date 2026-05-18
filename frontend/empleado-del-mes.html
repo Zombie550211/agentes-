@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Empleado del Mes</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+  
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="js/sidebar-loader.js"></script>
+
+  <style>
+    /* ── TOKENS ───────────────────────────────────────────────── */
+    :root {
+      --ink:        #0d0d0d;
+      --paper:      #f5f0e8;
+      --cream:      #ede8db;
+      --gold:       #c9a84c;
+      --gold-light: #f0d98a;
+      --silver:     #8a9bb0;
+      --silver-light: #ccd6e0;
+      --accent:     #1a1a2e;
+      --muted:      #6b6560;
+      --white:      #ffffff;
+      --danger:     #b03a2e;
+      --success:    #1e6645;
+      --border:     rgba(13,13,13,.12);
+
+      --radius-sm:  6px;
+      --radius-md:  14px;
+      --radius-lg:  24px;
+      --shadow-sm:  0 2px 8px rgba(0,0,0,.08);
+      --shadow-md:  0 8px 32px rgba(0,0,0,.12);
+      --shadow-lg:  0 20px 60px rgba(0,0,0,.18);
+
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'DM Sans', sans-serif;
+
+      --transition: .25s cubic-bezier(.4,0,.2,1);
+      
+      --nav-w: 220px;
+    }
+
+    /* ── RESET ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+    }
+    
+    .sidebar {
+      width: var(--nav-w);
+      min-height: 100vh;
+      background: #0C0E14;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 200;
+    }
+    
+    .main-wrapper {
+      margin-left: var(--nav-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 100vh;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── LAYOUT ───────────────────────────────────────────────── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    /* ── HEADER ───────────────────────────────────────────────── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 72px;
+      animation: fadeUp .6s ease both;
+    }
+
+    .header-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .75rem;
+      font-weight: 500;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 18px;
+    }
+
+    .header-eyebrow::before,
+    .header-eyebrow::after {
+      content: '';
+      display: block;
+      width: 40px; height: 1px;
+      background: var(--gold);
+      opacity: .6;
+    }
+
+    .page-header h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      color: var(--ink);
+      letter-spacing: -.02em;
+    }
+
+    .page-header h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .page-header .subtitle {
+      margin-top: 16px;
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    /* ── DECORATIVE RULE ──────────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 0 auto 56px;
+      max-width: 360px;
+      animation: fadeUp .6s .1s ease both;
+    }
+    .divider span { flex: 1; height: 1px; background: var(--border); }
+    .divider i { color: var(--gold); font-size: .9rem; }
+
+    /* ── CARDS GRID ───────────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    @media (max-width: 720px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── EMPLOYEE CARD ────────────────────────────────────────── */
+    .emp-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      transition: transform var(--transition), box-shadow var(--transition);
+      animation: fadeUp .6s ease both;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .emp-card:nth-child(2) { animation-delay: .12s; }
+
+    .emp-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* ── CARD TOP BAND ────────────────────────────────────────── */
+    .card-band {
+      height: 6px;
+    }
+    .gold-card  .card-band { background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold)); }
+    .silver-card .card-band { background: linear-gradient(90deg, var(--silver), var(--silver-light), var(--silver)); }
+
+    /* ── CARD HEADER ──────────────────────────────────────────── */
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 0;
+    }
+
+    .rank-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .gold-card  .rank-pill { background: #fdf6e3; color: #7d5a1e; border: 1px solid #e8c96a; }
+    .silver-card .rank-pill { background: #f0f4f8; color: #4a5568; border: 1px solid #b0bec5; }
+
+    /* Edit controls — only shown when NOT view-only */
+    .edit-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .edit-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem;
+      transition: all var(--transition);
+    }
+    .edit-btn:hover { background: var(--ink); color: var(--white); border-color: var(--ink); }
+    .edit-btn.danger:hover { background: var(--danger); border-color: var(--danger); }
+
+    /* ── PHOTO FRAME ──────────────────────────────────────────── */
+    .photo-frame {
+      position: relative;
+      margin: 20px 24px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--cream);
+      aspect-ratio: 3 / 4;
+      cursor: default;
+    }
+
+    .photo-frame img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform .4s ease;
+    }
+
+    .emp-card:hover .photo-frame img { transform: scale(1.03); }
+
+    /* Placeholder */
+    .photo-placeholder {
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+      transition: all var(--transition);
+    }
+
+    .photo-placeholder i { font-size: 2.5rem; opacity: .4; }
+    .photo-placeholder span { font-size: .85rem; font-weight: 500; opacity: .6; }
+
+    /* Clickable placeholder (edit mode) */
+    .editable .photo-placeholder {
+      cursor: pointer;
+    }
+    .editable .photo-placeholder:hover { color: var(--gold); background: rgba(201,168,76,.06); }
+    .editable .photo-placeholder:hover i { opacity: .7; }
+
+    /* Photo badge overlay */
+    .photo-badge {
+      position: absolute;
+      bottom: 14px; left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 16px;
+      border-radius: 999px;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,.3);
+    }
+
+    .gold-card  .photo-badge { background: rgba(201,168,76,.85); color: #fff; }
+    .silver-card .photo-badge { background: rgba(138,155,176,.85); color: #fff; }
+
+    /* ── CARD BODY ────────────────────────────────────────────── */
+    .card-body {
+      padding: 4px 24px 28px;
+      flex: 1;
+    }
+
+    .emp-name {
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+
+    .emp-description {
+      font-size: .88rem;
+      color: var(--muted);
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    .card-footer-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      font-weight: 500;
+    }
+
+    .gold-card  .card-footer-stat { background: #fdf6e3; color: #7d5a1e; }
+    .silver-card .card-footer-stat { background: #f0f4f8; color: #4a5568; }
+
+    /* ── VIEW-ONLY ────────────────────────────────────────────── */
+    .view-only-mode .edit-controls { display: none !important; }
+    .view-only-mode .editable { pointer-events: none; cursor: default; }
+
+    /* ── MODAL OVERLAY ────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(13,13,13,.55);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9000;
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--transition);
+    }
+
+    .modal-overlay.open {
+      opacity: 1; pointer-events: all;
+    }
+
+    .modal-box {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      width: 100%; max-width: 520px;
+      margin: 20px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(20px) scale(.97);
+      transition: transform var(--transition);
+      overflow: hidden;
+    }
+
+    .modal-overlay.open .modal-box {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-top {
+      height: 5px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+    }
+
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 28px 0;
+    }
+
+    .modal-head h2 {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      font-size: .85rem;
+      transition: all var(--transition);
+    }
+    .modal-close:hover { background: var(--ink); color: var(--white); border-color: var(--ink); }
+
+    .modal-body { padding: 24px 28px; }
+
+    /* Upload area */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      color: var(--muted);
+    }
+    .upload-zone:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,.04); }
+    .upload-zone i { font-size: 2rem; margin-bottom: 10px; display: block; }
+    .upload-zone p { font-size: .9rem; font-weight: 500; margin: 0; }
+    .upload-zone small { font-size: .75rem; opacity: .6; }
+
+    .preview-wrap {
+      display: none;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--cream);
+      height: 260px;
+      margin-bottom: 20px;
+    }
+    .preview-wrap img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--ink);
+      letter-spacing: .04em;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: .9rem;
+      color: var(--ink);
+      background: var(--white);
+      outline: none;
+      transition: border-color var(--transition);
+      resize: vertical;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus { border-color: var(--gold); }
+
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 0 28px 24px;
+    }
+
+    .btn {
+      padding: 10px 22px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: .88rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-ghost { background: var(--cream); color: var(--ink); }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-primary { background: var(--ink); color: var(--white); }
+    .btn-primary:hover { background: #333; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ── TOAST ────────────────────────────────────────────────── */
+    .toast-wrap {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 9999;
+    }
+
+    .toast {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      background: var(--ink);
+      color: var(--white);
+      font-size: .88rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-md);
+      min-width: 260px;
+      max-width: 360px;
+      animation: toastIn .3s ease both;
+    }
+
+    .toast.success { background: var(--success); }
+    .toast.error   { background: var(--danger); }
+    .toast.warning { background: #8a6914; }
+    .toast i { font-size: 1rem; flex-shrink: 0; }
+
+    @keyframes toastIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    /* ── CONFIRM DIALOG ───────────────────────────────────────── */
+    .confirm-overlay {
+      position: fixed; inset: 0;
+      background: rgba(13,13,13,.55);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9100;
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .confirm-overlay.open { opacity: 1; pointer-events: all; }
+
+    .confirm-box {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      width: 100%; max-width: 400px;
+      margin: 20px;
+      box-shadow: var(--shadow-lg);
+      padding: 36px 32px 28px;
+      text-align: center;
+      transform: scale(.93);
+      transition: transform var(--transition);
+    }
+    .confirm-overlay.open .confirm-box { transform: scale(1); }
+
+    .confirm-icon {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: #fdf6e3;
+      border: 2px solid #e8c96a;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      color: var(--gold);
+      margin: 0 auto 20px;
+    }
+
+    .confirm-box h3 {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+    }
+    .confirm-box p { font-size: .9rem; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+
+    .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+    .btn-danger { background: var(--danger); color: var(--white); }
+    .btn-danger:hover { background: #8b2e24; transform: translateY(-1px); }
+
+    /* ── LOADER ───────────────────────────────────────────────── */
+    .loader-overlay {
+      position: fixed; inset: 0;
+      background: rgba(245,240,232,.7);
+      backdrop-filter: blur(4px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px;
+      z-index: 9200;
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .loader-overlay.open { opacity: 1; pointer-events: all; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    .loader-overlay p { font-size: .9rem; color: var(--muted); font-weight: 500; }
+
+    /* ── ANIMATIONS ───────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── DARK MODE ── */
+    body.dark-theme {
+      --paper:  #0f172a;
+      --white:  #1e293b;
+      --cream:  #253351;
+      --ink:    #e2e8f0;
+      --muted:  #94a3b8;
+      --border: rgba(255,255,255,.10);
+    }
+    body.dark-theme .gold-card  .rank-pill { background: #3a2900 !important; color: #fbbf24 !important; border-color: #854d0e !important; }
+    body.dark-theme .silver-card .rank-pill { background: #1e293b !important; color: #94a3b8 !important; border-color: #334155 !important; }
+    body.dark-theme .gold-card   .card-footer-stat { background: #3a2900 !important; color: #fbbf24 !important; }
+    body.dark-theme .silver-card .card-footer-stat { background: #1e293b !important; color: #94a3b8 !important; }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR (Dynamic Load) ─────────────────────────────────── -->
+<div class="sidebar" id="sidebar" role="navigation" aria-label="Menú lateral"></div>
+
+<!-- ── MAIN WRAPPER ──────────────────────────────────────────── -->
+<div class="main-wrapper">
+
+<!-- ── LOADER ─────────────────────────────────────────────────── -->
+<div class="loader-overlay" id="loaderOverlay" role="status" aria-live="polite">
+  <div class="spinner"></div>
+  <p id="loaderMsg">Cargando…</p>
+</div>
+
+<!-- ── PAGE ───────────────────────────────────────────────────── -->
+<div class="page">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-eyebrow">
+      <i class="fas fa-trophy"></i>
+      Reconocimiento
+    </div>
+    <h1>Empleado<br>del <em>Mes</em></h1>
+    <p class="subtitle">Celebrando la excelencia y dedicación de nuestro equipo</p>
+  </header>
+
+  <!-- Divider -->
+  <div class="divider" aria-hidden="true">
+    <span></span>
+    <i class="fas fa-star"></i>
+    <span></span>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards-grid" role="list">
+
+    <!-- FIRST PLACE -->
+    <article class="emp-card gold-card" id="card-first" role="listitem">
+      <div class="card-band"></div>
+      <div class="card-header">
+        <span class="rank-pill"><i class="fas fa-star"></i> Empleado del Mes</span>
+        <div class="edit-controls" id="editCtrl-first">
+          <button class="edit-btn" id="editBtn-first" aria-label="Editar primer lugar" title="Editar">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="edit-btn danger" id="deleteBtn-first" aria-label="Eliminar primer lugar" title="Eliminar">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div class="photo-frame" id="photoFrame-first">
+        <!-- filled by JS -->
+      </div>
+      <div class="card-body">
+        <h2 class="emp-name" id="name-first">—</h2>
+        <p class="emp-description" id="desc-first">Sin información</p>
+        <span class="card-footer-stat">
+          <i class="fas fa-chart-line"></i> Mejor Rendimiento
+        </span>
+      </div>
+    </article>
+
+    <!-- SECOND PLACE -->
+    <article class="emp-card silver-card" id="card-second" role="listitem">
+      <div class="card-band"></div>
+      <div class="card-header">
+        <span class="rank-pill"><i class="fas fa-medal"></i> Empleado del Mes</span>
+        <div class="edit-controls" id="editCtrl-second">
+          <button class="edit-btn" id="editBtn-second" aria-label="Editar segundo lugar" title="Editar">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="edit-btn danger" id="deleteBtn-second" aria-label="Eliminar segundo lugar" title="Eliminar">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div class="photo-frame" id="photoFrame-second">
+        <!-- filled by JS -->
+      </div>
+      <div class="card-body">
+        <h2 class="emp-name" id="name-second">—</h2>
+        <p class="emp-description" id="desc-second">Sin información</p>
+        <span class="card-footer-stat">
+          <i class="fas fa-star"></i> Excelente Desempeño
+        </span>
+      </div>
+    </article>
+
+  </div>
+</div>
+
+<!-- ── UPLOAD MODAL ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-box">
+    <div class="modal-top"></div>
+    <div class="modal-head">
+      <h2 id="modalTitle">Agregar Empleado</h2>
+      <button class="modal-close" id="modalCloseBtn" aria-label="Cerrar modal">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Upload zone -->
+      <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="Seleccionar imagen">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <p>Arrastra o haz clic para subir imagen</p>
+        <small>JPG, PNG, WEBP — máx. 5 MB</small>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-wrap" id="previewWrap">
+        <img id="previewImg" src="" alt="Vista previa">
+      </div>
+
+      <div class="form-group">
+        <label for="inputName">Nombre del Empleado</label>
+        <input type="text" id="inputName" placeholder="Ej. María García" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label for="inputDesc">Logros / Descripción</label>
+        <textarea id="inputDesc" rows="3" placeholder="Describe los logros o méritos…" maxlength="300"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="modalSaveBtn" disabled>
+        <i class="fas fa-save"></i> Guardar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONFIRM DIALOG ──────────────────────────────────────────── -->
+<div class="confirm-overlay" id="confirmOverlay" role="alertdialog" aria-modal="true">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i class="fas fa-exclamation"></i></div>
+    <h3 id="confirmTitle">¿Eliminar empleado?</h3>
+    <p id="confirmMsg">Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" id="confirmCancelBtn">Cancelar</button>
+      <button class="btn btn-danger" id="confirmOkBtn"><i class="fas fa-trash"></i> Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOASTS ──────────────────────────────────────────────────── -->
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+
+<!-- ── SCRIPTS ────────────────────────────────────────────────── -->
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+
+// Loader
+const Loader = {
+  show(msg = 'Cargando…') {
+    $('loaderMsg').textContent = msg;
+    $('loaderOverlay').classList.add('open');
+  },
+  hide() { $('loaderOverlay').classList.remove('open'); }
+};
+
+// Toast
+function showToast(msg, type = 'info', duration = 3500) {
+  const icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+  $('toastWrap').prepend(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(40px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 320); }, duration);
+}
+
+// Confirm dialog
+let _confirmResolve = null;
+function showConfirm(title, msg) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    $('confirmTitle').textContent = title;
+    $('confirmMsg').textContent = msg;
+    $('confirmOverlay').classList.add('open');
+  });
+}
+
+$('confirmOkBtn').addEventListener('click', () => {
+  $('confirmOverlay').classList.remove('open');
+  _confirmResolve && _confirmResolve(true);
+});
+$('confirmCancelBtn').addEventListener('click', () => {
+  $('confirmOverlay').classList.remove('open');
+  _confirmResolve && _confirmResolve(false);
+});
+
+// Close confirm on outside click
+$('confirmOverlay').addEventListener('click', e => {
+  if (e.target === $('confirmOverlay')) {
+    $('confirmOverlay').classList.remove('open');
+    _confirmResolve && _confirmResolve(false);
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+const state = { currentEmployee: null, selectedFile: null, isEditMode: false };
+
+/* ═══════════════════════════════════════════════════════════════
+   PERMISSIONS
+═══════════════════════════════════════════════════════════════ */
+async function checkPermissions() {
+  const TIMEOUT_MS = 6000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const res = await fetch('/api/auth/verify-server', { credentials: 'include', signal: controller.signal });
+    clearTimeout(timer);
+
+    let user = null;
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.authenticated) {
+        window.location.replace('login.html');
+        return;
+      }
+      user = data?.user || data;
+    } else {
+      window.location.replace('login.html');
+      return;
+    }
+
+    if (user) {
+      window.currentUser = user;
+      const role = String(user.role || user.rol || '').toLowerCase().trim();
+      const canEdit = ['admin', 'administrador', 'backoffice'].includes(role);
+      if (canEdit) enableEditing(); else disableEditing();
+    } else {
+      disableEditing();
+    }
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      showToast('No se pudo verificar permisos (timeout)', 'warning');
+    }
+    disableEditing();
+  }
+}
+
+function enableEditing()  { document.body.classList.remove('view-only-mode'); }
+function disableEditing() { document.body.classList.add('view-only-mode'); }
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER HELPERS
+═══════════════════════════════════════════════════════════════ */
+function normalizeUrl(raw) {
+  const s = String(raw || '').trim().replace(/\\+/g, '/');
+  if (!s) return '';
+  if (/^data:/i.test(s)) return s;
+  if (/^https?:\/\//i.test(s)) {
+    if (/cloudinary\.com/i.test(s)) return `/media/proxy?url=${encodeURIComponent(s)}`;
+    return s;
+  }
+  const path = s.startsWith('/') ? s : '/' + s;
+  return path.split('/').map((seg, i) => i === 0 ? seg : encodeURIComponent(seg)).join('/');
+}
+
+function renderCard(emp, data) {
+  const frame = $(`photoFrame-${emp}`);
+  const hasEdit = !document.body.classList.contains('view-only-mode');
+
+  if (data) {
+    $(`name-${emp}`).textContent = data.name || '—';
+    $(`desc-${emp}`).textContent = data.description || 'Sin información';
+
+    let src = normalizeUrl(data.imageUrl || data.imageData || data.url || '');
+    if (src && /^\/uploads\//i.test(src)) {
+      const bust = encodeURIComponent(String(data.updatedAt || data.date || Date.now()));
+      src += (src.includes('?') ? '&' : '?') + 'v=' + bust;
+    }
+
+    frame.innerHTML = '';
+    if (src) {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = data.name || 'Foto empleado';
+      img.loading = 'eager';
+      img.onerror = () => {
+        img.remove();
+        frame.innerHTML = placeholderHTML(hasEdit, emp, true);
+      };
+      frame.appendChild(img);
+    } else {
+      frame.innerHTML = placeholderHTML(hasEdit, emp, true);
+    }
+  } else {
+    $(`name-${emp}`).textContent = '—';
+    $(`desc-${emp}`).textContent = 'Sin información';
+    frame.innerHTML = placeholderHTML(hasEdit, emp, false);
+  }
+
+  // Badge
+  const badge = document.createElement('div');
+  badge.className = 'photo-badge';
+  badge.textContent = emp === 'first' ? 'Empleado del Mes' : 'Empleado del Mes';
+  frame.appendChild(badge);
+
+  // Wire up placeholder click
+  const ph = frame.querySelector('.photo-placeholder');
+  if (ph && hasEdit) {
+    ph.addEventListener('click', () => openModal(emp));
+  }
+}
+
+function placeholderHTML(hasEdit, emp, withRetry) {
+  const cls = hasEdit ? 'photo-placeholder editable' : 'photo-placeholder';
+  const icon = withRetry ? 'fa-user' : 'fa-user-plus';
+  const label = hasEdit ? (withRetry ? 'Sin imagen — clic para cambiar' : 'Clic para agregar foto') : 'Sin fotografía';
+  return `<div class="${cls}"><i class="fas ${icon}"></i><span>${label}</span></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOAD DATA
+═══════════════════════════════════════════════════════════════ */
+async function loadEmployees() {
+  Loader.show('Cargando empleados…');
+  try {
+    const res = await fetch('/api/employees-of-month', { credentials: 'include' });
+    if (!res.ok) throw new Error('Error al obtener datos');
+    const json = await res.json();
+
+    let list = [];
+    if (Array.isArray(json))               list = json;
+    else if (Array.isArray(json?.data))    list = json.data;
+    else if (json?.data)                   list = Object.values(json.data);
+    else if (json?.employees)              list = Object.values(json.employees);
+
+    const first  = list.find(e => e.employee === 'first');
+    const second = list.find(e => e.employee === 'second');
+
+    renderCard('first',  first  || null);
+    renderCard('second', second || null);
+  } catch (err) {
+    console.error('[EOM] loadEmployees:', err);
+    renderCard('first',  null);
+    renderCard('second', null);
+  } finally {
+    Loader.hide();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════════════ */
+function openModal(emp) {
+  if (document.body.classList.contains('view-only-mode')) return;
+  state.currentEmployee = emp;
+  state.selectedFile = null;
+  $('modalTitle').textContent = `${emp === 'first' ? 'Primer' : 'Segundo'} Lugar — Editar`;
+  // Reset
+  $('uploadZone').style.display = 'flex';
+  $('previewWrap').style.display = 'none';
+  $('previewImg').src = '';
+  $('inputName').value = '';
+  $('inputDesc').value = '';
+  $('modalSaveBtn').disabled = true;
+  $('uploadModal').classList.add('open');
+  $('inputName').focus();
+}
+
+function closeModal() {
+  $('uploadModal').classList.remove('open');
+  state.currentEmployee = null;
+  state.selectedFile = null;
+}
+
+$('modalCloseBtn').addEventListener('click', closeModal);
+$('modalCancelBtn').addEventListener('click', closeModal);
+
+$('uploadModal').addEventListener('click', e => {
+  if (e.target === $('uploadModal')) closeModal();
+});
+
+// File select
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) { showToast('Solo se aceptan imágenes', 'warning'); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast('El archivo supera 5 MB', 'warning'); return; }
+  state.selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    $('previewImg').src = e.target.result;
+    $('previewWrap').style.display = 'block';
+    $('uploadZone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  validateForm();
+}
+
+$('uploadZone').addEventListener('click', () => $('fileInput').click());
+$('uploadZone').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') $('fileInput').click(); });
+$('uploadZone').addEventListener('dragover', e => { e.preventDefault(); $('uploadZone').style.borderColor = 'var(--gold)'; });
+$('uploadZone').addEventListener('dragleave', () => { $('uploadZone').style.borderColor = ''; });
+$('uploadZone').addEventListener('drop', e => { e.preventDefault(); $('uploadZone').style.borderColor = ''; handleFile(e.dataTransfer.files[0]); });
+$('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+
+function validateForm() {
+  const hasFile = !!state.selectedFile;
+  const hasName = $('inputName').value.trim().length > 0;
+  $('modalSaveBtn').disabled = !(hasFile && hasName);
+}
+
+$('inputName').addEventListener('input', validateForm);
+
+/* ═══════════════════════════════════════════════════════════════
+   SAVE
+═══════════════════════════════════════════════════════════════ */
+$('modalSaveBtn').addEventListener('click', async () => {
+  const name = $('inputName').value.trim();
+  const description = $('inputDesc').value.trim();
+  const file = state.selectedFile;
+  const emp  = state.currentEmployee;
+
+  if (!name || !file) { showToast('Completa el nombre y la imagen', 'warning'); return; }
+
+  $('modalSaveBtn').disabled = true;
+  closeModal();
+  Loader.show('Subiendo imagen…');
+
+  try {
+    // 1. Upload image
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'employees-of-month');
+
+    const upRes = await fetch('/api/upload', { method: 'POST', body: formData, headers: { 'x-media-category': 'employees-of-month' }, credentials: 'include' });
+    if (!upRes.ok) {
+      let msg = 'Error al subir imagen';
+      try { const e = await upRes.json(); msg = e.message || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+
+    const upJson = await upRes.json();
+    const imageUrl = upJson?.file?.url || upJson?.imageUrl;
+    if (!imageUrl) throw new Error('No se recibió URL de la imagen');
+
+    Loader.show('Guardando datos…');
+
+    // 2. Save employee data
+    const payload = { employee: emp, name, description, imageUrl, imageData: imageUrl, date: new Date().toLocaleDateString('es-ES') };
+    const saveRes = await fetch('/api/employees-of-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+
+    if (!saveRes.ok) {
+      const e = await saveRes.json();
+      throw new Error(e.message || 'Error al guardar');
+    }
+
+    showToast('Empleado guardado correctamente', 'success');
+    await loadEmployees();
+
+  } catch (err) {
+    console.error('[EOM] save error:', err);
+    showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    Loader.hide();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   DELETE
+═══════════════════════════════════════════════════════════════ */
+async function deleteEmployee(emp) {
+  const ok = await showConfirm(
+    '¿Eliminar empleado?',
+    `Se quitará al empleado de ${emp === 'first' ? 'primer' : 'segundo'} lugar. Esta acción no se puede deshacer.`
+  );
+  if (!ok) return;
+
+  Loader.show('Eliminando…');
+  try {
+    const res = await fetch(`/api/employees-of-month/${emp}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Error al eliminar'); }
+    showToast('Empleado eliminado', 'success');
+    renderCard(emp, null);
+  } catch (err) {
+    console.error('[EOM] delete error:', err);
+    showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    Loader.hide();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WIRE UP EDIT / DELETE BUTTONS
+═══════════════════════════════════════════════════════════════ */
+['first', 'second'].forEach(emp => {
+  $(`editBtn-${emp}`).addEventListener('click', () => openModal(emp));
+  $(`deleteBtn-${emp}`).addEventListener('click', () => deleteEmployee(emp));
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   KEYBOARD: ESC closes overlays
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('uploadModal').classList.contains('open'))   closeModal();
+  if ($('confirmOverlay').classList.contains('open')) { $('confirmOverlay').classList.remove('open'); _confirmResolve && _confirmResolve(false); }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkPermissions();
+  await loadEmployees();
+});
+</script>
+
+</div><!-- /.main-wrapper -->
+</body>
+</html>

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ranking Líneas - CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="../js/fetch-interceptor.js" defer></script>
+<script src="../js/sidebar-loader.js" defer></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #f0f2f7;
+  --card: #ffffff;
+  --text: #0f1923;
+  --muted: #7a8599;
+  --gold: #f59e0b;
+  --silver: #6b7fa3;
+  --bronze: #c2714f;
+  --accent: #2563eb;
+  --accent2: #7c3aed;
+  --border: rgba(0,0,0,0.06);
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.layout { display: flex; min-height: 100vh; }
+.main-content { 
+  flex: 1; 
+  margin-left: 280px; 
+  width: calc(100% - 280px); 
+  padding: 40px 24px; 
+}
+@media (max-width: 600px) { 
+  .main-content { margin-left: 0; width: 100%; padding: 20px; } 
+}
+
+/* Header */
+.page-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.page-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.page-heading {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.page-heading span {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Podium */
+.podium-section {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 48px;
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.podium-card {
+  flex: 1;
+  background: var(--card);
+  border-radius: 20px;
+  padding: 24px 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  box-shadow: 
+    0 4px 6px rgba(0,0,0,0.07),
+    0 10px 20px rgba(0,0,0,0.06),
+    0 20px 40px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  animation: riseUp 0.6s ease both;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.podium-card:hover { 
+  transform: translateY(-8px) rotateX(2deg);
+  box-shadow: 
+    0 8px 12px rgba(0,0,0,0.1),
+    0 20px 40px rgba(0,0,0,0.12),
+    0 30px 60px rgba(0,0,0,0.08);
+}
+
+.podium-card.rank-1 {
+  padding-top: 32px;
+  border-color: var(--gold);
+  box-shadow: 
+    0 8px 16px rgba(245,158,11,0.25),
+    0 16px 32px rgba(245,158,11,0.15),
+    0 24px 48px rgba(0,0,0,0.1);
+  animation-delay: 0.1s;
+  transform: scale(1.05);
+}
+
+.podium-card.rank-1:hover {
+  transform: scale(1.08) translateY(-8px) rotateX(2deg);
+  box-shadow: 
+    0 12px 24px rgba(245,158,11,0.3),
+    0 24px 48px rgba(245,158,11,0.2),
+    0 36px 72px rgba(0,0,0,0.12);
+}
+
+.podium-card.rank-2 { 
+  animation-delay: 0.2s; 
+  box-shadow: 
+    0 4px 8px rgba(107,127,163,0.15),
+    0 8px 16px rgba(0,0,0,0.08),
+    0 16px 32px rgba(0,0,0,0.05);
+}
+
+.podium-card.rank-3 { 
+  animation-delay: 0.3s; 
+  box-shadow: 
+    0 4px 8px rgba(194,113,79,0.15),
+    0 8px 16px rgba(0,0,0,0.08),
+    0 16px 32px rgba(0,0,0,0.05);
+}
+
+.podium-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--border);
+}
+
+.podium-card.rank-1::before { background: linear-gradient(90deg, var(--gold), #fbbf24); }
+.podium-card.rank-2::before { background: linear-gradient(90deg, var(--silver), #94a3b8); }
+.podium-card.rank-3::before { background: linear-gradient(90deg, var(--bronze), #d97706); }
+
+.crown {
+  position: absolute;
+  top: 10px;
+  font-size: 18px;
+}
+
+.avatar-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.5px;
+  box-shadow: 
+    0 4px 8px rgba(37,99,235,0.3),
+    0 8px 16px rgba(124,58,237,0.2),
+    inset 0 -2px 4px rgba(0,0,0,0.1),
+    inset 0 2px 4px rgba(255,255,255,0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.podium-card:hover .avatar {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 
+    0 6px 12px rgba(37,99,235,0.4),
+    0 12px 24px rgba(124,58,237,0.3),
+    inset 0 -2px 4px rgba(0,0,0,0.1),
+    inset 0 2px 4px rgba(255,255,255,0.2);
+}
+
+.podium-card.rank-1 .avatar { 
+  width: 72px; 
+  height: 72px; 
+  font-size: 22px; 
+  box-shadow: 
+    0 6px 12px rgba(245,158,11,0.4),
+    0 12px 24px rgba(245,158,11,0.25),
+    inset 0 -2px 4px rgba(0,0,0,0.1),
+    inset 0 2px 4px rgba(255,255,255,0.3);
+}
+
+.rank-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: white;
+  border: 2px solid white;
+}
+
+.rank-1 .rank-badge { background: var(--gold); }
+.rank-2 .rank-badge { background: var(--silver); }
+.rank-3 .rank-badge { background: var(--bronze); }
+
+.podium-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.podium-card.rank-1 .podium-name { font-size: 15px; }
+
+.podium-stats {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding: 10px 0 0;
+  margin-top: 2px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.podium-base {
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 0 0 18px 18px;
+  padding: 14px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.rank-1 .podium-base { 
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.1)); 
+  box-shadow: inset 0 2px 4px rgba(245,158,11,0.1);
+}
+.rank-2 .podium-base { 
+  background: linear-gradient(135deg, rgba(107,127,163,0.12), rgba(148,163,184,0.08)); 
+  box-shadow: inset 0 2px 4px rgba(107,127,163,0.08);
+}
+.rank-3 .podium-base { 
+  background: linear-gradient(135deg, rgba(194,113,79,0.12), rgba(217,119,6,0.08)); 
+  box-shadow: inset 0 2px 4px rgba(194,113,79,0.08);
+}
+
+.place-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+
+.podium-card:hover .place-label {
+  transform: scale(1.1);
+}
+
+.rank-1 .place-label { 
+  color: var(--gold); 
+  text-shadow: 0 2px 8px rgba(245,158,11,0.4);
+}
+.rank-2 .place-label { 
+  color: var(--silver); 
+  text-shadow: 0 2px 8px rgba(107,127,163,0.3);
+}
+.rank-3 .place-label { 
+  color: var(--bronze); 
+  text-shadow: 0 2px 8px rgba(194,113,79,0.3);
+}
+
+/* Full Ranking Table */
+.ranking-table {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 
+    0 4px 6px rgba(0,0,0,0.04),
+    0 10px 20px rgba(0,0,0,0.06),
+    0 20px 40px rgba(0,0,0,0.04);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ranking-table:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 12px rgba(0,0,0,0.06),
+    0 16px 32px rgba(0,0,0,0.08),
+    0 24px 48px rgba(0,0,0,0.06);
+}
+
+.table-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+}
+
+.ranking-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+  animation: fadeInRow 0.4s ease both;
+}
+
+.ranking-row:last-child { border-bottom: none; }
+.ranking-row:hover { background: #f8fafc; }
+
+.row-pos {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+  min-width: 24px;
+  padding-top: 4px;
+}
+
+.row-content {
+  flex: 1;
+}
+
+.row-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.row-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.row-stat {
+  display: flex;
+  gap: 4px;
+}
+
+.row-stat-label {
+  color: var(--muted);
+}
+
+.row-stat-value {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.row-stat-value.ventas {
+  color: var(--accent);
+}
+
+/* Animations */
+@keyframes riseUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInRow {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.ranking-row:nth-child(1) { animation-delay: 0.05s; }
+.ranking-row:nth-child(2) { animation-delay: 0.10s; }
+.ranking-row:nth-child(3) { animation-delay: 0.15s; }
+.ranking-row:nth-child(4) { animation-delay: 0.20s; }
+.ranking-row:nth-child(5) { animation-delay: 0.25s; }
+.ranking-row:nth-child(6) { animation-delay: 0.30s; }
+.ranking-row:nth-child(7) { animation-delay: 0.35s; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="main-content">
+    <!-- Header -->
+    <div class="page-header">
+      <div class="page-title">Clasificación General</div>
+      <div class="page-heading">Ranking <span>Líneas</span></div>
+    </div>
+
+    <!-- Podium (reordered: 2nd, 1st, 3rd) -->
+    <div class="podium-section" id="podium-section"></div>
+
+    <!-- Full Table -->
+    <div class="ranking-table">
+      <div class="table-header">
+        <div class="table-title">Clasificación Completa</div>
+      </div>
+      <div id="ranking-rows"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function getInitials(name) {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  function renderPodium(ranking) {
+    const container = document.getElementById('podium-section');
+    container.innerHTML = '';
+
+    const top3 = ranking.slice(0, 3);
+    const order = [top3[1], top3[0], top3[2]]; // 2nd, 1st, 3rd
+    const ranks = ['rank-2', 'rank-1', 'rank-3'];
+    const positions = ['2', '1', '3'];
+
+    order.forEach((agent, idx) => {
+      if (!agent) return;
+      const rankClass = ranks[idx];
+      const pos = positions[idx];
+      const crown = rankClass === 'rank-1' ? '<div class="crown">👑</div>' : '';
+      
+      // Solo mostrar iniciales (astronauta)
+      const avatarContent = `<span class="avatar-initials">${getInitials(agent.name)}</span>`;
+
+      const card = document.createElement('div');
+      card.className = `podium-card ${rankClass}`;
+      card.innerHTML = `
+        ${crown}
+        <div class="avatar-wrap">
+          <div class="avatar">${avatarContent}</div>
+          <div class="rank-badge">${pos}</div>
+        </div>
+        <div class="podium-name">${agent.name}</div>
+        <div class="podium-stats">
+          <div class="stat-row"><span class="stat-label">LÍNEAS</span><span class="stat-value">${agent.lineasTotal}</span></div>
+          <div class="stat-row"><span class="stat-label">VENTAS</span><span class="stat-value">${agent.ventas}</span></div>
+        </div>
+        <div class="podium-base"><span class="place-label">${pos}°</span></div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function renderRankingRows(ranking) {
+    const container = document.getElementById('ranking-rows');
+    container.innerHTML = '';
+
+    ranking.forEach((agent, idx) => {
+      const pos = idx + 1;
+
+      const row = document.createElement('div');
+      row.className = 'ranking-row';
+      row.style.animationDelay = `${0.05 * pos}s`;
+      row.innerHTML = `
+        <div class="row-pos">${pos}</div>
+        <div class="row-content">
+          <div class="row-name">${agent.name}</div>
+          <div class="row-stats">
+            <div class="row-stat"><span class="row-stat-label">Líneas Totales:</span> <span class="row-stat-value">${agent.lineasTotal}</span></div>
+            <div class="row-stat"><span class="row-stat-label">Wireless:</span> <span class="row-stat-value">${agent.lineasWireless}</span></div>
+            <div class="row-stat"><span class="row-stat-label">Sin Wireless:</span> <span class="row-stat-value">${agent.lineasSinWireless}</span></div>
+            <div class="row-stat"><span class="row-stat-label">Ventas:</span> <span class="row-stat-value ventas">${agent.ventas}</span></div>
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  async function loadRankingLineas() {
+    try {
+      const response = await fetch('/api/comisiones/agentes-lineas');
+      if (!response.ok) throw new Error('Error cargando ranking');
+      
+      const data = await response.json();
+      const agentes = data.data || [];
+      
+      const ranking = agentes.map(agent => ({
+        name: agent.nombre || agent.name || 'Agente',
+        lineasTotal: (agent.lineasWireless || 0) + (agent.lineasSinWireless || 0),
+        lineasWireless: agent.lineasWireless || 0,
+        lineasSinWireless: agent.lineasSinWireless || 0,
+        ventas: agent.ventas || 0
+      })).sort((a, b) => {
+        if (b.lineasTotal !== a.lineasTotal) return b.lineasTotal - a.lineasTotal;
+        return b.ventas - a.ventas;
+      });
+
+      renderPodium(ranking);
+      renderRankingRows(ranking);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', loadRankingLineas);
+</script>
+</body>
+</html>

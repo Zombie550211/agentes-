@@ -1,0 +1,1645 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>CRM · Clientes</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+
+  <link rel="stylesheet" href="css/theme.css"/>
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/css/costumer-table-clean.css?v=20251124">
+  <link rel="stylesheet" href="css/costumer-table-actions.css">
+  <link rel="stylesheet" href="css/costumer-table-comments.css">
+  <link rel="stylesheet" href="css/costumer-calendar.css">
+  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script src="/js/fetch-interceptor.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <script src="js/sidebar-loader.js" defer></script>
+  <script src="utils/teams.js?v=20251124f" defer></script>
+
+  <style>
+    :root {
+      --f:      'Outfit', sans-serif;
+      --f-mono: 'JetBrains Mono', monospace;
+      --bg:       #F1F3F7;
+      --sheet:    #FFFFFF;
+      --sheet-2:  #F8F9FB;
+      --sheet-3:  #EFF1F5;
+      --line-1: #E3E6EE;
+      --line-2: #CDD2DE;
+      --ink-1: #0C0E14;
+      --ink-2: #3A3F52;
+      --ink-3: #717690;
+      --ink-4: #A8ADBE;
+      --a:      #6C47FF;
+      --a-dark: #5535E0;
+      --a-bg:   #F0ECFF;
+      --a-line: #C8BAFE;
+      --go:     #00C48C;  --go-bg:  #E5FBF4;  --go-ln: #99EDD5;
+      --warn:   #FF9F1C;  --warn-bg:#FFF5E5;  --warn-ln:#FFCE85;
+      --stop:   #FF4D6D;  --stop-bg:#FFF0F3;  --stop-ln:#FFB3C0;
+      --hold:   #748CAB;  --hold-bg:#EEF2F7;  --hold-ln:#B8C8DA;
+      --info:   #3B9EFF;  --info-bg:#EBF5FF;  --info-ln:#A8D4FF;
+      --sh-a: 0 0 0 1px rgba(108,71,255,.12), 0 4px 20px rgba(108,71,255,.15);
+      --sh-1: 0 1px 2px rgba(0,0,0,.05);
+      --sh-2: 0 2px 8px rgba(0,0,0,.07);
+      --sh-3: 0 8px 32px rgba(0,0,0,.10);
+      --sh-4: 0 24px 64px rgba(0,0,0,.14), 0 8px 24px rgba(0,0,0,.08);
+      --r1:3px; --r2:6px; --r3:10px; --r4:14px; --r5:20px; --rf:999px;
+      --nav-w: 220px;
+    }
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html { font-size:14px; }
+    body {
+      font-family: var(--f);
+      background: var(--bg);
+      color: var(--ink-1);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    .layout { display:flex; min-height:100vh; }
+    .sidebar {
+      width: var(--nav-w);
+      min-height: 100vh;
+      background: var(--ink-1);
+      position: fixed; top:0; left:0; z-index:200;
+    }
+    .main-content {
+      margin-left: var(--nav-w);
+      flex:1; display:flex; flex-direction:column;
+      min-width:0; height:100vh; overflow:hidden;
+    }
+
+    .command-zone {
+      background: var(--sheet);
+      border-bottom: 1px solid var(--line-1);
+      padding: 14px 20px 0;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      box-shadow: var(--sh-1);
+    }
+
+    .cmd-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      gap: 12px;
+    }
+
+    .cmd-title-block { display:flex; align-items:baseline; gap:10px; }
+    .cmd-title { font-size: 1.1rem; font-weight: 700; color: var(--ink-1); letter-spacing: -.02em; }
+
+    .cmd-live-stats {
+      display: flex; align-items: center;
+      background: var(--sheet-2);
+      border: 1px solid var(--line-1);
+      border-radius: var(--rf);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .cls-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px;
+      border-right: 1px solid var(--line-1);
+      cursor: default;
+      transition: background .12s;
+    }
+    .cls-item:last-child { border-right: none; }
+    .cls-item:hover { background: var(--a-bg); }
+    .cls-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .cls-val { font-size: .82rem; font-weight: 700; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+    .cls-lbl { font-size: .68rem; font-weight: 500; color: var(--ink-4); }
+    .cls-item.activas .cls-dot {
+      background: var(--go);
+      animation: dotpulse 2s ease-in-out infinite;
+    }
+    @keyframes dotpulse {
+      0%   { box-shadow: 0 0 0 0 rgba(0,196,140,.4); }
+      70%  { box-shadow: 0 0 0 5px rgba(0,196,140,0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,196,140,0); }
+    }
+
+    .cls-item--colchon {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px;
+      border-right: 1px solid var(--line-1);
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .cls-item--colchon:hover { background: var(--a-bg); }
+    .cls-item--colchon:has(#check-colchon-activas:checked) { background: var(--a-bg); }
+    .cls-item--colchon:has(#check-colchon-activas:checked) #cls-dot-colchon { background: var(--a) !important; }
+    .cls-item--colchon:has(#check-colchon-activas:checked) .cls-val,
+    .cls-item--colchon:has(#check-colchon-activas:checked) .cls-lbl { color: var(--a); }
+    #check-colchon-activas { accent-color: var(--a); width: 13px; height: 13px; cursor: pointer; flex-shrink: 0; }
+
+    .cmd-actions { display:flex; align-items:center; gap:7px; }
+
+    .cmd-bar-row {
+      display: flex; align-items: center; gap: 0;
+      margin: 0 -20px; border-top: 1px solid var(--line-1);
+      background: var(--sheet-2); padding: 0 20px; height: 62px;
+      overflow-x: auto; overflow-y: visible; scrollbar-width: none;
+    }
+    .cmd-bar-row::-webkit-scrollbar { display:none; }
+
+    /* ── SEARCH INPUT (UIverse EddyBel) ── */
+    .input__container {
+      position: relative;
+      background: rgba(255,255,255,0.90);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      border-radius: 22px;
+      width: 290px;
+      flex-shrink: 0;
+      transition: box-shadow 300ms ease;
+      margin-right: 12px;
+      box-shadow: 0 4px 18px rgba(108,71,255,0.18);
+    }
+    .input__container:focus-within {
+      box-shadow: 0 6px 28px rgba(108,71,255,0.40);
+    }
+    .shadow__input {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      bottom: -8px;
+      z-index: -1;
+      filter: blur(20px);
+      opacity: 0.85;
+      border-radius: 20px;
+      background-color: #999cff;
+      background-image:
+        radial-gradient(at 85% 51%, hsla(60,60%,61%,1) 0px, transparent 50%),
+        radial-gradient(at 74% 68%, hsla(235,69%,77%,1) 0px, transparent 50%),
+        radial-gradient(at 64% 79%, hsla(284,72%,73%,1) 0px, transparent 50%),
+        radial-gradient(at 75% 16%, hsla(283,60%,72%,1) 0px, transparent 50%),
+        radial-gradient(at 90% 65%, hsla(153,70%,64%,1) 0px, transparent 50%),
+        radial-gradient(at 91% 83%, hsla(283,74%,69%,1) 0px, transparent 50%),
+        radial-gradient(at 72% 91%, hsla(213,75%,75%,1) 0px, transparent 50%);
+    }
+    .input__button__shadow {
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: background 200ms;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      padding: 5px;
+      flex-shrink: 0;
+    }
+    .input__button__shadow:hover { background: rgba(108,71,255,0.1); }
+    .input__search {
+      width: 100%;
+      border-radius: 20px;
+      outline: none;
+      border: none;
+      background: transparent;
+      padding: 6px 8px;
+      font-family: var(--f);
+      font-size: .82rem;
+      color: var(--ink-1);
+    }
+    .input__search::placeholder { color: var(--ink-3); }
+    body.dark-theme .input__container { background: rgba(22,32,50,0.92); box-shadow: 0 4px 18px rgba(108,71,255,0.3); }
+    body.dark-theme .input__search { color: var(--ink-1); }
+    body.dark-theme .input__button__shadow svg path { fill: #a78bfa; }
+
+    .cmd-tokens {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 10px; flex:1; min-width:0;
+      overflow-x: auto; scrollbar-width:none;
+      height: 100%; border-right: 1px solid var(--line-1);
+    }
+    .cmd-tokens::-webkit-scrollbar { display:none; }
+
+    .token {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: .7rem; font-weight: 600;
+      background: var(--sheet); border: 1px solid var(--line-1);
+      border-radius: var(--r2); padding: 3px 10px 3px 8px;
+      cursor: pointer; white-space: nowrap; flex-shrink:0;
+      color: var(--ink-2); transition: all .12s;
+      position: relative; user-select: none;
+    }
+    .token:hover { border-color: var(--a-line); background: var(--a-bg); color: var(--a); }
+    .token .token-label { color: var(--ink-4); font-weight:500; margin-right:1px; font-size:.65rem; }
+    .token .token-chevron { color: var(--ink-4); font-size:.55rem; transition: transform .15s; display:inline-block; margin-left:1px; }
+    .token.active { background: var(--a-bg); border-color: var(--a-line); color: var(--a); box-shadow: 0 0 0 2px rgba(108,71,255,.08); }
+    .token.active .token-label { color: var(--a); opacity:.7; }
+    .token.active .token-chevron { color: var(--a); }
+    .token select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
+    .token .token-label, .token .token-val, .token .token-chevron { position: relative; z-index: 1; pointer-events: none; }
+    .token:focus-within { outline: 2px solid var(--a); outline-offset: 1px; }
+
+    .cmd-status-tabs {
+      display: flex; align-items: center;
+      gap: 2px; padding: 0 10px; flex-shrink:0; height:100%;
+    }
+    .stab {
+      font-size: .71rem; font-weight: 600;
+      padding: 4px 12px; border-radius: var(--r2);
+      border: 1px solid transparent;
+      background: transparent; color: var(--ink-3);
+      cursor: pointer; white-space: nowrap; transition: all .12s;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .stab::before { content:''; width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+    .stab.all::before      { background:var(--a); }
+    .stab.pending::before  { background:var(--warn); }
+    .stab.active::before   { background:var(--go); }
+    .stab.colchon::before  { background:var(--a); }
+    .stab.reserva::before  { background:var(--info); }
+    .stab.cancelled::before{ background:var(--stop); }
+    .stab:hover { background:var(--sheet-3); color:var(--ink-1); }
+    .stab.is-active { background:var(--sheet); border-color:var(--line-1); color:var(--ink-1); font-weight:700; box-shadow: var(--sh-1); }
+
+    .cmd-dates {
+      display:flex; align-items:center; gap:6px;
+      padding:0 10px; flex-shrink:0; height:100%;
+      border-left: 1px solid var(--line-1);
+    }
+
+    .cmd-bar-right {
+      display:flex; align-items:center; gap:6px;
+      padding:0 0 0 10px; flex-shrink:0;
+      border-left:1px solid var(--line-1); height:100%;
+    }
+
+    #recuentoCount {
+      font-family:var(--f-mono); font-size:.71rem; font-weight:500;
+      color:var(--a); background:var(--a-bg); border:1px solid var(--a-line);
+      border-radius:var(--rf); padding:3px 10px; text-align:center;
+      outline:none; pointer-events:none; cursor:default; width:auto; min-width:50px;
+    }
+
+    #puntajeTotalCount {
+      font-family:var(--f-mono); font-size:.71rem; font-weight:500;
+      color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-ln);
+      border-radius:var(--rf); padding:3px 10px; text-align:center;
+      outline:none; pointer-events:none; cursor:default; width:auto; min-width:70px;
+    }
+
+    .btn {
+      font-family:var(--f); font-size:.74rem; font-weight:600;
+      padding:6px 12px; border-radius:var(--r2); border:1px solid var(--line-1);
+      background:var(--sheet); color:var(--ink-2); cursor:pointer; white-space:nowrap;
+      display:inline-flex; align-items:center; gap:5px;
+      transition:all .1s; box-shadow:var(--sh-1);
+    }
+    .btn:hover { background:var(--sheet-3); border-color:var(--line-2); box-shadow:var(--sh-2); }
+    .btn:active { transform:scale(.98); }
+    .btn-accent { background:var(--a); border-color:var(--a-dark); color:#fff; box-shadow:0 2px 8px rgba(108,71,255,.3); }
+    .btn-accent:hover { background:var(--a-dark); box-shadow:0 4px 14px rgba(108,71,255,.4); }
+
+    .table-panel {
+      flex:1; display:flex; flex-direction:column; overflow:hidden;
+      background:var(--sheet); margin:12px; border-radius:var(--r4);
+      border:1px solid var(--line-1); box-shadow:var(--sh-2);
+    }
+
+    .tscroll { flex:1; overflow:auto; }
+    .tscroll::-webkit-scrollbar { width:6px; height:6px; }
+    .tscroll::-webkit-scrollbar-track { background:var(--sheet-2); }
+    .tscroll::-webkit-scrollbar-thumb { background:var(--line-2); border-radius:3px; }
+    .tscroll::-webkit-scrollbar-thumb:hover { background:var(--a); }
+    .tscroll::-webkit-scrollbar-corner { background:var(--sheet-2); }
+
+    .costumer-table {
+      width:100%; border-collapse:separate; border-spacing:0;
+      font-size:.77rem; table-layout: fixed;
+    }
+    .costumer-table thead th:first-child,
+    .costumer-table tbody td:first-child { position:sticky; left:0; z-index:2; }
+    .costumer-table thead th:first-child { z-index:3; }
+    .costumer-table thead { position: sticky; top: 0; z-index: 10; }
+    .costumer-table thead tr { background: linear-gradient(180deg, #2D2A5E 0%, #1E1B4B 100%); }
+    .costumer-table thead th {
+      font-family: var(--f); font-size: .68rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .1em; color: #C4BFFF;
+      padding: 0 14px; height: 42px; text-align: left; white-space: nowrap;
+      background: transparent; border-bottom: 2px solid rgba(108,71,255,.5);
+      border-right: 1px solid rgba(255,255,255,.08);
+      user-select: none; cursor: pointer; transition: color .12s, background .12s;
+      position: relative; overflow: hidden; text-overflow: ellipsis;
+    }
+    .costumer-table thead th::after {
+      content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
+      height: 2px; background: var(--a); transform: scaleX(0); transition: transform .15s ease;
+    }
+    .costumer-table thead th:hover::after { transform: scaleX(1); }
+    .costumer-table thead th:hover { color: #fff; background: rgba(108,71,255,.18); }
+    .costumer-table thead th:last-child { border-right: none; }
+    .costumer-table thead th:first-child {
+      background: linear-gradient(135deg, #3730A3, #1E1B4B);
+      border-right: 2px solid rgba(108,71,255,.5);
+      min-width: 190px; color: #fff; padding-left: 18px; font-size: .67rem;
+    }
+    .costumer-table thead th:nth-child(1)  { width: 18%; }
+    .costumer-table thead th:nth-child(2)  { width: 11%; }
+    .costumer-table thead th:nth-child(3)  { width: 11%; }
+    .costumer-table thead th:nth-child(4)  { width: 10%; }
+    .costumer-table thead th:nth-child(5)  { width: 6%;  }
+    .costumer-table thead th:nth-child(6)  { width: 12%; }
+    .costumer-table thead th:nth-child(7)  { width: 8%;  }
+    .costumer-table thead th:nth-child(8)  { width: 6%;  }
+    .costumer-table thead th:nth-child(9)  { width: 5%;  }
+    .costumer-table thead th:nth-child(10) { width: 10%; }
+    .costumer-table thead th:nth-child(11) { width: 10%; }
+    .costumer-table thead th:nth-child(12) { width: 7%;  }
+    .costumer-table thead th:nth-child(13) { width: 8%;  }
+    .costumer-table thead th:nth-child(14) { width: 6%;  }
+    .costumer-table thead th:nth-child(15) { width: 7%;  }
+    .costumer-table thead th:nth-child(16) { width: 8%;  }
+    .costumer-table thead th:nth-child(17) { width: 6%;  }
+    .costumer-table thead th:nth-child(18) { width: 6%;  }
+    .costumer-table thead th:nth-child(19) { width: 9%; min-width: 145px; }
+    .costumer-table tbody td:nth-child(19) { min-width: 145px; }
+    .costumer-table tbody td:nth-child(2),
+    .costumer-table tbody td:nth-child(3) { min-width: 100px; }
+    .costumer-table thead th.sorted-asc::before  { content: ' ↑'; color: var(--a); font-size:.7rem; }
+    .costumer-table thead th.sorted-desc::before { content: ' ↓'; color: var(--a); font-size:.7rem; }
+
+    .costumer-table tbody tr { transition:background .07s; }
+    .costumer-table tbody tr:nth-child(even) { background:#FAFBFD; }
+    .costumer-table tbody tr:hover { background:var(--a-bg) !important; }
+    .costumer-table tbody tr:hover td:first-child { background:#EAE4FF; }
+    .costumer-table tbody td {
+      padding:12px 14px; vertical-align:middle; color:var(--ink-2);
+      white-space:nowrap; border-bottom:1px solid var(--sheet-3);
+      border-right:1px solid var(--sheet-3);
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .costumer-table tbody td:last-child { border-right:none; }
+    .costumer-table tbody tr:last-child td { border-bottom:none; }
+    .costumer-table tbody td:first-child {
+      background:var(--sheet); border-right:2px solid var(--line-1);
+      font-weight:600; color:var(--ink-1); padding-left:18px;
+    }
+    .costumer-table tbody tr.row-colchon td:first-child { border-left: 3px solid var(--a); }
+    .costumer-table tbody tr.row-colchon { background: #faf8ff !important; }
+
+    .row-actions { display:inline-flex; gap:3px; opacity:0; transition:opacity .1s; }
+    .costumer-table tbody tr:hover .row-actions { opacity:1; }
+    .rab {
+      width:22px; height:22px; border-radius:var(--r1);
+      border:1px solid var(--line-1); background:var(--sheet);
+      color:var(--ink-3); font-size:.68rem; cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; transition:all .1s;
+    }
+    .rab:hover { background:var(--a-bg); border-color:var(--a-line); color:var(--a); }
+    .rab.delete-btn:hover { background:var(--stop-bg); border-color:var(--stop-ln); color:var(--stop); }
+
+    .mono { font-family:var(--f-mono); font-size:.71rem; color:var(--ink-4); }
+
+    .badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:.66rem; font-weight:700; padding:2px 8px;
+      border-radius:var(--rf); border:1px solid; white-space:nowrap;
+      letter-spacing:.02em; text-transform:uppercase;
+    }
+    .badge::before { content:''; width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+    .badge-active    { color:var(--go);   background:var(--go-bg);   border-color:var(--go-ln);   }
+    .badge-active::before  { background:var(--go); animation:dotpulse 2s infinite; }
+    .badge-pending   { color:var(--warn); background:var(--warn-bg); border-color:var(--warn-ln); }
+    .badge-pending::before { background:var(--warn); }
+    .badge-cancelled { color:var(--stop); background:var(--stop-bg); border-color:var(--stop-ln); }
+    .badge-cancelled::before { background:var(--stop); }
+    .badge-hold      { color:var(--hold); background:var(--hold-bg); border-color:var(--hold-ln); }
+    .badge-hold::before    { background:var(--hold); }
+    .badge-colchon   { color:var(--a);    background:var(--a-bg);    border-color:var(--a-line);  }
+    .badge-colchon::before { background:var(--a); }
+
+    .date-filter-btn {
+      background:none; border:none!important; color:var(--ink-4);
+      font-size:.62rem; cursor:pointer; padding:1px 3px;
+      border-radius:var(--r1); transition:color .1s;
+    }
+    .date-filter-btn:hover { color:var(--a); }
+
+    .scrollbar-mirror {
+      overflow-x:auto; overflow-y:hidden;
+      border-top:1px solid var(--line-1); background:var(--sheet-2); flex-shrink:0;
+    }
+    .scrollbar-mirror::-webkit-scrollbar { height:6px; }
+    .scrollbar-mirror::-webkit-scrollbar-thumb { background:var(--line-2); border-radius:3px; }
+
+    .pag {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; flex-wrap:wrap; padding:9px 16px; flex-shrink:0;
+      border-top:1px solid var(--line-1); background:var(--sheet-2);
+      border-radius: 0 0 var(--r4) var(--r4);
+    }
+    #pageInfo { font-size:.7rem; font-weight:500; color:var(--ink-4); font-variant-numeric:tabular-nums; }
+    #toggleMonthsBtn { background:var(--a-bg); border-color:var(--a-line); color:var(--a); font-weight:600; }
+    #toggleMonthsBtn:hover { background:var(--a-line); }
+    #pagePrev, #pageNext { width:28px; height:28px; padding:0; justify-content:center; font-size:.95rem; }
+
+    #editarModal-wrapper, #bulkExcelModal, #comentariosModal, #bulkStatusPhoneModal, #cuadraturaModal {
+      position:fixed; inset:0; background:rgba(12,14,20,.5);
+      backdrop-filter:blur(8px) saturate(1.5); z-index:400;
+      display:none; align-items:center; justify-content:center; padding:20px;
+    }
+    #editarModal-wrapper[style*="flex"],
+    #bulkStatusPhoneModal[style*="flex"] { display:flex!important; }
+    #bulkStatusPhoneModal[aria-hidden="false"] { display:flex!important; }
+
+    .modal-dialog {
+      background:var(--sheet); border-radius:var(--r5); box-shadow:var(--sh-4);
+      width:100%; max-width:680px; max-height:90vh;
+      overflow-y:auto; animation:mIn .2s cubic-bezier(.16,1,.3,1);
+    }
+    .modal-dialog::-webkit-scrollbar{width:4px}
+    .modal-dialog::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:2px}
+    @keyframes mIn { from{opacity:0;transform:scale(.95) translateY(-10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    .modal-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:20px 22px 16px; border-bottom:1px solid var(--line-1);
+      position:sticky; top:0; background:var(--sheet); z-index:10;
+    }
+    .modal-header-left, .modal-header-content { display:flex; align-items:center; gap:12px; flex:1; }
+    .modal-avatar, .modal-icon {
+      width:38px; height:38px; border-radius:var(--r3);
+      background:var(--a-bg); border:1px solid var(--a-line);
+      display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;
+    }
+    .modal-title { font-size:.9rem; font-weight:700; color:var(--ink-1); }
+    .modal-subtitle { font-size:.7rem; color:var(--ink-4); margin-top:2px; }
+    .modal-close {
+      width:28px; height:28px; border-radius:var(--r2);
+      border:1px solid var(--line-1); background:transparent;
+      color:var(--ink-3); font-size:.78rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all .12s;
+    }
+    .modal-close:hover { background:var(--stop-bg); border-color:var(--stop-ln); color:var(--stop); }
+
+    .modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:16px; }
+    .fields-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .col-span-3 { grid-column:1/-1; }
+    .section-label {
+      font-size:.63rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.09em; color:var(--ink-4);
+      padding-bottom:7px; border-bottom:1px solid var(--line-1);
+      display:flex; align-items:center; gap:6px;
+    }
+    .field { display:flex; flex-direction:column; gap:4px; }
+    .field label { font-size:.66rem; font-weight:600; color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em; }
+    .field input,.field select,.field textarea {
+      font-family:var(--f); font-size:.8rem; color:var(--ink-1);
+      background:var(--sheet-2); border:1px solid var(--line-1);
+      border-radius:var(--r2); padding:8px 10px; outline:none; width:100%; transition:all .12s;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus {
+      border-color:var(--a); background:var(--sheet); box-shadow:0 0 0 3px var(--a-bg);
+    }
+    .modal-footer {
+      display:flex; align-items:center; justify-content:flex-end; gap:8px;
+      padding:14px 22px 20px; border-top:1px solid var(--line-1);
+      position:sticky; bottom:0; background:var(--sheet);
+    }
+    .btn-cancel {
+      font-family:var(--f); font-size:.76rem; font-weight:600;
+      padding:8px 18px; border-radius:var(--r2);
+      border:1px solid var(--line-1); background:var(--sheet);
+      color:var(--ink-2); cursor:pointer; transition:all .12s;
+    }
+    .btn-cancel:hover { background:var(--sheet-3); }
+    .btn-save {
+      font-family:var(--f); font-size:.76rem; font-weight:700;
+      padding:8px 20px; border-radius:var(--r2);
+      border:1px solid var(--a-dark); background:var(--a); color:#fff;
+      cursor:pointer; box-shadow:0 2px 8px rgba(108,71,255,.3);
+      transition:all .12s; display:inline-flex; align-items:center; gap:5px;
+    }
+    .btn-save:hover { background:var(--a-dark); box-shadow:0 4px 14px rgba(108,71,255,.4); }
+    .btn-save:disabled { background:var(--ink-4); box-shadow:none; cursor:not-allowed; opacity:.6; }
+
+    .status-td { padding: 6px 10px !important; vertical-align: middle; display: table-cell; }
+    .status-td .badge + .badge { display: block; margin-top: 3px; }
+    .status-inline-select {
+      font-family: var(--f); font-size: .66rem; font-weight: 700;
+      border-radius: var(--rf); border: 1px solid;
+      padding: 3px 22px 3px 10px; cursor: pointer; outline: none;
+      appearance: none; -webkit-appearance: none;
+      background-repeat: no-repeat; background-position: right 6px center; background-size: 10px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      transition: box-shadow .12s, border-color .12s; min-width: 110px;
+      letter-spacing: .03em; text-transform: uppercase;
+    }
+    .status-inline-select:hover { box-shadow: 0 2px 8px rgba(0,0,0,.10); }
+    .status-inline-select:focus { box-shadow: 0 0 0 3px rgba(108,71,255,.15); }
+    .status-inline-select.badge-active   { color:var(--go);   background-color:var(--go-bg);   border-color:var(--go-ln);   }
+    .status-inline-select.badge-pending  { color:var(--warn); background-color:var(--warn-bg); border-color:var(--warn-ln); }
+    .status-inline-select.badge-cancelled{ color:var(--stop); background-color:var(--stop-bg); border-color:var(--stop-ln); }
+    .status-inline-select.badge-hold     { color:var(--hold); background-color:var(--hold-bg); border-color:var(--hold-ln); }
+    .status-inline-select option { color: var(--ink-1); background: var(--sheet); }
+
+    .notes-section { margin-top: 6px; border-top: 2px solid var(--line-1); padding-top: 18px; }
+    .notes-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 6px; }
+    .notes-title-block { display: flex; align-items: center; gap: 7px; }
+    .notes-icon { font-size: 1rem; }
+    .notes-title { font-size: .82rem; font-weight: 800; color: var(--ink-1); letter-spacing: -.01em; }
+    .notes-badge { background: var(--a); color: #fff; font-size: .6rem; font-weight: 800; padding: 1px 6px; border-radius: var(--rf); min-width: 18px; text-align: center; }
+    .notes-hint { font-size: .67rem; color: var(--ink-4); font-style: italic; align-self: center; }
+    .note-compose { display: flex; gap: 10px; align-items: flex-start; background: var(--sheet-2); border: 1px solid var(--line-1); border-radius: var(--r3); padding: 12px 14px; margin-bottom: 14px; transition: border-color .15s, box-shadow .15s; }
+    .note-compose:focus-within { border-color: var(--a-line); box-shadow: 0 0 0 3px rgba(108,71,255,.07); }
+    .note-compose-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--a), var(--a-dark)); color: #fff; font-size: .7rem; font-weight: 800; display: flex; align-items: center; justify-content: center; text-transform: uppercase; margin-top: 2px; box-shadow: 0 2px 6px rgba(108,71,255,.25); }
+    .note-compose-body { flex: 1; min-width: 0; }
+    .note-textarea { width: 100%; border: none; background: transparent; outline: none; font-family: var(--f); font-size: .8rem; color: var(--ink-1); resize: none; line-height: 1.5; min-height: 60px; }
+    .note-textarea::placeholder { color: var(--ink-4); }
+    .note-compose-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 6px; }
+    .note-compose-hint { font-size: .65rem; color: var(--ink-4); font-family: var(--f-mono); }
+    .note-compose-hint.over-limit { color: var(--stop); font-weight: 700; }
+    .note-type-sel { font-family: var(--f); font-size: .7rem; font-weight: 600; border: 1px solid var(--line-1); border-radius: var(--r2); background: var(--sheet); color: var(--ink-2); padding: 4px 8px; cursor: pointer; outline: none; transition: border-color .12s; }
+    .note-type-sel:focus { border-color: var(--a-line); }
+    .btn-add-note { background: var(--a); color: #fff; border: none; border-radius: var(--r2); font-family: var(--f); font-size: .74rem; font-weight: 700; padding: 6px 14px; cursor: pointer; transition: background .12s, transform .1s, box-shadow .12s; box-shadow: 0 2px 8px rgba(108,71,255,.2); }
+    .btn-add-note:hover { background: var(--a-dark); box-shadow: 0 4px 12px rgba(108,71,255,.3); }
+    .btn-add-note:active { transform: scale(.97); }
+    .btn-add-note:disabled { background: var(--ink-4); box-shadow: none; cursor: not-allowed; }
+    .notes-list { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
+    .notes-list::-webkit-scrollbar { width: 4px; }
+    .notes-list::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
+    .notes-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 0; font-size: .75rem; color: var(--ink-4); text-align: center; }
+    .note-card { display: flex; gap: 10px; align-items: flex-start; background: var(--sheet); border: 1px solid var(--line-1); border-radius: var(--r3); padding: 12px 14px; transition: border-color .12s, box-shadow .12s; animation: noteIn .2s ease; position: relative; }
+    .note-card:hover { border-color: var(--line-2); box-shadow: var(--sh-1); }
+    @keyframes noteIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
+    .note-card-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--info), #2878d6); color: #fff; font-size: .65rem; font-weight: 800; display: flex; align-items: center; justify-content: center; text-transform: uppercase; margin-top: 1px; }
+    .note-card-body { flex: 1; min-width: 0; }
+    .note-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+    .note-card-author { font-size: .74rem; font-weight: 700; color: var(--ink-1); }
+    .note-card-time { font-size: .64rem; color: var(--ink-4); font-family: var(--f-mono); }
+    .note-type-chip { font-size: .6rem; font-weight: 700; padding: 1px 7px; border-radius: var(--rf); text-transform: uppercase; letter-spacing: .04em; }
+    .note-type-chip.general     { background: var(--sheet-3); color: var(--ink-3); }
+    .note-type-chip.llamada     { background: var(--info-bg); color: var(--info); }
+    .note-type-chip.visita      { background: var(--go-bg);   color: var(--go);   }
+    .note-type-chip.alerta      { background: var(--stop-bg); color: var(--stop); }
+    .note-type-chip.seguimiento { background: var(--warn-bg); color: var(--warn); }
+    .note-card-text { font-size: .8rem; color: var(--ink-1); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .note-card-delete { position: absolute; top: 8px; right: 10px; background: none; border: none; cursor: pointer; color: var(--ink-4); font-size: .7rem; padding: 3px 5px; border-radius: var(--r1); transition: color .1s, background .1s; opacity: 0; }
+    .note-card:hover .note-card-delete { opacity: 1; }
+    .note-card-delete:hover { color: var(--stop); background: var(--stop-bg); }
+
+    .form-section { display: flex; flex-direction: column; gap: 16px; }
+    .form-group   { display: flex; flex-direction: column; gap: 8px; }
+    .form-label   { display: flex; flex-direction: column; gap: 4px; }
+    .label-text   { font-size: 0.85rem; font-weight: 600; color: var(--ink-1); }
+    .label-hint   { font-size: 0.7rem; color: var(--ink-3); }
+
+    @media(max-width:1200px){ .cmd-live-stats { display:none; } .cmd-top { flex-wrap: wrap; gap: 10px; } }
+    @media(max-width:900px){
+      :root{ --nav-w: 0px; }
+      .sidebar { display: none; }
+      .command-zone { padding: 10px 14px 0; }
+      .cmd-top { padding-bottom: 10px; gap: 8px; }
+      .cmd-title { font-size: .95rem; }
+      #costumer-top-sub { display: none; }
+      .cmd-actions .btn span { display: none; }
+      .cmd-actions .btn { padding: 6px 10px; }
+      .cmd-bar-row { padding: 0 10px; }
+      .cmd-search { width: 180px; }
+      #token-agent, #token-mercado { display: none; }
+      .stab { padding: 4px 8px; font-size: .68rem; }
+      .table-panel { margin: 8px; border-radius: var(--r3); }
+      .fields-grid { grid-template-columns: repeat(2,1fr); }
+      .col-span-3 { grid-column: 1/-1; }
+    }
+    @media(max-width:600px){
+      :root{ --nav-w: 0px; }
+      .main-content { height: auto; overflow: visible; }
+      .table-panel  { flex: none; height: auto; margin: 6px; }
+      .tscroll      { max-height: 60vh; overflow: auto; }
+      .command-zone { padding: 10px 12px 0; }
+      .cmd-top { flex-direction: column; align-items: flex-start; gap: 8px; padding-bottom: 10px; }
+      .cmd-title-block { width: 100%; justify-content: space-between; }
+      .cmd-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 5px; }
+      .cmd-bar-row { flex-direction: column; height: auto; padding: 8px 12px; gap: 6px; overflow: visible; border-top: 1px solid var(--line-1); }
+      .cmd-search { width: 100%; border-right: none; border-bottom: 1px solid var(--line-1); padding: 0 0 8px; height: auto; }
+      .cmd-tokens { width: 100%; border-right: none; padding: 0; height: auto; border-bottom: 1px solid var(--line-1); padding-bottom: 6px; flex-wrap: nowrap; overflow-x: auto; }
+      #token-agent, #token-mercado { display: inline-flex; }
+      .cmd-status-tabs { width: 100%; height: auto; padding: 0; overflow-x: auto; flex-wrap: nowrap; border-bottom: 1px solid var(--line-1); padding-bottom: 6px; gap: 4px; }
+      .cmd-dates { width: 100%; border-left: none; padding: 0; height: auto; padding-top: 2px; }
+      .drp-trigger { width: 100%; justify-content: center; }
+      .cmd-bar-right { width: 100%; border-left: none; padding: 0; height: auto; justify-content: space-between; padding-top: 4px; }
+      .cmd-bar-row > * { border-right: none !important; }
+      .costumer-table thead th { font-size: .6rem; padding: 0 10px; height: 38px; }
+      .costumer-table tbody td { padding: 10px; font-size: .74rem; }
+      .fields-grid { grid-template-columns: 1fr; }
+    }
+
+    :focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+    .command-zone { animation:slideDown .25s ease both; }
+    .table-panel  { animation:slideDown .25s .08s ease both; }
+    @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .drp-trigger { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f); font-size: .73rem; font-weight: 600; color: var(--ink-2); background: var(--sheet); border: 1px solid var(--line-1); border-radius: var(--r2); padding: 5px 11px; cursor: pointer; white-space: nowrap; height: 30px; box-shadow: var(--sh-1); transition: all .12s; }
+    .drp-trigger:hover { background: var(--sheet-3); border-color: var(--line-2); }
+    .drp-trigger.active { background: var(--a-bg); border-color: var(--a-line); color: var(--a); }
+    .drp-popover { position: fixed; z-index: 9999; background: var(--sheet); border: 1px solid var(--line-1); border-radius: var(--r4); box-shadow: var(--sh-4); min-width: 580px; display: none; flex-direction: column; user-select: none; animation: drpIn .15s cubic-bezier(.16,1,.3,1); }
+    .drp-popover.open { display: flex; }
+    @keyframes drpIn { from { opacity:0; transform:translateY(-6px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+    .drp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line-1); background: var(--sheet-2); border-radius: var(--r4) var(--r4) 0 0; gap: 10px; }
+    .drp-head-title { font-size: .78rem; font-weight: 700; color: var(--ink-1); display: flex; align-items: center; gap: 7px; }
+    .drp-selected-range { font-size: .72rem; font-weight: 500; color: var(--a); background: var(--a-bg); border: 1px solid var(--a-line); border-radius: var(--rf); padding: 2px 10px; font-family: var(--f-mono); }
+    .drp-close { width: 24px; height: 24px; border-radius: var(--r1); border: 1px solid var(--line-1); background: transparent; color: var(--ink-3); font-size: .72rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .1s; }
+    .drp-close:hover { background: #FFF0F3; border-color: #FFB3C0; color: #FF4D6D; }
+    .drp-calendars { display: grid; grid-template-columns: 1fr 1fr; }
+    .drp-cal { padding: 14px 16px; }
+    .drp-cal:first-child { border-right: 1px solid var(--line-1); }
+    .drp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .drp-nav-btn { width: 26px; height: 26px; border-radius: var(--r2); border: 1px solid var(--line-1); background: transparent; color: var(--ink-3); font-size: .8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .1s; }
+    .drp-nav-btn:hover { background: var(--a-bg); border-color: var(--a-line); color: var(--a); }
+    .drp-month-label { font-size: .82rem; font-weight: 700; color: var(--ink-1); cursor: pointer; padding: 2px 8px; border-radius: var(--r2); transition: background .1s; }
+    .drp-month-label:hover { background: var(--sheet-3); }
+    .drp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+    .drp-dow { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); text-align: center; padding: 4px 0 6px; }
+    .drp-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: .74rem; font-weight: 500; color: var(--ink-2); border-radius: var(--r2); cursor: pointer; transition: background .08s, color .08s; position: relative; }
+    .drp-day:hover:not(.drp-empty):not(.drp-disabled) { background: var(--a-bg); color: var(--a); font-weight: 700; }
+    .drp-day.drp-today { font-weight: 800; color: var(--a); }
+    .drp-day.drp-today::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--a); }
+    .drp-day.drp-selected { background: var(--a) !important; color: #fff !important; font-weight: 700; border-radius: var(--r2); box-shadow: 0 2px 6px rgba(108,71,255,.35); }
+    .drp-day.drp-in-range { background: var(--a-bg); color: var(--a); border-radius: 0; }
+    .drp-day.drp-range-start { background: var(--a) !important; color: #fff !important; border-radius: var(--r2) 0 0 var(--r2); font-weight: 700; }
+    .drp-day.drp-range-end { background: var(--a) !important; color: #fff !important; border-radius: 0 var(--r2) var(--r2) 0; font-weight: 700; }
+    .drp-day.drp-range-start.drp-range-end { border-radius: var(--r2); }
+    .drp-day.drp-empty { cursor: default; }
+    .drp-day.drp-disabled { color: var(--ink-4); cursor: default; opacity: .4; }
+    .drp-shortcuts { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line-1); background: var(--sheet-2); }
+    .drp-sc { font-size: .68rem; font-weight: 600; padding: 3px 10px; border-radius: var(--rf); border: 1px solid var(--line-1); background: var(--sheet); color: var(--ink-2); cursor: pointer; transition: all .1s; }
+    .drp-sc:hover { background: var(--a-bg); border-color: var(--a-line); color: var(--a); }
+    .drp-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line-1); border-radius: 0 0 var(--r4) var(--r4); gap: 10px; }
+    .drp-inputs { display: flex; align-items: center; gap: 8px; }
+    .drp-inp { font-family: var(--f-mono); font-size: .72rem; color: var(--ink-1); background: var(--sheet-2); border: 1px solid var(--line-1); border-radius: var(--r2); padding: 5px 9px; outline: none; width: 110px; transition: border-color .12s; }
+    .drp-inp:focus { border-color: var(--a); box-shadow: 0 0 0 2px var(--a-bg); }
+    .drp-inp-sep { color: var(--ink-4); font-size: .72rem; font-weight: 600; }
+    .drp-actions { display: flex; gap: 7px; }
+    .drp-btn-clear { font-family: var(--f); font-size: .72rem; font-weight: 600; padding: 6px 14px; border-radius: var(--r2); border: 1px solid var(--line-1); background: var(--sheet); color: var(--ink-2); cursor: pointer; transition: all .1s; }
+    .drp-btn-clear:hover { background: var(--sheet-3); }
+    .drp-btn-apply { font-family: var(--f); font-size: .72rem; font-weight: 700; padding: 6px 18px; border-radius: var(--r2); border: 1px solid var(--a-dark); background: var(--a); color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(108,71,255,.3); transition: all .1s; }
+    .drp-btn-apply:hover { background: var(--a-dark); }
+
+    @media(max-width:900px){ .drp-calendars { grid-template-columns: 1fr; } .drp-cal:first-child { border-right: none; border-bottom: 1px solid var(--line-1); } .drp-popover { min-width: 320px; } .drp-footer { flex-direction: column; align-items: stretch; gap: 8px; } .drp-inputs { justify-content: center; } .drp-actions { justify-content: flex-end; } }
+    @media(max-width:600px){ .drp-popover { position: fixed !important; top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; min-width: unset; border-radius: var(--r4) var(--r4) 0 0; max-height: 90vh; overflow-y: auto; } }
+
+    .costumer-table.compact-mode tbody td { padding: 6px 14px !important; font-size:.73rem; }
+
+    .cuad-tab {
+      flex:1; padding:8px 0; font-family:var(--f); font-size:.74rem; font-weight:700;
+      border:none; cursor:pointer; background:var(--sheet-2); color:var(--ink-3);
+      transition:all .12s; border-right:1px solid var(--line-1);
+    }
+    .cuad-tab:last-child { border-right:none; }
+    .cuad-tab:hover { background:var(--sheet-3); color:var(--ink-1); }
+    .cuad-tab.is-active { background:var(--sheet); color:var(--ink-1); font-weight:800; box-shadow:inset 0 -2px 0 var(--a); }
+    .cuad-row-ok   td { color:var(--go) !important; }
+    .cuad-row-diff td:first-child { color:var(--warn) !important; }
+    .cuad-row-miss td:first-child { color:var(--stop) !important; }
+    .cuad-row-extra td:first-child { color:var(--info) !important; }
+    #cuadratura-tbody tr { border-bottom:1px solid var(--sheet-3); }
+    #cuadratura-tbody tr:last-child { border-bottom:none; }
+    #cuadratura-tbody td { padding:8px 12px; color:var(--ink-2); }
+    #cuadratura-tbody td:first-child { font-weight:700; }
+
+    /* ── DARK MODE ── */
+    body.dark-theme {
+      --bg:       #0f172a;
+      --sheet:    #1e293b;
+      --sheet-2:  #162032;
+      --sheet-3:  #1a2845;
+      --ink-1:    #e2e8f0;
+      --ink-2:    #94a3b8;
+      --ink-3:    #64748b;
+      --ink-4:    #475569;
+      --a-bg:     rgba(108,71,255,0.12);
+      --a-line:   rgba(108,71,255,0.25);
+    }
+    body.dark-theme .costumer-table tbody tr:nth-child(even) { background: #162032 !important; }
+    body.dark-theme .costumer-table tbody tr:hover { background: rgba(108,71,255,0.10) !important; }
+    body.dark-theme .costumer-table tbody tr:hover td:first-child { background: rgba(108,71,255,0.15) !important; }
+    body.dark-theme .costumer-table tbody tr.row-colchon { background: rgba(108,71,255,0.08) !important; }
+
+    /* ── TABLE LOADER ──────────────────────────────────────── */
+    .crm-loader-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 60px 0;
+    }
+    .loader {
+      --main-size: 5em;
+      --text-color: #6C47FF;
+      --shine-color: rgba(108,71,255,0.18);
+      --shadow-color: #c4b8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      user-select: none;
+      position: relative;
+      font-size: var(--main-size);
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--text-color);
+      width: 7.3em;
+      height: 1em;
+      filter: drop-shadow(0 0 0.05em var(--shine-color));
+    }
+    body.dark-theme .loader { --text-color: #a78bfa; --shine-color: rgba(167,139,250,0.25); --shadow-color: #6c47ff; }
+    .loader .text {
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; white-space: nowrap; overflow: hidden; position: absolute;
+    }
+    .loader .text:nth-child(1)  { clip-path: polygon(0% 0%,11.11% 0%,11.11% 100%,0% 100%);     font-size:calc(var(--main-size)/20); margin-left:-2.1em;  opacity:.6; }
+    .loader .text:nth-child(2)  { clip-path: polygon(11.11% 0%,22.22% 0%,22.22% 100%,11.11% 100%); font-size:calc(var(--main-size)/16); margin-left:-0.98em; opacity:.7; }
+    .loader .text:nth-child(3)  { clip-path: polygon(22.22% 0%,33.33% 0%,33.33% 100%,22.22% 100%); font-size:calc(var(--main-size)/13); margin-left:-0.33em; opacity:.8; }
+    .loader .text:nth-child(4)  { clip-path: polygon(33.33% 0%,44.44% 0%,44.44% 100%,33.33% 100%); font-size:calc(var(--main-size)/11); margin-left:-0.05em; opacity:.9; }
+    .loader .text:nth-child(5)  { clip-path: polygon(44.44% 0%,55.55% 0%,55.55% 100%,44.44% 100%); font-size:calc(var(--main-size)/10); margin-left:0em;    opacity:1;  }
+    .loader .text:nth-child(6)  { clip-path: polygon(55.55% 0%,66.66% 0%,66.66% 100%,55.55% 100%); font-size:calc(var(--main-size)/11); margin-left:0.05em;  opacity:.9; }
+    .loader .text:nth-child(7)  { clip-path: polygon(66.66% 0%,77.77% 0%,77.77% 100%,66.66% 100%); font-size:calc(var(--main-size)/13); margin-left:0.33em;  opacity:.8; }
+    .loader .text:nth-child(8)  { clip-path: polygon(77.77% 0%,88.88% 0%,88.88% 100%,77.77% 100%); font-size:calc(var(--main-size)/16); margin-left:0.98em;  opacity:.7; }
+    .loader .text:nth-child(9)  { clip-path: polygon(88.88% 0%,100%   0%,100%   100%,88.88% 100%); font-size:calc(var(--main-size)/20); margin-left:2.1em;   opacity:.6; }
+    .loader .text span { animation: crm-scrolling 2s cubic-bezier(.1,.6,.9,.4) infinite, crm-shadow 2s cubic-bezier(.1,.6,.9,.4) infinite; }
+    .loader .text:nth-child(1) span { background:linear-gradient(to right,var(--text-color) 4%,var(--shadow-color) 7%);    background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(2) span { background:linear-gradient(to right,var(--text-color) 9%,var(--shadow-color) 13%);   background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(3) span { background:linear-gradient(to right,var(--text-color) 15%,var(--shadow-color) 18%);  background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(4) span { background:linear-gradient(to right,var(--text-color) 20%,var(--shadow-color) 23%);  background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(6) span { background:linear-gradient(to right,var(--shadow-color) 29%,var(--text-color) 32%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(7) span { background:linear-gradient(to right,var(--shadow-color) 34%,var(--text-color) 37%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(8) span { background:linear-gradient(to right,var(--shadow-color) 39%,var(--text-color) 42%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .text:nth-child(9) span { background:linear-gradient(to right,var(--shadow-color) 45%,var(--text-color) 48%); background-size:200% auto; background-clip:text; color:transparent; }
+    .loader .line { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; height:0.05em; width:calc(var(--main-size)/2); margin-top:0.9em; border-radius:0.05em; }
+    .loader .line::before { content:""; position:absolute; height:100%; width:100%; background-color:var(--text-color); opacity:0.3; }
+    .loader .line::after  { content:""; position:absolute; height:100%; width:100%; background-color:var(--text-color); border-radius:0.05em; transform:translateX(-90%); animation:crm-wobble 2s cubic-bezier(.5,.8,.5,.2) infinite; }
+    @keyframes crm-wobble   { 0%{transform:translateX(-90%)} 50%{transform:translateX(90%)}  100%{transform:translateX(-90%)} }
+    @keyframes crm-scrolling{ 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+    @keyframes crm-shadow   { 0%{background-position:-98% 0} 100%{background-position:102% 0} }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <nav class="sidebar sidebar-inicio" data-active="costumer" aria-label="Navegación principal"></nav>
+
+  <main class="main-content">
+    <div class="command-zone costumer-table-header">
+      <div class="cmd-top">
+        <div class="cmd-title-block">
+          <span class="cmd-title">Clientes</span>
+          <span id="costumer-top-sub" style="font-size:.72rem;color:var(--ink-4);font-weight:400">CRM · registros</span>
+        </div>
+        <div class="cmd-live-stats" aria-label="Estadísticas en vivo">
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--a)"></span>
+            <span class="cls-val" id="costumer-ventas-hoy">0</span>
+            <span class="cls-lbl">hoy</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--info)"></span>
+            <span class="cls-val" id="costumer-ventas-mes">0</span>
+            <span class="cls-lbl">mes</span>
+          </div>
+          <div class="cls-item activas">
+            <span class="cls-dot"></span>
+            <span class="cls-val" id="costumer-ventas-activas">0</span>
+            <span class="cls-lbl">activas</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--warn)"></span>
+            <span class="cls-val" id="costumer-pendientes">0</span>
+            <span class="cls-lbl">pend.</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--stop)"></span>
+            <span class="cls-val" id="costumer-cancelados">0</span>
+            <span class="cls-lbl">cancel.</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--ink-3)"></span>
+            <span class="cls-val" id="costumer-oficina">0</span>
+            <span class="cls-lbl">oficina</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--info)"></span>
+            <span class="cls-val" id="costumer-reserva">0</span>
+            <span class="cls-lbl">reserva</span>
+          </div>
+          <label class="cls-item cls-item--colchon" for="check-colchon-activas" title="Sumar colchón a activas">
+            <span class="cls-dot" id="cls-dot-colchon" style="background:var(--ink-4)"></span>
+            <span class="cls-val" id="costumer-colchon">0</span>
+            <span class="cls-lbl">colchón</span>
+            <input type="checkbox" id="check-colchon-activas"
+                   style="margin-left:6px;cursor:pointer;accent-color:var(--a);width:13px;height:13px;"
+                   aria-label="Sumar colchón a activas"/>
+          </label>
+        </div>
+        <div class="cmd-actions">
+          <button class="btn" id="enable-notifications-btn" title="Activar notificaciones" aria-label="Notificaciones">🔔</button>
+          <button class="btn" id="toggle-compact">⊞ Compacto</button>
+          <button class="btn" id="btn-bulk-status-phone" title="Cambio masivo de status por teléfonos">📞 Status masivo</button>
+          <button class="btn" id="btn-cuadratura" title="Cuadratura de puntaje y clientes" style="gap:5px;">⚖️ Cuadratura</button>
+          <button class="btn" id="btn-force-logout" title="Cerrar sesión de todos los usuarios" style="display:none;background:#fef2f2;color:#dc2626;border-color:#fca5a5;">⏏ Cerrar todas las sesiones</button>
+          <button class="btn btn-accent" id="refresh-table">↻ Refrescar</button>
+        </div>
+      </div>
+
+      <div class="cmd-bar-row" role="toolbar" aria-label="Filtros">
+        <div class="input__container">
+          <div class="shadow__input"></div>
+          <button class="input__button__shadow" type="button" aria-label="Buscar">
+            <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20px" width="20px">
+              <path d="M4 9a5 5 0 1110 0A5 5 0 014 9zm5-7a7 7 0 104.2 12.6.999.999 0 00.093.107l3 3a1 1 0 001.414-1.414l-3-3a.999.999 0 00-.107-.093A7 7 0 009 2z" fill-rule="evenodd" fill="#17202A"></path>
+            </svg>
+          </button>
+          <input id="costumer-search" type="search" name="text" class="input__search costumer-filter-input"
+                 placeholder="Buscar cliente, tel., ZIP, cuenta…" aria-label="Buscar clientes"/>
+        </div>
+
+        <div class="cmd-tokens">
+          <div class="token" id="token-service">
+            <span class="token-label">Servicio</span>
+            <span class="token-val" id="tv-service">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="serviceFilter" class="costumer-filter-input" aria-label="Filtrar por servicio">
+              <option value="">Todos</option>
+              <optgroup label="DIRECTV (Video)">
+                <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
+                <option value="VIDEO DIRECTV VIA SATELITE">VIDEO DIRECTV VIA SATELITE</option>
+              </optgroup>
+              <optgroup label="AT&amp;T Internet">
+                <option value="AIR">AIR</option>
+                <option value="ATT 18 - 25 MB">ATT 18 - 25 MB</option>
+                <option value="ATT 50 - 100 MB">ATT 50 - 100 MB</option>
+                <option value="ATT 100 FIBRA">ATT 100 FIBRA</option>
+                <option value="ATT 300">ATT 300</option>
+                <option value="ATT 500">ATT 500</option>
+                <option value="ATT 1G">ATT 1G</option>
+              </optgroup>
+              <optgroup label="Spectrum">
+                <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
+                <option value="SPECTRUM 500">SPECTRUM 500</option>
+                <option value="SPECTRUM 500MBPS+">SPECTRUM 500MBPS+</option>
+                <option value="SPECTRUM 1G">SPECTRUM 1G</option>
+                <option value="SPECTRUM 2G">SPECTRUM 2G</option>
+              </optgroup>
+              <optgroup label="Frontier">
+                <option value="FRONTIER 200 MB">FRONTIER 200 MB</option>
+                <option value="FRONTIER 500 MB">FRONTIER 500 MB</option>
+                <option value="FRONTIER 1G">FRONTIER 1G</option>
+                <option value="FRONTIER 2G">FRONTIER 2G</option>
+              </optgroup>
+              <optgroup label="Consolidated">
+                <option value="CONSOLIDATED 100 MB">CONSOLIDATED 100 MB</option>
+                <option value="CONSOLIDATED 300 MB">CONSOLIDATED 300 MB</option>
+                <option value="CONSOLIDATED 1G">CONSOLIDATED 1G</option>
+                <option value="CONSOLIDATED 2G">CONSOLIDATED 2G</option>
+                <option value="CONSOLIDATED">CONSOLIDATED</option>
+              </optgroup>
+              <optgroup label="Xfinity">
+                <option value="XFINITY 300">XFINITY 300</option>
+                <option value="XFINITY 500">XFINITY 500</option>
+                <option value="XFINITY 1G">XFINITY 1G</option>
+              </optgroup>
+              <optgroup label="Brightspeed"><option value="BRIGHTSPEED">BRIGHTSPEED</option></optgroup>
+              <optgroup label="Earthlink">
+                <option value="INTERNET EARTHLINK 300 MB">INTERNET EARTHLINK 300 MB</option>
+                <option value="EARTHLINK">EARTHLINK</option>
+              </optgroup>
+              <optgroup label="Otros Proveedores">
+                <option value="OPTIMUM">OPTIMUM</option>
+                <option value="WOW">WOW</option>
+                <option value="ALTAFIBER">ALTAFIBER</option>
+                <option value="WINDSTREAM">WINDSTREAM</option>
+                <option value="HUGHESNET">HUGHESNET</option>
+                <option value="VIASAT">VIASAT</option>
+                <option value="CENTURYLINK">CENTURYLINK</option>
+                <option value="METRONET">METRONET</option>
+                <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+                <option value="HAWAIIAN">HAWAIIAN</option>
+                <option value="VIVINT">VIVINT</option>
+                <option value="MOBILITY">MOBILITY</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="token" id="token-team">
+            <span class="token-label">Team</span>
+            <span class="token-val" id="tv-team">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="teamFilter" class="costumer-filter-input" aria-label="Filtrar por equipo">
+              <option value="" selected>Todos</option>
+              <option value="Oficina">Oficina</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-agent">
+            <span class="token-label">Agente</span>
+            <span class="token-val" id="tv-agent">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="agentFilter" class="costumer-filter-input" aria-label="Filtrar por agente">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-mercado">
+            <span class="token-label">Mercado</span>
+            <span class="token-val" id="tv-mercado">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="mercadoFilter" class="costumer-filter-input" aria-label="Filtrar por mercado">
+              <option value="">Todos</option>
+              <option value="ICON">ICON</option>
+              <option value="BAMO">BAMO</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-month">
+            <span class="token-label">Mes</span>
+            <span class="token-val" id="tv-month">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="monthFilter" class="costumer-filter-input" aria-label="Filtrar por mes">
+              <option value="" selected>Todos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cmd-status-tabs" id="quickStatusChips" role="group" aria-label="Filtro por estado">
+          <button type="button" class="stab all is-active" data-status="all">Todos</button>
+          <button type="button" class="stab pending"       data-status="pending">Pending</button>
+          <button type="button" class="stab active"        data-status="completed">Active</button>
+          <button type="button" class="stab colchon"       data-status="colchon">Colchón</button>
+          <button type="button" class="stab oficina"       data-status="oficina">Oficina</button>
+          <button type="button" class="stab reserva"       data-status="reserva">Reserva</button>
+          <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
+        </div>
+
+        <div class="cmd-dates">
+          <button class="drp-trigger" id="drpTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M3 8h14M7 2v3M13 2v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span id="drpLabel">Rango de fechas</span>
+          </button>
+          <input id="dateFrom" type="hidden" class="costumer-filter-input"/>
+          <input id="dateTo"   type="hidden" class="costumer-filter-input"/>
+          <button id="btnClearDates" class="btn" style="height:28px;padding:0 8px;font-size:.68rem;display:none"
+                  title="Limpiar rango de fechas" aria-label="Limpiar rango de fechas">✕</button>
+        </div>
+
+        <div class="cmd-bar-right">
+          <output id="recuentoCount" aria-live="polite" aria-label="Total de registros">0</output>
+          <output id="puntajeTotalCount" aria-live="polite" aria-label="Puntaje total filtrado" title="Puntaje total de leads filtrados">0 pts</output>
+          <button id="scroll-left"  class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la izquierda">«</button>
+          <button id="scroll-right" class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la derecha">»</button>
+          <button id="toggle-forceall" class="btn" style="display:none;height:26px;padding:0 10px;font-size:.7rem">👥 Ver todos</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-panel tpanel costumer-table-container compact" role="region" aria-label="Tabla de clientes">
+      <div class="tscroll">
+        <table class="costumer-table" aria-label="Lista de clientes">
+          <thead>
+            <tr>
+              <th scope="col">Nombre cliente</th>
+              <th scope="col">Teléfono</th>
+              <th scope="col">Tel. alterno</th>
+              <th scope="col">No. cuenta</th>
+              <th scope="col">Autopago</th>
+              <th scope="col">Dirección</th>
+              <th scope="col">Tipo servicio</th>
+              <th scope="col">Sistema</th>
+              <th scope="col">Riesgo</th>
+              <th scope="col" style="white-space:nowrap">
+                Día venta
+                <button id="filterDiaVenta" class="date-filter-btn"
+                  data-field="dia_venta" data-lskey="costumer_datefilter_dia_venta"
+                  aria-label="Filtrar por día de venta">▾</button>
+              </th>
+              <th scope="col" style="white-space:nowrap">
+                Día instalación
+                <button id="filterDiaInstalacion" class="date-filter-btn"
+                  data-field="dia_instalacion" data-lskey="costumer_datefilter_dia_instalacion"
+                  aria-label="Filtrar por día de instalación">▾</button>
+              </th>
+              <th scope="col">Status</th>
+              <th scope="col">Servicios</th>
+              <th scope="col">Mercado</th>
+              <th scope="col">Supervisor</th>
+              <th scope="col">Motivo llamada</th>
+              <th scope="col">ZIP</th>
+              <th scope="col">Puntaje</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="costumer-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="scrollbarMirror" class="scrollbar-mirror" aria-hidden="true">
+        <div id="scrollbarMirrorInner" style="width:1px;height:1px"></div>
+      </div>
+
+      <div id="paginationControls" class="pag" role="navigation" aria-label="Paginación">
+        <div style="display:flex;align-items:center;gap:7px">
+          <label for="pageSizeSelect" style="font-size:.68rem;color:var(--ink-4);font-weight:500">Filas</label>
+          <select id="pageSizeSelect" class="btn fsel" style="cursor:pointer;padding:4px 8px;min-width:58px">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="99999">Todos</option>
+          </select>
+        </div>
+        <button id="toggleMonthsBtn" class="btn" type="button">Solo 2 meses</button>
+        <div id="pageInfo" aria-live="polite">Página 1</div>
+        <div style="display:flex;gap:5px">
+          <button id="pagePrev" class="btn" type="button" aria-label="Página anterior">‹</button>
+          <button id="pageNext" class="btn" type="button" aria-label="Página siguiente">›</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODALES -->
+<div id="comentariosModal" role="dialog" aria-modal="true" aria-label="Comentarios" style="display:none"></div>
+
+<div id="editarModal-wrapper" style="display:none" role="dialog" aria-modal="true" aria-labelledby="editarModalTitle">
+  <div class="modal-dialog" id="editarModal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-avatar" aria-hidden="true">✏️</div>
+        <div>
+          <div class="modal-title" id="editarModalTitle">Editar Lead <span id="modal-lead-id">#—</span></div>
+          <div class="modal-subtitle">Modifica los datos del cliente</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="cerrarModal()" aria-label="Cerrar modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-lead-id"/>
+      <input type="hidden" id="edit-id"/>
+      <div class="fields-grid">
+        <div class="section-label col-span-3">👤 Datos del Cliente</div>
+        <div class="field col-span-3">
+          <label for="edit-nombre">Nombre Cliente</label>
+          <input type="text" id="edit-nombre" placeholder="Nombre completo" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-telefono">Teléfono Principal</label>
+          <input type="tel" id="edit-telefono" placeholder="(000) 000-0000" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-telefono-alt">Teléfono Alterno</label>
+          <input type="tel" id="edit-telefono-alt" placeholder="(000) 000-0000" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-cuenta">No. Cuenta</label>
+          <input type="text" id="edit-cuenta" placeholder="Número de cuenta" autocomplete="off"/>
+        </div>
+        <div class="field col-span-3">
+          <label for="edit-direccion">Dirección</label>
+          <input type="text" id="edit-direccion" placeholder="Dirección completa" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-zip">ZIP Code</label>
+          <input type="text" id="edit-zip" placeholder="ZIP" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-autopago">Autopago</label>
+          <select id="edit-autopago">
+            <option value="">— Sin definir —</option>
+            <option value="Sí">Sí</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-riesgo">Riesgo</label>
+          <select id="edit-riesgo">
+            <option value="">— Sin definir —</option>
+            <option value="Alto">Alto</option>
+            <option value="Medio">Medio</option>
+            <option value="Bajo">Bajo</option>
+          </select>
+        </div>
+      </div>
+      <div class="fields-grid" style="margin-top:4px">
+        <div class="section-label col-span-3">📡 Datos del Servicio</div>
+        <div class="field">
+          <label for="edit-tipo-servicio">Tipo Servicio</label>
+          <select id="edit-tipo-servicio">
+            <option value="">Elige</option>
+            <option value="VIDEO">VIDEO</option>
+            <option value="INTERNET">INTERNET</option>
+            <option value="AT&T AIR">AT&amp;T AIR</option>
+            <option value="WIRELESS">WIRELESS</option>
+            <option value="SINGLE INTERNET">SINGLE INTERNET</option>
+            <option value="DOUBLE PLAY">DOUBLE PLAY</option>
+            <option value="FRONTIER">FRONTIER</option>
+            <option value="WINDSTREAM">WINDSTREAM</option>
+            <option value="OPTIMUM">OPTIMUM</option>
+            <option value="WOW">WOW</option>
+            <option value="ALTAFIBER">ALTAFIBER</option>
+            <option value="CONSOLIDATE">CONSOLIDATE</option>
+            <option value="HUGHESNET">HUGHESNET</option>
+            <option value="VIASAT">VIASAT</option>
+            <option value="CENTURYLINK">CENTURYLINK</option>
+            <option value="METRONET">METRONET</option>
+            <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+            <option value="HAWAIIAN">HAWAIIAN</option>
+            <option value="VIVINT">VIVINT</option>
+            <option value="EARTHLINK">EARTHLINK</option>
+            <option value="XFINITY">XFINITY</option>
+            <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+            <option value="ATT 300">ATT 300</option>
+            <option value="ATT 500">ATT 500</option>
+            <option value="ATT 1G">ATT 1G</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-sistema">Sistema</label>
+          <select id="edit-sistema">
+            <option value="">Elige</option>
+            <option value="SARA">SARA</option>
+            <option value="N/A">N/A</option>
+            <option value="CHUZO">CHUZO</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-mercado">Mercado</label>
+          <select id="edit-mercado">
+            <option value="">Elige</option>
+            <option value="ICON">ICON</option>
+            <option value="BAMO">BAMO</option>
+          </select>
+        </div>
+        <div class="field col-span-3">
+          <label for="edit-servicios">Servicios</label>
+          <select id="edit-servicios">
+            <option value="">Elige</option>
+            <optgroup label="DIRECTV (Video)">
+              <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
+              <option value="VIDEO DIRECTV VIA SATELITE">VIDEO DIRECTV VIA SATELITE</option>
+            </optgroup>
+            <optgroup label="AT&amp;T Internet">
+              <option value="AIR">AIR</option>
+              <option value="ATT 18 - 25 MB">ATT 18 - 25 MB</option>
+              <option value="ATT 50 - 100 MB">ATT 50 - 100 MB</option>
+              <option value="ATT 100 FIBRA">ATT 100 FIBRA</option>
+              <option value="ATT 300">ATT 300</option>
+              <option value="ATT 500">ATT 500</option>
+              <option value="ATT 1G">ATT 1G</option>
+            </optgroup>
+            <optgroup label="Spectrum">
+              <option value="SPECTRUM 400 MBPS">SPECTRUM 400 MBPS</option>
+              <option value="SPECTRUM 500">SPECTRUM 500</option>
+              <option value="SPECTRUM 500MBPS+">SPECTRUM 500MBPS+</option>
+              <option value="SPECTRUM 1G">SPECTRUM 1G</option>
+              <option value="SPECTRUM 2G">SPECTRUM 2G</option>
+            </optgroup>
+            <optgroup label="Frontier">
+              <option value="FRONTIER 200 MB">FRONTIER 200 MB</option>
+              <option value="FRONTIER 500 MB">FRONTIER 500 MB</option>
+              <option value="FRONTIER 1G">FRONTIER 1G</option>
+              <option value="FRONTIER 2G">FRONTIER 2G</option>
+            </optgroup>
+            <optgroup label="Consolidated">
+              <option value="CONSOLIDATED 100 MB">CONSOLIDATED 100 MB</option>
+              <option value="CONSOLIDATED 300 MB">CONSOLIDATED 300 MB</option>
+              <option value="CONSOLIDATED 1G">CONSOLIDATED 1G</option>
+              <option value="CONSOLIDATED 2G">CONSOLIDATED 2G</option>
+              <option value="CONSOLIDATED">CONSOLIDATED</option>
+            </optgroup>
+            <optgroup label="Xfinity">
+              <option value="XFINITY 300">XFINITY 300</option>
+              <option value="XFINITY 500">XFINITY 500</option>
+              <option value="XFINITY 1G">XFINITY 1G</option>
+            </optgroup>
+            <optgroup label="Brightspeed">
+              <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+            </optgroup>
+            <optgroup label="Earthlink">
+              <option value="INTERNET EARTHLINK 300 MB">INTERNET EARTHLINK 300 MB</option>
+              <option value="EARTHLINK">EARTHLINK</option>
+            </optgroup>
+            <optgroup label="Ziply Fiber">
+              <option value="ZIPLY FIBER 10G">ZIPLY FIBER 10G</option>
+              <option value="ZIPLY FIBER 5G">ZIPLY FIBER 5G</option>
+              <option value="ZIPLY FIBER 2G">ZIPLY FIBER 2G</option>
+              <option value="ZIPLY FIBER 1G">ZIPLY FIBER 1G</option>
+              <option value="ZIPLY FIBER 300">ZIPLY FIBER 300</option>
+              <option value="ZIPLY FIBER 200">ZIPLY FIBER 200</option>
+            </optgroup>
+            <optgroup label="Otros Proveedores">
+              <option value="OPTIMUM">OPTIMUM</option>
+              <option value="WOW">WOW</option>
+              <option value="ALTAFIBER">ALTAFIBER</option>
+              <option value="WINDSTREAM">WINDSTREAM</option>
+              <option value="HUGHESNET">HUGHESNET</option>
+              <option value="VIASAT">VIASAT</option>
+              <option value="CENTURYLINK">CENTURYLINK</option>
+              <option value="METRONET">METRONET</option>
+              <option value="HAWAIIAN">HAWAIIAN</option>
+              <option value="VIVINT">VIVINT</option>
+              <option value="MOBILITY">MOBILITY</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-dia-venta">Día Venta</label>
+          <input type="date" id="edit-dia-venta"/>
+        </div>
+        <div class="field">
+          <label for="edit-dia-instalacion">Día Instalación</label>
+          <input type="date" id="edit-dia-instalacion"/>
+        </div>
+        <div class="field">
+          <label for="edit-puntaje">Puntaje</label>
+          <input type="number" id="edit-puntaje" placeholder="0–100" min="0" max="100"/>
+        </div>
+      </div>
+      <div class="fields-grid" style="margin-top:4px">
+        <div class="section-label col-span-3">📋 Gestión</div>
+        <div class="field">
+          <label for="edit-status">Status</label>
+          <select id="edit-status">
+            <option value="pending">Pending</option>
+            <option value="completed">Active / Completed</option>
+            <option value="oficina">Oficina</option>
+            <option value="reserva">En Reserva</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="hold">Hold</option>
+            <option value="rescheduled">Rescheduled</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-agente">Agente</label>
+          <select id="edit-agente">
+            <option value="">— Sin asignar —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="edit-supervisor">Supervisor / Team</label>
+          <input type="text" id="edit-supervisor" placeholder="Nombre del supervisor" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="edit-motivo">Motivo Llamada</label>
+          <input type="text" id="edit-motivo" placeholder="Motivo de la llamada" autocomplete="off"/>
+        </div>
+        <div class="field col-span-3" id="liberar-reserva-container"
+             style="display:none;margin-top:8px;padding:14px;background:var(--warn-bg);border:2px solid var(--warn);border-radius:var(--r3);">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <div style="font-size:.8rem;font-weight:700;color:var(--warn);margin-bottom:4px;">⚠️ Venta Reservada</div>
+              <div style="font-size:.72rem;color:var(--ink-3);line-height:1.4;">
+                Esta venta fue marcada como reserva y <strong>NO cuenta para ningún agente</strong>.
+                Para liberarla, debes asignar al agente que envió el lead y confirmar.
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;">
+              <div style="flex:1;">
+                <label for="liberar-agente-select" style="display:block;font-size:.72rem;font-weight:600;color:var(--ink-2);margin-bottom:4px;">
+                  Agente que envió el lead <span style="color:var(--stop)" aria-hidden="true">*</span>
+                </label>
+                <select id="liberar-agente-select"
+                        style="width:100%;padding:8px;border:1px solid var(--line-2);border-radius:var(--r2);font-family:var(--f);font-size:.8rem;background:var(--sheet);">
+                  <option value="">-- Selecciona agente --</option>
+                </select>
+              </div>
+              <button type="button" class="btn" onclick="liberarDeReservaConAsignacion()"
+                style="background:var(--warn);color:#fff;font-weight:700;padding:10px 18px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,152,0,.3);">
+                🔓 Liberar y Asignar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-save"   type="button" onclick="guardarCambiosLead()">💾 Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div id="bulkExcelModal" role="dialog" aria-modal="true" aria-label="Importar Excel" aria-hidden="true"></div>
+
+<div id="bulkStatusPhoneModal" role="dialog" aria-modal="true" aria-labelledby="bulkStatusTitle" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-header-content">
+        <div class="modal-icon" style="background:var(--info-bg);">📞</div>
+        <div>
+          <div class="modal-title" id="bulkStatusTitle">Cambio masivo de status por teléfonos</div>
+          <div class="modal-subtitle">Actualiza el status de múltiples leads usando números telefónicos</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeBulkStatusPhoneModal()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:16px;">
+          <button id="bulkTabPhone" type="button" onclick="switchBulkTab('phone')"
+            style="flex:1;padding:9px 0;font-family:var(--f);font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--a);color:#fff;transition:all .12s;border-right:1px solid var(--line-1);">
+            📞 Por Teléfono
+          </button>
+          <button id="bulkTabName" type="button" onclick="switchBulkTab('name')"
+            style="flex:1;padding:9px 0;font-family:var(--f);font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--sheet);color:var(--ink-2);transition:all .12s;">
+            👤 Por Nombre
+          </button>
+        </div>
+        <div id="bulkPanelPhone">
+          <div class="form-group">
+            <label class="form-label" for="bulkPhoneNumbers">
+              <span class="label-text">Números telefónicos</span>
+              <span class="label-hint">Uno por línea. Acepta formatos: (346) 277-4495 o 3462774495</span>
+            </label>
+            <textarea id="bulkPhoneNumbers"
+                      placeholder="(346) 277-4495&#10;3462774495&#10;346-277-4495"
+                      style="width:100%;min-height:160px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+          </div>
+        </div>
+        <div id="bulkPanelName" style="display:none;">
+          <div class="form-group">
+            <label class="form-label" for="bulkNamesList">
+              <span class="label-text">Nombres de clientes</span>
+              <span class="label-hint">Uno por línea. Debe coincidir con el nombre guardado en el sistema.</span>
+            </label>
+            <textarea id="bulkNamesList"
+                      placeholder="JUAN PEREZ&#10;MARIA LOPEZ&#10;CARLOS GARCIA"
+                      style="width:100%;min-height:160px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+          </div>
+        </div>
+        <div id="phoneCountHint" style="font-size:.68rem;color:var(--ink-4);margin-top:4px;margin-bottom:12px;">
+          <span id="phoneCount">0 números</span> detectados
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bulkNewStatus">
+            <span class="label-text">Nuevo status</span>
+            <span class="label-hint">Se aplicará a todos los leads encontrados</span>
+          </label>
+          <select id="bulkNewStatus" style="width:100%;padding:10px;border:1px solid var(--line-1);border-radius:var(--r2);font-size:.85rem;font-family:var(--f);outline:none;">
+            <option value="">-- Selecciona un status --</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed / Active</option>
+            <option value="oficina">Oficina</option>
+            <option value="reserva">Ventas en reserva</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="hold">Hold</option>
+          </select>
+        </div>
+        <div id="bulkStatusPreview" style="display:none;margin-top:16px;padding:12px;background:var(--info-bg);border:1px solid var(--info-ln);border-radius:var(--r2);" aria-live="polite">
+          <div style="font-size:.75rem;font-weight:700;color:var(--info);margin-bottom:6px;">Resultado</div>
+          <div id="bulkStatusPreviewContent" style="font-size:.72rem;color:var(--ink-2);"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeBulkStatusPhoneModal()">Cancelar</button>
+      <button class="btn-save" id="btnExecuteBulkStatus" type="button" onclick="executeBulkStatus()" disabled>
+        🔄 Actualizar status
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CUADRATURA -->
+<div id="cuadraturaModal" role="dialog" aria-modal="true" aria-labelledby="cuadraturaTitle" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-header-content">
+        <div class="modal-icon" style="background:var(--warn-bg);">⚖️</div>
+        <div>
+          <div class="modal-title" id="cuadraturaTitle">Cuadratura de Puntaje</div>
+          <div class="modal-subtitle" id="cuadratura-subtitle">Compara tu lista manual contra los leads filtrados en pantalla</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeCuadraturaModal()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <!-- Tab buttons -->
+        <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
+          <button id="cuad-tab-puntaje" class="cuad-mode-tab is-active" onclick="switchCuadMode('puntaje')" style="flex:1;padding:10px;background:var(--sheet);border-right:1px solid var(--line-1);cursor:pointer;font-weight:600;font-size:.78rem;color:var(--ink-2);">⚖️ Cuadratura Puntaje</button>
+          <button id="cuad-tab-telefonos" class="cuad-mode-tab" onclick="switchCuadMode('telefonos')" style="flex:1;padding:10px;background:transparent;cursor:pointer;font-weight:600;font-size:.78rem;color:var(--ink-2);">📞 Validación Teléfonos</button>
+        </div>
+
+        <!-- Puntaje Mode -->
+        <div id="cuad-mode-puntaje">
+          <div id="cuadratura-input-panel">
+            <div class="form-group">
+              <label class="form-label">
+                <span class="label-text">Lista manual (Nombre · Puntaje)</span>
+                <span class="label-hint">Pega un cliente por línea. Formato: <b>NOMBRE, 0.75</b> o <b>NOMBRE 0.75</b> o solo <b>NOMBRE</b></span>
+              </label>
+              <textarea id="cuadraturaInput"
+                placeholder="JUAN PEREZ, 0.75&#10;MARIA LOPEZ, 1.00&#10;CARLOS GARCIA, 0.45&#10;ANA GOMEZ"
+                style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+            </div>
+            <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
+              <span id="cuadratura-count">0 líneas</span> detectadas
+              · Filtro activo: <span id="cuadratura-filter-info" style="color:var(--a);font-weight:600;">cargando…</span>
+            </div>
+            <div id="cuadratura-filter-warn" style="display:none;margin-top:8px;padding:8px 12px;background:var(--warn-bg);border:1px solid var(--warn-ln);border-radius:var(--r2);font-size:.72rem;color:var(--warn);font-weight:600;">
+              ⚠️ Sin filtro de status — se comparan TODOS los leads.
+            </div>
+          </div>
+          <div id="cuadratura-result" style="display:none;">
+            <div id="cuadratura-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+            <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;">
+              <button class="cuad-tab is-active" data-tab="diff" onclick="switchCuadTab(this)">⚠️ Diferencias</button>
+              <button class="cuad-tab" data-tab="ok"   onclick="switchCuadTab(this)">✅ Coinciden</button>
+              <button class="cuad-tab" data-tab="miss" onclick="switchCuadTab(this)">❌ No en CRM</button>
+              <button class="cuad-tab" data-tab="extra" onclick="switchCuadTab(this)">🔍 Sobrantes</button>
+            </div>
+            <div id="cuadratura-table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line-1);border-radius:var(--r2);">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Estado</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Nombre cliente</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts manual</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Pts CRM</th>
+                    <th style="padding:8px 12px;text-align:right;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-tbody"></tbody>
+              </table>
+            </div>
+            <div id="cuadratura-totales" style="margin-top:10px;padding:10px 14px;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r2);font-family:var(--f-mono);font-size:.74rem;display:flex;gap:20px;flex-wrap:wrap;"></div>
+          </div>
+        </div>
+
+        <!-- Telefonos Mode -->
+        <div id="cuad-mode-telefonos" style="display:none;">
+          <div id="cuadratura-telefonos-input-panel">
+            <!-- Fuente de datos -->
+            <div class="form-group" style="margin-bottom:12px;">
+              <label class="form-label" style="font-size:.75rem;font-weight:600;margin-bottom:6px;display:block;">Fuente de datos</label>
+              <div style="display:flex;gap:0;border:1px solid var(--line-1);border-radius:var(--r2);overflow:hidden;">
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;background:var(--sheet);border-right:1px solid var(--line-1);font-size:.78rem;font-weight:600;">
+                  <input type="radio" name="cuad-phone-source" id="cuad-src-residencial" value="residencial" checked style="accent-color:var(--a);width:14px;height:14px;" />
+                  🏠 Servicios Residenciales
+                </label>
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;background:var(--sheet);font-size:.78rem;font-weight:600;">
+                  <input type="radio" name="cuad-phone-source" id="cuad-src-lineas" value="lineas" style="accent-color:var(--a);width:14px;height:14px;" />
+                  📡 Team Líneas
+                </label>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size:.75rem;font-weight:600;">Mes del CRM</label>
+                <input type="month" id="cuadratura-phone-month" value="" style="width:100%;padding:8px;border:1px solid var(--line-1);border-radius:var(--r2);font-size:.85rem;outline:none;" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size:.75rem;font-weight:600;">⚠️ Filtro</label>
+                <div style="padding:8px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.75rem;color:var(--ink-3);" id="cuadratura-phone-filter-info">Sin mes seleccionado</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                <span class="label-text">Lista de números telefónicos</span>
+                <span class="label-hint" id="cuad-phone-source-hint">Un número por línea. Formato: <b>1234567890</b> o <b>(123) 456-7890</b></span>
+              </label>
+              <textarea id="cuadraturaPhoneInput"
+                placeholder="1234567890&#10;(555) 123-4567&#10;555-987-6543&#10;+1-800-555-0100"
+                style="width:100%;min-height:180px;font-family:var(--f-mono);font-size:.8rem;padding:12px;border:1px solid var(--line-1);border-radius:var(--r2);resize:vertical;outline:none;"></textarea>
+            </div>
+            <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">
+              <span id="cuadratura-phone-count">0 números</span> detectados
+            </div>
+          </div>
+          <div id="cuadratura-phone-result" style="display:none;">
+            <div id="cuadratura-phone-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;"></div>
+            <div id="cuadratura-phone-info" style="margin-bottom:12px;padding:8px 12px;background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);font-size:.72rem;color:var(--ink-3);"></div>
+            <!-- Tabla: CRM pero NO en lista -->
+            <div style="margin-bottom:6px;padding:8px 12px;background:var(--sheet-2);border:1px solid var(--line-1);border-top-left-radius:var(--r2);border-top-right-radius:var(--r2);font-size:.74rem;font-weight:700;color:var(--stop);">
+              🔴 En CRM pero NO en tu lista
+            </div>
+            <div id="cuadratura-phone-table-wrap" style="max-height:220px;overflow-y:auto;border:1px solid var(--line-1);border-bottom-left-radius:var(--r2);border-bottom-right-radius:var(--r2);margin-bottom:14px;">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Cliente</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Teléfono</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-phone-tbody"></tbody>
+              </table>
+            </div>
+            <!-- Tabla: tu lista pero NO en CRM -->
+            <div style="margin-bottom:6px;padding:8px 12px;background:var(--sheet-2);border:1px solid var(--line-1);border-top-left-radius:var(--r2);border-top-right-radius:var(--r2);font-size:.74rem;font-weight:700;color:var(--warn);">
+              ⚠️ Tu lista pero NO encontrados en CRM
+            </div>
+            <div id="cuadratura-phone-table-wrap-2" style="max-height:220px;overflow-y:auto;border:1px solid var(--line-1);border-bottom-left-radius:var(--r2);border-bottom-right-radius:var(--r2);">
+              <table style="width:100%;border-collapse:collapse;font-size:.76rem;">
+                <thead>
+                  <tr style="background:var(--sheet-2);position:sticky;top:0;">
+                    <th style="padding:8px 12px;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:1px solid var(--line-1);">Teléfono (tu lista)</th>
+                  </tr>
+                </thead>
+                <tbody id="cuadratura-phone-tbody-2"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" type="button" onclick="closeCuadraturaModal()">Cerrar</button>
+      <button id="btn-cuadratura-limpiar" class="btn" type="button" onclick="limpiarCuadratura()" style="display:none;">↺ Nueva comparación</button>
+      <button id="btn-cuadratura-limpiar-phones" class="btn" type="button" onclick="limpiarCuadraturaTelefonos()" style="display:none;">↺ Nueva búsqueda</button>
+      <button class="btn-save" id="btnEjecutarCuadratura" type="button" onclick="ejecutarCuadratura()" disabled>⚖️ Comparar puntajes</button>
+      <button class="btn-save" id="btnEjecutarCuadraturaTelefonos" type="button" onclick="ejecutarCuadraturaTelefonos()" disabled style="display:none;">📞 Validar teléfonos</button>
+    </div>
+  </div>
+</div>
+
+<!-- DATE RANGE PICKER POPOVER -->
+<div class="drp-popover" id="drpPopover" role="dialog" aria-modal="true" aria-label="Seleccionar rango de fechas">
+  <div class="drp-head">
+    <div class="drp-head-title">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M3 8h14M7 2v3M13 2v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Seleccionar rango de fechas
+    </div>
+    <span class="drp-selected-range" id="drpRangeDisplay" aria-live="polite">Sin selección</span>
+    <button class="drp-close" id="drpClose" aria-label="Cerrar selector de fechas">✕</button>
+  </div>
+  <div class="drp-shortcuts" role="group" aria-label="Atajos de fecha">
+    <button class="drp-sc" data-sc="today">Hoy</button>
+    <button class="drp-sc" data-sc="yesterday">Ayer</button>
+    <button class="drp-sc" data-sc="week">Esta semana</button>
+    <button class="drp-sc" data-sc="lastweek">Semana pasada</button>
+    <button class="drp-sc" data-sc="month">Este mes</button>
+    <button class="drp-sc" data-sc="lastmonth">Mes pasado</button>
+    <button class="drp-sc" data-sc="quarter">Últimos 90 días</button>
+  </div>
+  <div class="drp-calendars">
+    <div class="drp-cal" id="drpCal1"></div>
+    <div class="drp-cal" id="drpCal2"></div>
+  </div>
+  <div class="drp-footer">
+    <div class="drp-inputs">
+      <input class="drp-inp" id="drpFromInput" type="text" placeholder="DD/MM/AAAA" maxlength="10" aria-label="Fecha de inicio"/>
+      <span class="drp-inp-sep" aria-hidden="true">→</span>
+      <input class="drp-inp" id="drpToInput"   type="text" placeholder="DD/MM/AAAA" maxlength="10" aria-label="Fecha de fin"/>
+    </div>
+    <div class="drp-actions">
+      <button class="drp-btn-clear" id="drpClearBtn">Limpiar</button>
+      <button class="drp-btn-apply" id="drpApplyBtn">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.status-inline-select.colchon-select {
+  border-left: 3px solid var(--a) !important;
+  font-style: italic;
+}
+.status-inline-select.colchon-select.badge-active {
+  background: linear-gradient(135deg, var(--a-bg), var(--go-bg)) !important;
+  border-color: var(--go-ln) !important;
+  color: var(--go) !important;
+  border-left: 3px solid var(--a) !important;
+  font-weight: 800;
+}
+</style>
+
+<!-- DATE RANGE PICKER SCRIPT -->
+<script src="js/costumer-calendar.js" defer></script>
+
+<script src="/socket.io/socket.io.js" onerror="void 0" defer></script>
+
+<!-- CRM CORE SCRIPT -->
+<script src="js/costumer-main.js" defer></script>
+</body>
+</html>

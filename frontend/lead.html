@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead — Pre-Calificación</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/theme.css?v=20251124f">
+<link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
+<link rel="stylesheet" href="/css/responsive-sidebar.css">
+
+<script src="js/fetch-interceptor.js"></script>
+<script src="/js/logout-handler.js"></script>
+<script src="/js/user-info.js"></script>
+<script src="js/crm-config.js"></script>
+<script src="js/inactivity-manager.js"></script>
+<script src="js/crm-init.js"></script>
+<script src="/js/sidebar-loader.js"></script>
+<script>window.authChecked = true;</script>
+
+<style>
+  :root {
+    --accent: #0d9488;
+    --accent-light: rgba(13,148,136,0.09);
+    --accent-border: rgba(13,148,136,0.26);
+    --text: #1a2e3b;
+    --text-dim: #5a7a8a;
+    --label: #2a6a78;
+    --border: #d0dde6;
+    --input-bg: #f6fafb;
+    --input-border: #c5d5df;
+    --section-bg: #eef6f7;
+    --page-bg: #dce8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--page-bg);
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(13,148,136,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(2,132,199,0.05) 0%, transparent 50%);
+    min-height: 100vh;
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+  }
+
+  .main-content {
+    padding: 28px 32px 48px;
+    display: grid;
+    grid-template-columns: 480px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 960px) {
+    .main-content {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 24px;
+    background: linear-gradient(90deg, #e5f4f2, #f2fafa, #e5f4f2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-header i { color: var(--accent); font-size: 1rem; }
+  .card-header h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #0a3d38;
+  }
+  .card-body { padding: 20px 24px; }
+
+  /* ── FORM GRID ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+  }
+  .span-2 { grid-column: span 2; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+  .field label .req { color: #e53e3e; margin-left: 2px; }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  select,
+  textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 10px 13px;
+    transition: border-color 0.17s, box-shadow 0.17s;
+    outline: none;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::placeholder { color: #b0c8d2; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.10);
+    background: #fff;
+  }
+  input.error, select.error, textarea.error {
+    border-color: #e53e3e;
+    box-shadow: 0 0 0 3px rgba(229,62,62,0.10);
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M0 0l5 7L10 0z' fill='%230d9488'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  /* ── OPCIONES DEL DROPDOWN ── */
+  select option {
+    background: #0f2d38;
+    color: #e2f4f2;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+  }
+  select option:checked,
+  select option:hover {
+    background: #0d9488;
+    color: #ffffff;
+  }
+  select option[value=""] {
+    color: #6a9aaa;
+    font-style: italic;
+  }
+  select optgroup {
+    background: #071e26;
+    color: #2dd4bf;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 0;
+  }
+  select optgroup option {
+    background: #0f2d38;
+    color: #e2f4f2;
+    padding-left: 18px;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* Fecha de Nacimiento personalizada */
+  .fecha-nac-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .fecha-nac-wrap select {
+    font-size: 0.85rem;
+    padding: 10px 32px 10px 10px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  /* ── FOOTER ── */
+  .form-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: #f5f9fa;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .btn-submit {
+    background: linear-gradient(90deg, #0a7a72, #0d9488, #0a7a72);
+    border: 1.5px solid #0d9488;
+    border-radius: 40px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 12px 52px;
+    transition: all 0.22s;
+    box-shadow: 0 4px 14px rgba(13,148,136,0.22);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-submit:hover { background: linear-gradient(90deg, #0c9088, #0fb5a5, #0c9088); transform: translateY(-1px); }
+  .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  /* ── TABLA DE RESPUESTA ── */
+  .response-section {
+    display: none;
+  }
+  .response-section.visible { display: block; }
+
+  .response-table-wrap { overflow-x: auto; }
+  .response-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .response-table th {
+    background: var(--section-bg);
+    color: var(--label);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+    text-align: left;
+    white-space: nowrap;
+  }
+  .response-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  /* ── NOTA EXPANDIBLE ── */
+  .nota-cell {
+    max-width: 160px;
+    max-height: 3.2em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    position: relative;
+    font-size: 0.84rem;
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 4px 6px;
+    transition: max-height 0.3s ease, white-space 0.1s, background 0.2s;
+    user-select: none;
+  }
+  .nota-cell:hover { background: var(--accent-light); }
+  .nota-cell.expanded {
+    max-height: 400px;
+    white-space: normal;
+    text-overflow: clip;
+    background: var(--accent-light);
+    border: 1px solid var(--accent-border);
+    cursor: zoom-out;
+  }
+  .response-table tr:last-child td { border-bottom: none; }
+  .response-table tr:hover td { background: var(--accent-light); }
+
+  /* Neutraliza tr:hover oscuro del theme.css global */
+  .response-table tr:hover { background: transparent !important; }
+  .response-table tr:hover td { background: #e6f7f5 !important; }
+  body.dark-theme .response-table tr:hover td { background: #1f3a42 !important; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-completada { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+  .badge-pendiente  { background: rgba(245,158,11,0.12);  color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
+  .badge-venta-pend { background: rgba(99,102,241,0.12);  color: #4f46e5; border: 1px solid rgba(99,102,241,0.3); }
+
+  /* ── NAVEGADOR DE FECHAS ── */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--section-bg);
+    flex-wrap: wrap;
+  }
+  .date-nav-btn {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    color: var(--label);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 5px 11px;
+    transition: all 0.17s;
+    line-height: 1;
+  }
+  .date-nav-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+  .date-nav-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    color: var(--text);
+    min-width: 140px;
+    text-align: center;
+  }
+  .date-nav-todos {
+    margin-left: auto;
+    background: transparent;
+    border: 1.5px solid var(--accent-border);
+    border-radius: 20px;
+    color: var(--accent);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 4px 14px;
+    transition: all 0.17s;
+  }
+  .date-nav-todos:hover, .date-nav-todos.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .date-nav-count {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: 'Exo 2', sans-serif;
+    margin-left: 4px;
+  }
+  body.dark-theme .date-nav-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 22px;
+    right: 24px;
+    background: #0d9488;
+    color: white;
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    z-index: 9999;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { background: #e53e3e; }
+
+  /* ── DARK MODE ── */
+  body.dark-theme {
+    --accent: #2dd4bf;
+    --accent-light: rgba(45,212,191,0.09);
+    --accent-border: rgba(45,212,191,0.26);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --label: #94a3b8;
+    --border: #334155;
+    --input-bg: #1e293b;
+    --input-border: #334155;
+    --section-bg: #162032;
+    --page-bg: #0d1a28;
+  }
+  body.dark-theme .card { background: #1e293b !important; }
+  body.dark-theme .card-header { background: #162032 !important; }
+  body.dark-theme .card-header h2 { color: #e2e8f0 !important; }
+  body.dark-theme .form-footer { background: #162032 !important; }
+
+  @media (max-width: 700px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .span-2 { grid-column: span 1; }
+    .main-content { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast"><i class="fas fa-check-circle"></i><span id="toast-msg"></span></div>
+
+<div class="main-content">
+
+  <!-- ── FORMULARIO DE PRE-CALIFICACIÓN ── -->
+  <div class="card">
+    <div class="card-header">
+      <i class="fas fa-file-alt"></i>
+      <h2>Lead — Pre-Calificación de Cliente</h2>
+    </div>
+    <div class="card-body">
+      <form id="lead-form" novalidate>
+        <div class="form-grid">
+
+          <!-- Nombre -->
+          <div class="field">
+            <label>Nombre <span class="req">*</span></label>
+            <input type="text" id="f-nombre" placeholder="Nombre completo del cliente">
+          </div>
+
+          <!-- Correo -->
+          <div class="field">
+            <label>Correo Electrónico <span class="req">*</span></label>
+            <input type="email" id="f-correo" placeholder="correo@ejemplo.com">
+          </div>
+
+          <!-- Phone 1 -->
+          <div class="field">
+            <label>Teléfono 1 <span class="req">*</span></label>
+            <input type="tel" id="f-phone1" placeholder="(000) 000-0000">
+          </div>
+
+          <!-- Phone 2 -->
+          <div class="field">
+            <label>Teléfono 2</label>
+            <input type="tel" id="f-phone2" placeholder="(000) 000-0000">
+          </div>
+
+          <!-- Dirección -->
+          <div class="field span-2">
+            <label>Dirección <span class="req">*</span></label>
+            <input type="text" id="f-direccion" placeholder="Calle, ciudad, estado, ZIP">
+          </div>
+
+          <!-- Fecha de Nacimiento -->
+          <div class="field">
+            <label>Fecha de Nacimiento <span class="req">*</span></label>
+            <div class="fecha-nac-wrap">
+              <select id="f-nac-dia">
+                <option value="">Día</option>
+              </select>
+              <select id="f-nac-mes">
+                <option value="">Mes</option>
+                <option value="01">Enero</option>
+                <option value="02">Febrero</option>
+                <option value="03">Marzo</option>
+                <option value="04">Abril</option>
+                <option value="05">Mayo</option>
+                <option value="06">Junio</option>
+                <option value="07">Julio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+              <select id="f-nac-anio">
+                <option value="">Año</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Servicio -->
+          <div class="field">
+            <label>Servicio <span class="req">*</span></label>
+            <select id="f-servicio">
+              <option value="">Selecciona un servicio</option>
+              <optgroup label="DIRECTV">
+                <option>VIDEO DIRECTV VIA INTERNET</option>
+                <option>VIDEO DIRECTV VIA SATELITE</option>
+              </optgroup>
+              <optgroup label="AT&T Internet">
+                <option>AIR</option>
+                <option>ATT 18 - 25 MB</option>
+                <option>ATT 50 - 100 MB</option>
+                <option>ATT 100 FIBRA</option>
+                <option>ATT 300</option>
+                <option>ATT 500</option>
+                <option>ATT 1G</option>
+              </optgroup>
+              <optgroup label="Spectrum">
+                <option>SPECTRUM 400 MBPS</option>
+                <option>SPECTRUM 500</option>
+                <option>SPECTRUM 1G</option>
+                <option>SPECTRUM 2G</option>
+              </optgroup>
+              <optgroup label="Xfinity">
+                <option>XFINITY 300</option>
+                <option>XFINITY 500</option>
+                <option>XFINITY 1G</option>
+              </optgroup>
+              <optgroup label="Frontier">
+                <option>FRONTIER 200 MB</option>
+                <option>FRONTIER 500 MB</option>
+                <option>FRONTIER 1G</option>
+                <option>FRONTIER 2G</option>
+              </optgroup>
+              <optgroup label="Otros">
+                <option>STARLINK</option>
+                <option>HUGHESNET</option>
+                <option>VIASAT</option>
+                <option>BRIGHTSPEED</option>
+                <option>CENTURYLINK</option>
+                <option>OPTIMUM</option>
+                <option>WOW</option>
+                <option>WINDSTREAM</option>
+                <option>ZIPLY FIBER 1G</option>
+                <option>ZIPLY FIBER 2G</option>
+                <option>EARTHLINK</option>
+                <option>CONSOLIDATED</option>
+                <option>METRONET</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Mercado -->
+          <div class="field">
+            <label>Mercado <span class="req">*</span></label>
+            <select id="f-mercado">
+              <option value="">Selecciona mercado</option>
+              <option value="ICON">ICON</option>
+              <option value="BAMO">BAMO</option>
+            </select>
+          </div>
+
+          <!-- Nota -->
+          <div class="field span-2">
+            <label>Nota</label>
+            <textarea id="f-nota" placeholder="Información adicional sobre el cliente..."></textarea>
+          </div>
+
+        </div>
+      </form>
+    </div>
+    <div class="form-footer">
+      <button class="btn-submit" id="btn-enviar" onclick="enviarLead()">
+        <i class="fas fa-paper-plane"></i>
+        Enviar
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TABLA DE RESPUESTAS ── -->
+  <div class="card response-section" id="response-section">
+    <div class="card-header">
+      <i class="fas fa-inbox"></i>
+      <h2>Leads Enviados a Procesamiento</h2>
+    </div>
+    <div class="date-nav">
+      <button class="date-nav-btn" onclick="navMes(-1)"><i class="fas fa-chevron-left"></i></button>
+      <span class="date-nav-label" id="date-nav-label">—</span>
+      <button class="date-nav-btn" onclick="navMes(1)"><i class="fas fa-chevron-right"></i></button>
+      <span class="date-nav-count" id="date-nav-count"></span>
+      <button class="date-nav-todos" id="btn-todos-nav" onclick="verTodos()">Todos</button>
+    </div>
+    <div class="card-body">
+      <div class="response-table-wrap">
+        <table class="response-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Dirección</th>
+              <th>Servicio</th>
+              <th>Fecha de Venta</th>
+              <th>Fecha de Instalación</th>
+              <th>Nota</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="response-tbody">
+            <tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:24px;">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  // Poblar días
+  const diaEl = document.getElementById('f-nac-dia');
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option');
+    o.value = String(d).padStart(2, '0');
+    o.textContent = String(d).padStart(2, '0');
+    diaEl.appendChild(o);
+  }
+  // Poblar años (1940–2010)
+  const anioEl = document.getElementById('f-nac-anio');
+  for (let y = 2010; y >= 1940; y--) {
+    const o = document.createElement('option');
+    o.value = y;
+    o.textContent = y;
+    anioEl.appendChild(o);
+  }
+})();
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  const m = document.getElementById('toast-msg');
+  m.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  t.querySelector('i').className = isError ? 'fas fa-times-circle' : 'fas fa-check-circle';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+function getUser() {
+  try { return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}'); } catch { return {}; }
+}
+
+async function enviarLead() {
+  const required = [
+    { id: 'f-nombre',   label: 'Nombre' },
+    { id: 'f-correo',   label: 'Correo Electrónico' },
+    { id: 'f-phone1',   label: 'Teléfono 1' },
+    { id: 'f-direccion',label: 'Dirección' },
+    { id: 'f-servicio', label: 'Servicio' },
+    { id: 'f-mercado',  label: 'Mercado' },
+  ];
+
+  const dia  = document.getElementById('f-nac-dia').value;
+  const mes  = document.getElementById('f-nac-mes').value;
+  const anio = document.getElementById('f-nac-anio').value;
+
+  let valid = true;
+  required.forEach(({ id }) => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('error'); valid = false; }
+    else el.classList.remove('error');
+  });
+
+  if (!dia || !mes || !anio) {
+    ['f-nac-dia','f-nac-mes','f-nac-anio'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el.value) el.classList.add('error');
+      else el.classList.remove('error');
+    });
+    valid = false;
+  }
+
+  if (!valid) { showToast('Completa los campos obligatorios.', true); return; }
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+
+  const user = getUser();
+  const payload = {
+    nombre:          document.getElementById('f-nombre').value.trim(),
+    correo:          document.getElementById('f-correo').value.trim(),
+    phone1:          document.getElementById('f-phone1').value.trim(),
+    phone2:          document.getElementById('f-phone2').value.trim(),
+    direccion:       document.getElementById('f-direccion').value.trim(),
+    fechaNacimiento: `${dia}/${mes}/${anio}`,
+    servicio:        document.getElementById('f-servicio').value,
+    mercado:         document.getElementById('f-mercado').value.trim(),
+    nota:            document.getElementById('f-nota').value.trim(),
+    agenteUsername:  user.username || '',
+    agenteName:      user.name || user.username || '',
+  };
+
+  try {
+    const res = await fetch('/api/pre-leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'Error al enviar');
+
+    showToast(`Lead enviado — ID: ${data.lead.leadId}`, false);
+    document.getElementById('lead-form').reset();
+    ['f-nac-dia','f-nac-mes','f-nac-anio'].forEach(id => document.getElementById(id).value = '');
+    cargarMisLeads();
+  } catch (err) {
+    showToast(err.message || 'Error de conexión.', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+  }
+}
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+let todosLeads = [];
+let navAnio = new Date().getFullYear();
+let navMesIdx = new Date().getMonth(); // 0-based
+let modoTodos = false;
+
+function badgeEstado(lead) {
+  if (lead.resolucion === 'Venta Completada')
+    return '<span class="badge badge-completada"><i class="fas fa-check"></i> Venta Completada</span>';
+  if (lead.resolucion === 'Venta Pendiente')
+    return '<span class="badge badge-venta-pend"><i class="fas fa-clock"></i> Venta Pendiente</span>';
+  return '<span class="badge badge-pendiente"><i class="fas fa-hourglass-half"></i> En Procesamiento</span>';
+}
+
+function actualizarNavLabel() {
+  const label = document.getElementById('date-nav-label');
+  const btnTodos = document.getElementById('btn-todos-nav');
+  if (modoTodos) {
+    label.textContent = 'Todos los meses';
+    btnTodos.classList.add('active');
+  } else {
+    label.textContent = `${MESES[navMesIdx]} ${navAnio}`;
+    btnTodos.classList.remove('active');
+  }
+}
+
+function renderLeads(lista) {
+  const tbody = document.getElementById('response-tbody');
+  const countEl = document.getElementById('date-nav-count');
+  countEl.textContent = lista.length > 0 ? `${lista.length} lead${lista.length !== 1 ? 's' : ''}` : '';
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:32px;">Sin leads en este período.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lista.map(l => `
+    <tr>
+      <td><strong>#${l.leadId}</strong></td>
+      <td>${l.nombre}</td>
+      <td>${l.phone1}${l.phone2 ? '<br><span style="color:var(--text-dim);font-size:0.8rem;">' + l.phone2 + '</span>' : ''}</td>
+      <td>${l.direccion}</td>
+      <td>${l.servicio}</td>
+      <td>${l.fechaVenta || '—'}</td>
+      <td>${l.fechaInstalacion || '—'}</td>
+      <td><div class="nota-cell" title="Toca para expandir" onclick="this.classList.toggle('expanded')">${l.notaProcesamiento || '—'}</div></td>
+      <td>${badgeEstado(l)}</td>
+    </tr>
+  `).join('');
+}
+
+function filtrarYRender() {
+  actualizarNavLabel();
+  if (modoTodos) {
+    renderLeads(todosLeads);
+    return;
+  }
+  const filtrados = todosLeads.filter(l => {
+    const d = new Date(l.creadoEn);
+    return d.getFullYear() === navAnio && d.getMonth() === navMesIdx;
+  });
+  renderLeads(filtrados);
+}
+
+function navMes(delta) {
+  modoTodos = false;
+  navMesIdx += delta;
+  if (navMesIdx > 11) { navMesIdx = 0; navAnio++; }
+  if (navMesIdx < 0)  { navMesIdx = 11; navAnio--; }
+  filtrarYRender();
+}
+
+function verTodos() {
+  modoTodos = true;
+  filtrarYRender();
+}
+
+async function cargarMisLeads() {
+  try {
+    const res = await fetch('/api/pre-leads/mis-leads', { credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok || !data.success) return;
+
+    todosLeads = data.leads || [];
+    document.getElementById('response-section').classList.add('visible');
+    filtrarYRender();
+  } catch {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  cargarMisLeads();
+
+  // Quitar error al escribir
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    el.addEventListener('input', () => el.classList.remove('error'));
+    el.addEventListener('change', () => el.classList.remove('error'));
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lead - Team Líneas</title>
+  <script>
+    (function guard(){
+      try{
+        const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+        const role = String(user.role||'').toLowerCase();
+        const team = String(user.team||'').toLowerCase();
+        const username = String(user.username||'').toLowerCase();
+        // Permitir: Team Líneas, Supervisor Team Líneas, Administrador, Back Office, Rol_icon
+        const isTeamLineas = role==='teamlineas' || role==='lineas-agentes' || role==='supervisor team lineas' || (role==='supervisor' && team.includes('lineas')) || team.includes('lineas') || username.startsWith('lineas-');
+        const isAdmin = role === 'admin' || role === 'administrador';
+        const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'bo' || role === 'b.o' || role === 'b:o' || role === 'b-o';
+        const isRolIcon = role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon';
+        const ok = isTeamLineas || isAdmin || isBackoffice || isRolIcon;
+        if(!ok){ window.location.replace('/inicio.html'); }
+      }catch(e){ window.location.replace('/inicio.html'); }
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar sidebar-inicio" data-active="lead"></nav>
+    <main class="main-content">
+      <div style="max-width:900px; margin:16px auto;">
+      <h1 style="margin:0 0 12px;">Nuevo Lead - Team Líneas</h1>
+      <form id="lineasForm" style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:16px;">
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Datos del cliente</h3>
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between;">
+            <div>
+              <label>Nombre cliente <span style="color:#6b7280; font-weight:400;">(en mayúsculas)</span> *</label>
+              <input type="text" id="nombre_cliente" required class="form-control" placeholder="Tu respuesta" style="text-transform:uppercase;" />
+            </div>
+            <div>
+              <label>Teléfono principal <span style="color:#6b7280; font-weight:400;">(sin espacios, sin signos de puntuación)</span> *</label>
+              <input type="tel" id="telefono_principal" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Número de cuenta <span style="color:#6b7280; font-weight:400;">(De la orden)</span> *</label>
+              <input type="text" id="numero_cuenta" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Autopay *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="autopay" value="si" checked /> SI</label>
+                <label><input type="radio" name="autopay" value="no" /> NO</label>
+              </div>
+            </div>
+            <div>
+              <label>Pin de seguridad <span style="color:#6b7280; font-weight:400;">(De la orden)</span> *</label>
+              <input type="text" id="pin_seguridad" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Dirección *</label>
+              <input type="text" id="direccion" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>ID *</label>
+              <input type="text" id="id_field" required class="form-control" placeholder="Tu respuesta" />
+            </div>
+            <div>
+              <label>Día de venta *</label>
+              <input type="date" id="dia_venta" required class="form-control" />
+            </div>
+            <div>
+              <label>Día de instalación *</label>
+              <input type="date" id="dia_instalacion" required class="form-control" />
+            </div>
+          </div>
+        </section>
+
+        
+
+        
+
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Estado y Líneas</h3>
+          <div id="estadoGrid" style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between; align-items:start;">
+            <div>
+              <label>STATUS *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="status" value="pending" checked /> PENDING</label>
+                <label><input type="radio" name="status" value="repro" /> REPRO</label>
+              </div>
+            </div>
+            <div>
+              <label>Cantidad de líneas *</label>
+              <div id="cantChecks" style="display:grid; grid-template-columns: repeat(5, 40px); gap:8px; padding:8px 0;">
+                <label><input type="checkbox" name="cantidad_lineas" value="1" /> 1</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="2" /> 2</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="3" /> 3</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="4" /> 4</label>
+                <label><input type="checkbox" name="cantidad_lineas" value="5" /> 5</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <section>
+          <h3 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Registro</h3>
+          <div style="display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between;">
+            <div>
+              <label>Mercado *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="checkbox" name="mercado" value="BAMO" /> BAMO</label>
+                <label><input type="checkbox" name="mercado" value="ICON" /> ICON</label>
+              </div>
+            </div>
+            <div id="assignWrap" style="display:none;">
+              <label>Asignar a agente (solo supervisores)</label>
+              <select id="agentAssign" class="form-control">
+                <option value="">Selecciona agente</option>
+              </select>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label>SUPERVISOR *</label>
+              <div style="display:flex; gap:16px; padding:10px 4px;">
+                <label><input type="radio" name="supervisor" value="JONATHAN F" checked /> JONATHAN F</label>
+                <label><input type="radio" name="supervisor" value="LUIS G" /> LUIS G</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div style="display:flex; gap:10px;">
+          <button type="submit" style="padding:10px 14px; border:0; border-radius:10px; background:#22b3ec; color:#0f172a; font-weight:700;">Enviar</button>
+          <div id="msg" style="align-self:center; font-size:14px; color:#6b7280;"></div>
+        </div>
+      </form>
+      </div>
+
+      <!-- Leads recibidos del chatbot -->
+      <div id="chatbot-section-placeholder"></div>
+
+    </main>
+  </div>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
+  <style>
+    #chatbot-section {
+      max-width:900px; margin:16px auto 32px; background:#fff;
+      border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;
+      box-shadow:0 2px 8px rgba(0,0,0,.06);
+    }
+    #chatbot-section .cb-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 20px;
+      background:linear-gradient(90deg,#0f172a 0%,#1e3a5f 100%);
+      color:#fff;
+    }
+    #chatbot-section .cb-header h3 { margin:0; font-size:15px; font-weight:700; }
+    #chatbot-section .cb-badge {
+      background:#22d3ee; color:#0f172a; font-size:11px; font-weight:800;
+      padding:2px 9px; border-radius:999px; margin-left:8px;
+    }
+    #chatbot-section .cb-table-wrap { overflow-x:auto; }
+    #chatbot-section table { width:100%; border-collapse:collapse; font-size:13px; }
+    #chatbot-section th {
+      background:#f1f5f9; color:#475569; text-align:left;
+      padding:8px 12px; font-weight:600; border-bottom:1px solid #e2e8f0;
+    }
+    #chatbot-section td { padding:8px 12px; border-bottom:1px solid #f1f5f9; color:#1e293b; }
+    #chatbot-section tr:last-child td { border-bottom:none; }
+    #chatbot-section tr.new-row { animation:flash-row .8s ease; }
+    @keyframes flash-row {
+      0%   { background:#d1fae5; }
+      100% { background:transparent; }
+    }
+    #chatbot-section .status-pending {
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      background:#fef9c3; color:#92400e; font-size:11px; font-weight:700;
+    }
+    .cb-toast {
+      position:fixed; bottom:24px; right:24px; z-index:9999;
+      background:#0f172a; color:#fff; padding:12px 20px; border-radius:10px;
+      font-size:14px; font-weight:600; display:none;
+      box-shadow:0 4px 16px rgba(0,0,0,.25);
+      border-left:4px solid #22d3ee;
+    }
+  </style>
+
+  <!-- Toast global -->
+  <div class="cb-toast" id="cb-toast"></div>
+
+  <!-- Sección Leads Chatbot -->
+  <div id="chatbot-section">
+    <div class="cb-header">
+      <span><h3 style="display:inline;">📡 Leads Recibidos del Chatbot</h3><span class="cb-badge" id="cb-count">0</span></span>
+      <button onclick="loadChatbotLeads()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">↺ Actualizar</button>
+    </div>
+    <div class="cb-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Agente Asignado</th>
+            <th>Supervisor</th>
+            <th>Fuente</th>
+            <th>Status</th>
+            <th>Recibido</th>
+          </tr>
+        </thead>
+        <tbody id="cb-tbody">
+          <tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function showCbToast(msg) {
+      const t = document.getElementById('cb-toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.style.display = 'none'; }, 4000);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return d.toLocaleString('es-SV', { dateStyle:'short', timeStyle:'short' });
+    }
+
+    function renderCbRow(lead, prepend) {
+      const tbody = document.getElementById('cb-tbody');
+      const tr = document.createElement('tr');
+      if (prepend) tr.classList.add('new-row');
+      tr.innerHTML = `
+        <td>${lead.nombre_cliente || '-'}</td>
+        <td>${lead.telefono_principal || '-'}</td>
+        <td><strong>${lead.agenteNombre || lead.agente || 'SIN ASIGNAR'}</strong></td>
+        <td>${lead.supervisor || '-'}</td>
+        <td>${lead.fuente || 'Chatbot AI'}</td>
+        <td><span class="status-pending">${lead.status || 'pending'}</span></td>
+        <td>${formatDate(lead.creadoEn || lead.createdAt)}</td>`;
+      if (prepend) tbody.prepend(tr);
+      else tbody.appendChild(tr);
+    }
+
+    async function loadChatbotLeads() {
+      const tbody = document.getElementById('cb-tbody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Cargando...</td></tr>';
+      try {
+        const r = await fetch('/api/webhook/lineas', { credentials: 'include' });
+        const data = await r.json();
+        tbody.innerHTML = '';
+        const leads = data.data || [];
+        document.getElementById('cb-count').textContent = leads.length;
+        if (!leads.length) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Sin leads del chatbot todavía</td></tr>';
+          return;
+        }
+        leads.forEach(l => renderCbRow(l, false));
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#b91c1c;padding:24px;">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    // Socket.io: actualización en tiempo real
+    (function initSocket() {
+      try {
+        const me = (function() {
+          try { return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}'); } catch { return {}; }
+        })();
+        const myUsername = String(me.username || '').toLowerCase();
+        const myRole = String(me.role || '').toLowerCase();
+        const isAdminOrBO = ['admin','administrador','backoffice','back office','bo'].some(r => myRole.includes(r));
+        const isSupervisor = myRole.includes('supervisor');
+
+        const socket = io({ transports: ['websocket','polling'] });
+        socket.on('connect', () => console.log('[Chatbot WS] conectado'));
+        socket.on('nuevo-lead-chatbot', (lead) => {
+          // Filtrar visibilidad igual que el servidor
+          const leadAgente = String(lead.agente || '').toLowerCase();
+          const isMyLead = isAdminOrBO
+            || (isSupervisor) // supervisor ve todos los del socket (el servidor filtra en GET)
+            || (leadAgente === myUsername);
+          if (!isMyLead) return;
+
+          const tbody = document.getElementById('cb-tbody');
+          if (tbody && tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+          renderCbRow(lead, true);
+          const cnt = document.getElementById('cb-count');
+          if (cnt) cnt.textContent = Number(cnt.textContent || 0) + 1;
+          showCbToast(`📡 Nuevo lead asignado: ${lead.nombre_cliente} | ${lead.telefono_principal}`);
+        });
+      } catch(e) { console.warn('[Chatbot WS] no disponible:', e.message); }
+    })();
+
+    // Mover sección al lugar correcto dentro del layout y cargar datos
+    document.addEventListener('DOMContentLoaded', function() {
+      const placeholder = document.getElementById('chatbot-section-placeholder');
+      const section = document.getElementById('chatbot-section');
+      if (placeholder && section) placeholder.replaceWith(section);
+      loadChatbotLeads();
+    });
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.loadSidebar) window.loadSidebar();
+      const f = document.getElementById('lineasForm');
+      const estadoGrid = document.getElementById('estadoGrid');
+      const cantChecks = Array.from(document.querySelectorAll('input[name="cantidad_lineas"]'));
+      const msg = document.getElementById('msg');
+      const diaVenta = document.getElementById('dia_venta');
+      const assignWrap = document.getElementById('assignWrap');
+      const agentAssign = document.getElementById('agentAssign');
+
+      function todayLocal() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth()+1).padStart(2,'0');
+        const d = String(now.getDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+      }
+      diaVenta.value = todayLocal();
+      // Seleccionar por defecto 1 línea y renderizar
+      if (cantChecks[0]) { cantChecks[0].checked = true; }
+
+      function getCantidadLineas() {
+        // permitir solo una selección; si hay múltiples, tomar la primera marcada
+        const sel = cantChecks.filter(c => c.checked).map(c => parseInt(c.value, 10));
+        return sel.length ? sel[0] : 1;
+      }
+
+      function enforceSingleCantidad(e) {
+        // comportamiento de checkbox como radio (solo uno activo)
+        cantChecks.forEach(ch => { if (ch !== e.target) ch.checked = false; });
+        renderTelefonos();
+        attachPhoneNormalizers();
+      }
+
+      function attachPhoneNormalizers() {
+        const main = document.getElementById('telefono_principal');
+        const handler = (e) => { const t = e.target; const start=t.selectionStart; const raw = t.value; t.value = raw.replace(/\D+/g,''); try{ t.setSelectionRange(start,start);}catch{} };
+        if (main && !main._normalized) { ['input','paste','change','blur'].forEach(ev=>main.addEventListener(ev,handler)); main._normalized=true; }
+        const n = getCantidadLineas();
+        for (let i=1;i<=n;i++) {
+          const tel = document.getElementById(`tel_${i}`);
+          if (tel && !tel._normalized) { ['input','paste','change','blur'].forEach(ev=>tel.addEventListener(ev,handler)); tel._normalized=true; }
+        }
+      }
+
+      cantChecks.forEach(ch => ch.addEventListener('change', enforceSingleCantidad));
+
+      // Mostrar selector de agente solo a administradores
+      (function initAgentAssign(){
+        try{
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const roleLc = String(user.role||'').toLowerCase();
+          const isAdmin = roleLc.includes('admin') || roleLc === 'administrador';
+          if (!isAdmin || !assignWrap || !agentAssign) return;
+          const uname = String(user.username||user.name||'').toUpperCase();
+          const agentsMap = {
+            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUES','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'],
+            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','KARLA PONCE','MANUEL FLORES','JOSUE HERNANDEZ']
+          };
+          const list = agentsMap[uname] || [];
+          if (!list.length) return;
+          assignWrap.style.display = 'block';
+          agentAssign.innerHTML = '<option value="">Selecciona agente</option>' + list.map(a=>`<option value="${a}">${a}</option>`).join('');
+        }catch{}
+      })();
+
+      function renderTelefonos() {
+        const n = getCantidadLineas();
+        // Eliminar bloques anteriores de líneas
+        Array.from(estadoGrid.querySelectorAll('.line-block')).forEach(el => el.remove());
+        for (let i=1; i<=n; i++) {
+          const div = document.createElement('div');
+          div.className = 'line-block';
+          div.style.display = 'block';
+          div.style.padding = '8px 0';
+          div.style.borderBottom = '1px solid #eef2f7';
+          // Ubicación: i=1 -> fila 2 col 2; i=2 -> fila 3 col1; i=3 -> fila3 col2; i=4 -> fila4 col1; i=5 -> fila4 col2
+          const row = (i === 1) ? 2 : (Math.floor((i - 2) / 2) + 3);
+          const col = (i === 1) ? 2 : (i % 2 === 0 ? 1 : 2);
+          div.style.gridRow = String(row);
+          div.style.gridColumn = String(col);
+          div.innerHTML = `
+            <div style=\"font-size:12px; font-weight:700; color:#334155; background:#e2e8f0; padding:4px 8px; border-radius:999px; display:inline-block; margin-bottom:6px;\">Línea ${i}</div>
+            <div style=\"display:grid; grid-template-columns: 1fr 1fr; gap:12px;\">
+              <div>
+                <label>Número de teléfono *</label>
+                <input type=\"tel\" id=\"tel_${i}\" class=\"form-control\" required placeholder=\"Tu respuesta\" />
+              </div>
+              <div>
+                <label>Servicio *</label>
+                <select id=\"svc_${i}\" class=\"form-control\" required>
+                  <option value=\"WIRELESS\">WIRELESS</option>
+                  <option value=\"SIM WIRELES\">SIM WIRELES</option>
+                  <option value=\"TABLETS\">TABLETS</option>
+                  <option value=\"RELOJ\">RELOJ</option>
+                </select>
+              </div>
+            </div>`;
+          estadoGrid.appendChild(div);
+        }
+      }
+      renderTelefonos();
+
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.textContent = 'Enviando...';
+        const n = getCantidadLineas();
+        const telefonos = [];
+        const servicios = [];
+        const lines = [];
+        const status = (document.querySelector('input[name="status"]:checked')||{}).value || 'pending';
+        const defaultLineStatus = String(status || '').toLowerCase() === 'pending' ? 'PENDING' : String(status || '').toUpperCase();
+        for (let i=1;i<=n;i++) {
+          const v = (document.getElementById(`tel_${i}`).value||'').replace(/\D+/g,'');
+          const s = (document.getElementById(`svc_${i}`)||{}).value || 'WIRELESS';
+          telefonos.push(v);
+          servicios.push(s);
+          lines.push({ telefono: v, servicio: s, estado: defaultLineStatus });
+        }
+        const autopay = (document.querySelector('input[name="autopay"]:checked')||{}).value || 'si';
+        const mercadoSel = Array.from(document.querySelectorAll('input[name="mercado"]:checked')).map(i=>i.value);
+        const supervisor = (document.querySelector('input[name="supervisor"]:checked')||{}).value || 'JONATHAN';
+        // Normalizar: server espera un único mercado
+        const mercado = mercadoSel[0] || 'BAMO';
+        const payload = {
+          nombre_cliente: document.getElementById('nombre_cliente').value,
+          telefono_principal: (document.getElementById('telefono_principal').value||'').replace(/\D+/g,''),
+          numero_cuenta: document.getElementById('numero_cuenta').value,
+          autopay,
+          pin_seguridad: document.getElementById('pin_seguridad').value,
+          direccion: document.getElementById('direccion').value,
+          servicios,
+          lines,
+          dia_venta: document.getElementById('dia_venta').value,
+          dia_instalacion: document.getElementById('dia_instalacion').value,
+          status,
+          cantidad_lineas: n,
+          telefonos,
+          id: document.getElementById('id_field').value,
+          mercado,
+          supervisor,
+          agenteAsignado: (agentAssign && assignWrap && assignWrap.style.display !== 'none' ? String(agentAssign.value||'').trim() : '')
+        };
+
+        try {
+          const resp = await fetch('/api/lineas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          const data = await resp.json();
+          if (!resp.ok || data.success === false) throw new Error(data.message || (data.errors||[]).join(', '));
+          msg.style.color = '#065f46';
+          msg.textContent = 'Creado correctamente';
+          f.reset();
+          if (cantChecks[0]) cantChecks[0].checked = true;
+          renderTelefonos();
+          attachPhoneNormalizers();
+          diaVenta.value = todayLocal();
+        } catch (err) {
+          msg.style.color = '#b91c1c';
+          msg.textContent = err.message || 'Error al crear';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

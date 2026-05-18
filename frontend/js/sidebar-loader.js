@@ -1,0 +1,1769 @@
+/**
+ * Sidebar Loader - Carga dinámica del sidebar en todas las páginas
+ */
+
+(function() {
+  'use strict';
+
+  const ACTIVE_ALIASES = {
+    '': 'inicio',
+    'inicio': 'inicio',
+    'home': 'inicio',
+    'dashboard': 'inicio',
+    'admin': 'inicio',
+    'premios': 'premios',
+    'premio': 'premios',
+    'comisiones': 'comisiones',
+    'comision': 'comisiones',
+    'archivos': 'multimedia',
+    'archivo': 'multimedia',
+    'semaforo': 'semaforo',
+    'semáforo': 'semaforo',
+    'el semaforo': 'semaforo',
+    'el semáforo': 'semaforo',
+    'llamadas': 'llamadas-team',
+    'llamadas-team': 'llamadas-team',
+    'llamadas y ventas': 'llamadas-team',
+    'llamadas y ventas por team': 'llamadas-team',
+    'lead': 'lead',
+    'leads': 'lead',
+    'formulario': 'formulario',
+    'formulario-registro': 'formulario',
+    'nuevo-lead': 'nuevo-lead',
+    'costumer': 'costumer',
+    'clientes': 'costumer',
+    'ranking': 'ranking',
+    'promociones': 'ranking',
+    'estadisticas': 'estadisticas',
+    'estadísticas': 'estadisticas',
+    'stats': 'estadisticas',
+    'facturacion': 'facturacion',
+    'facturación': 'facturacion',
+    'crm-dashboard': 'crm-dashboard',
+    'crm': 'crm-dashboard',
+    'empleado': 'empleado',
+    'multimedia': 'multimedia',
+    'reglas': 'reglas',
+    'tabla': 'tabla-puntaje',
+    'tabla-puntaje': 'tabla-puntaje',
+    'tabla_de_puntaje': 'tabla-puntaje',
+    'tabla-de-puntaje': 'tabla-puntaje',
+    'puntaje': 'tabla-puntaje',
+    'tabla puntaje': 'tabla-puntaje',
+    'rankings': 'rankings',
+    'rankings-page': 'rankings',
+    'crearcuenta': 'crearcuenta',
+    'crear-cuenta': 'crearcuenta',
+    'register': 'crearcuenta',
+    'registro': 'crearcuenta',
+    'chat': 'chat',
+    'mensajes': 'chat',
+    'messages': 'chat'
+  };
+
+  const AVATAR_FIELD_CANDIDATES = [
+    'avatarUrl','avatar','photoUrl','photo','profilePhoto','profileImage','picture','imageUrl','image','foto','imagen','avatarURL'
+  ];
+  const LOCAL_AVATAR_STORE_KEY = 'sidebarUserPhotos';
+  const MAX_AVATAR_BYTES = 4 * 1024 * 1024; // 4 MB
+  const AVATAR_UPLOAD_ENDPOINT = '/api/users/me/avatar';
+  const AVATAR_DELETE_ENDPOINT = '/api/users/me/avatar';
+  const SERVER_AVATAR_FETCH_PREFIX = '/api/user-avatars/';
+  let __avatarFileInput = null;
+  let __avatarCurrentTarget = null;
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+
+  // Construye un href seguro: normaliza a ruta absoluta y codifica cada segmento una sola vez.
+  function safeHref(hrefRaw) {
+    try {
+      if (!hrefRaw) return '';
+      let s = String(hrefRaw || '');
+      // dejar URLs absolutas intactas
+      if (s.startsWith('http://') || s.startsWith('https://')) return s;
+      // preservar query y hash si existen
+      let hash = '';
+      let query = '';
+      const hashIdx = s.indexOf('#');
+      if (hashIdx !== -1) { hash = s.slice(hashIdx); s = s.slice(0, hashIdx); }
+      const qIdx = s.indexOf('?');
+      if (qIdx !== -1) { query = s.slice(qIdx); s = s.slice(0, qIdx); }
+      if (s.startsWith('/')) s = s.slice(1);
+      // dividir por '/' y encodar cada segmento evitando doble-encode
+      const parts = s.split('/').map(p => encodeURIComponent(decodeURIComponent(String(p))));
+      return '/' + parts.join('/') + query + hash;
+    } catch (e) {
+      try { return '/' + encodeURIComponent(String(hrefRaw)); } catch (_) { return String(hrefRaw); }
+    }
+  }
+
+  function sanitizeAvatarUrl(rawUrl) {
+    const url = (rawUrl == null ? '' : String(rawUrl)).trim();  
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    if (/^\/\//.test(url)) {
+      try { return `${window.location.protocol}${url}`; } catch (_) { return `https:${url}`; }
+    }
+    if (/^\/?uploads\//i.test(url)) return url.startsWith('/') ? url : `/${url}`;
+    if (/^data:image\//i.test(url)) return url;
+    if (/^(\.\.\/|\.\/)/.test(url)) return url;
+    if (url.startsWith('/')) return url;
+    return '';
+  }
+
+  function safeJsonParse(str, fallback) {
+    try { return JSON.parse(str); } catch(_) { return fallback; }
+  }
+
+  function getUsernameKey(user) {
+    const uname = (user && user.username) ? String(user.username).trim() : '';
+    if (uname) return uname.toLowerCase();
+    const email = (user && user.email) ? String(user.email).trim() : '';
+    if (email) return email.toLowerCase();
+    return null;
+  }
+
+  function readAvatarStore() {
+    try {
+      const raw = localStorage.getItem(LOCAL_AVATAR_STORE_KEY);
+      const parsed = safeJsonParse(raw, {});
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch(_){}
+    return {};
+  }
+
+  function writeAvatarStore(map) {
+    try { localStorage.setItem(LOCAL_AVATAR_STORE_KEY, JSON.stringify(map)); } catch(_){}
+  }
+
+  function getStoredAvatar(user) {
+    const key = getUsernameKey(user);
+    if (!key) return '';
+    const store = readAvatarStore();
+    const entry = store[key];
+    if (typeof entry === 'string' && entry.startsWith('data:image/')) return entry;
+    return '';
+  }
+
+  function setStoredAvatar(user, dataUrl) {
+    const key = getUsernameKey(user);
+    if (!key) return;
+    const store = readAvatarStore();
+    store[key] = dataUrl;
+    writeAvatarStore(store);
+  }
+
+  function clearStoredAvatar(user) {
+    const key = getUsernameKey(user);
+    if (!key) return;
+    const store = readAvatarStore();
+    if (key in store) {
+      delete store[key];
+      writeAvatarStore(store);
+    }
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('No se pudo leer la imagen'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function normalizeActiveKey(rawKey) {
+    const raw = (rawKey == null ? '' : String(rawKey)).trim().toLowerCase();
+    if (ACTIVE_ALIASES[raw] !== undefined) return ACTIVE_ALIASES[raw];
+    return raw || 'inicio';
+  }
+
+  function guessActivePage() {
+    try {
+      const byBody = document.body?.getAttribute('data-active') || document.body?.dataset?.active;
+      if (byBody) return normalizeActiveKey(byBody);
+
+      if (window.__sidebarActive) return normalizeActiveKey(window.__sidebarActive);
+      if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
+
+      const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
+      if (/premios\.html?$/.test(path)) return 'premios';
+      if (/comision/.test(path)) return 'comisiones';
+      if (/rankings\.html?$/.test(path)) return 'rankings';
+      if (/rankingagente\.html?$/.test(path)) return 'rankings';
+      if (/semaforo|semáforo/.test(path)) return 'semaforo';
+      if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
+      if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
+      if (/estadistic/.test(path)) return 'estadisticas';
+      if (/factur/.test(path)) return 'facturacion';
+      if (/rank/.test(path)) return 'ranking';
+      if (/tabla/.test(path) && /puntaje/.test(path)) return 'tabla-puntaje';
+      if (/empleado/.test(path)) return 'empleado';
+      if (/multimedia/.test(path)) return 'multimedia';
+      if (/regla/.test(path)) return 'reglas';
+      if (/costumer/.test(path) || /cliente/.test(path)) return 'costumer';
+      if (/nuevo-lead/.test(path)) return 'nuevo-lead';
+      if (/formulario-registro/.test(path)) return 'formulario';
+      if (/lead/.test(path)) return 'lead';
+      if (/crear/.test(path) && /cuenta/.test(path)) return 'crearcuenta';
+      if (/register/.test(path)) return 'crearcuenta';
+      if (/chat\.html?$/.test(path)) return 'chat';
+      if (/reset-password/.test(path)) return 'inicio';
+      if (/inicio/.test(path) || /index\.html?$/.test(path)) return 'inicio';
+    } catch (e) {
+      console.warn('No se pudo inferir data-active automáticamente', e);
+    }
+    return 'inicio';
+  }
+
+  function ensureSidebarElement() {
+    let sidebarElement = document.querySelector('.sidebar');
+    if (sidebarElement) {
+      try {
+        if (sidebarElement.hasAttribute('data-preserve') || sidebarElement.getAttribute('data-local') === '1') {
+          return sidebarElement;
+        }
+        if (!sidebarElement.classList.contains('sidebar-inicio')) {
+          sidebarElement.classList.add('sidebar-inicio');
+        }
+        if (!sidebarElement.getAttribute('data-active')) {
+          const inferred = guessActivePage();
+          sidebarElement.setAttribute('data-active', inferred);
+        }
+      } catch (_) {}
+      return sidebarElement;
+    }
+
+    const inferredActive = guessActivePage();
+    sidebarElement = document.createElement('nav');
+    sidebarElement.className = 'sidebar sidebar-inicio';
+    sidebarElement.setAttribute('data-active', inferredActive);
+
+    const layout = document.querySelector('.layout');
+    if (layout) {
+      layout.insertBefore(sidebarElement, layout.firstElementChild || null);
+    } else {
+      document.body.insertBefore(sidebarElement, document.body.firstChild || null);
+    }
+    console.warn('Se creó dinámicamente el contenedor .sidebar; considera agregarlo al HTML para mayor control.');
+    return sidebarElement;
+  }
+
+  function ensureSidebarSharedCss() {
+    try {
+      const DOC = document;
+      if (!DOC || !DOC.head) return;
+
+      // Cargar el nuevo CSS moderno
+      const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-modern.css"]');
+      const desiredHref = '/css/sidebar-modern.css?v=20260218';
+      if (!existing) {
+        const link = DOC.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = desiredHref;
+        DOC.head.appendChild(link);
+      } else {
+        try {
+          const href = String(existing.getAttribute('href') || '');
+          if (!href.includes('v=20260218')) {
+            existing.setAttribute('href', desiredHref);
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      // Cargar dark-mode.css global
+      const darkModeHref = '/css/dark-mode.css?v=20260405';
+      if (!DOC.querySelector('link[rel="stylesheet"][href*="dark-mode.css"]')) {
+        const dmLink = DOC.createElement('link');
+        dmLink.rel = 'stylesheet';
+        dmLink.href = darkModeHref;
+        DOC.head.appendChild(dmLink);
+      }
+
+      const hasFA = !!DOC.querySelector('link[rel="stylesheet"][href*="font-awesome"], link[rel="stylesheet"][href*="fontawesome"], link[rel="stylesheet"][href*="cdnjs.cloudflare.com/ajax/libs/font-awesome"]');
+      if (!hasFA) {
+        const fa = DOC.createElement('link');
+        fa.rel = 'stylesheet';
+        fa.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
+        DOC.head.appendChild(fa);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  // Función principal para cargar el sidebar
+  window.loadSidebar = async function(forceReload = false) {
+    try {
+      if (!forceReload) {
+        if (window.__SIDEBAR_LOADING === true) return true;
+        if (window.__SIDEBAR_LOADED === true && typeof window.__SIDEBAR_LOADED_AT === 'number') {
+          if (Date.now() - window.__SIDEBAR_LOADED_AT < 250) return true;
+        }
+      }
+      window.__SIDEBAR_LOADING = true;
+    } catch (_) { /* ignore */ }
+
+    ensureSidebarSharedCss();
+    const sidebarElement = ensureSidebarElement();
+    try {
+      // Honrar sidebars locales si marcan preservación
+      if (sidebarElement && (sidebarElement.hasAttribute('data-preserve') || sidebarElement.getAttribute('data-local') === '1')) {
+        console.warn('[SidebarLoader] Sidebar local preservado, no se inyecta contenido.');
+        // Aún configuramos el auto-hide para mantener layout consistente
+        try { setupGlobalAutoHideSidebar(); } catch(_){ }
+        try {
+          window.__SIDEBAR_LOADED = true;
+          window.__SIDEBAR_LOADED_AT = Date.now();
+        } catch (_) { /* ignore */ }
+        // Ensure 'Reglas y Puntajes' exists also in preserved sidebars (some pages ship a static sidebar)
+        try {
+          (function ensureReglasIn(elem){
+            if (!elem || typeof elem.querySelector !== 'function') return;
+            if (elem.querySelector('a[href*="Reglas.html"]') || elem.querySelector('a[href*="Reglas y Puntajes"]')) return;
+            var target = elem.querySelector('ul.menu') || elem.querySelector('.nav-content') || elem;
+            var anchorHtml = '<a href="/Reglas.html" class="btn btn-sidebar" title="Reglas y Puntajes"><i class="fas fa-book"></i><span class="menu-label">Reglas y Puntajes</span></a>';
+            if (target && target.tagName && target.tagName.toLowerCase() === 'ul') {
+              target.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
+            } else if (target) {
+              // try to append into a sensible container
+              var list = target.querySelector('ul') || target;
+              if (list && list.tagName && list.tagName.toLowerCase() === 'ul') list.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
+              else target.insertAdjacentHTML('beforeend', anchorHtml);
+            }
+          })(sidebarElement);
+        } catch(_) {}
+        return true;
+      }
+    } catch(_){ }
+
+    let loadedOk = false;
+    try {
+      // Obtener información del usuario
+      const user = await getUserInfo();
+      
+      // Obtener página activa desde data-active
+      const rawActive = sidebarElement.getAttribute('data-active');
+      const activePage = normalizeActiveKey(rawActive || guessActivePage());
+      sidebarElement.setAttribute('data-active', activePage);
+      
+      // Generar HTML del sidebar
+      const sidebarHTML = generateSidebarHTML(user, activePage);
+      
+      // Insertar HTML
+      sidebarElement.innerHTML = sidebarHTML;
+      initializeSidebarAvatars(sidebarElement);
+
+      // Fallback post-render: si el primer <ul.menu> no tiene items, inyectar menú de agente
+      try {
+        const firstMenu = sidebarElement.querySelector('ul.menu');
+        if (firstMenu && firstMenu.querySelectorAll('li').length === 0) {
+          console.warn('⚠️ Sidebar sin items tras render. Inyectando menú de agente por fallback.');
+          const items = [
+            { icon:'fa-home', text:'Inicio', href:'\/inicio.html' },
+            { icon:'fa-user-plus', text:'Nuevo Lead', href:'\/lead.html' },
+            { icon:'fa-users', text:'Lista de Clientes', href:'\/Costumer.html' },
+            { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/Ranking y Promociones.html' },
+            { icon:'fa-chart-bar', text:'Estadísticas', href:'\/Estadisticas.html' }
+          ];
+            firstMenu.innerHTML = items.map(it => `
+              <li>
+                <a href="${safeHref(it.href)}" class="btn btn-sidebar" title="${it.text}">
+                  <i class="fas ${it.icon}"></i><span class="menu-label">${it.text}</span>
+                </a>
+              </li>
+            `).join('');
+          const roleSpan = sidebarElement.querySelector('#user-role');
+          if (roleSpan) roleSpan.textContent = 'Agente';
+        }
+      } catch (e) {
+        console.warn('Sidebar fallback post-render error:', e?.message);
+      }
+      
+      // Inicializar event listener para el submenu de clientes
+      try {
+        const clientesToggle = sidebarElement.querySelector('#clientes-toggle');
+        const clientesSubmenu = sidebarElement.querySelector('#clientes-submenu');
+        if (clientesToggle) {
+          clientesToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            window.toggleClientesSubmenu && window.toggleClientesSubmenu();
+            return false;
+          }, true);
+          
+          // Abrir automáticamente si estamos en Costumer.html (Lista de Clientes)
+          const currentPath = window.location.pathname.toLowerCase();
+          const isClientesPage = currentPath.includes('costumer') || 
+                                 currentPath.includes('clientes');
+          
+          if (isClientesPage && clientesSubmenu) {
+            clientesSubmenu.classList.add('open');
+            clientesToggle.classList.add('open');
+          }
+          
+        }
+      } catch (e) {
+        console.warn('Error inicializando submenu clientes:', e);
+      }
+      
+      // Inicializar event listener para el submenu de Servicios Móviles
+      try {
+        const movilesToggle = sidebarElement.querySelector('#moviles-toggle');
+        const movilesSubmenu = sidebarElement.querySelector('#moviles-submenu');
+        if (movilesToggle && movilesSubmenu) {
+          movilesToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            window.toggleMovilesSubmenu && window.toggleMovilesSubmenu();
+            return false;
+          }, true);
+          
+          // Abrir automáticamente si estamos en una página de Servicios Móviles
+          const currentPath = window.location.pathname.toLowerCase();
+          const isMovilesPage = currentPath.includes('team lineas') || 
+                                currentPath.includes('lineas') ||
+                                currentPath.includes('costumer-lineas') ||
+                                currentPath.includes('estadisticas-lineas') ||
+                                currentPath.includes('ranking-lineas') ||
+                                currentPath.includes('comisiones-lineas') ||
+                                currentPath.includes('facturacion-lineas') ||
+                                currentPath.includes('llamadas-ventas-lineas') ||
+                                currentPath.includes('inicio-lineas') ||
+                                currentPath.includes('lead-lineas');
+          
+          if (isMovilesPage) {
+            movilesSubmenu.classList.add('open');
+            movilesToggle.classList.add('open');
+          }
+          
+        }
+      } catch (e) {
+        console.warn('Error inicializando submenu moviles:', e);
+      }
+
+      // Inicializar botón de pin para fijar/desfijar sidebar
+      try {
+        const pinBtn = sidebarElement.querySelector('#sidebar-pin-btn');
+        if (pinBtn) {
+          // Verificar si el sidebar está fijado (guardado en localStorage)
+          const isPinned = localStorage.getItem('sidebar-pinned') === 'true';
+          if (isPinned) {
+            document.body.classList.add('sidebar-pinned');
+            document.body.classList.add('show-sidebar');
+            pinBtn.classList.add('active');
+          }
+          
+          pinBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const body = document.body;
+            const isCurrentlyPinned = body.classList.contains('sidebar-pinned');
+            
+            if (isCurrentlyPinned) {
+              // Desfijar
+              body.classList.remove('sidebar-pinned');
+              pinBtn.classList.remove('active');
+              localStorage.setItem('sidebar-pinned', 'false');
+            } else {
+              // Fijar
+              body.classList.add('sidebar-pinned');
+              body.classList.add('show-sidebar');
+              pinBtn.classList.add('active');
+              localStorage.setItem('sidebar-pinned', 'true');
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Error inicializando botón de pin:', e);
+      }
+
+      // Emitir evento de sidebar cargado
+      document.dispatchEvent(new Event('sidebar:loaded'));
+      loadedOk = true;
+      // Inicializar el interruptor de tema
+      setupThemeSwitcher();
+    } catch (error) {
+      console.error('❌ Error cargando sidebar:', error);
+      // Mostrar sidebar básico en caso de error
+      sidebarElement.innerHTML = generateFallbackSidebar();
+      initializeSidebarAvatars(sidebarElement);
+      // Emitir evento incluso en error para que otros listeners continúen
+      try { document.dispatchEvent(new Event('sidebar:loaded')); } catch {}
+    }
+
+    // Configurar auto-ocultamiento del sidebar SOLO si está habilitado explícitamente
+    try {
+      const BODY = document.body;
+      const useAutoHide = !(BODY && (
+        BODY.getAttribute('data-sidebar-autohide') === '0' ||
+        (BODY.dataset && BODY.dataset.sidebarAutohide === '0')
+      ));
+      if (useAutoHide) {
+        setupGlobalAutoHideSidebar();
+        // Forzar estado inicial oculto
+        BODY.classList.remove('show-sidebar');
+      } else {
+        ensureStaticSidebarLayout();
+      }
+    } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
+
+    try {
+      window.__SIDEBAR_LOADING = false;
+      window.__SIDEBAR_LOADED = true;
+      window.__SIDEBAR_LOADED_AT = Date.now();
+    } catch (_) { /* ignore */ }
+  };
+
+  function ensureStaticSidebarLayout() {
+    try {
+      const DOC = document;
+      const STYLE_ID = 'sidebar-static-layout';
+      if (DOC.getElementById(STYLE_ID)) return;
+      const css = `
+        :root { --sidebar-width: 260px; }
+        /* Dejar espacio al sidebar fijo cuando el auto-hide NO está activo */
+        .main-content { margin-left: calc(var(--sidebar-width) + 16px) !important; }
+      `;
+      const styleEl = DOC.createElement('style');
+      styleEl.id = STYLE_ID;
+      styleEl.textContent = css;
+      DOC.head.appendChild(styleEl);
+    } catch (e) { /* ignore */ }
+  }
+
+  // Obtener información del usuario desde localStorage o API
+  async function getUserInfo() {
+    try {
+      // Primero intentar obtener usuario desde almacenamiento local (más rápido y evita llamadas cuando se abre como file://)
+      try {
+        const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.username || parsed.name || parsed.email)) {
+            // normalizar propiedad username
+            const userFromStorage = Object.assign({}, parsed);
+            if (!userFromStorage.username) userFromStorage.username = userFromStorage.name || userFromStorage.email || 'Usuario';
+            return userFromStorage;
+          }
+        }
+      } catch (e) {
+        // ignore parse errors and continue to server probe
+      }
+
+      // Intentar obtener del servidor usando cookies (método actual del sistema)
+      const response = await fetch('/api/auth/verify-server', {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        // Registrar en nivel warn para no llenar la consola en casos normales donde no hay sesión
+        console.warn('Advertencia: respuesta no OK de /api/auth/verify-server:', response.status);
+        throw new Error('No se pudo verificar sesión en servidor');
+      }
+
+      const data = await response.json();
+      if (!data || !data.authenticated || !data.user) {
+        console.warn('Usuario no autenticado en /api/auth/verify-server, redirigiendo a login');
+        window.location.replace('/login.html');
+        return null;
+      }
+
+      const user = data.user;
+      return user;
+    } catch (error) {
+      // No usar console.error para errores esperados (p. ej. sesión ausente). Mostrar warning y devolver fallback.
+      console.warn('Error obteniendo usuario (se usará fallback):', (error && error.message) ? error.message : error);
+      const fallbackUser = {
+        username: 'Usuario',
+        role: 'agente',
+        team: 'Sin equipo'
+      };
+      return fallbackUser;
+    }
+  }
+
+  // Generar HTML del sidebar
+  function generateSidebarHTML(user, activePage) {
+  const displayName = getDisplayName(user);
+  const initials = getInitials(displayName || 'U');
+  const normalizedRole = normalizeRole(user.role);
+  const roleName = getRoleDisplayName(normalizedRole);
+  const uname = String(user.username || '').toLowerCase();
+  const urole = String(user.role || '').toLowerCase();
+  const uteam = String(user.team || '').toLowerCase();
+  const udisplayName = String(user.name || user.displayName || '').toLowerCase();
+  // Supervisores conocidos de Team Líneas
+  const supervisoresLineas = ['jonathan f', 'luis g', 'jonathan figueroa', 'luis gutierrez'];
+  const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-') || supervisoresLineas.some(s => udisplayName.includes(s) || uname.includes(s.replace(' ', '')));
+
+    const avatarInfo = resolveAvatar(user);
+    const avatarUrl = avatarInfo.url;
+    const avatarSource = avatarInfo.source;
+    const profileAvatar = avatarInfo.profile || '';
+    const serverAvatar = avatarInfo.server || '';
+    const avatarFileId = avatarInfo.fileId || '';
+    const photoState = avatarUrl ? 'loading' : 'fallback';
+    const avatarClasses = ['avatar'];
+    if (avatarUrl) avatarClasses.push('has-photo');
+    const usernameKey = escapeAttribute(getUsernameKey(user) || '');
+    const avatarHtml = `
+      <div class="${avatarClasses.join(' ')}" data-photo-state="${photoState}" data-avatar-source="${escapeAttribute(avatarSource || '')}" data-avatar-username="${usernameKey}" data-profile-avatar="${escapeAttribute(profileAvatar)}" data-server-avatar="${escapeAttribute(serverAvatar)}" data-avatar-file-id="${escapeAttribute(avatarFileId)}">
+        ${avatarUrl ? `<img src="${escapeAttribute(avatarUrl)}" alt="Foto de ${escapeAttribute(displayName)}" class="user-avatar-img" loading="lazy" decoding="async" data-avatar-img>` : ''}
+        <span class="user-avatar">${escapeHtml(initials)}</span>
+      </div>
+    `;
+    const avatarWrapper = `
+      <div class="avatar-wrapper" data-avatar-wrapper data-has-local="${avatarSource === 'local' ? 'true' : 'false'}" data-has-profile="${profileAvatar ? 'true' : 'false'}" data-has-server="${serverAvatar ? 'true' : 'false'}">
+        ${avatarHtml}
+        <button type="button" class="avatar-edit-btn" data-avatar-trigger title="Actualizar foto">
+          <i class="fas fa-camera"></i><span class="sr-only">Actualizar foto</span>
+        </button>
+        <button type="button" class="avatar-remove-btn" data-avatar-clear title="Eliminar foto guardada">
+          <i class="fas fa-trash"></i><span class="sr-only">Eliminar foto</span>
+        </button>
+      </div>
+    `;
+    
+    const normalizedActive = normalizeActiveKey(activePage);
+    const menuBlocks = getModernMenuBlocks(normalizedRole, normalizedActive, { isLineas });
+
+    return `
+      <div class="user-info">
+        <div class="user-details">
+          ${avatarWrapper}
+          <div style="display:flex;flex-direction:column;flex:1;">
+            <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
+            <span class="user-role" id="user-role">${roleName}</span>
+          </div>
+          <button type="button" class="sidebar-pin-btn" id="sidebar-pin-btn" title="Fijar sidebar">
+            <i class="fas fa-thumbtack"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="nav-content">
+        ${menuBlocks}
+      </div>
+
+      <div class="sidebar-footer">
+        <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
+          <i class="fas fa-moon"></i>
+          <span class="item-label" id="theme-switcher-label">Modo Oscuro</span>
+        </button>
+        <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
+          <i class="fas fa-sign-out-alt"></i>
+          <span class="item-label">Cerrar Sesión</span>
+        </button>
+      </div>
+
+      <div class="sidebar-quote">
+        "El éxito es la suma de pequeños esfuerzos repetidos día tras día"
+      </div>
+    `;
+  }
+
+  // Obtener iniciales del nombre
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  }
+
+  function getDisplayName(user) {
+    const candidates = [user?.fullName, user?.name, user?.nombre, user?.displayName, user?.username, user?.email];
+    for (const candidate of candidates) {
+      const value = (candidate == null ? '' : String(candidate)).trim();
+      if (value) return value;
+    }
+    return 'Usuario';
+  }
+
+  function extractAvatarFromUser(user, options = {}) {
+    if (!user || typeof user !== 'object') return '';
+    const excludes = Array.isArray(options.excludeKeys) ? options.excludeKeys.map(k => String(k).toLowerCase()) : [];
+    for (const field of AVATAR_FIELD_CANDIDATES) {
+      if (excludes.includes(String(field).toLowerCase())) continue;
+      if (field in user) {
+        const sanitized = sanitizeAvatarUrl(user[field]);
+        if (sanitized) return sanitized;
+      }
+    }
+    if (user?.profile && typeof user.profile === 'object') {
+      const nested = sanitizeAvatarUrl(user.profile.avatar || user.profile.photo || user.profile.image);
+      if (nested) return nested;
+    }
+    return '';
+  }
+
+  function resolveAvatar(user) {
+    const server = sanitizeAvatarUrl(user?.avatarUrl || (user?.avatarFileId ? `${SERVER_AVATAR_FETCH_PREFIX}${user.avatarFileId}` : ''));
+    const profile = extractAvatarFromUser(user, { excludeKeys: ['avatarUrl'] });
+    const stored = getStoredAvatar(user);
+    if (server) return { url: server, source: 'server', profile, stored, server, fileId: user?.avatarFileId || '' };
+    if (stored) return { url: stored, source: 'local', profile, stored, server, fileId: user?.avatarFileId || '' };
+    if (profile) return { url: profile, source: 'profile', profile, stored, server, fileId: user?.avatarFileId || '' };
+    return { url: '', source: '', profile: profile || '', stored, server, fileId: user?.avatarFileId || '' };
+  }
+
+  // Obtener nombre del rol
+  function getRoleDisplayName(roleRaw) {
+    const role = (roleRaw || '').toString().trim().toLowerCase();
+    const role2 = role.replace(/\s+/g, '_').replace(/-+/g, '_');
+    const roles = {
+      'admin': 'Administrador',
+      'administrador': 'Administrador',
+      'supervisor': 'Supervisor',
+      'agente': 'Agente',
+      'agent': 'Agente',  // Soporte para inglés
+      'backoffice': 'Back Office',
+      'rol_icon': 'Back Office',
+      'rol_bamo': 'Back Office'
+    };
+    return roles[role] || roles[role2] || 'Usuario';
+  }
+
+  // Obtener items del menú según rol
+  function getMenuItems(role, activePage, ctx = {}) {
+    const normalizedRole = normalizeRole(role);
+    const normalizedActive = normalizeActiveKey(activePage);
+    
+    // Array ordenado de items del menú (orden específico)
+    const allRoles = ['admin', 'supervisor', 'agente', 'backoffice'];
+    const adminBackofficeRoles = ['admin', 'backoffice'];
+    const menuItemsOrder = [
+      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: allRoles },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: 'Premios.html', roles: allRoles },
+      { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: 'TEAM LINEAS/COSTUMER-LINEAS.html', roles: adminBackofficeRoles },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: 'TEAM LINEAS/ESTADISTICAS-LINEAS.html', roles: allRoles },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'rankingAgente.html', roles: allRoles },
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: allRoles },
+      { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'index.html', roles: allRoles },
+      { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: allRoles },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },
+      { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: 'multimedia.html', roles: allRoles },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: allRoles },
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles },
+      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: 'chat.html', roles: allRoles }
+    ];
+
+    // Redirigir a páginas específicas de Team Líneas si corresponde
+    if (ctx && ctx.isLineas) {
+      menuItemsOrder.forEach(item => {
+        if (item.key === 'lead') item.href = '/TEAM LINEAS/LEAD-LINEAS.html';
+        if (item.key === 'costumer') item.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
+        if (item.key === 'ranking') item.href = '/TEAM LINEAS/RANKING-LINEAS.html';
+        if (item.key === 'estadisticas') item.href = '../Estadisticas.html';
+      });
+    }
+
+    let menuHTML = '';
+    const visibleItems = [];
+    
+    // Iterar en el orden específico del array
+    for (const item of menuItemsOrder) {
+      // Verificar si el rol tiene acceso a este item (usar rol normalizado)
+      if (item.roles.includes(normalizedRole)) {
+        visibleItems.push(item.text);
+        const isActive = item.key === normalizedActive ? 'is-active' : '';
+        // Render del item normal
+        menuHTML += `
+          <li>
+            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}" title="${item.text}">
+              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
+            </a>
+          </li>
+        `;
+      }
+    }
+
+    // Fallback de seguridad: si no hay items visibles, tratar como 'agente'
+    if (visibleItems.length === 0) {
+      console.warn('⚠️ Ningún item visible para rol:', normalizedRole, '— aplicando fallback AGENTE');
+      const agentKeys = ['inicio','lead','costumer','ranking','estadisticas','comisiones'];
+      // Mapeo manual para fallback
+      const fallbackMap = {
+          'inicio': { href: '/inicio.html', icon: 'fa-home', text: 'Inicio' },
+          'lead': { href: 'lead.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
+          'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
+          'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
+          'rankings': { href: 'rankingAgente.html', icon: 'fa-chart-line', text: 'Rankings' },
+          'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
+          'comisiones': { href: 'Comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
+      };
+      
+      for (const key of agentKeys) {
+        const item = fallbackMap[key];
+        const isActive = key === normalizedActive ? 'is-active' : '';
+        menuHTML += `
+          <li>
+            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}">
+              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
+            </a>
+          </li>
+        `;
+      }
+    }
+
+    return menuHTML;
+  }
+
+  // Generador de menú moderno con bloques separados
+  function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
+    const isLineas = ctx.isLineas || false;
+    
+    // Sección 1: Principal (sin título) - Inicio, Formulario, Lead, Nuevo Lead, Lista de Clientes
+    const principalItems = [
+      { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/inicio.html' },
+      { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/formulario-registro.html' },
+      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
+    ];
+    
+    // Sección 2: Estadísticas
+    const estadisticasItems = [
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
+      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/historial-agentes.html', adminOnly: true },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/Reglas.html' },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/Premios.html' },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/Comisiones.html' },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' }
+    ];
+    
+    // Sección 3: Administración
+    const administracionItems = [
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
+      { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
+      { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
+      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html' }
+    ];
+
+    // Sección 4: Servicios Móviles
+    const movilesItems = [
+      { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/TEAM LINEAS/INICIO-LINEAS.html' },
+      { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/TEAM LINEAS/LEAD-LINEAS.html' },
+      { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
+      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' }
+    ];
+
+    const teams = [
+      { name: 'Oficina', team: 'oficina' },
+      { name: 'Team Irania', team: 'irania' },
+      { name: 'Team Johana', team: 'johana' },
+      { name: 'Team Marisol', team: 'marisol' },
+      { name: 'Team Pleitez', team: 'pleitez' },
+      { name: 'Team Roberto', team: 'roberto' }
+    ];
+
+    const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
+    const isProcesamiento = normalizedRole.startsWith('procesamiento');
+    const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
+    const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
+    
+    // Mostrar secciones residenciales si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
+    const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
+    // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
+    const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
+    
+    let html = '';
+
+    // Helper para renderizar items
+    const renderItem = (item, activeClass = 'active-res') => {
+      if (item.adminOnly && !isAdmin) return '';
+      if (item.procOnly && !isAdmin && !isProcesamiento) return '';
+      const isActive = item.key === normalizedActive ? activeClass : '';
+      
+      if (item.hasSubmenu) {
+        const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
+        return `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
+          <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
+          <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
+        </div><div class="submenu" id="clientes-submenu">
+          ${submenuHTML}
+        </div>`;
+      } else {
+        return `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+      }
+    };
+
+    // Secciones Residenciales
+    if (showResidencial) {
+      // Sección 1: Principal (sin título de sección)
+      html += '<div class="nav-block principal">';
+      principalItems.forEach(item => { html += renderItem(item); });
+      html += '</div>';
+      
+      // Sección 2: Estadísticas
+      html += '<div class="nav-block estadisticas"><div class="block-header"><span class="block-label">Estadísticas</span></div>';
+      estadisticasItems.forEach(item => { html += renderItem(item); });
+      html += '</div>';
+      
+      // Sección 3: Administración
+      html += '<div class="nav-block administracion"><div class="block-header"><span class="block-label">Administración</span></div>';
+      administracionItems.forEach(item => { html += renderItem(item); });
+      html += '</div>';
+    }
+    
+    // Sección 4: Servicios Móviles (Team Líneas)
+    if (showMoviles) {
+      // Para Admin y BackOffice: sección colapsable (oculta por defecto)
+      // Para otros usuarios de Líneas: siempre visible
+      const isCollapsible = isAdmin;
+      
+      if (isCollapsible) {
+        html += `<div class="nav-block mov collapsible">
+          <div class="block-header clickable" id="moviles-toggle">
+            <span class="block-label">Servicios Móviles</span>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="moviles-submenu" id="moviles-submenu">`;
+        movilesItems.forEach(item => {
+          const isActive = item.key === normalizedActive ? 'active-res' : '';
+          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+        });
+        html += '</div></div>';
+      } else {
+        // Para usuarios de Team Líneas: siempre visible
+        html += '<div class="nav-block mov"><div class="block-header"><span class="block-label">Servicios Móviles</span></div>';
+        movilesItems.forEach(item => {
+          const isActive = item.key === normalizedActive ? 'active-res' : '';
+          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+        });
+        html += '</div>';
+      }
+    }
+    
+    return html;
+  }
+
+  // Toggle del submenu de Servicios Móviles - definir globalmente
+  window.toggleMovilesSubmenu = function() {
+    const toggle = document.getElementById('moviles-toggle');
+    const submenu = document.getElementById('moviles-submenu');
+    if (!toggle || !submenu) return;
+    const isOpen = submenu.classList.contains('open');
+    submenu.classList.toggle('open', !isOpen);
+    toggle.classList.toggle('open', !isOpen);
+  };
+
+  // Toggle del submenu de clientes - definir globalmente
+  window.toggleClientesSubmenu = function() {
+    const toggle = document.getElementById('clientes-toggle');
+    const submenu = document.getElementById('clientes-submenu');
+    if (!toggle || !submenu) {
+      console.warn('[Sidebar] No se encontraron elementos clientes-toggle o clientes-submenu');
+      return;
+    }
+    const isOpen = submenu.classList.contains('open');
+    submenu.classList.toggle('open', !isOpen);
+    toggle.classList.toggle('open', !isOpen);
+  };
+
+  // Función para filtrar clientes por team sin recargar la página
+  window.filterByTeam = function(teamName) {
+    // Si existe una función de filtrado en Costumer.html, usarla
+    if (typeof window.applyTeamFilter === 'function') {
+      window.applyTeamFilter(teamName);
+      return;
+    }
+    
+    // Si existe la función de re-render con filtro, usarla
+    if (typeof window.renderCostumerTable === 'function' && window.__allLeadsData) {
+      const filtered = window.__allLeadsData.filter(lead => {
+        if (!teamName || teamName === 'todos') return true;
+        const leadTeam = (lead.supervisor || lead.team || lead.equipo || '').toLowerCase();
+        return leadTeam.includes(teamName.toLowerCase());
+      });
+      window.renderCostumerTable(filtered);
+      return;
+    }
+    
+    // Fallback: filtrar las filas de la tabla directamente
+    const tbody = document.getElementById('costumer-tbody');
+    if (!tbody) {
+      console.warn('[Sidebar] No se encontró costumer-tbody');
+      return;
+    }
+    
+    const rows = tbody.querySelectorAll('tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+      // Buscar el team en varias celdas posibles
+      const cells = row.querySelectorAll('td');
+      let rowText = '';
+      cells.forEach(cell => {
+        rowText += ' ' + cell.textContent;
+      });
+      
+      if (!teamName || teamName === 'todos' || rowText.toLowerCase().includes(teamName.toLowerCase())) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    
+  };
+
+  // Normalizar roles (inglés -> español)
+  function normalizeRole(roleRaw) {
+    const r = (roleRaw == null ? '' : String(roleRaw)).trim().toLowerCase();
+    const r2 = r.replace(/\s+/g, '_').replace(/-+/g, '_');
+    if (!r) return 'agente';
+    // equivalentes de agente
+    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+    // equivalentes de supervisor
+    if (['supervisor','supervisora','supervisores','supervisor team lineas','supervisor lineas'].includes(r)) return 'supervisor';
+    // equivalentes de admin
+    if (['admin','administrator','administrador','administradora'].includes(r)) return 'admin';
+    // equivalentes de backoffice
+    if (['backoffice','back office','back_office','bo','rol_icon','rol_bamo'].includes(r)) return 'backoffice';
+    if (['rol_icon','rol_bamo'].includes(r2)) return 'backoffice';
+    return r;
+  }
+
+  // Generar sidebar de respaldo en caso de error
+  function generateFallbackSidebar() {
+    return `
+      <div class="user-info">
+        <div class="user-details">
+          <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
+            <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
+              <span class="user-avatar">U</span>
+            </div>
+            <button type="button" class="avatar-edit-btn" data-avatar-trigger title="Actualizar foto">
+              <i class="fas fa-camera"></i><span class="sr-only">Actualizar foto</span>
+            </button>
+            <button type="button" class="avatar-remove-btn" data-avatar-clear title="Eliminar foto guardada">
+              <i class="fas fa-trash"></i><span class="sr-only">Eliminar foto</span>
+            </button>
+          </div>
+          <span class="user-name">Usuario</span>
+          <span class="user-role">Cargando...</span>
+        </div>
+      </div>
+      <h3>Navegación</h3>
+      <ul class="menu">
+        <li><a href="/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
+        <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar Sesión</span></a></li>
+      </ul>
+    `;
+  }
+
+  // ===== Auto-hide Sidebar (GLOBAL) =====
+  function setupGlobalAutoHideSidebar() {
+    const DOC = document;
+    const BODY = DOC.body;
+    const sidebar = DOC.querySelector('.sidebar');
+    if (!sidebar || !BODY) return;
+
+    // Inyectar CSS una sola vez
+    const STYLE_ID = 'global-auto-hide-sidebar-styles';
+    if (!DOC.getElementById(STYLE_ID)) {
+      const css = `
+          :root { --sidebar-width: 260px; --sidebar-collapsed: 72px; --sidebar-peek: 12px; }
+          /* Base sidebar positioning */
+          .sidebar { position: fixed !important; left: 0 !important; top: 0 !important; width: var(--sidebar-width) !important; height: 100vh !important; backface-visibility: hidden; transform: translate3d(0,0,0) !important; will-change: width, transform; z-index: 140 !important; transition: width .14s ease; overflow: hidden; }
+
+          /* ICON-ONLY collapsed mode: reduce width and hide ALL labels */
+          body.auto-hide-sidebar .sidebar { width: var(--sidebar-collapsed) !important; }
+          body.auto-hide-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar .sidebar .item-label,
+          body.auto-hide-sidebar .sidebar .block-label,
+          body.auto-hide-sidebar .sidebar .block-header,
+          body.auto-hide-sidebar .sidebar .user-name,
+          body.auto-hide-sidebar .sidebar .user-role,
+          body.auto-hide-sidebar .sidebar .stat-label,
+          body.auto-hide-sidebar .sidebar .stat-content,
+          body.auto-hide-sidebar .sidebar .chevron-icon,
+          body.auto-hide-sidebar .sidebar .submenu,
+          body.auto-hide-sidebar .sidebar .moviles-submenu,
+          body.auto-hide-sidebar .sidebar .sidebar-footer-quote,
+          body.auto-hide-sidebar .sidebar .sidebar-pin-btn { display: none !important; }
+
+          /* Center icons when collapsed */
+          body.auto-hide-sidebar .sidebar a,
+          body.auto-hide-sidebar .sidebar .nav-item,
+          body.auto-hide-sidebar .sidebar .footer-action { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
+          body.auto-hide-sidebar .sidebar a i,
+          body.auto-hide-sidebar .sidebar .nav-item i,
+          body.auto-hide-sidebar .sidebar .footer-action i { margin-right: 0 !important; font-size: 1.15rem; }
+          body.auto-hide-sidebar .sidebar .avatar { width: 44px; height: 44px; margin: 12px auto; }
+          body.auto-hide-sidebar .sidebar .user-info { padding: 12px 8px !important; justify-content: center !important; }
+          /* Prevent hover padding shift when collapsed */
+          body.auto-hide-sidebar .sidebar a:hover,
+          body.auto-hide-sidebar .sidebar .nav-item:hover { padding-left: 0 !important; padding-right: 0 !important; border-left-color: transparent !important; }
+
+          /* When showing (hover), expand to full width and reveal labels */
+          body.auto-hide-sidebar.show-sidebar .sidebar { width: var(--sidebar-width) !important; }
+          /* Reveal all user/header/menu sections when expanded */
+          body.auto-hide-sidebar.show-sidebar .sidebar .menu-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .item-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .block-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .block-header,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-name,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-role,
+          body.auto-hide-sidebar.show-sidebar .sidebar .stat-label,
+          body.auto-hide-sidebar.show-sidebar .sidebar .stat-content,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-details,
+          body.auto-hide-sidebar.show-sidebar .sidebar .user-info,
+          body.auto-hide-sidebar.show-sidebar .sidebar .avatar,
+          body.auto-hide-sidebar.show-sidebar .sidebar h3,
+          body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-footer-quote { display: block !important; }
+          
+          /* Mostrar chevron icons y botón de pin cuando está expandido */
+          body.auto-hide-sidebar.show-sidebar .sidebar .chevron-icon { display: flex !important; visibility: visible !important; opacity: 0.4 !important; }
+          body.auto-hide-sidebar.show-sidebar .sidebar .sidebar-pin-btn { display: flex !important; visibility: visible !important; }
+          
+          /* IMPORTANTE: Mostrar submenús cuando están abiertos */
+          body.auto-hide-sidebar.show-sidebar .sidebar .submenu.open,
+          body.auto-hide-sidebar.show-sidebar .sidebar .moviles-submenu.open { display: block !important; max-height: 300px !important; overflow: visible !important; padding: 4px 0 !important; }
+          
+          /* IMPORTANTE: Alinear enlaces a la izquierda cuando el sidebar está expandido */
+          body.auto-hide-sidebar.show-sidebar .sidebar a,
+          body.auto-hide-sidebar.show-sidebar .sidebar .nav-item,
+          body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar { 
+            justify-content: flex-start !important; 
+            text-align: left !important;
+            padding-left: 20px !important; 
+            padding-right: 16px !important; 
+          }
+
+          /* Adjust main content margin to the collapsed width to avoid layout jump */
+          .main-content { margin-left: calc(var(--sidebar-collapsed) + 16px) !important; transition: margin-left .14s ease; }
+
+          /* Hover zone to trigger expansion */
+          .sidebar-hover-zone { position: fixed !important; left: 0 !important; top: 0 !important; width: calc(var(--sidebar-collapsed) + var(--sidebar-peek)) !important; height: 100vh !important; z-index: 150 !important; pointer-events: auto; }
+
+          /* Sidebar fijado (pinned) - siempre expandido, desactiva auto-hide */
+          body.sidebar-pinned.auto-hide-sidebar .sidebar { width: var(--sidebar-width) !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .menu-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .item-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .block-label,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .block-header,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-name,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-role { display: block !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .chevron-icon { display: flex !important; visibility: visible !important; opacity: 0.4 !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .sidebar-pin-btn { display: flex !important; visibility: visible !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .submenu.open,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .moviles-submenu.open { display: block !important; max-height: 300px !important; overflow: visible !important; padding: 4px 0 !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar a,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .nav-item,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .footer-action { 
+            justify-content: flex-start !important; 
+            text-align: left !important;
+            padding-left: 20px !important; 
+            padding-right: 16px !important; 
+          }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar a i,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .nav-item i,
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .footer-action i { margin-right: 12px !important; }
+          body.sidebar-pinned.auto-hide-sidebar .sidebar .user-info { padding: 24px 20px 20px !important; justify-content: flex-start !important; }
+          body.sidebar-pinned.auto-hide-sidebar .main-content { margin-left: calc(var(--sidebar-width) + 40px) !important; }
+          /* Ocultar la zona de hover cuando está fijado */
+          body.sidebar-pinned .sidebar-hover-zone { display: none !important; }
+
+          @media (max-width: 900px) { body.auto-hide-sidebar .sidebar { width: var(--sidebar-width) !important; } .sidebar-hover-zone { display: none !important; } }
+          @media (prefers-reduced-motion: reduce) { body.auto-hide-sidebar .sidebar, .main-content { transition: none !important; } }
+        `;
+      const styleEl = DOC.createElement('style');
+      styleEl.id = STYLE_ID;
+      styleEl.textContent = css;
+      DOC.head.appendChild(styleEl);
+    }
+
+    // Crear zona de hover si no existe
+    let zone = DOC.querySelector('.sidebar-hover-zone');
+    if (!zone) {
+      zone = DOC.createElement('div');
+      zone.className = 'sidebar-hover-zone';
+      DOC.body.appendChild(zone);
+    }
+
+    // Activar modo auto-hide globalmente
+    BODY.classList.add('auto-hide-sidebar');
+
+    // Mostrar/Ocultar con un pequeño debounce para fluidez
+    let hideTO = null;
+    const show = () => { 
+      cancelAnimationFrame(hideTO); 
+      BODY.classList.add('show-sidebar'); 
+    };
+    const scheduleHide = () => { 
+      // No ocultar si el sidebar está fijado
+      if (BODY.classList.contains('sidebar-pinned')) return;
+      hideTO = requestAnimationFrame(() => BODY.classList.remove('show-sidebar')); 
+    };
+
+    zone.addEventListener('mouseenter', show, { passive: true });
+    zone.addEventListener('mouseleave', scheduleHide, { passive: true });
+    sidebar.addEventListener('mouseenter', show, { passive: true });
+    sidebar.addEventListener('mouseleave', scheduleHide, { passive: true });
+    
+      /* Strong overrides to disable translateX slide-off variants used in some pages
+         and force icon-only width. This complements the rules above and ensures
+         consistency even when page-specific CSS uses translateX or !important. */
+      let css = `
+        /* Force icon-only and cancel translate-based hiding */
+        html body.auto-hide-sidebar .sidebar,
+        html body.auto-hide-sidebar .sidebar.sidebar-inicio {
+          transform: none !important;
+          -webkit-transform: none !important;
+          left: 0 !important;
+          width: var(--sidebar-collapsed) !important;
+          min-width: var(--sidebar-collapsed) !important;
+          overflow: hidden !important;
+          visibility: visible !important;
+        }
+
+        /* Ensure show-sidebar expands to full width */
+        html body.auto-hide-sidebar.show-sidebar .sidebar,
+        html body.auto-hide-sidebar.show-sidebar .sidebar.sidebar-inicio {
+          transform: none !important;
+          width: var(--sidebar-width) !important;
+          min-width: var(--sidebar-width) !important;
+        }
+
+        /* Keep main content margin in sync */
+        html body.auto-hide-sidebar .main-content { margin-left: calc(var(--sidebar-collapsed) + 12px) !important; }
+
+        /* Make hover zone reliable */
+        .sidebar-hover-zone { width: calc(var(--sidebar-collapsed) + 6px) !important; }
+        /* When expanded, let clicks pass through to the sidebar */
+        html body.auto-hide-sidebar.show-sidebar .sidebar-hover-zone { pointer-events: none !important; }
+
+        /* Strong layout enforcement for menu links when expanded - highest specificity */
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          gap: 12px !important;
+          flex-wrap: nowrap !important;
+          justify-content: flex-start !important;
+          padding-left: 20px !important;
+          padding-right: 20px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar i {
+          flex: 0 0 20px !important;
+          width: 20px !important;
+          margin-right: 12px !important;
+          text-align: center !important;
+          font-size: 1.05rem !important;
+        }
+        html body.auto-hide-sidebar.show-sidebar .sidebar .btn-sidebar .menu-label {
+          white-space: nowrap !important;
+          display: inline-block !important;
+        }
+
+        /* When collapsed: keep icons centered */
+        html body.auto-hide-sidebar .sidebar .btn-sidebar {
+          justify-content: center !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        /* Hide active pill when collapsed (no blue blob) */
+        html body.auto-hide-sidebar:not(.show-sidebar) .sidebar .btn-sidebar.is-active,
+        html body.auto-hide-sidebar .sidebar:not(.show-sidebar) .btn-sidebar.is-active {
+          background: transparent !important;
+          color: inherit !important;
+          border-radius: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          box-shadow: none !important;
+        }
+      `;
+      // If the primary style element exists, append overrides there; otherwise create a dedicated overrides style.
+      try {
+        const primary = DOC.getElementById(STYLE_ID);
+        if (primary) {
+          primary.textContent = (primary.textContent || '') + css;
+        } else {
+          const extra = DOC.createElement('style');
+          extra.id = STYLE_ID + '-overrides';
+          extra.textContent = css;
+          DOC.head.appendChild(extra);
+        }
+      } catch (e) {
+        // best-effort: create a new style tag if anything goes wrong
+        try { const extra2 = DOC.createElement('style'); extra2.id = STYLE_ID + '-overrides-fallback'; extra2.textContent = css; DOC.head.appendChild(extra2); } catch(_){}
+      }
+  }
+
+  function initializeSidebarAvatars(root) {
+    try {
+      const wrappers = root.querySelectorAll('[data-avatar-wrapper]');
+      wrappers.forEach(wrapper => {
+        const avatar = wrapper.querySelector('.avatar[data-photo-state]');
+        if (!avatar) return;
+
+        const img = avatar.querySelector('[data-avatar-img]');
+        const applyLoaded = () => {
+          try { avatar.setAttribute('data-photo-state', 'loaded'); } catch(_){ }
+        };
+        const applyFallback = () => {
+          try { avatar.setAttribute('data-photo-state', 'fallback'); } catch(_){ }
+          try { const existing = avatar.querySelector('[data-avatar-img]'); if (existing && existing.parentNode) existing.parentNode.removeChild(existing); } catch(_){ }
+          if (wrapper && avatar.getAttribute('data-avatar-source') === 'local') {
+            wrapper.setAttribute('data-has-local', 'false');
+          }
+        };
+
+        if (img) {
+          if (img.complete) {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              applyLoaded();
+            } else {
+              applyFallback();
+            }
+          } else {
+            img.addEventListener('load', applyLoaded, { once: true });
+            img.addEventListener('error', applyFallback, { once: true });
+          }
+        } else {
+          applyFallback();
+        }
+
+        const trigger = wrapper.querySelector('[data-avatar-trigger]');
+        const clearBtn = wrapper.querySelector('[data-avatar-clear]');
+
+        if (trigger && trigger.dataset.bound !== 'true') {
+          trigger.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            if (wrapper && wrapper.getAttribute('data-avatar-uploading') === 'true') return;
+            openAvatarPicker(avatar, wrapper);
+          });
+          trigger.dataset.bound = 'true';
+        }
+
+        if (clearBtn && clearBtn.dataset.bound !== 'true') {
+          clearBtn.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            if (wrapper && wrapper.getAttribute('data-avatar-uploading') === 'true') return;
+            if (clearBtn.dataset.busy === 'true') return;
+            clearBtn.dataset.busy = 'true';
+            clearBtn.disabled = true;
+            try {
+              await clearAvatarImage(avatar, wrapper);
+            } catch (error) {
+              console.warn('clearAvatarImage error', error);
+            } finally {
+              clearBtn.dataset.busy = 'false';
+              clearBtn.disabled = false;
+            }
+          });
+          clearBtn.dataset.bound = 'true';
+        }
+      });
+    } catch (err) {
+      console.warn('initializeSidebarAvatars error', err);
+    }
+  }
+
+  function ensureAvatarInput() {
+    if (__avatarFileInput) return __avatarFileInput;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', handleAvatarInputChange);
+    __avatarFileInput = input;
+    return input;
+  }
+
+  function openAvatarPicker(avatarEl, wrapper) {
+    if (!avatarEl) return;
+    const username = avatarEl.getAttribute('data-avatar-username') || '';
+    if (!username) {
+      alert('No se pudo identificar al usuario para actualizar la foto.');
+      return;
+    }
+    const input = ensureAvatarInput();
+    __avatarCurrentTarget = { avatar: avatarEl, wrapper, username };
+    input.value = '';
+    input.click();
+  }
+
+  function setAvatarUploading(wrapper, uploading) {
+    if (!wrapper) return;
+    if (uploading) {
+      wrapper.setAttribute('data-avatar-uploading', 'true');
+    } else {
+      wrapper.removeAttribute('data-avatar-uploading');
+    }
+    const trigger = wrapper.querySelector('[data-avatar-trigger]');
+    const clearBtn = wrapper.querySelector('[data-avatar-clear]');
+    if (trigger) {
+      trigger.disabled = !!uploading;
+    }
+    if (clearBtn) {
+      if (uploading) {
+        clearBtn.disabled = true;
+      } else if (clearBtn.dataset.busy !== 'true') {
+        clearBtn.disabled = false;
+      }
+    }
+  }
+
+  function syncUserAvatarCache(url, fileId) {
+    const storages = [window.localStorage, window.sessionStorage];
+    storages.forEach(storage => {
+      if (!storage) return;
+      try {
+        const raw = storage.getItem('user');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        if (url) parsed.avatarUrl = url; else delete parsed.avatarUrl;
+        if (fileId) parsed.avatarFileId = fileId; else delete parsed.avatarFileId;
+        if (url) parsed.avatarUpdatedAt = new Date().toISOString(); else delete parsed.avatarUpdatedAt;
+        storage.setItem('user', JSON.stringify(parsed));
+      } catch (err) {
+        console.warn('syncUserAvatarCache error', err);
+      }
+    });
+  }
+
+  async function uploadAvatarFile(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(AVATAR_UPLOAD_ENDPOINT, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+
+    let parsed = null;
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      try { parsed = await response.json(); } catch (_) { parsed = null; }
+    } else {
+      const text = await response.text();
+      try { parsed = JSON.parse(text); } catch (_) { parsed = { success: response.ok, message: text }; }
+    }
+
+    if (!response.ok || !parsed || parsed.success === false) {
+      const message = (parsed && parsed.message) ? parsed.message : `Error del servidor (${response.status})`;
+      throw new Error(message);
+    }
+
+    if (!parsed.data || !parsed.data.url) {
+      throw new Error('Respuesta inválida del servidor al subir el avatar');
+    }
+
+    return parsed.data;
+  }
+
+  async function deleteServerAvatar() {
+    const response = await fetch(AVATAR_DELETE_ENDPOINT, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    let parsed = null;
+    try { parsed = await response.json(); } catch (_) { parsed = null; }
+
+    if (!response.ok || !parsed || parsed.success === false) {
+      const message = (parsed && parsed.message) ? parsed.message : `Error del servidor (${response.status})`;
+      throw new Error(message);
+    }
+
+    return parsed.data || { url: null };
+  }
+
+  async function handleAvatarInputChange(event) {
+    try {
+      const context = __avatarCurrentTarget;
+      __avatarCurrentTarget = null;
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!context || !context.avatar || !file) return;
+      if (file.size > MAX_AVATAR_BYTES) {
+        alert(`La imagen es demasiado grande. El tamaño máximo es ${(MAX_AVATAR_BYTES / 1024 / 1024).toFixed(1)} MB.`);
+        return;
+      }
+      setAvatarUploading(context.wrapper, true);
+      try {
+        const result = await uploadAvatarFile(file);
+        clearStoredAvatar({ username: context.username });
+        syncUserAvatarCache(result.url || '', result.fileId || '');
+        context.avatar.setAttribute('data-server-avatar', result.url || '');
+        context.avatar.setAttribute('data-avatar-file-id', result.fileId || '');
+        applyAvatarImage(context.avatar, { url: result.url, source: 'server', wrapper: context.wrapper });
+      } finally {
+        setAvatarUploading(context.wrapper, false);
+      }
+    } catch (err) {
+      console.warn('No se pudo actualizar la foto del usuario', err);
+      const message = err && err.message ? err.message : 'Intenta con otro archivo de imagen.';
+      alert(`No se pudo actualizar la foto. ${message}`);
+    }
+  }
+
+  async function clearAvatarImage(avatarEl, wrapper) {
+    if (!avatarEl) return;
+    const username = avatarEl.getAttribute('data-avatar-username') || '';
+    if (!username) return;
+    clearStoredAvatar({ username });
+    const hadServer = wrapper && wrapper.getAttribute('data-has-server') === 'true';
+    if (hadServer) {
+      setAvatarUploading(wrapper, true);
+      try {
+        await deleteServerAvatar();
+        syncUserAvatarCache('', '');
+      } catch (error) {
+        console.warn('No se pudo eliminar el avatar del servidor', error);
+        alert(`No se pudo eliminar la foto: ${error?.message || 'Error desconocido'}`);
+        return;
+      } finally {
+        setAvatarUploading(wrapper, false);
+      }
+    }
+    const profile = avatarEl.getAttribute('data-profile-avatar') || '';
+    if (profile) {
+      applyAvatarImage(avatarEl, { url: profile, source: 'profile', wrapper });
+    } else {
+      applyAvatarImage(avatarEl, { url: '', source: '', wrapper });
+    }
+    avatarEl.setAttribute('data-server-avatar', '');
+    avatarEl.setAttribute('data-avatar-file-id', '');
+  }
+
+  function applyAvatarImage(avatarEl, options = {}) {
+    const wrapper = options.wrapper || avatarEl.closest('[data-avatar-wrapper]');
+    const url = options.url || '';
+    const source = options.source || '';
+
+    if (url) {
+      let img = avatarEl.querySelector('[data-avatar-img]');
+      if (!img) {
+        img = document.createElement('img');
+        img.setAttribute('data-avatar-img', '');
+        img.className = 'user-avatar-img';
+        img.alt = 'Foto de usuario';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        avatarEl.insertBefore(img, avatarEl.firstChild);
+      }
+      avatarEl.setAttribute('data-photo-state', 'loading');
+      avatarEl.setAttribute('data-avatar-source', source);
+      if (source === 'server') {
+        avatarEl.setAttribute('data-server-avatar', url);
+      }
+      img.onload = () => {
+        avatarEl.setAttribute('data-photo-state', 'loaded');
+        if (wrapper) {
+          wrapper.setAttribute('data-has-local', source === 'local' ? 'true' : 'false');
+          wrapper.setAttribute('data-has-profile', source === 'profile' ? 'true' : 'false');
+          wrapper.setAttribute('data-has-server', source === 'server' ? 'true' : 'false');
+        }
+      };
+      img.onerror = () => {
+        avatarEl.setAttribute('data-photo-state', 'fallback');
+        try { img.remove(); } catch(_){ }
+        if (wrapper) {
+          wrapper.setAttribute('data-has-local', 'false');
+          if (source === 'profile') wrapper.setAttribute('data-has-profile', 'false');
+          if (source === 'server') wrapper.setAttribute('data-has-server', 'false');
+        }
+      };
+      if (img.getAttribute('src') !== url) img.src = url;
+    } else {
+      const img = avatarEl.querySelector('[data-avatar-img]');
+      if (img) {
+        try { img.remove(); } catch(_){ }
+      }
+      avatarEl.setAttribute('data-photo-state', 'fallback');
+      avatarEl.setAttribute('data-avatar-source', '');
+      if (wrapper) {
+        wrapper.setAttribute('data-has-local', 'false');
+        wrapper.setAttribute('data-has-profile', 'false');
+        wrapper.setAttribute('data-has-server', 'false');
+      }
+    }
+  }
+
+  // Función para configurar el interruptor de tema
+  function setupThemeSwitcher() {
+    const themeSwitcherBtn = document.getElementById('theme-switcher-btn');
+    if (!themeSwitcherBtn) return;
+
+    const body = document.body;
+    const icon = themeSwitcherBtn.querySelector('i');
+
+    // Función para aplicar el tema
+    const labelEl = document.getElementById('theme-switcher-label');
+    const applyTheme = (theme) => {
+      if (theme === 'dark') {
+        body.classList.add('dark-theme');
+        if (icon) { icon.className = 'fas fa-sun'; }
+        if (labelEl) labelEl.textContent = 'Modo Claro';
+        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo claro';
+      } else {
+        body.classList.remove('dark-theme');
+        if (icon) { icon.className = 'fas fa-moon'; }
+        if (labelEl) labelEl.textContent = 'Modo Oscuro';
+        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo oscuro';
+      }
+    };
+
+    // Cargar el tema guardado al iniciar
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+
+    // Evento de clic para cambiar el tema
+    themeSwitcherBtn.addEventListener('click', () => {
+      const isDark = body.classList.contains('dark-theme');
+      const newTheme = isDark ? 'light' : 'dark';
+      localStorage.setItem('theme', newTheme);
+      applyTheme(newTheme);
+    });
+  }
+
+  // Cargar sidebar inmediatamente
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.loadSidebar);
+  } else {
+    window.loadSidebar();
+  }
+
+  // Recargar sidebar cuando el usuario se autentique (para actualizar el rol)
+  document.addEventListener('user:authenticated', function(event) {
+    setTimeout(() => {
+      window.loadSidebar(true);
+    }, 100);
+  });
+
+  // Ensure clicking any sidebar link navigates to the page (workaround for potential interceptors/overlays)
+  document.addEventListener('click', function forceSidebarNav(ev) {
+    try {
+      const a = ev.target && ev.target.closest ? ev.target.closest('a.btn-sidebar[href]') : null;
+      if (!a) return;
+      const href = (a.getAttribute && a.getAttribute('href')) || '';
+      if (!href || href === '#' || href.startsWith('javascript:')) return;
+      // Force navigation to avoid preventDefault from other handlers or overlays capturing clicks
+      try { ev.preventDefault(); } catch(_) {}
+      try {
+        const decoded = decodeURIComponent(href);
+        window.location.href = decoded;
+      } catch (e) {
+        window.location.href = href;
+      }
+    } catch (_) { /* ignore */ }
+  }, true);
+
+  // Support navigation for local admin CRM sidebar that renders <button> items (no <a href>)
+  // We map the visible label to the actual page and force navigation.
+  (function setupAdminLocalSidebarButtonNav(){
+    const LABEL_TO_HREF = {
+      'inicio': '/inicio.html',
+      'formulario': '/formulario-registro.html',
+      'lead': '/lead.html',
+      'nuevo lead': '/nuevo-lead.html',
+      'lista de clientes': '/Costumer.html',
+      'ranking y promociones': '/Ranking y Promociones.html',
+      'estadisticas': '/Estadisticas.html',
+      'estadísticas': '/Estadisticas.html',
+      'facturacion': '/facturacion.html',
+      'facturación': '/facturacion.html',
+      'empleado del mes': '/empleado-del-mes.html',
+      'tabla de puntaje': '/Tabla de puntaje.html',
+      'multimedia': '/multimedia.html',
+      'reglas y puntajes': '/Reglas.html',
+      'crear cuenta': '/crear-cuenta.html'
+    };
+    function getMappedHrefFromLabel(text){
+      if (!text) return '';
+      const t = String(text).trim().toLowerCase();
+      // Quick filters to keep internal actions inside CRM dashboard
+      if (t.includes('team ')) return '';
+      if (t.includes('cambiar tema')) return '';
+      if (t.includes('cerrar sesión') || t.includes('cerrar sesion')) return '';
+      return LABEL_TO_HREF[t] || '';
+    }
+    document.addEventListener('click', function(ev){
+      try {
+        // Only handle clicks within the left sidebar
+        const btn = ev.target && ev.target.closest ? ev.target.closest('.sidebar .nav-item, .sidebar .submenu-item') : null;
+        if (!btn) return;
+        // Ignore anchors (handled above)
+        if (btn.tagName && btn.tagName.toLowerCase() === 'a') return;
+        const labelEl = btn.querySelector('.nav-item-content span:nth-child(2)') || btn.querySelector('span');
+        const labelText = labelEl ? (labelEl.textContent || '') : (btn.textContent || '');
+        const href = getMappedHrefFromLabel(labelText);
+        if (!href) return;
+        // Force navigation
+        try { ev.preventDefault(); } catch(_){ }
+        try {
+          const decoded = decodeURIComponent(href);
+          window.location.href = decoded;
+        } catch (e) {
+          window.location.href = href;
+        }
+      } catch (_) { /* ignore */ }
+    }, true);
+  })();
+
+  // Auto-cargar sidebar por defecto en todas las páginas que incluyan este loader.
+  // (Evita que cada HTML tenga que llamar manualmente window.loadSidebar())
+  (function autoLoadSidebarOnce(){
+    function run() {
+      try {
+        if (window.__SIDEBAR_AUTOLOAD_DISABLED === true) return;
+        if (window.__SIDEBAR_AUTOLOADED === true) return;
+        if (typeof window.loadSidebar !== 'function') return;
+        window.__SIDEBAR_AUTOLOADED = true;
+        window.loadSidebar(false);
+      } catch (_) { /* ignore */ }
+    }
+
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+      } else {
+        setTimeout(run, 0);
+      }
+    } catch (_) { /* ignore */ }
+  })();
+
+  // ── Cargar sistema de notificaciones CRM en todas las páginas ──
+  (function() {
+    if (window.__CRM_NOTIF_LOADED__) return;
+    var s = document.createElement('script');
+    s.src = '/js/crm-notifications.js';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+
+
+})();

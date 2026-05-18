@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Comisiones · Residencial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="js/fetch-interceptor.js" defer></script>
+  <script src="js/sidebar-loader.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <style>
+    :root {
+      --bg:        #f1f3f7;
+      --surface:   #ffffff;
+      --surface2:  #f8f9fb;
+      --border:    rgba(0,0,0,.07);
+      --border2:   rgba(0,0,0,.12);
+      --ink:       #0c0e14;
+      --ink2:      #4a5068;
+      --ink3:      #9098b0;
+      --gold:      #c49a00;
+      --gold-dim:  rgba(196,154,0,.09);
+      --gold-glow: rgba(196,154,0,.2);
+      --green:     #16a34a;
+      --green-dim: rgba(22,163,74,.1);
+      --red:       #dc2626;
+      --red-dim:   rgba(220,38,38,.09);
+      --blue:      #2563eb;
+      --blue-dim:  rgba(37,99,235,.09);
+      --nav-w:     220px;
+      --f:         'Syne', sans-serif;
+      --fm:        'DM Mono', monospace;
+      --r:         10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--f);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: var(--nav-w); min-height: 100vh; position: fixed; top:0; left:0; z-index:200; background:var(--ink); }
+    .main { margin-left: var(--nav-w); flex:1; padding: 28px 32px 60px; max-width: 1400px; }
+
+    /* ── Header ── */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+    }
+    .page-title-block { display: flex; flex-direction: column; gap: 4px; }
+    .page-eyebrow {
+      font-size: .68rem; font-weight: 700; letter-spacing: .15em;
+      text-transform: uppercase; color: var(--gold); font-family: var(--fm);
+    }
+    .page-title {
+      font-size: 1.8rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink);
+      line-height: 1;
+    }
+    .page-subtitle { font-size: .8rem; color: var(--ink2); margin-top: 2px; }
+
+    /* ── Month picker ── */
+    .month-nav {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--r); padding: 4px;
+    }
+    .month-btn {
+      width: 30px; height: 30px; border-radius: 6px; border: none;
+      background: transparent; color: var(--ink2); cursor: pointer; font-size: .9rem;
+      display: flex; align-items: center; justify-content: center; transition: all .12s;
+    }
+    .month-btn:hover { background: var(--border2); color: var(--ink); }
+    .month-label {
+      font-family: var(--fm); font-size: .82rem; font-weight: 500;
+      color: var(--ink); padding: 0 10px; min-width: 110px; text-align: center;
+    }
+
+    /* ── View toggle (admin only) ── */
+    .view-toggle {
+      display: flex; gap: 4px; background: var(--surface2);
+      border: 1px solid var(--border2); border-radius: var(--r); padding: 4px;
+    }
+    .vtab {
+      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+      font-family: var(--f); font-size: .75rem; font-weight: 700;
+      color: var(--ink2); background: transparent; transition: all .12s; letter-spacing: .03em;
+    }
+    .vtab.active { background: var(--gold); color: #000; }
+
+    /* ── KPI Strip ── */
+    .kpi-strip {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .15s;
+    }
+    .kpi-card:hover { border-color: var(--border2); }
+    .kpi-card.gold { border-color: rgba(245,200,66,.3); background: var(--gold-dim); }
+    .kpi-card.green { border-color: rgba(34,197,94,.3); background: var(--green-dim); }
+    .kpi-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+    .kpi-val { font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink); font-family: var(--fm); }
+    .kpi-val.gold { color: var(--gold); }
+    .kpi-val.green { color: var(--green); }
+    .kpi-sub { font-size: .68rem; color: var(--ink2); }
+
+    /* ── Escala badge ── */
+    .escala-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--gold-dim); border: 1px solid rgba(245,200,66,.35);
+      border-radius: var(--r); padding: 8px 14px;
+      font-family: var(--fm); font-size: .78rem; font-weight: 500; color: var(--gold);
+    }
+    .escala-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink:0; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 32px; }
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink2);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::before { content:''; display:block; width:20px; height:2px; background:var(--gold); border-radius:2px; }
+
+    /* ── Agent card (admin grid) ── */
+    .agents-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
+    }
+    .agent-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 20px; position: relative;
+      transition: border-color .15s, transform .15s;
+      cursor: default;
+    }
+    .agent-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+    .agent-card.no-meta { opacity: .55; }
+
+    .agent-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .agent-avatar {
+      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .82rem; color: var(--gold); letter-spacing: .05em;
+    }
+    .agent-name { font-size: .9rem; font-weight: 700; color: var(--ink); }
+    .agent-team { font-size: .68rem; color: var(--ink2); margin-top: 1px; }
+
+    .agent-rows { display: flex; flex-direction: column; gap: 7px; }
+    .agent-row { display: flex; justify-content: space-between; align-items: center; }
+    .agent-row-lbl { font-size: .7rem; color: var(--ink2); }
+    .agent-row-val { font-family: var(--fm); font-size: .78rem; font-weight: 500; color: var(--ink); }
+    .agent-row-val.gold { color: var(--gold); }
+    .agent-row-val.green { color: var(--green); }
+    .agent-row-val.red { color: var(--red); }
+
+    /* Progress bar */
+    .prog-wrap { margin-top: 12px; }
+    .prog-lbl { display: flex; justify-content: space-between; font-size: .65rem; color: var(--ink3); margin-bottom: 5px; }
+    .prog-track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--gold), #ffdf6b); transition: width .5s ease; }
+    .prog-fill.green { background: linear-gradient(90deg, var(--green), #4ade80); }
+
+    /* ══ MI VISTA — redesign ══════════════════════════ */
+
+    /* Hero card */
+    .sv-hero {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px; padding: 28px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; margin-bottom: 16px; position: relative; overflow: hidden;
+    }
+    .sv-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 55% 80% at 90% 50%, rgba(196,154,0,.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    /* Admin nav wrapper */
+    .sv-nav-wrap {
+      display: flex; align-items: stretch; gap: 0; margin-bottom: 16px;
+    }
+    .sv-nav-wrap .sv-hero {
+      flex: 1; margin-bottom: 0; border-radius: 0;
+      border-left: none; border-right: none;
+    }
+    .sv-nav-btn {
+      width: 44px; flex-shrink: 0;
+      background: var(--surface); border: 1px solid var(--border2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--ink2); transition: all .12s;
+    }
+    .sv-nav-btn:first-child { border-radius: 16px 0 0 16px; }
+    .sv-nav-btn:last-child  { border-radius: 0 16px 16px 0; }
+    .sv-nav-btn:hover { background: var(--surface2); color: var(--ink); }
+    .sv-nav-btn:disabled { opacity: .3; cursor: default; }
+    .sv-nav-counter {
+      text-align: center; font-size: .62rem; color: var(--ink3);
+      font-family: var(--fm); margin-top: 6px; margin-bottom: 10px;
+    }
+
+    .sv-hero-left { display: flex; align-items: center; gap: 18px; flex: 1; min-width: 0; }
+    .sv-avatar {
+      width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
+      background: var(--gold-dim); border: 1px solid rgba(196,154,0,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1rem; color: var(--gold); letter-spacing: .04em;
+    }
+    .sv-agent-info { min-width: 0; }
+    .sv-agent-name {
+      font-size: 1.1rem; font-weight: 800; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sv-agent-meta { font-size: .7rem; color: var(--ink3); margin-top: 3px; }
+    .sv-escala-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--gold-dim); border: 1px solid rgba(196,154,0,.28);
+      border-radius: 20px; padding: 4px 10px; margin-top: 8px;
+      font-size: .63rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--gold);
+    }
+    .sv-escala-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+    .sv-hero-right { text-align: right; flex-shrink: 0; }
+    .sv-comm-lbl {
+      font-size: .6rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--ink3); margin-bottom: 6px;
+    }
+    .sv-comm-amount {
+      font-family: var(--fm); font-size: 3.4rem; font-weight: 500;
+      color: var(--gold); letter-spacing: -.04em; line-height: 1;
+    }
+    .sv-comm-amount.no-meta { color: var(--ink3); font-size: 2.4rem; }
+    .sv-comm-basis { font-size: .7rem; color: var(--ink3); margin-top: 6px; }
+
+    /* ── Mi Vista body layout ── */
+    .sv-body {
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    /* Row 1: 4 stat cards */
+    .sv-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    }
+    /* Row 2: track (60%) + breakdown (40%) side by side */
+    .sv-mid-row {
+      display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items: start;
+    }
+    .sv-track-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px 32px 36px;
+    }
+    /* Breakdown */
+    .sv-breakdown {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 26px 28px;
+    }
+    /* Row 3: Ventas table full width */
+    .sv-ventas-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .sv-ventas-head {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sv-ventas-head::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
+    .sv-vtable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .sv-vtable thead tr { background: var(--surface2); }
+    .sv-vtable thead th {
+      padding: 9px 16px; text-align: left; font-size: .6rem; font-weight: 700;
+      letter-spacing: .09em; text-transform: uppercase; color: var(--ink3);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .sv-vtable tbody tr { border-bottom: 1px solid var(--border); transition: background .07s; }
+    .sv-vtable tbody tr:last-child { border-bottom: none; }
+    .sv-vtable tbody tr:hover { background: var(--surface2); }
+    .sv-vtable tbody td { padding: 10px 16px; color: var(--ink2); vertical-align: middle; }
+    .sv-vtable tbody td:first-child { color: var(--ink); font-weight: 600; }
+    .sv-vbadge {
+      display: inline-flex; padding: 2px 7px; border-radius: 20px;
+      font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .sv-vbadge.colchon { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(37,99,235,.2); }
+    .sv-vbadge.venta   { background: var(--green-dim); color: var(--green); border: 1px solid rgba(22,163,74,.2); }
+
+    .sv-stat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .12s;
+    }
+    .sv-stat:hover { border-color: var(--border2); }
+    .sv-stat.accent-gold { border-color: rgba(196,154,0,.25); background: rgba(196,154,0,.04); }
+    .sv-stat.accent-green { border-color: rgba(22,163,74,.25); background: rgba(22,163,74,.04); }
+    .sv-stat-lbl {
+      font-size: .6rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3);
+    }
+    .sv-stat-val {
+      font-family: var(--fm); font-size: 2rem; font-weight: 500;
+      color: var(--ink); letter-spacing: -.03em; line-height: 1;
+    }
+    .sv-stat-val.gold { color: var(--gold); }
+    .sv-stat-val.green { color: var(--green); }
+    .sv-stat-sub { font-size: .62rem; color: var(--ink3); }
+
+    /* Track */
+    .sv-track-title {
+      font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3); margin-bottom: 36px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sv-track-title::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
+    .sv-track-wrap { position: relative; padding: 0 0 38px; }
+    .sv-track-line {
+      position: absolute; top: 13px; left: 0; right: 0; height: 5px;
+      background: var(--surface2); border-radius: 3px; overflow: hidden;
+    }
+    .sv-track-line-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--green) 0%, #4ade80 100%);
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+    }
+    .sv-track-nodes {
+      position: relative; display: flex; justify-content: space-between;
+    }
+    .sv-track-node { display: flex; flex-direction: column; align-items: center; }
+    .sv-track-dot {
+      width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border2);
+      background: var(--surface2); display: flex; align-items: center; justify-content: center;
+      font-size: .62rem; font-weight: 800; color: var(--ink3);
+      transition: all .3s; position: relative; z-index: 1;
+    }
+    .sv-track-dot.reached {
+      background: var(--green); border-color: var(--green);
+      color: #fff; box-shadow: 0 0 0 5px rgba(22,163,74,.12);
+    }
+    .sv-track-dot.current {
+      background: var(--gold); border-color: var(--gold);
+      color: #000; box-shadow: 0 0 0 6px rgba(196,154,0,.18);
+      width: 34px; height: 34px; font-size: .7rem;
+    }
+    .sv-track-node-lbl {
+      margin-top: 10px; font-family: var(--fm); font-size: .7rem;
+      font-weight: 600; color: var(--ink3); white-space: nowrap;
+    }
+    .sv-track-node-lbl.reached { color: var(--green); }
+    .sv-track-node-lbl.current { color: var(--gold); }
+    .sv-track-node-rate {
+      font-size: .62rem; color: var(--ink3); margin-top: 4px; white-space: nowrap;
+    }
+    .sv-track-node-rate.reached { color: var(--green); }
+    .sv-track-node-rate.current { color: var(--gold); font-weight: 700; }
+
+    /* Breakdown */
+    .sv-breakdown-title {
+      font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sv-breakdown-title::before { content:''; display:block; width:16px; height:2px; background:var(--gold); border-radius:2px; }
+    .sv-breakdown-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 0; font-size: .9rem; color: var(--ink2);
+      border-bottom: 1px solid var(--border);
+    }
+    .sv-breakdown-row:last-child { border-bottom: none; }
+    .sv-breakdown-row.total {
+      font-weight: 700; font-size: 1rem; color: var(--ink); padding-top: 16px;
+    }
+    .sv-breakdown-val { font-family: var(--fm); font-size: 1rem; font-weight: 600; color: var(--ink); }
+    .sv-breakdown-val.gold { color: var(--gold); }
+    .sv-breakdown-val.green { color: var(--green); font-size: 1.1rem; }
+
+    @media (max-width: 900px) {
+      .sv-mid-row { grid-template-columns: 1fr; }
+      .sv-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .sv-hero { flex-direction: column; align-items: flex-start; }
+      .sv-hero-right { text-align: left; }
+      .sv-stats { grid-template-columns: 1fr 1fr; }
+      .sv-comm-amount { font-size: 2.4rem; }
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); overflow: hidden;
+    }
+    .ctable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .ctable thead tr { background: var(--surface2); }
+    .ctable thead th {
+      padding: 10px 14px; text-align: left; font-size: .62rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--ink3);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .ctable tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
+    .ctable tbody tr:last-child { border-bottom: none; }
+    .ctable tbody tr:hover { background: var(--surface2); }
+    .ctable tbody td { padding: 11px 14px; color: var(--ink2); vertical-align: middle; }
+    .ctable tbody td:first-child { color: var(--ink); font-weight: 600; }
+    .mono { font-family: var(--fm); font-size: .76rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: .63rem; font-weight: 700;
+      letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+    }
+    .badge-gold { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(245,200,66,.3); }
+    .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .badge-gray { background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid var(--border); }
+    .sv-pay-strip { grid-template-columns: repeat(6,1fr) !important; }
+    .sv-stat-input { position: relative; }
+    .sv-input-wrap { display:flex; align-items:center; gap:4px; margin-top:4px; }
+    .sv-input-prefix { font-size:1.1rem; font-weight:700; color:var(--ink2); }
+    .sv-num-input {
+      font-family:var(--fm); font-size:1.1rem; font-weight:700; color:var(--ink);
+      border:none; border-bottom:2px solid var(--border2); background:transparent;
+      outline:none; width:100%; padding:2px 0;
+    }
+    .sv-num-input:focus { border-bottom-color:var(--gold); }
+    .badge-nuevo1 { background: rgba(37,99,235,.1); color: var(--blue); border: 1px solid rgba(37,99,235,.25); cursor:pointer; }
+    .badge-nuevo2 { background: rgba(22,163,74,.1); color: var(--green); border: 1px solid rgba(22,163,74,.25); cursor:pointer; }
+    .badge-regular { background: rgba(0,0,0,.05); color: var(--ink3); border: 1px solid var(--border); cursor:pointer; }
+
+    /* ── Loading ── */
+    .loader-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 20px; color: var(--ink2); font-size: .8rem; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty ── */
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 20px; color: var(--ink2); font-size: .78rem; text-align: center; }
+    .empty-icon { font-size: 2rem; opacity: .4; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .main { margin-left: 0; padding: 16px; }
+      .sidebar { display: none; }
+      .agents-grid { grid-template-columns: 1fr; }
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 8px; font-size: .8rem; font-weight: 700;
+      z-index: 9999; animation: toastIn .2s ease; box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .toast.ok { background: var(--green); color: #000; }
+    .toast.err { background: var(--red); color: #fff; }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+    /* ── Divider ── */
+    hr.dim { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    /* No meta tag */
+    .no-meta-tag {
+      position: absolute; top: 10px; right: 10px;
+      font-size: .6rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--ink3);
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 4px;
+    }
+
+    /* ── DARK MODE ── */
+    body.dark-theme {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --surface2: #162032;
+      --border:   rgba(255,255,255,.06);
+      --border2:  rgba(255,255,255,.11);
+      --ink:      #e2e8f0;
+      --ink2:     #94a3b8;
+      --ink3:     #64748b;
+    }
+    body.dark-theme .vtab.active { color: #0f172a !important; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
+  <main class="main" id="main-content">
+    <div class="loader-wrap" id="page-loader">
+      <div class="spinner"></div>
+      <span>Cargando comisiones...</span>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   AUTH helpers
+══════════════════════════════════════════════════════ */
+const AUTH = (function(){
+  const TK='token', UK='crm_user';
+  function getToken(){ return localStorage.getItem(TK)||sessionStorage.getItem(TK)||null; }
+  function getUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; } }
+  function redirectLogin(){ sessionStorage.setItem('crm_redirect_after_login', window.location.pathname); window.location.replace('/login.html'); }
+  function check(){ const t=getToken(); if(!t){ redirectLogin(); return null; } return t; }
+  async function sf(url,opts){
+    const t=check(); if(!t) return null;
+    const headers=Object.assign({'Authorization':'Bearer '+t,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
+    try{
+      const res=await fetch(url,Object.assign({},opts,{headers}));
+      if(res.status===401){ redirectLogin(); return null; }
+      return res;
+    }catch(e){ return null; }
+  }
+  return { getToken, getUser, check, sf, redirectLogin };
+})();
+
+/* ══════════════════════════════════════════════════════
+   ROLE HELPERS
+══════════════════════════════════════════════════════ */
+function isAdmin(role){
+  const r=String(role||'').toLowerCase();
+  return ['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo'].some(v=>r===v||r.includes(v));
+}
+function isAgentRole(role){
+  const r=String(role||'').toLowerCase();
+  return ['agente','agent','agentes','vendedor','vendedores','seller'].some(v=>r===v||r.includes(v));
+}
+
+/* ══════════════════════════════════════════════════════
+   COMMISSION FORMULA — RESIDENCIAL
+   Solo cuenta: completed del mes + colchones completed
+   Escala basada en puntos (floor):
+     17-20 → $6/pto | 21-25 → $12/pto | 26-30 → $15/pto | 31+ → $18/pto
+   Decimal bonus (solo si puntos >= 17):
+     .25/.35 → +$2 | .45/.75 → +$3 | .80/.85 → +$4
+══════════════════════════════════════════════════════ */
+function calcComision(puntos) {
+  const p = (typeof puntos === 'number' ? puntos : parseFloat(puntos||0)) || 0;
+  if (p < 17) return 0;
+
+  const base = Math.floor(p);
+  let tasa = 0;
+  if      (base >= 31) tasa = 18;
+  else if (base >= 26) tasa = 15;
+  else if (base >= 21) tasa = 12;
+  else if (base >= 17) tasa = 6;
+
+  const frac = parseFloat((p - base).toFixed(2));
+  let bonus = 0;
+  if (frac >= 0.85)      bonus = 4;
+  else if (frac >= 0.80) bonus = 4;
+  else if (frac >= 0.75) bonus = 3;
+  else if (frac >= 0.45) bonus = 3;  // Changed from 0.50 to 0.45
+  else if (frac >= 0.35) bonus = 2;
+  else if (frac >= 0.25) bonus = 2;
+
+  return (base * tasa) + bonus;
+}
+
+function getEscala(p) {
+  if (p >= 31) return 'Escala 31+';
+  if (p >= 26) return 'Escala 26-30';
+  if (p >= 21) return 'Escala 21-25';
+  if (p >= 17) return 'Escala 17-20';
+  return 'Sin meta';
+}
+
+function getTasa(p) {
+  if (p >= 31) return 18;
+  if (p >= 26) return 15;
+  if (p >= 21) return 12;
+  if (p >= 17) return 6;
+  return 0;
+}
+
+function getEscalaPct(p) {
+  if (p >= 31) return 100;
+  if (p >= 26) return Math.min(100, ((p-26)/(31-26))*100);
+  if (p >= 21) return Math.min(100, ((p-21)/(26-21))*100);
+  if (p >= 17) return Math.min(100, ((p-17)/(21-17))*100);
+  return Math.min(100, (p/17)*100);
+}
+
+/* ══════════════════════════════════════════════════════
+   AGENTE NUEVO LOGIC
+   Mes 1: sin meta, todos los pts × $5 + bonus decimal
+   Mes 2: meta 14 pts, desde 14 pts × $6 + bonus decimal
+══════════════════════════════════════════════════════ */
+function _bonusDecimal(p) {
+  const frac = parseFloat((p - Math.floor(p)).toFixed(2));
+  // Redondeo: 0.45 se trata como 0.50 y paga $3
+  if (frac >= 0.80) return 4;
+  if (frac >= 0.75) return 3;
+  if (frac >= 0.45) return 3;  // Changed from 0.50 to 0.45 (includes 0.45-0.49 → $3)
+  if (frac >= 0.35) return 2;
+  if (frac >= 0.25) return 2;
+  return 0;
+}
+
+function calcComisionNuevo(p, mes) {
+  if (mes === 1) {
+    // Mes 1: pts enteros × $10 + bonus decimal (misma tabla que regulares)
+    return (Math.floor(p) * 10) + _bonusDecimal(p);
+  }
+  if (mes === 2) {
+    // Mes 2: misma escala que regular pero meta mínima 14 pts
+    if (p < 14) return 0;
+    const base = Math.floor(p);
+    let tasa = 0;
+    if      (base >= 31) tasa = 18;
+    else if (base >= 26) tasa = 15;
+    else if (base >= 21) tasa = 12;
+    else                 tasa = 6;
+    return (base * tasa) + _bonusDecimal(p);
+  }
+  return calcComision(p);
+}
+
+function getEscalaNuevo(p, mes) {
+  if (mes === 1) return 'Nuevo · Mes 1 ($10/pto)';
+  if (mes === 2) {
+    if (p < 14) return 'Sin meta (mín. 14)';
+    if (p >= 31) return 'Nuevo M2 · 31+';
+    if (p >= 26) return 'Nuevo M2 · 26-30';
+    if (p >= 21) return 'Nuevo M2 · 21-25';
+    return 'Nuevo M2 · 14-20';
+  }
+  return getEscala(p);
+}
+
+function getTasaNuevo(p, mes) {
+  if (mes === 1) return 10;
+  if (mes === 2) {
+    if (p < 14) return 0;
+    if (p >= 31) return 18;
+    if (p >= 26) return 15;
+    if (p >= 21) return 12;
+    return 6;
+  }
+  return getTasa(p);
+}
+
+function getEscalaPctNuevo(p, mes) {
+  if (mes === 1) return Math.min(100, (p / 25) * 100);
+  if (mes === 2) return p < 14 ? Math.min(100, (p/14)*100) : getEscalaPct(p);
+  return getEscalaPct(p);
+}
+
+// _usersCreatedAt: mapa normalizedKey → createdAt (string ISO)
+let _usersCreatedAt = {};
+
+async function loadUsersCreatedAt(){
+  try {
+    const res = await AUTH.sf('/api/users/admin-list');
+    if(!res||!res.ok) {
+      console.warn('[Comisiones] /api/users/admin-list error:', res?.status);
+      return;
+    }
+    const data = await res.json();
+    const list = data.users || data.agents || [];
+    console.log('[Comisiones] Usuarios cargados:', list.length);
+    _usersCreatedAt = {};
+    list.forEach(u => {
+      if(!u.createdAt) {
+        console.log('[Comisiones] Sin createdAt:', u.name||u.username);
+        return;
+      }
+      const key = normalizeStringForCompare(u.name||u.username||'').replace(/\./g,' ').trim();
+      if(key) {
+        _usersCreatedAt[key] = u.createdAt;
+        console.log('[Comisiones] Mapped:', key, '→', u.createdAt);
+      }
+      // también por username sin puntos
+      const ukey = normalizeStringForCompare(u.username||'').replace(/\./g,' ').trim();
+      if(ukey && ukey !== key) {
+        _usersCreatedAt[ukey] = u.createdAt;
+        console.log('[Comisiones] Mapped (alt):', ukey, '→', u.createdAt);
+      }
+    });
+    console.log('[Comisiones] _usersCreatedAt total:', Object.keys(_usersCreatedAt).length);
+  } catch(e){
+    console.error('[Comisiones] Error en loadUsersCreatedAt:', e);
+    _usersCreatedAt = {};
+  }
+}
+
+// Devuelve cuántos meses han pasado desde la creación del usuario hasta el mes visualizado
+function getMonthsWorked(agentKey, targetYM){
+  const createdAt = _usersCreatedAt[agentKey];
+  if(!createdAt) {
+    // console.log('[getMonthsWorked] No encontrado:', agentKey, '→ regular');
+    return 99; // no encontrado → regular
+  }
+  const created = new Date(createdAt);
+  const [ty, tm] = targetYM.split('-').map(Number);
+  const months = (ty - created.getFullYear()) * 12 + (tm - (created.getMonth()+1));
+  console.log('[getMonthsWorked]', agentKey, 'createdAt:', createdAt, 'created month:', created.getFullYear()+'-'+(created.getMonth()+1), 'targetYM:', targetYM, 'months:', months);
+  return months;
+  // <0 → no existía aún, 0 → primer mes, 1 → segundo mes, 2+ → regular
+}
+
+// Tipo automático basado en createdAt, overrideable manualmente
+// localStorage override: { 'agentkey': 1|2|99 }  99=forzar regular
+function getNuevoMap() {
+  try { return JSON.parse(localStorage.getItem('com_nuevo_map')||'{}'); } catch { return {}; }
+}
+function setAgentOverride(agentKey, val) {
+  const m = getNuevoMap();
+  if(val === null) delete m[agentKey]; else m[agentKey] = val;
+  localStorage.setItem('com_nuevo_map', JSON.stringify(m));
+}
+
+function getAgentMes(agentKey, targetYM) {
+  const overrides = getNuevoMap();
+  if(agentKey in overrides) {
+    const val = overrides[agentKey] === 99 ? 0 : overrides[agentKey];
+    console.log('[getAgentMes]', agentKey, 'override:', overrides[agentKey], '→ tipo:', val);
+    return val;
+  }
+  // Auto-detect por antigüedad relativa al mes visualizado
+  const months = getMonthsWorked(agentKey, targetYM);
+  let tipo = 0;
+  if(months < 0) tipo = 0;  // no existía aún → regular
+  else if(months === 0) tipo = 1; // primer mes
+  else if(months === 1) tipo = 2; // segundo mes
+  else tipo = 0; // 2+ meses → regular
+  console.log('[getAgentMes]', agentKey, 'months:', months, '→ tipo:', tipo);
+  return tipo;
+}
+
+function fmtUSD2(n){
+  const v = typeof n==='number'?n:parseFloat(n||0)||0;
+  return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+window.updatePayKPIs = function(payKey, totalCom) {
+  const el = id => document.getElementById(id);
+  if(_excluidos[payKey]) {
+    if(el('kpi-total-com'))   el('kpi-total-com').textContent   = '$0.00';
+    if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = '$0.00';
+    if(el('kpi-renta'))       el('kpi-renta').textContent       = '−$0.00';
+    if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = '$0.00';
+    return;
+  }
+  const cbEl  = document.getElementById('kpi-cb-input');
+  const antEl = document.getElementById('kpi-anticipo-input');
+  const cb  = parseFloat((cbEl?.value  ?? cbEl?.textContent  ?? 0))||0;
+  const ant = parseFloat((antEl?.value ?? antEl?.textContent ?? 0))||0;
+  _payInputs[payKey+'_cb']  = cb;
+  _payInputs[payKey+'_ant'] = ant;
+  try{ localStorage.setItem('com_pay_inputs', JSON.stringify(_payInputs)); }catch{}
+  const sub   = totalCom - cb;
+  const renta = sub * 0.1;
+  const total = sub - renta - ant;
+  if(el('kpi-total-com'))   el('kpi-total-com').textContent   = fmtUSD2(totalCom);
+  if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = fmtUSD2(Math.max(0,sub));
+  if(el('kpi-renta'))       el('kpi-renta').textContent       = '−'+fmtUSD2(Math.max(0,renta));
+  if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = fmtUSD2(Math.max(0,total));
+};
+
+// Click cicla: auto → forzar M1 → forzar M2 → forzar regular → auto
+window.cycleAgentTipo = function(agentKey) {
+  const overrides = getNuevoMap();
+  const cur = agentKey in overrides ? overrides[agentKey] : 'auto';
+  if(cur === 'auto') setAgentOverride(agentKey, 1);
+  else if(cur === 1)  setAgentOverride(agentKey, 2);
+  else if(cur === 2)  setAgentOverride(agentKey, 99);
+  else                setAgentOverride(agentKey, null); // vuelve a auto
+  const ym = getYM(_month.year, _month.month);
+  _agents = aggregateAgents(_leads, ym);
+  render();
+};
+
+/* ══════════════════════════════════════════════════════
+   DATA HELPERS
+══════════════════════════════════════════════════════ */
+function normalizeStatus(s){
+  const v=String(s||'').trim().toLowerCase();
+  if(v==='completed'||v==='active'||v.includes('complet')||v.includes('activ')||v.includes('cerr')||v.includes('vend')) return 'completed';
+  if(v==='cancelled'||v.includes('cancel')) return 'cancelled';
+  if(v==='pending'||v.includes('pend')) return 'pending';
+  if(v==='hold'||v.includes('hold')) return 'hold';
+  if(v.includes('reserv')) return 'reserva';
+  if(v.includes('resche')||v.includes('reagend')) return 'rescheduled';
+  if(v.includes('oficin')) return 'oficina';
+  return v;
+}
+
+function getYM(y,m){ return y+'-'+String(m).padStart(2,'0'); }
+
+function isColchon(lead, targetYM){
+  const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
+  const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
+  if(!dv||!di) return false;
+  return dv !== targetYM && di === targetYM;
+}
+
+// Cuenta para comisión: completed del mes + colchón completed
+// REGLA: la venta cuenta en el mes en que se INSTALA, no en que se vende
+// - Venta normal: dia_venta === targetYM Y dia_instalacion === targetYM (o sin instalación)
+// - Colchón: dia_venta !== targetYM Y dia_instalacion === targetYM
+// - Venta futura: dia_venta === targetYM pero dia_instalacion en mes siguiente → NO cuenta aún
+function cuentaParaComision(lead, targetYM){
+  const st = normalizeStatus(lead.status);
+  if(st !== 'completed') return false;
+  const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
+  const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
+
+  // Colchón: vendido en mes anterior, instalado en targetYM → cuenta en targetYM
+  if(isColchon(lead, targetYM)) return true;
+
+  // Venta del mes: dia_venta === targetYM
+  if(dv === targetYM){
+    // Si tiene dia_instalacion en un mes FUTURO → no cuenta aún (será colchón del mes siguiente)
+    if(di && di > targetYM) return false;
+    return true;
+  }
+
+  return false;
+}
+
+function capName(s){
+  return String(s||'').trim().split(/\s+/)
+    .map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'').join(' ');
+}
+
+function initials(name){
+  return String(name||'').trim().split(/\s+/).slice(0,2)
+    .map(w=>w[0]||'').join('').toUpperCase()||'??';
+}
+
+function fmtUSD(n){
+  const v = typeof n==='number'?n:parseFloat(n||0)||0;
+  return '$'+v.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+function normalizeAgentName(s){
+  return String(s||'').replace(/\./g,' ').trim();
+}
+
+// Teams cache loaded from backend (/api/teams)
+let _teams = [];
+
+function normalizeStringForCompare(s){
+  try{ return String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
+  catch{ return String(s||'').trim().toLowerCase(); }
+}
+
+async function loadTeams(){
+  try{
+    const res = await AUTH.sf('/api/teams');
+    if(!res||!res.ok) return;
+    const data = await res.json();
+    _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
+  }catch(_){ _teams = []; }
+}
+
+function normalizeTeam(raw){
+  const r = String(raw||'').trim();
+  if(!r) return '';
+  const n = normalizeStringForCompare(r);
+  // Try to match against canonical teams loaded from backend
+  for(const t of (_teams||[])){
+    const candidates = [t.value, t.label, t.supervisor, t.supervisorName];
+    for(const c of candidates){
+      if(!c) continue;
+      if(normalizeStringForCompare(c) === n) return t.label || t.value;
+    }
+  }
+  // No exact match; heuristics: if raw looks like 'team' in upper case, return as-is
+  return r;
+}
+
+/* ══════════════════════════════════════════════════════
+   AGGREGATE — calcula puntos y comisión por agente
+   a partir de leads del mes
+══════════════════════════════════════════════════════ */
+function aggregateAgents(leads, targetYM){
+  const map = {};
+  leads.forEach(lead => {
+    if(!cuentaParaComision(lead, targetYM)) return;
+
+    const rawName = String(
+      lead.agenteNombre || lead.agente || lead.createdBy || lead.creadoPor || lead.usuario || ''
+    ).trim();
+    if(!rawName) return;
+    const normName = normalizeAgentName(rawName);
+    const key = normName.toLowerCase();
+    const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
+    const rawTeam = String(lead.supervisor||lead.equipo||lead.team||'').trim();
+    const team = normalizeTeam(rawTeam);
+    const esColchon = isColchon(lead, targetYM);
+
+    if(!map[key]){
+      map[key] = {
+        name:     capName(normName),
+        rawName:  normName,
+        team:     team,
+        puntos:   0,
+        ventas:   0,
+        colchones:0,
+      };
+    }
+    map[key].puntos += pts;
+    if(esColchon) map[key].colchones++;
+    else map[key].ventas++;
+    if(!map[key].team && team) map[key].team = team;
+  });
+
+  return Object.values(map).map(a => {
+    const p = parseFloat(a.puntos.toFixed(2));
+    const tipo = getAgentMes(a.rawName.toLowerCase().replace(/\./g,' ').trim(), targetYM);
+    return {
+      ...a,
+      puntos: p,
+      tipo,
+      comision: tipo > 0 ? calcComisionNuevo(p, tipo) : calcComision(p),
+      escala:   tipo > 0 ? getEscalaNuevo(p, tipo)    : getEscala(p),
+      tasa:     tipo > 0 ? getTasaNuevo(p, tipo)       : getTasa(p),
+      pct:      tipo > 0 ? getEscalaPctNuevo(p, tipo)  : getEscalaPct(p),
+      totalVentas: a.ventas + a.colchones,
+    };
+  }).sort((a,b) => {
+    // Primero los que comisionan (desc), luego los que no (desc por puntos)
+    if(a.comision > 0 && b.comision === 0) return -1;
+    if(b.comision > 0 && a.comision === 0) return 1;
+    if(a.comision > 0 && b.comision > 0) return b.comision - a.comision;
+    return b.puntos - a.puntos;
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let _user = null;
+let _view = 'admin'; // 'admin' | 'agent'
+// Persistir CB y Anticipo por mes: { '2026-04_cb': 18.90, '2026-04_ant': 50 }
+let _payInputs = (()=>{ try{ return JSON.parse(localStorage.getItem('com_pay_inputs')||'{}'); }catch{ return {}; } })();
+// Agentes excluidos de comisión: { 'ym_agkey': true }
+let _excluidos = (()=>{ try{ return JSON.parse(localStorage.getItem('com_excluidos')||'{}'); }catch{ return {}; } })();
+
+window.toggleExcluido = function(payKey, totalCom) {
+  _excluidos[payKey] = !_excluidos[payKey];
+  try{ localStorage.setItem('com_excluidos', JSON.stringify(_excluidos)); }catch{}
+  // Si se excluye, poner KPIs en 0; si se incluye, recalcular
+  const excluido = !!_excluidos[payKey];
+  const chk = document.getElementById('chk-comisiona');
+  if(chk) chk.checked = !excluido;
+  if(excluido){
+    const el = id => document.getElementById(id);
+    if(el('kpi-total-com'))   el('kpi-total-com').textContent   = '$0.00';
+    if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = '$0.00';
+    if(el('kpi-renta'))       el('kpi-renta').textContent       = '−$0.00';
+    if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = '$0.00';
+  } else {
+    window.updatePayKPIs(payKey, totalCom);
+    const el = document.getElementById('kpi-total-com');
+    if(el) el.textContent = fmtUSD2(totalCom);
+  }
+};
+let _month = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
+let _leads = [];
+let _agents = [];
+let _loading = false;
+let _agentIdx = -1; // -1 = propio usuario; 0..n = índice en _agents (solo admins)
+
+/* ══════════════════════════════════════════════════════
+   FETCH LEADS
+══════════════════════════════════════════════════════ */
+async function fetchLeads(){
+  // Para admins: scope=ranking trae todos los leads sin filtro de agente
+  const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
+  const res = await AUTH.sf(`/api/leads?limit=10000${adminScope}`);
+  if(!res||!res.ok) return [];
+  try{
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.data||data.leads||[]);
+  }catch(_){ return []; }
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════════════ */
+function toast(msg, type='ok'){
+  const t = document.createElement('div');
+  t.className = 'toast '+type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2800);
+}
+
+function renderMonthNav(){
+  const mn=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `<div class="month-nav">
+    <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+    <span class="month-label">${mn[_month.month-1]} ${_month.year}</span>
+    <button class="month-btn" onclick="changeMonth(1)">›</button>
+  </div>`;
+}
+
+function renderViewToggle(){
+  if(!isAdmin(_user?.role)) return '';
+  return `<div class="view-toggle">
+    <button class="vtab ${_view==='admin'?'active':''}" onclick="switchView('admin')">Vista Admin</button>
+    <button class="vtab ${_view==='agent'?'active':''}" onclick="switchView('agent')">Mi Vista</button>
+  </div>`;
+}
+
+function renderAdminView(){
+  const ym = getYM(_month.year, _month.month);
+  const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
+  const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
+  const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
+  const conMeta = _agents.filter(a=>a.comision>0).length;
+
+  const kpis = `
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Agentes</div>
+      <div class="kpi-val">${_agents.length}</div>
+      <div class="kpi-sub">${conMeta} con meta</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Ventas</div>
+      <div class="kpi-val">${totalVentas}</div>
+      <div class="kpi-sub">Completed del mes</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-lbl">Puntos totales</div>
+      <div class="kpi-val gold">${totalPuntos}</div>
+      <div class="kpi-sub">Suma de puntajes</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-lbl">Comisión total</div>
+      <div class="kpi-val green">${fmtUSD(totalComision)}</div>
+      <div class="kpi-sub">A pagar este mes</div>
+    </div>
+  </div>`;
+
+  const cards = _agents.length === 0
+    ? `<div class="empty"><div class="empty-icon">📋</div><span>Sin ventas completed para ${ym}</span></div>`
+    : `<div class="agents-grid">${_agents.map(a=>renderAgentCard(a)).join('')}</div>`;
+
+  // Table
+  const tableRows = _agents.map((a,i)=>{
+    const overrides = getNuevoMap();
+    const agKeyNorm = a.rawName.toLowerCase().replace(/\./g,' ').trim();
+    const isOverride = agKeyNorm in overrides;
+    const tipoCls = a.tipo===1?'badge-nuevo1':a.tipo===2?'badge-nuevo2':'badge-regular';
+    const tipoLbl = (a.tipo===1?'Nuevo M1':a.tipo===2?'Nuevo M2':'Regular')+(isOverride?' ✏':'');
+    const escalaCls = a.comision>0?'badge-gold':'badge-gray';
+    const agKey = a.rawName.toLowerCase().replace(/'/g,'\\\'');
+    return `
+    <tr>
+      <td>${i+1}</td>
+      <td>${a.name}</td>
+      <td>${a.team||'—'}</td>
+      <td class="mono">${a.puntos.toFixed(2)}</td>
+      <td class="mono">${a.ventas}</td>
+      <td class="mono">${a.colchones}</td>
+      <td class="mono">$${a.tasa}/pto</td>
+      <td class="mono green" style="color:var(--green)">${fmtUSD(a.comision)}</td>
+      <td><span class="badge ${escalaCls}">${a.escala}</span></td>
+      <td><span class="badge ${tipoCls}" onclick="cycleAgentTipo('${agKey}')" title="Click para cambiar tipo">${tipoLbl}</span></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    ${kpis}
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">Agentes con comisión</div>
+      </div>
+      ${cards}
+    </div>
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">Detalle por agente</div>
+      </div>
+      <div class="table-wrap">
+        <table class="ctable">
+          <thead>
+            <tr>
+              <th>#</th><th>Agente</th><th>Team</th><th>Puntos</th>
+              <th>Ventas</th><th>Colchones</th><th>Tasa</th><th>Comisión</th><th>Escala</th><th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows||`<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--ink3)">Sin datos</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderAgentCard(a){
+  const pct = Math.min(100, a.pct).toFixed(0);
+  const noMeta = a.comision === 0 && a.tipo !== 1; // Mes 1 nunca gris (siempre comisiona)
+  const nuevoTag = a.tipo===1 ? '🆕 Agente Nuevo · Mes 1' : a.tipo===2 ? '🆕 Agente Nuevo · Mes 2' : '';
+  return `
+  <div class="agent-card ${noMeta?'no-meta':''}">
+    ${noMeta?'<div class="no-meta-tag">Sin meta</div>':''}
+    ${a.tipo?`<div class="no-meta-tag" style="background:rgba(37,99,235,.12);color:var(--blue);border-color:rgba(37,99,235,.25)">${nuevoTag}</div>`:''}
+    <div class="agent-card-top">
+      <div class="agent-avatar">${initials(a.name)}</div>
+      <div>
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-team">${a.team||'Sin equipo'}</div>
+      </div>
+    </div>
+    <div class="agent-rows">
+      <div class="agent-row">
+        <span class="agent-row-lbl">Puntaje</span>
+        <span class="agent-row-val mono">${a.puntos.toFixed(2)} pts</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Ventas completed</span>
+        <span class="agent-row-val">${a.ventas}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Colchones completed</span>
+        <span class="agent-row-val">${a.colchones}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Tasa</span>
+        <span class="agent-row-val">$${a.tasa}/pto · ${a.escala}</span>
+      </div>
+      <div class="agent-row">
+        <span class="agent-row-lbl">Comisión estimada</span>
+        <span class="agent-row-val ${(a.comision>0||a.tipo===1)?'green':''}">${a.tipo===1?fmtUSD(Math.round(a.puntos*10*100)/100):fmtUSD(a.comision)}</span>
+      </div>
+    </div>
+    ${!noMeta?`
+    <div class="prog-wrap">
+      <div class="prog-lbl"><span>Progreso escala</span><span>${pct}%</span></div>
+      <div class="prog-track"><div class="prog-fill green" style="width:${pct}%"></div></div>
+    </div>`:''}
+  </div>`;
+}
+
+function resolveAgentData(){
+  const adminBrowsing = isAdmin(_user?.role) && _agents.length > 0;
+
+  if(adminBrowsing){
+    // Clamp index
+    if(_agentIdx < 0) _agentIdx = 0;
+    if(_agentIdx >= _agents.length) _agentIdx = _agents.length - 1;
+    return { data: _agents[_agentIdx], isAdmin: true, idx: _agentIdx, total: _agents.length };
+  }
+
+  // Regular agent — match own name
+  const userName = String(_user?.name||_user?.username||_user?.nombre||'').trim();
+  const userNorm = normalizeAgentName(userName).toLowerCase();
+  const userUsername = String(_user?.username||'').replace(/\./g,' ').trim().toLowerCase();
+
+  const found = _agents.find(a => {
+    const an = a.rawName.toLowerCase().replace(/\./g,' ').trim();
+    const un = userNorm.replace(/\./g,' ').trim();
+    if(an === un) return true;
+    if(userUsername && an === userUsername) return true;
+    const normWords = un.split(' ').filter(w=>w.length>2);
+    const anWords   = an.split(' ').filter(w=>w.length>2);
+    if(normWords.length === 0) return false;
+    const allMatch = normWords.every(w => anWords.includes(w));
+    return allMatch && Math.abs(normWords.length - anWords.length) <= 1;
+  }) || {
+    name: capName(userName)||'Mi usuario',
+    team: '',
+    puntos: 0, ventas: 0, colchones: 0,
+    comision: 0, escala: 'Sin meta', tasa: 0, pct: 0, totalVentas: 0
+  };
+
+  return { data: found, isAdmin: false, idx: -1, total: 0 };
+}
+
+function buildSelfViewHTML(agentData, ym){
+  const p = agentData.puntos;
+  const tipo = agentData.tipo || 0;
+  const noMeta = agentData.comision === 0;
+  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
+  const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
+  const payKey = ym+'_'+agKey; // clave única por agente y mes
+  const excluido = !!_excluidos[payKey];
+  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
+  const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
+
+  // ── Ventas del mes para este agente ──
+  const agentKey = agentData.rawName.toLowerCase().replace(/\./g,' ').trim();
+  const agentLeads = _leads.filter(lead => {
+    if(!cuentaParaComision(lead, ym)) return false;
+    const n = String(lead.agenteNombre||lead.agente||lead.createdBy||lead.creadoPor||lead.usuario||'')
+                .trim().toLowerCase().replace(/\./g,' ').trim();
+    return n === agentKey;
+  }).sort((a,b) => {
+    const da = String(a.dia_instalacion||a.dia_venta||'');
+    const db = String(b.dia_instalacion||b.dia_venta||'');
+    return db.localeCompare(da);
+  });
+
+  const ventasRows = agentLeads.map((lead, i) => {
+    const esColchon = isColchon(lead, ym);
+    const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
+    const cliente = String(lead.nombre_cliente||lead.nombre||lead.nombreCliente||lead.name||lead.cliente||'—').trim();
+    const servicio = String(lead.servicios||lead.servicio||lead.service||'—').trim();
+    const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,10)||'—';
+    const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,10)||'—';
+    return `<tr>
+      <td style="color:var(--ink3);font-family:var(--fm)">${i+1}</td>
+      <td style="color:var(--ink);font-weight:600">${cliente}</td>
+      <td>${servicio}</td>
+      <td style="font-family:var(--fm)">${dv}</td>
+      <td style="font-family:var(--fm)">${di}</td>
+      <td style="font-family:var(--fm);color:var(--gold);font-weight:600">${pts.toFixed(2)}</td>
+      <td><span class="sv-vbadge ${esColchon?'colchon':'venta'}">${esColchon?'Colchón':'Venta'}</span></td>
+    </tr>`;
+  }).join('');
+
+  const ventasTable = `
+  <div class="sv-ventas-card">
+    <div class="sv-ventas-head">Ventas del mes · ${ym} <span style="margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:.7rem;color:var(--ink3)">${agentLeads.length} registros</span></div>
+    ${agentLeads.length === 0
+      ? `<div style="padding:32px;text-align:center;color:var(--ink3);font-size:.8rem">Sin ventas completed para este mes</div>`
+      : `<table class="sv-vtable">
+          <thead><tr>
+            <th>#</th><th>Cliente</th><th>Servicio</th>
+            <th>Día venta</th><th>Día instalación</th><th>Puntos</th><th>Tipo</th>
+          </tr></thead>
+          <tbody>${ventasRows}</tbody>
+        </table>`
+    }
+  </div>`;
+
+  // Track nodes según tipo
+  let TRACK_MAX, nodes;
+  if (tipo === 1) {
+    TRACK_MAX = 20;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'     },
+      { pts: 5,  label: '5',   rate: '$5/pto'},
+      { pts: 10, label: '10',  rate: '$5/pto'},
+      { pts: 15, label: '15',  rate: '$5/pto'},
+      { pts: 20, label: '20+', rate: '$5/pto'},
+    ];
+  } else if (tipo === 2) {
+    TRACK_MAX = 30;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'     },
+      { pts: 14, label: '14',  rate: '$6/pto'},
+      { pts: 20, label: '20',  rate: '$6/pto'},
+      { pts: 25, label: '25',  rate: '$6/pto'},
+      { pts: 30, label: '30+', rate: '$6/pto'},
+    ];
+  } else {
+    TRACK_MAX = 36;
+    nodes = [
+      { pts: 0,  label: '0',   rate: '—'      },
+      { pts: 17, label: '17',  rate: '$6/pto' },
+      { pts: 21, label: '21',  rate: '$12/pto'},
+      { pts: 26, label: '26',  rate: '$15/pto'},
+      { pts: 31, label: '31+', rate: '$18/pto'},
+    ];
+  }
+  const trackPct = Math.min(100, (p / TRACK_MAX) * 100).toFixed(1);
+
+  const nodesHtml = nodes.map((n, i) => {
+    const reached = p >= n.pts && n.pts > 0;
+    const isCurrent = i > 0 && p >= n.pts && (i === nodes.length - 1 || p < nodes[i+1]?.pts);
+    const cls = isCurrent ? 'current' : (reached ? 'reached' : '');
+    const dotTxt = n.pts === 0 ? '' : (isCurrent ? '✦' : (reached ? '✓' : ''));
+    return `<div class="sv-track-node">
+      <div class="sv-track-dot ${cls}">${dotTxt}</div>
+      <div class="sv-track-node-lbl ${cls}">${n.label}</div>
+      <div class="sv-track-node-rate ${cls}">${n.rate}</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="sv-body">
+    <!-- Row 1: KPIs de comisión -->
+    <div class="sv-stats sv-pay-strip">
+      <div class="sv-stat accent-green">
+        <div class="sv-stat-lbl">Total Comisión</div>
+        <div class="sv-stat-val green" id="kpi-total-com">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
+        <div class="sv-stat-sub">Calculado automático</div>
+      </div>
+      <div class="sv-stat sv-stat-input">
+        <div class="sv-stat-lbl">CB <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
+        <div class="sv-input-wrap">
+          <span class="sv-input-prefix">$</span>
+          ${canEditPay
+            ? `<input id="kpi-cb-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
+                value="${_payInputs[payKey+'_cb']||''}"
+                oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
+            : `<span id="kpi-cb-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[payKey+'_cb']||'0.00'}</span>`
+          }
+        </div>
+        <div class="sv-stat-sub">Resta al total</div>
+      </div>
+      <div class="sv-stat accent-gold">
+        <div class="sv-stat-lbl">Sub Total</div>
+        <div class="sv-stat-val gold" id="kpi-subtotal">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
+        <div class="sv-stat-sub">Total − CB</div>
+      </div>
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Renta <span style="font-size:.6rem;color:var(--ink3)">(−10%)</span></div>
+        <div class="sv-stat-val" id="kpi-renta" style="color:var(--red)">${excluido ? '−$0.00' : '−'+fmtUSD2(agentData.comision*0.1)}</div>
+        <div class="sv-stat-sub">10% del Sub Total</div>
+      </div>
+      <div class="sv-stat sv-stat-input">
+        <div class="sv-stat-lbl">Anticipo <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
+        <div class="sv-input-wrap">
+          <span class="sv-input-prefix">$</span>
+          ${canEditPay
+            ? `<input id="kpi-anticipo-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
+                value="${_payInputs[payKey+'_ant']||''}"
+                oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
+            : `<span id="kpi-anticipo-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[payKey+'_ant']||'0.00'}</span>`
+          }
+        </div>
+        <div class="sv-stat-sub">Resta al Sub Total</div>
+      </div>
+      <div class="sv-stat accent-green" style="border:2px solid var(--green)">
+        <div class="sv-stat-lbl" style="font-weight:800">Total a Pagar</div>
+        <div class="sv-stat-val green" id="kpi-total-pagar" style="font-size:2rem">${excluido ? '$0.00' : fmtUSD2(agentData.comision*0.9)}</div>
+        <div class="sv-stat-sub">Sub Total − Renta − Anticipo</div>
+      </div>
+    </div>
+    <!-- Row 1b: stats secundarios -->
+    <div class="sv-stats" style="margin-top:0">
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Ventas completed</div>
+        <div class="sv-stat-val">${agentData.ventas}</div>
+        <div class="sv-stat-sub">Activas este mes</div>
+      </div>
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Colchones</div>
+        <div class="sv-stat-val">${agentData.colchones}</div>
+        <div class="sv-stat-sub">Instalados este mes</div>
+      </div>
+      <div class="sv-stat accent-gold">
+        <div class="sv-stat-lbl">Puntaje</div>
+        <div class="sv-stat-val gold">${p.toFixed(2)}</div>
+        <div class="sv-stat-sub">Puntos acumulados</div>
+      </div>
+      <div class="sv-stat">
+        <div class="sv-stat-lbl">Tasa actual</div>
+        <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${agentData.tasa}<span style="font-size:1rem">/pto</span></div>
+        <div class="sv-stat-sub">${agentData.escala}</div>
+      </div>
+    </div>
+
+    <!-- Row 2: track + breakdown -->
+    <div class="sv-mid-row">
+      <div class="sv-track-card">
+        <div class="sv-track-title">Progreso de escala</div>
+        <div class="sv-track-wrap">
+          <div class="sv-track-line">
+            <div class="sv-track-line-fill" style="width:${trackPct}%"></div>
+          </div>
+          <div class="sv-track-nodes">${nodesHtml}</div>
+        </div>
+      </div>
+      ${agentData.comision > 0 ? `
+      <div class="sv-breakdown">
+        <div class="sv-breakdown-title">Desglose${tipo===1?' · Agente Nuevo Mes 1':tipo===2?' · Agente Nuevo Mes 2':''}</div>
+        ${tipo===1 ? `
+        <div class="sv-breakdown-row">
+          <span>${Math.floor(p)} pts × $10/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p)*10)}</span>
+        </div>
+        ${_bonusDecimal(p)>0?`<div class="sv-breakdown-row">
+          <span>Bono decimal (.${fracStr})</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD2(_bonusDecimal(p))}</span>
+        </div>`:''}` : `
+        <div class="sv-breakdown-row">
+          <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
+          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p) * agentData.tasa)}</span>
+        </div>
+        ${bonus > 0 ? `<div class="sv-breakdown-row">
+          <span>Bono decimal (.${fracStr})</span>
+          <span class="sv-breakdown-val gold">+${fmtUSD2(bonus)}</span>
+        </div>` : ''}`}
+        <div class="sv-breakdown-row total">
+          <span>Total estimado</span>
+          <span class="sv-breakdown-val green">${fmtUSD2(agentData.comision)}</span>
+        </div>
+      </div>` : ''}
+    </div>
+
+    <!-- Row 3: Ventas table -->
+    ${ventasTable}
+  </div>`;     
+}
+
+function renderAgentSelfView(){
+  const ym = getYM(_month.year, _month.month);
+  const { data: agentData, isAdmin: adminBrowse, idx, total } = resolveAgentData();
+  const p = agentData.puntos;
+  const noMeta = agentData.comision === 0;
+  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
+  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
+  const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
+  const payKey = ym+'_'+agKey;
+
+  const heroInner = `
+    <div class="sv-hero-left">
+      <div class="sv-avatar">${initials(agentData.name)}</div>
+      <div class="sv-agent-info">
+        <div class="sv-agent-name">${agentData.name}</div>
+        <div class="sv-agent-meta">${agentData.team ? agentData.team + '  ·  ' : ''}${ym}</div>
+        <div class="sv-escala-pill"><span class="sv-escala-dot"></span>${agentData.escala}</div>
+      </div>
+    </div>
+    <div class="sv-hero-right">
+      <div class="sv-comm-lbl">Comisión estimada · Residencial</div>
+      <div class="sv-comm-amount ${noMeta ? 'no-meta' : ''}">${fmtUSD2(agentData.comision)}</div>
+      <div class="sv-comm-basis">
+        ${noMeta
+          ? (agentData.tipo===2 ? 'Sin meta — mínimo 14 puntos' : 'Sin meta — mínimo 17 puntos')
+          : `${Math.floor(p)} pts × $${agentData.tasa}/pto${bonus > 0 ? ' + bono decimal' : ''}`
+        }
+      </div>
+      ${canEditPay ? `
+      <label class="chk-comisiona-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer;font-size:.75rem;color:var(--ink2);user-select:none;">
+        <input type="checkbox" id="chk-comisiona"
+          ${!_excluidos[payKey]?'checked':''}
+          onchange="toggleExcluido('${payKey}',${agentData.comision})"
+          style="accent-color:var(--green);width:15px;height:15px;cursor:pointer;"/>
+        Comisiona este mes
+      </label>` : ''}
+    </div>`;
+
+  // For admins: wrap hero with prev/next nav buttons
+  let heroSection;
+  if(adminBrowse && total > 0){
+    heroSection = `
+    <div class="sv-nav-wrap">
+      <button class="sv-nav-btn" onclick="navAgent(-1)" ${idx <= 0 ? 'disabled' : ''}>‹</button>
+      <div class="sv-hero">${heroInner}</div>
+      <button class="sv-nav-btn" onclick="navAgent(1)" ${idx >= total - 1 ? 'disabled' : ''}>›</button>
+    </div>
+    <div class="sv-nav-counter">Agente ${idx + 1} de ${total}</div>`;
+  } else {
+    heroSection = `<div class="sv-hero" style="margin-bottom:16px">${heroInner}</div>`;
+  }
+
+  return heroSection + buildSelfViewHTML(agentData, ym);
+}
+
+function render(){
+  const container = document.getElementById('main-content');
+  if(!container) return;
+
+  const userIsAdmin = isAdmin(_user?.role);
+  const showAdminView = userIsAdmin && _view === 'admin';
+
+  container.innerHTML = `
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="page-eyebrow">Servicios Residenciales</div>
+        <div class="page-title">Comisiones</div>
+        <div class="page-subtitle">Cálculo basado en puntaje · solo ventas completed</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        ${renderMonthNav()}
+        ${renderViewToggle()}
+      </div>
+    </div>
+    ${_loading
+      ? `<div class="loader-wrap"><div class="spinner"></div><span>Cargando datos...</span></div>`
+      : (showAdminView ? renderAdminView() : renderAgentSelfView())
+    }`;
+  // Inicializar KPIs de pago DESPUÉS de que el DOM esté listo
+  if(!_loading && !showAdminView){
+    const ym = getYM(_month.year, _month.month);
+    const {data: ad} = resolveAgentData();
+    const agKey = (ad.rawName||ad.name||'').toLowerCase().replace(/\s+/g,'_');
+    window.updatePayKPIs(ym+'_'+agKey, ad.comision);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════════════════════ */
+window.changeMonth = function(delta){
+  let {year, month} = _month;
+  month += delta;
+  if(month>12){ month=1; year++; }
+  if(month<1){ month=12; year--; }
+  _month = {year, month};
+  loadData();
+};
+
+window.switchView = function(v){
+  _view = v;
+  if(v === 'agent') _agentIdx = 0; // admin siempre arranca en el primer agente
+  render();
+};
+
+window.navAgent = function(delta){
+  _agentIdx = Math.max(0, Math.min(_agents.length - 1, _agentIdx + delta));
+  render();
+};
+
+/* ══════════════════════════════════════════════════════
+   LOAD DATA
+══════════════════════════════════════════════════════ */
+async function loadData(){
+  _loading = true;
+  render();
+  const leads = await fetchLeads();
+  _leads = leads;
+  const ym = getYM(_month.year, _month.month);
+  _agents = aggregateAgents(leads, ym);
+  // No resetear _agentIdx al recargar datos para mantener posición
+  _loading = false;
+  render();
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+(async function init(){
+  if(!AUTH.check()) return;
+
+  // Get user
+  _user = AUTH.getUser();
+
+  // Verificar acceso
+  const role = String(_user?.role||'').toLowerCase();
+  const allowed = isAdmin(role) || isAgentRole(role);
+  if(!allowed){
+    document.getElementById('main-content').innerHTML = `
+      <div class="empty" style="height:60vh">
+        <div class="empty-icon">🔒</div>
+        <span>No tienes acceso a esta página</span>  
+      </div>`;
+    return;
+  }
+
+  // Admins → vista admin por defecto | Agentes → mi vista
+  _view = isAdmin(role) ? 'admin' : 'agent';
+
+  document.getElementById('page-loader').remove();
+
+  // Load canonical teams and user creation dates first
+  await Promise.all([loadTeams(), loadUsersCreatedAt()]);
+  await loadData();
+})();
+</script>
+</body>
+</html>     
