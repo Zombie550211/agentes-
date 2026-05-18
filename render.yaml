@@ -1,16 +1,19 @@
-# Configuración para Render
 services:
   - type: web
     name: crm-agente
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    env: python
+    buildCommand: pip install -r CRM_PYTHON/requirements.txt
+    startCommand: cd CRM_PYTHON && uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/status
     envVars:
-      - key: NODE_ENV
-        value: production
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: MYSQL_URL
+        sync: false
       - key: MONGODB_URI
-        sync: false # Configurar en el panel de Render con tu cadena de conexión de MongoDB Atlas
+        sync: false
       - key: JWT_SECRET
-        sync: false # Define un secreto fuerte en Render
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
     plan: free
