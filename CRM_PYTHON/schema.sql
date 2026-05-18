@@ -408,6 +408,22 @@ CREATE TABLE IF NOT EXISTS lv_excel_users (
     INDEX idx_sheet (sheet_id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS note_files (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    mongo_id     VARCHAR(24),
+    filename     VARCHAR(300) NOT NULL,
+    original_name VARCHAR(300),
+    content_type VARCHAR(150) DEFAULT 'application/octet-stream',
+    file_type    VARCHAR(50),
+    file_size    INT UNSIGNED DEFAULT 0,
+    file_path    VARCHAR(500),
+    lead_id      VARCHAR(100),
+    uploaded_by  VARCHAR(150),
+    uploaded_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_lead (lead_id),
+    INDEX idx_uploader (uploaded_by)
+) ENGINE=InnoDB;
+
 -- ── INSERCIONES INICIALES ───────────────────────────────────────
 INSERT IGNORE INTO system_settings (`key`, value) VALUES
   ('forceLogoutBefore', 'null'),

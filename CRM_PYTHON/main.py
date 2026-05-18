@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database_mysql import init_mysql, close_mysql
-from database import connect as mongo_connect, disconnect as mongo_disconnect
 from routers import auth as auth_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
@@ -35,10 +34,8 @@ COMPONENTS   = BASE_DIR / "components"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    await mongo_connect()
     yield
     await close_mysql()
-    await mongo_disconnect()
 
 app = FastAPI(
     title="CRM Connecting — Python",
