@@ -1,15 +1,15 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from database import get_db, get_team_lineas_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
 from typing import Optional
 import datetime as _dt
-import re
+import re, json, calendar
 
 router = APIRouter(tags=["Misc"])
 
 _ADMIN_ROLES = {"admin", "administrador", "administrator", "administrativo"}
 _BO_ROLES    = {"backoffice", "bo"}
-_SUP_ROLES   = {"supervisor"}
 
 
 def _role_lower(user: dict) -> str:
@@ -74,39 +74,43 @@ async def phones_unified(
     use_residencial = not source or source == "residencial"
     use_lineas      = not source or source == "lineas"
 
-    query: dict = {}
+    date_clause = ""
+    params: dict = {}
     if month and year:
-        start_date = _dt.datetime(year, month, 1)
-        end_year   = year + (month // 12)
-        end_month  = (month % 12) + 1
-        end_date   = _dt.datetime(end_year, end_month, 1)
-        query      = {"dia_venta": {"$gte": start_date, "$lt": end_date}}
-
-    phone_filter = {**query, "telefono_principal": {"$exists": True, "$ne": None, "$ne": ""}}
+        _, last_day = calendar.monthrange(year, month)
+        params["start"] = f"{year}-{str(month).zfill(2)}-01"
+        params["end"]   = f"{year}-{str(month).zfill(2)}-{str(last_day).zfill(2)}"
+        date_clause     = " AND dia_venta BETWEEN :start AND :end"
 
     unified_phones = []
     if use_residencial:
-        db = get_db()
-        docs = await db["costumers_unified"].find(
-            phone_filter,
-            {"telefono_principal": 1, "nombre_cliente": 1, "dia_venta": 1, "status": 1},
-        ).to_list(None)
-        for d in docs:
-            d["_id"] = str(d["_id"])
-        unified_phones = docs
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text(f"""
+                SELECT id, telefono_principal, nombre_cliente, dia_venta, status
+                FROM leads
+                WHERE telefono_principal IS NOT NULL AND telefono_principal != ''{date_clause}
+                LIMIT 5000
+            """), params)
+            for row in r.mappings().all():
+                d = dict(row)
+                d["_id"] = str(d["id"])
+                d["dia_venta"] = str(d.get("dia_venta") or "")
+                unified_phones.append(d)
 
     lineas_phones = []
     if use_lineas:
-        tl_db = get_team_lineas_db()
-        coll_names = [c["name"] async for c in tl_db.list_collections()]
-        for name in coll_names:
-            docs = await tl_db[name].find(
-                phone_filter,
-                {"telefono_principal": 1, "nombre_cliente": 1, "dia_venta": 1, "status": 1},
-            ).to_list(None)
-            for d in docs:
-                d["_id"] = str(d["_id"])
-            lineas_phones.extend(docs)
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text(f"""
+                SELECT id, telefono_principal, nombre_cliente, dia_venta, status
+                FROM lineas_clientes
+                WHERE telefono_principal IS NOT NULL AND telefono_principal != ''{date_clause}
+                LIMIT 5000
+            """), params)
+            for row in r.mappings().all():
+                d = dict(row)
+                d["_id"] = str(d["id"])
+                d["dia_venta"] = str(d.get("dia_venta") or "")
+                lineas_phones.append(d)
 
     return {
         "success": True,
@@ -117,8 +121,6 @@ async def phones_unified(
 
 # ── GET /api/rankings-leads ───────────────────────────────────────
 _TARGET_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
-_SAFE_STATUS     = re.compile(r"^(cancelled|hold|rescheduled|reserva|oficina|cancelado|cancelada)$", re.I)
-_VALID_STATUS    = re.compile(r"^(completed|active|pending|completado|activo|activa|vendido)$", re.I)
 
 
 @router.get("/api/rankings-leads")
@@ -129,82 +131,76 @@ async def rankings_leads(
     limit:       int           = Query(5000),
     user:        dict          = Depends(current_user),
 ):
-    db = get_db()
     limit = min(limit, 10_000)
-    date_filter: dict = {}
+    params: dict = {"lim": limit}
+    where_clauses = []
+    ref_date = None
 
     if targetMonth and _TARGET_MONTH_RE.match(targetMonth):
         ty, tm = (int(x) for x in targetMonth.split("-"))
-        start_date = _dt.datetime(ty, tm, 1)
-        end_month  = tm % 12 + 1
-        end_year   = ty + (tm // 12)
-        end_date   = _dt.datetime(end_year, end_month, 1)
-        start_str  = f"{targetMonth}-01"
-        end_str    = f"{targetMonth}-31"
-
-        ventas_filter = {"$or": [
-            {"dia_venta": {"$gte": start_str, "$lte": end_str}},
-            {"dia_venta": {"$gte": start_date, "$lt": end_date}},
-            {"$and": [
-                {"$or": [{"dia_venta": {"$exists": False}}, {"dia_venta": ""}, {"dia_venta": None}]},
-                {"createdAt": {"$gte": start_date, "$lt": end_date}},
-            ]},
-        ]}
-
-        colchon_filter = {"$and": [
-            {"$or": [
-                {"dia_instalacion": {"$gte": start_str, "$lte": end_str}},
-                {"dia_instalacion": {"$gte": start_date, "$lt": end_date}},
-            ]},
-            {"status": {"$regex": r"^(completed|active|pending|completado|activo|activa|vendido)$", "$options": "i"}},
-            {"dia_venta": {"$not": {"$regex": f"^{re.escape(targetMonth)}"}}},
-        ]}
-
-        status_exclude = {"status": {"$not": {"$regex": r"^(cancelled|hold|rescheduled|reserva|oficina|cancelado|cancelada)$", "$options": "i"}}}
-        date_filter = {"$and": [status_exclude, {"$or": [ventas_filter, colchon_filter]}]}
-
-        ref_date = _dt.datetime(ty, end_month, 1) - _dt.timedelta(days=1)
-
+        _, last_day = calendar.monthrange(ty, tm)
+        params["start"] = f"{targetMonth}-01"
+        params["end"]   = f"{targetMonth}-{str(last_day).zfill(2)}"
+        where_clauses.append("""
+            status NOT REGEXP '^(cancelled|hold|rescheduled|reserva|oficina|cancelado|cancelada)$'
+            AND (
+              (dia_venta BETWEEN :start AND :end)
+              OR (
+                dia_instalacion BETWEEN :start AND :end
+                AND status REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
+                AND (dia_venta IS NULL OR dia_venta < :start)
+              )
+            )
+        """)
+        next_m = tm % 12 + 1
+        next_y = ty + (1 if tm == 12 else 0)
+        ref_date = _dt.datetime(next_y, next_m, 1) - _dt.timedelta(days=1)
     elif fechaInicio and fechaFin:
-        fi = _dt.datetime.fromisoformat(fechaInicio)
-        ft = _dt.datetime.fromisoformat(fechaFin + "T23:59:59")
-        fi_year, fi_month = fi.year, fi.month
-        colchon_month_start = f"{fi_year}-{str(fi_month).zfill(2)}-01"
+        params["fi"] = fechaInicio
+        params["ft"] = fechaFin
+        params["col_start"] = fechaInicio[:7] + "-01"
+        where_clauses.append("""
+            (
+              (dia_venta BETWEEN :fi AND :ft)
+              OR (
+                dia_instalacion BETWEEN :fi AND :ft
+                AND (dia_venta IS NULL OR dia_venta < :col_start)
+                AND status REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
+              )
+            )
+        """)
+        try:
+            ref_date = _dt.datetime.fromisoformat(fechaFin)
+        except Exception:
+            ref_date = _dt.datetime.utcnow()
 
-        normal_filter = {"$or": [
-            {"dia_venta":          {"$gte": fi, "$lte": ft}},
-            {"fecha_contratacion": {"$gte": fi, "$lte": ft}},
-            {"createdAt":          {"$gte": fi, "$lte": ft}},
-            {"creadoEn":           {"$gte": fi, "$lte": ft}},
-            {"fecha":              {"$gte": fi, "$lte": ft}},
-        ]}
-        colchon_filter = {"$and": [
-            {"dia_instalacion": {"$gte": fechaInicio, "$lte": fechaFin}},
-            {"dia_venta":       {"$lt": colchon_month_start}},
-            {"status":          {"$regex": r"^(completed|active|pending|completado|activo|activa|vendido)$", "$options": "i"}},
-        ]}
-        date_filter = {"$or": [normal_filter, colchon_filter]}
-        ref_date = ft
-    else:
-        ref_date = None
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
-    leads = await db["costumers_unified"].find(
-        date_filter,
-        {
-            "_id": 1, "agenteNombre": 1, "agente": 1, "createdBy": 1, "usuario": 1,
-            "status": 1, "dia_venta": 1, "dia_instalacion": 1,
-            "puntaje": 1, "supervisor": 1, "equipo": 1, "team": 1,
-            "servicios": 1, "tipo_servicio": 1, "servicios_texto": 1,
-            "producto": 1, "producto_contratado": 1,
-        },
-    ).sort([("dia_venta", -1), ("createdAt", -1)]).limit(limit).to_list(None)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT id, agente_nombre, agente, status, dia_venta, dia_instalacion,
+                   puntaje, supervisor, equipo, team, servicios, tipo_servicio
+            FROM leads
+            WHERE {where_sql}
+            ORDER BY dia_venta DESC, created_at DESC
+            LIMIT :lim
+        """), params)
+        rows = r.mappings().all()
 
     result = []
-    for lead in leads:
-        lead["_id"] = str(lead["_id"])
-        if _is_colchon(lead, ref_date):
-            lead["_es_colchon"] = True
-        result.append(lead)
+    for row in rows:
+        d = dict(row)
+        d["_id"] = str(d.get("id", ""))
+        d["agenteNombre"] = d.get("agente_nombre", "")
+        v = d.get("servicios")
+        if isinstance(v, str):
+            try: d["servicios"] = json.loads(v)
+            except: d["servicios"] = None
+        if d.get("dia_venta"):     d["dia_venta"] = str(d["dia_venta"])
+        if d.get("dia_instalacion"): d["dia_instalacion"] = str(d["dia_instalacion"])
+        if _is_colchon(d, ref_date):
+            d["_es_colchon"] = True
+        result.append(d)
 
     return result
 
@@ -214,75 +210,112 @@ async def rankings_leads(
 async def get_customers(
     page:        int            = Query(1),
     limit:       int            = Query(200),
-    sortBy:      str            = Query("creadoEn"),
+    sortBy:      str            = Query("created_at"),
     sortOrder:   str            = Query("desc"),
     fechaInicio: Optional[str]  = Query(None),
     fechaFin:    Optional[str]  = Query(None),
     status:      Optional[str]  = Query(None),
     user:        dict           = Depends(current_user),
 ):
-    db       = get_db()
-    role     = _role_lower(user)
-    is_adm   = _is_adm_or_bo(role)
-    is_sup   = _is_supervisor(role)
-    max_lim  = 10_000 if is_adm else 500
-    limit    = min(limit, max_lim)
-    skip     = (page - 1) * limit
+    role    = _role_lower(user)
+    is_adm  = _is_adm_or_bo(role)
+    is_sup  = _is_supervisor(role)
+    max_lim = 10_000 if is_adm else 500
+    limit   = min(limit, max_lim)
+    skip    = (page - 1) * limit
 
-    base_query: dict = {}
+    allowed_sort = {"created_at", "dia_venta", "nombre_cliente", "status", "agente_nombre"}
+    sort_col = sortBy if sortBy in allowed_sort else "created_at"
+    sort_dir = "ASC" if sortOrder == "asc" else "DESC"
+
+    where = ["1=1"]
+    params: dict = {"lim": limit, "off": skip}
+
     if fechaInicio and fechaFin:
-        base_query["creadoEn"] = {"$gte": _dt.datetime.fromisoformat(fechaInicio), "$lte": _dt.datetime.fromisoformat(fechaFin)}
+        where.append("created_at BETWEEN :fi AND :ft")
+        params["fi"] = fechaInicio
+        params["ft"] = fechaFin + " 23:59:59"
     elif fechaInicio:
-        base_query["creadoEn"] = {"$gte": _dt.datetime.fromisoformat(fechaInicio)}
+        where.append("created_at >= :fi")
+        params["fi"] = fechaInicio
     elif fechaFin:
-        base_query["creadoEn"] = {"$lte": _dt.datetime.fromisoformat(fechaFin)}
+        where.append("created_at <= :ft")
+        params["ft"] = fechaFin + " 23:59:59"
 
     if status:
-        base_query["status"] = _normalize_status(status)
+        where.append("status = :status")
+        params["status"] = _normalize_status(status)
 
     if not is_adm:
         cur = (user.get("username") or "").strip()
         if is_sup:
-            agents = await db["users"].find(
-                {"supervisor": {"$regex": cur, "$options": "i"}, "role": {"$not": {"$regex": "admin", "$options": "i"}}},
-                {"username": 1, "name": 1},
-            ).to_list(None)
-            names = [str(a.get("username") or a.get("name") or "").strip() for a in agents if a.get("username") or a.get("name")]
-            names = [n for n in names if n]
-            if names:
-                base_query["$or"] = [{"agenteNombre": {"$in": names}}, {"agente": {"$in": names}}, {"usuario": {"$in": names}}]
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("""
+                    SELECT username FROM users
+                    WHERE LOWER(supervisor) LIKE :sup AND LOWER(role) NOT LIKE '%admin%'
+                """), {"sup": f"%{cur.lower()}%"})
+                agent_names = [row["username"] for row in r.mappings().all()]
+            if agent_names:
+                placeholders = ",".join([f":a{i}" for i in range(len(agent_names))])
+                where.append(f"(agente_nombre IN ({placeholders}) OR agente IN ({placeholders}))")
+                for i, name in enumerate(agent_names):
+                    params[f"a{i}"] = name
+            else:
+                where.append("1=0")
         else:
-            base_query["$or"] = [{"agenteNombre": cur}, {"agente": cur}, {"usuario": cur}]
+            where.append("(agente_nombre = :cur OR agente = :cur)")
+            params["cur"] = cur
 
-    sort_dir = 1 if sortOrder == "asc" else -1
-    total     = await db["costumers_unified"].count_documents(base_query)
-    customers = await db["costumers_unified"].find(base_query).sort(sortBy, sort_dir).skip(skip).limit(limit).to_list(None)
-    for c in customers:
-        c["_id"] = str(c["_id"])
+    where_sql = " AND ".join(where)
 
-    return {"success": True, "data": customers, "total": total, "page": page, "limit": limit, "source": "costumers_unified"}
+    async with AsyncSessionLocal() as s:
+        cnt_r = await s.execute(text(f"SELECT COUNT(*) as cnt FROM leads WHERE {where_sql}"), params)
+        total = cnt_r.scalar()
+        r = await s.execute(text(f"""
+            SELECT * FROM leads WHERE {where_sql}
+            ORDER BY {sort_col} {sort_dir}
+            LIMIT :lim OFFSET :off
+        """), params)
+        customers = []
+        for row in r.mappings().all():
+            d = dict(row)
+            d["_id"] = str(d.get("id", ""))
+            d["agenteNombre"] = d.get("agente_nombre", "")
+            for col in ("servicios", "telefonos"):
+                v = d.get(col)
+                if isinstance(v, str):
+                    try: d[col] = json.loads(v)
+                    except: d[col] = None
+            if d.get("dia_venta"):       d["dia_venta"] = str(d["dia_venta"])
+            if d.get("dia_instalacion"): d["dia_instalacion"] = str(d["dia_instalacion"])
+            customers.append(d)
+
+    return {"success": True, "data": customers, "total": total, "page": page, "limit": limit, "source": "leads"}
 
 
 # ── GET /api/customers/agents-summary ────────────────────────────
 @router.get("/api/customers/agents-summary")
 async def customers_agents_summary(user: dict = Depends(current_user)):
-    db   = get_db()
-    coll = db["costumers_unified"]
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT agente_nombre, agente, COUNT(*) as count
+            FROM leads
+            GROUP BY agente_nombre, agente
+            ORDER BY count DESC
+        """))
+        rows = r.mappings().all()
 
-    rows = await coll.aggregate([
-        {"$group": {"_id": {"id": "$agenteId", "nombre": "$agenteNombre"}, "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-    ]).to_list(None)
-
-    distincts = {
-        "agente":       await coll.distinct("agente"),
-        "agenteNombre": await coll.distinct("agenteNombre"),
-    }
+    summary = [
+        {"agenteNombre": row["agente_nombre"], "agenteId": None, "count": row["count"]}
+        for row in rows
+    ]
+    names  = list({row["agente_nombre"] for row in rows if row["agente_nombre"]})
+    agents = list({row["agente"] for row in rows if row["agente"]})
 
     return {
         "success": True,
-        "summary":   [{"agenteId": r["_id"].get("id"), "agenteNombre": r["_id"].get("nombre"), "count": r["count"]} for r in rows],
-        "distincts": distincts,
+        "summary":   summary,
+        "distincts": {"agente": agents, "agenteNombre": names},
     }
 
 
@@ -291,8 +324,11 @@ async def customers_agents_summary(user: dict = Depends(current_user)):
 async def supervisors_list(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
-    db   = get_db()
-    sups = await db["users"].distinct("username", {"role": {"$regex": "supervisor", "$options": "i"}})
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(
+            "SELECT DISTINCT username FROM users WHERE LOWER(role) LIKE '%supervisor%' ORDER BY username"
+        ))
+        sups = [row["username"] for row in r.mappings().all()]
     return {"success": True, "supervisors": sorted(sups)}
 
 
@@ -309,13 +345,14 @@ async def supervisors_by_team(team: str, user: dict = Depends(current_user)):
 async def force_logout_all(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
-    db = get_db()
     ts = int(_dt.datetime.utcnow().timestamp() * 1000)
-    await db["system_settings"].update_one(
-        {"key": "forceLogoutBefore"},
-        {"$set": {"key": "forceLogoutBefore", "value": ts, "updatedAt": _dt.datetime.utcnow(), "updatedBy": user.get("username")}},
-        upsert=True,
-    )
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            INSERT INTO system_settings (`key`, value, updated_by)
+            VALUES ('forceLogoutBefore', :v, :by)
+            ON DUPLICATE KEY UPDATE value = :v, updated_by = :by
+        """), {"v": json.dumps(ts), "by": user.get("username")})
+        await s.commit()
     return {"success": True, "message": "Todas las sesiones han sido cerradas", "ts": ts}
 
 
@@ -324,9 +361,11 @@ async def force_logout_all(user: dict = Depends(current_user)):
 async def rename_att_air(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
-    db      = get_db()
-    results = {}
-    for col in ("costumers_unified", "leads"):
-        r = await db[col].update_many({"servicios": "ATT AIR"}, {"$set": {"servicios": "AIR"}})
-        results[col] = {"matched": r.matched_count, "modified": r.modified_count}
-    return {"success": True, "results": results}
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(
+            "UPDATE leads SET servicios = REPLACE(servicios, '\"ATT AIR\"', '\"AIR\"') "
+            "WHERE servicios LIKE '%ATT AIR%'"
+        ))
+        await s.commit()
+        modified = r.rowcount
+    return {"success": True, "results": {"leads": {"matched": modified, "modified": modified}}}

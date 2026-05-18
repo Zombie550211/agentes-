@@ -1,29 +1,63 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from bson import ObjectId
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-import random, re, aiofiles, datetime as _dt
+import random, re, aiofiles, datetime as _dt, json
 
 router = APIRouter(prefix="/api/pre-leads", tags=["Pre-Leads"])
+
 
 def _is_procesamiento(role: str) -> bool:
     r = str(role or "").lower().strip()
     return r in ("admin", "administrador", "administrator") or r.startswith("procesamiento")
 
-async def _generar_lead_id(db) -> str:
+
+async def _generar_lead_id(s) -> str:
     for _ in range(20):
         id_ = str(random.randint(10000, 99999))
-        if not await db["pre_leads"].find_one({"leadId": id_}):
+        r = await s.execute(
+            text("SELECT id FROM pre_leads WHERE lead_id = :lid LIMIT 1"), {"lid": id_}
+        )
+        if not r.first():
             return id_
     return str(random.randint(10000, 99999))
 
-def _fmt(doc: dict) -> dict:
-    doc["_id"] = str(doc["_id"])
-    return doc
+
+def _fmt(row) -> dict:
+    d = dict(row)
+    d["_id"] = str(d.get("id", ""))
+    # Parse JSON images
+    imgs = d.get("images")
+    if isinstance(imgs, str):
+        try: d["images"] = json.loads(imgs)
+        except: d["images"] = []
+    elif imgs is None:
+        d["images"] = []
+    # Normalize dates to strings
+    for col in ("fecha_nacimiento", "fecha_venta", "fecha_instalacion", "resuelto_en", "created_at", "updated_at"):
+        v = d.get(col)
+        if v is not None:
+            d[col] = str(v)
+    return d
+
+
+def _parse_date(s: str) -> Optional[str]:
+    if not s:
+        return None
+    s = s.strip()
+    # Already YYYY-MM-DD
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", s):
+        return s
+    # DD/MM/YYYY
+    m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", s)
+    if m:
+        return f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
+    return None
+
 
 class PreLeadBody(BaseModel):
     nombre: str
@@ -37,6 +71,7 @@ class PreLeadBody(BaseModel):
     nota: Optional[str] = ""
     agenteUsername: Optional[str] = ""
     agenteName: Optional[str] = ""
+
 
 class UpdateLeadBody(BaseModel):
     status: Optional[str] = None
@@ -53,55 +88,85 @@ class UpdateLeadBody(BaseModel):
     mercado: Optional[str] = None
     nota: Optional[str] = None
 
+
 class ResolverBody(BaseModel):
     resolucion: str
     notaProcesamiento: Optional[str] = None
     fechaVenta: Optional[str] = None
     fechaInstalacion: Optional[str] = None
 
+
 @router.post("/")
 async def create_pre_lead(body: PreLeadBody, user: dict = Depends(current_user)):
     if not all([body.nombre, body.phone1, body.direccion, body.servicio, body.fechaNacimiento, body.correo]):
         raise HTTPException(400, "Faltan campos obligatorios")
-    db = get_db()
-    lead_id = await _generar_lead_id(db)
     now = datetime.utcnow()
-    doc = {
-        "leadId": lead_id, "nombre": body.nombre.strip(), "correo": body.correo.strip(),
-        "phone1": body.phone1.strip(), "phone2": (body.phone2 or "").strip(),
-        "direccion": body.direccion.strip(), "fechaNacimiento": body.fechaNacimiento.strip(),
-        "servicio": body.servicio.strip(), "mercado": (body.mercado or "").strip(),
-        "nota": (body.nota or "").strip(),
-        "agenteUsername": user.get("username") or body.agenteUsername,
-        "agenteName": user.get("name") or body.agenteName,
-        "status": None, "notaProcesamiento": "", "fechaVenta": "", "fechaInstalacion": "",
-        "resolucion": None, "creadoEn": now, "actualizadoEn": now,
-    }
-    result = await db["pre_leads"].insert_one(doc)
-    doc["_id"] = str(result.inserted_id)
+    fn_date = _parse_date(body.fechaNacimiento)
+
+    async with AsyncSessionLocal() as s:
+        lead_id = await _generar_lead_id(s)
+        r = await s.execute(text("""
+            INSERT INTO pre_leads
+                (lead_id, nombre, correo, phone1, phone2, direccion, fecha_nacimiento,
+                 servicio, mercado, nota, agente_username, agente_name,
+                 status, nota_procesamiento, created_at, updated_at)
+            VALUES
+                (:lid, :nombre, :correo, :phone1, :phone2, :dir, :fn,
+                 :servicio, :mercado, :nota, :au, :an,
+                 NULL, '', :now, :now)
+        """), {
+            "lid": lead_id,
+            "nombre":   body.nombre.strip(),
+            "correo":   body.correo.strip(),
+            "phone1":   body.phone1.strip(),
+            "phone2":   (body.phone2 or "").strip(),
+            "dir":      body.direccion.strip(),
+            "fn":       fn_date,
+            "servicio": body.servicio.strip(),
+            "mercado":  (body.mercado or "").strip(),
+            "nota":     (body.nota or "").strip(),
+            "au":       user.get("username") or body.agenteUsername,
+            "an":       user.get("name") or body.agenteName,
+            "now":      now,
+        })
+        await s.commit()
+        new_id = r.lastrowid
+        row = await s.execute(text("SELECT * FROM pre_leads WHERE id = :id"), {"id": new_id})
+        doc = _fmt(row.mappings().first())
+
     return {"success": True, "lead": doc}
+
 
 @router.get("/mis-leads")
 async def mis_leads(user: dict = Depends(current_user)):
-    db = get_db()
-    leads = await db["pre_leads"].find(
-        {"agenteUsername": user["username"]}
-    ).sort("creadoEn", -1).to_list(None)
-    return {"success": True, "leads": [_fmt(l) for l in leads]}
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT * FROM pre_leads WHERE agente_username = :u ORDER BY created_at DESC
+        """), {"u": user["username"]})
+        leads = [_fmt(row) for row in r.mappings().all()]
+    return {"success": True, "leads": leads}
+
 
 @router.get("/")
 async def list_pre_leads(user: dict = Depends(current_user)):
     if not _is_procesamiento(user.get("role", "")):
         raise HTTPException(403, "Acceso denegado")
-    db = get_db()
     role = user.get("role", "").lower()
-    query = {}
+
+    where = "1=1"
+    params: dict = {}
     if "icon" in role:
-        query["mercado"] = re.compile("^icon$", re.IGNORECASE)
+        where = "LOWER(mercado) = 'icon'"
     elif "bamo" in role:
-        query["mercado"] = re.compile("^bamo$", re.IGNORECASE)
-    leads = await db["pre_leads"].find(query).sort("creadoEn", -1).to_list(None)
-    return {"success": True, "leads": [_fmt(l) for l in leads]}
+        where = "LOWER(mercado) = 'bamo'"
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(
+            text(f"SELECT * FROM pre_leads WHERE {where} ORDER BY created_at DESC"), params
+        )
+        leads = [_fmt(row) for row in r.mappings().all()]
+    return {"success": True, "leads": leads}
+
 
 @router.put("/{lead_id}/resolver")
 async def resolver(lead_id: str, body: ResolverBody, user: dict = Depends(current_user)):
@@ -110,29 +175,46 @@ async def resolver(lead_id: str, body: ResolverBody, user: dict = Depends(curren
     if body.resolucion not in ("Venta Completada", "Venta Pendiente"):
         raise HTTPException(400, "Resolución inválida")
     try:
-        oid = ObjectId(lead_id)
-    except Exception:
+        mid = int(lead_id)
+    except ValueError:
         raise HTTPException(400, "ID inválido")
-    db = get_db()
-    update = {"resolucion": body.resolucion, "resueltoEn": datetime.utcnow(), "actualizadoEn": datetime.utcnow()}
-    if body.notaProcesamiento is not None: update["notaProcesamiento"] = body.notaProcesamiento
-    if body.fechaVenta:                    update["fechaVenta"]        = body.fechaVenta
-    if body.fechaInstalacion:              update["fechaInstalacion"]  = body.fechaInstalacion
-    result = await db["pre_leads"].update_one({"_id": oid}, {"$set": update})
-    if result.matched_count == 0:
-        raise HTTPException(404, "Lead no encontrado")
+
+    now = datetime.utcnow()
+    sets = ["resolucion = :res", "resuelto_en = :now", "updated_at = :now"]
+    params: dict = {"res": body.resolucion, "now": now, "id": mid}
+    if body.notaProcesamiento is not None:
+        sets.append("nota_procesamiento = :np")
+        params["np"] = body.notaProcesamiento
+    if body.fechaVenta:
+        sets.append("fecha_venta = :fv")
+        params["fv"] = _parse_date(body.fechaVenta)
+    if body.fechaInstalacion:
+        sets.append("fecha_instalacion = :fi")
+        params["fi"] = _parse_date(body.fechaInstalacion)
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(
+            text(f"UPDATE pre_leads SET {', '.join(sets)} WHERE id = :id"), params
+        )
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "Lead no encontrado")
+
     return {"success": True, "resolucion": body.resolucion}
+
 
 _IMAGES_DIR = Path(__file__).parent.parent.parent / "uploads" / "pre_leads"
 _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-_MAX_IMG_BYTES = 20 * 1024 * 1024  # 20 MB
+_MAX_IMG_BYTES = 20 * 1024 * 1024
 
 
 @router.post("/{lead_id}/images")
-async def upload_pre_lead_image(lead_id: str, image: UploadFile = File(...), user: dict = Depends(current_user)):
+async def upload_pre_lead_image(
+    lead_id: str, image: UploadFile = File(...), user: dict = Depends(current_user)
+):
     try:
-        oid = ObjectId(lead_id)
-    except Exception:
+        mid = int(lead_id)
+    except ValueError:
         raise HTTPException(400, "ID inválido")
 
     data = await image.read()
@@ -148,13 +230,26 @@ async def upload_pre_lead_image(lead_id: str, image: UploadFile = File(...), use
         await f.write(data)
 
     url = f"/uploads/pre_leads/{filename}"
+    new_img = {"url": url, "filename": filename, "uploadedAt": str(_dt.datetime.utcnow())}
 
-    db = get_db()
-    await db["pre_leads"].update_one(
-        {"_id": oid},
-        {"$push": {"images": {"url": url, "filename": filename, "uploadedAt": _dt.datetime.utcnow()}},
-         "$set":  {"actualizadoEn": _dt.datetime.utcnow()}},
-    )
+    async with AsyncSessionLocal() as s:
+        # Fetch existing images JSON and append
+        row = await s.execute(
+            text("SELECT images FROM pre_leads WHERE id = :id LIMIT 1"), {"id": mid}
+        )
+        r = row.mappings().first()
+        if not r:
+            raise HTTPException(404, "Lead no encontrado")
+        imgs = r.get("images")
+        if isinstance(imgs, str):
+            try: imgs = json.loads(imgs)
+            except: imgs = []
+        imgs = imgs or []
+        imgs.append(new_img)
+        await s.execute(text("""
+            UPDATE pre_leads SET images = :imgs, updated_at = :now WHERE id = :id
+        """), {"imgs": json.dumps(imgs), "now": _dt.datetime.utcnow(), "id": mid})
+        await s.commit()
 
     return {"success": True, "url": url, "filename": filename}
 
@@ -164,17 +259,49 @@ async def update_pre_lead(lead_id: str, body: UpdateLeadBody, user: dict = Depen
     if not _is_procesamiento(user.get("role", "")):
         raise HTTPException(403, "Acceso denegado")
     try:
-        oid = ObjectId(lead_id)
-    except Exception:
+        mid = int(lead_id)
+    except ValueError:
         raise HTTPException(400, "ID inválido")
-    db = get_db()
-    allowed = ["status","notaProcesamiento","fechaVenta","fechaInstalacion",
-               "nombre","correo","phone1","phone2","direccion","fechaNacimiento","servicio","mercado","nota"]
-    update = {k: str(v).strip() for k, v in body.model_dump().items() if v is not None and k in allowed}
-    if not update:
+
+    col_map = {
+        "status":            "status",
+        "notaProcesamiento": "nota_procesamiento",
+        "fechaVenta":        "fecha_venta",
+        "fechaInstalacion":  "fecha_instalacion",
+        "nombre":            "nombre",
+        "correo":            "correo",
+        "phone1":            "phone1",
+        "phone2":            "phone2",
+        "direccion":         "direccion",
+        "fechaNacimiento":   "fecha_nacimiento",
+        "servicio":          "servicio",
+        "mercado":           "mercado",
+        "nota":              "nota",
+    }
+    date_cols = {"fechaVenta", "fechaInstalacion", "fechaNacimiento"}
+
+    sets = []
+    params: dict = {"id": mid, "now": datetime.utcnow()}
+    for field, col in col_map.items():
+        val = getattr(body, field, None)
+        if val is not None:
+            if field in date_cols:
+                val = _parse_date(str(val))
+            else:
+                val = str(val).strip()
+            sets.append(f"{col} = :{field}")
+            params[field] = val
+
+    if not sets:
         raise HTTPException(400, "Sin campos para actualizar")
-    update["actualizadoEn"] = datetime.utcnow()
-    result = await db["pre_leads"].update_one({"_id": oid}, {"$set": update})
-    if result.matched_count == 0:
-        raise HTTPException(404, "Lead no encontrado")
+    sets.append("updated_at = :now")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(
+            text(f"UPDATE pre_leads SET {', '.join(sets)} WHERE id = :id"), params
+        )
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "Lead no encontrado")
+
     return {"success": True}

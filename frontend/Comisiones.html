@@ -977,7 +977,7 @@ let _agentIdx = -1; // -1 = propio usuario; 0..n = índice en _agents (solo admi
 async function fetchLeads(){
   // Para admins: scope=ranking trae todos los leads sin filtro de agente
   const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
-  const res = await AUTH.sf(`/api/leads?limit=10000${adminScope}`);
+  const res = await AUTH.sf(`/api/leads?limit=10000&noAutoMonth=1${adminScope}`);
   if(!res||!res.ok) return [];
   try{
     const data = await res.json();

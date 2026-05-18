@@ -1,17 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from bson import ObjectId
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user
 from typing import Optional
+from datetime import datetime, date
 
 router = APIRouter(prefix="/api/premios", tags=["Premios"])
 
 TIPOS_VALIDOS = {"first", "second", "third", "special", "team", "bonus"}
 
-def _doc(d: dict) -> dict:
-    d["_id"] = str(d["_id"])
-    return d
+
+def _doc(row) -> dict:
+    r = dict(row)
+    r["_id"] = str(r.get("id", ""))
+    r["id"]  = str(r.get("id", ""))
+    return r
+
 
 class PremioActivo(BaseModel):
     tipo: str
@@ -19,6 +24,7 @@ class PremioActivo(BaseModel):
     descripcion: str
     categoria: str
     monto: float = 0
+
 
 class Ganador(BaseModel):
     nombre: str
@@ -29,74 +35,91 @@ class Ganador(BaseModel):
     fecha: Optional[str] = None
     status: Optional[str] = "asignado"
 
+
 # ── ACTIVOS ────────────────────────────────────────────────────────
 @router.get("/activos")
 async def get_activos():
-    db = get_db()
-    items = await db["premios_activos"].find({}).sort("createdAt", 1).to_list(None)
-    return {"success": True, "data": [_doc(i) for i in items]}
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT * FROM premios_activos ORDER BY created_at ASC"))
+        items = [_doc(row) for row in r.mappings().all()]
+    return {"success": True, "data": items}
+
 
 @router.post("/activos")
 async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
     if body.tipo not in TIPOS_VALIDOS:
         raise HTTPException(400, "Tipo inválido")
-    db = get_db()
-    from datetime import datetime
-    doc = {
-        "tipo": body.tipo, "titulo": body.titulo.strip(),
-        "descripcion": body.descripcion.strip(), "categoria": body.categoria.strip(),
-        "monto": body.monto, "creadoPor": user.get("username", ""),
-        "createdAt": datetime.utcnow()
-    }
-    result = await db["premios_activos"].insert_one(doc)
-    doc["_id"] = str(result.inserted_id)
-    return {"success": True, "data": doc}
+    now = datetime.utcnow()
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            INSERT INTO premios_activos (tipo, titulo, descripcion, categoria, monto, creado_por, created_at)
+            VALUES (:tipo, :titulo, :desc, :cat, :monto, :by, :now)
+        """), {
+            "tipo": body.tipo, "titulo": body.titulo.strip(),
+            "desc": body.descripcion.strip(), "cat": body.categoria.strip(),
+            "monto": body.monto, "by": user.get("username", ""), "now": now,
+        })
+        await s.commit()
+        r = await s.execute(text("SELECT * FROM premios_activos WHERE id = LAST_INSERT_ID()"))
+        row = r.mappings().first()
+    return {"success": True, "data": _doc(row)}
+
 
 @router.delete("/activos/{premio_id}")
 async def delete_activo(premio_id: str, user: dict = Depends(current_user)):
-    db = get_db()
     try:
-        filter_ = {"_id": ObjectId(premio_id)}
-    except Exception:
-        filter_ = {"_id": premio_id}
-    deleted = await db["premios_activos"].find_one_and_delete(filter_)
-    if not deleted:
+        pid = int(premio_id)
+    except ValueError:
         raise HTTPException(404, "No encontrado")
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("DELETE FROM premios_activos WHERE id = :id"), {"id": pid})
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "No encontrado")
     return {"success": True}
+
 
 # ── GANADORES ─────────────────────────────────────────────────────
 @router.get("/ganadores")
 async def get_ganadores():
-    db = get_db()
-    items = await db["premios_ganadores"].find({}).sort("createdAt", 1).to_list(None)
-    return {"success": True, "data": [_doc(i) for i in items]}
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT * FROM premios_ganadores ORDER BY created_at ASC"))
+        items = [_doc(row) for row in r.mappings().all()]
+    return {"success": True, "data": items}
+
 
 @router.post("/ganadores")
 async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
     if not body.nombre or not body.iniciales:
         raise HTTPException(400, "Nombre e iniciales requeridos")
-    db = get_db()
-    from datetime import datetime, date
-    doc = {
-        "tipo": body.tipo, "nombre": body.nombre.strip(),
-        "iniciales": body.iniciales.strip().upper(), "monto": body.monto,
-        "categoria": (body.categoria or "").strip(),
-        "fecha": body.fecha or date.today().isoformat(),
-        "status": "pendiente" if body.status == "pendiente" else "asignado",
-        "creadoPor": user.get("username", ""), "createdAt": datetime.utcnow()
-    }
-    result = await db["premios_ganadores"].insert_one(doc)
-    doc["_id"] = str(result.inserted_id)
-    return {"success": True, "data": doc}
+    now = datetime.utcnow()
+    fecha_val = body.fecha or date.today().isoformat()
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("""
+            INSERT INTO premios_ganadores (tipo, nombre, iniciales, monto, categoria, fecha, status, creado_por, created_at)
+            VALUES (:tipo, :nombre, :iniciales, :monto, :cat, :fecha, :status, :by, :now)
+        """), {
+            "tipo": body.tipo, "nombre": body.nombre.strip(),
+            "iniciales": body.iniciales.strip().upper(), "monto": body.monto,
+            "cat": (body.categoria or "").strip(), "fecha": fecha_val,
+            "status": "pendiente" if body.status == "pendiente" else "asignado",
+            "by": user.get("username", ""), "now": now,
+        })
+        await s.commit()
+        r = await s.execute(text("SELECT * FROM premios_ganadores WHERE id = LAST_INSERT_ID()"))
+        row = r.mappings().first()
+    return {"success": True, "data": _doc(row)}
+
 
 @router.delete("/ganadores/{ganador_id}")
 async def delete_ganador(ganador_id: str, user: dict = Depends(current_user)):
-    db = get_db()
     try:
-        filter_ = {"_id": ObjectId(ganador_id)}
-    except Exception:
-        filter_ = {"_id": ganador_id}
-    deleted = await db["premios_ganadores"].find_one_and_delete(filter_)
-    if not deleted:
+        gid = int(ganador_id)
+    except ValueError:
         raise HTTPException(404, "No encontrado")
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("DELETE FROM premios_ganadores WHERE id = :id"), {"id": gid})
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "No encontrado")
     return {"success": True}

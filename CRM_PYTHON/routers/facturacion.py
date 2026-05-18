@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from database import get_db
+from database_mysql import AsyncSessionLocal
+from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
 from datetime import datetime
 from typing import Any
-import re
+import re, json
 
 router = APIRouter(prefix="/api/facturacion", tags=["Facturacion"])
 
-# ── Helpers ──────────────────────────────────────────────────────
+
 def _to_fecha_key(fecha: str) -> str:
     s = str(fecha or "").strip()
     if re.match(r"^\d{2}/\d{2}/\d{4}$", s):
@@ -23,6 +24,7 @@ def _to_fecha_key(fecha: str) -> str:
         return f"{dd:02d}/{mm:02d}/{yy}"
     return s
 
+
 def _parse_fecha(fecha: str) -> dict | None:
     key = _to_fecha_key(fecha)
     m = re.match(r"^(\d{2})/(\d{2})/(\d{4})$", key)
@@ -31,6 +33,7 @@ def _parse_fecha(fecha: str) -> dict | None:
     dd, mm, yy = int(m[1]), int(m[2]), int(m[3])
     return {"key": key, "dia": dd, "mes": mm, "anio": yy}
 
+
 def _ensure_len17(arr: Any) -> list:
     a = [str(v) if v is not None else "" for v in (arr if isinstance(arr, list) else [])]
     if len(a) == 14:
@@ -38,6 +41,7 @@ def _ensure_len17(arr: Any) -> list:
     while len(a) < 17:
         a.append("")
     return a[:17]
+
 
 def _to_number(val: Any) -> float:
     if val is None:
@@ -48,45 +52,47 @@ def _to_number(val: Any) -> float:
     except Exception:
         return 0.0
 
-async def _get_coll():
-    db = get_db()
-    coll = db["Facturacion"]
-    try:
-        await coll.create_index([("anio", 1), ("mes", 1), ("dia", 1)], unique=True, name="uniq_anio_mes_dia")
-        await coll.create_index([("fecha", 1)], name="idx_fecha")
-    except Exception:
-        pass
-    return coll
 
-# ── Modelos ──────────────────────────────────────────────────────
+def _campos_from_row(row) -> list:
+    c = row.get("campos")
+    if isinstance(c, str):
+        try: c = json.loads(c)
+        except: c = []
+    return _ensure_len17(c or [])
+
+
 class FacturacionBody(BaseModel):
     fecha: str
     campos: list
 
-# ── Rutas ────────────────────────────────────────────────────────
+
 @router.get("/anual/{anio}")
 async def get_anual(anio: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
-    coll = await _get_coll()
-    docs = await coll.find({"anio": anio}, {"_id": 0, "mes": 1, "campos": 1}).to_list(None)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT mes, campos FROM facturacion WHERE anio = :y"), {"y": anio})
+        docs = r.mappings().all()
     totales = [0.0] * 12
     for d in docs:
         mes_idx = (int(d.get("mes") or 0)) - 1
         if not (0 <= mes_idx <= 11):
             continue
-        arr = _ensure_len17(d.get("campos", []))
+        arr = _campos_from_row(d)
         totales[mes_idx] += _to_number(arr[12])
     return {"ok": True, "totalesPorMes": totales}
+
 
 @router.get("/{anio}/{mes}")
 async def get_mensual(anio: int, mes: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     if not (1 <= mes <= 12):
         raise HTTPException(400, "Parámetros inválidos")
-    coll = await _get_coll()
-    docs = await coll.find(
-        {"anio": anio, "mes": mes},
-        {"_id": 0, "fecha": 1, "campos": 1, "dia": 1}
-    ).sort("dia", 1).to_list(None)
-    return {"ok": True, "data": [{"fecha": d.get("fecha"), "campos": _ensure_len17(d.get("campos", []))} for d in docs]}
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT fecha_str as fecha, campos, dia FROM facturacion
+            WHERE anio = :y AND mes = :m ORDER BY dia ASC
+        """), {"y": anio, "m": mes})
+        docs = r.mappings().all()
+    return {"ok": True, "data": [{"fecha": d.get("fecha"), "campos": _campos_from_row(d)} for d in docs]}
+
 
 @router.post("/")
 async def save_facturacion(body: FacturacionBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
@@ -94,19 +100,36 @@ async def save_facturacion(body: FacturacionBody, user: dict = Depends(require_r
     if not parsed:
         raise HTTPException(400, "Fecha inválida")
     campos17 = _ensure_len17(body.campos)
-    coll = await _get_coll()
     now = datetime.utcnow()
-    try:
-        result = await coll.update_one(
-            {"anio": parsed["anio"], "mes": parsed["mes"], "dia": parsed["dia"]},
-            {
-                "$set": {"fecha": parsed["key"], "campos": campos17, "updatedAt": now, "updatedBy": user.get("username")},
-                "$setOnInsert": {"createdAt": now, "createdBy": user.get("username")}
-            },
-            upsert=True
-        )
-        return {"ok": True, "upserted": result.upserted_id is not None, "modifiedCount": result.modified_count}
-    except Exception as e:
-        if "11000" in str(e) or "duplicate" in str(e).lower():
-            raise HTTPException(409, "Conflicto de duplicado para la fecha")
-        raise HTTPException(500, "Error interno")
+    username = user.get("username")
+
+    async with AsyncSessionLocal() as s:
+        exists = await s.execute(text("""
+            SELECT id FROM facturacion WHERE anio = :y AND mes = :m AND dia = :d LIMIT 1
+        """), {"y": parsed["anio"], "m": parsed["mes"], "d": parsed["dia"]})
+        row = exists.first()
+
+        if row:
+            await s.execute(text("""
+                UPDATE facturacion SET fecha_str = :fecha, campos = :campos,
+                    updated_at = :now, updated_by = :by
+                WHERE anio = :y AND mes = :m AND dia = :d
+            """), {
+                "fecha": parsed["key"], "campos": json.dumps(campos17),
+                "now": now, "by": username,
+                "y": parsed["anio"], "m": parsed["mes"], "d": parsed["dia"],
+            })
+            upserted = False
+        else:
+            await s.execute(text("""
+                INSERT INTO facturacion (anio, mes, dia, fecha_str, campos, created_by, updated_by, created_at, updated_at)
+                VALUES (:y, :m, :d, :fecha, :campos, :by, :by, :now, :now)
+            """), {
+                "y": parsed["anio"], "m": parsed["mes"], "d": parsed["dia"],
+                "fecha": parsed["key"], "campos": json.dumps(campos17),
+                "by": username, "now": now,
+            })
+            upserted = True
+        await s.commit()
+
+    return {"ok": True, "upserted": upserted, "modifiedCount": 0 if upserted else 1}
