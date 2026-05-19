@@ -286,9 +286,11 @@
 
   function refreshFilterOptions(){
     if(!__allLeadsData.length)return;
+    const _ud=getUserData(),_role=String(_ud.role||'').toLowerCase();
+    const _isAdm=isAdminOrBackoffice(_role),_isSup=isSupervisor(_role),_isAgt=isAgent(_role);
     const equipos=new Set(),agentes=new Set(),mercados=new Set(),meses=new Set();
-    // Incluir agentes de la API (usuarios registrados, aunque no tengan leads aún)
-    if(__usersFromAPI&&__usersFromAPI.length){
+    // Agentes de la API solo para admin (supervisor y agente ven solo su equipo)
+    if(_isAdm&&__usersFromAPI&&__usersFromAPI.length){
       __usersFromAPI.forEach(function(u){
         var r=String(u.role||'').toLowerCase();
         if(r.includes('agente')||r.includes('vendedor')||r.includes('agent')){
@@ -297,9 +299,12 @@
         }
       });
     }
+    // Para supervisor/agente: poblar agentes solo desde leads ya filtrados (su equipo)
+    const _leadsParaAgentes=(_isSup||_isAgt)?(__filteredLeads.length?__filteredLeads:__allLeadsData):__allLeadsData;
+    _leadsParaAgentes.forEach(function(lead){if(lead.agente)agentes.add(lead.agente);});
     __allLeadsData.forEach(function(lead){
       if(lead.supervisor) equipos.add(normalizeSupervisorName(lead.supervisor));
-      if(lead.agente)agentes.add(lead.agente);
+      if(!_isSup&&!_isAgt&&lead.agente)agentes.add(lead.agente); // admin: ya agregado arriba si no estaba
       if(lead.mercado)mercados.add(lead.mercado);
       var toYM=function(v){if(!v)return'';var s=String(v).trim();return s.length>=7?s.slice(0,7):'';};
       var fechas=[
