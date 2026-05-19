@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi import Body
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter(prefix="/api/equipos", tags=["Equipos"])
 
@@ -140,6 +141,127 @@ async def equipo_estadisticas(
         "total":       len(data),
         "fechaInicio": fechaInicio,
         "fechaFin":    fechaFin,
+    }
+
+
+@router.get("/telefonos")
+async def equipo_telefonos(
+    fechaInicio: Optional[str] = Query(None),
+    fechaFin:    Optional[str] = Query(None),
+    user: dict = Depends(current_user),
+):
+    """Devuelve todos los teléfonos del mes y detecta duplicados."""
+    now = datetime.utcnow()
+    fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
+    ff = fechaFin    or now.strftime("%Y-%m-%d")
+    params = {"fi": fi, "ff": ff}
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT
+                    id,
+                    COALESCE(telefono_principal, telefono, '') AS tel,
+                    nombre_cliente,
+                    UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    status,
+                    dia_venta,
+                    dia_instalacion
+                FROM leads
+                WHERE (
+                    (dia_venta BETWEEN :fi AND :ff AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:fi,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:fi,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :fi AND :ff)
+                )
+                ORDER BY tel
+            """), params)
+            rows = r.mappings().all()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+    # Agrupar por teléfono para detectar duplicados
+    from collections import defaultdict
+    tel_map: dict = defaultdict(list)
+    for row in rows:
+        tel = str(row["tel"] or "").strip().replace(" ", "").replace("-", "")
+        if not tel:
+            continue
+        tel_map[tel].append({
+            "id":       str(row["id"]),
+            "nombre":   row["nombre_cliente"],
+            "team":     _normalize_team(row["team_raw"]),
+            "status":   row["status"],
+            "dia_venta": str(row["dia_venta"] or ""),
+            "dia_instalacion": str(row["dia_instalacion"] or ""),
+        })
+
+    duplicados = {tel: leads for tel, leads in tel_map.items() if len(leads) > 1}
+    todos = [{"tel": tel, "leads": leads} for tel, leads in tel_map.items()]
+
+    return {
+        "success": True,
+        "total_telefonos": len(tel_map),
+        "total_duplicados": len(duplicados),
+        "duplicados": [{"tel": tel, "veces": len(leads), "leads": leads} for tel, leads in duplicados.items()],
+        "fechaInicio": fi,
+        "fechaFin": ff,
+    }
+
+
+@router.post("/comparar-telefonos")
+async def equipo_comparar_telefonos(
+    fechaInicio: Optional[str] = Query(None),
+    fechaFin:    Optional[str] = Query(None),
+    telefonos: List[str] = Body(..., description="Lista de teléfonos del Excel"),
+    user: dict = Depends(current_user),
+):
+    """Compara una lista de teléfonos del Excel contra la BD."""
+    now = datetime.utcnow()
+    fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
+    ff = fechaFin    or now.strftime("%Y-%m-%d")
+
+    def clean_tel(t: str) -> str:
+        return str(t or "").strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+
+    excel_set = {clean_tel(t) for t in telefonos if clean_tel(t)}
+
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT
+                    COALESCE(telefono_principal, telefono, '') AS tel,
+                    nombre_cliente,
+                    UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    status, dia_venta
+                FROM leads
+                WHERE (
+                    (dia_venta BETWEEN :fi AND :ff AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:fi,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:fi,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :fi AND :ff)
+                )
+            """), {"fi": fi, "ff": ff})
+            rows = r.mappings().all()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+    db_map = {}
+    for row in rows:
+        tel = clean_tel(row["tel"])
+        if tel:
+            db_map[tel] = {"nombre": row["nombre_cliente"], "team": _normalize_team(row["team_raw"]), "status": row["status"]}
+
+    db_set = set(db_map.keys())
+
+    en_excel_y_bd  = [{"tel": t, **db_map[t]} for t in excel_set & db_set]
+    solo_en_excel  = list(excel_set - db_set)
+    solo_en_bd     = [{"tel": t, **db_map[t]} for t in db_set - excel_set]
+
+    return {
+        "success": True,
+        "excel_total":    len(excel_set),
+        "bd_total":       len(db_set),
+        "coinciden":      len(en_excel_y_bd),
+        "solo_en_excel":  solo_en_excel,
+        "solo_en_bd":     solo_en_bd,
     }
 
 

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Comparar Teléfonos</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #f4f6fa; margin: 0; padding: 24px; color: #1a2340; }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  .sub { color: #6b7a99; font-size: .85rem; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.07); padding: 20px; margin-bottom: 20px; }
+  label { font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b7a99; display: block; margin-bottom: 6px; }
+  textarea { width: 100%; box-sizing: border-box; border: 1px solid #dde3f0; border-radius: 8px; padding: 10px 12px; font-size: .88rem; resize: vertical; min-height: 160px; font-family: monospace; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 180px; }
+  input[type=date] { border: 1px solid #dde3f0; border-radius: 8px; padding: 8px 12px; font-size: .88rem; width: 100%; box-sizing: border-box; }
+  button { background: #1a2340; color: #fff; border: none; border-radius: 8px; padding: 10px 28px; font-size: .9rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  button:hover { background: #2d3a5e; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat { background: #f4f6fa; border-radius: 8px; padding: 12px 18px; text-align: center; min-width: 100px; }
+  .stat-n { font-size: 1.6rem; font-weight: 800; color: #1a2340; }
+  .stat-l { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7a99; margin-top: 2px; }
+  .stat.green .stat-n { color: #1a8a5a; }
+  .stat.red .stat-n { color: #c0392b; }
+  .stat.orange .stat-n { color: #e67e22; }
+  .section-title { font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #6b7a99; margin: 16px 0 8px; border-top: 1px solid #eef0f6; padding-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+  th { text-align: left; padding: 7px 10px; background: #f4f6fa; font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: #6b7a99; border-bottom: 1px solid #eef0f6; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f0f2f8; }
+  tr:hover td { background: #fafbff; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+  .badge-dup { background: #fde8e8; color: #c0392b; }
+  .hidden { display: none; }
+  #results { display: none; }
+  #dupes-section { display: none; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #dde3f0; border-top-color: #1a2340; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<h1>Comparar Teléfonos</h1>
+<p class="sub">Pega los teléfonos del Excel y compara contra la base de datos del mes seleccionado.</p>
+
+<div class="card">
+  <div class="row" style="margin-bottom:16px">
+    <div class="col">
+      <label>Desde</label>
+      <input type="date" id="fi">
+    </div>
+    <div class="col">
+      <label>Hasta</label>
+      <input type="date" id="ff">
+    </div>
+  </div>
+  <label>Teléfonos del Excel (uno por línea, o separados por coma/tab)</label>
+  <textarea id="tels" placeholder="3059938994&#10;7122910387&#10;9542182510&#10;..."></textarea>
+  <br>
+  <button onclick="comparar()">Comparar</button>
+  &nbsp;
+  <button onclick="soloduplicados()" style="background:#6b7a99">Ver duplicados en BD</button>
+</div>
+
+<div id="results" class="card">
+  <div class="stats" id="stats-box"></div>
+
+  <div id="dupes-section">
+    <div class="section-title">Teléfonos duplicados en la BD (<span id="cnt-dupes">0</span>)</div>
+    <table><thead><tr><th>Teléfono</th><th>Veces</th><th>Nombre</th><th>Equipo</th><th>Status</th><th>Día venta</th></tr></thead>
+    <tbody id="dupes-body"></tbody></table>
+  </div>
+
+  <div id="solo-excel-section">
+    <div class="section-title">Solo en Excel — no están en BD (<span id="cnt-excel">0</span>)</div>
+    <div id="solo-excel-list" style="font-family:monospace;font-size:.82rem;line-height:1.8;color:#c0392b;"></div>
+  </div>
+
+  <div id="solo-bd-section">
+    <div class="section-title">Solo en BD — no están en Excel (<span id="cnt-bd">0</span>)</div>
+    <table><thead><tr><th>Teléfono</th><th>Nombre</th><th>Equipo</th><th>Status</th></tr></thead>
+    <tbody id="solo-bd-body"></tbody></table>
+  </div>
+</div>
+
+<script>
+function getToken() {
+  return sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
+// Set default dates to current month
+(function() {
+  const now = new Date();
+  const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+  const last = new Date(y, now.getMonth()+1, 0).getDate();
+  document.getElementById('fi').value = `${y}-${m}-01`;
+  document.getElementById('ff').value = `${y}-${m}-${String(last).padStart(2,'0')}`;
+})();
+
+function parseTels(raw) {
+  return raw.split(/[\n,;\t]+/).map(t => t.trim().replace(/[^0-9+]/g, '')).filter(Boolean);
+}
+
+async function comparar() {
+  const fi = document.getElementById('fi').value;
+  const ff = document.getElementById('ff').value;
+  const tels = parseTels(document.getElementById('tels').value);
+  if (!tels.length) { alert('Pega al menos un teléfono'); return; }
+
+  const btn = event.target;
+  btn.innerHTML = '<span class="spinner"></span>Comparando...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`/api/equipos/comparar-telefonos?fechaInicio=${fi}&fechaFin=${ff}`, {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(tels)
+    });
+    const data = await resp.json();
+    if (!data.success) { alert('Error: ' + data.message); return; }
+
+    document.getElementById('results').style.display = '';
+    document.getElementById('dupes-section').style.display = 'none';
+
+    document.getElementById('stats-box').innerHTML = `
+      <div class="stat"><div class="stat-n">${data.excel_total}</div><div class="stat-l">Excel</div></div>
+      <div class="stat"><div class="stat-n">${data.bd_total}</div><div class="stat-l">Base de datos</div></div>
+      <div class="stat green"><div class="stat-n">${data.coinciden}</div><div class="stat-l">Coinciden</div></div>
+      <div class="stat red"><div class="stat-n">${data.solo_en_excel.length}</div><div class="stat-l">Solo en Excel</div></div>
+      <div class="stat orange"><div class="stat-n">${data.solo_en_bd.length}</div><div class="stat-l">Solo en BD</div></div>
+    `;
+
+    // Solo en Excel
+    document.getElementById('cnt-excel').textContent = data.solo_en_excel.length;
+    document.getElementById('solo-excel-list').textContent = data.solo_en_excel.join('\n') || '(ninguno)';
+    document.getElementById('solo-excel-section').style.display = data.solo_en_excel.length ? '' : 'none';
+
+    // Solo en BD
+    document.getElementById('cnt-bd').textContent = data.solo_en_bd.length;
+    const bdBody = document.getElementById('solo-bd-body');
+    bdBody.innerHTML = data.solo_en_bd.map(r =>
+      `<tr><td style="font-family:monospace">${r.tel}</td><td>${r.nombre||''}</td><td>${r.team||''}</td><td>${r.status||''}</td></tr>`
+    ).join('') || '<tr><td colspan="4" style="color:#6b7a99">(ninguno)</td></tr>';
+    document.getElementById('solo-bd-section').style.display = '';
+
+  } finally {
+    btn.innerHTML = 'Comparar';
+    btn.disabled = false;
+  }
+}
+
+async function soloduplicados() {
+  const fi = document.getElementById('fi').value;
+  const ff = document.getElementById('ff').value;
+
+  const btn = event.target;
+  btn.innerHTML = '<span class="spinner"></span>Buscando...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`/api/equipos/telefonos?fechaInicio=${fi}&fechaFin=${ff}`, {
+      headers: authHeaders(), credentials: 'include'
+    });
+    const data = await resp.json();
+    if (!data.success) { alert('Error: ' + data.message); return; }
+
+    document.getElementById('results').style.display = '';
+    document.getElementById('solo-excel-section').style.display = 'none';
+    document.getElementById('solo-bd-section').style.display = 'none';
+
+    document.getElementById('stats-box').innerHTML = `
+      <div class="stat"><div class="stat-n">${data.total_telefonos}</div><div class="stat-l">Teléfonos únicos en BD</div></div>
+      <div class="stat red"><div class="stat-n">${data.total_duplicados}</div><div class="stat-l">Duplicados</div></div>
+    `;
+
+    document.getElementById('dupes-section').style.display = '';
+    document.getElementById('cnt-dupes').textContent = data.total_duplicados;
+    const body = document.getElementById('dupes-body');
+    if (!data.duplicados.length) {
+      body.innerHTML = '<tr><td colspan="6" style="color:#1a8a5a;font-weight:700">Sin duplicados</td></tr>';
+    } else {
+      body.innerHTML = data.duplicados.flatMap(d =>
+        d.leads.map((l, i) => `
+          <tr>
+            ${i===0 ? `<td rowspan="${d.leads.length}" style="font-family:monospace;font-weight:700">${d.tel}</td><td rowspan="${d.leads.length}"><span class="badge badge-dup">×${d.veces}</span></td>` : ''}
+            <td>${l.nombre||''}</td><td>${l.team||''}</td><td>${l.status||''}</td><td>${l.dia_venta||''}</td>
+          </tr>`)
+      ).join('');
+    }
+  } finally {
+    btn.innerHTML = 'Ver duplicados en BD';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
