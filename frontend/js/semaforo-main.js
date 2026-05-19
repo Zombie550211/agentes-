@@ -206,9 +206,8 @@
 
   function normalizeVentasValue(row) {
     try {
-      // VALIDAS = pending + completed/active (sin cancelled, hold, rescheduled, etc.)
-      // Total = todos sin filtrar — NO usar para ventas del semáforo
-      const raw = row?.VENTAS ?? row?.ventas ?? row?.VALIDAS ?? row?.validas ?? row?.ACTIVAS ?? row?.activas ?? row?.Total ?? row?.total ?? row?.TOTAL ?? row?.cantidad ?? row?.count;
+      // Usar Total (todos no cancelados) para coincidir con la tabla Ventas del Mes
+      const raw = row?.VENTAS ?? row?.ventas ?? row?.VALIDAS ?? row?.validas ?? row?.Total ?? row?.total ?? row?.TOTAL ?? row?.ACTIVAS ?? row?.activas ?? row?.cantidad ?? row?.count;
       const n = Number(raw);
       return Number.isFinite(n) ? n : 0;
     } catch(_) { return 0; }
