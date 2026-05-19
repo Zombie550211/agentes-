@@ -275,8 +275,11 @@ async def init_rankings(user: dict = Depends(current_user)):
                        COALESCE(puntaje, 0) AS puntaje,
                        status
                 FROM leads
-                WHERE (dia_venta BETWEEN :s AND :e
-                       OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))
+                WHERE (
+                    (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+                )
                 AND COALESCE(agente_nombre, agente, '') != ''
             """), {"s": start_date, "e": end_date})
             rows = r.mappings().all()
@@ -321,8 +324,11 @@ async def init_rankings(user: dict = Depends(current_user)):
                            COALESCE(puntaje, 0) AS puntaje,
                            status
                     FROM leads
-                    WHERE (dia_venta BETWEEN :s AND :e
-                           OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))
+                    WHERE (
+                        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+                        OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+                    )
                     AND COALESCE(agente, agente_nombre, '') != ''
                 """), {"s": ms, "e": me})
                 rows2 = r.mappings().all()

@@ -440,7 +440,11 @@ async def semaforo(
                   SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) NOT REGEXP 'CANCEL'
                       THEN COALESCE(puntaje,0) ELSE 0 END) AS sum_puntaje
                 FROM leads
-                WHERE dia_venta BETWEEN :s AND :e
+                WHERE (
+                    (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+                )
                   AND (agente_nombre IS NOT NULL OR agente IS NOT NULL)
                   AND (excluir_de_reporte IS NULL OR excluir_de_reporte = FALSE)
                   {status_clause}
