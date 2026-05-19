@@ -261,6 +261,7 @@
     .cdrop-item:hover { background: var(--sheet-3); color: var(--ink-1); }
     .cdrop-item.cdrop-sel { background: var(--a-bg); color: var(--a); font-weight: 700; }
     .cdrop-check { width: 14px; font-size: .68rem; flex-shrink: 0; text-align: center; }
+    .cdrop-letter { font-size: .62rem; font-weight: 800; letter-spacing: .10em; text-transform: uppercase; color: var(--ink-4); padding: 8px 10px 3px; }
 
     .cmd-status-tabs {
       display: flex; align-items: center;
@@ -1663,16 +1664,31 @@
   var activeToken = null;
   var activeSel   = null;
 
-  function formatName(s){
-    return String(s||'').replace(/\./g,' ').replace(/_/g,' ')
-      .replace(/\s+/g,' ').trim()
-      .replace(/\S+/g, function(w){ return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase(); });
-  }
+  // IDs de select que deben agruparse por letra (nombres de personas)
+  var ALPHA_SELECTS = ['agentFilter','teamFilter'];
 
   function closeDrop(){
     if(panel){ panel.classList.remove('open'); panel.innerHTML=''; }
     if(activeToken) activeToken.classList.remove('drop-open');
     activeToken=null; activeSel=null;
+  }
+
+  function addItem(opt, curVal){
+    var item=document.createElement('div');
+    item.className='cdrop-item'+(opt.value===curVal?' cdrop-sel':'');
+    var chk=document.createElement('span');
+    chk.className='cdrop-check';
+    chk.textContent=opt.value===curVal?'✓':'';
+    var lbl=document.createElement('span');
+    lbl.textContent=opt.text||'Todos';
+    item.appendChild(chk); item.appendChild(lbl);
+    item.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      activeSel.value=opt.value;
+      activeSel.dispatchEvent(new Event('change',{bubbles:true}));
+      closeDrop();
+    });
+    return item;
   }
 
   function openDrop(token){
@@ -1685,29 +1701,37 @@
     activeToken.classList.add('drop-open');
 
     var curVal=sel.value;
+    var useAlpha=ALPHA_SELECTS.indexOf(sel.id)!==-1;
+    var opts=Array.from(sel.options);
     panel.innerHTML='';
-    Array.from(sel.options).forEach(function(opt){
-      var item=document.createElement('div');
-      item.className='cdrop-item'+(opt.value===curVal?' cdrop-sel':'');
-      var chk=document.createElement('span');
-      chk.className='cdrop-check';
-      chk.textContent=opt.value===curVal?'✓':'';
-      var lbl=document.createElement('span');
-      lbl.textContent=opt.text||'Todos';
-      item.appendChild(chk); item.appendChild(lbl);
-      item.addEventListener('mousedown',function(e){
-        e.preventDefault();
-        sel.value=opt.value;
-        sel.dispatchEvent(new Event('change',{bubbles:true}));
-        closeDrop();
+
+    if(useAlpha){
+      // "Todos" siempre primero, sin letra
+      var todosOpt=opts.find(function(o){return o.value==='';});
+      if(todosOpt) panel.appendChild(addItem(todosOpt,curVal));
+
+      // Resto agrupado por primera letra
+      var named=opts.filter(function(o){return o.value!=='';});
+      var lastLetter='';
+      named.forEach(function(opt){
+        var letter=(opt.text||'').charAt(0).toUpperCase();
+        if(letter!==lastLetter){
+          lastLetter=letter;
+          var div=document.createElement('div');
+          div.className='cdrop-letter';
+          div.textContent=letter;
+          panel.appendChild(div);
+        }
+        panel.appendChild(addItem(opt,curVal));
       });
-      panel.appendChild(item);
-    });
+    } else {
+      opts.forEach(function(opt){ panel.appendChild(addItem(opt,curVal)); });
+    }
 
     var rect=token.getBoundingClientRect();
     var left=rect.left;
     var top=rect.bottom+4;
-    var panW=Math.max(rect.width, 170);
+    var panW=Math.max(rect.width, 180);
     if(left+panW>window.innerWidth-8) left=window.innerWidth-panW-8;
     panel.style.left=left+'px';
     panel.style.top=top+'px';
