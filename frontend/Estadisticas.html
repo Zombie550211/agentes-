@@ -865,7 +865,7 @@ async function renderConversionTable(root){
     const _tnOf=l=>{const rT=(_fF(l,['SUPERVISOR','supervisor','Supervisor','_raw.SUPERVISOR','_raw.supervisor','TEAM','team','equipo','grupo'])||'').toString().trim();return __mapToAllowedTeam(rT)||(rT||'');};
     const _mkOf=l=>String(_fF(l,['mercado','market','producto','servicio','tipoProducto'])||'').toUpperCase();
     const _ptOf=l=>{const p=_fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
-    const _countable=l=>{const s=(_fF(l,['status','estado'])||'').toLowerCase().trim();return /complet|activ|pending|pendiente/.test(s);};
+    const _countable=l=>{const s=(_fF(l,['status','estado'])||'').toLowerCase().trim();return !/cancel|reserva/.test(s);};
     const _mesStr=fi.slice(0,7);
     const _enMes=l=>String(_fF(l,['dia_venta','diaVenta'])||'').slice(0,7)===_mesStr;
     const leadsR=await fetchWithAuth(`/api/leads?fechaInicio=${fi}&fechaFin=${ff}&limit=2000`);
@@ -923,7 +923,7 @@ async function loadDayData(){
       const mapped=__mapToAllowedTeam(rawTeam);
       return mapped || (rawTeam||'Sin equipo');
     },mkOf=l=>String(fF(l,['mercado','market','producto','servicio','tipoProducto','producto.nombre'])||'').toUpperCase(),ptOf=l=>{const p=fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
-    const isDayCountable=l=>{const s=(fF(l,['status','estado'])||'').toLowerCase().trim();return /complet|activ|pending|pendiente/.test(s);};
+    const isDayCountable=l=>{const s=(fF(l,['status','estado'])||'').toLowerCase().trim();return !/cancel|reserva/.test(s);};
     inDay.filter(isDayCountable).forEach(l=>{const n=tnOf(l);if(!tMap.has(n))tMap.set(n,{name:n,ICON:0,BAMO:0,Total:0,Puntaje:0});const ag=tMap.get(n);ag.Total++;const mk=mkOf(l);if(mk.includes('ICON'))ag.ICON++;else if(mk.includes('BAMO'))ag.BAMO++;ag.Puntaje+=ptOf(l);});
     let dd=Array.from(tMap.values());const la=await __fetchLineasTeamAll(),ld=__buildTeamLineasSummaryFromItemsWithColchon(la,`${y}-${m}-${d}`,`${y}-${m}-${d}`),lnms=new Set(ld.map(l=>String(l.name).toUpperCase()));
     dd=dd.filter(t=>!lnms.has(String(t.name).toUpperCase()));
