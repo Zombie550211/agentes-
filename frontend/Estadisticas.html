@@ -866,12 +866,10 @@ async function renderConversionTable(root){
     const _mkOf=l=>String(_fF(l,['mercado','market','producto','servicio','tipoProducto'])||'').toUpperCase();
     const _ptOf=l=>{const p=_fF(l,['puntaje','score','puntos']);const n=typeof p==='number'?p:parseFloat(p);return isNaN(n)?0:n;};
     const _countable=l=>{const s=(_fF(l,['status','estado'])||'').toLowerCase().trim();return !/cancel|reserva/.test(s);};
-    const _mesStr=fi.slice(0,7);
-    const _enMes=l=>String(_fF(l,['dia_venta','diaVenta'])||'').slice(0,7)===_mesStr;
     const leadsR=await fetchWithAuth(`/api/leads?fechaInicio=${fi}&fechaFin=${ff}&limit=2000`);
     let allLeads=[];
     if(leadsR&&leadsR.ok){const j=await leadsR.json();allLeads=Array.isArray(j)?j:(Array.isArray(j.data)?j.data:(Array.isArray(j.leads)?j.leads:[]));}
-    const activeLeads=allLeads.filter(l=>_enMes(l)&&_countable(l));
+    const activeLeads=allLeads.filter(_countable);
     const tMap=new Map();
     activeLeads.forEach(l=>{const n=_tnOf(l);if(!n)return;if(!tMap.has(n))tMap.set(n,{name:n,ICON:0,BAMO:0,Total:0,Puntaje:0,ACTIVAS:0});const ag=tMap.get(n);ag.Total++;ag.ACTIVAS++;const mk=_mkOf(l);if(mk.includes('ICON'))ag.ICON++;else if(mk.includes('BAMO'))ag.BAMO++;ag.Puntaje+=_ptOf(l);});
     td=Array.from(tMap.values());
