@@ -138,12 +138,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
     where  = ["(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"]
     params: dict = {"s": start_date, "e": end_date}
 
-    if is_sup and sup_agents:
-        ph = ", ".join([f":ag{i}" for i in range(len(sup_agents))])
-        where.append(f"(LOWER(COALESCE(agente_nombre,'')) IN ({ph}) OR LOWER(COALESCE(agente,'')) IN ({ph}))")
-        for i, ag in enumerate(sup_agents):
-            params[f"ag{i}"] = ag.lower()
-
+    # Supervisores ven datos globales igual que admin (sin filtrar por su equipo)
     where_sql = " AND ".join(f"({w})" for w in where)
 
     async with AsyncSessionLocal() as s:
