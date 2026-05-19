@@ -247,9 +247,20 @@
     .token.active { background: var(--a-bg); border-color: var(--a-line); color: var(--a); box-shadow: 0 0 0 2px rgba(108,71,255,.08); }
     .token.active .token-label { color: var(--a); opacity:.7; }
     .token.active .token-chevron { color: var(--a); }
-    .token select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
+    .token select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; pointer-events: none; }
     .token .token-label, .token .token-val, .token .token-chevron { position: relative; z-index: 1; pointer-events: none; }
-    .token:focus-within { outline: 2px solid var(--a); outline-offset: 1px; }
+    .token.drop-open { border-color: var(--a-line); background: var(--a-bg); color: var(--a); }
+    .token.drop-open .token-chevron { transform: rotate(180deg); color: var(--a); }
+    /* Panel dropdown personalizado */
+    #cdrop { position: fixed; z-index: 9999; background: var(--sheet); border: 1px solid var(--line-1); border-radius: var(--r3); box-shadow: 0 8px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.07); padding: 5px; min-width: 170px; max-height: 280px; overflow-y: auto; display: none; }
+    #cdrop::-webkit-scrollbar { width: 4px; }
+    #cdrop::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+    @keyframes cdropIn { from { opacity:0; transform: translateY(-5px) scale(.98); } to { opacity:1; transform: translateY(0) scale(1); } }
+    #cdrop.open { display: block; animation: cdropIn .13s cubic-bezier(.16,1,.3,1); }
+    .cdrop-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--r2); font-size: .8rem; font-weight: 500; color: var(--ink-2); cursor: pointer; white-space: nowrap; transition: background .08s, color .08s; }
+    .cdrop-item:hover { background: var(--sheet-3); color: var(--ink-1); }
+    .cdrop-item.cdrop-sel { background: var(--a-bg); color: var(--a); font-weight: 700; }
+    .cdrop-check { width: 14px; font-size: .68rem; flex-shrink: 0; text-align: center; }
 
     .cmd-status-tabs {
       display: flex; align-items: center;
@@ -1639,7 +1650,88 @@
 
 <script src="/socket.io/socket.io.js" onerror="void 0" defer></script>
 
+<!-- Panel dropdown personalizado para los filtros token -->
+<div id="cdrop"></div>
+
 <!-- CRM CORE SCRIPT -->
 <script src="js/costumer-main.js" defer></script>
+
+<script>
+(function(){
+  'use strict';
+  var panel = null;
+  var activeToken = null;
+  var activeSel   = null;
+
+  function formatName(s){
+    return String(s||'').replace(/\./g,' ').replace(/_/g,' ')
+      .replace(/\s+/g,' ').trim()
+      .replace(/\S+/g, function(w){ return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase(); });
+  }
+
+  function closeDrop(){
+    if(panel){ panel.classList.remove('open'); panel.innerHTML=''; }
+    if(activeToken) activeToken.classList.remove('drop-open');
+    activeToken=null; activeSel=null;
+  }
+
+  function openDrop(token){
+    if(!panel) return;
+    var sel=token.querySelector('select');
+    if(!sel) return;
+    if(activeToken===token){ closeDrop(); return; }
+    closeDrop();
+    activeToken=token; activeSel=sel;
+    activeToken.classList.add('drop-open');
+
+    var curVal=sel.value;
+    panel.innerHTML='';
+    Array.from(sel.options).forEach(function(opt){
+      var item=document.createElement('div');
+      item.className='cdrop-item'+(opt.value===curVal?' cdrop-sel':'');
+      var chk=document.createElement('span');
+      chk.className='cdrop-check';
+      chk.textContent=opt.value===curVal?'✓':'';
+      var lbl=document.createElement('span');
+      lbl.textContent=opt.text||'Todos';
+      item.appendChild(chk); item.appendChild(lbl);
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        sel.value=opt.value;
+        sel.dispatchEvent(new Event('change',{bubbles:true}));
+        closeDrop();
+      });
+      panel.appendChild(item);
+    });
+
+    var rect=token.getBoundingClientRect();
+    var left=rect.left;
+    var top=rect.bottom+4;
+    var panW=Math.max(rect.width, 170);
+    if(left+panW>window.innerWidth-8) left=window.innerWidth-panW-8;
+    panel.style.left=left+'px';
+    panel.style.top=top+'px';
+    panel.style.minWidth=panW+'px';
+    panel.classList.add('open');
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    panel=document.getElementById('cdrop');
+    document.querySelectorAll('.token').forEach(function(token){
+      token.addEventListener('click',function(e){
+        openDrop(token);
+      });
+    });
+    document.addEventListener('mousedown',function(e){
+      if(panel&&panel.contains(e.target)) return;
+      if(e.target.closest&&e.target.closest('.token')) return;
+      closeDrop();
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape') closeDrop();
+    });
+  });
+})();
+</script>
 </body>
 </html>
