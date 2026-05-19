@@ -137,8 +137,8 @@ async def init_dashboard(user: dict = Depends(current_user)):
     sup_agents = get_supervisor_agents(username) if is_sup else []
 
     where  = ["""(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
-        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""]
     params: dict = {"s": start_date, "e": end_date}
@@ -375,8 +375,8 @@ async def init_estadisticas(user: dict = Depends(current_user)):
     ms, me = _month_range(now.year, now.month)
 
     date_cond = """(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
-        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""
     params    = {"s": ms, "e": me}
@@ -492,8 +492,8 @@ async def init_all_pages(user: dict = Depends(current_user)):
     now = _dt.datetime.utcnow()
     ms, me = _month_range(now.year, now.month)
     date_cond = """(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
-        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""
     params    = {"s": ms, "e": me}

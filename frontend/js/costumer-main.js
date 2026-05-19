@@ -285,8 +285,8 @@
   window.renderCostumerTable=function(items){__allLeadsData=normalizeLeads(items||[]);window.__allLeadsData=__allLeadsData;currentPage=1;applyFilters();setTimeout(refreshFilterOptions,0);};
 
   function _fmtName(s){
-    return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim()
-      .replace(/\S+/g,function(w){return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();});
+    var parts=String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+    return parts.slice(0,2).map(function(w){return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();}).join(' ');
   }
   function refreshFilterOptions(){
     if(!__allLeadsData.length)return;
@@ -439,7 +439,7 @@
       if(svc){const svcUp=svc.toUpperCase();const inSvc=String(lead.servicios||'').toUpperCase().indexOf(svcUp)!==-1;const inTipo=String(lead.tipo_servicio||'').toUpperCase().indexOf(svcUp)!==-1;if(!inSvc&&!inTipo)return false;}
       if(team&&String(lead.supervisor||'').toUpperCase().indexOf(team.toUpperCase())===-1)return false;
       if(agent){
-        const normA=function(s){return String(s||'').replace(/\./g,' ').trim().toLowerCase();};
+        const normA=function(s){return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ').filter(Boolean).slice(0,2).join(' ');};
         const agentOk=normA(lead.agente)===normA(agent)||normA(lead.agenteNombre||'')===normA(agent)||normA(lead.createdBy||'')===normA(agent);
         if(!agentOk)return false;
       }
