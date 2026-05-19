@@ -101,17 +101,17 @@ async def equipo_estadisticas(
 
     # Aggregate in Python with team normalization
     agg: dict = {}
-    cancel_re  = {"cancel", "reserva"}
     active_re  = {"completed", "completado", "complete", "active", "activo", "activa"}
+    pending_re = {"pending", "pendiente"}
     repro_re   = {"repro", "rescheduled", "reagendado"}
+    valid_re   = active_re | pending_re  # ventas = completed/active + pending
 
     for row in rows:
         team_norm  = _normalize_team(row["team_raw"])
         mercado    = row["mercado_norm"]
         sl         = row["status_lower"]
         puntaje    = float(row["puntaje"] or 0)
-        is_cancel  = any(c in sl for c in cancel_re)
-        is_counted = not is_cancel
+        is_counted = any(v in sl for v in valid_re)
         is_active  = any(a in sl for a in active_re)
         is_repro   = any(r in sl for r in repro_re)
 
