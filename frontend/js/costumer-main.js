@@ -1216,6 +1216,14 @@
     // Sincronizar onlyTwoMonths con el estado inicial del monthFilter
     // Si arranca en "Todos" (vacío), mostrar todos los meses sin límite de 2 meses
     const isSup=isSupervisor(role);
+    const isAgtRole=isAgent(role);
+
+    // Supervisor y agente no ven el filtro de Team
+    if(isSup||isAgtRole){
+      const tokenTeam=document.getElementById('token-team');
+      if(tokenTeam)tokenTeam.style.display='none';
+    }
+
     const initMonth=(document.getElementById('monthFilter')||{}).value||'';
     onlyTwoMonths=!initMonth; // true si Todos, false si hay mes específico
     const tmBtn=document.getElementById('toggleMonthsBtn');

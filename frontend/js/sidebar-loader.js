@@ -758,7 +758,7 @@
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
       { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: allRoles },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: adminBackofficeRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'index.html', roles: allRoles },
       { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: allRoles },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },

@@ -12,7 +12,7 @@ function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
     { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
     { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
-    { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
+    { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html', adminOnly: true },
     { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/Comisiones.html' },
     { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' },
     { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
