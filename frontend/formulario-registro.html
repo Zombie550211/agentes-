@@ -1282,12 +1282,20 @@
       const supSel = document.getElementById('supervisor');
       if(supSel){
         const existingVals = new Set(Array.from(supSel.options).map(o=>o.value.toLowerCase().trim()));
+        // Aliases: nombres alternativos que ya están cubiertos por una opción hardcoded
+        const _supAliases = {
+          'guadalupe santana': 'johana',
+          'johana': 'johana',
+        };
         const supervisors = users
           .filter(u => getRole(u).includes('supervisor'))
           .sort((a,b)=>getName(a).localeCompare(getName(b)));
         supervisors.forEach(u=>{
           const n = getName(u);
-          if(!n || existingVals.has(n.toLowerCase().trim())) return;
+          if(!n) return;
+          const key = n.toLowerCase().trim();
+          const canonical = _supAliases[key] || key;
+          if(existingVals.has(key) || existingVals.has(canonical)) return;
           const o = document.createElement('option');
           o.value = n;
           o.textContent = n;
