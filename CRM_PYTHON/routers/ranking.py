@@ -103,9 +103,10 @@ async def get_ranking(
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
                 SELECT
-                    COALESCE(agente_nombre, agente)             AS agente_fuente,
-                    UPPER(TRIM(COALESCE(status, '')))           AS status_u,
-                    COALESCE(puntaje, 0)                        AS puntaje,
+                    agente                                          AS agente_key,
+                    COALESCE(agente_nombre, agente)                AS agente_fuente,
+                    UPPER(TRIM(COALESCE(status, '')))              AS status_u,
+                    COALESCE(puntaje, 0)                           AS puntaje,
                     numero_cuenta, telefono_principal, nombre_cliente, dia_venta
                 FROM leads
                 WHERE {where_sql}
@@ -118,12 +119,19 @@ async def get_ranking(
         rows = []
 
     # ── Aggregate in Python ────────────────────────────────────────
+    # Agrupa por agente (username), usa agente_nombre solo para display
     agg: dict = {}
     for row in rows:
-        agente_raw  = str(row["agente_fuente"] or "")
+        agente_key  = str(row["agente_key"] or "")
+        agente_raw  = str(row["agente_fuente"] or agente_key)
         status_u    = str(row["status_u"] or "")
         puntaje_val = float(row["puntaje"] or 0)
         is_cancel   = "CANCEL" in status_u
+
+        # Usar agente (username) como clave de agrupación
+        key = _norm_strip(agente_key) if agente_key else _norm_strip(agente_raw)
+        if not key:
+            continue
 
         # Optional: filter by allowed statuses
         if allowed_statuses:
@@ -137,13 +145,11 @@ async def get_ranking(
             if status_norm not in allowed_statuses:
                 continue
 
-        key = _norm_strip(agente_raw)
-        if not key:
-            continue
         if key not in agg:
             agg[key] = {
                 "nombreOriginal": agente_raw,
                 "nombreNormalizado": key,
+                "agente_username": agente_key,
                 "ventas": 0,
                 "sumPuntaje": 0.0,
                 "sigs": set(),
@@ -152,7 +158,7 @@ async def get_ranking(
         if not is_cancel:
             entry["ventas"] += 1
             entry["sumPuntaje"] += puntaje_val
-        # Keep original name (prefer non-empty longer)
+        # Preferir nombre de display más largo
         if len(agente_raw) > len(entry["nombreOriginal"]):
             entry["nombreOriginal"] = agente_raw
 
@@ -197,7 +203,8 @@ async def get_ranking(
     for i, item in enumerate(sorted_agg):
         raw_name   = item["nombreOriginal"]
         norm_key   = item["nombreNormalizado"]
-        candidates = [norm_key, _normalize_key(raw_name)]
+        username   = item.get("agente_username", "")
+        candidates = [_normalize_key(username), norm_key, _normalize_key(raw_name)]
         matched_user = next((user_map[c] for c in candidates if c and c in user_map), None)
 
         avatar_info  = build_avatar(matched_user)
