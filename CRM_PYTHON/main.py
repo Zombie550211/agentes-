@@ -1,3 +1,12 @@
+import asyncio, sys, warnings
+
+# Python 3.14 en Windows: ProactorEventLoop no soporta SSL con aiomysql.
+# SelectorEventLoop sí. El API está marcado deprecated en 3.14 → silenciar.
+if sys.platform == "win32":
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response, RedirectResponse
