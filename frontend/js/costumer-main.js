@@ -497,6 +497,9 @@
           const diaVentaYM=toYM(lead.dia_venta);
           if(!diaVentaYM||diaVentaYM!==month)return false;
           if(lead._es_colchon_route)return false;
+          // Excluir leads vendidos en este mes pero con instalación en mes futuro
+          const diaInstYMt=toYM(lead.dia_instalacion);
+          if(diaInstYMt&&diaInstYMt>month)return false;
         }
       }
 
