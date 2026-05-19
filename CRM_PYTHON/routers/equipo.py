@@ -90,7 +90,11 @@ async def equipo_estadisticas(
                     LOWER(TRIM(COALESCE(status, '')))                   AS status_lower,
                     COALESCE(puntaje, 0)                                AS puntaje
                 FROM leads
-                WHERE dia_venta BETWEEN :fi AND :ff
+                WHERE (
+                    (dia_venta BETWEEN :fi AND :ff AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:fi,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:fi,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :fi AND :ff)
+                )
             """), params)
             rows = r.mappings().all()
     except Exception as e:
