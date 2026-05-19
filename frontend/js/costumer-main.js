@@ -284,6 +284,10 @@
   /* ── RENDER ── */
   window.renderCostumerTable=function(items){__allLeadsData=normalizeLeads(items||[]);window.__allLeadsData=__allLeadsData;currentPage=1;applyFilters();setTimeout(refreshFilterOptions,0);};
 
+  function _fmtName(s){
+    return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim()
+      .replace(/\S+/g,function(w){return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();});
+  }
   function refreshFilterOptions(){
     if(!__allLeadsData.length)return;
     const _ud=getUserData(),_role=String(_ud.role||'').toLowerCase();
@@ -294,17 +298,17 @@
       __usersFromAPI.forEach(function(u){
         var r=String(u.role||'').toLowerCase();
         if(r.includes('agente')||r.includes('vendedor')||r.includes('agent')){
-          var n=(u.name||u.fullName||u.nombre||u.username||'').trim();
+          var n=_fmtName(u.name||u.fullName||u.nombre||u.username||'');
           if(n)agentes.add(n);
         }
       });
     }
     // Para supervisor/agente: poblar agentes solo desde leads ya filtrados (su equipo)
     const _leadsParaAgentes=(_isSup||_isAgt)?(__filteredLeads.length?__filteredLeads:__allLeadsData):__allLeadsData;
-    _leadsParaAgentes.forEach(function(lead){if(lead.agente)agentes.add(lead.agente);});
+    _leadsParaAgentes.forEach(function(lead){if(lead.agente)agentes.add(_fmtName(lead.agente));});
     __allLeadsData.forEach(function(lead){
       if(lead.supervisor) equipos.add(normalizeSupervisorName(lead.supervisor));
-      if(!_isSup&&!_isAgt&&lead.agente)agentes.add(lead.agente); // admin: ya agregado arriba si no estaba
+      if(!_isSup&&!_isAgt&&lead.agente)agentes.add(_fmtName(lead.agente)); // admin: ya agregado arriba si no estaba
       if(lead.mercado)mercados.add(lead.mercado);
       var toYM=function(v){if(!v)return'';var s=String(v).trim();return s.length>=7?s.slice(0,7):'';};
       var fechas=[
