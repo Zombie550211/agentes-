@@ -52,10 +52,11 @@ def is_colchon(lead: dict, ref_date: _dt.datetime) -> bool:
     try:
         dv = str(lead.get("dia_venta") or "")[:7]
         di = str(lead.get("dia_instalacion") or "")[:7]
-        if not dv or not di:
+        if not dv or not di or dv == di:
             return False
         cur = f"{ref_date.year}-{str(ref_date.month).zfill(2)}"
-        return dv != cur and di == cur
+        # Instalado en ref_mes, vendido en mes anterior
+        return di == cur and dv < cur
     except Exception:
         return False
 
@@ -135,7 +136,11 @@ async def init_dashboard(user: dict = Depends(current_user)):
     start_date, end_date = _month_range(now.year, now.month)
     sup_agents = get_supervisor_agents(username) if is_sup else []
 
-    where  = ["(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"]
+    where  = ["""(
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
+        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+    )"""]
     params: dict = {"s": start_date, "e": end_date}
 
     # Supervisores ven datos globales igual que admin (sin filtrar por su equipo)
@@ -369,7 +374,11 @@ async def init_estadisticas(user: dict = Depends(current_user)):
     now = _dt.datetime.utcnow()
     ms, me = _month_range(now.year, now.month)
 
-    date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
+    date_cond = """(
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
+        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+    )"""
     params    = {"s": ms, "e": me}
 
     teams_data = []
@@ -482,7 +491,11 @@ async def init_estadisticas(user: dict = Depends(current_user)):
 async def init_all_pages(user: dict = Depends(current_user)):
     now = _dt.datetime.utcnow()
     ms, me = _month_range(now.year, now.month)
-    date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
+    date_cond = """(
+        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR dia_instalacion BETWEEN :s AND :e))
+        OR (dia_instalacion BETWEEN :s AND :e AND (dia_venta IS NULL OR dia_venta < :s))
+        OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
+    )"""
     params    = {"s": ms, "e": me}
 
     customers = []

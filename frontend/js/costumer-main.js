@@ -111,12 +111,12 @@
     try{
       const dv=String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
-      if(!dv||!di)return false;
+      if(!dv||!di||dv===di)return false;
       if(refMonthStr){
-        // Con filtro de mes activo: instalado ese mes pero vendido en mes anterior
+        // Instalado en ref mes, vendido en mes anterior (colchón que pertenece a este mes)
         return dv!==refMonthStr&&di===refMonthStr;
       }
-      // Sin filtro de mes: colchón si vendido en mes diferente (anterior) a la instalación
+      // Sin filtro de mes: colchón si instalación posterior a la venta
       return dv<di;
     }catch(_){return false;}
   }

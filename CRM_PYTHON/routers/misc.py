@@ -45,7 +45,9 @@ def _is_colchon(lead: dict, ref_date: _dt.datetime = None) -> bool:
     ref_ym = f"{now.year}-{str(now.month).zfill(2)}"
     dv = str(lead.get("dia_venta") or "")[:7]
     di = str(lead.get("dia_instalacion") or "")[:7]
-    return bool(di and di == ref_ym and dv and dv != ref_ym)
+    if not dv or not di or dv == di:
+        return False
+    return di == ref_ym and dv < ref_ym
 
 
 # ── GET /api/protected ───────────────────────────────────────────
