@@ -43,40 +43,56 @@ def _infer_ext(mime: str, fallback: str = "png") -> str:
     return _MIME_EXT.get((mime or "").lower(), fallback)
 
 
-async def _process_avatar(data: bytes, mimetype: str) -> tuple[bytes, str, str, dict]:
-    details: dict = {"backgroundRemoved": False, "processor": None, "bytesBefore": len(data)}
-    if not (_CLD_OK and _CLD_BG):
-        details["bytesAfter"] = len(data)
-        return data, mimetype or "image/png", _infer_ext(mimetype), details
+async def _upload_to_cloudinary(data: bytes, mimetype: str, bg_removal: bool) -> dict | None:
+    """Sube a Cloudinary y devuelve la secure_url, o None si falla."""
+    if not _CLD_OK:
+        return None
     try:
-        import cloudinary.uploader, httpx
-
-        def _sync_upload():
-            return cloudinary.uploader.upload(
-                data, resource_type="image", folder=_CLD_FOLDER,
-                background_removal="cloudinary_ai", overwrite=True, format="png",
-                use_filename=False, unique_filename=True,
-                transformation=[{"width": 800, "height": 800, "crop": "limit"}],
-            )
+        import cloudinary.uploader
+        opts = dict(
+            resource_type="image", folder=_CLD_FOLDER,
+            overwrite=True, use_filename=False, unique_filename=True,
+            transformation=[{"width": 800, "height": 800, "crop": "limit"}],
+        )
+        if bg_removal and _CLD_BG:
+            opts.update({"background_removal": "cloudinary_ai", "format": "png"})
 
         import asyncio
-        result = await asyncio.get_event_loop().run_in_executor(None, _sync_upload)
-        secure_url = result.get("secure_url") or ""
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(secure_url, follow_redirects=True)
-            resp.raise_for_status()
-            processed = resp.content
-
-        details.update({
-            "backgroundRemoved": True, "processor": "cloudinary_ai",
-            "bytesAfter": len(processed),
-            "cloudinaryPublicId": result.get("public_id"),
-        })
-        return processed, "image/png", "png", details
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: cloudinary.uploader.upload(data, **opts)
+        )
+        return result
     except Exception as e:
-        details["processingError"] = str(e)
+        return None
+
+
+async def _process_avatar(data: bytes, mimetype: str) -> tuple[bytes, str, str, dict, str | None]:
+    """Retorna (data, content_type, ext, details, cloudinary_url_or_None)."""
+    details: dict = {"backgroundRemoved": False, "processor": None, "bytesBefore": len(data)}
+
+    result = await _upload_to_cloudinary(data, mimetype, bg_removal=True)
+    if result:
+        secure_url = result.get("secure_url") or ""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(secure_url, follow_redirects=True)
+                resp.raise_for_status()
+                processed = resp.content
+            details.update({
+                "backgroundRemoved": bool(_CLD_BG),
+                "processor": "cloudinary",
+                "bytesAfter": len(processed),
+                "cloudinaryPublicId": result.get("public_id"),
+            })
+            return processed, "image/png", "png", details, secure_url
+        except Exception:
+            pass
         details["bytesAfter"] = len(data)
-        return data, mimetype or "image/png", _infer_ext(mimetype), details
+        return data, mimetype or "image/png", _infer_ext(mimetype), details, secure_url
+
+    details["bytesAfter"] = len(data)
+    return data, mimetype or "image/png", _infer_ext(mimetype), details, None
 
 
 # ── POST /api/users/me/avatar ─────────────────────────────────
@@ -94,15 +110,17 @@ async def upload_avatar(
     sanitized = re.sub(r"[^a-zA-Z0-9_.\-]", "_", avatar.filename or "avatar.png") or "avatar.png"
     base_name = sanitized.rsplit(".", 1)[0] or "avatar"
 
-    buf, content_type, ext, details = await _process_avatar(data, mimetype)
+    buf, content_type, ext, details, cld_url = await _process_avatar(data, mimetype)
     ts         = int(_dt.datetime.utcnow().timestamp() * 1000)
     final_file = f"{ts}-{base_name}.{ext}"
     dest       = _AVATAR_DIR / final_file
 
+    # Guardar copia en disco local como respaldo
     async with aiofiles.open(dest, "wb") as f:
         await f.write(buf)
 
-    avatar_url = f"/uploads/avatars/{final_file}"
+    # Preferir URL de Cloudinary (persiste entre deploys) sobre disco efímero
+    avatar_url = cld_url if cld_url else f"/uploads/avatars/{final_file}"
 
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
