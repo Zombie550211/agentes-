@@ -871,7 +871,7 @@
 
     var imgSrc=lead.imagen_url||'';
     var imgZoneHtml=
-      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;'+opacity+'" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
         (imgSrc
           ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
            '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
@@ -879,7 +879,7 @@
           :'<div style="display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:.6rem;color:#5a7a8a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Subir imagen</span></div>'
         )+
       '</div>'+
-      (canEdit?'<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">':'');
+      '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
 
     var svcOptions='<option value="">Elige</option><optgroup label="DIRECTV (Video)"><option>VIDEO DIRECTV VIA INTERNET</option><option>VIDEO DIRECTV VIA SATELITE</option></optgroup><optgroup label="AT&T Internet"><option>AIR</option><option>ATT 18 - 25 MB</option><option>ATT 50 - 100 MB</option><option>ATT 100 FIBRA</option><option>ATT 300</option><option>ATT 500</option><option>ATT 1G</option></optgroup><optgroup label="Spectrum"><option>SPECTRUM 400 MBPS</option><option>SPECTRUM 500</option><option>SPECTRUM 500MBPS+</option><option>SPECTRUM 1G</option><option>SPECTRUM 2G</option></optgroup><optgroup label="Frontier"><option>FRONTIER 200 MB</option><option>FRONTIER 500 MB</option><option>FRONTIER 1G</option><option>FRONTIER 2G</option></optgroup><optgroup label="Consolidated"><option>CONSOLIDATED 100 MB</option><option>CONSOLIDATED 300 MB</option><option>CONSOLIDATED 1G</option><option>CONSOLIDATED 2G</option><option>CONSOLIDATED</option></optgroup><optgroup label="Xfinity"><option>XFINITY 300</option><option>XFINITY 500</option><option>XFINITY 1G</option></optgroup><optgroup label="Brightspeed"><option>BRIGHTSPEED</option></optgroup><optgroup label="Earthlink"><option>INTERNET EARTHLINK 300 MB</option><option>EARTHLINK</option></optgroup><optgroup label="Ziply Fiber"><option>ZIPLY FIBER 10G</option><option>ZIPLY FIBER 5G</option><option>ZIPLY FIBER 2G</option><option>ZIPLY FIBER 1G</option><option>ZIPLY FIBER 300</option><option>ZIPLY FIBER 200</option></optgroup><optgroup label="Otros"><option>OPTIMUM</option><option>WOW</option><option>WINDSTREAM</option><option>HUGHESNET</option><option>VIASAT</option><option>STARLINK</option><option>CENTURYLINK</option><option>METRONET</option><option>HAWAIIAN</option><option>VIVINT</option><option>MOBILITY</option><option>ALTAFIBER</option><option>ALTAFIBER 100 MB</option><option>ALTAFIBER 200 MB</option><option>ALTAFIBER 300 MB</option><option>ALTAFIBER 400 MB</option><option>ALTAFIBER 500 MB</option><option>ALTAFIBER 600 MB</option><option>ALTAFIBER 800 MB</option><option>ALTAFIBER 1G</option></optgroup>';
 
@@ -916,7 +916,9 @@
         '</div>'+
         '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">'+
           '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:6px 16px;border:1px solid #c5d5df;border-radius:20px;background:#fff;font-size:.78rem;font-weight:700;cursor:pointer;color:#5a7a8a;">Cancelar</button>'+
-          (canEdit?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-'+lid+'">💾 Guardar cambios</button>':'')+
+          (canEdit
+            ?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-'+lid+'">💾 Guardar cambios</button>'
+            :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-img-'+lid+'">📷 Subir imagen</button>')+
         '</div>'+
       '</div>'+
       '</td>';
@@ -1012,6 +1014,38 @@
     }else{
       showToast('No se pudo guardar','error');
       if(btn){btn.disabled=false;btn.textContent='💾 Guardar cambios';}
+    }
+  };
+
+  /* Subir solo imagen — disponible para todos los roles */
+  window._guardarSoloImagen=async function(lid, tipo){
+    if(!_inlineImgFile){ showToast('Selecciona una imagen primero','error'); return; }
+    var btn=document.getElementById('ile-save-img-'+lid);
+    if(btn){btn.disabled=true;btn.textContent='⏳ Subiendo…';}
+    try{
+      var fd=new FormData(); fd.append('file',_inlineImgFile);
+      var token=(localStorage.getItem('token')||'').trim();
+      var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:token?{'Authorization':'Bearer '+token}:{},body:fd});
+      if(!upRes.ok) throw new Error('Error al subir archivo');
+      var upData=await upRes.json();
+      var imgUrl=(upData.data&&upData.data.url)||upData.file_path||upData.url||'';
+      if(!imgUrl) throw new Error('No se obtuvo URL');
+      // Actualizar solo imagen_url en el lead
+      var endpoint = tipo==='lineas' ? '/api/lineas-team/update' : '/api/leads/'+lid;
+      var body = tipo==='lineas' ? JSON.stringify({id:lid,imagen_url:imgUrl}) : JSON.stringify({imagen_url:imgUrl});
+      var res=await fetch(endpoint,{method:'PUT',credentials:'include',headers:Object.assign({'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{}),body:body});
+      if(!res.ok) throw new Error('Error al guardar');
+      // Actualizar dato local
+      var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
+      if(lead) lead.imagen_url=imgUrl;
+      showToast('Imagen guardada ✓','ok');
+      var existing=document.querySelector('.inline-edit-row');
+      if(existing)existing.remove();
+      _expandedRowId=null; _inlineImgFile=null;
+      applyFilters();
+    }catch(e){
+      showToast('Error: '+e.message,'error');
+      if(btn){btn.disabled=false;btn.textContent='📷 Subir imagen';}
     }
   };
 

@@ -421,21 +421,21 @@
           '</div>'+
           '<div class="ile-field" style="grid-column:1/-1;">'+
             '<label>Imagen del Lead</label>'+
-            '<div class="ile-img-zone'+(editable?'':' disabled')+'" id="ile-img-zone-'+rid+'"'+
-              (editable?' onclick="document.getElementById(\'ile-img-input-'+rid+'\').click()" ondragover="event.preventDefault();this.style.borderColor=\'#3b82f6\';" ondragleave="this.style.borderColor=\'#cbd5e1\';" ondrop="_ileImgDrop(event,\''+rid+'\')"':'')+
-              '>'+
+            '<div class="ile-img-zone" id="ile-img-zone-'+rid+'"'+
+              ' onclick="document.getElementById(\'ile-img-input-'+rid+'\').click()" ondragover="event.preventDefault();this.style.borderColor=\'#3b82f6\';" ondragleave="this.style.borderColor=\'#cbd5e1\';" ondrop="_ileImgDrop(event,\''+rid+'\')">'+
               '<div class="ile-img-placeholder" id="ile-img-ph-'+rid+'"'+(imgUrl?' style="display:none;"':'')+'>'+
                 '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'+
-                '<span>'+(editable?'Click o arrastra':'Sin imagen')+'</span>'+
+                '<span>Click o arrastra</span>'+
               '</div>'+
               '<img id="ile-img-preview-'+rid+'" src="'+(imgUrl||'')+'" style="'+(imgUrl?'display:block;':'display:none;')+'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openImgLightbox(this.src)">'+
               '<div class="ile-img-hint" id="ile-img-hint-'+rid+'" style="'+(imgUrl?'display:block;':'')+'">🔍 Click para ver</div>'+
               (editable?'<button class="ile-img-remove" id="ile-img-remove-'+rid+'" type="button" onclick="event.stopPropagation();_ileImgRemove(\''+rid+'\')" style="'+(imgUrl?'display:block;':'')+'">✕</button>':'')+
             '</div>'+
-            (editable?'<input type="file" id="ile-img-input-'+rid+'" accept="image/*" style="display:none" onchange="_ileImgSelect(event,\''+rid+'\')">':'')+
+            '<input type="file" id="ile-img-input-'+rid+'" accept="image/*" style="display:none" onchange="_ileImgSelect(event,\''+rid+'\')">'+
           '</div>'+
           '<div class="ile-footer">'+
             (editable?'<button class="ile-save-btn" onclick="guardarILE(\''+rid+'\')">Guardar</button>':'')+
+            (!editable?'<button class="ile-save-btn" style="background:#0d9488;" onclick="_guardarSoloImagenLinea(\''+rid+'\')">📷 Subir imagen</button>':'')+
             '<button class="ile-cancel-btn" onclick="toggleRowExpand(\''+rid+'\')">Cancelar</button>'+
             '<span class="ile-msg" id="ile-msg-'+rid+'"></span>'+
           '</div>'+
@@ -516,6 +516,38 @@
     }
 
     /* ── GUARDAR ── */
+    /* Subir solo imagen — disponible para todos los roles */
+    async function _guardarSoloImagenLinea(rid){
+      var msgEl = document.getElementById('ile-msg-'+rid);
+      if(!_ileImgFile[rid]){ if(msgEl){msgEl.textContent='Selecciona una imagen primero';msgEl.style.color='#dc2626';}return; }
+      if(msgEl){ msgEl.textContent='Subiendo imagen...'; msgEl.style.color='#64748b'; }
+      try{
+        var imgUrl = await _uploadIleImg(rid);
+        if(!imgUrl) throw new Error('No se obtuvo URL');
+        var token = localStorage.getItem('token')||sessionStorage.getItem('token')||'';
+        var rec = _allLineas.find(function(r){ return String(r.id||r._id||'')===rid; });
+        var res = await fetch('/api/lineas-team/update',{
+          method:'PUT', credentials:'include',
+          headers:Object.assign({'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{}),
+          body:JSON.stringify({id:rid, imagen_url:imgUrl})
+        });
+        var data = await res.json();
+        if(!res.ok||data.success===false) throw new Error(data.message||'Error');
+        if(rec) rec.imagen_url = imgUrl;
+        // Actualizar preview en la zona
+        var preview = document.getElementById('ile-img-preview-'+rid);
+        var ph = document.getElementById('ile-img-ph-'+rid);
+        var hint = document.getElementById('ile-img-hint-'+rid);
+        if(preview){ preview.src=imgUrl; preview.style.display='block'; }
+        if(ph) ph.style.display='none';
+        if(hint) hint.style.display='block';
+        if(msgEl){ msgEl.textContent='✓ Imagen guardada'; msgEl.style.color='#065f46'; }
+        delete _ileImgFile[rid];
+      }catch(err){
+        if(msgEl){ msgEl.textContent='Error: '+err.message; msgEl.style.color='#dc2626'; }
+      }
+    }
+
     async function guardarILE(rid){
       var msgEl = document.getElementById('ile-msg-'+rid);
       if(msgEl){ msgEl.textContent='Guardando...'; msgEl.style.color='#64748b'; }
