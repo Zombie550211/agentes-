@@ -871,7 +871,7 @@
 
     var imgSrc=lead.imagen_url||'';
     var imgZoneHtml=
-      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;height:200px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
         (imgSrc
           ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
            '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
