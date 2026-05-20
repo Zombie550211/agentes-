@@ -853,10 +853,25 @@
           const aKey = toYMDFromAnyDate(a?.dia_venta) || toYMDFromAnyDate(a?.createdAt) || toYMDFromAnyDate(a?.fecha_contratacion) || '';
           const bKey = toYMDFromAnyDate(b?.dia_venta) || toYMDFromAnyDate(b?.createdAt) || toYMDFromAnyDate(b?.fecha_contratacion) || '';
           if (!aKey && !bKey) return 0;
-          if (!aKey) return 1; // sin fecha al final
+          if (!aKey) return 1;
           if (!bKey) return -1;
           if (aKey < bKey) return -1;
           if (aKey > bKey) return 1;
+          return 0;
+        });
+        return arr;
+      }
+
+      function sortNewToOld(items){
+        const arr = Array.isArray(items) ? items : [];
+        arr.sort((a, b) => {
+          const aKey = toYMDFromAnyDate(a?.dia_venta) || toYMDFromAnyDate(a?.createdAt) || toYMDFromAnyDate(a?.fecha_contratacion) || '';
+          const bKey = toYMDFromAnyDate(b?.dia_venta) || toYMDFromAnyDate(b?.createdAt) || toYMDFromAnyDate(b?.fecha_contratacion) || '';
+          if (!aKey && !bKey) return 0;
+          if (!aKey) return 1;
+          if (!bKey) return -1;
+          if (aKey > bKey) return -1;
+          if (aKey < bKey) return 1;
           return 0;
         });
         return arr;
@@ -1060,14 +1075,14 @@
           else if (statusLower === 'active') statusBadgeClass += 'status-active';
           else statusBadgeClass += 'bg-gray-200 text-gray-700';
 
-          let mainRow = `<tr class="table-row ${hasMultipleLines ? 'expandable-row' : ''}" data-row-index="${idx}" style="${hasMultipleLines ? 'cursor:pointer;' : ''}">
+          let mainRow = `<tr class="table-row expandable-row" data-row-index="${idx}" data-id="${docId}" style="cursor:pointer;">
             <td class="px-6 py-4">
               <div class="flex items-center">
                 <div class="${statusLower === 'completed' ? 'bg-green-100' : 'bg-purple-100'} p-2 rounded-full mr-3">
                   <i class="fas fa-user ${statusLower === 'completed' ? 'text-green-600' : 'text-purple-600'}"></i>
                 </div>
                 <div>
-                  <p class="text-sm font-semibold text-gray-900 m-0">${it.nombre_cliente||''}${hasMultipleLines ? ' <span class="text-blue-500">▼</span>' : ''}</p>
+                  <p class="text-sm font-semibold text-gray-900 m-0">${it.nombre_cliente||''} <span class="text-blue-400" style="font-size:10px;">▼</span></p>
                   <p class="text-xs text-gray-500 m-0">ID: ${it.ID||it.id||it._id||''}</p>
                 </div>
               </div>
@@ -1091,27 +1106,89 @@
                 <span class="text-sm text-gray-600">${it.supervisor||''}</span>
               </div>
             </td>
-            <td class="px-6 py-4">
-              <div class="flex space-x-2">
-                <button class="btn-edit-client bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Editar cliente">
-                  <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn-delete-client bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Eliminar cliente" style="${canDelete() ? '' : 'display:none;'}">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
+            <td class="px-6 py-4" style="text-align:center;">
+              <button class="btn-delete-client bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Eliminar cliente" style="${canDelete() ? '' : 'display:none;'}">
+                <i class="fas fa-trash"></i>
+              </button>
             </td>
           </tr>`;
           
-          // Fila expandible con detalles de todas las líneas - Diseño moderno
-          if (hasMultipleLines) {
+          // Fila expandible — siempre se genera
+          {
             let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none;">
               <td colspan="12" style="padding:0;">
-                <div class="gradient-bg" style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.2);">
+                <div class="gradient-bg" style="padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.2);">
                   <h4 class="text-white text-lg font-bold m-0 flex items-center">
-                    <i class="fas fa-phone-volume mr-3"></i>
-                    Detalle de Líneas - ${it.nombre_cliente||''}
+                    <i class="fas fa-user-edit mr-3"></i>
+                    ${it.nombre_cliente||''}
                   </h4>
+                </div>
+                <!-- Formulario de edición inline -->
+                <div style="padding:16px 20px; background:#f0f4ff; border-bottom:2px solid #e0e7ff;">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                    <span style="font-weight:700; color:#1e293b; font-size:13px; text-transform:uppercase; letter-spacing:.05em;">Datos del cliente</span>
+                    ${editable ? '' : '<span style="font-size:11px;color:#94a3b8;font-weight:700;background:#f1f5f9;padding:2px 10px;border-radius:999px;">Solo lectura</span>'}
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
+                      <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;" style="text-transform:uppercase;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
+                      <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
+                      <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
+                      <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
+                      <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
+                      <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                        ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
+                      <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
+                      <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
+                      <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                        ${[1,2,3,4,5].map(n=>`<option value="${n}" ${parseInt(it.cantidad_lineas||1)===n?'selected':''}>${n}</option>`).join('')}
+                      </select>
+                    </div>
+                  </div>
+                  <!-- Imagen -->
+                  <div style="margin-top:12px;">
+                    <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Imagen del Lead</label>
+                    <div class="ile-img-zone" data-row="${idx}" style="position:relative;min-height:80px;border:2px dashed #c7d2fe;border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
+                      <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
+                      </div>
+                      <img class="ile-img-preview" src="${it.imagen_url||''}" style="${it.imagen_url?'display:block;':'display:none;'}width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:zoom-in;" onclick="event.stopPropagation();_clImgLightbox(this.src)">
+                      <div class="ile-img-hint" style="${it.imagen_url?'':'display:none;'}position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;">🔍 Click para ver</div>
+                      ${editable?`<button class="ile-img-remove" type="button" style="${it.imagen_url?'':'display:none;'}position:absolute;top:4px;right:5px;background:rgba(239,68,68,.85);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;font-weight:700;" onclick="event.stopPropagation();_clImgRemove(this)">✕</button>`:''}
+                    </div>
+                    ${editable?`<input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
+                  </div>
+                  ${editable ? `<div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+                    <button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;">Guardar</button>
+                    <span class="ile-save-msg" data-row="${idx}" style="font-size:12px;color:#64748b;"></span>
+                  </div>` : ''}
                 </div>
                 <div style="padding:20px; background:#f8f9fa;">
                   <!-- Información General del Cliente con diseño moderno -->
@@ -1177,7 +1254,7 @@
               else lineStatusBadge = `<span class="status-badge bg-gray-200 text-gray-700">${lineStatus}</span>`;
 
               detailsHTML += `
-                <div class="bg-white border-2 border-gray-200 rounded-lg p-5 hover:border-purple-300 transition">
+                <div class="line-card bg-white border-2 border-gray-200 rounded-lg p-5 hover:border-purple-300 transition">
                   <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center">
                       <div class="bg-blue-100 p-3 rounded-lg mr-3">
@@ -1185,10 +1262,13 @@
                       </div>
                       <div>
                         <h5 class="font-semibold text-gray-800 text-lg m-0">Línea ${i+1}</h5>
-                        <p class="text-sm text-gray-500 m-0">${telefono || 'Sin teléfono'}</p>
+                        <p class="text-sm text-gray-500 m-0 line-tel-display">${telefono || 'Sin teléfono'}</p>
                       </div>
                     </div>
-                    ${lineStatusBadge}
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      ${editable ? `<button class="btn-edit-line" data-client-id="${docId}" data-line-index="${i}" style="background:#3b82f6;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">✏ Editar</button>` : ''}
+                      ${lineStatusBadge}
+                    </div>
                   </div>
                   
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1230,6 +1310,24 @@
                       </div>
                     </div>
                     
+                  <!-- Mini-form edición de línea -->
+                  ${editable ? `<div class="line-edit-form" data-client-id="${docId}" data-line-index="${i}" style="display:none;margin-top:12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:14px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                      <div>
+                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Teléfono</label>
+                        <input type="tel" class="line-edit-tel" value="${telefono}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Servicio</label>
+                        <input type="text" class="line-edit-serv" value="${servicio}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                      <button class="btn-save-line" style="background:#10b981;color:#fff;border:none;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;">Guardar</button>
+                      <button class="btn-cancel-line" style="background:#64748b;color:#fff;border:none;padding:7px 14px;border-radius:7px;font-size:12px;cursor:pointer;">Cancelar</button>
+                      <span class="line-edit-msg" style="font-size:11px;color:#64748b;"></span>
+                    </div>
+                  </div>` : ''}
                     <!-- Lista de notas existentes -->
                     <div class="notes-list" data-line-index="${i}" style="display:flex; flex-direction:column; gap:8px;">
                       ${notas.length > 0 ? notas.map((nota, nIdx) => {
@@ -1568,177 +1666,158 @@
           });
         });
         
-        // Event listeners para editar cliente
-        document.querySelectorAll('.btn-edit-client').forEach(btn => {
+        // Event listeners para guardar edición inline
+        document.querySelectorAll('.btn-save-ile').forEach(btn => {
           btn.addEventListener('click', async function(e) {
             e.stopPropagation();
+            const rowIdx  = parseInt(this.getAttribute('data-row'));
             const clientId = this.getAttribute('data-id');
-            
-            // Encontrar el cliente en allItems
-            const clientData = allItems.find(item => (item._id || item.id) === clientId);
-            if (!clientData) {
-              showNotification('Cliente no encontrado', 'error');
-              return;
-            }
-            
-            // Crear modal de edición
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: rgba(0,0,0,0.5);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              z-index: 10000;
-            `;
-            
-            const modalContent = document.createElement('div');
-            modalContent.style.cssText = `
-              background: white;
-              border-radius: 12px;
-              padding: 24px;
-              max-width: 600px;
-              width: 90%;
-              max-height: 80vh;
-              overflow-y: auto;
-            `;
-            
-            modalContent.innerHTML = `
-              <h3 style="margin:0 0 20px; color:#0f172a; font-size:18px;">Editar Cliente</h3>
-              <form id="edit-client-form">
-                <div style="display:grid; gap:16px;">
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Nombre Cliente</label>
-                    <input type="text" name="nombre_cliente" value="${clientData.nombre_cliente||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Teléfono Principal</label>
-                    <input type="text" name="telefono_principal" value="${clientData.telefono_principal||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Número de Cuenta</label>
-                    <input type="text" name="numero_cuenta" value="${clientData.numero_cuenta||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Cantidad de Líneas</label>
-                    <input type="number" name="cantidad_lineas" value="${clientData.cantidad_lineas||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Status</label>
-                    <select name="status" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                      ${STATUS_OPTIONS.map(o => `<option value="${o.val}" ${o.val === (clientData.status||'').toLowerCase() ? 'selected' : ''}>${o.label}</option>`).join('')}
-                    </select>
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Día de Venta</label>
-                    <input type="text" name="dia_venta" value="${clientData.dia_venta||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                  <div>
-                    <label style="display:block; color:#64748b; font-size:12px; margin-bottom:4px; font-weight:600;">Día de Instalación</label>
-                    <input type="text" name="dia_instalacion" value="${clientData.dia_instalacion||''}" style="width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
-                  </div>
-                </div>
-                <div style="display:flex; gap:8px; margin-top:20px; justify-content:flex-end;">
-                  <button type="button" class="btn-cancel-modal" style="background:#64748b; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer;">
-                    Cancelar
-                  </button>
-                  <button type="submit" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600;">
-                    Guardar Cambios
-                  </button>
-                </div>
-              </form>
-            `;
-            
-            modal.appendChild(modalContent);
-            document.body.appendChild(modal);
-            
-            // Cerrar modal al hacer clic fuera
-            modal.addEventListener('click', function(e) {
-              if (e.target === modal) {
-                modal.remove();
-              }
-            });
-            
-            // Botón cancelar
-            modalContent.querySelector('.btn-cancel-modal').addEventListener('click', function() {
-              modal.remove();
-            });
-            
-            // Guardar cambios
-            modalContent.querySelector('#edit-client-form').addEventListener('submit', async function(e) {
-              e.preventDefault();
-              
-              const formData = new FormData(e.target);
-              // Normalizar clientId a string para evitar [object Object]
-              const normalizedId = (() => {
-                if (typeof clientId === 'string' && clientId && clientId !== '[object Object]') return clientId;
-                try {
-                  const cur = clientData || {};
-                  // Intentar usar helper si existe (importado desde otro script)
-                  if (typeof extractLeadId === 'function') {
-                    const extracted = extractLeadId(cur);
-                    if (extracted) return String(extracted).trim();
-                  }
-                  // Fallback manual a _id/id/$oid
-                  const raw = cur._id || cur.id || cur.leadId || cur.$oid || cur.oid;
-                  if (raw && typeof raw === 'object' && raw.$oid) return String(raw.$oid).trim();
-                  if (raw && typeof raw === 'object' && raw._id) return String(raw._id).trim();
-                  return String(raw || '').trim();
-                } catch (_) {
-                  return '';
-                }
-              })();
+            const detailsRow = document.querySelector(`.details-row[data-row-index="${rowIdx}"]`);
+            if (!detailsRow) return;
+            const msgEl = detailsRow.querySelector(`.ile-save-msg[data-row="${rowIdx}"]`);
+            if (msgEl) { msgEl.textContent = 'Guardando...'; msgEl.style.color = '#64748b'; }
 
-              const updateData = {
-                id: normalizedId,
-                nombre_cliente: formData.get('nombre_cliente'),
-                telefono_principal: formData.get('telefono_principal'),
-                numero_cuenta: formData.get('numero_cuenta'),
-                cantidad_lineas: parseInt(formData.get('cantidad_lineas')) || 0,
-                status: formData.get('status'),
-                dia_venta: formData.get('dia_venta'),
-                dia_instalacion: formData.get('dia_instalacion')
-              };
-              
-              if (!normalizedId) {
-                showNotification('ID de cliente no válido', 'error');
-                return;
-              }
-              
-              try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                const response = await fetch('/api/lineas-team/update', {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify(updateData)
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok || !result.success) {
-                  throw new Error(result.message || 'Error al actualizar el cliente');
+            const getF = (cls) => { const el = detailsRow.querySelector(`.${cls}[data-row="${rowIdx}"]`); return el ? el.value : null; };
+            const payload = { id: clientId };
+            const nombre = getF('ile-nombre'); if (nombre !== null) payload.nombre_cliente = nombre;
+            const tel    = getF('ile-tel');    if (tel !== null)    payload.telefono_principal = tel;
+            const cuenta = getF('ile-cuenta'); if (cuenta !== null) payload.numero_cuenta = cuenta;
+            const pin    = getF('ile-pin');    if (pin !== null)    payload.pin_seguridad = pin;
+            const dir    = getF('ile-dir');    if (dir !== null)    payload.direccion = dir;
+            const status = getF('ile-status'); if (status !== null) payload.status = status;
+            const dventa = getF('ile-dventa'); if (dventa !== null) payload.dia_venta = dventa;
+            const dinst  = getF('ile-dinst');  if (dinst !== null)  payload.dia_instalacion = dinst;
+            const cant   = getF('ile-cant');   if (cant !== null)   payload.cantidad_lineas = parseInt(cant);
+
+            // Imagen
+            const zone = detailsRow.querySelector(`.ile-img-zone[data-row="${rowIdx}"]`);
+            if (zone) {
+              const file = zone._imgFile;
+              if (file) {
+                try {
+                  if (msgEl) { msgEl.textContent = 'Subiendo imagen...'; }
+                  const fd = new FormData(); fd.append('file', file);
+                  const token = (localStorage.getItem('token')||'').trim();
+                  const res = await fetch('/api/files/upload', { method:'POST', credentials:'include', headers: token?{'Authorization':'Bearer '+token}:{}, body:fd });
+                  if (!res.ok) throw new Error('Error subiendo imagen');
+                  const d = await res.json();
+                  payload.imagen_url = (d.data&&d.data.url)||d.file_path||d.url||'';
+                } catch(err) {
+                  if (msgEl) { msgEl.textContent = 'Error imagen: '+err.message; msgEl.style.color='#dc2626'; }
+                  return;
                 }
-                
-                showNotification('Cliente actualizado correctamente', 'success');
-                modal.remove();
-                
-                // Recargar datos
-                await load();
-              } catch (error) {
-                console.error('Error al actualizar cliente:', error);
-                showNotification('Error al actualizar el cliente: ' + error.message, 'error');
+              } else {
+                const preview = zone.querySelector('.ile-img-preview');
+                if (preview && preview.style.display !== 'none' && preview.src && !preview.src.startsWith('data:')) {
+                  payload.imagen_url = preview.src;
+                } else if (preview && (preview.style.display === 'none' || !preview.src)) {
+                  payload.imagen_url = '';
+                }
               }
-            });
+            }
+
+            try {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              const response = await fetch('/api/lineas-team/update', {
+                method: 'PUT',
+                headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              const result = await response.json();
+              if (!response.ok || !result.success) throw new Error(result.message || 'Error al guardar');
+              if (msgEl) { msgEl.textContent = '✓ Guardado'; msgEl.style.color = '#065f46'; }
+              showNotification('Cliente actualizado correctamente', 'success');
+              // Actualizar datos locales
+              const item = allItems.find(i => String(i._id||i.id) === String(clientId));
+              if (item) {
+                if (payload.nombre_cliente) item.nombre_cliente = payload.nombre_cliente;
+                if (payload.telefono_principal) item.telefono_principal = payload.telefono_principal;
+                if (payload.numero_cuenta) item.numero_cuenta = payload.numero_cuenta;
+                if (payload.pin_seguridad !== undefined) item.pin_seguridad = payload.pin_seguridad;
+                if (payload.direccion !== undefined) item.direccion = payload.direccion;
+                if (payload.status) item.status = payload.status;
+                if (payload.dia_venta) item.dia_venta = payload.dia_venta;
+                if (payload.dia_instalacion) item.dia_instalacion = payload.dia_instalacion;
+                if (payload.cantidad_lineas) item.cantidad_lineas = payload.cantidad_lineas;
+                if (payload.imagen_url !== undefined) item.imagen_url = payload.imagen_url;
+              }
+            } catch(err) {
+              if (msgEl) { msgEl.textContent = 'Error: '+err.message; msgEl.style.color='#dc2626'; }
+            }
           });
         });
-        
+
+        // Event listeners para editar línea individual
+        document.querySelectorAll('.btn-edit-line').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const card = this.closest('.line-card');
+            if (!card) return;
+            const form = card.querySelector('.line-edit-form');
+            if (!form) return;
+            // Ocultar otros formularios abiertos
+            document.querySelectorAll('.line-edit-form').forEach(f => { if (f !== form) f.style.display = 'none'; });
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            if (form.style.display === 'block') form.querySelector('.line-edit-tel')?.focus();
+          });
+        });
+
+        document.querySelectorAll('.btn-cancel-line').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.closest('.line-edit-form').style.display = 'none';
+          });
+        });
+
+        document.querySelectorAll('.btn-save-line').forEach(btn => {
+          btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const form = this.closest('.line-edit-form');
+            const clientId = form.getAttribute('data-client-id');
+            const lineIndex = parseInt(form.getAttribute('data-line-index'));
+            const telInput = form.querySelector('.line-edit-tel');
+            const servInput = form.querySelector('.line-edit-serv');
+            const msgEl = form.querySelector('.line-edit-msg');
+            if (msgEl) msgEl.textContent = 'Guardando...';
+            try {
+              const token = localStorage.getItem('token')||sessionStorage.getItem('token');
+              const res = await fetch('/api/lineas-team/update', {
+                method: 'PUT',
+                headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+                body: JSON.stringify({
+                  id: clientId,
+                  line_index: lineIndex,
+                  line_telefono: telInput.value.trim(),
+                  line_servicio: servInput.value.trim()
+                })
+              });
+              const result = await res.json();
+              if (!res.ok || !result.success) throw new Error(result.message||'Error');
+              if (msgEl) { msgEl.textContent = '✓ Guardado'; msgEl.style.color = '#065f46'; }
+              // Actualizar datos locales
+              const item = allItems.find(i => String(i._id||i.id) === String(clientId));
+              if (item) {
+                if (!Array.isArray(item.telefonos)) item.telefonos = [];
+                item.telefonos[lineIndex] = telInput.value.trim();
+                if (!Array.isArray(item.lines_data)) item.lines_data = [];
+                if (!item.lines_data[lineIndex]) item.lines_data[lineIndex] = {};
+                item.lines_data[lineIndex].telefono = telInput.value.trim();
+                item.lines_data[lineIndex].servicio = servInput.value.trim();
+              }
+              // Actualizar display de teléfono en la card
+              const card = form.closest('.line-card');
+              if (card) {
+                const telDisplay = card.querySelector('.line-tel-display');
+                if (telDisplay) telDisplay.textContent = telInput.value.trim() || 'Sin teléfono';
+              }
+              setTimeout(() => { form.style.display = 'none'; if(msgEl) msgEl.textContent=''; }, 1200);
+              showNotification('Línea actualizada correctamente', 'success');
+            } catch(err) {
+              if (msgEl) { msgEl.textContent = 'Error: '+err.message; msgEl.style.color = '#dc2626'; }
+            }
+          });
+        });
+
         // Event listeners para cambio de status de línea individual (solo si no es supervisor)
         document.querySelectorAll('.line-status-select:not([disabled])').forEach(select => {
           select.addEventListener('change', async function(e) {
@@ -2829,7 +2908,17 @@
 
       async function load(){
         allItems = await fetchData();
-        sortOldToNew(allItems);
+        sortNewToOld(allItems);
+        // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
+        const dfEl = $('#dateFrom');
+        const dtEl = $('#dateTo');
+        if (dfEl && !dfEl.value && dtEl && !dtEl.value) {
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = String(now.getMonth()+1).padStart(2,'0');
+          dfEl.value = y+'-'+m+'-01';
+          dtEl.value = y+'-'+m+'-'+String(new Date(y, now.getMonth()+1, 0).getDate()).padStart(2,'0');
+        }
         populateAgentFilterFromItems(allItems);
         const filteredItems = applyFilters(allItems);
         renderTable(filteredItems);
@@ -3017,6 +3106,73 @@
 
       load();
     });
+  </script>
+
+  <!-- Funciones globales de imagen para filas inline -->
+  <script>
+    function _clImgLightbox(src) {
+      if (!src) return;
+      var o = document.createElement('div');
+      o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+      o.innerHTML = '<img src="'+src+'" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);">';
+      o.onclick = function(){ document.body.removeChild(o); };
+      document.body.appendChild(o);
+    }
+
+    function _clImgRemove(btn) {
+      var zone = btn.closest('.ile-img-zone');
+      if (!zone) return;
+      zone._imgFile = null;
+      var inp = zone.nextElementSibling;
+      if (inp && inp.tagName === 'INPUT') inp.value = '';
+      var preview = zone.querySelector('.ile-img-preview');
+      if (preview) { preview.src = ''; preview.style.display = 'none'; }
+      var ph = zone.querySelector('.ile-img-ph');
+      if (ph) ph.style.display = 'flex';
+      var hint = zone.querySelector('.ile-img-hint');
+      if (hint) hint.style.display = 'none';
+      btn.style.display = 'none';
+    }
+
+    function _clImgSelect(e, inp) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var zone = inp.previousElementSibling;
+      if (!zone || !zone.classList.contains('ile-img-zone')) return;
+      zone._imgFile = file;
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var preview = zone.querySelector('.ile-img-preview');
+        if (preview) { preview.src = ev.target.result; preview.style.display = 'block'; }
+        var ph = zone.querySelector('.ile-img-ph');
+        if (ph) ph.style.display = 'none';
+        var hint = zone.querySelector('.ile-img-hint');
+        if (hint) hint.style.display = 'block';
+        var rmv = zone.querySelector('.ile-img-remove');
+        if (rmv) rmv.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function _clImgDrop(e, zone) {
+      e.preventDefault(); e.stopPropagation();
+      zone.style.borderColor = '#c7d2fe';
+      var file = e.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      zone._imgFile = file;
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var preview = zone.querySelector('.ile-img-preview');
+        if (preview) { preview.src = ev.target.result; preview.style.display = 'block'; }
+        var ph = zone.querySelector('.ile-img-ph');
+        if (ph) ph.style.display = 'none';
+        var hint = zone.querySelector('.ile-img-hint');
+        if (hint) hint.style.display = 'block';
+        var rmv = zone.querySelector('.ile-img-remove');
+        if (rmv) rmv.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
   </script>
 </body>
 </html>

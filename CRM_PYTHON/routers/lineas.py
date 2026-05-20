@@ -119,6 +119,7 @@ def _fmt_lc(row) -> dict:
     d["agenteNombre"]  = d.get("agente_nombre")
     d["agenteAsignado"] = d.get("agente_asignado")
     d["_collection"]   = d.get("collection_name")
+    d["imagen_url"]    = d.get("imagen_url") or ""
     return d
 
 
@@ -331,6 +332,7 @@ class LineasBody(BaseModel):
     agenteAsignado:    Optional[str] = None
     lineas_status:     Optional[Any] = None
     lines:             Optional[List[Any]] = []
+    imagen_url:        Optional[str] = None
 
 
 @router.post("/api/lineas")
@@ -407,13 +409,13 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
                  autopago, pin_seguridad, direccion, servicios, dia_venta, dia_instalacion,
                  status, cantidad_lineas, telefonos, mercado, supervisor,
                  agente, agente_nombre, agente_asignado, lineas_status, lines_data,
-                 fuente, created_at, updated_at)
+                 fuente, imagen_url, created_at, updated_at)
             VALUES
                 (:col, 'TEAM LINEAS', :nc, :tp, :nuc,
                  :ap, :pin, :dir, :svc, :dv, :di,
                  :st, :cl, :tel, :merc, :sup,
                  :ag, :ag, :aga, :lst, :ldat,
-                 'CRM', :now, :now)
+                 'CRM', :img, :now, :now)
         """), {
             "col":  target_col_name,
             "nc":   body.nombre_cliente.strip().upper(),
@@ -434,6 +436,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
             "aga":  _normalize_agent_display(target_agent),
             "lst":  json.dumps(initial_lineas_status),
             "ldat": json.dumps(initial_lines),
+            "img":  str(body.imagen_url).strip() if body.imagen_url else None,
             "now":  now,
         })
         await s.commit()
@@ -463,10 +466,16 @@ class LineasTeamUpdateBody(BaseModel):
     nombre_cliente:     Optional[str] = None
     telefono_principal: Optional[str] = None
     numero_cuenta:      Optional[str] = None
+    pin_seguridad:      Optional[str] = None
+    direccion:          Optional[str] = None
     cantidad_lineas:    Optional[int] = None
     status:             Optional[str] = None
     dia_venta:          Optional[str] = None
     dia_instalacion:    Optional[str] = None
+    imagen_url:         Optional[str] = None
+    line_index:         Optional[int] = None
+    line_telefono:      Optional[str] = None
+    line_servicio:      Optional[str] = None
 
 
 @router.put("/api/lineas-team/update")
@@ -487,6 +496,10 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         sets.append("telefono_principal = :tp"); params["tp"] = re.sub(r"\D+", "", body.telefono_principal)
     if body.numero_cuenta:
         sets.append("numero_cuenta = :nuc"); params["nuc"] = str(body.numero_cuenta).strip()
+    if body.pin_seguridad is not None:
+        sets.append("pin_seguridad = :pin"); params["pin"] = str(body.pin_seguridad).strip()
+    if body.direccion is not None:
+        sets.append("direccion = :dir"); params["dir"] = str(body.direccion).strip()
     if body.cantidad_lineas:
         sets.append("cantidad_lineas = :cl"); params["cl"] = int(body.cantidad_lineas)
     if body.status:
@@ -495,6 +508,26 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         sets.append("dia_venta = :dv"); params["dv"] = _normalize_date(body.dia_venta)
     if body.dia_instalacion:
         sets.append("dia_instalacion = :di"); params["di"] = _normalize_date(body.dia_instalacion)
+    if body.imagen_url is not None:
+        sets.append("imagen_url = :img"); params["img"] = body.imagen_url or None
+
+    if body.line_index is not None:
+        li = int(body.line_index)
+        if body.line_telefono is not None:
+            clean_tel = re.sub(r"\D+", "", str(body.line_telefono))
+            params["ltel"] = clean_tel
+            params["ltel_path1"] = f"$[{li}]"
+            params["ltel_path2"] = f"$[{li}].telefono"
+            sets.append("telefonos = JSON_SET(COALESCE(telefonos, JSON_ARRAY()), :ltel_path1, :ltel)")
+        if body.line_servicio is not None:
+            params["lserv"] = body.line_servicio.strip().upper()
+            params["lserv_path"] = f"$[{li}].servicio"
+        if body.line_telefono is not None and body.line_servicio is not None:
+            sets.append("lines_data = JSON_SET(JSON_SET(COALESCE(lines_data, JSON_ARRAY()), :ltel_path2, :ltel), :lserv_path, :lserv)")
+        elif body.line_telefono is not None:
+            sets.append("lines_data = JSON_SET(COALESCE(lines_data, JSON_ARRAY()), :ltel_path2, :ltel)")
+        elif body.line_servicio is not None:
+            sets.append("lines_data = JSON_SET(COALESCE(lines_data, JSON_ARRAY()), :lserv_path, :lserv)")
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(

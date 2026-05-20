@@ -186,6 +186,7 @@ class LeadCreateBody(BaseModel):
     sistema:            str = ""
     riesgo:             str = ""
     comentario:         str = ""
+    imagen_url:         str = ""
     puntaje:            str = ""
     dia_venta:          str = ""
     dia_instalacion:    str = ""
@@ -223,12 +224,12 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
               (nombre_cliente, telefono_principal, telefono, direccion, zip_code, servicios,
                tipo_servicio, numero_cuenta, mercado, motivo_llamada, status,
                puntaje, dia_venta, dia_instalacion, supervisor, agente, agente_nombre,
-               source_collection, created_by, created_at, updated_at)
+               imagen_url, source_collection, created_by, created_at, updated_at)
             VALUES
               (:nc, :tp, :t2, :dir, :zip, :srv,
                :ts, :nc2, :mer, :ml, :st,
                :pts, :dv, :di, :sup, :ag, :agn,
-               'leads', :by, :now, :now)
+               :img, 'leads', :by, :now, :now)
         """), {
             "nc":  body.nombre_cliente,
             "tp":  body.telefono_principal,
@@ -247,6 +248,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             "sup": body.supervisor or user.get("supervisor", ""),
             "ag":  body.agente or user.get("username", ""),
             "agn": body.agente or user.get("username", ""),
+            "img": body.imagen_url or None,
             "by":  user.get("username", ""),
             "now": now,
         })
@@ -667,6 +669,7 @@ class UpdateLeadBody(BaseModel):
     agenteNombre:       Optional[str] = None
     motivo_llamada:     Optional[str] = None
     nota:               Optional[str] = None
+    imagen_url:         Optional[str] = None
     was_reserva:        Optional[bool] = None
 
 
@@ -686,6 +689,7 @@ _LEAD_COL_MAP = {
     "agenteNombre":       "agente_nombre",
     "motivo_llamada":     "motivo_llamada",
     "nota":               "nota",
+    "imagen_url":         "imagen_url",
     "was_reserva":        "was_reserva",
 }
 

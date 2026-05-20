@@ -18,7 +18,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database_mysql import init_mysql, close_mysql
+from database_mysql import init_mysql, close_mysql, engine
+from sqlalchemy import text as _sa_text
 from routers import auth as auth_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
@@ -40,9 +41,19 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
+_MIGRATIONS = [
+    "ALTER TABLE lineas_clientes ADD COLUMN IF NOT EXISTS imagen_url VARCHAR(500) NULL AFTER fuente",
+]
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
+    async with engine.begin() as conn:
+        for sql in _MIGRATIONS:
+            try:
+                await conn.execute(_sa_text(sql))
+            except Exception as e:
+                print(f"[migration] {e}")
     yield
     await close_mysql()
 
