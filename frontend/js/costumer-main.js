@@ -180,6 +180,7 @@
           var n=parseFloat(String(v).replace(',','.'));
           return isNaN(n)?'':n;
         })(),
+        imagen_url:      pick(['imagen_url','imagen','foto','image_url']),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
       };
@@ -552,8 +553,15 @@
     if(!paged.length){tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead){
       const lid=String(lead._id),isCol=!!lead._es_colchon_route,rowClass=isCol?' class="row-colchon"':'';
-      return'<tr data-id="'+escHTML(lid)+'"'+rowClass+'>'+
-        '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+'<span class="row-actions" style="margin-left:6px;"><button class="rab" onclick="editLead(\''+lid+'\')" title="Editar" aria-label="Editar '+escHTML(lead.nombre_cliente)+'">✎</button><button class="rab delete-btn" onclick="deleteLead(\''+lid+'\')" title="Eliminar" aria-label="Eliminar '+escHTML(lead.nombre_cliente)+'">✕</button></span></td>'+
+      const imgCell='<td style="padding:4px 8px;text-align:center;">'+
+        (lead.imagen_url
+          ?'<img src="'+escHTML(lead.imagen_url)+'" alt="img" style="display:block;width:34px;height:34px;object-fit:cover;border-radius:4px;cursor:zoom-in;border:1px solid var(--line-1);margin:0 auto 4px;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(lead.imagen_url)+'\')" title="Ver imagen">'
+          :'<span style="display:block;color:var(--ink-4);font-size:.7rem;margin-bottom:4px;">—</span>'
+        )+
+        '<button class="rab delete-btn" onclick="event.stopPropagation();deleteLead(\''+lid+'\')" style="width:auto;padding:0 7px;font-size:.68rem;background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.3);" aria-label="Eliminar">✕</button>'+
+        '</td>';
+      return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' onclick="toggleRowExpand(\''+lid+'\')" style="cursor:pointer;">'+
+        '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+'</td>'+
         cell(lead.telefono?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono))+'</span>':'—')+
         cell(lead.telefono_alt?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</span>':'—')+
         cell('<span class="mono">'+escHTML(lead.numero_cuenta)+'</span>')+
@@ -563,9 +571,16 @@
         cell(escHTML(lead.servicios))+cell(escHTML(lead.mercado))+cell(escHTML(fmtSupervisor(lead.supervisor)))+cell(escHTML(lead.motivo_llamada))+
         cell('<span class="mono">'+escHTML(lead.zip_code)+'</span>')+
         cell(lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?'<span style="font-family:var(--f-mono);font-size:.72rem;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r1);padding:2px 6px;'+(parseFloat(lead.puntaje)>=1?'color:var(--go)':parseFloat(lead.puntaje)>=0.5?'color:var(--warn)':'color:var(--stop)')+'">'+escHTML(String(lead.puntaje))+'</span>':'—')+
-        '<td style="padding:6px 10px;white-space:nowrap;"><button class="rab" onclick="editLead(\''+lid+'\')" style="width:auto;padding:0 8px;font-size:.7rem;gap:4px;" aria-label="Editar">✎ Editar</button> <button class="rab delete-btn" onclick="deleteLead(\''+lid+'\')" style="width:auto;padding:0 8px;font-size:.7rem;gap:4px;background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.3);" aria-label="Eliminar">✕ Eliminar</button></td>'+
+        imgCell+
         '</tr>';
     }).join('');}
+    window._openCostumerImgLightbox=function(src){
+      var ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+      ov.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:95vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">';
+      ov.onclick=function(){document.body.removeChild(ov);};
+      document.body.appendChild(ov);
+    };
     const countEl=document.getElementById('recuentoCount');if(countEl)countEl.value=total;
     const puntajeTotal=__filteredLeads.reduce(function(sum,lead){
       const raw=lead._raw||{};
@@ -828,6 +843,177 @@
       }
     });
   })();
+
+  /* ── INLINE ROW EXPAND / EDIT ── */
+  var _expandedRowId=null;
+  var _inlineImgFile=null;
+
+  window.toggleRowExpand=function(lid){
+    // Cierra cualquier fila ya abierta
+    var existing=document.querySelector('.inline-edit-row');
+    if(existing){
+      existing.remove();
+      if(_expandedRowId===String(lid)){_expandedRowId=null;_inlineImgFile=null;return;}
+    }
+    _expandedRowId=String(lid);
+    _inlineImgFile=null;
+
+    var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
+    if(!lead)return;
+    var row=document.querySelector('tr[data-id="'+lid+'"]');
+    if(!row)return;
+
+    var ud=getUserData();
+    var myRole=String(ud.role||ud.rol||'').toLowerCase();
+    var canEdit=isAdminOrBackoffice(myRole);
+    var dis=canEdit?'':'disabled';
+    var opacity=canEdit?'':'opacity:.6;pointer-events:none;';
+
+    var imgSrc=lead.imagen_url||'';
+    var imgZoneHtml=
+      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;'+opacity+'" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+        (imgSrc
+          ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
+           '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
+           (canEdit?'<button type="button" onclick="event.stopPropagation();_ileRemoveImg(\''+lid+'\')" style="position:absolute;top:3px;right:4px;background:rgba(239,68,68,.85);border:none;border-radius:3px;color:#fff;font-size:.6rem;padding:1px 5px;cursor:pointer;font-weight:700;">✕</button>':'')
+          :'<div style="display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:.6rem;color:#5a7a8a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Subir imagen</span></div>'
+        )+
+      '</div>'+
+      (canEdit?'<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">':'');
+
+    var svcOptions='<option value="">Elige</option><optgroup label="DIRECTV (Video)"><option>VIDEO DIRECTV VIA INTERNET</option><option>VIDEO DIRECTV VIA SATELITE</option></optgroup><optgroup label="AT&T Internet"><option>AIR</option><option>ATT 18 - 25 MB</option><option>ATT 50 - 100 MB</option><option>ATT 100 FIBRA</option><option>ATT 300</option><option>ATT 500</option><option>ATT 1G</option></optgroup><optgroup label="Spectrum"><option>SPECTRUM 400 MBPS</option><option>SPECTRUM 500</option><option>SPECTRUM 500MBPS+</option><option>SPECTRUM 1G</option><option>SPECTRUM 2G</option></optgroup><optgroup label="Frontier"><option>FRONTIER 200 MB</option><option>FRONTIER 500 MB</option><option>FRONTIER 1G</option><option>FRONTIER 2G</option></optgroup><optgroup label="Consolidated"><option>CONSOLIDATED 100 MB</option><option>CONSOLIDATED 300 MB</option><option>CONSOLIDATED 1G</option><option>CONSOLIDATED 2G</option><option>CONSOLIDATED</option></optgroup><optgroup label="Xfinity"><option>XFINITY 300</option><option>XFINITY 500</option><option>XFINITY 1G</option></optgroup><optgroup label="Brightspeed"><option>BRIGHTSPEED</option></optgroup><optgroup label="Earthlink"><option>INTERNET EARTHLINK 300 MB</option><option>EARTHLINK</option></optgroup><optgroup label="Ziply Fiber"><option>ZIPLY FIBER 10G</option><option>ZIPLY FIBER 5G</option><option>ZIPLY FIBER 2G</option><option>ZIPLY FIBER 1G</option><option>ZIPLY FIBER 300</option><option>ZIPLY FIBER 200</option></optgroup><optgroup label="Otros"><option>OPTIMUM</option><option>WOW</option><option>WINDSTREAM</option><option>HUGHESNET</option><option>VIASAT</option><option>STARLINK</option><option>CENTURYLINK</option><option>METRONET</option><option>HAWAIIAN</option><option>VIVINT</option><option>MOBILITY</option><option>ALTAFIBER</option><option>ALTAFIBER 100 MB</option><option>ALTAFIBER 200 MB</option><option>ALTAFIBER 300 MB</option><option>ALTAFIBER 400 MB</option><option>ALTAFIBER 500 MB</option><option>ALTAFIBER 600 MB</option><option>ALTAFIBER 800 MB</option><option>ALTAFIBER 1G</option></optgroup>';
+
+    function iField(lbl,id,val,type){type=type||'text';return'<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">'+lbl+'</label><input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'"></div>';}
+    function sField(lbl,id,opts,val){return'<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'">'+opts+'</select></div>';}
+    function selOpt(vals,cur){return vals.map(function(v){var vv=Array.isArray(v)?v[0]:v,lbl=Array.isArray(v)?v[1]:v;return'<option value="'+escHTML(vv)+'"'+(String(cur||'').toLowerCase()===String(vv).toLowerCase()?' selected':'')+'>'+escHTML(lbl)+'</option>';}).join('');}
+
+    var svcCurrent=Array.isArray(lead.servicios)?lead.servicios[0]:lead.servicios||'';
+
+    var html=
+      '<td colspan="19" style="padding:0;background:var(--sheet-2);border-bottom:3px solid var(--a);">'+
+      '<div style="padding:14px 20px 16px;">'+
+        (!canEdit?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:7px 12px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:10px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;margin-bottom:10px;">'+
+          iField('Nombre Cliente','nombre',lead.nombre_cliente)+
+          iField('Teléfono Principal','tel',lead.telefono)+
+          iField('Teléfono Alterno','tel-alt',lead.telefono_alt)+
+          iField('No. Cuenta','cuenta',lead.numero_cuenta)+
+          '<div class="field" style="grid-column:span 2;"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Dirección</label><input type="text" id="ile-dir-'+lid+'" value="'+escHTML(String(lead.direccion||''))+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'"></div>'+
+          iField('ZIP Code','zip',lead.zip_code)+
+          sField('Autopago','autopago','<option value="">—</option>'+selOpt([['SI','SI'],['NO','NO']],lead.autopago),'') +
+          sField('Riesgo','riesgo','<option value="">—</option>'+selOpt(['LOW','MEDIUM','HIGH','N/A'],lead.riesgo),'')+
+          sField('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status),'')+
+          sField('Tipo Servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio),'')+
+          sField('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema),'')+
+          sField('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado),'')+
+          '<div class="field" style="grid-column:span 2;"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Servicios</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'">'+svcOptions+'</select></div>'+
+          iField('Día Venta','dv',lead.dia_venta,'date')+
+          iField('Día Instalación','di',lead.dia_instalacion,'date')+
+          iField('Puntaje','pts',lead.puntaje,'number')+
+          iField('Supervisor','sup',lead.supervisor)+
+          iField('Motivo Llamada','motivo',lead.motivo_llamada)+
+          '<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Imagen</label>'+imgZoneHtml+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">'+
+          '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:6px 16px;border:1px solid #c5d5df;border-radius:20px;background:#fff;font-size:.78rem;font-weight:700;cursor:pointer;color:#5a7a8a;">Cancelar</button>'+
+          (canEdit?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-'+lid+'">💾 Guardar cambios</button>':'')+
+        '</div>'+
+      '</div>'+
+      '</td>';
+
+    var expandTr=document.createElement('tr');
+    expandTr.className='inline-edit-row';
+    expandTr.setAttribute('data-edit-id',lid);
+    expandTr.innerHTML=html;
+    row.parentNode.insertBefore(expandTr,row.nextSibling);
+
+    // Set select values after inserting into DOM
+    var svcSel=document.getElementById('ile-svc-'+lid);
+    if(svcSel)svcSel.value=svcCurrent||'';
+    expandTr.scrollIntoView({behavior:'smooth',block:'nearest'});
+  };
+
+  window._ileFileSelect=function(e,lid){
+    var file=e.target.files&&e.target.files[0];
+    if(!file)return;
+    _inlineImgFile=file;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var zone=document.getElementById('ile-img-zone-'+lid);
+      if(!zone)return;
+      zone.innerHTML=
+        '<img id="ile-img-preview-'+lid+'" src="'+ev.target.result+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+ev.target.result+'\')" title="Click para ampliar">'+
+        '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
+        '<button type="button" onclick="event.stopPropagation();_ileRemoveImg(\''+lid+'\')" style="position:absolute;top:3px;right:4px;background:rgba(239,68,68,.85);border:none;border-radius:3px;color:#fff;font-size:.6rem;padding:1px 5px;cursor:pointer;font-weight:700;">✕</button>'+
+        '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window._ileRemoveImg=function(lid){
+    _inlineImgFile=null;
+    var zone=document.getElementById('ile-img-zone-'+lid);
+    if(!zone)return;
+    zone.innerHTML=
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:.6rem;color:#5a7a8a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Subir imagen</span></div>'+
+      '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
+    zone.onclick=function(){var fi=document.getElementById('ile-file-'+lid);if(fi)fi.click();};
+  };
+
+  window.guardarInlineEdit=async function(lid){
+    var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
+    if(!lead)return;
+    var g=function(sfx){var el=document.getElementById('ile-'+sfx+'-'+lid);return el?el.value.trim():'';};
+    var btn=document.getElementById('ile-save-'+lid);
+    if(btn){btn.disabled=true;btn.textContent='⏳ Guardando…';}
+
+    var imgUrl=lead.imagen_url||'';
+    if(_inlineImgFile){
+      try{
+        if(btn)btn.textContent='⏳ Subiendo imagen…';
+        var fd=new FormData();fd.append('file',_inlineImgFile);
+        var token=(localStorage.getItem('token')||'').trim();
+        var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:token?{'Authorization':'Bearer '+token}:{},body:fd});
+        if(upRes.ok){var upData=await upRes.json();imgUrl=(upData.data&&upData.data.url)||'';}
+      }catch(_){}
+    }
+
+    var updates={
+      nombre_cliente:  g('nombre'),
+      telefono:        g('tel'),
+      telefono_alterno:g('tel-alt'),
+      numero_cuenta:   g('cuenta'),
+      direccion:       g('dir'),
+      zip_code:        g('zip'),
+      autopago:        g('autopago'),
+      riesgo:          g('riesgo'),
+      status:          g('status'),
+      tipo_servicio:   g('tipo'),
+      sistema:         g('sistema'),
+      mercado:         g('mercado'),
+      servicios:       g('svc'),
+      dia_venta:       g('dv'),
+      dia_instalacion: g('di'),
+      puntaje:         g('pts')?parseFloat(g('pts'))||0:'',
+      supervisor:      g('sup'),
+      motivo_llamada:  g('motivo'),
+      imagen_url:      imgUrl,
+    };
+    if(btn)btn.textContent='⏳ Guardando…';
+    var res=await AUTH.secureFetch('/api/leads/'+lid,{method:'PUT',body:JSON.stringify(updates)});
+    if(res&&res.ok){
+      Object.assign(lead,updates);
+      lead.imagen_url=imgUrl;
+      showToast('Guardado ✓','ok');
+      var existing=document.querySelector('.inline-edit-row');
+      if(existing)existing.remove();
+      _expandedRowId=null;_inlineImgFile=null;
+      applyFilters();
+    }else{
+      showToast('No se pudo guardar','error');
+      if(btn){btn.disabled=false;btn.textContent='💾 Guardar cambios';}
+    }
+  };
 
   window.guardarCambiosLead=async function(){
     const leadId=getVal('edit-lead-id');
