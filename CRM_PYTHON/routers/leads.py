@@ -16,7 +16,11 @@ def _normalize(s: str) -> str:
 
 def _is_admin_or_bo(user: dict) -> bool:
     r = _normalize(user.get("role", ""))
-    return "admin" in r or "backoffice" in r or "rol_icon" in r
+    return (
+        "admin" in r or "backoffice" in r
+        or "rol_icon" in r or "rol_bamo" in r
+        or r == "icon" or r == "bamo"
+    )
 
 
 def _is_supervisor(user: dict) -> bool:
@@ -624,8 +628,10 @@ class UpdateStatusBody(BaseModel):
 async def update_lead_status(
     lead_id: str,
     body: UpdateStatusBody,
-    user: dict = Depends(require_roles("Administrador", "Backoffice", "admin", "administrador", "backoffice")),
+    user: dict = Depends(current_user),
 ):
+    if not (_is_admin_or_bo(user) or _is_supervisor(user)):
+        raise HTTPException(403, "No autorizado")
     if not body.status:
         raise HTTPException(400, "status requerido")
     mysql_id, mongo_id = _find_id(lead_id)
@@ -691,6 +697,8 @@ _LEAD_COL_MAP = {
     "nota":               "nota",
     "imagen_url":         "imagen_url",
     "was_reserva":        "was_reserva",
+    "sistema":            "sistema",
+    "riesgo":             "riesgo",
 }
 
 
@@ -698,11 +706,10 @@ _LEAD_COL_MAP = {
 async def update_lead(
     lead_id: str,
     body: UpdateLeadBody,
-    user: dict = Depends(require_roles(
-        "Administrador", "Backoffice", "Supervisor", "Agente",
-        "admin", "administrador", "backoffice", "supervisor", "agente",
-    )),
+    user: dict = Depends(current_user),
 ):
+    if not (_is_admin_or_bo(user) or _is_supervisor(user) or _is_agent(user)):
+        raise HTTPException(403, "No autorizado")
     data = body.model_dump(exclude_none=True)
     if not data:
         raise HTTPException(400, "Sin campos para actualizar")
@@ -716,6 +723,14 @@ async def update_lead(
             params[field] = data[field]
 
     # Special handling
+    if "autopago" in data:
+        v = str(data["autopago"] or "").lower().strip()
+        if v in ("si", "sí", "yes", "true", "1"):
+            sets.append("autopago = :autopago_val")
+            params["autopago_val"] = 1
+        elif v in ("no", "false", "0"):
+            sets.append("autopago = :autopago_val")
+            params["autopago_val"] = 0
     if "servicios" in data:
         v = data["servicios"]
         sets.append("servicios = :servicios_json")

@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS leads (
     motivo_llamada      TEXT,
     nota                TEXT,
     imagen_url          VARCHAR(500),
+    sistema             VARCHAR(100),
+    riesgo              VARCHAR(50),
     producto            VARCHAR(150),
     was_reserva         BOOLEAN DEFAULT FALSE,
     excluir_de_reporte  BOOLEAN DEFAULT FALSE,

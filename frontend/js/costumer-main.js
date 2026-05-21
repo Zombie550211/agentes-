@@ -71,12 +71,12 @@
     return SUPERVISOR_DISPLAY_MAP[key] || val;
   }
 
-  function isAdminOrBackoffice(role){const r=String(role||'').toLowerCase();return['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo'].some(function(v){return r===v||r.includes(v);});}
+  function isAdminOrBackoffice(role){const r=String(role||'').toLowerCase();return['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo','icon','bamo'].some(function(v){return r===v||r.includes(v);});}
   function isAgent(role){const r=String(role||'').toLowerCase();return['agente','agent','agentes','vendedor','vendedores','seller'].some(function(v){return r===v||r.includes(v);});}
   function isSupervisor(role){const r=String(role||'').toLowerCase();return['supervisor','supervisores','supervisora'].some(function(v){return r===v||r.includes(v);});}
 
   /* ── NORMALIZATION ── */
-  function formatAutopago(val){const v=String(val||'').toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Sí';if(v==='false'||v==='0'||v==='no')return'No';return String(val||'');}
+  function formatAutopago(val){const v=String(val===undefined||val===null?'':val).toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Sí';if(v==='false'||v==='0'||v==='no')return'No';return v;}
 
   function normalizeSupervisorName(name){
     const s=String(name||'').trim().toUpperCase();
@@ -143,7 +143,7 @@
     if(!Array.isArray(items))return[];
     return items.map(function(it,idx){
       const raw=(it&&it._raw&&typeof it._raw==='object')?it._raw:null;
-      const pick=function(keys){return pickField(it,keys)||pickField(raw,keys)||'';};
+      const pick=function(keys){var v=pickField(it,keys);if(v!==''&&v!==undefined&&v!==null)return v;return pickField(raw,keys);};
       const lead={
         _id:             extractMongoId(it, idx),
         _raw:            it,
@@ -180,7 +180,7 @@
           var n=parseFloat(String(v).replace(',','.'));
           return isNaN(n)?'':n;
         })(),
-        imagen_url:      pick(['imagen_url','imagen','foto','image_url']),
+        imagen_url:      (function(){var v=pick(['imagen_url','imagen','foto','image_url']);if(!v)return '';var s=String(v);if(/^\/api\/files\/\d+$/.test(s))return '';return(s.startsWith('/uploads/')||s.startsWith('http'))?s:'';}()),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
       };
@@ -984,6 +984,7 @@
       nombre_cliente:  g('nombre'),
       telefono:        g('tel'),
       telefono_alterno:g('tel-alt'),
+      telefono_alt:    g('tel-alt'),
       numero_cuenta:   g('cuenta'),
       direccion:       g('dir'),
       zip_code:        g('zip'),

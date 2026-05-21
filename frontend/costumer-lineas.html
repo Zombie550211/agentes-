@@ -132,6 +132,17 @@
     .rab { border:none; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:700; cursor:pointer; }
     .refresh-btn { padding:8px 14px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; font-weight:600; color:#475569; cursor:pointer; }
     .refresh-btn:hover { background:#e2e8f0; }
+
+    /* Team tabs */
+    .team-tabs { display:flex; gap:6px; padding:12px 22px 0; flex-wrap:wrap; }
+    .team-tab {
+      padding:6px 18px; border-radius:999px; font-size:12px; font-weight:700;
+      border:2px solid #e2e8f0; background:#f8fafc; color:#64748b;
+      cursor:pointer; transition:all .15s; letter-spacing:.02em;
+    }
+    .team-tab:hover { border-color:#3b82f6; color:#3b82f6; background:#eff6ff; }
+    .team-tab.active { background:#3b82f6; border-color:#2563eb; color:#fff; box-shadow:0 2px 8px rgba(59,130,246,.35); }
+    .team-tab.active:hover { background:#2563eb; }
   </style>
 </head>
 <body>
@@ -190,6 +201,7 @@
             <input type="text" class="search-input" id="search-input" placeholder="Buscar...">
           </div>
         </div>
+        <div class="team-tabs" id="team-tabs"></div>
         <div class="table-responsive">
           <table id="lineas-table">
             <thead>
@@ -226,6 +238,7 @@
     var _expandedId    = null;
     var _ileImgFile    = {};   // { [id]: File }
     var _myRole        = '';
+    var _activeTeam    = '';
 
     (function initRole(){
       try {
@@ -255,6 +268,27 @@
       if (label) label.textContent = now.toLocaleString('es-ES',{month:'long',year:'numeric'}).replace(/^\w/, c=>c.toUpperCase());
     }
 
+    function renderTeamTabs(allData){
+      var teams = [];
+      allData.forEach(function(r){
+        var t = String(r.supervisor||'').trim();
+        if(t && teams.indexOf(t) === -1) teams.push(t);
+      });
+      teams.sort();
+      var container = document.getElementById('team-tabs');
+      if(!container) return;
+      var html = '<button class="team-tab'+((_activeTeam==='')?'  active':'')+'" onclick="_setTeam(\'\')">Todos</button>';
+      teams.forEach(function(t){
+        html += '<button class="team-tab'+((_activeTeam===t)?'  active':'')+'" onclick="_setTeam(\''+t.replace(/'/g,'&#39;')+'\')">'+t+'</button>';
+      });
+      container.innerHTML = html;
+    }
+
+    function _setTeam(team){
+      _activeTeam = team;
+      _applyFilter();
+    }
+
     function _applyFilter(){
       var desde = (document.getElementById('cl-desde').value||'').trim();
       var hasta = (document.getElementById('cl-hasta').value||'').trim();
@@ -263,12 +297,14 @@
         var dv = String(r.dia_venta||'').trim();
         if (desde && dv && dv < desde) return false;
         if (hasta && dv && dv > hasta) return false;
+        if (_activeTeam && String(r.supervisor||'').trim() !== _activeTeam) return false;
         if (q){
           var blob = [(r.nombre_cliente||''),(r.telefono_principal||''),(r.agente_nombre||r.agente||''),(r.supervisor||'')].join(' ').toLowerCase();
           if (!blob.includes(q)) return false;
         }
         return true;
       });
+      renderTeamTabs(_allLineas);
       // Orden: más reciente primero
       list.sort(function(a,b){
         var da = a.dia_venta||a.created_at||'';

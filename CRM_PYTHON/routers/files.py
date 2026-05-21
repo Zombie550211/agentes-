@@ -71,7 +71,7 @@ async def upload_file(
             "contentType":  mimetype,
             "fileType":     file_type,
             "size":         len(data),
-            "url":          f"/api/files/{new_id}",
+            "url":          file_path,
         },
     }
 
