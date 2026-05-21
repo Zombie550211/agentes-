@@ -42,7 +42,42 @@ UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
 _MIGRATIONS = [
-    "ALTER TABLE lineas_clientes ADD COLUMN IF NOT EXISTS imagen_url VARCHAR(500) NULL AFTER fuente",
+    "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente",
+    "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL",
+    "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL",
+    """UPDATE leads SET sistema = CASE
+        WHEN servicios LIKE '%VIDEO DIRECTV%'     THEN 'SARA'
+        WHEN servicios LIKE '%ATT 300%'           THEN 'SARA'
+        WHEN servicios LIKE '%ATT 500%'           THEN 'SARA'
+        WHEN servicios LIKE '%ATT 1G%'            THEN 'SARA'
+        WHEN servicios LIKE '%ATT 100%'           THEN 'SARA'
+        WHEN servicios LIKE '%ATT 50%'            THEN 'SARA'
+        WHEN servicios LIKE '%ATT 18%'            THEN 'SARA'
+        WHEN servicios LIKE '%ATT AIR%'           THEN 'SARA'
+        WHEN servicios LIKE '%AIR%'               THEN 'SARA'
+        WHEN servicios LIKE '%SPECTRUM%'          THEN 'SARA'
+        WHEN servicios LIKE '%FRONTIER%'          THEN 'SARA'
+        WHEN servicios LIKE '%CONSOLIDATED%'      THEN 'SARA'
+        WHEN servicios LIKE '%BRIGHTSPEED%'       THEN 'SARA'
+        WHEN servicios LIKE '%EARTHLINK%'         THEN 'SARA'
+        WHEN servicios LIKE '%ZIPLY%'             THEN 'SARA'
+        WHEN servicios LIKE '%OPTIMUM%'           THEN 'SARA'
+        WHEN servicios LIKE '%ALTAFIBER%'         THEN 'SARA'
+        WHEN servicios LIKE '%WINDSTREAM%'        THEN 'SARA'
+        WHEN servicios LIKE '%CENTURYLINK%'       THEN 'SARA'
+        WHEN servicios LIKE '%METRONET%'          THEN 'SARA'
+        WHEN servicios LIKE '%HAWAIIAN%'          THEN 'SARA'
+        WHEN servicios LIKE '%WOW%'               THEN 'SARA'
+        WHEN servicios LIKE '%XFINITY%'           THEN 'N/A'
+        WHEN servicios LIKE '%HUGHESNET%'         THEN 'CHUZO'
+        WHEN servicios LIKE '%VIASAT%'            THEN 'CHUZO'
+        WHEN servicios LIKE '%VIVINT%'            THEN 'CHUZO'
+        WHEN servicios LIKE '%MOBILITY%'          THEN 'CHUZO'
+        ELSE sistema
+    END
+    WHERE (sistema IS NULL OR sistema = '')
+      AND servicios IS NOT NULL AND servicios != '' AND servicios != '[]'""",
+    "UPDATE leads SET autopago = 1 WHERE autopago IS NULL",
 ]
 
 @asynccontextmanager
