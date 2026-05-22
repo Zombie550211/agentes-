@@ -206,21 +206,214 @@
 
     /* Selects de filtro */
     .filter-select {
-      width: 100% !important; padding: 10px 30px 10px 12px !important;
-      border: 1.5px solid #E0E8F5 !important; border-radius: 10px !important;
-      font-size: 13px !important; font-weight: 500 !important;
-      color: #334155 !important; background-color: #F8FAFC !important;
-      appearance: none !important; -webkit-appearance: none !important;
-      outline: none !important; cursor: pointer !important;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      width: 100% !important;
+      padding: 9px 34px 9px 12px !important;
+      border: 1.5px solid #CBD5E1 !important;
+      border-radius: 10px !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      color: #1E293B !important;
+      background-color: #fff !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      outline: none !important;
+      cursor: pointer !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%232563EB' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
       background-repeat: no-repeat !important;
-      background-position: right 10px center !important;
-      transition: border-color .15s, box-shadow .15s !important;
+      background-position: right 11px center !important;
+      transition: border-color .18s, box-shadow .18s, background-color .18s !important;
       box-sizing: border-box !important;
+      box-shadow: 0 1px 4px rgba(15,23,42,.07), inset 0 1px 2px rgba(15,23,42,.04) !important;
+      line-height: 1.4 !important;
+    }
+    .filter-select:hover:not(:disabled) {
+      border-color: #60A5FA !important;
+      background-color: #F8FAFF !important;
+      box-shadow: 0 2px 8px rgba(37,99,235,.10) !important;
     }
     .filter-select:focus {
       border-color: #2563EB !important;
       background-color: #fff !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.15), 0 1px 4px rgba(15,23,42,.07) !important;
+    }
+    .filter-select option {
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      padding: 8px 12px !important;
+      color: #1E293B !important;
+    }
+
+    /* ═══ CUSTOM SELECT ═══ */
+    .cs-wrap { position: relative; width: 100%; }
+    .cs-trigger {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; padding: 9px 12px;
+      background: #fff; border: 1.5px solid #CBD5E1; border-radius: 10px;
+      font-size: 13px; font-weight: 500; color: #1E293B;
+      cursor: pointer; user-select: none; outline: none;
+      transition: border-color .18s, box-shadow .18s, background .18s;
+      box-shadow: 0 1px 4px rgba(15,23,42,.07), inset 0 1px 2px rgba(15,23,42,.04);
+    }
+    .cs-trigger:hover {
+      border-color: #60A5FA; background: #F8FAFF;
+      box-shadow: 0 2px 8px rgba(37,99,235,.10);
+    }
+    .cs-wrap.cs-open .cs-trigger {
+      border-color: #2563EB; background: #fff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.15), 0 1px 4px rgba(15,23,42,.07);
+    }
+    .cs-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cs-arrow { flex-shrink: 0; color: #2563EB; transition: transform .2s; display: block; }
+    .cs-wrap.cs-open .cs-arrow { transform: rotate(180deg); }
+    .cs-dropdown {
+      display: none; position: absolute; top: calc(100% + 5px); left: 0; right: 0;
+      background: #fff; border: 1.5px solid #E0E8F5; border-radius: 12px;
+      box-shadow: 0 10px 36px rgba(30,58,138,.16), 0 2px 8px rgba(30,58,138,.08);
+      z-index: 9999; max-height: 240px; overflow-y: auto; padding: 5px;
+    }
+    .cs-dropdown.cs-open { display: block; animation: csFadeDown .14s ease; }
+    @keyframes csFadeDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .cs-option {
+      padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      color: #374151; cursor: pointer; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      transition: background .12s, color .12s;
+    }
+    .cs-option:hover { background: #EFF6FF; color: #1D4ED8; }
+    .cs-option.cs-selected {
+      background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+      color: #fff; font-weight: 700;
+    }
+    .cs-option.cs-selected:hover { background: linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 100%); }
+    .cs-dropdown::-webkit-scrollbar { width: 4px; }
+    .cs-dropdown::-webkit-scrollbar-track { background: transparent; }
+    .cs-dropdown::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+
+    /* ═══ STATUS TABS ═══ */
+    .status-tabs-bar {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 0 0 16px 0;
+    }
+    .stab {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 13px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      border: 1.5px solid #E2E8F0; background: #F8FAFC; color: #64748B;
+      transition: all .15s; user-select: none; white-space: nowrap;
+    }
+    .stab::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: #CBD5E1;
+    }
+    .stab:hover { background: #EFF6FF; border-color: #93C5FD; color: #1D4ED8; }
+    .stab:hover::before { background: #3B82F6; }
+    .stab.is-active { background: #EFF6FF; border-color: #2563EB; color: #1D4ED8; font-weight: 700; box-shadow: 0 1px 4px rgba(37,99,235,.15); }
+    .stab.all::before      { background: #3B82F6; }
+    .stab.pending::before  { background: #F59E0B; }
+    .stab.active::before   { background: #10B981; }
+    .stab.completed::before { background: #10B981; }
+    .stab.colchon::before  { background: #8B5CF6; }
+    .stab.cancelled::before { background: #EF4444; }
+    .stab.hold::before     { background: #94A3B8; }
+    .stab.all.is-active    { border-color: #3B82F6; color: #1D4ED8; background: #EFF6FF; }
+    .stab.pending.is-active  { border-color: #F59E0B; color: #B45309; background: #FFFBEB; }
+    .stab.active.is-active, .stab.completed.is-active { border-color: #10B981; color: #065F46; background: #ECFDF5; }
+    .stab.colchon.is-active  { border-color: #8B5CF6; color: #5B21B6; background: #F5F3FF; }
+    .stab.cancelled.is-active { border-color: #EF4444; color: #991B1B; background: #FEF2F2; }
+    .stab.hold.is-active   { border-color: #94A3B8; color: #475569; background: #F1F5F9; }
+    /* Fila colchón */
+    .costumer-table tbody tr.row-colchon { background: #faf8ff !important; }
+    .costumer-table tbody tr.row-colchon td:first-child { border-left: 3px solid #8B5CF6; }
+    .badge-colchon {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700; padding: 1px 7px;
+      background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE;
+      border-radius: 20px; margin-left: 4px; vertical-align: middle;
+    }
+
+    /* ═══ NOTAS DE CLIENTE ═══ */
+    .ile-note-card {
+      width: 155px; height: 72px; flex-shrink: 0;
+      background: #fff; border: 1.5px solid #E0E8F5; border-radius: 11px;
+      padding: 8px 28px 8px 10px;
+      box-shadow: 0 1px 4px rgba(30,58,138,.07);
+      position: relative; overflow: hidden;
+      cursor: pointer; transition: border-color .15s, box-shadow .15s;
+    }
+    .ile-note-card:hover {
+      border-color: #93C5FD;
+      box-shadow: 0 3px 10px rgba(30,58,138,.13);
+    }
+    .ile-note-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 22px;
+      background: linear-gradient(transparent, rgba(255,255,255,.95));
+      pointer-events: none;
+    }
+    .ile-note-autor {
+      font-size: 9.5px; font-weight: 800; color: #3B82F6;
+      text-transform: uppercase; letter-spacing: .06em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ile-note-fecha { font-size: 9.5px; color: #94A3B8; margin-bottom: 5px; }
+    .ile-note-texto {
+      font-size: 11.5px; color: #334155; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .ile-note-del {
+      position: absolute; top: 5px; right: 6px; z-index: 2;
+      background: none; border: none; color: #D1D5DB; cursor: pointer;
+      font-size: 10px; padding: 2px; line-height: 1; transition: color .15s;
+    }
+    .ile-note-del:hover { color: #EF4444; }
+    .ile-add-note-btn-main {
+      width: 155px; height: 72px;
+      border: 2px dashed #CBD5E1; border-radius: 11px; background: #F8FAFC;
+      display: flex; flex-direction: row; align-items: center; justify-content: center;
+      gap: 7px; cursor: pointer; font-size: 12px; font-weight: 700; color: #64748B;
+      transition: all .18s;
+    }
+    .ile-add-note-btn-main:hover { border-color: #3B82F6; color: #2563EB; background: #EFF6FF; }
+    .ile-note-form-box {
+      width: 155px; background: #fff; border: 1.5px solid #2563EB;
+      border-radius: 11px; padding: 9px; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    /* Modal de nota completa */
+    .note-modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,.72);
+      z-index: 99999; display: flex; align-items: center; justify-content: center;
+      padding: 24px; backdrop-filter: blur(5px); animation: noteFadeIn .18s ease;
+    }
+    .note-modal-box {
+      background: #fff; border-radius: 18px; padding: 28px 30px;
+      max-width: 560px; width: 100%; max-height: 78vh; overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(15,23,42,.4); position: relative;
+      animation: noteSlideUp .2s ease;
+    }
+    @keyframes noteFadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes noteSlideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    /* ═══ SELECTS EN FORM INLINE ═══ */
+    select.ile-status, select.ile-cant {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%232563EB' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 10px center !important;
+      padding-right: 30px !important;
+      cursor: pointer !important;
+      transition: border-color .18s, box-shadow .18s !important;
+      box-shadow: 0 1px 3px rgba(15,23,42,.06) !important;
+    }
+    select.ile-status:hover:not(:disabled), select.ile-cant:hover:not(:disabled) {
+      border-color: #60A5FA !important;
+    }
+    select.ile-status:focus, select.ile-cant:focus {
+      border-color: #2563EB !important;
       box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
     }
 
@@ -396,7 +589,7 @@
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .ccf-icon-wrap i { font-size: 9px; color: #94A3B8; }
-    .ccf-wrap { display: flex; flex-direction: column; gap: 1px; }
+    .ccf-wrap { display: flex; flex-direction: column; gap: 4px; }
     .ccf-label {
       font-size: 9px; font-weight: 700; color: #CBD5E1;
       text-transform: uppercase; letter-spacing: .07em; line-height: 1;
@@ -527,6 +720,14 @@
               <span class="kpi-lbl">Canceladas Líneas</span>
             </div>
           </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#6D28D9,#8B5CF6);"><i class="fas fa-bed"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-colchon">0</span>
+              <span class="kpi-lbl">Colchón</span>
+            </div>
+          </div>
         </div>
 
         <!-- Filtros -->
@@ -600,12 +801,24 @@
 
         <!-- Tabla principal con diseño moderno -->
         <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-          <div class="p-6 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
-            <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
-              <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
-              Lista de Clientes
-              <span id="leadCounter" class="lead-counter-badge">0 leads</span>
-            </h2>
+          <div class="p-6" style="border-bottom: 1px solid #F1F5F9;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
+                <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
+                Lista de Clientes
+                <span id="leadCounter" class="lead-counter-badge">0 leads</span>
+              </h2>
+            </div>
+            <!-- Status Tabs -->
+            <div class="status-tabs-bar" id="statusTabsBar" role="group" aria-label="Filtro por estado">
+              <button type="button" class="stab all is-active" data-status="all">Todos</button>
+              <button type="button" class="stab pending"       data-status="pending">Pending</button>
+              <button type="button" class="stab active"        data-status="active">Active</button>
+              <button type="button" class="stab completed"     data-status="completed">Completed</button>
+              <button type="button" class="stab colchon"       data-status="colchon">🛏 Colchón</button>
+              <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
+              <button type="button" class="stab hold"          data-status="hold">Hold</button>
+            </div>
           </div>
           
           <div class="table-wrapper">
@@ -926,6 +1139,41 @@
         { val: 'rescheduled', label: 'Rescheduled' },
         { val: 'completed', label: 'Completed' }
       ];
+
+      // ── COLCHÓN LOGIC ──────────────────────────────────────────
+      // Un lead es "colchón" cuando se vendió en un mes pero se instala en otro distinto.
+      function isColchonLead(lead, refMonthStr) {
+        try {
+          const dv = String(lead.dia_venta || '').slice(0, 7);
+          const di = String(lead.dia_instalacion || '').slice(0, 7);
+          if (!dv || !di || dv === di) return false;
+          if (refMonthStr) {
+            // Con mes de referencia: colchón si se instaló en ESE mes pero se vendió en otro
+            return dv !== refMonthStr && di === refMonthStr;
+          }
+          // Sin filtro de mes: colchón si instalación es posterior a la venta
+          return dv < di;
+        } catch (_) { return false; }
+      }
+
+      function _markColchon(items) {
+        // Mes de referencia: usa el filtro de fechas activo (primer día del rango) o null
+        const dateFrom = ($('#dateFrom')?.value || '').slice(0, 7) || null;
+        items.forEach(function(lead) {
+          const isRoute = isColchonLead(lead, dateFrom);
+          const st = String(lead.status || '').toLowerCase();
+          const isActive = st === 'completed' || st === 'active';
+          // _es_colchon_route: cualquier lead cuyo "home month" es dia_instalacion
+          // (active/completed instalados en mes distinto al de venta, O pending con instalación futura)
+          lead._es_colchon_route = isRoute;
+          // _es_colchon badge: solo active/completed (pendientes aún no son colchón confirmado)
+          lead._es_colchon       = isRoute && isActive;
+        });
+      }
+
+      // Tab activo de status ('all' | 'pending' | 'active' | 'completed' | 'colchon' | 'cancelled' | 'hold')
+      let _activeStatusTab = 'all';
+      // ────────────────────────────────────────────────────────────
       function getUserRole(){
         try{ const u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return String(u.role||'').toLowerCase(); }catch{ return ''; }
       }
@@ -1125,6 +1373,7 @@
       }
 
       function applyFilters(items){
+        _markColchon(items);
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qDigits = normalizeDigits(query);
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
@@ -1197,27 +1446,51 @@
             if (itemTeamKey !== selectedTeamKey) return false;
           }
           
-          // Filtro por status de línea (busca en el array de lines o en status general)
+          // Filtro por status de línea
           if (qlineStatus) {
+            const _lineMatch = (st) => {
+              const u = String(st || '').toUpperCase();
+              if (qlineStatus === 'ACTIVA')     return u === 'ACTIVE' || u === 'ACTIVA' || u === 'COMPLETED' || u.includes('ACTIV') || u.includes('COMPLET');
+              if (qlineStatus === 'CANCELADA')  return u === 'CANCELLED' || u === 'CANCELADA' || u.includes('CANCEL');
+              if (qlineStatus === 'SUSPENDIDA') return u === 'HOLD' || u === 'SUSPENDIDA' || u.includes('HOLD') || u.includes('SUSPENDID');
+              return u.includes(qlineStatus);
+            };
             const lines = Array.isArray(it.lines) ? it.lines : [];
-            const hasMatchingLine = lines.some(line => String(line.status||'').toUpperCase().includes(qlineStatus));
-            const generalStatus = String(it.status||'').toUpperCase();
-            if (!hasMatchingLine && !generalStatus.includes(qlineStatus)) return false;
+            const hasMatchingLine = lines.some(line => _lineMatch(line.status));
+            if (!hasMatchingLine && !_lineMatch(it.status)) return false;
           }
           
-          // Filtro por rango de fechas (dia_venta) - solo aplica si el usuario selecciona fechas
-          let diaVenta = it.dia_venta || '';
-          // Normalizar formato de fecha a YYYY-MM-DD para comparación correcta
-          if (diaVenta && diaVenta.includes('/')) {
-            // Convertir DD/MM/YYYY a YYYY-MM-DD
-            const parts = diaVenta.split('/');
-            if (parts.length === 3) {
-              diaVenta = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+          // Filtro por rango de fechas
+          const _stForDate = String(it.status || '').toLowerCase();
+          const _isPending  = _stForDate === 'pending';
+          const _isActive   = _stForDate === 'active' || _stForDate === 'completed';
+          const _rawDate    = (_isPending && it.dia_instalacion) ? it.dia_instalacion : (it.dia_venta || '');
+          const _normalize  = (d) => {
+            let s = String(d || '');
+            if (s.includes('/')) { const p = s.split('/'); if (p.length === 3) s = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; }
+            return s;
+          };
+          let diaRef  = _normalize(_rawDate);
+          let diaInst = _normalize(it.dia_instalacion || '');
+          // Colchón: lead ACTIVE/COMPLETED con dia_instalacion en rango aunque dia_venta esté fuera
+          const instInRange = _isActive && diaInst && (!dateFrom || diaInst >= dateFrom) && (!dateTo || diaInst <= dateTo);
+          if (dateFrom && diaRef && diaRef < dateFrom && !instInRange) return false;
+          if (dateTo   && diaRef && diaRef > dateTo   && !instInRange) return false;
+
+          // ── Filtro por tab de status ──
+          if (_activeStatusTab === 'colchon') {
+            if (!it._es_colchon_route) return false;
+          } else if (_activeStatusTab !== 'all') {
+            const st = String(it.status || '').toLowerCase();
+            if (_activeStatusTab === 'active') {
+              if (st !== 'active' && st !== 'completed') return false;
+            } else {
+              if (st !== _activeStatusTab) return false;
             }
+            // En tabs de status concreto: excluir colchones del tab "active/completed"
+            if ((_activeStatusTab === 'active') && it._es_colchon) return false;
           }
-          if (dateFrom && diaVenta && diaVenta < dateFrom) return false;
-          if (dateTo && diaVenta && diaVenta > dateTo) return false;
-          
+
           return true;
         });
       }
@@ -1265,6 +1538,8 @@
           const _badgeClass = statusLower==='pending'?'cc-badge-pending':statusLower==='completed'?'cc-badge-completed':statusLower==='active'?'cc-badge-active':statusLower==='repro'?'cc-badge-repro':'cc-badge-default';
           const _badgeIcon = statusLower==='completed'?'fa-check-circle':statusLower==='pending'?'fa-clock':statusLower==='active'?'fa-circle':'fa-circle';
           const _statusDisplay = editable ? statusCell : `<span class="cc-badge ${_badgeClass}"><i class="fas ${_badgeIcon}"></i>${String(it.status||'').toUpperCase()}</span>`;
+          const _isColchon = !!it._es_colchon;
+          const _colchonBadge = _isColchon ? '<span class="badge-colchon">🛏 Colchón</span>' : '';
 
           const _field = (icon, label, value) =>
             `<div class="client-card-field">
@@ -1275,13 +1550,14 @@
                </div>
              </div>`;
 
-          let mainRow = `<tr class="table-row expandable-row" data-row-index="${idx}" data-id="${docId}">
+          let mainRow = `<tr class="table-row expandable-row${_isColchon ? ' row-colchon' : ''}" data-row-index="${idx}" data-id="${docId}">
             <td colspan="12">
               <div class="client-card ${_ccClass}">
                 <div class="client-card-header">
                   <div class="client-card-avatar ${_avClass}">${_initials}</div>
                   <span class="client-card-name">${it.nombre_cliente||''}</span>
                   ${_statusDisplay}
+                  ${_colchonBadge}
                   <span class="row-arrow">▼</span>
                   ${canDelete() ? `<button class="btn-delete-client card-delete-btn" data-id="${docId}" title="Eliminar cliente"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
@@ -1316,69 +1592,86 @@
                     <span style="font-weight:700; color:#1e293b; font-size:13px; text-transform:uppercase; letter-spacing:.05em;">Datos del cliente</span>
                     ${editable ? '' : '<span style="font-size:11px;color:#94a3b8;font-weight:700;background:#f1f5f9;padding:2px 10px;border-radius:999px;">Solo lectura</span>'}
                   </div>
-                  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
-                      <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;" style="text-transform:uppercase;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
-                      <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
-                      <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
-                      <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
-                      <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
-                      <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                        ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
-                      <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
-                      <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
-                      <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:9px 11px;border:1px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                        ${[1,2,3,4,5].map(n=>`<option value="${n}" ${parseInt(it.cantidad_lineas||1)===n?'selected':''}>${n}</option>`).join('')}
-                      </select>
-                    </div>
-                  </div>
-                  <!-- Imagen -->
-                  <div style="margin-top:16px;display:flex;align-items:flex-start;gap:16px;">
-                    <div>
-                    <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Imagen del Lead</label>
-                    <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:160px;height:160px;border:2px dashed #c7d2fe;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
-                      <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                        <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
+                  <!-- Layout: campos a la izquierda, imagen a la derecha -->
+                  <div style="display:flex; gap:18px; align-items:flex-start;">
+                    <!-- Campos -->
+                    <div style="flex:1; min-width:0; max-width:640px;">
+                      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;">
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
+                          <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;text-transform:uppercase;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
+                          <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
+                          <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
+                          <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
+                          <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
+                          <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                            ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
+                          </select>
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
+                          <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
+                          <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                        </div>
+                        <div>
+                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
+                          <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                            ${[1,2,3,4,5].map(n=>`<option value="${n}" ${parseInt(it.cantidad_lineas||1)===n?'selected':''}>${n}</option>`).join('')}
+                          </select>
+                        </div>
                       </div>
-                      <img class="ile-img-preview" src="${it.imagen_url||''}" style="${it.imagen_url?'display:block;':'display:none;'}width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:zoom-in;" onclick="event.stopPropagation();_clImgLightbox(this.src)">
-                      <div class="ile-img-hint" style="${it.imagen_url?'':'display:none;'}position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;">🔍 Click para ver</div>
-                      ${editable?`<button class="ile-img-remove" type="button" style="${it.imagen_url?'':'display:none;'}position:absolute;top:4px;right:5px;background:rgba(239,68,68,.85);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;font-weight:700;" onclick="event.stopPropagation();_clImgRemove(this)">✕</button>`:''}
                     </div>
-                    ${editable?`<input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
+                    <!-- Imagen + notas (horizontal flex, columna derecha) -->
+                    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;flex-shrink:0;">
+                      <!-- Imagen del Lead -->
+                      <div style="width:155px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Imagen del Lead</label>
+                        <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:155px;height:155px;border:2px dashed #c7d2fe;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
+                          <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
+                          </div>
+                          <img class="ile-img-preview" src="${it.imagen_url||''}" style="${it.imagen_url?'display:block;':'display:none;'}width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:zoom-in;" onclick="event.stopPropagation();_clImgLightbox(this.src)">
+                          <div class="ile-img-hint" style="${it.imagen_url?'':'display:none;'}position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;">🔍 Click para ver</div>
+                          ${editable?`<button class="ile-img-remove" type="button" style="${it.imagen_url?'':'display:none;'}position:absolute;top:4px;right:5px;background:rgba(239,68,68,.85);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;font-weight:700;" onclick="event.stopPropagation();_clImgRemove(this)">✕</button>`:''}
+                        </div>
+                        ${editable?`<input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
+                        ${editable ? `<button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="width:100%;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:8px 0;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(30,58,138,.22);">
+                          <i class="fas fa-save" style="margin-right:5px;"></i>Guardar
+                        </button>
+                        <span class="ile-save-msg" data-row="${idx}" style="font-size:11px;color:#64748b;text-align:center;display:block;"></span>` : ''}
+                      </div>
+                      <!-- Notas existentes (se cargan dinámicamente) -->
+                      <div class="ile-notes-container" data-lead="${docId}" style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+                        <span style="font-size:11px;color:#CBD5E1;padding:10px 0;"><i class="fas fa-spinner" style="animation:spin 1s linear infinite;"></i></span>
+                      </div>
+                      <!-- Botón / form agregar nota -->
+                      <div class="ile-add-note-area" data-lead="${docId}" onclick="event.stopPropagation();">
+                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Notas</label>
+                        <button class="ile-add-note-btn-main" onclick="showAddNoteForm('${docId}')">
+                          <i class="fas fa-plus-circle" style="font-size:22px;opacity:.35;"></i>
+                          <span>Agregar nota</span>
+                        </button>
+                      </div>
                     </div>
-                    ${editable ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:8px;padding-bottom:0;">
-                      <button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:11px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.4px;white-space:nowrap;box-shadow:0 4px 12px rgba(30,58,138,.25);">
-                        <i class="fas fa-save" style="margin-right:6px;"></i>Guardar cambios
-                      </button>
-                      <span class="ile-save-msg" data-row="${idx}" style="font-size:11px;color:#64748b;text-align:center;"></span>
-                    </div>` : ''}
                   </div>
                 </div>
                 <div style="padding:20px; background:#f8f9fa;">
@@ -1590,6 +1883,12 @@
               const isVisible = detailsRow.style.display !== 'none';
               detailsRow.style.display = isVisible ? 'none' : 'table-row';
               if (arrow) arrow.textContent = isVisible ? '▼' : '▲';
+              // Cargar notas al expandir
+              if (!isVisible) {
+                const leadId = this.getAttribute('data-id');
+                const notesContainer = detailsRow.querySelector(`.ile-notes-container[data-lead="${leadId}"]`);
+                if (notesContainer) loadLeadNotes(leadId, notesContainer);
+              }
             }
           });
         });
@@ -2118,11 +2417,11 @@
 
       let allItems = [];
       
-      // Función para aplicar filtros y re-renderizar (KPIs son independientes, siempre mensuales)
       function applyAndRender() {
         const filtered = applyFilters(allItems);
         renderTable(filtered);
         updateLeadCounter(filtered.length);
+        updateKPIs(filtered);
       }
       
       // Función para actualizar el contador de leads
@@ -3034,6 +3333,10 @@
           console.warn('No se pudo imprimir muestras active:', e?.message);
         }
         
+        // Contar colchones (active/completed instalados en mes distinto al de venta)
+        _markColchon(items);
+        const colchonCount = items.filter(it => !!it._es_colchon).length;
+
         // Actualizar KPIs en el DOM
         document.getElementById('kpi-cantidad-ventas').textContent     = cantidadVentas;
         document.getElementById('kpi-cantidad-lineas').textContent     = cantidadLineas;
@@ -3041,6 +3344,8 @@
         document.getElementById('kpi-lineas-activas').textContent      = lineasActivas;
         document.getElementById('kpi-canceladas-clientes').textContent = clientesCancelados;
         document.getElementById('kpi-canceladas-lineas').textContent   = lineasCanceladas;
+        const _kpiColchon = document.getElementById('kpi-colchon');
+        if (_kpiColchon) _kpiColchon.textContent = colchonCount;
         
         // Actualizar gráfica 3D de estados (Highcharts)
         if (statusChart) {
@@ -3106,17 +3411,56 @@
           if (token) headers['Authorization'] = `Bearer ${token}`;
           const resp = await fetch(`/api/lineas-team`, { credentials: 'include', headers });
           const j    = await resp.json();
-          const data = Array.isArray(j?.data) ? j.data : [];
-          const monthly = _filterByCurrentMonth(data);
-          updateKPIs(monthly);
+          if (Array.isArray(j?.data) && j.data.length > 0) {
+            allItems = j.data;
+          }
+          updateKPIs(applyFilters(allItems));
         } catch (e) {
-          console.warn('[KPI mensual]', e.message);
+          console.warn('[KPI refresh]', e.message);
         }
+      }
+
+      function _restrictTeamToggle(items){
+        try {
+          const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+          const role = String(user.role||'').toLowerCase();
+          const isAdminBo = ['admin','administrador','backoffice','back office','back_office','bo','rol_icon','icon','bamo','rol_bamo']
+            .some(v => role === v || role.includes(v));
+          if (isAdminBo) return; // Admin/BO ven todos los tabs
+
+          // Determinar el team desde los datos (fuente más fiable)
+          let userTeam = '';
+          if (items.length > 0) {
+            userTeam = String(items[0].supervisor || '').trim().toUpperCase();
+          }
+          // Fallback desde localStorage
+          if (!userTeam) {
+            const sup = String(user.supervisor || user.team || user.username || '').toUpperCase();
+            if (sup.includes('JONATHAN')) userTeam = 'JONATHAN F';
+            else if (sup.includes('LUIS'))    userTeam = 'LUIS G';
+          }
+          if (!userTeam) return;
+
+          // Ocultar "Todos" y tabs de otros equipos; activar el propio
+          document.querySelectorAll('#teamToggle .tt-btn').forEach(btn => {
+            const tv = (btn.getAttribute('data-team') || '').toUpperCase();
+            if (tv === '' || tv !== userTeam) {
+              btn.style.display = 'none';
+            } else {
+              document.querySelectorAll('#teamToggle .tt-btn').forEach(b => b.classList.remove('tt-active'));
+              btn.classList.add('tt-active');
+            }
+          });
+          // Sync select oculto para compatibilidad con applyFilters
+          const tf = document.getElementById('teamFilter');
+          if (tf) tf.value = userTeam;
+        } catch(_) {}
       }
 
       async function load(){
         allItems = await fetchData();
         sortNewToOld(allItems);
+        _restrictTeamToggle(allItems);
         // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
         const dfEl = $('#dateFrom');
         const dtEl = $('#dateTo');
@@ -3132,8 +3476,7 @@
         renderTable(filteredItems);
         updateLeadCounter(filteredItems.length);
         if (!statusChart || !agentChart) initCharts();
-        /* KPIs siempre del mes actual */
-        updateKPIs(_filterByCurrentMonth(allItems));
+        updateKPIs(filteredItems);
         setInterval(refreshMonthlyKPIs, 30000);
       }
 
@@ -3157,6 +3500,16 @@
       const btnClearDates = $('#btnClearDates');
       const btnAnalyzeExcel = $('#btnAnalyzeExcel');
       const excelFileInput = $('#excelFileInput');
+
+      // Status tabs
+      document.querySelectorAll('#statusTabsBar .stab').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('#statusTabsBar .stab').forEach(b => b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          _activeStatusTab = btn.getAttribute('data-status') || 'all';
+          applyAndRender();
+        });
+      });
 
       if (q)              q.addEventListener('input',  ()=> applyAndRender());
       if (qs)             qs.addEventListener('change', ()=> applyAndRender());
@@ -3344,7 +3697,100 @@
         });
       }
 
-      load();
+      // ── Custom Selects ──────────────────────────────────────────
+      function _csCloseAll() {
+        document.querySelectorAll('.cs-wrap.cs-open').forEach(function(w) {
+          w.classList.remove('cs-open');
+          var d = w.querySelector('.cs-dropdown');
+          if (d) d.classList.remove('cs-open');
+        });
+      }
+      document.addEventListener('click', _csCloseAll);
+
+      function _csBuild(wrap) {
+        var select   = wrap.querySelector('select');
+        var dropdown = wrap.querySelector('.cs-dropdown');
+        if (!select || !dropdown) return;
+        dropdown.innerHTML = '';
+        Array.from(select.options).forEach(function(opt) {
+          var item = document.createElement('div');
+          item.className = 'cs-option' + (opt.selected ? ' cs-selected' : '');
+          item.textContent = opt.text || opt.value || 'Todos';
+          item.setAttribute('data-value', opt.value);
+          item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            select.value = opt.value;
+            select.dispatchEvent(new Event('change'));
+            _csCloseAll();
+            _csSync(wrap);
+          });
+          dropdown.appendChild(item);
+        });
+      }
+
+      function _csSync(wrap) {
+        var select = wrap.querySelector('select');
+        var label  = wrap.querySelector('.cs-label');
+        if (!select || !label) return;
+        var sel = select.options[select.selectedIndex];
+        label.textContent  = sel ? (sel.text || 'Todos') : 'Todos';
+        label.style.color  = (sel && sel.value) ? '#1E293B' : '#94A3B8';
+      }
+
+      function initCustomSelects() {
+        document.querySelectorAll('.filter-select').forEach(function(select) {
+          if (select._csInited) return;
+          select._csInited = true;
+
+          var wrap = document.createElement('div');
+          wrap.className = 'cs-wrap';
+          select.parentNode.insertBefore(wrap, select);
+
+          var trigger = document.createElement('div');
+          trigger.className = 'cs-trigger';
+          trigger.tabIndex = 0;
+          trigger.innerHTML =
+            '<span class="cs-label"></span>' +
+            '<svg class="cs-arrow" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8">' +
+              '<path d="M1 1.5l5 5 5-5" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '</svg>';
+
+          var dropdown = document.createElement('div');
+          dropdown.className = 'cs-dropdown';
+
+          wrap.appendChild(trigger);
+          wrap.appendChild(dropdown);
+          wrap.appendChild(select);
+          select.style.display = 'none';
+
+          trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var isOpen = wrap.classList.contains('cs-open');
+            _csCloseAll();
+            if (!isOpen) {
+              _csBuild(wrap);
+              dropdown.classList.add('cs-open');
+              wrap.classList.add('cs-open');
+            }
+          });
+
+          trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+            if (e.key === 'Escape') _csCloseAll();
+          });
+
+          // Re-sync cuando cambian las opciones (agentFilter se rellena dinámicamente)
+          new MutationObserver(function() {
+            _csSync(wrap);
+            if (wrap.classList.contains('cs-open')) _csBuild(wrap);
+          }).observe(select, { childList: true });
+
+          _csSync(wrap);
+        });
+      }
+      // ────────────────────────────────────────────────────────────
+
+      load().then(initCustomSelects);
     });
   </script>
 
@@ -3412,6 +3858,156 @@
         if (rmv) rmv.style.display = 'block';
       };
       reader.readAsDataURL(file);
+    }
+
+    /* ══════════════════════════════════════════
+       NOTAS DE CLIENTE
+    ══════════════════════════════════════════ */
+    function _notesToken() {
+      return localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    }
+    function _notesHeaders() {
+      var t = _notesToken();
+      return Object.assign({'Content-Type':'application/json'}, t ? {'Authorization':'Bearer '+t} : {});
+    }
+
+    async function loadLeadNotes(leadId, container) {
+      try {
+        var res = await fetch('/api/lineas-team/notes/' + leadId, {
+          credentials: 'include',
+          headers: _notesHeaders()
+        });
+        var data = await res.json();
+        renderNoteCards(leadId, container, data.data || []);
+      } catch(e) {
+        container.innerHTML = '';
+      }
+    }
+
+    function _fmtNoteDate(str) {
+      if (!str) return '';
+      try {
+        var d = new Date(str);
+        return d.toLocaleString('es-ES', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      } catch(_) { return str; }
+    }
+
+    function _escAttr(str) {
+      return String(str || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
+    }
+
+    function renderNoteCards(leadId, container, notes) {
+      if (!notes || notes.length === 0) {
+        container.innerHTML = '<span style="font-size:11px;color:#CBD5E1;padding:4px 0;">Sin notas</span>';
+        return;
+      }
+      container.innerHTML = notes.map(function(n) {
+        var nid = n._id || n.id || '';
+        var autor = n.autor || 'Sistema';
+        var fecha = _fmtNoteDate(n.created_at);
+        var texto = String(n.texto || '');
+        var textoEscAttr = _escAttr(texto);
+        var autorEscAttr = _escAttr(autor);
+        var fechaEscAttr = _escAttr(fecha);
+        return '<div class="ile-note-card" onclick="openNoteModal(\''+autorEscAttr+'\',\''+fechaEscAttr+'\',\''+textoEscAttr+'\')" title="Click para ver nota completa">' +
+          '<button class="ile-note-del" onclick="event.stopPropagation();deleteLeadNote(\''+nid+'\',this)" title="Eliminar"><i class="fas fa-times"></i></button>' +
+          '<div class="ile-note-autor">' + autor + '</div>' +
+          '<div class="ile-note-fecha">' + fecha + '</div>' +
+          '<div class="ile-note-texto">' + texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    function openNoteModal(autor, fecha, texto) {
+      var existing = document.getElementById('_noteModalOverlay');
+      if (existing) existing.remove();
+      var textoHtml = String(texto).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      var overlay = document.createElement('div');
+      overlay.id = '_noteModalOverlay';
+      overlay.className = 'note-modal-overlay';
+      overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+      if (window._noteKeyClose) document.removeEventListener('keydown', window._noteKeyClose);
+      window._noteKeyClose = function(e){ if(e.key==='Escape'){ overlay.remove(); document.removeEventListener('keydown',window._noteKeyClose); } };
+      document.addEventListener('keydown', window._noteKeyClose);
+      overlay.innerHTML =
+        '<div class="note-modal-box">' +
+          '<button onclick="var o=document.getElementById(\'_noteModalOverlay\');if(o)o.remove();document.removeEventListener(\'keydown\',window._noteKeyClose);" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;" title="Cerrar">&times;</button>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
+            '<div style="background:#EFF6FF;border-radius:8px;padding:6px 8px;"><i class="fas fa-sticky-note" style="color:#2563EB;font-size:16px;"></i></div>' +
+            '<div>' +
+              '<div style="font-size:13px;font-weight:700;color:#1E3A8A;">' + String(autor).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8;">' + String(fecha).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;">' + textoHtml + '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function showAddNoteForm(leadId) {
+      var area = document.querySelector('.ile-add-note-area[data-lead="' + leadId + '"]');
+      if (!area) return;
+      area.innerHTML =
+        '<label style="display:block;font-size:10px;font-weight:800;color:#2563EB;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Nueva nota</label>' +
+        '<div class="ile-note-form-box">' +
+          '<textarea class="ile-note-ta" placeholder="Escribe aquí..." style="width:100%;min-height:90px;border:1px solid #CBD5E1;border-radius:8px;padding:7px 8px;font-size:12px;color:#334155;resize:none;outline:none;font-family:inherit;line-height:1.5;box-sizing:border-box;"></textarea>' +
+          '<div style="display:flex;gap:6px;margin-top:8px;">' +
+            '<button onclick="saveLeadNote(\''+leadId+'\')" style="flex:1;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:7px 0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;"><i class="fas fa-check" style="margin-right:4px;"></i>Guardar</button>' +
+            '<button onclick="cancelAddNote(\''+leadId+'\')" style="background:#F1F5F9;border:1px solid #E2E8F0;color:#64748B;padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;">✕</button>' +
+          '</div>' +
+        '</div>';
+      var ta = area.querySelector('.ile-note-ta');
+      if (ta) ta.focus();
+    }
+
+    function cancelAddNote(leadId) {
+      var area = document.querySelector('.ile-add-note-area[data-lead="' + leadId + '"]');
+      if (!area) return;
+      area.innerHTML =
+        '<label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Notas</label>' +
+        '<button class="ile-add-note-btn-main" onclick="showAddNoteForm(\''+leadId+'\')">' +
+          '<i class="fas fa-plus-circle" style="font-size:22px;opacity:.35;"></i>' +
+          '<span>Agregar nota</span>' +
+        '</button>';
+    }
+
+    async function saveLeadNote(leadId) {
+      var area = document.querySelector('.ile-add-note-area[data-lead="' + leadId + '"]');
+      if (!area) return;
+      var ta = area.querySelector('.ile-note-ta');
+      var text = ta ? ta.value.trim() : '';
+      if (!text) { if (ta) { ta.style.borderColor = '#EF4444'; ta.focus(); } return; }
+      try {
+        var res = await fetch('/api/lineas-team/notes', {
+          method: 'POST', credentials: 'include',
+          headers: _notesHeaders(),
+          body: JSON.stringify({ clientId: leadId, texto: text, type: 'general' })
+        });
+        var data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Error');
+        var container = document.querySelector('.ile-notes-container[data-lead="' + leadId + '"]');
+        if (container) await loadLeadNotes(leadId, container);
+        cancelAddNote(leadId);
+      } catch(e) {
+        alert('Error al guardar nota: ' + e.message);
+      }
+    }
+
+    async function deleteLeadNote(noteId, btn) {
+      if (!confirm('¿Eliminar esta nota?')) return;
+      try {
+        var res = await fetch('/api/lineas-team/notes/delete', {
+          method: 'POST', credentials: 'include',
+          headers: _notesHeaders(),
+          body: JSON.stringify({ noteId: String(noteId) })
+        });
+        var data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Error');
+        var card = btn.closest('.ile-note-card');
+        if (card) card.remove();
+      } catch(e) {
+        alert('Error al eliminar: ' + e.message);
+      }
     }
   </script>
 </body>

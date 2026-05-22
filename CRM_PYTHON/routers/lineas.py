@@ -240,13 +240,15 @@ async def webhook_get(
 
     if is_supervisor:
         sup_key = None
+        uname_low = username.lower()
         for t in TEAMS.values():
-            if t.get("supervisor", "").lower() == username.lower():
+            if (t.get("supervisor", "").lower() == uname_low or
+                    t.get("supervisorKey", "").lower() == uname_low):
                 sup_key = t.get("supervisorKey")
                 break
         if sup_key:
-            where.append("supervisor = :sup")
-            params["sup"] = sup_key
+            where.append("UPPER(supervisor) = :sup")
+            params["sup"] = sup_key.upper()
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:
@@ -375,6 +377,22 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
 
     if errors:
         raise HTTPException(400, {"message": "Validación fallida", "errors": errors})
+
+    # Verificar duplicado por telefono + cuenta antes de insertar
+    telefono_clean = re.sub(r"\D+", "", body.telefono_principal)
+    cuenta_clean   = str(body.numero_cuenta).strip()
+    async with AsyncSessionLocal() as s:
+        dup = await s.execute(text("""
+            SELECT id FROM lineas_clientes
+            WHERE telefono_principal = :tp AND numero_cuenta = :nuc
+            LIMIT 1
+        """), {"tp": telefono_clean, "nuc": cuenta_clean})
+        existing = dup.mappings().first()
+    if existing:
+        raise HTTPException(409, {
+            "message": "Ya existe un registro con ese teléfono y número de cuenta",
+            "existing_id": str(existing["id"]),
+        })
 
     username     = user.get("username", "")
     target_agent = username
@@ -631,6 +649,23 @@ async def lineas_notes_delete(body: NoteDeleteBody, user: dict = Depends(current
     return {"success": True, "message": "Nota eliminada"}
 
 
+@router.get("/api/lineas-team/notes/{lead_id}")
+async def lineas_notes_get(lead_id: str, user: dict = Depends(current_user)):
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT * FROM lineas_notes WHERE lead_id = :lid ORDER BY created_at DESC
+        """), {"lid": lead_id})
+        notes = []
+        for row in r.mappings().all():
+            n = dict(row)
+            n["_id"] = str(n.get("id", ""))
+            for col in ("created_at", "updated_at"):
+                if n.get(col) is not None:
+                    n[col] = str(n[col])
+            notes.append(n)
+    return {"success": True, "data": notes}
+
+
 class LineasTeamDeleteBody(BaseModel):
     id: str
 
@@ -660,7 +695,7 @@ async def lineas_team_delete(body: LineasTeamDeleteBody, user: dict = Depends(cu
 async def lineas_team_list(user: dict = Depends(current_user)):
     role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
-    is_admin_bo   = any(r in role for r in ["admin", "backoffice", "back_office", "rol_icon"])
+    is_admin_bo   = any(r in role for r in ["admin", "backoffice", "back_office", "rol_icon", "rol_bamo", "icon", "bamo"])
     is_supervisor = "supervisor" in role
 
     cache_key = "__admin__" if is_admin_bo else username
@@ -673,13 +708,16 @@ async def lineas_team_list(user: dict = Depends(current_user)):
 
     if is_supervisor:
         sup_key = None
+        uname_low = username.lower()
         for t in TEAMS.values():
-            if t.get("supervisor", "").lower() == username.lower():
+            # Acepta match por username de login (luis.g) O por supervisorKey (LUIS G)
+            if (t.get("supervisor", "").lower() == uname_low or
+                    t.get("supervisorKey", "").lower() == uname_low):
                 sup_key = t.get("supervisorKey")
                 break
         if sup_key:
-            where.append("UPPER(supervisor) LIKE :sup")
-            params["sup"] = f"%{sup_key}%"
+            where.append("UPPER(supervisor) = :sup")
+            params["sup"] = sup_key.upper()
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:
