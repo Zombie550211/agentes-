@@ -5,7 +5,9 @@ from sqlalchemy import text
 from deps import current_user
 from pathlib import Path
 from typing import Optional
-import httpx, aiofiles, os, re, datetime as _dt
+import httpx, os, re, datetime as _dt
+import cloudinary
+import cloudinary.uploader
 
 router = APIRouter(prefix="/api/media", tags=["Media"])
 
@@ -13,6 +15,18 @@ ALLOWED_HOSTS = ("res.cloudinary.com", ".cloudinary.com")
 
 _UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads" / "media"
 _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+cloudinary.config(
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", ""),
+    api_key    = os.getenv("CLOUDINARY_API_KEY", ""),
+    api_secret = os.getenv("CLOUDINARY_API_SECRET", ""),
+    secure     = True,
+)
+_USE_CLOUDINARY = bool(
+    os.getenv("CLOUDINARY_CLOUD_NAME") and
+    os.getenv("CLOUDINARY_API_KEY") and
+    os.getenv("CLOUDINARY_API_SECRET")
+)
 
 _MAX_MB    = 100
 _MAX_BYTES = _MAX_MB * 1024 * 1024
@@ -77,16 +91,27 @@ async def upload_media(
     ts       = int(_dt.datetime.utcnow().timestamp() * 1000)
     safe_cat = re.sub(r"[^a-z0-9_-]", "_", cat.lower())
     filename = f"{safe_cat}_{ts}{ext}"
-    dest     = _UPLOADS_DIR / filename
-
-    async with aiofiles.open(dest, "wb") as f:
-        await f.write(data)
-
-    url      = f"/uploads/media/{filename}"
     now      = _dt.datetime.utcnow()
     upby     = user.get("username", "")
     origname = file.filename or filename
     mimetype = file.content_type or "application/octet-stream"
+    is_image = mimetype.startswith("image/")
+
+    if _USE_CLOUDINARY and is_image:
+        result   = cloudinary.uploader.upload(
+            data,
+            folder        = f"crm_media/{safe_cat}",
+            public_id     = f"{safe_cat}_{ts}",
+            resource_type = "image",
+            overwrite     = True,
+        )
+        url      = result["secure_url"]
+        filename = result["public_id"]
+    else:
+        dest = _UPLOADS_DIR / filename
+        with open(dest, "wb") as f:
+            f.write(data)
+        url = f"/uploads/media/{filename}"
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
