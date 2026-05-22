@@ -32,363 +32,534 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- Highcharts se carga una sola vez después del body -->
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    * {
-      font-family: 'Inter', sans-serif;
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+
+    /* ═══ BODY / FONDO ═══ */
+    body { background: #EEF2F7 !important; }
+    .main-content { padding: 0 !important; }
+
+    /* ═══ HEADER AZUL ═══ */
+    .crm-header {
+      background: linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 100%) !important;
+      border-bottom: none !important;
+      box-shadow: 0 4px 20px rgba(30,58,138,.35) !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
-    
-    .gradient-bg {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .crm-header-icon {
+      background: rgba(255,255,255,.15) !important;
+      border: 1px solid rgba(255,255,255,.25) !important;
+      padding: 11px !important; border-radius: 12px !important;
+      display: inline-flex !important; align-items: center !important; justify-content: center !important;
     }
-    
-    .glass-effect {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+    .crm-header-icon i { color: #fff !important; font-size: 22px !important; }
+    .crm-header-title { color: #fff !important; font-size: 22px !important; font-weight: 700 !important; margin: 0 !important; }
+    .crm-header-sub   { color: rgba(255,255,255,.7) !important; font-size: 13px !important; margin: 3px 0 0 !important; }
+    .crm-header-user  { color: #fff !important; font-size: 14px !important; font-weight: 600 !important; margin: 0 !important; }
+    .crm-header-date  { color: rgba(255,255,255,.6) !important; font-size: 12px !important; margin: 2px 0 0 !important; }
+    .crm-avatar {
+      background: rgba(255,255,255,.15) !important;
+      border: 2px solid rgba(255,255,255,.3) !important;
+      border-radius: 50% !important; width: 42px !important; height: 42px !important;
+      display: flex !important; align-items: center !important; justify-content: center !important;
     }
-    
-    .card-hover {
-      transition: all 0.3s ease;
-    }
-    
-    .card-hover:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px -10px rgba(102, 126, 234, 0.2);
-    }
-    @keyframes kpiPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.8)} }
-    
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 14px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-    
-    .status-completed {
-      background: #DCFCE7;
-      color: #166534;
-      border: 1px solid #BBF7D0;
-    }
-    
-    .status-pending {
-      background: #FEF3C7;
-      color: #92400E;
-      border: 1px solid #FDE68A;
-    }
-    
-    .status-active {
-      background: #DBEAFE;
-      color: #1E40AF;
-      border: 1px solid #BFDBFE;
-    }
-    
-    .search-bar {
-      transition: all 0.3s ease;
-    }
-    
-    .search-bar:focus {
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-    }
-    
-    .table-row {
-      transition: all 0.2s ease;
-      border-bottom: 1px solid #F1F5F9;
-    }
-    
-    .table-row:hover {
-      background: #F8FAFC;
-      box-shadow: 0 2px 8px -2px rgba(102, 126, 234, 0.08);
-    }
-    
-    /* Optimización de tabla - más padding y jerarquía */
-    .costumer-table td {
-      padding: 16px 12px !important;
-      vertical-align: middle;
-    }
-    
-    .costumer-table th {
-      padding: 14px 12px !important;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #64748B;
-      background: #F8FAFC;
-      border-bottom: 2px solid #E2E8F0;
-    }
-    
-    /* Jerarquía de texto en celdas */
-    .client-name {
-      font-weight: 600;
-      font-size: 14px;
-      color: #1E293B;
-      margin-bottom: 2px;
-    }
-    
-    .client-id {
-      font-size: 12px;
-      color: #94A3B8;
-      font-weight: 400;
-    }
-    
+    .crm-avatar i { color: #fff !important; }
+
+    /* ═══ KPI CARDS ═══ */
     .metric-card {
-      position: relative;
-      overflow: hidden;
-      transition: all 0.3s ease;
-      border: 1px solid #F1F5F9;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+      border-top: 4px solid #2563EB !important;
+      border-left: 1px solid #D1DCF0 !important;
+      border-right: 1px solid #D1DCF0 !important;
+      border-bottom: 1px solid #D1DCF0 !important;
+      box-shadow: 0 2px 8px rgba(30,58,138,.07) !important;
+      transition: transform .2s, box-shadow .2s !important;
     }
-    
-    .metric-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 120px;
-      height: 120px;
-      background: radial-gradient(circle, rgba(102, 126, 234, 0.06) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    
     .metric-card:hover {
-      border-color: #E2E8F0;
-      box-shadow: 0 4px 12px -2px rgba(102, 126, 234, 0.12);
+      transform: translateY(-3px) !important;
+      box-shadow: 0 8px 24px rgba(30,58,138,.13) !important;
     }
-    
-    .filters { 
-      background:#fff; 
-      border:1px solid #F1F5F9; 
-      border-radius:16px; 
-      padding:20px; 
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    /* Color diferente por tarjeta */
+    .metric-card:nth-child(1) { border-top-color: #2563EB !important; }
+    .metric-card:nth-child(2) { border-top-color: #0EA5E9 !important; }
+    .metric-card:nth-child(3) { border-top-color: #10B981 !important; }
+    .metric-card:nth-child(4) { border-top-color: #8B5CF6 !important; }
+
+    /* ═══ CHARTS SECTION ═══ */
+    .max-w-full { background: transparent !important; }
+
+    /* ═══ FILTROS ═══ */
+    .filters,
+    .bg-white.p-6.mb-6 {
+      background: #fff !important;
+      border: 1px solid #D1DCF0 !important;
+      border-radius: 14px !important;
+      box-shadow: 0 2px 8px rgba(30,58,138,.06) !important;
     }
-    .grid-2 { display:grid; grid-template-columns: repeat(2, minmax(220px, 360px)); gap:16px; justify-content:space-between; }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-    
-    
-    /* Tabla con header sticky - Enfoque simplificado */
-    .table-wrapper {
-      position: relative;
-      height: calc(100vh - 450px);
-      overflow: auto;
-    }
-    
-    .table-container {
-      position: relative;
-    }
-    
-    .costumer-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    
-    .costumer-table thead {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    
+
+    /* ═══ TABLA ═══ */
+    .table-wrapper { height: calc(100vh - 430px) !important; }
+    .costumer-table { border-collapse: collapse !important; }
+
     .costumer-table thead th {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      padding: 16px 24px;
-      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      background: #1E3A8A !important;
+      color: rgba(255,255,255,.92) !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      font-size: 10.5px !important;
+      letter-spacing: .07em !important;
+      padding: 12px 16px !important;
+      border-bottom: none !important;
+      border-right: 1px solid rgba(255,255,255,.08) !important;
+      position: sticky !important; top: 0 !important; z-index: 10 !important;
     }
-    
-    .costumer-table tbody {
-      background: white;
+    .costumer-table thead th:last-child { border-right: none !important; }
+
+    .costumer-table tbody { background: #fff !important; }
+    .costumer-table tbody tr { border-bottom: 1px solid #EDF2FB !important; }
+    .costumer-table tbody tr:nth-child(even) { background: #F8FAFF !important; }
+    .table-row:hover { background: #DBEAFE !important; box-shadow: none !important; }
+
+    /* ═══ CONTENEDOR DE TABLA ═══ */
+    .bg-white[style*="border-radius: 16px"] {
+      border: 1px solid #D1DCF0 !important;
+      box-shadow: 0 2px 12px rgba(30,58,138,.08) !important;
     }
-    
-    .costumer-table tbody tr {
-      border-bottom: 1px solid #e5e7eb;
+    /* Título de tabla */
+    h2[style*="font-size: 18px"] { color: #0F172A !important; }
+
+    /* ═══ LEAD COUNTER BADGE ═══ */
+    .lead-counter-badge {
+      background: #DBEAFE !important;
+      color: #1E40AF !important;
+      padding: 4px 14px !important;
+      border-radius: 20px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      margin-left: 12px !important;
+      display: inline-block !important;
     }
-    
-    
-    /* Efecto 3D para gráficas */
-    #statusChart {
-      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.15)) 
-              drop-shadow(0 6px 6px rgba(0, 0, 0, 0.1));
+
+    /* ═══ STATUS BADGES ═══ */
+    .status-badge { display:inline-flex; align-items:center; padding:4px 11px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .status-completed { background:#D1FAE5; color:#065F46; border:1px solid #A7F3D0; }
+    .status-pending   { background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; }
+    .status-active    { background:#DBEAFE; color:#1E40AF; border:1px solid #BFDBFE; }
+
+    /* ═══ QUICK ACTION BAR ═══ */
+    .quick-action-bar {
+      display: flex !important; gap: 10px !important; flex-wrap: wrap !important;
+      padding: 14px 24px !important;
+      background: #F8FAFF !important;
+      border-top: 1px solid #E0E8F5 !important;
+      border-radius: 0 0 14px 14px !important;
     }
-    
-    #agentChart {
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    .qa-btn {
+      display: inline-flex !important; align-items: center !important; gap: 8px !important;
+      padding: 9px 18px !important; border-radius: 9px !important;
+      font-size: 13px !important; font-weight: 600 !important;
+      border: none !important; cursor: pointer !important; transition: all .18s !important;
     }
-    
-    
+    .qa-btn-green { background: #DCFCE7 !important; color: #166534 !important; }
+    .qa-btn-green:hover { background: #BBF7D0 !important; }
+    .qa-btn-blue  { background: #DBEAFE !important; color: #1E40AF !important; }
+    .qa-btn-blue:hover  { background: #BFDBFE !important; }
+    .qa-btn-slate { background: #F1F5F9 !important; color: #475569 !important; border: 1px solid #E2E8F0 !important; }
+    .qa-btn-slate:hover { background: #E2E8F0 !important; }
+    .qa-badge-new { font-size:9px; font-weight:700; background:#2563EB; color:#fff; padding:1px 6px; border-radius:6px; text-transform:uppercase; }
+
+    /* ═══ ANIMACIÓN KPI ═══ */
+    @keyframes kpiPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.8)} }
+
+    /* ═══ CHARTS ═══ */
+    #statusChart, #agentChart { filter: drop-shadow(0 4px 8px rgba(0,0,0,.06)); }
+
+    /* ═══ FILTROS ═══ */
+    .filter-label {
+      display: block !important; font-size: 10px !important; font-weight: 700 !important;
+      color: #94A3B8 !important; text-transform: uppercase !important;
+      letter-spacing: .07em !important; margin-bottom: 6px !important;
+    }
+    .filter-label i { margin-right: 4px; }
+
+    /* Search */
+    .search-input-wrap {
+      position: relative;
+    }
+    .search-input-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: #94A3B8; font-size: 13px; pointer-events: none;
+    }
+    .search-input-field {
+      width: 100% !important; padding: 10px 14px 10px 36px !important;
+      border: 1.5px solid #E0E8F5 !important; border-radius: 10px !important;
+      font-size: 13px !important; color: #0F172A !important;
+      background: #F8FAFC !important; outline: none !important;
+      transition: border-color .15s, box-shadow .15s, background .15s !important;
+      box-sizing: border-box !important;
+    }
+    .search-input-field:focus {
+      border-color: #2563EB !important;
+      background: #fff !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+    }
+    .search-input-field::placeholder { color: #CBD5E1 !important; }
+
+    /* Selects de filtro */
+    .filter-select {
+      width: 100% !important; padding: 10px 30px 10px 12px !important;
+      border: 1.5px solid #E0E8F5 !important; border-radius: 10px !important;
+      font-size: 13px !important; font-weight: 500 !important;
+      color: #334155 !important; background-color: #F8FAFC !important;
+      appearance: none !important; -webkit-appearance: none !important;
+      outline: none !important; cursor: pointer !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 10px center !important;
+      transition: border-color .15s, box-shadow .15s !important;
+      box-sizing: border-box !important;
+    }
+    .filter-select:focus {
+      border-color: #2563EB !important;
+      background-color: #fff !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+    }
+
+    /* Date inputs */
+    .filter-input {
+      width: 100% !important; padding: 10px 12px !important;
+      border: 1.5px solid #E0E8F5 !important; border-radius: 10px !important;
+      font-size: 13px !important; color: #334155 !important;
+      background: #F8FAFC !important; outline: none !important;
+      transition: border-color .15s, box-shadow .15s !important;
+      box-sizing: border-box !important;
+    }
+    .filter-input:focus {
+      border-color: #2563EB !important; background: #fff !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12) !important;
+    }
+
+    /* Team Toggle Switch */
+    .team-toggle {
+      display: inline-flex !important;
+      background: #F1F5F9 !important;
+      border-radius: 11px !important;
+      padding: 3px !important;
+      gap: 2px !important;
+    }
+    .tt-btn {
+      border: none !important; background: transparent !important;
+      padding: 8px 16px !important; border-radius: 8px !important;
+      font-size: 12px !important; font-weight: 700 !important;
+      color: #64748B !important; cursor: pointer !important;
+      transition: all .18s !important; white-space: nowrap !important;
+    }
+    .tt-btn:hover:not(.tt-active) { background: #E2E8F0 !important; color: #334155 !important; }
+    .tt-btn.tt-active {
+      background: linear-gradient(135deg,#1E3A8A,#2563EB) !important;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(30,58,138,.3) !important;
+    }
+
+    /* ═══ KPI STRIP ═══ */
+    .kpi-strip {
+      display: flex !important;
+      align-items: center !important;
+      background: #fff !important;
+      border-radius: 12px !important;
+      border: 1px solid #D1DCF0 !important;
+      box-shadow: 0 2px 8px rgba(30,58,138,.07) !important;
+      padding: 0 8px !important;
+      height: 72px !important;
+      margin-bottom: 20px !important;
+    }
+    .kpi-item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      flex: 1 !important;
+      padding: 0 14px !important;
+      min-width: 0 !important;
+    }
+    .kpi-icon {
+      width: 34px !important; height: 34px !important;
+      border-radius: 8px !important;
+      display: flex !important; align-items: center !important; justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+    .kpi-icon i { color: #fff !important; font-size: 13px !important; }
+    .kpi-data { display: flex !important; flex-direction: column !important; gap: 1px !important; min-width:0 !important; }
+    .kpi-val {
+      font-size: 20px !important; font-weight: 800 !important;
+      color: #0F172A !important; line-height: 1.1 !important;
+    }
+    .kpi-lbl {
+      font-size: 9px !important; font-weight: 700 !important;
+      color: #64748B !important; text-transform: uppercase !important;
+      letter-spacing: .05em !important; white-space: nowrap !important;
+      display: flex !important; align-items: center !important; gap: 4px !important;
+    }
+    .kpi-dot {
+      display: inline-block !important;
+      width: 6px !important; height: 6px !important;
+      border-radius: 50% !important; background: #10B981 !important;
+      animation: kpiPulse 2s infinite !important;
+    }
+    .kpi-sep {
+      width: 1px !important; height: 36px !important;
+      background: #E0E8F5 !important; flex-shrink: 0 !important;
+    }
+
+    /* ═══ CLIENT CARDS ═══ */
+    .costumer-table thead { display: none !important; }
+    .costumer-table, .costumer-table tbody { background: transparent !important; }
+    .costumer-table tbody tr.table-row > td {
+      padding: 0 !important; border: none !important; background: transparent !important;
+    }
+    .costumer-table tbody tr.table-row {
+      background: transparent !important; border-bottom: none !important;
+    }
+    .costumer-table tbody tr.table-row:nth-child(even) { background: transparent !important; }
+    .costumer-table tbody tr.table-row:hover { background: transparent !important; box-shadow: none !important; }
+
+    .client-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #E0E8F5;
+      border-left: 4px solid #CBD5E1;
+      box-shadow: 0 2px 6px rgba(30,58,138,.06);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: box-shadow .2s, transform .15s, border-color .2s;
+      cursor: pointer;
+    }
+    .client-card:hover {
+      box-shadow: 0 8px 24px rgba(30,58,138,.14);
+      transform: translateY(-2px);
+    }
+    .client-card.cc-pending   { border-left-color: #F59E0B; }
+    .client-card.cc-completed { border-left-color: #10B981; }
+    .client-card.cc-active    { border-left-color: #3B82F6; }
+    .client-card.cc-repro     { border-left-color: #8B5CF6; }
+    .client-card.cc-cancelled { border-left-color: #EF4444; }
+
+    .client-card-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 18px 11px;
+      background: linear-gradient(90deg, rgba(241,245,255,.85) 0%, rgba(255,255,255,0) 60%);
+    }
+    .client-card-avatar {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -.5px;
+    }
+    .cca-pending   { background: linear-gradient(135deg,#F59E0B,#D97706); }
+    .cca-completed { background: linear-gradient(135deg,#10B981,#059669); }
+    .cca-active    { background: linear-gradient(135deg,#3B82F6,#2563EB); }
+    .cca-repro     { background: linear-gradient(135deg,#8B5CF6,#7C3AED); }
+    .cca-default   { background: linear-gradient(135deg,#94A3B8,#64748B); }
+
+    .client-card-name {
+      font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; line-height: 1.3;
+    }
+    .cc-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+      flex-shrink: 0;
+    }
+    .cc-badge-pending   { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+    .cc-badge-completed { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+    .cc-badge-active    { background: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE; }
+    .cc-badge-repro     { background: #EDE9FE; color: #5B21B6; border: 1px solid #DDD6FE; }
+    .cc-badge-default   { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+
+    .row-arrow {
+      font-size: 11px; color: #CBD5E1; flex-shrink: 0; margin-left: 4px;
+      transition: color .15s;
+    }
+    .client-card:hover .row-arrow { color: #94A3B8; }
+
+    .client-card-divider { height: 1px; background: #F1F5F9; margin: 0 18px; }
+
+    .client-card-body {
+      display: flex; flex-wrap: wrap; gap: 4px 0;
+      padding: 10px 18px 13px;
+    }
+    .client-card-field {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 14px 3px 0; margin-right: 4px;
+      border-right: 1px solid #F1F5F9;
+    }
+    .client-card-field:last-child { border-right: none; }
+    .ccf-icon-wrap {
+      width: 22px; height: 22px; border-radius: 6px; background: #F8FAFC;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ccf-icon-wrap i { font-size: 9px; color: #94A3B8; }
+    .ccf-wrap { display: flex; flex-direction: column; gap: 1px; }
+    .ccf-label {
+      font-size: 9px; font-weight: 700; color: #CBD5E1;
+      text-transform: uppercase; letter-spacing: .07em; line-height: 1;
+    }
+    .ccf-value { font-size: 12px; font-weight: 600; color: #334155; line-height: 1.3; }
+    .card-lines-badge {
+      background: linear-gradient(135deg,#DBEAFE,#EFF6FF);
+      color: #1E40AF; border: 1px solid #BFDBFE;
+      padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 800;
+    }
+    .card-delete-btn {
+      margin-left: auto; background: #FFF1F2; border: 1px solid #FECDD3;
+      border-radius: 8px; padding: 5px 11px; cursor: pointer; color: #BE123C;
+      font-size: 11px; flex-shrink: 0; transition: background .15s;
+    }
+    .card-delete-btn:hover { background: #FFE4E6; }
+    /* ═══ STATUS SELECT EN CARD ═══ */
+    .status-select-card {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      padding: 4px 28px 4px 10px !important;
+      border-radius: 20px !important;
+      font-size: 10px !important;
+      font-weight: 800 !important;
+      text-transform: uppercase !important;
+      letter-spacing: .06em !important;
+      border: 1px solid !important;
+      cursor: pointer !important;
+      outline: none !important;
+      min-width: unset !important;
+      width: auto !important;
+      flex-shrink: 0 !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 9px center !important;
+      transition: box-shadow .15s !important;
+    }
+    .status-select-card:focus {
+      box-shadow: 0 0 0 3px rgba(99,102,241,.18) !important;
+    }
+    .status-select-pending   { background-color: #FEF3C7 !important; color: #92400E !important; border-color: #FDE68A !important; }
+    .status-select-completed { background-color: #D1FAE5 !important; color: #065F46 !important; border-color: #A7F3D0 !important; }
+    .status-select-active    { background-color: #DBEAFE !important; color: #1E40AF !important; border-color: #BFDBFE !important; }
+    .status-select-repro     { background-color: #EDE9FE !important; color: #5B21B6 !important; border-color: #DDD6FE !important; }
+    .status-select-cancelled { background-color: #FEE2E2 !important; color: #991B1B !important; border-color: #FECACA !important; }
+
+    .table-wrapper { height: calc(100vh - 350px) !important; }
+
   </style>
 </head>
-<body style="background: #F8FAFC;">
+<body style="background: #EEF2F7;">
   <div class="layout">
     <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
     <main class="main-content">
-      <!-- Header moderno con gradiente -->
-      <header class="gradient-bg shadow-lg" style="margin: -16px -16px 0 -16px; padding: 0;">
-        <div class="max-w-full px-6 py-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-              <div class="bg-white p-2 rounded-lg">
-                <i class="fas fa-users text-purple-600 text-2xl"></i>
+      <!-- Header gris/blanco -->
+      <header class="crm-header">
+        <div style="padding: 14px 24px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div class="crm-header-icon">
+                <i class="fas fa-users"></i>
               </div>
               <div>
-                <h1 class="text-white text-2xl font-bold m-0">Gestión de Clientes</h1>
-                <p class="text-purple-200 text-sm m-0">Panel de control y análisis - Team Líneas</p>
+                <h1 class="crm-header-title">Gestión de Clientes</h1>
+                <p class="crm-header-sub">Panel de control y análisis — Team Líneas</p>
               </div>
             </div>
-            <div class="flex items-center space-x-4">
-              <div class="text-right">
-                <p class="text-white text-sm font-semibold m-0" id="header-username">Usuario</p>
-                <p class="text-purple-200 text-xs m-0">Último acceso: Hoy</p>
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="text-align:right;">
+                <p class="crm-header-user" id="header-username">Usuario</p>
+                <p class="crm-header-date">Último acceso: Hoy</p>
               </div>
-              <div class="bg-white p-2 rounded-full w-10 h-10 flex items-center justify-center">
-                <i class="fas fa-user text-purple-600"></i>
+              <div class="crm-avatar">
+                <i class="fas fa-user"></i>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div class="max-w-full px-6 py-6">
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <!-- Cantidad de Ventas -->
-          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
-            <div class="flex items-center justify-between mb-4">
-              <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 12px;">
-                <i class="fas fa-shopping-cart" style="color: #3B82F6; font-size: 24px;"></i>
-              </div>
+      <div class="max-w-full px-6 py-4">
+        <!-- KPI Strip -->
+        <div class="kpi-strip">
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#1E3A8A,#2563EB);"><i class="fas fa-users"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-cantidad-ventas">0</span>
+              <span class="kpi-lbl">Ventas Clientes<span class="kpi-dot"></span></span>
             </div>
-            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Cantidad de Ventas</h3>
-            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-cantidad-ventas">0</p>
-            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">este mes &nbsp;<span style="display:inline-block;width:6px;height:6px;background:#16A34A;border-radius:50%;animation:kpiPulse 1.4s ease infinite;vertical-align:middle;"></span></p>
           </div>
-
-          <!-- Cantidad de Líneas -->
-          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
-            <div class="flex items-center justify-between mb-4">
-              <div style="background: rgba(139, 92, 246, 0.1); padding: 12px; border-radius: 12px;">
-                <i class="fas fa-layer-group" style="color: #8B5CF6; font-size: 24px;"></i>
-              </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#0369A1,#0EA5E9);"><i class="fas fa-layer-group"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-cantidad-lineas">0</span>
+              <span class="kpi-lbl">Ventas Líneas</span>
             </div>
-            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Cantidad de Líneas</h3>
-            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-cantidad-lineas">0</p>
-            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">este mes</p>
           </div>
-
-          <!-- Líneas Activas -->
-          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
-            <div class="flex items-center justify-between mb-4">
-              <div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 12px;">
-                <i class="fas fa-check-circle" style="color: #22C55E; font-size: 24px;"></i>
-              </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#059669,#10B981);"><i class="fas fa-user-check"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-activas-clientes">0</span>
+              <span class="kpi-lbl">Activas Clientes</span>
             </div>
-            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Líneas Activas</h3>
-            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-lineas-activas">0</p>
-            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">este mes</p>
           </div>
-
-          <!-- Líneas Pendientes -->
-          <div class="bg-white p-6 card-hover metric-card" style="border-radius: 16px;">
-            <div class="flex items-center justify-between mb-4">
-              <div style="background: rgba(6, 182, 212, 0.1); padding: 12px; border-radius: 12px;">
-                <i class="fas fa-clock" style="color: #06B6D4; font-size: 24px;"></i>
-              </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#047857,#34D399);"><i class="fas fa-check-double"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-lineas-activas">0</span>
+              <span class="kpi-lbl">Activas Líneas</span>
             </div>
-            <h3 style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Líneas Pendientes</h3>
-            <p style="font-size: 32px; font-weight: 700; color: #1E293B; margin: 0;" id="kpi-lineas-pendientes">0</p>
-            <p style="font-size: 13px; color: #94A3B8; margin-top: 8px;">este mes</p>
+          </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#B91C1C,#EF4444);"><i class="fas fa-user-times"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-canceladas-clientes">0</span>
+              <span class="kpi-lbl">Canceladas Clientes</span>
+            </div>
+          </div>
+          <div class="kpi-sep"></div>
+          <div class="kpi-item">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#9F1239,#F43F5E);"><i class="fas fa-times-circle"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-val" id="kpi-canceladas-lineas">0</span>
+              <span class="kpi-lbl">Canceladas Líneas</span>
+            </div>
           </div>
         </div>
 
-        <!-- Gráficas de Distribución y Tendencia -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <!-- Gráfica de Distribución por Estado -->
-          <div class="bg-white p-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-            <h3 style="font-size: 16px; font-weight: 600; color: #1E293B; margin-bottom: 20px; display: flex; align-items: center;">
-              <i class="fas fa-chart-pie mr-2" style="color: #8B5CF6;"></i>
-              Distribución por Status
-            </h3>
-            <div id="statusChart" style="height: 300px;"></div>
-          </div>
-
-          <!-- Gráfica de Líneas vendidas por agente -->
-          <div class="bg-white p-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-            <h3 style="font-size: 16px; font-weight: 600; color: #1E293B; margin-bottom: 20px; display: flex; align-items: center;">
-              <i class="fas fa-chart-bar mr-2" style="color: #8B5CF6;"></i>
-              Líneas vendidas por agente
-            </h3>
-            <div id="agentChart" style="height: 300px;"></div>
-          </div>
-        </div>
-
-        <!-- Filtros modernos con Tailwind -->
-        <div class="bg-white p-6 mb-6" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-search mr-1"></i> Buscar
-              </label>
-              <input type="text" id="q" placeholder="Buscar cliente..." 
-                     style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" class="search-bar" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+        <!-- Filtros -->
+        <div style="background:#fff; border-radius:16px; border:1px solid #E0E8F5; box-shadow:0 2px 8px rgba(30,58,138,.06); padding:20px 24px; margin-bottom:20px;">
+          <div style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <!-- Buscar -->
+            <div style="flex:2; min-width:200px;">
+              <label class="filter-label"><i class="fas fa-search"></i> Buscar</label>
+              <div class="search-input-wrap">
+                <i class="fas fa-search search-input-icon"></i>
+                <input type="text" id="q" placeholder="Nombre, teléfono, cuenta..." class="search-input-field">
+              </div>
             </div>
-            <div id="status-filter-container">
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-filter mr-1"></i> Estado
-              </label>
-              <select id="qs" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            <!-- Estado -->
+            <div id="status-filter-container" style="flex:1; min-width:120px;">
+              <label class="filter-label"><i class="fas fa-filter"></i> Estado</label>
+              <select id="qs" class="filter-select">
                 <option value="">Todos</option>
                 <option value="pending">PENDING</option>
                 <option value="repro">REPRO</option>
               </select>
             </div>
-            <div id="agent-filter-container">
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-user-tie mr-1"></i> Agente
-              </label>
-              <select id="agentFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            <!-- Agente -->
+            <div id="agent-filter-container" style="flex:1; min-width:120px;">
+              <label class="filter-label"><i class="fas fa-user-tie"></i> Agente</label>
+              <select id="agentFilter" class="filter-select">
                 <option value="">Todos</option>
               </select>
             </div>
-            <div id="team-filter-container">
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-users mr-1"></i> Team
-              </label>
-              <select id="teamFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
-                <option value="">Todos los Teams</option>
-                <option value="JONATHAN F">Team Jonathan</option>
-                <option value="LUIS G">Team Luis</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-calendar mr-1"></i> Fecha Desde
-              </label>
-              <input type="date" id="dateFrom" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
-            </div>
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-calendar mr-1"></i> Fecha Hasta
-              </label>
-              <input type="date" id="dateTo" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
-            </div>
-            <div id="line-status-filter-container">
-              <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="fas fa-signal mr-1"></i> Status Línea
-              </label>
-              <select id="lineStatusFilter" style="width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; transition: all 0.2s;" onfocus="this.style.borderColor='#8B5CF6'; this.style.boxShadow='0 0 0 3px rgba(139, 92, 246, 0.1)'" onblur="this.style.borderColor='#E2E8F0'; this.style.boxShadow='none'">
+            <!-- Status Línea -->
+            <div id="line-status-filter-container" style="flex:1; min-width:120px;">
+              <label class="filter-label"><i class="fas fa-signal"></i> Línea</label>
+              <select id="lineStatusFilter" class="filter-select">
                 <option value="">Todos</option>
                 <option value="ACTIVA">ACTIVA</option>
                 <option value="PENDING">PENDING</option>
@@ -396,30 +567,44 @@
                 <option value="SUSPENDIDA">SUSPENDIDA</option>
               </select>
             </div>
-            <div class="flex items-end">
-              <button id="btnClearDates" style="width: 100%; background: #64748B; color: white; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748B'">
-                <i class="fas fa-eraser mr-2"></i>Limpiar Fechas
-              </button>
+            <!-- Fechas -->
+            <div style="flex:1; min-width:130px;">
+              <label class="filter-label"><i class="fas fa-calendar-alt"></i> Desde</label>
+              <input type="date" id="dateFrom" class="filter-input">
             </div>
-            <div class="flex items-end" id="analyzeExcelContainer" style="display:none;">
-              <button id="btnAnalyzeExcel" style="width: 100%; background: #10B981; color: white; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10B981'">
-                <i class="fas fa-file-excel mr-2"></i>Analizar Excel
-              </button>
-              <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+            <div style="flex:1; min-width:130px;">
+              <label class="filter-label"><i class="fas fa-calendar-alt"></i> Hasta</label>
+              <input type="date" id="dateTo" class="filter-input">
+            </div>
+            <!-- Team Toggle -->
+            <div style="flex:0;">
+              <label class="filter-label"><i class="fas fa-users"></i> Team</label>
+              <div class="team-toggle" id="teamToggle">
+                <button class="tt-btn tt-active" data-team="">Todos</button>
+                <button class="tt-btn" data-team="JONATHAN F">Jonathan</button>
+                <button class="tt-btn" data-team="LUIS G">Luis G</button>
+              </div>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-            <div class="flex items-end" id="admin-actions" style="display:none;"></div>
-          </div>
+          <!-- Elementos ocultos para compatibilidad con JS existente -->
+          <select id="teamFilter" style="display:none;">
+            <option value="">Todos los Teams</option>
+            <option value="JONATHAN F">Team Jonathan</option>
+            <option value="LUIS G">Team Luis</option>
+          </select>
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+          <div id="analyzeExcelContainer" style="display:none;"><button id="btnAnalyzeExcel" style="display:none;"></button></div>
+          <button id="btnClearDates" style="display:none;"></button>
+          <div id="admin-actions" style="display:none;"></div>
         </div>
 
         <!-- Tabla principal con diseño moderno -->
         <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
           <div class="p-6 flex items-center justify-between" style="border-bottom: 1px solid #F1F5F9;">
             <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
-              <i class="fas fa-table mr-2" style="color: #8B5CF6;"></i>
+              <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
               Lista de Clientes
-              <span id="leadCounter" style="margin-left: 12px; background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%); color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700;">0 leads</span>
+              <span id="leadCounter" class="lead-counter-badge">0 leads</span>
             </h2>
           </div>
           
@@ -451,10 +636,6 @@
       </div>
     </main>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/exporting.min.js"></script>
-  <script>if(typeof Highcharts!=='undefined'){Highcharts.setOptions({accessibility:{enabled:false}});}</script>
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
@@ -462,9 +643,6 @@
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
-
-      // Inicializar gráficas después de un pequeño delay para asegurar que Chart.js esté cargado
-      setTimeout(initCharts, 100);
 
       // Lógica para el botón de seeding
       const userRole = getUserRole();
@@ -948,9 +1126,12 @@
 
       function applyFilters(items){
         const query = ($('#q')?.value || '').trim().toUpperCase();
+        const qDigits = normalizeDigits(query);
         const qstatus = ($('#qs')?.value || '').trim().toLowerCase();
         const qagent = ($('#agentFilter')?.value || '').trim().toUpperCase();
-        const qteam = ($('#teamFilter')?.value || '').trim().toUpperCase();
+        // Leer team desde el toggle switch
+        const _activeTeamBtn = document.querySelector('#teamToggle .tt-btn.tt-active');
+        const qteam = (_activeTeamBtn ? (_activeTeamBtn.getAttribute('data-team')||'') : '').toUpperCase();
         const qlineStatus = ($('#lineStatusFilter')?.value || '').trim().toUpperCase();
         let dateFrom = ($('#dateFrom')?.value || '').trim();
         let dateTo = ($('#dateTo')?.value || '').trim();
@@ -979,14 +1160,17 @@
 
         return items.filter(it=>{
           if (query) {
+            const phoneDigits = normalizeDigits(it.telefono_principal);
+            const phoneMatch = qDigits.length >= 3 && phoneDigits.includes(qDigits);
             const blob = [
               String(it.nombre_cliente||'').toUpperCase(),
-              normalizeDigits(it.telefono_principal),
               String(it.numero_cuenta||'').toUpperCase(),
               String(it.direccion||'').toUpperCase(),
-              String(it.id||'').toUpperCase()
+              String(it.id||'').toUpperCase(),
+              String(it.ID||'').toUpperCase(),
+              it.telefono_principal||''
             ].join(' | ');
-            if (!blob.includes(query)) return false;
+            if (!blob.includes(query) && !phoneMatch) return false;
           }
           if (nombre && !(String(it.nombre_cliente||'').toUpperCase().includes(nombre))) return false;
           if (tel && !(normalizeDigits(it.telefono_principal).includes(tel))) return false;
@@ -1059,7 +1243,7 @@
           const statusLower = String(it.status||'').toLowerCase();
           const docId = it._id || it.id || '';
           const statusCell = editable
-            ? `<select class="status-select" data-id="${docId}" data-prev="${statusLower}" style="min-width:140px;">
+            ? `<select class="status-select status-select-card status-select-${statusLower}" data-id="${docId}" data-prev="${statusLower}">
                  ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
                </select>`
             : String(it.status||'').toUpperCase();
@@ -1071,41 +1255,48 @@
           else if (statusLower === 'active') statusBadgeClass += 'status-active';
           else statusBadgeClass += 'bg-gray-200 text-gray-700';
 
-          let mainRow = `<tr class="table-row expandable-row" data-row-index="${idx}" data-id="${docId}" style="cursor:pointer;">
-            <td class="px-6 py-4">
-              <div class="flex items-center">
-                <div class="${statusLower === 'completed' ? 'bg-green-100' : 'bg-purple-100'} p-2 rounded-full mr-3">
-                  <i class="fas fa-user ${statusLower === 'completed' ? 'text-green-600' : 'text-purple-600'}"></i>
+          // Avatar con iniciales
+          const _nameParts = (it.nombre_cliente||'?').trim().split(/\s+/);
+          const _initials = _nameParts.length >= 2
+            ? (_nameParts[0][0] + _nameParts[_nameParts.length-1][0]).toUpperCase()
+            : (_nameParts[0][0]||'?').toUpperCase();
+          const _ccClass = statusLower==='pending'?'cc-pending':statusLower==='completed'?'cc-completed':statusLower==='active'?'cc-active':statusLower==='repro'?'cc-repro':statusLower==='cancelled'?'cc-cancelled':'';
+          const _avClass = statusLower==='pending'?'cca-pending':statusLower==='completed'?'cca-completed':statusLower==='active'?'cca-active':statusLower==='repro'?'cca-repro':'cca-default';
+          const _badgeClass = statusLower==='pending'?'cc-badge-pending':statusLower==='completed'?'cc-badge-completed':statusLower==='active'?'cc-badge-active':statusLower==='repro'?'cc-badge-repro':'cc-badge-default';
+          const _badgeIcon = statusLower==='completed'?'fa-check-circle':statusLower==='pending'?'fa-clock':statusLower==='active'?'fa-circle':'fa-circle';
+          const _statusDisplay = editable ? statusCell : `<span class="cc-badge ${_badgeClass}"><i class="fas ${_badgeIcon}"></i>${String(it.status||'').toUpperCase()}</span>`;
+
+          const _field = (icon, label, value) =>
+            `<div class="client-card-field">
+               <div class="ccf-icon-wrap"><i class="fas ${icon}"></i></div>
+               <div class="ccf-wrap">
+                 <span class="ccf-label">${label}</span>
+                 <span class="ccf-value">${value}</span>
+               </div>
+             </div>`;
+
+          let mainRow = `<tr class="table-row expandable-row" data-row-index="${idx}" data-id="${docId}">
+            <td colspan="12">
+              <div class="client-card ${_ccClass}">
+                <div class="client-card-header">
+                  <div class="client-card-avatar ${_avClass}">${_initials}</div>
+                  <span class="client-card-name">${it.nombre_cliente||''}</span>
+                  ${_statusDisplay}
+                  <span class="row-arrow">▼</span>
+                  ${canDelete() ? `<button class="btn-delete-client card-delete-btn" data-id="${docId}" title="Eliminar cliente"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
-                <div>
-                  <p class="text-sm font-semibold text-gray-900 m-0">${it.nombre_cliente||''} <span class="text-blue-400" style="font-size:10px;">▼</span></p>
-                  <p class="text-xs text-gray-500 m-0">ID: ${it.ID||it.id||it._id||''}</p>
+                <div class="client-card-divider"></div>
+                <div class="client-card-body">
+                  ${it.telefono_principal ? _field('fa-phone','Teléfono', it.telefono_principal) : ''}
+                  ${it.numero_cuenta ? _field('fa-id-card','Cuenta', it.numero_cuenta) : ''}
+                  ${_field('fa-layer-group','Líneas', cant ? `<span class="card-lines-badge">${cant} línea${cant>1?'s':''}</span>` : '—')}
+                  ${it.dia_venta ? _field('fa-calendar-check','Venta', it.dia_venta) : ''}
+                  ${it.dia_instalacion ? _field('fa-tools','Instalación', it.dia_instalacion) : ''}
+                  ${it.mercado ? _field('fa-map-marker-alt','Mercado', it.mercado) : ''}
+                  ${it.supervisor ? _field('fa-user-tie','Supervisor', it.supervisor) : ''}
+                  ${(it.ID||it.id||it._id) ? `<div class="client-card-field"><div class="ccf-icon-wrap"><i class="fas fa-hashtag"></i></div><div class="ccf-wrap"><span class="ccf-label">ID</span><span class="ccf-value" style="color:#94A3B8;font-size:11px;">${it.ID||it.id||it._id}</span></div></div>` : ''}
                 </div>
               </div>
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.telefono_principal||''}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.numero_cuenta||''}</td>
-            <td class="px-6 py-4">
-              ${hasMultipleLines ? `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">${cant} líneas</span>` : `<span class="text-sm text-gray-600">${cant}</span>`}
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-600">${pairs.length ? pairs.map(p=>`<div>${p}</div>`).join('') : ''}</td>
-            <td class="px-6 py-4">
-              ${editable ? statusCell : `<span class="${statusBadgeClass}"><i class="fas ${statusLower === 'completed' ? 'fa-check-circle' : statusLower === 'pending' ? 'fa-clock' : 'fa-circle'} mr-1"></i>${String(it.status||'').toUpperCase()}</span>`}
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.dia_venta||''}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.dia_instalacion||''}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.ID||it.id||it._id||''}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">${it.mercado||''}</td>
-            <td class="px-6 py-4">
-              <div class="flex items-center">
-                <i class="fas fa-user-tie text-gray-400 mr-2"></i>
-                <span class="text-sm text-gray-600">${it.supervisor||''}</span>
-              </div>
-            </td>
-            <td class="px-6 py-4" style="text-align:center;">
-              <button class="btn-delete-client bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" data-id="${docId}" title="Eliminar cliente" style="${canDelete() ? '' : 'display:none;'}">
-                <i class="fas fa-trash"></i>
-              </button>
             </td>
           </tr>`;
           
@@ -1113,9 +1304,9 @@
           {
             let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none;">
               <td colspan="12" style="padding:0;">
-                <div class="gradient-bg" style="padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.2);">
-                  <h4 class="text-white text-lg font-bold m-0 flex items-center">
-                    <i class="fas fa-user-edit mr-3"></i>
+                <div style="padding:14px 20px; background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
+                  <h4 style="color:#0F172A; font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-user-edit" style="color:#4F46E5;"></i>
                     ${it.nombre_cliente||''}
                   </h4>
                 </div>
@@ -1168,9 +1359,10 @@
                     </div>
                   </div>
                   <!-- Imagen -->
-                  <div style="margin-top:12px;">
+                  <div style="margin-top:16px;display:flex;align-items:flex-start;gap:16px;">
+                    <div>
                     <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Imagen del Lead</label>
-                    <div class="ile-img-zone" data-row="${idx}" style="position:relative;min-height:80px;border:2px dashed #c7d2fe;border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
+                    <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:160px;height:160px;border:2px dashed #c7d2fe;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
                       <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                         <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
@@ -1180,11 +1372,14 @@
                       ${editable?`<button class="ile-img-remove" type="button" style="${it.imagen_url?'':'display:none;'}position:absolute;top:4px;right:5px;background:rgba(239,68,68,.85);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;font-weight:700;" onclick="event.stopPropagation();_clImgRemove(this)">✕</button>`:''}
                     </div>
                     ${editable?`<input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
+                    </div>
+                    ${editable ? `<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:8px;padding-bottom:0;">
+                      <button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:11px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.4px;white-space:nowrap;box-shadow:0 4px 12px rgba(30,58,138,.25);">
+                        <i class="fas fa-save" style="margin-right:6px;"></i>Guardar cambios
+                      </button>
+                      <span class="ile-save-msg" data-row="${idx}" style="font-size:11px;color:#64748b;text-align:center;"></span>
+                    </div>` : ''}
                   </div>
-                  ${editable ? `<div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
-                    <button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;">Guardar</button>
-                    <span class="ile-save-msg" data-row="${idx}" style="font-size:12px;color:#64748b;"></span>
-                  </div>` : ''}
                 </div>
                 <div style="padding:20px; background:#f8f9fa;">
                   <!-- Información General del Cliente con diseño moderno -->
@@ -1389,8 +1584,8 @@
             
             const rowIndex = this.getAttribute('data-row-index');
             const detailsRow = document.querySelector(`.details-row[data-row-index="${rowIndex}"]`);
-            const arrow = this.querySelector('span');
-            
+            const arrow = this.querySelector('.row-arrow');
+
             if (detailsRow) {
               const isVisible = detailsRow.style.display !== 'none';
               detailsRow.style.display = isVisible ? 'none' : 'table-row';
@@ -1935,6 +2130,7 @@
         const counter = document.getElementById('leadCounter');
         if (counter) {
           counter.textContent = `${count} lead${count !== 1 ? 's' : ''}`;
+          counter.className = 'lead-counter-badge';
         }
       }
       
@@ -2511,11 +2707,22 @@
         // Calcular KPIs según lógica de ESTADISTICAS-LINEAS
         // 1. Cantidad de Ventas = Total de leads/clientes
         const cantidadVentas = items.length;
-        
-        // 2. Contar líneas activas, pendientes y total de líneas
+
+        // 2. Contar líneas activas, pendientes, canceladas y total de líneas
         let lineasActivas = 0;
         let lineasPendientes = 0;
+        let lineasCanceladas = 0;
         let cantidadLineas = 0;
+        // Contadores de clientes por status
+        let clientesActivos = 0;
+        let clientesCancelados = 0;
+        const _isActiveLikeClient = (s) => { const u = String(s||'').toUpperCase(); return u==='ACTIVE'||u==='ACTIVA'||u.includes('ACTIV')||u==='COMPLETED'||u.includes('COMPLET')||u.includes('FINALIZ'); };
+        const _isCancelledStatus = (s) => { const u = String(s||'').toUpperCase(); return u==='CANCELLED'||u==='CANCELADA'||u==='CANCELED'||u.includes('CANCEL'); };
+        items.forEach(it => {
+          const cs = String(it.status||'').toUpperCase();
+          if (_isActiveLikeClient(cs)) clientesActivos++;
+          else if (_isCancelledStatus(cs)) clientesCancelados++;
+        });
 
         let lineasCompleted = 0;
         let lineasOtros = 0;
@@ -2668,6 +2875,9 @@
                   status_cliente: clientStatusUpper
                 });
               }
+            } else if (_isCancelledStatus(statusUpper)) {
+              lineasCanceladas++;
+              teamAgg.lineas_otros += 1;
             } else if (statusUpper === 'PENDING' || statusUpper === 'PENDIENTE') {
               lineasPendientes++;
               teamAgg.lineas_pending += 1;
@@ -2825,10 +3035,12 @@
         }
         
         // Actualizar KPIs en el DOM
-        document.getElementById('kpi-cantidad-ventas').textContent = cantidadVentas;
-        document.getElementById('kpi-cantidad-lineas').textContent = cantidadLineas;
-        document.getElementById('kpi-lineas-activas').textContent = lineasActivas;
-        document.getElementById('kpi-lineas-pendientes').textContent = lineasPendientes;
+        document.getElementById('kpi-cantidad-ventas').textContent     = cantidadVentas;
+        document.getElementById('kpi-cantidad-lineas').textContent     = cantidadLineas;
+        document.getElementById('kpi-activas-clientes').textContent    = clientesActivos;
+        document.getElementById('kpi-lineas-activas').textContent      = lineasActivas;
+        document.getElementById('kpi-canceladas-clientes').textContent = clientesCancelados;
+        document.getElementById('kpi-canceladas-lineas').textContent   = lineasCanceladas;
         
         // Actualizar gráfica 3D de estados (Highcharts)
         if (statusChart) {
@@ -2952,6 +3164,15 @@
       if (teamFilter)     teamFilter.addEventListener('change', ()=>{ populateAgentFilterFromItems(allItems); applyAndRender(); });
       if (dateFrom)       dateFrom.addEventListener('change', ()=> applyAndRender());
       if (dateTo)         dateTo.addEventListener('change',   ()=> applyAndRender());
+      // Team toggle switch
+      document.querySelectorAll('#teamToggle .tt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#teamToggle .tt-btn').forEach(b => b.classList.remove('tt-active'));
+          btn.classList.add('tt-active');
+          populateAgentFilterFromItems(allItems);
+          applyAndRender();
+        });
+      });
       if (btnClearDates)  btnClearDates.addEventListener('click', ()=>{
         if (dateFrom) dateFrom.value = '';
         if (dateTo)   dateTo.value   = '';
@@ -2959,11 +3180,35 @@
       });
       if (lineStatusFilter) lineStatusFilter.addEventListener('change', ()=> applyAndRender());
       
-      // Botón para analizar Excel
+      // Botón para analizar Excel (barra de filtros)
       if (btnAnalyzeExcel) btnAnalyzeExcel.addEventListener('click', ()=> {
         excelFileInput.click();
       });
       if (excelFileInput) excelFileInput.addEventListener('change', handleExcelAnalysis);
+
+      // Quick Action Bar — Analizar Excel
+      const btnAnalyzeExcelQA = document.getElementById('btnAnalyzeExcelQA');
+      if (btnAnalyzeExcelQA) btnAnalyzeExcelQA.addEventListener('click', ()=> {
+        excelFileInput.click();
+      });
+
+      // Quick Action Bar — Bulk Status Update
+      const btnBulkStatusQA = document.getElementById('btnBulkStatusQA');
+      if (btnBulkStatusQA) btnBulkStatusQA.addEventListener('click', ()=> {
+        if (!canEditStatus()) { showNotification('No tienes permisos para esta acción.', 'error'); return; }
+        bulkCompletedToActive();
+      });
+
+      // Quick Action Bar — Sync con CRM (recarga datos)
+      const btnSyncCRMQA = document.getElementById('btnSyncCRMQA');
+      if (btnSyncCRMQA) btnSyncCRMQA.addEventListener('click', async ()=> {
+        btnSyncCRMQA.disabled = true;
+        btnSyncCRMQA.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Sincronizando...';
+        await load();
+        btnSyncCRMQA.disabled = false;
+        btnSyncCRMQA.innerHTML = '<i class="fas fa-sync-alt"></i> Sync con CRM <span class="qa-badge-new">new</span>';
+        showNotification('Datos sincronizados correctamente', 'success');
+      });
 
       async function bulkCompletedToActive() {
         const list = applyFilters(allItems);
@@ -3064,6 +3309,15 @@
           const prev = sel.getAttribute('data-prev') || '';
           console.log('[STATUS UPDATE] Enviando:', { id, status, prev });
           if (!id) { alert('Error: ID del registro no encontrado'); return; }
+          // Actualizar color del select inmediatamente
+          sel.className = sel.className.replace(/status-select-\w+/g, '').trim() + ' status-select-' + status.toLowerCase();
+          // Actualizar color del borde de la card y badge
+          const card = sel.closest('.client-card');
+          if (card) {
+            card.className = card.className.replace(/cc-\w+/g, '').trim();
+            const cls = status.toLowerCase()==='pending'?'cc-pending':status.toLowerCase()==='completed'?'cc-completed':status.toLowerCase()==='active'?'cc-active':status.toLowerCase()==='repro'?'cc-repro':'';
+            if (cls) card.classList.add(cls);
+          }
           sel.disabled = true;
           try{
             const res = await fetch(STATUS_ENDPOINT, {
