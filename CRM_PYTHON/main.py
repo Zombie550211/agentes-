@@ -80,6 +80,36 @@ _MIGRATIONS = [
     "UPDATE leads SET autopago = 1 WHERE autopago IS NULL",
 ]
 
+async def _fix_api_file_urls():
+    """Resuelve /api/files/{id} → /uploads/files/... para leads y lineas_clientes."""
+    from database_mysql import AsyncSessionLocal
+    uploads_root = BASE_DIR / "uploads"
+    async with AsyncSessionLocal() as s:
+        for table in ("leads", "lineas_clientes"):
+            r = await s.execute(_sa_text(
+                f"SELECT id, imagen_url FROM {table} WHERE imagen_url REGEXP '^/api/files/[0-9]+$'"
+            ))
+            rows = r.fetchall()
+            for row in rows:
+                lead_id, img_url = row[0], row[1]
+                file_id = int(img_url.split("/")[-1])
+                nf = await s.execute(_sa_text(
+                    "SELECT file_path FROM note_files WHERE id = :fid"
+                ), {"fid": file_id})
+                nf_row = nf.mappings().first()
+                if nf_row:
+                    fp = nf_row["file_path"] or ""
+                    disk = uploads_root / fp.lstrip("/").replace("uploads/", "", 1)
+                    new_url = fp if disk.exists() else None
+                else:
+                    new_url = None
+                await s.execute(_sa_text(
+                    f"UPDATE {table} SET imagen_url = :u WHERE id = :id"
+                ), {"u": new_url, "id": lead_id})
+        await s.commit()
+        print("[fix-images] URLs de imágenes resueltas")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
@@ -89,6 +119,10 @@ async def lifespan(app: FastAPI):
                 await conn.execute(_sa_text(sql))
             except Exception as e:
                 print(f"[migration] {e}")
+    try:
+        await _fix_api_file_urls()
+    except Exception as e:
+        print(f"[fix-images] {e}")
     yield
     await close_mysql()
 

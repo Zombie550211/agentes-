@@ -10,7 +10,7 @@ import aiofiles, os
 
 router = APIRouter(tags=["Files"])
 
-_FILES_DIR = Path(__file__).parent.parent.parent / "uploads" / "files"
+_FILES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "files"
 _FILES_DIR.mkdir(parents=True, exist_ok=True)
 
 _MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -42,8 +42,9 @@ async def upload_file(
     filename  = f"{ts}-{orig}"
     dest      = _FILES_DIR / filename
 
-    async with aiofiles.open(dest, "wb") as f:
-        await f.write(data)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with open(dest, "wb") as f:
+        f.write(data)
 
     file_path = f"/uploads/files/{filename}"
     upby      = user.get("username") or "unknown"
@@ -99,7 +100,7 @@ async def serve_file(file_id: str, request: Request):
     file_size    = int(row["file_size"] or 0)
 
     # Resolves disk path from stored URL
-    disk_path = Path(__file__).parent.parent.parent / file_path.lstrip("/")
+    disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
     if not disk_path.exists():
         raise HTTPException(404, "Archivo no encontrado en disco")
 
@@ -112,9 +113,9 @@ async def serve_file(file_id: str, request: Request):
         end   = min(end, file_size - 1)
         chunk = end - start + 1
 
-        async with aiofiles.open(disk_path, "rb") as f:
-            await f.seek(start)
-            data = await f.read(chunk)
+        with open(disk_path, "rb") as f:
+            f.seek(start)
+            data = f.read(chunk)
 
         return Response(
             content=data,
@@ -127,10 +128,10 @@ async def serve_file(file_id: str, request: Request):
             },
         )
 
-    async def _stream():
-        async with aiofiles.open(disk_path, "rb") as f:
+    def _stream():
+        with open(disk_path, "rb") as f:
             while True:
-                chunk = await f.read(65536)
+                chunk = f.read(65536)
                 if not chunk:
                     break
                 yield chunk
@@ -168,14 +169,14 @@ async def download_file(file_id: str):
     orig_name    = row["original_name"] or row["filename"] or "file"
     file_size    = int(row["file_size"] or 0)
 
-    disk_path = Path(__file__).parent.parent.parent / file_path.lstrip("/")
+    disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
     if not disk_path.exists():
         raise HTTPException(404, "Archivo no encontrado en disco")
 
-    async def _stream():
-        async with aiofiles.open(disk_path, "rb") as f:
+    def _stream():
+        with open(disk_path, "rb") as f:
             while True:
-                chunk = await f.read(65536)
+                chunk = f.read(65536)
                 if not chunk:
                     break
                 yield chunk
@@ -207,7 +208,7 @@ async def delete_file(file_id: str, user: dict = Depends(current_user)):
             raise HTTPException(404, "Archivo no encontrado")
 
         file_path = row["file_path"] or ""
-        disk_path = Path(__file__).parent.parent.parent / file_path.lstrip("/")
+        disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
         if disk_path.exists():
             disk_path.unlink(missing_ok=True)
 
