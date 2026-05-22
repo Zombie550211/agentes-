@@ -225,20 +225,23 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             INSERT INTO leads
-              (nombre_cliente, telefono_principal, telefono, direccion, zip_code, servicios,
+              (nombre_cliente, telefono_principal, telefono, telefono_alterno, direccion, zip_code, servicios,
                tipo_servicio, numero_cuenta, mercado, motivo_llamada, status,
+               autopago, sistema, riesgo,
                puntaje, dia_venta, dia_instalacion, supervisor, agente, agente_nombre,
                imagen_url, source_collection, created_by, created_at, updated_at)
             VALUES
-              (:nc, :tp, :t2, :dir, :zip, :srv,
+              (:nc, :tp, :t2, :talt, :dir, :zip, :srv,
                :ts, :nc2, :mer, :ml, :st,
+               :ap, :sis, :rie,
                :pts, :dv, :di, :sup, :ag, :agn,
                :img, 'leads', :by, :now, :now)
         """), {
-            "nc":  body.nombre_cliente,
-            "tp":  body.telefono_principal,
-            "t2":  body.telefono_2,
-            "dir": body.direccion,
+            "nc":   body.nombre_cliente,
+            "tp":   body.telefono_principal,
+            "t2":   body.telefono_2,
+            "talt": getattr(body, "telefono_alterno", "") or body.telefono_2 or "",
+            "dir":  body.direccion,
             "zip": body.zip_code,
             "srv": servicios_json,
             "ts":  body.tipo_servicio,
@@ -246,6 +249,9 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             "mer": body.mercado,
             "ml":  body.motivo_llamada,
             "st":  body.status,
+            "ap":  1 if str(body.autopago or "").lower() in ("si","sí","yes","true","1") else (0 if str(body.autopago or "").lower() in ("no","false","0") else None),
+            "sis": body.sistema or None,
+            "rie": body.riesgo or None,
             "pts": puntaje_val,
             "dv":  _parse_date_str(body.dia_venta),
             "di":  _parse_date_str(body.dia_instalacion),
