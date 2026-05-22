@@ -1052,31 +1052,35 @@
     const lead=__allLeadsData.find(function(l){return String(l._id)===String(leadId);});
     if(!lead)return;
     if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido en BD — recarga la tabla','error');return;}
-    const updates={
-      nombre_cliente:  getVal('edit-nombre'),
-      telefono:        getVal('edit-telefono'),
-      telefono_alt:    getVal('edit-telefono-alt'),
-      telefono_alterno:getVal('edit-telefono-alt'),
-      numero_cuenta:   getVal('edit-cuenta'),
-      direccion:       getVal('edit-direccion'),
-      zip_code:        getVal('edit-zip'),
-      zip:             getVal('edit-zip'),
-      autopago:        getVal('edit-autopago'),
-      riesgo:          getVal('edit-riesgo'),
-      tipo_servicio:   getVal('edit-tipo-servicio'),
-      sistema:         getVal('edit-sistema'),
-      mercado:         getVal('edit-mercado'),
-      servicios:       getVal('edit-servicios'),
-      dia_venta:       getVal('edit-dia-venta'),
-      dia_instalacion: getVal('edit-dia-instalacion'),
-      puntaje:         getVal('edit-puntaje')?parseFloat(getVal('edit-puntaje'))||0:'',
-      status:          getVal('edit-status'),
-      supervisor:      getVal('edit-supervisor'),
-      motivo_llamada:  getVal('edit-motivo'),
-      agente:          getVal('edit-agente'),
-      agenteNombre:    getVal('edit-agente'),
-      createdBy:       getVal('edit-agente'),
+    const _v=function(id){var v=getVal(id);return(v===null||v===undefined)?'':String(v).trim();};
+    const _all={
+      nombre_cliente:  _v('edit-nombre'),
+      telefono:        _v('edit-telefono'),
+      telefono_alt:    _v('edit-telefono-alt'),
+      telefono_alterno:_v('edit-telefono-alt'),
+      numero_cuenta:   _v('edit-cuenta'),
+      direccion:       _v('edit-direccion'),
+      zip_code:        _v('edit-zip'),
+      zip:             _v('edit-zip'),
+      autopago:        _v('edit-autopago'),
+      riesgo:          _v('edit-riesgo'),
+      tipo_servicio:   _v('edit-tipo-servicio'),
+      sistema:         _v('edit-sistema'),
+      mercado:         _v('edit-mercado'),
+      servicios:       _v('edit-servicios'),
+      dia_venta:       _v('edit-dia-venta'),
+      dia_instalacion: _v('edit-dia-instalacion'),
+      puntaje:         _v('edit-puntaje')?parseFloat(_v('edit-puntaje'))||0:undefined,
+      status:          _v('edit-status'),
+      supervisor:      _v('edit-supervisor'),
+      motivo_llamada:  _v('edit-motivo'),
+      agente:          _v('edit-agente'),
+      agenteNombre:    _v('edit-agente'),
+      createdBy:       _v('edit-agente'),
     };
+    // No enviar campos vacíos para no sobreescribir datos existentes en BD
+    const updates={};
+    Object.keys(_all).forEach(function(k){if(_all[k]!==''&&_all[k]!==undefined&&_all[k]!==null)updates[k]=_all[k];});
     Object.assign(lead, updates);
     lead._es_colchon=isColchonLead(lead);
     const saveBtn=document.querySelector('#editarModal .btn-save');
