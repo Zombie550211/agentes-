@@ -349,7 +349,7 @@ async def list_leads(
         s = fechaInicio or "2000-01-01"
         e = fechaFin   or "2099-12-31"
         where.append("""(
-            (dia_venta BETWEEN :dts AND :dte AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+            (dia_venta BETWEEN :dts AND :dte)
             OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:dts,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:dts,7)))
             OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :dts AND :dte)
         )""")
