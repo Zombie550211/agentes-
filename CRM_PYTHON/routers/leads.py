@@ -717,6 +717,8 @@ async def update_lead(
     if not (_is_admin_or_bo(user) or _is_supervisor(user) or _is_agent(user)):
         raise HTTPException(403, "No autorizado")
     data = body.model_dump(exclude_none=True)
+    # No sobreescribir con strings vacíos — solo procesar campos con valor real
+    data = {k: v for k, v in data.items() if v != "" and v is not None}
     if not data:
         raise HTTPException(400, "Sin campos para actualizar")
 
