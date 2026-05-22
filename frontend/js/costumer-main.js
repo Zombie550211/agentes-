@@ -347,13 +347,13 @@
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
     // Mes de referencia para detectar colchón: el filtro activo, o null (sin filtro = comparar fechas del lead)
     const refMes=month||null;
-    // _es_colchon_route: lead's "home month" is dia_instalacion (all statuses)
-    // _es_colchon:       shows the colchón badge (only completed/active)
+    // _es_colchon_route: solo ACTIVE/COMPLETED instalados en mes distinto al de venta
+    // leads PENDING con instalación futura se muestran por dia_venta, no son colchón
     __allLeadsData.forEach(function(lead){
       const st=normalizeStatus(lead.status);
       const isActive=st==='completed'||st==='active';
       const isRoute=isColchonLead(lead,refMes);
-      lead._es_colchon_route=isRoute;
+      lead._es_colchon_route=isRoute&&isActive;
       lead._es_colchon=isRoute&&isActive;
     });
 
@@ -493,9 +493,6 @@
           } else {
             const diaVentaYM=toYM(lead.dia_venta);
             if(!diaVentaYM||diaVentaYM!==month)return false;
-            // Safety net: exclude leads with a future installation month not caught by route flag
-            const diaInstYM=toYM(lead.dia_instalacion);
-            if(diaInstYM&&diaInstYM>month)return false;
           }
         } else {
           // Modo "Todos los meses": solo ventas del mes, sin colchones de ningún tipo
