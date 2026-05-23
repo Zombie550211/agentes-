@@ -1213,9 +1213,59 @@
   }
   function getInitials(name){return String(name||'U').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase()||'U';}
   async function loadNotes(leadId){const key=String(leadId);if(NOTES_STORE[key])return NOTES_STORE[key];const lead=__allLeadsData.find(function(l){return String(l._id)===key;});if(lead){const notas=lead.notas||lead.notas_cliente||lead.notes;if(Array.isArray(notas)&&notas.length){NOTES_STORE[key]=notas;return NOTES_STORE[key];}}const res=await AUTH.secureFetch('/api/leads/'+leadId);if(res&&res.ok){const data=await res.json().catch(function(){return{};});const src=data.data||data.lead||data;const notas=src&&(src.notas||src.notas_cliente||src.notes);NOTES_STORE[key]=Array.isArray(notas)?notas:[];}else{NOTES_STORE[key]=[];}return NOTES_STORE[key];}
-  async function renderNotesPanel(leadId){const key=String(leadId),list=document.getElementById('notes-list'),badge=document.getElementById('notes-count-badge');if(!list)return;list.innerHTML='<div class="notes-empty"><div style="width:20px;height:20px;border:2px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .6s linear infinite;"></div></div>';const notes=await loadNotes(leadId);if(badge)badge.textContent=notes.length;if(!notes.length){list.innerHTML='<div class="notes-empty" id="notes-empty"><span style="font-size:1.6rem">📋</span><span>Sin notas aún.</span></div>';return;}list.innerHTML=notes.slice().reverse().map(function(n){const type=NOTE_TYPE_META[n.type]||NOTE_TYPE_META.general,initials=getInitials(n.author||'U');const dateStr=n.createdAt?new Date(n.createdAt).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';return'<div class="note-card" data-note-id="'+escHTML(n.id)+'" role="listitem"><div class="note-card-avatar">'+escHTML(initials)+'</div><div class="note-card-body"><div class="note-card-meta"><span class="note-card-author">'+escHTML(n.author||'Desconocido')+'</span><span class="note-card-time">'+escHTML(dateStr)+'</span><span class="note-type-chip '+type.cls+'">'+type.emoji+' '+type.label+'</span></div><div class="note-card-text">'+escHTML(n.text)+'</div></div><button class="note-card-delete" onclick="deleteNote(\''+key+'\',\''+escHTML(n.id)+'\')" aria-label="Eliminar nota">✕</button></div>';}).join('');}
+  var _NOTE_DELETE_WINDOW_MS = 5 * 60 * 1000; // 5 minutos
+  async function renderNotesPanel(leadId){
+    const key=String(leadId),list=document.getElementById('notes-list'),badge=document.getElementById('notes-count-badge');
+    if(!list)return;
+    list.innerHTML='<div class="notes-empty"><div style="width:20px;height:20px;border:2px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .6s linear infinite;"></div></div>';
+    const notes=await loadNotes(leadId);
+    if(badge)badge.textContent=notes.length;
+    if(!notes.length){list.innerHTML='<div class="notes-empty" id="notes-empty"><span style="font-size:1.6rem">📋</span><span>Sin notas aún.</span></div>';return;}
+    const currentUser=getCurrentUserName();
+    const now=Date.now();
+    list.innerHTML=notes.slice().reverse().map(function(n){
+      const type=NOTE_TYPE_META[n.type]||NOTE_TYPE_META.general;
+      const initials=getInitials(n.author||'U');
+      const dateStr=n.createdAt?new Date(n.createdAt).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+      const noteAge=n.createdAt?(now-new Date(n.createdAt).getTime()):Infinity;
+      const canDelete=(n.author&&n.author===currentUser)&&(noteAge<_NOTE_DELETE_WINDOW_MS);
+      const minsLeft=canDelete?Math.ceil((_NOTE_DELETE_WINDOW_MS-noteAge)/60000):0;
+      const deleteBtn=canDelete
+        ?'<button class="note-card-delete" onclick="deleteNote(\''+key+'\',\''+escHTML(n.id)+'\')" title="Puedes eliminar por '+minsLeft+' min más" aria-label="Eliminar nota">✕</button>'
+        :'';
+      return'<div class="note-card" data-note-id="'+escHTML(n.id)+'" role="listitem">'+
+        '<div class="note-card-avatar">'+escHTML(initials)+'</div>'+
+        '<div class="note-card-body">'+
+          '<div class="note-card-meta">'+
+            '<span class="note-card-author">'+escHTML(n.author||'Desconocido')+'</span>'+
+            '<span class="note-card-time">'+escHTML(dateStr)+'</span>'+
+            '<span class="note-type-chip '+type.cls+'">'+type.emoji+' '+type.label+'</span>'+
+          '</div>'+
+          '<div class="note-card-text">'+escHTML(n.text)+'</div>'+
+        '</div>'+
+        deleteBtn+
+      '</div>';
+    }).join('');
+  }
   window.addNoteToLead=async function(){const leadId=getVal('edit-lead-id'),text=(document.getElementById('new-note-input')?document.getElementById('new-note-input').value:'').trim(),type=getVal('note-type-select')||'general',author=getCurrentUserName(),btn=document.getElementById('btn-add-note');if(!leadId){showToast('No hay cliente seleccionado','error');return;}if(!text){showToast('Escribe algo antes de guardar','error');return;}const note={id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),text,type,author,createdAt:new Date().toISOString(),attachments:[]};const key=String(leadId);if(!NOTES_STORE[key])NOTES_STORE[key]=[];NOTES_STORE[key].push(note);const ta=document.getElementById('new-note-input');if(ta){ta.value='';ta.dispatchEvent(new Event('input'));}await renderNotesPanel(leadId);showToast('Nota agregada ✓','ok');showCRMNotif('nota',{cliente:getVal('edit-nombre')||leadId,actor:author,detalle:text.slice(0,90)+(text.length>90?'…':'')});if(btn)btn.disabled=true;await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});if(btn)btn.disabled=false;};
-  window.deleteNote=async function(leadId,noteId){const key=String(leadId);if(!NOTES_STORE[key])return;NOTES_STORE[key]=NOTES_STORE[key].filter(function(n){return n.id!==noteId;});await renderNotesPanel(leadId);showToast('Nota eliminada','ok');await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});};
+  window.deleteNote=async function(leadId,noteId){
+    const key=String(leadId);
+    if(!NOTES_STORE[key])return;
+    const note=NOTES_STORE[key].find(function(n){return n.id===noteId;});
+    if(!note)return;
+    const currentUser=getCurrentUserName();
+    if(!note.author||note.author!==currentUser){
+      showToast('Solo el autor puede eliminar su nota','error');return;
+    }
+    const noteAge=note.createdAt?(Date.now()-new Date(note.createdAt).getTime()):Infinity;
+    if(noteAge>=_NOTE_DELETE_WINDOW_MS){
+      showToast('Solo se puede eliminar dentro de los primeros 5 minutos','error');return;
+    }
+    NOTES_STORE[key]=NOTES_STORE[key].filter(function(n){return n.id!==noteId;});
+    await renderNotesPanel(leadId);
+    showToast('Nota eliminada','ok');
+    await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});
+  };
   function renderNoteFilesPreview(){const preview=document.getElementById('note-files-preview');if(!preview)return;preview.innerHTML='';preview.style.display='none';}
   window.handleNoteImageSelect=function(){};
   window.handleNoteAudioSelect=function(){};
