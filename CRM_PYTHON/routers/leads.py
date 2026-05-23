@@ -43,11 +43,13 @@ def _serialize_lead(row) -> dict:
     d["_id"] = str(d.get("id", ""))
     d["id"]  = d["_id"]
     d["agenteNombre"] = d.get("agente_nombre", "")
-    for col in ("servicios", "telefonos"):
+    for col in ("servicios", "telefonos", "notas"):
         v = d.get(col)
         if isinstance(v, str):
             try: d[col] = json.loads(v)
-            except: d[col] = None
+            except: d[col] = [] if col == "notas" else None
+        elif v is None and col == "notas":
+            d[col] = []
     if d.get("dia_venta"):        d["dia_venta"]        = str(d["dia_venta"])
     if d.get("dia_instalacion"):  d["dia_instalacion"]  = str(d["dia_instalacion"])
     if d.get("fecha_contratacion"): d["fecha_contratacion"] = str(d["fecha_contratacion"])
@@ -681,6 +683,7 @@ class UpdateLeadBody(BaseModel):
     agenteNombre:       Optional[str] = None
     motivo_llamada:     Optional[str] = None
     nota:               Optional[str] = None
+    notas:              Optional[Any] = None
     imagen_url:         Optional[str] = None
     was_reserva:        Optional[bool] = None
 
@@ -753,6 +756,10 @@ async def update_lead(
         try: params["puntaje_val"] = float(data["puntaje"])
         except: params["puntaje_val"] = 0.0
         sets.append("puntaje = :puntaje_val")
+    if "notas" in data:
+        v = data["notas"]
+        sets.append("notas = :notas_json")
+        params["notas_json"] = json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else (v or "[]")
 
     if not sets:
         raise HTTPException(400, "Sin campos válidos para actualizar")

@@ -54,7 +54,8 @@
   function showToast(msg,type){const t=document.createElement('div');t.textContent=msg;t.setAttribute('role','alert');t.setAttribute('aria-live','assertive');Object.assign(t.style,{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',background:type==='ok'?'var(--go)':type==='error'?'var(--stop)':'var(--warn)',color:'#fff',padding:'10px 22px',borderRadius:'var(--rf)',fontSize:'.8rem',fontWeight:'700',zIndex:'9999',boxShadow:'0 4px 16px rgba(0,0,0,.15)'});document.body.appendChild(t);setTimeout(function(){t.remove();},3000);}
   function getVal(id){return(document.getElementById(id)?document.getElementById(id).value:'').trim();}
   function setVal(id,v){const el=document.getElementById(id);if(el)el.value=(v==null)?'':String(v);}
-  function setSelectSafe(id,value){const el=document.getElementById(id);if(!el)return;const v=(value==null)?'':String(value).trim();if(!v){el.value='';return;}const opts=Array.from(el.options);if(opts.some(function(o){return o.value===v;})){el.value=v;return;}const vL=v.toLowerCase();const hit=opts.find(function(o){return o.value.toLowerCase()===vL;});if(hit){el.value=hit.value;return;}const opt=document.createElement('option');opt.value=v;opt.textContent=v;el.appendChild(opt);el.value=v;}
+  function _stripAccents(s){try{return s.normalize('NFD').replace(/[̀-ͯ]/g,'');}catch(_){return s;}}
+  function setSelectSafe(id,value){const el=document.getElementById(id);if(!el)return;const v=(value==null)?'':String(value).trim();if(!v){el.value='';return;}const opts=Array.from(el.options);if(opts.some(function(o){return o.value===v;})){el.value=v;return;}const vL=v.toLowerCase();const hit=opts.find(function(o){return o.value.toLowerCase()===vL;});if(hit){el.value=hit.value;return;}const vS=_stripAccents(vL);const hit2=opts.find(function(o){return _stripAccents(o.value.toLowerCase())===vS;});if(hit2){el.value=hit2.value;return;}const opt=document.createElement('option');opt.value=v;opt.textContent=v;el.appendChild(opt);el.value=v;}
   function fmtDate(rawDate){if(!rawDate)return'—';try{const str=String(rawDate).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(str)){const parts=str.split('-');const dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}return new Date(rawDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return String(rawDate);}}
   function cell(txt){return'<td>'+(txt||'—')+'</td>';}
   function getUserData(){try{return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){return{};}}
@@ -76,7 +77,7 @@
   function isSupervisor(role){const r=String(role||'').toLowerCase();return['supervisor','supervisores','supervisora'].some(function(v){return r===v||r.includes(v);});}
 
   /* ── NORMALIZATION ── */
-  function formatAutopago(val){const v=String(val===undefined||val===null?'':val).toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Sí';if(v==='false'||v==='0'||v==='no')return'No';return v;}
+  function formatAutopago(val){const v=String(val===undefined||val===null?'':val).toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Si';if(v==='false'||v==='0'||v==='no')return'No';return v;}
 
   function normalizeSupervisorName(name){
     const s=String(name||'').trim().toUpperCase();
@@ -868,7 +869,7 @@
 
     var imgSrc=lead.imagen_url||'';
     var imgZoneHtml=
-      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed #c5d5df;border-radius:5px;background:#f6fafb;height:200px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
         (imgSrc
           ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
            '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
@@ -880,43 +881,108 @@
 
     var svcOptions='<option value="">Elige</option><optgroup label="DIRECTV (Video)"><option>VIDEO DIRECTV VIA INTERNET</option><option>VIDEO DIRECTV VIA SATELITE</option></optgroup><optgroup label="AT&T Internet"><option>AIR</option><option>ATT 18 - 25 MB</option><option>ATT 50 - 100 MB</option><option>ATT 100 FIBRA</option><option>ATT 300</option><option>ATT 500</option><option>ATT 1G</option></optgroup><optgroup label="Spectrum"><option>SPECTRUM 400 MBPS</option><option>SPECTRUM 500</option><option>SPECTRUM 500MBPS+</option><option>SPECTRUM 1G</option><option>SPECTRUM 2G</option></optgroup><optgroup label="Frontier"><option>FRONTIER 200 MB</option><option>FRONTIER 500 MB</option><option>FRONTIER 1G</option><option>FRONTIER 2G</option></optgroup><optgroup label="Consolidated"><option>CONSOLIDATED 100 MB</option><option>CONSOLIDATED 300 MB</option><option>CONSOLIDATED 1G</option><option>CONSOLIDATED 2G</option><option>CONSOLIDATED</option></optgroup><optgroup label="Xfinity"><option>XFINITY 300</option><option>XFINITY 500</option><option>XFINITY 1G</option></optgroup><optgroup label="Brightspeed"><option>BRIGHTSPEED</option></optgroup><optgroup label="Earthlink"><option>INTERNET EARTHLINK 300 MB</option><option>EARTHLINK</option></optgroup><optgroup label="Ziply Fiber"><option>ZIPLY FIBER 10G</option><option>ZIPLY FIBER 5G</option><option>ZIPLY FIBER 2G</option><option>ZIPLY FIBER 1G</option><option>ZIPLY FIBER 300</option><option>ZIPLY FIBER 200</option></optgroup><optgroup label="Otros"><option>OPTIMUM</option><option>WOW</option><option>WINDSTREAM</option><option>HUGHESNET</option><option>VIASAT</option><option>STARLINK</option><option>CENTURYLINK</option><option>METRONET</option><option>HAWAIIAN</option><option>VIVINT</option><option>MOBILITY</option><option>ALTAFIBER</option><option>ALTAFIBER 100 MB</option><option>ALTAFIBER 200 MB</option><option>ALTAFIBER 300 MB</option><option>ALTAFIBER 400 MB</option><option>ALTAFIBER 500 MB</option><option>ALTAFIBER 600 MB</option><option>ALTAFIBER 800 MB</option><option>ALTAFIBER 1G</option></optgroup>';
 
-    function iField(lbl,id,val,type){type=type||'text';return'<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">'+lbl+'</label><input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'"></div>';}
-    function sField(lbl,id,opts,val){return'<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'">'+opts+'</select></div>';}
+    function _fieldIcon(ic){if(ic==='person')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';if(ic==='phone')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 5.59 5.59l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>';if(ic==='card')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>';if(ic==='location')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';if(ic==='calendar')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';if(ic==='tag')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';return'';}
+    function iField(lbl,id,val,type,ic){type=type||'text';return'<div><label style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;display:block;margin-bottom:4px;">'+lbl+'</label><div style="position:relative;"><input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:7px '+(ic?'30':'10')+'px 7px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'">'+(ic?'<span style="position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;align-items:center;">'+_fieldIcon(ic)+'</span>':'')+'</div></div>';}
+    function sField(lbl,id,opts){return'<div><label style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;display:block;margin-bottom:4px;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:7px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
     function selOpt(vals,cur){return vals.map(function(v){var vv=Array.isArray(v)?v[0]:v,lbl=Array.isArray(v)?v[1]:v;return'<option value="'+escHTML(vv)+'"'+(String(cur||'').toLowerCase()===String(vv).toLowerCase()?' selected':'')+'>'+escHTML(lbl)+'</option>';}).join('');}
+    function _sec(icon,title,body){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:14px 16px;"><div style="display:flex;align-items:center;gap:7px;font-size:.8rem;font-weight:700;color:var(--ink-2);margin-bottom:12px;">'+icon+' '+title+'</div>'+body+'</div>';}
 
     var svcCurrent=Array.isArray(lead.servicios)?lead.servicios[0]:lead.servicios||'';
 
     var html=
-      '<td colspan="19" style="padding:0;background:var(--sheet-2);border-bottom:3px solid var(--a);">'+
-      '<div style="padding:14px 20px 16px;">'+
-        (!canEdit?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:7px 12px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:10px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
-        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;margin-bottom:10px;">'+
-          iField('Nombre Cliente','nombre',lead.nombre_cliente)+
-          iField('Teléfono Principal','tel',lead.telefono)+
-          iField('Teléfono Alterno','tel-alt',lead.telefono_alt)+
-          iField('No. Cuenta','cuenta',lead.numero_cuenta)+
-          '<div class="field" style="grid-column:span 2;"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Dirección</label><input type="text" id="ile-dir-'+lid+'" value="'+escHTML(String(lead.direccion||''))+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'"></div>'+
-          iField('ZIP Code','zip',lead.zip_code)+
-          sField('Autopago','autopago','<option value="">—</option>'+selOpt([['SI','SI'],['NO','NO']],lead.autopago),'') +
-          sField('Riesgo','riesgo','<option value="">—</option>'+selOpt(['LOW','MEDIUM','HIGH','N/A'],lead.riesgo),'')+
-          sField('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status),'')+
-          sField('Tipo Servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio),'')+
-          sField('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema),'')+
-          sField('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado),'')+
-          '<div class="field" style="grid-column:span 2;"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Servicios</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:6px 8px;border:1px solid #c5d5df;border-radius:4px;font-size:.82rem;background:#f6fafb;'+opacity+'">'+svcOptions+'</select></div>'+
-          iField('Día Venta','dv',lead.dia_venta,'date')+
-          iField('Día Instalación','di',lead.dia_instalacion,'date')+
-          iField('Puntaje','pts',lead.puntaje,'number')+
-          iField('Supervisor','sup',lead.supervisor)+
-          iField('Motivo Llamada','motivo',lead.motivo_llamada)+
-          '<div class="field"><label style="font-size:.65rem;font-weight:800;text-transform:uppercase;color:#2a6a78;letter-spacing:.07em;">Imagen</label>'+imgZoneHtml+'</div>'+
+      '<td colspan="19" style="padding:0;background:#F4F6FB;border-bottom:3px solid var(--a);">'+
+      '<div style="padding:20px 24px 24px;box-sizing:border-box;width:100%;overflow:hidden;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'+
+        '<div style="display:flex;align-items:center;gap:12px;">'+
+          '<div style="width:44px;height:44px;background:var(--a-bg);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+          '</div>'+
+          '<div>'+
+            '<div style="font-size:1.05rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
+            '<div style="font-size:.78rem;color:var(--ink-3);">Modifica la información del cliente</div>'+
+          '</div>'+
         '</div>'+
-        '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">'+
-          '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:6px 16px;border:1px solid #c5d5df;border-radius:20px;background:#fff;font-size:.78rem;font-weight:700;cursor:pointer;color:#5a7a8a;">Cancelar</button>'+
-          (canEdit
-            ?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-'+lid+'">💾 Guardar cambios</button>'
-            :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" style="padding:6px 20px;border:1.5px solid #0d9488;border-radius:20px;background:linear-gradient(90deg,#0a7a72,#0d9488);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;" id="ile-save-img-'+lid+'">📷 Subir imagen</button>')+
+        '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="width:32px;height:32px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet);cursor:pointer;color:var(--ink-3);font-size:1rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;">✕</button>'+
+      '</div>'+
+      (!canEdit?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:16px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+      '<div style="display:grid;grid-template-columns:1fr minmax(0,300px);gap:16px;align-items:start;width:100%;">'+
+
+        '<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">'+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
+            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'+
+              iField('Nombre cliente','nombre',lead.nombre_cliente,'text','person')+
+              iField('Teléfono principal','tel',lead.telefono,'tel','phone')+
+              iField('Teléfono alterno','tel-alt',lead.telefono_alt,'tel','phone')+
+            '</div>')+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>','Información de cuenta',
+            '<div style="display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:10px;">'+
+              iField('No. cuenta','cuenta',lead.numero_cuenta,'text','card')+
+              sField('Autopago','autopago','<option value="">—</option>'+selOpt([['SI','SI'],['NO','NO']],lead.autopago))+
+              iField('Dirección','dir',lead.direccion,'text','location')+
+              iField('ZIP code','zip',lead.zip_code,'text','location')+
+            '</div>')+
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">'+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>','Detalles del servicio',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Tipo servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio))+
+                '<div><label style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;display:block;margin-bottom:4px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:7px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+svcOptions+'</select></div>'+
+              '</div>')+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Sistema y riesgo',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema))+
+                sField('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo']],lead.riesgo))+
+              '</div>')+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y mercado',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
+                sField('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado))+
+              '</div>')+
+          '</div>'+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>','Fechas y puntaje',
+            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">'+
+              iField('Dia venta','dv',lead.dia_venta,'date','calendar')+
+              iField('Dia instalación','di',lead.dia_instalacion,'date','calendar')+
+              iField('Puntaje','pts',lead.puntaje,'number','')+
+            '</div>'+
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+              iField('Supervisor','sup',lead.supervisor,'text','person')+
+              iField('Motivo llamada','motivo',lead.motivo_llamada,'text','tag')+
+            '</div>')+
+          '<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding-top:4px;">'+
+            '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:9px 28px;border:1.5px solid var(--line-2);border-radius:24px;background:var(--sheet);font-size:.83rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
+            (canEdit
+              ?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 28px;border:none;border-radius:24px;background:var(--a);color:#fff;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar cambios</button>'
+              :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 28px;border:none;border-radius:24px;background:var(--a);color:#fff;font-size:.83rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
+          '</div>'+
         '</div>'+
+
+        '<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">'+
+          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:16px;min-width:0;">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+              '<div style="display:flex;align-items:center;gap:7px;font-size:.88rem;font-weight:700;color:var(--ink-1);">'+
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'+
+                'Notas <span id="notes-count-badge" style="background:var(--a-bg);color:var(--a);font-size:.63rem;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:4px;">0</span>'+
+              '</div>'+
+              '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.72rem;font-weight:700;color:var(--a);background:var(--a-bg);border:1px solid var(--a-line);border-radius:8px;padding:4px 10px;cursor:pointer;">+ Agregar nota</button>'+
+            '</div>'+
+            '<div id="ile-note-wrap-'+lid+'" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:10px;padding:10px;background:var(--sheet);">'+
+              '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
+              '<textarea id="new-note-input" rows="4" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;"></textarea>'+
+              '<div style="display:flex;align-items:center;gap:7px;">'+
+                '<select id="note-type-select" style="flex:1;min-width:0;padding:5px 6px;border:1px solid var(--line-1);border-radius:7px;font-size:.75rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
+                '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:6px 14px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:.75rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
+              '</div>'+
+            '</div>'+
+            '<div id="notes-list" style="height:240px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;"></div>'+
+          '</div>'+
+          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:16px;min-width:0;">'+
+            '<div style="display:flex;align-items:center;gap:7px;font-size:.88rem;font-weight:700;color:var(--ink-1);margin-bottom:12px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> Imagen</div>'+
+            imgZoneHtml+
+            (canEdit?'<button type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="width:100%;margin-top:10px;padding:8px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> Cambiar imagen</button>':'')+
+          '</div>'+
+        '</div>'+
+
+      '</div>'+
       '</div>'+
       '</td>';
 
@@ -929,6 +995,9 @@
     // Set select values after inserting into DOM
     var svcSel=document.getElementById('ile-svc-'+lid);
     if(svcSel)svcSel.value=svcCurrent||'';
+    renderNotesPanel(lid);
+    var _noteTA=document.getElementById('new-note-input');
+    if(_noteTA){_noteTA.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();window.addNoteToLead();}});}
     expandTr.scrollIntoView({behavior:'smooth',block:'nearest'});
   };
 
@@ -1128,11 +1197,24 @@
   window.executeBulkStatus=async function(){if(!canUseBulkStatus()){showToast('No tienes permisos','error');return;}const newStatus=document.getElementById('bulkNewStatus')&&document.getElementById('bulkNewStatus').value;if(!newStatus){showToast('Selecciona un status','error');return;}const btn=document.getElementById('btnExecuteBulkStatus');const preview=document.getElementById('bulkStatusPreview');const content=document.getElementById('bulkStatusPreviewContent');if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}if(preview)preview.style.display='block';if(content)content.textContent='Procesando…';try{let res,data,normalizedStatus=normalizeStatus(newStatus);if(_bulkMode==='phone'){const ta=document.getElementById('bulkPhoneNumbers');const nums=(ta?ta.value:'').split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});if(!nums.length){showToast('Sin números válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-phone',{method:'POST',body:JSON.stringify({phones:nums,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const src=(Array.isArray(data.updatedLeads)&&data.updatedLeads.length)?data.updatedLeads.map(function(x){return x&&x.telefono;}):(Array.isArray(data.foundPhones)?data.foundPhones:[]);const fSet=new Set((src||[]).map(function(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):d;}).filter(Boolean));__allLeadsData.forEach(function(l){const d=String(l.telefono||'').replace(/\D/g,'');const c=d.length>=10?d.slice(-10):d;if(fSet.has(c))l.status=normalizedStatus;});}else{const ta=document.getElementById('bulkNamesList');const names=(ta?ta.value:'').split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;});if(!names.length){showToast('Sin nombres válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-name',{method:'POST',body:JSON.stringify({names:names,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const updatedLeads=Array.isArray(data.updatedLeads)?data.updatedLeads:[];const nameSet=new Set(updatedLeads.map(function(x){return String(x&&x.nombre_cliente||'').trim().toLowerCase();}).filter(Boolean));__allLeadsData.forEach(function(l){if(nameSet.has(String(l.nombre_cliente||'').trim().toLowerCase()))l.status=normalizedStatus;});}applyFilters();if(content)content.innerHTML='<div style="color:var(--go);font-weight:700;">✅ Actualizado: '+(data.updated||0)+' leads</div>';showToast('Status masivo aplicado ✓','ok');}catch(e){if(content)content.textContent=e&&e.message?e.message:'Error inesperado';showToast(e&&e.message?e.message:'Error inesperado','error');}finally{if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar status';}}};
 
   /* ── NOTES ENGINE ── */
-  function getCurrentUserName(){try{const raw=localStorage.getItem('crm_user')||sessionStorage.getItem('crm_user');if(raw){const u=JSON.parse(raw);return u.name||u.username||(u.email?u.email.split('@')[0]:'')||'Usuario';}}catch(_){}return'Usuario';}
+  function getCurrentUserName(){
+    var keys=['crm_user','user'];
+    for(var i=0;i<keys.length;i++){
+      try{
+        var raw=localStorage.getItem(keys[i])||sessionStorage.getItem(keys[i]);
+        if(raw){
+          var u=JSON.parse(raw);
+          var name=u.nombre||u.name||u.username||u.full_name||u.fullName||(u.email?u.email.split('@')[0]:'');
+          if(name&&name.trim())return name.trim();
+        }
+      }catch(_){}
+    }
+    return'Usuario';
+  }
   function getInitials(name){return String(name||'U').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase()||'U';}
   async function loadNotes(leadId){const key=String(leadId);if(NOTES_STORE[key])return NOTES_STORE[key];const lead=__allLeadsData.find(function(l){return String(l._id)===key;});if(lead){const notas=lead.notas||lead.notas_cliente||lead.notes;if(Array.isArray(notas)&&notas.length){NOTES_STORE[key]=notas;return NOTES_STORE[key];}}const res=await AUTH.secureFetch('/api/leads/'+leadId);if(res&&res.ok){const data=await res.json().catch(function(){return{};});const src=data.data||data.lead||data;const notas=src&&(src.notas||src.notas_cliente||src.notes);NOTES_STORE[key]=Array.isArray(notas)?notas:[];}else{NOTES_STORE[key]=[];}return NOTES_STORE[key];}
   async function renderNotesPanel(leadId){const key=String(leadId),list=document.getElementById('notes-list'),badge=document.getElementById('notes-count-badge');if(!list)return;list.innerHTML='<div class="notes-empty"><div style="width:20px;height:20px;border:2px solid var(--a-line);border-top-color:var(--a);border-radius:50%;animation:spin .6s linear infinite;"></div></div>';const notes=await loadNotes(leadId);if(badge)badge.textContent=notes.length;if(!notes.length){list.innerHTML='<div class="notes-empty" id="notes-empty"><span style="font-size:1.6rem">📋</span><span>Sin notas aún.</span></div>';return;}list.innerHTML=notes.slice().reverse().map(function(n){const type=NOTE_TYPE_META[n.type]||NOTE_TYPE_META.general,initials=getInitials(n.author||'U');const dateStr=n.createdAt?new Date(n.createdAt).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';return'<div class="note-card" data-note-id="'+escHTML(n.id)+'" role="listitem"><div class="note-card-avatar">'+escHTML(initials)+'</div><div class="note-card-body"><div class="note-card-meta"><span class="note-card-author">'+escHTML(n.author||'Desconocido')+'</span><span class="note-card-time">'+escHTML(dateStr)+'</span><span class="note-type-chip '+type.cls+'">'+type.emoji+' '+type.label+'</span></div><div class="note-card-text">'+escHTML(n.text)+'</div></div><button class="note-card-delete" onclick="deleteNote(\''+key+'\',\''+escHTML(n.id)+'\')" aria-label="Eliminar nota">✕</button></div>';}).join('');}
-  window.addNoteToLead=async function(){const leadId=getVal('edit-lead-id'),text=(document.getElementById('new-note-input')?document.getElementById('new-note-input').value:'').trim(),type=getVal('note-type-select')||'general',author=getCurrentUserName(),btn=document.getElementById('btn-add-note');if(!leadId){showToast('No hay cliente seleccionado','error');return;}if(!text){showToast('Escribe algo antes de guardar','error');return;}if(text.length>NOTE_MAX_CHARS){showToast('Máximo '+NOTE_MAX_CHARS+' caracteres','error');return;}const note={id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),text,type,author,createdAt:new Date().toISOString(),attachments:[]};const key=String(leadId);if(!NOTES_STORE[key])NOTES_STORE[key]=[];NOTES_STORE[key].push(note);const ta=document.getElementById('new-note-input');if(ta){ta.value='';ta.dispatchEvent(new Event('input'));}await renderNotesPanel(leadId);showToast('Nota agregada ✓','ok');showCRMNotif('nota',{cliente:getVal('edit-nombre')||leadId,actor:author,detalle:text.slice(0,90)+(text.length>90?'…':'')});if(btn)btn.disabled=true;await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});if(btn)btn.disabled=false;};
+  window.addNoteToLead=async function(){const leadId=getVal('edit-lead-id'),text=(document.getElementById('new-note-input')?document.getElementById('new-note-input').value:'').trim(),type=getVal('note-type-select')||'general',author=getCurrentUserName(),btn=document.getElementById('btn-add-note');if(!leadId){showToast('No hay cliente seleccionado','error');return;}if(!text){showToast('Escribe algo antes de guardar','error');return;}const note={id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),text,type,author,createdAt:new Date().toISOString(),attachments:[]};const key=String(leadId);if(!NOTES_STORE[key])NOTES_STORE[key]=[];NOTES_STORE[key].push(note);const ta=document.getElementById('new-note-input');if(ta){ta.value='';ta.dispatchEvent(new Event('input'));}await renderNotesPanel(leadId);showToast('Nota agregada ✓','ok');showCRMNotif('nota',{cliente:getVal('edit-nombre')||leadId,actor:author,detalle:text.slice(0,90)+(text.length>90?'…':'')});if(btn)btn.disabled=true;await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});if(btn)btn.disabled=false;};
   window.deleteNote=async function(leadId,noteId){const key=String(leadId);if(!NOTES_STORE[key])return;NOTES_STORE[key]=NOTES_STORE[key].filter(function(n){return n.id!==noteId;});await renderNotesPanel(leadId);showToast('Nota eliminada','ok');await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});};
   function renderNoteFilesPreview(){const preview=document.getElementById('note-files-preview');if(!preview)return;preview.innerHTML='';preview.style.display='none';}
   window.handleNoteImageSelect=function(){};
