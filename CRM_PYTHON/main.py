@@ -45,6 +45,7 @@ _MIGRATIONS = [
     "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente",
     "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL",
     "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL",
+    "ALTER TABLE leads ADD COLUMN notas JSON NULL",
     """UPDATE leads SET sistema = CASE
         WHEN servicios LIKE '%VIDEO DIRECTV%'     THEN 'SARA'
         WHEN servicios LIKE '%ATT 300%'           THEN 'SARA'
@@ -136,7 +137,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────────────────
 _CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 if not _CORS_ORIGINS:
-    _CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000", "http://localhost:3000"]
+    _CORS_ORIGINS = ["http://localhost:8001", "http://127.0.0.1:8001", "http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
