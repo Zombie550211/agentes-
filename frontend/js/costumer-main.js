@@ -559,7 +559,7 @@
         '<button class="rab delete-btn" onclick="event.stopPropagation();deleteLead(\''+lid+'\')" style="width:auto;padding:0 7px;font-size:.68rem;background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.3);" aria-label="Eliminar">✕</button>'+
         '</td>';
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' onclick="toggleRowExpand(\''+lid+'\')" style="cursor:pointer;">'+
-        '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+'</td>'+
+        '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+(_hasUnreadNotes(lead)?'<span class="unread-note-dot" title="Nota nueva sin leer" aria-label="Nota sin leer" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--a);margin-left:7px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 2px var(--a-bg);"></span>':'')+'</td>'+
         cell(lead.telefono?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono))+'</span>':'—')+
         cell(lead.telefono_alt?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</span>':'—')+
         cell('<span class="mono">'+escHTML(lead.numero_cuenta)+'</span>')+
@@ -860,6 +860,11 @@
     if(!lead)return;
     var row=document.querySelector('tr[data-id="'+lid+'"]');
     if(!row)return;
+
+    // Marcar notas como vistas y quitar el puntito de la fila
+    _setNoteSeen(lid);
+    var _dot=row.querySelector('.unread-note-dot');
+    if(_dot)_dot.remove();
 
     var ud=getUserData();
     var myRole=String(ud.role||ud.rol||'').toLowerCase();
@@ -1212,6 +1217,33 @@
     return'Usuario';
   }
   function getInitials(name){return String(name||'U').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase()||'U';}
+
+  /* ── UNREAD NOTES DOT ── */
+  function _getNotesSeenKey(){
+    var u=getCurrentUserName();
+    return'crm_notes_seen_'+u.replace(/\s+/g,'_').toLowerCase();
+  }
+  function _getNotesSeen(){
+    try{return JSON.parse(localStorage.getItem(_getNotesSeenKey())||'{}');}catch(_){return{};}
+  }
+  function _setNoteSeen(leadId){
+    try{var seen=_getNotesSeen();seen[String(leadId)]=new Date().toISOString();localStorage.setItem(_getNotesSeenKey(),JSON.stringify(seen));}catch(_){}
+  }
+  function _hasUnreadNotes(lead){
+    try{
+      var notas=lead.notas||lead.notas_cliente||lead.notes;
+      if(!Array.isArray(notas)||!notas.length)return false;
+      var currentUser=getCurrentUserName();
+      var seen=_getNotesSeen();
+      var lastSeen=seen[String(lead._id)];
+      var unread=notas.filter(function(n){
+        if(n.author&&n.author===currentUser)return false;
+        if(!lastSeen)return true;
+        return n.createdAt&&new Date(n.createdAt).getTime()>new Date(lastSeen).getTime();
+      });
+      return unread.length>0;
+    }catch(_){return false;}
+  }
   async function loadNotes(leadId){const key=String(leadId);if(NOTES_STORE[key])return NOTES_STORE[key];const lead=__allLeadsData.find(function(l){return String(l._id)===key;});if(lead){const notas=lead.notas||lead.notas_cliente||lead.notes;if(Array.isArray(notas)&&notas.length){NOTES_STORE[key]=notas;return NOTES_STORE[key];}}const res=await AUTH.secureFetch('/api/leads/'+leadId);if(res&&res.ok){const data=await res.json().catch(function(){return{};});const src=data.data||data.lead||data;const notas=src&&(src.notas||src.notas_cliente||src.notes);NOTES_STORE[key]=Array.isArray(notas)?notas:[];}else{NOTES_STORE[key]=[];}return NOTES_STORE[key];}
   var _NOTE_DELETE_WINDOW_MS = 5 * 60 * 1000; // 5 minutos
   async function renderNotesPanel(leadId){
