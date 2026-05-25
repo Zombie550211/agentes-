@@ -123,12 +123,14 @@ async def _fix_api_file_urls():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    async with engine.begin() as conn:
-        for sql in _MIGRATIONS:
-            try:
+    # Cada migración en su propia transacción para que los ALTER TABLE
+    # que fallen (columna ya existe) no aborte los UPDATE posteriores.
+    for sql in _MIGRATIONS:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(_sa_text(sql))
-            except Exception as e:
-                print(f"[migration] {e}")
+        except Exception as e:
+            print(f"[migration] {e}")
     try:
         await _fix_api_file_urls()
     except Exception as e:
