@@ -79,6 +79,15 @@ _MIGRATIONS = [
     WHERE (sistema IS NULL OR sistema = '')
       AND servicios IS NOT NULL AND servicios != '' AND servicios != '[]'""",
     "UPDATE leads SET autopago = 1 WHERE autopago IS NULL",
+    # Normalizar riesgo: valores en español → inglés estándar
+    """UPDATE leads SET riesgo = CASE
+        WHEN LOWER(TRIM(riesgo)) IN ('bajo','low')    THEN 'LOW'
+        WHEN LOWER(TRIM(riesgo)) IN ('medio','medium') THEN 'MEDIUM'
+        WHEN LOWER(TRIM(riesgo)) IN ('alto','high')   THEN 'HIGH'
+        WHEN LOWER(TRIM(riesgo)) IN ('n/a','na')      THEN 'N/A'
+        ELSE riesgo
+    END
+    WHERE riesgo IS NOT NULL AND TRIM(riesgo) != ''""",
 ]
 
 async def _fix_api_file_urls():
