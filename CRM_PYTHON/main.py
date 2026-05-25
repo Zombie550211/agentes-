@@ -42,10 +42,10 @@ UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
 _MIGRATIONS = [
-    "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente",
-    "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL",
-    "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL",
-    "ALTER TABLE leads ADD COLUMN notas JSON NULL",
+    "ALTER TABLE lineas_clientes ADD COLUMN IF NOT EXISTS imagen_url VARCHAR(500) NULL AFTER fuente",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS sistema VARCHAR(100) NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS riesgo VARCHAR(50) NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS notas JSON NULL",
     """UPDATE leads SET sistema = CASE
         WHEN servicios LIKE '%VIDEO DIRECTV%'     THEN 'SARA'
         WHEN servicios LIKE '%ATT 300%'           THEN 'SARA'
@@ -227,6 +227,10 @@ def find_html(name: str) -> Path | None:
 @app.get("/")
 async def root():
     return RedirectResponse(url="/login.html")
+
+@app.head("/")
+async def root_head():
+    return Response(status_code=200)
 
 @app.get("/inicio")
 async def inicio():
