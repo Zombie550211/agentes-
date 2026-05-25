@@ -935,7 +935,7 @@
             _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Sistema y riesgo',
               '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
                 sField('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema))+
-                sField('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo']],lead.riesgo))+
+                sField('Riesgo','riesgo','<option value="">—</option>'+selOpt(['LOW','MEDIUM','HIGH','N/A'],lead.riesgo))+
               '</div>')+
             _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y mercado',
               '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
@@ -949,9 +949,10 @@
               iField('Dia instalación','di',lead.dia_instalacion,'date','calendar')+
               iField('Puntaje','pts',lead.puntaje,'number','')+
             '</div>'+
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
-              iField('Supervisor','sup',lead.supervisor,'text','person')+
-              iField('Motivo llamada','motivo',lead.motivo_llamada,'text','tag')+
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+
+              sField('Supervisor','sup','<option value="">—</option>'+selOpt([['Irania Serrano','IRANIA'],['Roberto Velasquez','ROBERTO'],['Marisol Beltran','MARISOL'],['Bryan Pleitez','PLEITEZ'],['Johana','JOHANA']],lead.supervisor))+
+              sField('Agente','agente','<option value="">— Agente —</option>')+
+              sField('Motivo llamada','motivo','<option value="">—</option>'+selOpt(['BILL ALTO','PROBLEMAS DE INTERNET','ADQUIRIR SERVICIOS','MUDANZA','CANCELAR SERVICIOS','PAGAR BILL','ATENCION AL CLIENTE'],lead.motivo_llamada))+
             '</div>')+
           '<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding-top:4px;">'+
             '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:9px 28px;border:1.5px solid var(--line-2);border-radius:24px;background:var(--sheet);font-size:.83rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
@@ -1000,6 +1001,34 @@
     // Set select values after inserting into DOM
     var svcSel=document.getElementById('ile-svc-'+lid);
     if(svcSel)svcSel.value=svcCurrent||'';
+
+    // Poblar select de Agente desde la API
+    (function(){
+      var agenteSel=document.getElementById('ile-agente-'+lid);
+      if(!agenteSel)return;
+      var currentAgente=lead.agente||lead.agente_nombre||'';
+      AUTH.secureFetch('/api/users/agents').then(function(r){return r&&r.ok?r.json():null;}).then(function(data){
+        if(!data)return;
+        var users=data.agents||data.data||data.users||[];
+        var getName=function(u){return(u.name||u.fullName||u.nombre||u.username||'').trim();};
+        var agentes=users.filter(function(u){var r=String(u.role||'').toLowerCase();return r.includes('agente')||r.includes('vendedor')||r.includes('agent');}).sort(function(a,b){return getName(a).localeCompare(getName(b));});
+        agentes.forEach(function(u){
+          var n=getName(u);if(!n)return;
+          var o=document.createElement('option');o.value=n;o.textContent=n;
+          if(n.toLowerCase()===currentAgente.toLowerCase())o.selected=true;
+          agenteSel.appendChild(o);
+        });
+        // Si el agente actual no está en la lista, agregarlo como opción
+        if(currentAgente&&!agentes.some(function(u){return getName(u).toLowerCase()===currentAgente.toLowerCase();})){
+          var o=document.createElement('option');o.value=currentAgente;o.textContent=currentAgente;o.selected=true;
+          agenteSel.insertBefore(o,agenteSel.options[1]||null);
+        }
+      }).catch(function(){
+        // Fallback: poner el agente actual si no carga la API
+        if(currentAgente){var o=document.createElement('option');o.value=currentAgente;o.textContent=currentAgente;o.selected=true;agenteSel.appendChild(o);}
+      });
+    })();
+
     renderNotesPanel(lid);
     var _noteTA=document.getElementById('new-note-input');
     if(_noteTA){_noteTA.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();window.addNoteToLead();}});}
@@ -1070,6 +1099,7 @@
       dia_instalacion: g('di'),
       puntaje:         g('pts')?parseFloat(g('pts'))||0:'',
       supervisor:      g('sup'),
+      agente:          g('agente'),
       motivo_llamada:  g('motivo'),
       imagen_url:      imgUrl,
     };
