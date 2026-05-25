@@ -1193,98 +1193,158 @@
     }, 4000);
   }
 
+  // ── helpers de validación visual ──────────────────────────────
+  function _vErr(el) {
+    if (!el) return;
+    el.style.borderColor = '#ef4444';
+    el.style.boxShadow  = '0 0 0 3px rgba(239,68,68,0.18)';
+  }
+  function _vOk(el) {
+    if (!el) return;
+    el.style.borderColor = '';
+    el.style.boxShadow  = '';
+  }
+  function _isVis(el) {
+    if (!el) return false;
+    if (el.disabled) return false;
+    if (el.type === 'hidden' || el.type === 'file') return false;
+    const cs = window.getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    if (el.offsetParent === null) return false;
+    return true;
+  }
+  // Limpiar error al interactuar con el campo
+  document.querySelectorAll('input[type="text"], input[type="date"], select').forEach(function(el) {
+    el.addEventListener('input',  function(){ _vOk(this); });
+    el.addEventListener('change', function(){ _vOk(this); });
+  });
+  document.getElementById('img-upload-zone').addEventListener('click', function(){
+    _vOk(this);
+    const hint = document.getElementById('img-required-hint');
+    if (hint) hint.style.display = 'none';
+  });
+  document.querySelectorAll('.chip').forEach(function(c) {
+    c.addEventListener('click', function(){
+      const wrap = document.querySelector('.chips-wrap');
+      if (wrap) { wrap.style.outline = ''; wrap.style.outlineOffset = ''; }
+    });
+  });
+  document.querySelectorAll('.radio-btn').forEach(function(b) {
+    b.addEventListener('click', function(){
+      const rg = document.querySelector('.radio-group');
+      if (rg) { rg.style.outline = ''; rg.style.outlineOffset = ''; }
+    });
+  });
+
   // Save button handler
   document.getElementById('save-btn').addEventListener('click', async function() {
     const btn = this;
-    
-    // Validar: todos los campos deben estar llenos (ignorando ocultos/deshabilitados)
-    const isVisible = (el) => {
-      if (!el) return false;
-      if (el.disabled) return false;
-      if (el.type === 'hidden') return false;
-      const style = window.getComputedStyle(el);
-      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
-      if (el.offsetParent === null) return false;
-      return true;
-    };
-    
-    const normalizeValue = (el) => {
-      if (!el) return '';
-      const v = (el.value ?? '');
-      return typeof v === 'string' ? v.trim() : String(v);
-    };
-    
-    const requiredEls = Array.from(document.querySelectorAll('input, select, textarea'))
-      .filter(isVisible);
-    
-    const missingRadioGroups = (() => {
-      const radios = requiredEls.filter(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name);
-      const names = Array.from(new Set(radios.map(r => r.name)));
-      return names.filter(n => !radios.some(r => r.name === n && r.checked));
-    })();
-    
-    const missingCheckboxes = requiredEls
-      .filter(el => el.tagName === 'INPUT' && el.type === 'checkbox')
-      .filter(el => !el.checked);
-    
-    const emptyEls = requiredEls.filter(el => {
-      // No validar botones
-      if (el.tagName === 'BUTTON') return false;
-      if (el.type === 'button' || el.type === 'submit') return false;
-      if (el.type === 'radio' || el.type === 'checkbox') return false;
-      return normalizeValue(el) === '';
-    });
-    
+
+    // ── 1. Limpiar todos los errores previos ──
+    document.querySelectorAll('input[type="text"], input[type="date"], select').forEach(_vOk);
+    _vOk(document.getElementById('img-upload-zone'));
+    const _chips = document.querySelector('.chips-wrap');
+    if (_chips) { _chips.style.outline = ''; _chips.style.outlineOffset = ''; }
+    const _rg = document.querySelector('.radio-group');
+    if (_rg) { _rg.style.outline = ''; _rg.style.outlineOffset = ''; }
+
+    let hasErrors = false;
+
+    // ── 2. Inputs y selects visibles ──
+    Array.from(document.querySelectorAll('input[type="text"], input[type="date"], select'))
+      .filter(_isVis)
+      .forEach(function(el) {
+        if ((el.value || '').trim() === '') { _vErr(el); hasErrors = true; }
+      });
+
+    // ── 3. Motivo de llamada (chips) ──
     const motivo = Array.from(document.querySelectorAll('.chip.active'))
-      .map(c => (c.dataset.value || c.textContent.trim()))
-      .join(', ')
-      .trim();
-    
-    if (emptyEls.length > 0 || missingRadioGroups.length > 0 || missingCheckboxes.length > 0 || !motivo) {
-      if (emptyEls[0] && typeof emptyEls[0].focus === 'function') {
-        emptyEls[0].focus();
-      } else if (missingRadioGroups.length > 0) {
-        const firstRadio = requiredEls.find(el => el.tagName === 'INPUT' && el.type === 'radio' && el.name === missingRadioGroups[0]);
-        if (firstRadio && typeof firstRadio.focus === 'function') firstRadio.focus();
-      } else if (missingCheckboxes[0] && typeof missingCheckboxes[0].focus === 'function') {
-        missingCheckboxes[0].focus();
+      .map(function(c){ return c.dataset.value || c.textContent.trim(); })
+      .join(', ').trim();
+    if (!motivo) {
+      if (_chips) {
+        _chips.style.outline = '2px solid #ef4444';
+        _chips.style.outlineOffset = '3px';
+        _chips.style.borderRadius = '5px';
       }
-      showToast('❌ Debes completar todos los campos del formulario', 'error');
+      hasErrors = true;
+    }
+
+    // ── 4. Status (radio buttons) ──
+    if (!document.querySelector('.radio-btn.checked')) {
+      if (_rg) {
+        _rg.style.outline = '2px solid #ef4444';
+        _rg.style.outlineOffset = '3px';
+        _rg.style.borderRadius = '5px';
+      }
+      hasErrors = true;
+    }
+
+    // ── 5. Imagen (obligatoria) ──
+    const hasImg = !!_imgFile || !!(document.getElementById('imagen-url-hidden').value || '').trim();
+    if (!hasImg) {
+      const zone = document.getElementById('img-upload-zone');
+      if (zone) {
+        zone.style.borderColor = '#ef4444';
+        zone.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.18)';
+        // Mostrar hint debajo de la zona
+        let hint = document.getElementById('img-required-hint');
+        if (!hint) {
+          hint = document.createElement('div');
+          hint.id = 'img-required-hint';
+          hint.style.cssText = 'font-size:0.68rem;color:#ef4444;font-weight:700;margin-top:4px;';
+          hint.textContent = '⚠ Debes subir una imagen';
+          zone.parentNode.insertBefore(hint, zone.nextSibling);
+        }
+        hint.style.display = 'block';
+      }
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      showToast('❌ Completa todos los campos y sube una imagen', 'error');
+      // Scroll al primer campo inválido
+      const firstErr = document.querySelector(
+        'input[style*="ef4444"], select[style*="ef4444"], ' +
+        '#img-upload-zone[style*="ef4444"], ' +
+        '.chips-wrap[style*="ef4444"], .radio-group[style*="ef4444"]'
+      );
+      if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    // Construir objeto de datos
+    // ── Construir objeto de datos ──
     const data = {
-      nombre_cliente: document.getElementById('nombre-cliente').value.trim(),
-      telefono_principal: document.getElementById('telefono-principal').value.trim(),
-      telefono_2: document.getElementById('telefono_2').value.trim(),
-      direccion: document.getElementById('direccion').value.trim(),
-      zip_code: document.getElementById('zip-code').value.trim(),
-      servicios: document.getElementById('servicios').value.trim(),
-      tipo_servicio: document.getElementById('tipo-servicio').value.trim(),
-      numero_cuenta: document.getElementById('numero-cuenta').value.trim(),
-      mercado: document.getElementById('mercado').value.trim(),
-      motivo_llamada: motivo,
-      status: (document.querySelector('.radio-btn.checked input')?.value) || 'PENDING',
-      autopago: document.getElementById('autopago').value.trim(),
-      sistema: document.getElementById('sistema').value.trim(),
-      riesgo: document.getElementById('riesgo').value.trim(),
-      imagen_url: document.getElementById('imagen-url-hidden').value || '',
-      puntaje: document.getElementById('score-num').textContent.trim(),
-      dia_venta: document.getElementById('dia-venta').value,
-      dia_instalacion: document.getElementById('dia-instalacion').value,
-      supervisor: document.getElementById('supervisor').value.trim(),
-      agente: document.getElementById('agentAssign').value.trim(),
-      creadoEn: new Date().toISOString()
+      nombre_cliente:    document.getElementById('nombre-cliente').value.trim(),
+      telefono_principal:document.getElementById('telefono-principal').value.trim(),
+      telefono_2:        document.getElementById('telefono_2').value.trim(),
+      direccion:         document.getElementById('direccion').value.trim(),
+      zip_code:          document.getElementById('zip-code').value.trim(),
+      servicios:         document.getElementById('servicios').value.trim(),
+      tipo_servicio:     document.getElementById('tipo-servicio').value.trim(),
+      numero_cuenta:     document.getElementById('numero-cuenta').value.trim(),
+      mercado:           document.getElementById('mercado').value.trim(),
+      motivo_llamada:    motivo,
+      status:            (document.querySelector('.radio-btn.checked input') || {}).value || 'PENDING',
+      autopago:          document.getElementById('autopago').value.trim(),
+      sistema:           document.getElementById('sistema').value.trim(),
+      riesgo:            document.getElementById('riesgo').value.trim(),
+      imagen_url:        document.getElementById('imagen-url-hidden').value || '',
+      puntaje:           document.getElementById('score-num').textContent.trim(),
+      dia_venta:         document.getElementById('dia-venta').value,
+      dia_instalacion:   document.getElementById('dia-instalacion').value,
+      supervisor:        document.getElementById('supervisor').value.trim(),
+      agente:            document.getElementById('agentAssign').value.trim(),
+      creadoEn:          new Date().toISOString()
     };
 
-    // Deshabilitar botón
+    // ── Deshabilitar botón ──
     btn.disabled = true;
     const originalText = btn.textContent;
     btn.textContent = '⏳ Guardando...';
 
     try {
-      // Subir imagen si hay una seleccionada
+      // Subir imagen
       if (_imgFile) {
         btn.textContent = '⏳ Subiendo imagen...';
         const imgUrl = await _uploadImgIfNeeded();
@@ -1305,24 +1365,27 @@
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(function(){ return {}; });
+        throw new Error(errorData.message || 'Error ' + response.status + ': ' + response.statusText);
       }
 
       const result = await response.json();
-      
-      // Éxito
+
+      // Éxito — limpiar formulario
       showToast('✅ Lead guardado exitosamente', 'ok');
-      console.log('Lead guardado:', result);
-      
-      // Limpiar formulario
-      document.querySelectorAll('input[type="text"], input[type="date"], select, textarea').forEach(el => el.value = '');
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      document.querySelectorAll('.chip')[0]?.classList.add('active');
-      document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('checked'));
-      document.getElementById('rb-pending')?.classList.add('checked');
+      document.querySelectorAll('input[type="text"], input[type="date"], select, textarea').forEach(function(el){ el.value = ''; });
+      document.querySelectorAll('.chip').forEach(function(c){ c.classList.remove('active'); });
+      const firstChip = document.querySelectorAll('.chip')[0];
+      if (firstChip) firstChip.classList.add('active');
+      document.querySelectorAll('.radio-btn').forEach(function(b){ b.classList.remove('checked'); });
+      const rbPending = document.getElementById('rb-pending');
+      if (rbPending) rbPending.classList.add('checked');
       document.getElementById('score-num').textContent = '--';
+      gaugeLabel.textContent = '--';
+      gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)';
       removeImg();
+      const imgHint = document.getElementById('img-required-hint');
+      if (imgHint) imgHint.style.display = 'none';
 
     } catch (error) {
       console.error('❌ Error guardando lead:', error);
