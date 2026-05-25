@@ -374,10 +374,11 @@
               </div>
             </div>
             <div class="ll-field" id="assignWrap" style="display:none;">
-              <label>Asignar a Agente (Admin)</label>
+              <label>Asignar a Agente</label>
               <select id="agentAssign">
-                <option value="">Selecciona agente</option>
+                <option value="">— Selecciona agente —</option>
               </select>
+              <div id="agentAssignNote" style="font-size:10px;color:#94a3b8;margin-top:5px;font-style:italic;">Cargando agentes...</div>
             </div>
           </div>
 
@@ -641,22 +642,47 @@
       renderLines();
       attachPhoneNormalizers();
 
-      /* Selector de agente solo para admins */
+      /* Selector de agente — visible para Admin y Backoffice, carga desde API */
       (function initAgentAssign() {
         try {
           var user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
           var roleLc = String(user.role||'').toLowerCase();
-          var isAdmin = roleLc.includes('admin') || roleLc === 'administrador';
+          var isAdmin = roleLc.includes('admin') || roleLc === 'administrador' ||
+                        roleLc.includes('backoffice') || roleLc.includes('back office') ||
+                        roleLc === 'bo' || roleLc === 'b.o' || roleLc === 'rol_icon' ||
+                        roleLc === 'icon' || roleLc === 'bamo';
           if (!isAdmin || !assignWrap || !agentAssign) return;
-          var uname = String(user.username||user.name||'').toUpperCase();
-          var agentsMap = {
-            'JONATHAN F': ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUES','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'],
-            'LUIS G': ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','KARLA PONCE','MANUEL FLORES','JOSUE HERNANDEZ']
-          };
-          var list = agentsMap[uname] || [];
-          if (!list.length) return;
+
           assignWrap.style.display = 'block';
-          agentAssign.innerHTML = '<option value="">Selecciona agente</option>' + list.map(function(a){ return '<option value="'+a+'">'+a+'</option>'; }).join('');
+
+          var token = (localStorage.getItem('token') || '').trim();
+          fetch('/api/users/agents', {
+            credentials: 'include',
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+          })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data) {
+            if (!data) { document.getElementById('agentAssignNote').textContent = 'No se pudo cargar la lista.'; return; }
+            var users = data.agents || data.data || data.users || [];
+            var getName = function(u){ return (u.name||u.fullName||u.nombre||u.username||'').trim(); };
+            // Filtrar agentes del team lineas o agentes generales
+            var agentes = users.filter(function(u){
+              var r = String(u.role||'').toLowerCase();
+              var t = String(u.team||'').toLowerCase();
+              return r.includes('agente') || r.includes('vendedor') || r.includes('agent') ||
+                     r.includes('teamlineas') || r.includes('lineas') || t.includes('lineas');
+            }).sort(function(a,b){ return getName(a).localeCompare(getName(b)); });
+
+            agentAssign.innerHTML = '<option value="">— Selecciona agente —</option>' +
+              agentes.map(function(u){
+                var n = getName(u);
+                return n ? '<option value="'+n+'">'+n+'</option>' : '';
+              }).join('');
+
+            var note = document.getElementById('agentAssignNote');
+            if (note) note.textContent = agentes.length + ' agentes disponibles';
+          })
+          .catch(function(){ document.getElementById('agentAssignNote').textContent = 'Error cargando agentes.'; });
         } catch(e) {}
       })();
 
