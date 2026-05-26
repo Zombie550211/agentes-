@@ -274,9 +274,14 @@
       <button class="modal-close" onclick="closeModal('modal-role')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:6px">
         <label class="form-label">Usuario</label>
-        <div id="r-user-display" style="font-weight:700;font-size:.9rem;color:var(--ink);padding:8px 0"></div>
+        <div id="r-user-display" style="font-weight:700;font-size:.9rem;color:var(--ink);padding:4px 0 2px"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Nombre de usuario (login)</label>
+        <input class="form-input" id="r-username" type="text" placeholder="Ej. maria.lopez" autocomplete="off"/>
+        <div class="form-hint">Cambia el nombre con el que inicia sesión. Deja igual si no deseas modificarlo.</div>
       </div>
       <hr class="divider"/>
       <div class="form-row">
@@ -501,81 +506,66 @@ async function loadTeams(){
 
     // Poblar supervisores en ambos modales
     ['c-supervisor','r-supervisor'].forEach(function(id){
-      const sel=document.getElementById(id);
+      var sel=document.getElementById(id);
       if(!sel)return;
       sel.innerHTML='<option value="">— Selecciona supervisor —</option>';
       _supervisors.forEach(function(s){
-        const opt=document.createElement('option');
+        var opt=document.createElement('option');
         opt.value=s.key;
         opt.textContent=s.name;
         sel.appendChild(opt);
       });
       // Opción para roles sin supervisor
-      const none=document.createElement('option');
+      var none=document.createElement('option');
       none.value='__none__';
       none.textContent='Sin supervisor (Backoffice / Admin)';
       sel.appendChild(none);
     });
+
+    // Pre-poblar equipos en ambos modales con todos los teams disponibles
+    ['c','r'].forEach(function(p){ onSupervisorChange(p); });
   }catch(e){ console.error('[loadTeams]',e); }
 }
 
 function onSupervisorChange(prefix){
-  const supKey=document.getElementById(prefix+'-supervisor').value;
-  const teamSel=document.getElementById(prefix+'-team');
+  var supKey=document.getElementById(prefix+'-supervisor').value;
+  var teamSel=document.getElementById(prefix+'-team');
   if(!teamSel)return;
   teamSel.innerHTML='';
 
-  if(!supKey){
-    teamSel.innerHTML='<option value="">— Selecciona supervisor primero —</option>';
-    return;
-  }
-
-  // Determinar palabras clave del supervisor para matching flexible
-  const supLower=supKey.toLowerCase();
-  const isJonathan=supLower.includes('jonathan');
-  const isLuis=supLower.includes('luis');
+  var supLower=supKey.toLowerCase();
+  var showAll=(!supKey||supKey==='__none__');
 
   function teamMatchesSup(t){
-    // Primero intentar con supervisorKey (servidor nuevo)
     if(t.supervisorKey) return t.supervisorKey===supKey;
-    // Fallback: matchear por supervisorName o supervisor username (servidor viejo)
-    const sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
-    if(isJonathan) return sName.includes('jonathan');
-    if(isLuis)     return sName.includes('luis');
-    // Para cualquier otro supervisor, hacer matching por key o nombre
-    // Evitar que equipos sin supervisorName hagan match (string vacío includes todo)
+    var sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
     if(!sName) return false;
-    return sName.includes(supLower) || supLower.includes(sName);
+    return sName.includes(supLower)||supLower.includes(sName);
   }
 
-  function teamHasNoSup(t){
-    if('supervisorKey' in t) return !t.supervisorKey;
-    return !t.supervisorName || t.supervisorName==='Sin supervisor específico' || t.supervisorName==='Sin supervisor';
-  }
+  // Sin supervisor → mostrar todos los equipos disponibles
+  var filtered=showAll?_teams:_teams.filter(teamMatchesSup);
+  // Si el filtro no devuelve ninguno, mostrar todos como fallback
+  if(!filtered.length) filtered=_teams;
 
-  const filtered = supKey==='__none__'
-    ? _teams.filter(teamHasNoSup)
-    : _teams.filter(teamMatchesSup);
-
-  if(filtered.length===0){
-    teamSel.innerHTML='<option value="">Sin equipo asignado</option>';
+  if(!filtered.length){
+    teamSel.innerHTML='<option value="">Sin equipos disponibles</option>';
     return;
   }
 
-  const placeholder=document.createElement('option');
+  var placeholder=document.createElement('option');
   placeholder.value='';
   placeholder.textContent='— Selecciona equipo —';
   teamSel.appendChild(placeholder);
 
   filtered.forEach(function(t){
-    const opt=document.createElement('option');
+    var opt=document.createElement('option');
     opt.value=t.value;
     opt.textContent=t.label;
     teamSel.appendChild(opt);
   });
 
-  // Si sólo hay un equipo, selecciónalo automáticamente
-  if(filtered.length===1){ teamSel.value=filtered[0].value; }
+  if(filtered.length===1) teamSel.value=filtered[0].value;
 }
 
 function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
@@ -707,38 +697,78 @@ async function createUser(){
 }
 
 function openRoleModal(userId){
-  const u=_users.find(x=>(x.id||x._id)===userId);
+  var u=_users.find(function(x){ return (x.id||x._id)===userId; });
   if(!u)return;
   _editingId=userId;
   _editingUsername=u.username;
-  document.getElementById('r-user-display').textContent=`${u.name||u.username} (@${u.username})`;
+  document.getElementById('r-user-display').textContent=(u.name||u.username)+' (@'+u.username+')';
+  document.getElementById('r-username').value=u.username||'';
   document.getElementById('r-role').value=u.role||'Agente';
-  // Preseleccionar supervisor del usuario
-  const supSel=document.getElementById('r-supervisor');
+  // Preseleccionar supervisor
+  var supSel=document.getElementById('r-supervisor');
   if(supSel){
-    // Buscar supervisor del usuario en la lista
-    const userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
-    const matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key)||s.key.includes(userSup); });
+    var userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
+    var matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key)||s.key.includes(userSup); });
     supSel.value=matched?matched.key:'';
+    // onSupervisorChange mostrará todos los equipos si no hay supervisor seleccionado
     onSupervisorChange('r');
-    // Ahora preseleccionar el equipo
-    const teamSel=document.getElementById('r-team');
-    if(teamSel){ setTimeout(function(){ teamSel.value=u.team||u.equipo||''; },50); }
+    // Pre-seleccionar equipo actual del usuario
+    var teamSel=document.getElementById('r-team');
+    if(teamSel){
+      var currentTeam=u.team||u.equipo||'';
+      setTimeout(function(){
+        // Intentar seleccionar; si no existe la opción, añadirla
+        if(currentTeam){
+          if(!teamSel.querySelector('option[value="'+currentTeam+'"]')){
+            var extra=document.createElement('option');
+            extra.value=currentTeam;
+            extra.textContent=currentTeam;
+            teamSel.appendChild(extra);
+          }
+          teamSel.value=currentTeam;
+        }
+      },60);
+    }
   }
   onRoleChange('r');
   openModal('modal-role');
 }
 
 async function saveRole(){
-  const role=document.getElementById('r-role').value;
-  const team=document.getElementById('r-team').value.trim();
-  const supervisorKey=document.getElementById('r-supervisor')?document.getElementById('r-supervisor').value.trim():'';
+  var role=document.getElementById('r-role').value;
+  var team=document.getElementById('r-team').value.trim();
+  var supEl=document.getElementById('r-supervisor');
+  var supervisorKey=supEl?supEl.value.trim():'';
+  var usernameEl=document.getElementById('r-username');
+  var newUsername=usernameEl?(usernameEl.value.trim()):'';
   if(!role){ toast('Selecciona un rol','err'); return; }
-  const res=await AUTH.sf(`/api/users/${_editingId}/role`,{ method:'PUT', body:JSON.stringify({ role, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'' }) });
+  if(newUsername&&newUsername.length<3){ toast('El usuario debe tener al menos 3 caracteres','err'); return; }
+
+  // Guardar rol + equipo + supervisor
+  var supervisor=supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'';
+  var res=await AUTH.sf('/api/users/'+_editingId+'/role',{
+    method:'PUT',
+    body:JSON.stringify({ role:role, team:team, supervisor:supervisor })
+  });
   if(!res){ toast('Error de conexión','err'); return; }
-  const data=await res.json();
-  if(res.ok&&data.success!==false){ toast('Rol actualizado','ok'); closeModal('modal-role'); loadUsers(); }
-  else toast(data.message||'Error al actualizar rol','err');
+  var data=await res.json();
+  if(!res.ok||data.success===false){ toast(data.message||'Error al actualizar rol','err'); return; }
+
+  // Cambiar username si fue modificado
+  if(newUsername&&newUsername!==_editingUsername){
+    var res2=await AUTH.sf('/api/users/'+_editingId+'/credentials',{
+      method:'PUT',
+      body:JSON.stringify({ username:newUsername })
+    });
+    if(!res2){ toast('Rol guardado, pero error al cambiar nombre de usuario','warn'); closeModal('modal-role'); loadUsers(); return; }
+    var data2=await res2.json();
+    if(!res2.ok||data2.success===false){ toast(data2.message||'Error al cambiar nombre de usuario','err'); closeModal('modal-role'); loadUsers(); return; }
+    _editingUsername=newUsername;
+  }
+
+  toast('Usuario actualizado correctamente','ok');
+  closeModal('modal-role');
+  loadUsers();
 }
 
 function openPermsModal(userId){

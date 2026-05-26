@@ -78,6 +78,7 @@ def _serialize(u: dict) -> dict:
 class UpdateRoleBody(BaseModel):
     role: str
     team: Optional[str] = None
+    supervisor: Optional[str] = None
 
 
 class UpdateCredentialsBody(BaseModel):
@@ -121,19 +122,22 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, team FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        r = await s.execute(text("SELECT id, team, supervisor FROM users WHERE id = :id LIMIT 1"), {"id": uid})
         row = r.mappings().first()
         if not row:
             raise HTTPException(404, "Usuario no encontrado")
 
-        final_team = body.team or row["team"]
+        final_team = body.team if body.team is not None else (row["team"] or "")
+        final_supervisor = body.supervisor if body.supervisor is not None else (row.get("supervisor") or "")
         new_perms = ROLE_PERMS.get(body.role) or ROLE_PERMS.get(body.role.lower()) or []
 
         await s.execute(text("""
-            UPDATE users SET role = :role, team = :team, permissions = :perms, updated_at = :now
+            UPDATE users SET role = :role, team = :team, supervisor = :supervisor,
+                            permissions = :perms, updated_at = :now
             WHERE id = :id
         """), {
             "role": body.role, "team": final_team,
+            "supervisor": final_supervisor,
             "perms": json.dumps(new_perms),
             "now": datetime.utcnow(), "id": uid,
         })
