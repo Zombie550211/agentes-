@@ -737,7 +737,12 @@
             body: JSON.stringify(payload)
           });
           var data = await resp.json();
-          if (!resp.ok || data.success === false) throw new Error(data.message || (data.errors||[]).join(', '));
+          if (!resp.ok || data.success === false) {
+            // Mensaje específico del servidor (incluye detalles del duplicado si es 409)
+            var errMsg = data.message || data.detail || (data.errors||[]).join(', ') || 'Error al crear';
+            if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
+            throw new Error(String(errMsg));
+          }
 
           msg.style.color = '#22d3ee';
           msg.textContent = '✓ Creado correctamente';
@@ -754,7 +759,7 @@
           diaVenta.value = todayLocal();
         } catch(err) {
           msg.style.color = '#ef4444';
-          msg.textContent = err.message || 'Error al crear';
+          msg.textContent = String(err.message || 'Error al crear');
         }
       });
     });

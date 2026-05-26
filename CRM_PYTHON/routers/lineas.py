@@ -390,21 +390,22 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     if errors:
         raise HTTPException(400, {"message": "Validación fallida", "errors": errors})
 
-    # Verificar duplicado por telefono + cuenta antes de insertar
+    # Verificar duplicado solo cuando AMBOS campos tienen valor real
     telefono_clean = re.sub(r"\D+", "", body.telefono_principal)
     cuenta_clean   = str(body.numero_cuenta).strip()
-    async with AsyncSessionLocal() as s:
-        dup = await s.execute(text("""
-            SELECT id FROM lineas_clientes
-            WHERE telefono_principal = :tp AND numero_cuenta = :nuc
-            LIMIT 1
-        """), {"tp": telefono_clean, "nuc": cuenta_clean})
-        existing = dup.mappings().first()
-    if existing:
-        raise HTTPException(409, {
-            "message": "Ya existe un registro con ese teléfono y número de cuenta",
-            "existing_id": str(existing["id"]),
-        })
+    if telefono_clean and cuenta_clean:
+        async with AsyncSessionLocal() as s:
+            dup = await s.execute(text("""
+                SELECT id, nombre_cliente, agente FROM lineas_clientes
+                WHERE telefono_principal = :tp AND numero_cuenta = :nuc
+                LIMIT 1
+            """), {"tp": telefono_clean, "nuc": cuenta_clean})
+            existing = dup.mappings().first()
+        if existing:
+            raise HTTPException(409, {
+                "message": f"Este cliente ya existe en el sistema (ID #{existing['id']} — {existing.get('nombre_cliente','?')}, agente: {existing.get('agente','?')}). Si necesitas actualizarlo, búscalo en COSTUMER LÍNEAS.",
+                "existing_id": str(existing["id"]),
+            })
 
     username     = user.get("username", "")
     target_agent = username
