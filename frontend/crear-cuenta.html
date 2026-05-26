@@ -448,55 +448,61 @@ async function loadTeams(){
     ]);
     if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
 
-    // Equipos canónicos actuales (siempre se usan como base)
+    // ── Lista base completa (siempre presente, cubre ambas secciones) ──
     const canonicalTeams = [
-      { value:'TEAM LINEAS', label:'TEAM LÍNEAS',  supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa', supervisor:'jonathan.figueroa' },
-      { value:'TEAM LUIS G', label:'TEAM LUIS G',  supervisorKey:'LUIS G',     supervisorName:'Luis G',            supervisor:'luis.g' },
-      { value:'Backoffice',  label:'Backoffice',   supervisorKey:null,          supervisorName:null },
-      { value:'Administración', label:'Administración', supervisorKey:null,     supervisorName:null }
+      // Sección LÍNEAS
+      { value:'TEAM LINEAS',    label:'TEAM LÍNEAS',     supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa', supervisor:'jonathan.figueroa' },
+      { value:'TEAM LUIS G',    label:'TEAM LUIS G',     supervisorKey:'LUIS G',     supervisorName:'Luis G',            supervisor:'luis.g' },
+      // Sección RESIDENCIAL
+      { value:'TEAM IRANIA',    label:'TEAM IRANIA',     supervisorKey:'IRANIA',     supervisorName:'Irania Serrano',    supervisor:'irania.serrano' },
+      { value:'TEAM ROBERTO',   label:'TEAM ROBERTO',    supervisorKey:'ROBERTO',    supervisorName:'Roberto Velasquez', supervisor:'roberto.velasquez' },
+      { value:'TEAM MARISOL',   label:'TEAM MARISOL',    supervisorKey:'MARISOL',    supervisorName:'Marisol Beltran',   supervisor:'marisol.beltran' },
+      { value:'TEAM PLEITEZ',   label:'TEAM PLEITEZ',    supervisorKey:'PLEITEZ',    supervisorName:'Bryan Pleitez',     supervisor:'bryan.pleitez' },
+      { value:'TEAM JOHANA',    label:'TEAM JOHANA',     supervisorKey:'JOHANA',     supervisorName:'Johana',            supervisor:'johana' },
+      // Sin equipo específico
+      { value:'Backoffice',     label:'Backoffice',      supervisorKey:null, supervisorName:null },
+      { value:'Administración', label:'Administración',  supervisorKey:null, supervisorName:null },
     ];
 
-    // Usar API sólo si devuelve datos actualizados (tiene TEAM LUIS G)
+    // Empezar siempre con la lista canónica completa
+    _teams = canonicalTeams.slice();
+
+    // MEZCLAR con la API — agregar cualquier equipo extra que esté en la DB pero no en canónica
     if(resT&&resT.ok){
       try{
         const d=await resT.json();
         const apiTeams=Array.isArray(d.teams)?d.teams:[];
-        const tieneActuales=apiTeams.some(function(t){
-          return String(t.supervisorName||t.supervisor||'').toLowerCase().includes('luis') || t.supervisorKey==='LUIS G';
+        const seenVals=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
+        apiTeams.forEach(function(t){
+          if(t.value && !seenVals.has(String(t.value).toLowerCase())){
+            seenVals.add(String(t.value).toLowerCase());
+            _teams.push(t);
+          }
         });
-        _teams = tieneActuales ? apiTeams : canonicalTeams;
-      }catch(e){ _teams=canonicalTeams; }
-    } else {
-      _teams = canonicalTeams;
+      }catch(e){}
     }
 
-    // Si los supervisores vienen con team, incluirlos como opciones de equipo
-    // para que al seleccionar supervisor aparezca su team aunque /api/teams no lo traiga.
+    // También mezclar desde supervisors-list si traen team no registrado
     if(Array.isArray(_supervisors) && _supervisors.length){
-      const seenTeamKey = new Set((_teams||[]).map(t => String(t.supervisorKey||'') + '|' + String(t.value||'')));
+      const seenVals2=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
       _supervisors.forEach(function(s){
-        const t = (s && s.team) ? String(s.team).trim() : '';
-        if(!t) return;
-        const key = String(s.key||'').trim();
-        const uniq = key + '|' + t;
-        if(!key || seenTeamKey.has(uniq)) return;
-        seenTeamKey.add(uniq);
-        _teams.push({ value: t, label: t, supervisorKey: key, supervisorName: s.name || key, supervisor: s.username || '' });
+        var tv = (s && s.team) ? String(s.team).trim() : '';
+        if(!tv || seenVals2.has(tv.toLowerCase())) return;
+        seenVals2.add(tv.toLowerCase());
+        _teams.push({ value:tv, label:tv, supervisorKey:s.key||'', supervisorName:s.name||'', supervisor:s.username||'' });
       });
     }
 
-    // Fallback: si supervisors-list falló o está vacío, extraer supervisores únicos de los teams
-    if(!_supervisors.length && _teams.length){
+    // Fallback supervisores si el API no respondió
+    if(!_supervisors.length){
       const seen=new Set();
       _teams.forEach(function(t){
         if(t.supervisorKey && !seen.has(t.supervisorKey)){
           seen.add(t.supervisorKey);
-          _supervisors.push({ key: t.supervisorKey, name: t.supervisorName || t.supervisorKey, username: t.supervisor || '' });
+          _supervisors.push({ key:t.supervisorKey, name:t.supervisorName||t.supervisorKey, username:t.supervisor||'' });
         }
       });
     }
-
-    // Fallback final: lista hardcodeada si el API no responde
     if(!_supervisors.length){
       _supervisors = [
         { key:'JONATHAN F', name:'Jonathan Figueroa', username:'jonathan.figueroa' },
@@ -528,44 +534,26 @@ async function loadTeams(){
 }
 
 function onSupervisorChange(prefix){
-  var supKey=document.getElementById(prefix+'-supervisor').value;
   var teamSel=document.getElementById(prefix+'-team');
   if(!teamSel)return;
-  teamSel.innerHTML='';
 
-  var supLower=supKey.toLowerCase();
-  var showAll=(!supKey||supKey==='__none__');
-
-  function teamMatchesSup(t){
-    if(t.supervisorKey) return t.supervisorKey===supKey;
-    var sName=String(t.supervisorName||t.supervisor||'').toLowerCase();
-    if(!sName) return false;
-    return sName.includes(supLower)||supLower.includes(sName);
-  }
-
-  // Sin supervisor → mostrar todos los equipos disponibles
-  var filtered=showAll?_teams:_teams.filter(teamMatchesSup);
-  // Si el filtro no devuelve ninguno, mostrar todos como fallback
-  if(!filtered.length) filtered=_teams;
-
-  if(!filtered.length){
+  // Mostrar SIEMPRE todos los equipos disponibles — sin filtrar por supervisor
+  if(!_teams.length){
     teamSel.innerHTML='<option value="">Sin equipos disponibles</option>';
     return;
   }
 
-  var placeholder=document.createElement('option');
-  placeholder.value='';
-  placeholder.textContent='— Selecciona equipo —';
-  teamSel.appendChild(placeholder);
-
-  filtered.forEach(function(t){
+  var currentVal=teamSel.value; // preservar selección actual
+  teamSel.innerHTML='<option value="">— Selecciona equipo —</option>';
+  _teams.forEach(function(t){
     var opt=document.createElement('option');
     opt.value=t.value;
     opt.textContent=t.label;
     teamSel.appendChild(opt);
   });
 
-  if(filtered.length===1) teamSel.value=filtered[0].value;
+  // Restaurar valor previo si sigue en la lista
+  if(currentVal) teamSel.value=currentVal;
 }
 
 function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
