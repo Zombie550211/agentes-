@@ -247,8 +247,12 @@ async def webhook_get(
                 sup_key = t.get("supervisorKey")
                 break
         if sup_key:
-            where.append("UPPER(supervisor) = :sup")
-            params["sup"] = sup_key.upper()
+            first_word = sup_key.split()[0].upper()
+            where.append("""(UPPER(TRIM(supervisor)) = :sup
+                             OR UPPER(TRIM(supervisor)) LIKE :sup_like
+                             OR UPPER(REPLACE(supervisor,'.', ' ')) LIKE :sup_like)""")
+            params["sup"]      = sup_key.upper()
+            params["sup_like"] = f"{first_word}%"
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:
@@ -361,6 +365,14 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
             supervisor_val = "jonathan f"
         elif "luis" in t:
             supervisor_val = "luis g"
+
+    # Normalizar supervisor a clave corta si viene nombre completo
+    _sup_map = {
+        "jonathan figueroa": "jonathan f", "jonathan.figueroa": "jonathan f",
+        "jonathan f": "jonathan f",
+        "luis g": "luis g", "luis.g": "luis g",
+    }
+    supervisor_val = _sup_map.get(supervisor_val, supervisor_val)
 
     if not supervisor_val:
         errors.append("No se pudo determinar el supervisor")
@@ -716,8 +728,15 @@ async def lineas_team_list(user: dict = Depends(current_user)):
                 sup_key = t.get("supervisorKey")
                 break
         if sup_key:
-            where.append("UPPER(supervisor) = :sup")
-            params["sup"] = sup_key.upper()
+            # Match flexible: cubre "JONATHAN F", "JONATHAN FIGUEROA", "jonathan.figueroa", etc.
+            first_word = sup_key.split()[0].upper()  # "JONATHAN" ó "LUIS"
+            where.append("""(
+                UPPER(TRIM(supervisor)) = :sup
+                OR UPPER(TRIM(supervisor)) LIKE :sup_like
+                OR UPPER(REPLACE(supervisor, '.', ' ')) LIKE :sup_like
+            )""")
+            params["sup"]      = sup_key.upper()
+            params["sup_like"] = f"{first_word}%"
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:
@@ -730,13 +749,16 @@ async def lineas_team_list(user: dict = Depends(current_user)):
 
     where_sql = ("WHERE " + " AND ".join(f"({w})" for w in where)) if where else ""
 
+    # Admins y backoffice: sin límite fijo (max 10000); supervisores/agentes: 3000
+    row_limit = 10000 if is_admin_bo else 3000
+
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
             SELECT * FROM lineas_clientes
             {where_sql}
             ORDER BY created_at DESC
-            LIMIT 1500
-        """), params)
+            LIMIT :_lim
+        """), {**params, "_lim": row_limit})
         records = [_fmt_lc(row) for row in r.mappings().all()]
 
     _cache_set(cache_key, records)
