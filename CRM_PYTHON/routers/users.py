@@ -26,10 +26,14 @@ ROLE_PERMS = {
 
 ALLOWED_ROLES = [
     "admin","Administrador","administrador","Administrativo",
-    "supervisor","supervisora",
-    "vendedor","usuario","agente","agent",
-    "backoffice","back office","Back Office","back_office","bo","BO","b.o","b:o",
+    "Supervisor","supervisor","supervisora","Supervisor Team Lineas","supervisor team lineas",
+    "vendedor","usuario","Agente","agente","agent",
+    "Backoffice","backoffice","back office","Back Office","back_office","bo","BO","b.o","b:o",
+    "Lineas-Agentes","lineas-agentes","Lineas Agentes","lineas agentes",
 ]
+
+# Set normalizado para chequeo rápido case-insensitive
+_ALLOWED_ROLES_LOWER = {r.lower() for r in ALLOWED_ROLES}
 
 ADMIN_ROLES = {"admin","administrador","administrativo","administrador general"}
 
@@ -113,8 +117,8 @@ async def agents_list(user: dict = Depends(current_user)):
 async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
         raise HTTPException(403, "No autorizado para actualizar usuarios")
-    if body.role not in ALLOWED_ROLES:
-        raise HTTPException(400, "Rol no permitido")
+    if body.role.lower() not in _ALLOWED_ROLES_LOWER:
+        raise HTTPException(400, f"Rol no permitido: '{body.role}'")
 
     try:
         uid = int(user_id)
