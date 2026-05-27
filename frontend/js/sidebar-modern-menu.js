@@ -7,37 +7,37 @@ function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
   
   // Items de Servicios Residenciales
   const residencialItems = [
-    { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html' },
-    { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true },
-    { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
-    { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
-    { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
-    { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html', adminOnly: true },
-    { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/Comisiones.html' },
-    { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' },
-    { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
-    { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
-    { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' }
+    { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/residencial/inicio.html' },
+    { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/residencial/costumer.html', hasSubmenu: true },
+    { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html' },
+    { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
+    { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
+    { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', adminOnly: true },
+    { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html' },
+    { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' },
+    { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
+    { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html' },
+    { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html' }
   ];
 
   // Items de Servicios Móviles (Team Líneas)
   const movilesItems = [
-    { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
-    { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
-    { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' },
-    { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/TEAM LINEAS/COMISIONES-LINEAS.html' },
-    { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/TEAM LINEAS/FACTURACION-LINEAS.html' },
-    { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/TEAM LINEAS/LLAMADAS-LINEAS.html' }
+    { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
+    { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
+    { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' },
+    { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/lineas/comisiones.html' },
+    { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/lineas/facturacion.html' },
+    { key: 'llamadas-lineas', icon: 'fa-phone', text: 'Llamadas y Ventas Líneas', href: '/lineas/llamadas-ventas.html' }
   ];
 
   // Teams para el submenu
   const teams = [
-    { name: 'Oficina', href: '/Costumer.html?team=oficina' },
-    { name: 'Team Irania', href: '/Costumer.html?team=irania' },
-    { name: 'Team Johana', href: '/Costumer.html?team=johana' },
-    { name: 'Team Marisol', href: '/Costumer.html?team=marisol' },
-    { name: 'Team Pleitez', href: '/Costumer.html?team=pleitez' },
-    { name: 'Team Roberto', href: '/Costumer.html?team=roberto' }
+    { name: 'Oficina', href: '/residencial/costumer.html?team=oficina' },
+    { name: 'Team Irania', href: '/residencial/costumer.html?team=irania' },
+    { name: 'Team Johana', href: '/residencial/costumer.html?team=johana' },
+    { name: 'Team Marisol', href: '/residencial/costumer.html?team=marisol' },
+    { name: 'Team Pleitez', href: '/residencial/costumer.html?team=pleitez' },
+    { name: 'Team Roberto', href: '/residencial/costumer.html?team=roberto' }
   ];
 
   const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';

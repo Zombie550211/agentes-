@@ -88,6 +88,51 @@ _MIGRATIONS = [
         ELSE riesgo
     END
     WHERE riesgo IS NOT NULL AND TRIM(riesgo) != ''""",
+    # Normalizar team en lineas_clientes según supervisor
+    """UPDATE lineas_clientes
+       SET team = 'TEAM LINEAS JONATHAN'
+       WHERE UPPER(TRIM(COALESCE(supervisor,''))) LIKE 'JONATHAN%'""",
+    """UPDATE lineas_clientes
+       SET team = 'TEAM LINEAS LUIS'
+       WHERE UPPER(TRIM(COALESCE(supervisor,''))) LIKE 'LUIS%'""",
+    # Backfill supervisor en leads históricos con supervisor vacío,
+    # tomando el supervisor asignado en el perfil del agente.
+    """UPDATE leads l
+       INNER JOIN users u
+         ON (   LOWER(TRIM(l.agente_nombre)) = LOWER(TRIM(u.username))
+             OR LOWER(TRIM(l.agente))        = LOWER(TRIM(u.username))
+             OR LOWER(TRIM(l.created_by))    = LOWER(TRIM(u.username))
+            )
+       SET l.supervisor = u.supervisor
+       WHERE (l.supervisor IS NULL OR TRIM(l.supervisor) = '')
+         AND u.supervisor IS NOT NULL AND TRIM(u.supervisor) != ''""",
+    # Backfill supervisor en lineas_clientes desde columna team (si ya estaba seteada)
+    """UPDATE lineas_clientes
+       SET supervisor = CASE
+         WHEN UPPER(TRIM(COALESCE(team,''))) LIKE '%LUIS%'     THEN 'LUIS G'
+         WHEN UPPER(TRIM(COALESCE(team,''))) LIKE '%JONATHAN%' THEN 'JONATHAN F'
+         ELSE supervisor
+       END
+       WHERE (supervisor IS NULL OR TRIM(supervisor) = '')
+         AND COALESCE(TRIM(team),'') != ''""",
+    # Backfill supervisor en lineas_clientes desde perfil del agente en users
+    """UPDATE lineas_clientes lc
+       INNER JOIN users u
+         ON (   LOWER(TRIM(lc.agente))          = LOWER(TRIM(u.username))
+             OR LOWER(TRIM(lc.agente_nombre))   = LOWER(TRIM(u.username))
+             OR LOWER(TRIM(lc.agente_asignado)) = LOWER(TRIM(u.username))
+             OR LOWER(TRIM(lc.agente))          = LOWER(TRIM(u.name))
+             OR LOWER(TRIM(lc.agente_nombre))   = LOWER(TRIM(u.name))
+             OR LOWER(TRIM(lc.agente_asignado)) = LOWER(TRIM(u.name))
+            )
+       SET lc.supervisor = CASE
+         WHEN LOWER(TRIM(COALESCE(u.team,''))) LIKE '%lineas luis%'
+              OR LOWER(TRIM(COALESCE(u.supervisor,''))) LIKE '%luis%' THEN 'LUIS G'
+         WHEN LOWER(TRIM(COALESCE(u.team,''))) LIKE '%lineas jonathan%'
+              OR LOWER(TRIM(COALESCE(u.supervisor,''))) LIKE '%jonathan%' THEN 'JONATHAN F'
+         ELSE lc.supervisor
+       END
+       WHERE (lc.supervisor IS NULL OR TRIM(lc.supervisor) = '')""",
 ]
 
 async def _fix_api_file_urls():
@@ -211,8 +256,8 @@ if public_dir.exists():
 HTML_DIRS = [
     FRONTEND_DIR,
     FRONTEND_DIR / "public",
-    FRONTEND_DIR / "agentes",
-    FRONTEND_DIR / "TEAM LINEAS",
+    FRONTEND_DIR / "residencial",
+    FRONTEND_DIR / "lineas",
 ]
 
 def find_html(name: str) -> Path | None:
@@ -234,13 +279,54 @@ async def root_head():
 
 @app.get("/inicio")
 async def inicio():
-    f = find_html("lead")
+    f = find_html("residencial/inicio")
     if f:
         return FileResponse(str(f))
     return RedirectResponse(url="/login.html")
 
+# ── Mapa de rutas antiguas → nuevas (redirects 301) ─────────────
+_LEGACY_REDIRECTS: dict[str, str] = {
+    # TEAM LINEAS/ → /lineas/
+    "TEAM LINEAS/COSTUMER-LINEAS.html":        "/lineas/costumer.html",
+    "TEAM LINEAS/LEAD-LINEAS.html":            "/lineas/lead.html",
+    "TEAM LINEAS/INICIO-LINEAS.html":          "/lineas/inicio.html",
+    "TEAM LINEAS/FACTURACION-LINEAS.html":     "/lineas/facturacion.html",
+    "TEAM LINEAS/COMISIONES-LINEAS.html":      "/lineas/comisiones.html",
+    "TEAM LINEAS/ESTADISTICAS-LINEAS.html":    "/lineas/estadisticas.html",
+    "TEAM LINEAS/EMPLEADO-LINEAS.html":        "/lineas/empleado-mes.html",
+    "TEAM LINEAS/RANKING-LINEAS.html":         "/lineas/ranking.html",
+    "TEAM LINEAS/LLAMADAS-VENTAS-LINEAS.html": "/lineas/llamadas-ventas.html",
+    "TEAM LINEAS/REGLAS-LINEAS.html":          "/lineas/reglas.html",
+    # Rutas raíz antiguas → /residencial/
+    "Costumer.html":               "/residencial/costumer.html",
+    "formulario-registro.html":    "/residencial/formulario-registro.html",
+    "Estadisticas.html":           "/residencial/estadisticas.html",
+    "facturacion.html":            "/residencial/facturacion.html",
+    "inicio.html":                 "/residencial/inicio.html",
+    "Premios.html":                "/residencial/premios.html",
+    "Comisiones.html":             "/residencial/comisiones.html",
+    "Reglas.html":                 "/residencial/reglas.html",
+    "El semaforo.html":            "/residencial/semaforo.html",
+    "empleado-del-mes.html":       "/residencial/empleado-mes.html",
+    "historial-agentes.html":      "/residencial/historial-agentes.html",
+    "multimedia.html":             "/residencial/multimedia.html",
+    "Ranking y Promociones.html":  "/residencial/ranking.html",
+    "rankingAgente.html":          "/residencial/ranking-agente.html",
+    "Tabla de puntaje.html":       "/residencial/tabla-puntaje.html",
+    "llamadas y ventas por team.html": "/residencial/llamadas-ventas.html",
+    "lead-lineas.html":            "/lineas/lead.html",
+    "costumer-lineas.html":        "/lineas/costumer.html",
+    "permisos.html":               "/crear-cuenta.html",
+}
+
 @app.get("/{page:path}")
 async def serve_page(page: str):
+    # 0. Revisar mapa de redirects legacy (case-insensitive)
+    page_lower = page.lower()
+    for old, new in _LEGACY_REDIRECTS.items():
+        if page_lower == old.lower():
+            return RedirectResponse(url=new, status_code=301)
+
     # 1. Intentar como archivo HTML exacto
     for d in HTML_DIRS:
         candidate = d / page

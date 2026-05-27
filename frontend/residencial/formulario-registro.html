@@ -64,8 +64,8 @@
     }
   })();
 
-  if (isTeamLineasUser() && !window.location.pathname.endsWith('LEAD-LINEAS.html')) {
-    window.location.replace('/TEAM LINEAS/LEAD-LINEAS.html');
+  if (isTeamLineasUser() && !window.location.pathname.endsWith('/lineas/lead.html')) {
+    window.location.replace('/lineas/lead.html');
   }
 </script>
 
@@ -99,12 +99,12 @@
 <link rel="stylesheet" href="/css/responsive-components.css">
 
 <!-- Scripts -->
-<script src="js/fetch-interceptor.js"></script>
+<script src="/js/fetch-interceptor.js"></script>
 <script src="/js/logout-handler.js"></script>
 <script src="/js/user-info.js"></script>
-<script src="js/crm-config.js"></script>
-<script src="js/inactivity-manager.js"></script>
-<script src="js/crm-init.js"></script>
+<script src="/js/crm-config.js"></script>
+<script src="/js/inactivity-manager.js"></script>
+<script src="/js/crm-init.js"></script>
 <script src="/js/sidebar-loader.js"></script>
 
 <!-- Chart.js -->
@@ -729,7 +729,7 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                 <span style="font-size:0.68rem;font-weight:700;color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase;">Click o arrastra una imagen</span>
               </div>
-              <img id="img-preview" src="" alt="preview" style="
+              <img id="img-preview" src="/" alt="preview" style="
                 display:none; width:100%; height:100%;
                 object-fit:cover; position:absolute; inset:0;
               " onclick="event.stopPropagation();openImgLightbox()" title="Click para ampliar"/>
@@ -786,7 +786,7 @@
             <label>Día de Instalación</label>
             <input type="date" id="dia-instalacion" name="dia_instalacion" required>
           </div>
-          <div class="field">
+          <div class="field" style="display:none">
             <label>Supervisor</label>
             <select id="supervisor" name="supervisor" required>
               <option value="">Supervisor</option>
@@ -1145,7 +1145,7 @@
     if (!src) return;
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-    overlay.innerHTML = '<img src="'+src+'" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">';
+    overlay.innerHTML = '<img src="/'+src+'" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">';
     overlay.onclick = function() { document.body.removeChild(overlay); };
     document.body.appendChild(overlay);
   }
@@ -1313,11 +1313,24 @@
       return;
     }
 
-    // ── Construir objeto de datos ──
+    // ── Sanitizar y construir objeto de datos ──
+    const _cleanPhone = (v) => {
+      const d = String(v||'').replace(/\D/g,'');
+      return /^0+$/.test(d) ? '' : d;  // rechaza "0", "000000000000", etc.
+    };
+    const _tp = _cleanPhone(document.getElementById('telefono-principal').value);
+    const _t2 = _cleanPhone(document.getElementById('telefono_2').value);
+    if (!_tp) {
+      _vErr(document.getElementById('telefono-principal'));
+      showToast('❌ El teléfono principal no es válido', 'error');
+      document.getElementById('telefono-principal').scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+
     const data = {
       nombre_cliente:    document.getElementById('nombre-cliente').value.trim(),
-      telefono_principal:document.getElementById('telefono-principal').value.trim(),
-      telefono_2:        document.getElementById('telefono_2').value.trim(),
+      telefono_principal:_tp,
+      telefono_2:        _t2,
       direccion:         document.getElementById('direccion').value.trim(),
       zip_code:          document.getElementById('zip-code').value.trim(),
       servicios:         document.getElementById('servicios').value.trim(),
@@ -1333,8 +1346,8 @@
       puntaje:           document.getElementById('score-num').textContent.trim(),
       dia_venta:         document.getElementById('dia-venta').value,
       dia_instalacion:   document.getElementById('dia-instalacion').value,
-      supervisor:        document.getElementById('supervisor').value.trim(),
-      agente:            document.getElementById('agentAssign').value.trim(),
+      supervisor:        (function(){ try{ var u=JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return u.supervisor||u.supervisorKey||''; }catch(e){ return ''; } })(),
+      agente:            (function(){ try{ var u=JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return document.getElementById('agentAssign').value.trim()||u.username||''; }catch(e){ return document.getElementById('agentAssign').value.trim()||''; } })(),
       creadoEn:          new Date().toISOString()
     };
 

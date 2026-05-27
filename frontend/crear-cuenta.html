@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Panel de Permisos · CRM</title>
+  <title>Equipos · CRM</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
   <script src="js/fetch-interceptor.js" defer></script>
@@ -11,135 +11,198 @@
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
   <style>
-    :root {
-      --bg:#f1f3f7; --surface:#ffffff; --surface2:#f8f9fb;
-      --border:rgba(0,0,0,.07); --border2:rgba(0,0,0,.13);
-      --ink:#0c0e14; --ink2:#4a5068; --ink3:#9098b0;
-      --gold:#c49a00; --gold-dim:rgba(196,154,0,.09);
-      --green:#16a34a; --green-dim:rgba(22,163,74,.1);
-      --red:#dc2626; --red-dim:rgba(220,38,38,.09);
-      --blue:#2563eb; --blue-dim:rgba(37,99,235,.09);
+    :root{
+      --bg:#f5f6fa; --surface:#fff; --border:#e8eaed; --border2:#d1d5db;
+      --ink:#111827; --ink2:#374151; --ink3:#6b7280; --ink4:#9ca3af;
+      --blue:#4f46e5; --blue-dim:rgba(79,70,229,.08);
+      --green:#10b981; --green-dim:rgba(16,185,129,.08);
+      --red:#ef4444;  --red-dim:rgba(239,68,68,.08);
+      --amber:#f59e0b; --amber-dim:rgba(245,158,11,.08);
       --purple:#7c3aed;
-      --nav-w:220px; --f:'Syne',sans-serif; --fm:'DM Mono',monospace; --r:10px;
+      --nav-w:220px; --r:12px; --f:'Syne',sans-serif; --fm:'DM Mono',monospace;
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html{font-size:14px}
     body{font-family:var(--f);background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
     .layout{display:flex;min-height:100vh}
-    .sidebar{width:var(--nav-w);min-height:100vh;position:fixed;top:0;left:0;z-index:200;background:var(--ink)}
-    .main{margin-left:var(--nav-w);flex:1;padding:28px 32px 60px;max-width:1600px}
+    .sidebar{width:var(--nav-w);min-height:100vh;position:fixed;top:0;left:0;z-index:200;background:#0c0e14}
+    .main{margin-left:var(--nav-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
 
-    /* Header */
-    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
-    .page-title-block{display:flex;flex-direction:column;gap:4px}
-    .page-eyebrow{font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);font-family:var(--fm)}
-    .page-title{font-size:1.8rem;font-weight:800;letter-spacing:-.03em;color:var(--ink);line-height:1}
-    .page-subtitle{font-size:.8rem;color:var(--ink2);margin-top:2px}
-    .header-actions{display:flex;gap:8px;flex-wrap:wrap}
+    /* ── Topbar ── */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:var(--surface);border-bottom:1px solid var(--border);gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+    .topbar-left{}
+    .topbar-title{font-size:1.4rem;font-weight:800;color:var(--ink);line-height:1.1}
+    .topbar-sub{font-size:.72rem;color:var(--ink3);margin-top:2px}
+    .topbar-right{display:flex;align-items:center;gap:8px}
+    .search-top{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;min-width:230px}
+    .search-top input{border:none;outline:none;background:transparent;font-size:.78rem;color:var(--ink);flex:1;font-family:var(--f)}
+    .search-top input::placeholder{color:var(--ink4)}
+    .search-top i{color:var(--ink4);font-size:.78rem;flex-shrink:0}
+    .search-top kbd{font-size:.6rem;color:var(--ink4);background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;font-family:var(--fm);flex-shrink:0}
+    .btn-new-team{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--f);transition:background .1s;white-space:nowrap}
+    .btn-new-team:hover{background:#4338ca}
+    .icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;transition:all .1s;flex-shrink:0}
+    .icon-btn:hover{border-color:var(--border);color:var(--ink);background:var(--bg)}
+    .user-av-top{width:36px;height:36px;border-radius:50%;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;cursor:pointer;flex-shrink:0}
 
-    /* Stats */
-    .stats-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:22px}
-    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
-    .stat-lbl{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
-    .stat-val{font-family:var(--fm);font-size:1.8rem;font-weight:500;color:var(--ink);letter-spacing:-.03em;line-height:1}
-    .stat-val.gold{color:var(--gold)}.stat-val.blue{color:var(--blue)}.stat-val.green{color:var(--green)}.stat-val.purple{color:var(--purple)}
-
-    /* View tabs */
-    .view-tabs{display:flex;gap:8px;margin-bottom:20px}
-    .view-tab{padding:8px 20px;border-radius:var(--r);font-family:var(--f);font-size:.76rem;font-weight:700;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--ink2);transition:all .1s;display:inline-flex;align-items:center;gap:7px}
+    /* ── View tabs ── */
+    .view-tabs{display:flex;gap:8px;margin-bottom:16px}
+    .view-tab{padding:7px 16px;border-radius:8px;font-family:var(--f);font-size:.76rem;font-weight:700;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--ink2);transition:all .1s;display:inline-flex;align-items:center;gap:7px}
     .view-tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-    .view-tab:hover:not(.active){background:var(--surface2);color:var(--ink)}
+    .view-tab:hover:not(.active){background:var(--bg);color:var(--ink)}
 
-    /* Teams grid */
-    .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:18px}
+    /* ── Teams grid ── */
+    .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:16px}
 
-    /* Team card */
-    .tcard{background:var(--surface);border:1.5px solid var(--border2);border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05);transition:box-shadow .15s}
-    .tcard:hover{box-shadow:0 4px 20px rgba(0,0,0,.1)}
-    .tcard-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--ink)}
-    .tcard-name{font-size:.82rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff}
-    .tcard-edit-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.75);font-size:.6rem;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .1s;font-family:var(--f)}
-    .tcard-edit-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+    /* ── Team card ── */
+    .tcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .15s,border-color .15s}
+    .tcard:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+    .tcard.drop-target{border-color:var(--blue)!important;box-shadow:0 0 0 3px rgba(79,70,229,.15)!important}
 
-    .tcard-body{padding:18px}
-    .tcard-section-lbl{font-size:.55rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
+    /* Card header */
+    .tcard-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .tcard-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9rem;color:#fff}
+    .tcard-info{flex:1;min-width:0}
+    .tcard-name{font-size:.88rem;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tcard-count{font-size:.7rem;color:var(--ink3);margin-top:2px}
+    .tcard-menu-btn{width:28px;height:28px;border:none;background:transparent;color:var(--ink4);cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .1s;flex-shrink:0;position:relative}
+    .tcard-menu-btn:hover{background:var(--bg);color:var(--ink2)}
+    /* Kebab dropdown */
+    .team-dropdown{position:absolute;top:32px;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:170px;z-index:500;overflow:hidden;display:none}
+    .team-dropdown.open{display:block}
+    .team-dropdown-item{display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:.78rem;font-weight:600;color:var(--ink2);cursor:pointer;transition:background .1s;border:none;background:transparent;width:100%;font-family:var(--f);text-align:left}
+    .team-dropdown-item:hover{background:var(--bg);color:var(--ink)}
+    .team-dropdown-item.danger{color:var(--red)}
+    .team-dropdown-item.danger:hover{background:var(--red-dim);color:var(--red)}
+    .team-dropdown-sep{height:1px;background:var(--border);margin:3px 0}
 
     /* Supervisor row */
-    .sup-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.15);border-radius:10px;margin-bottom:4px;flex-wrap:wrap}
-    .sup-info{font-size:.77rem;color:var(--ink2);flex:1;min-width:100px}
-    .sup-info strong{color:var(--ink);font-weight:700}
-    .sup-info .label{color:var(--ink3);font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-right:5px}
-    .sup-info .no-sup{color:var(--ink3);font-style:italic}
-    .sup-actions{display:flex;gap:5px;flex-shrink:0}
+    .sup-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:14px}
+    .sup-text{font-size:.73rem;color:var(--ink3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sup-text strong{color:var(--ink2);font-weight:600}
+    .no-sup{font-style:italic}
+    .sup-link{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:.7rem;font-weight:700;cursor:pointer;background:none;border:none;font-family:var(--f);padding:0;white-space:nowrap;transition:opacity .1s;flex-shrink:0}
+    .sup-link:hover{opacity:.75}
 
-    /* Arrow */
-    .tcard-arrow{text-align:center;color:var(--ink3);font-size:1.1rem;margin:10px 0 6px;opacity:.4}
+    /* Agents */
+    .agents-header{font-size:.7rem;font-weight:700;color:var(--ink2);margin-bottom:8px;letter-spacing:.01em}
+    .agents-list{display:flex;flex-direction:column;gap:2px;margin-bottom:2px}
+    .agent-row{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:8px;transition:background .1s}
+    .agent-row:hover{background:var(--bg)}
+    .agent-row[draggable="true"]{cursor:grab}
+    .agent-row.is-dragging{opacity:.4}
+    .agent-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:#fff;flex-shrink:0}
+    .agent-name-lbl{flex:1;font-size:.78rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .agent-acts{display:flex;gap:4px;flex-shrink:0}
 
-    /* Agent rows */
-    .agents-list{display:flex;flex-direction:column;gap:5px}
-    .agent-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
-    .agent-av{width:26px;height:26px;border-radius:6px;background:rgba(22,163,74,.12);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:800;flex-shrink:0;letter-spacing:.02em}
-    .agent-name-lbl{flex:1;font-size:.75rem;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .agent-acts{display:flex;gap:3px;flex-shrink:0}
-    .no-agents{text-align:center;padding:12px;color:var(--ink3);font-size:.72rem;font-style:italic}
+    /* Mini buttons */
+    .mbtn{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:.62rem;font-weight:700;cursor:pointer;border:1px solid transparent;transition:all .1s;font-family:var(--f);white-space:nowrap;letter-spacing:.02em}
+    .mbtn-reset{background:rgba(245,158,11,.1);color:#b45309;border-color:rgba(245,158,11,.25)}
+    .mbtn-reset:hover{background:rgba(245,158,11,.18)}
+    .mbtn-quit{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.22)}
+    .mbtn-quit:hover{background:rgba(239,68,68,.15)}
+    .mbtn-blue{background:var(--blue-dim);color:var(--blue);border-color:rgba(79,70,229,.2)}
+    .mbtn-blue:hover{background:rgba(79,70,229,.15)}
+    .mbtn-gold{background:var(--amber-dim);color:#b45309;border-color:rgba(245,158,11,.25)}
+    .mbtn-gold:hover{background:rgba(245,158,11,.18)}
+    .mbtn-red{background:var(--red-dim);color:#dc2626;border-color:rgba(239,68,68,.22)}
+    .mbtn-red:hover{background:rgba(239,68,68,.15)}
 
-    /* Mini action buttons */
-    .mbtn{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:.6rem;font-weight:700;cursor:pointer;border:none;transition:all .1s;letter-spacing:.02em;font-family:var(--f);white-space:nowrap}
-    .mbtn-blue{background:rgba(37,99,235,.08);color:var(--blue);border:1px solid rgba(37,99,235,.2)}
-    .mbtn-blue:hover{background:rgba(37,99,235,.15)}
-    .mbtn-gold{background:rgba(196,154,0,.08);color:#9a7800;border:1px solid rgba(196,154,0,.25)}
-    .mbtn-gold:hover{background:rgba(196,154,0,.14)}
-    .mbtn-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(220,38,38,.2)}
-    .mbtn-red:hover{background:rgba(220,38,38,.14)}
+    /* No agents */
+    .no-agents{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;color:var(--ink4);font-size:.72rem;text-align:center;gap:6px}
 
-    /* Add agent btn */
-    .btn-add-agent{width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--border2);border-radius:8px;padding:8px;font-size:.72rem;font-weight:700;color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .1s;font-family:var(--f)}
+    /* See more */
+    .btn-see-more{width:100%;background:transparent;border:none;color:var(--blue);font-size:.7rem;font-weight:700;cursor:pointer;padding:5px 8px;border-radius:6px;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;transition:background .1s;margin-top:2px}
+    .btn-see-more:hover{background:rgba(79,70,229,.06)}
+
+    /* Drop hint */
+    .drop-hint{display:none;text-align:center;font-size:.68rem;color:var(--blue);font-weight:700;padding:8px;border:1.5px dashed var(--blue);border-radius:8px;margin:8px 0;background:rgba(79,70,229,.04)}
+    .tcard.drop-target .drop-hint{display:block}
+
+    /* Add agent */
+    .btn-add-agent{width:100%;margin-top:10px;padding:8px;background:transparent;border:1.5px dashed var(--border2);border-radius:8px;color:var(--ink3);font-size:.72rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .1s;font-family:var(--f)}
     .btn-add-agent:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
 
-    /* Unassigned section */
-    .unassigned-section{margin-top:32px}
-    .unassigned-title{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;display:flex;align-items:center;gap:10px}
-    .unassigned-title::after{content:'';flex:1;height:1px;background:var(--border)}
-    .unassigned-grid{display:flex;flex-wrap:wrap;gap:8px}
-    .unassigned-chip{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:8px}
-    .unassigned-chip-av{width:22px;height:22px;border-radius:5px;background:var(--surface2);color:var(--ink3);display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:800;flex-shrink:0}
-    .unassigned-chip-name{font-size:.73rem;font-weight:600;color:var(--ink2)}
+    /* Teams layout: left panel + grid */
+    .teams-layout{display:flex;align-items:flex-start;gap:0;min-height:calc(100vh - 120px)}
 
-    /* Existing table styles */
+    /* Unassigned panel — columna izquierda, pegada al borde */
+    .unassigned-panel{
+      width:210px;min-width:190px;flex-shrink:0;
+      background:var(--surface);border-right:1px solid var(--border);
+      position:sticky;top:0;
+      height:calc(100vh - 120px);
+      overflow-y:auto;
+      display:flex;flex-direction:column;
+    }
+    .unassigned-panel::-webkit-scrollbar{width:4px}
+    .unassigned-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+    .up-header{
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--border);
+      position:sticky;top:0;background:var(--surface);z-index:10;
+    }
+    .up-title{font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;justify-content:space-between}
+    .up-count{background:rgba(239,68,68,.12);color:#dc2626;border-radius:20px;padding:1px 8px;font-size:.68rem;font-weight:800}
+    .up-hint{font-size:.6rem;color:var(--ink4);margin-top:4px}
+    .up-list{padding:8px 8px 16px;display:flex;flex-direction:column;gap:3px}
+    .up-item{
+      display:flex;align-items:center;gap:7px;
+      padding:7px 8px;border-radius:8px;
+      cursor:grab;transition:background .1s;
+    }
+    .up-item:hover{background:var(--bg)}
+    .up-item.is-dragging{opacity:.4}
+    .up-item-info{flex:1;min-width:0}
+    .up-item-name{font-size:.75rem;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .up-item-role{font-size:.6rem;color:var(--ink4)}
+    .up-item-btn{flex-shrink:0;padding:2px 7px;border-radius:5px;font-size:.58rem;font-weight:700;cursor:pointer;border:1px solid rgba(79,70,229,.2);background:var(--blue-dim);color:var(--blue);font-family:var(--f);transition:background .1s}
+    .up-item-btn:hover{background:rgba(79,70,229,.15)}
+    .up-empty{padding:24px 16px;text-align:center;color:var(--ink4);font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:6px}
+    .up-empty i{font-size:1.5rem;opacity:.25}
+    .unassigned-panel.drop-target{background:rgba(79,70,229,.04)!important;outline:2px dashed var(--blue);outline-offset:-3px}
+
+    /* Teams area — columna derecha */
+    .teams-area{flex:1;padding:20px 24px 60px;min-width:0}
+
+    /* Unassigned chip (kept for compat) */
+    .unassigned-chip{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;cursor:grab}
+    .unassigned-chip.is-dragging{opacity:.4}
+
+    /* Table */
     .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
     .search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:8px 14px;flex:1;min-width:220px;max-width:360px}
     .search-box input{border:none;outline:none;font-family:var(--f);font-size:.82rem;color:var(--ink);background:transparent;flex:1}
-    .search-box input::placeholder{color:var(--ink3)}
-    .search-box i{color:var(--ink3);font-size:.82rem}
+    .search-box i{color:var(--ink4);font-size:.82rem}
     .filter-role{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-family:var(--f);font-size:.8rem;color:var(--ink2);cursor:pointer;outline:none}
     .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:var(--r);font-family:var(--f);font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .12s;letter-spacing:.02em}
-    .btn-primary{background:var(--ink);color:#fff}.btn-primary:hover{background:#222}
-    .btn-danger{background:var(--red);color:#fff}.btn-danger:hover{background:#b91c1c}
-    .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--ink2)}.btn-ghost:hover{background:var(--surface2);color:var(--ink)}
-    .btn-icon{width:32px;height:32px;padding:0;border-radius:7px;justify-content:center;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-size:.78rem}
-    .btn-icon:hover{border-color:var(--border2);color:var(--ink);background:var(--surface2)}
-    .btn-icon.danger:hover{border-color:rgba(220,38,38,.3);color:var(--red);background:var(--red-dim)}
+    .btn-primary{background:#4f46e5;color:#fff}.btn-primary:hover{background:#4338ca}
+    .btn-danger{background:var(--red);color:#fff}.btn-danger:hover{background:#dc2626}
+    .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--ink2)}.btn-ghost:hover{background:var(--bg);color:var(--ink)}
     .btn-sm{padding:5px 10px;font-size:.72rem}
+    .btn-icon{width:32px;height:32px;padding:0;border-radius:7px;justify-content:center;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-size:.78rem}
+    .btn-icon:hover{border-color:var(--border2);color:var(--ink);background:var(--bg)}
+    .btn-icon.danger:hover{border-color:rgba(239,68,68,.3);color:var(--red);background:var(--red-dim)}
     .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
     .ptable{width:100%;border-collapse:collapse;font-size:.8rem}
-    .ptable thead tr{background:var(--surface2)}
+    .ptable thead tr{background:var(--bg)}
     .ptable thead th{padding:10px 14px;text-align:left;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--border);white-space:nowrap}
     .ptable tbody tr{border-bottom:1px solid var(--border);transition:background .08s}
     .ptable tbody tr:last-child{border-bottom:none}
-    .ptable tbody tr:hover{background:var(--surface2)}
+    .ptable tbody tr:hover{background:var(--bg)}
     .ptable tbody td{padding:12px 14px;color:var(--ink2);vertical-align:middle}
     .user-cell{display:flex;align-items:center;gap:10px}
-    .user-av{width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;color:var(--ink2);flex-shrink:0;letter-spacing:.04em}
+    .user-av{width:34px;height:34px;border-radius:8px;background:var(--bg);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;color:var(--ink2);flex-shrink:0;letter-spacing:.04em}
     .role-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
-    .role-admin{background:rgba(196,154,0,.12);color:#a07800;border:1px solid rgba(196,154,0,.3)}
+    .role-admin{background:rgba(245,158,11,.12);color:#a07800;border:1px solid rgba(245,158,11,.3)}
     .role-backoffice{background:rgba(124,58,237,.1);color:var(--purple);border:1px solid rgba(124,58,237,.25)}
-    .role-supervisor{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(37,99,235,.25)}
-    .role-agente{background:var(--green-dim);color:var(--green);border:1px solid rgba(22,163,74,.25)}
+    .role-supervisor{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(79,70,229,.25)}
+    .role-agente{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.25)}
     .role-lineas{background:rgba(8,145,178,.1);color:#0891b2;border:1px solid rgba(8,145,178,.25)}
-    .role-other{background:var(--surface2);color:var(--ink2);border:1px solid var(--border2)}
+    .role-other{background:var(--bg);color:var(--ink2);border:1px solid var(--border2)}
     .perm-chips{display:flex;flex-wrap:wrap;gap:4px;max-width:320px}
-    .perm-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:.58rem;font-weight:600;letter-spacing:.03em;background:var(--surface2);color:var(--ink3);border:1px solid var(--border);white-space:nowrap}
-    .perm-chip.active{background:rgba(37,99,235,.08);color:var(--blue);border-color:rgba(37,99,235,.2)}
+    .perm-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:.58rem;font-weight:600;letter-spacing:.03em;background:var(--bg);color:var(--ink3);border:1px solid var(--border);white-space:nowrap}
+    .perm-chip.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(79,70,229,.2)}
     .actions-cell{display:flex;gap:5px}
 
     /* Modals */
@@ -153,7 +216,7 @@
     .modal-head{display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px;border-bottom:1px solid var(--border)}
     .modal-title{font-size:1rem;font-weight:800;color:var(--ink)}
     .modal-close{width:30px;height:30px;border:none;border-radius:7px;background:transparent;cursor:pointer;color:var(--ink3);font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .1s}
-    .modal-close:hover{background:var(--surface2);color:var(--ink)}
+    .modal-close:hover{background:var(--bg);color:var(--ink)}
     .modal-body{padding:24px 26px}
     .modal-foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:16px 26px 22px;border-top:1px solid var(--border)}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -165,30 +228,40 @@
     .form-hint{font-size:.65rem;color:var(--ink3)}
     .perm-group{margin-bottom:18px}
     .perm-group-title{font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
-    .perm-group-title::before{content:'';display:block;width:14px;height:2px;background:var(--gold);border-radius:2px}
+    .perm-group-title::before{content:'';display:block;width:14px;height:2px;background:var(--amber);border-radius:2px}
     .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .perm-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:all .1s}
-    .perm-item:hover{border-color:var(--border2);background:var(--surface2)}
-    .perm-item.checked{border-color:rgba(37,99,235,.3);background:rgba(37,99,235,.05)}
+    .perm-item:hover{border-color:var(--border2);background:var(--bg)}
+    .perm-item.checked{border-color:rgba(79,70,229,.3);background:rgba(79,70,229,.05)}
     .perm-item input[type=checkbox]{accent-color:var(--blue);cursor:pointer}
     .perm-item-label{font-size:.74rem;color:var(--ink2)}
     .perm-item.checked .perm-item-label{color:var(--blue);font-weight:600}
-    .danger-box{background:var(--red-dim);border:1px solid rgba(220,38,38,.2);border-radius:var(--r);padding:16px}
+    .danger-box{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);padding:16px}
     .danger-box p{font-size:.8rem;color:var(--ink2)}
     .danger-box strong{color:var(--red)}
+    .divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+    /* Toast */
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:.8rem;font-weight:700;z-index:9999;animation:toastIn .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.25);pointer-events:none}
-    .toast.ok{background:var(--green);color:#fff}.toast.err{background:var(--red);color:#fff}.toast.warn{background:var(--gold);color:#000}
+    .toast.ok{background:var(--green);color:#fff}.toast.err{background:var(--red);color:#fff}.toast.warn{background:var(--amber);color:#000}
     @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
     .loader-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:60px 20px;color:var(--ink2);font-size:.8rem}
-    .spinner{width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+    .spinner{width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 20px;color:var(--ink2);font-size:.78rem;text-align:center}
     .empty-icon{font-size:2rem;opacity:.3}
-    .divider{border:none;border-top:1px solid var(--border);margin:16px 0}
-    @media(max-width:768px){
-      .main{margin-left:0;padding:16px}.sidebar{display:none}
+
+    @media(max-width:900px){
+      .main{margin-left:0}.sidebar{display:none}
       .form-row{grid-template-columns:1fr}.perm-grid{grid-template-columns:1fr}
       .teams-grid{grid-template-columns:1fr}
+      .topbar{padding:12px 16px}
+      .search-top{min-width:140px}
+      .teams-layout{flex-direction:column}
+      .unassigned-panel{width:100%;min-width:unset;height:auto;max-height:220px;border-right:none;border-bottom:1px solid var(--border);position:static}
+      .up-list{flex-direction:row;flex-wrap:wrap;padding:8px}
+      .up-item{width:auto;flex:0 0 auto}
+      .teams-area{padding:16px 16px 40px}
     }
   </style>
 </head>
@@ -197,41 +270,58 @@
   <nav class="sidebar sidebar-inicio" data-active="crearcuenta"></nav>
   <main class="main">
 
-    <!-- Header -->
-    <div class="page-header">
-      <div class="page-title-block">
-        <div class="page-eyebrow">Administración</div>
-        <div class="page-title">Panel de Permisos</div>
-        <div class="page-subtitle">Gestión de equipos, roles y permisos del sistema</div>
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Equipos</div>
+        <div class="topbar-sub">Estructura organizacional y asignación de agentes</div>
       </div>
-      <div class="header-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openModal('modal-create')"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>
-        <button class="btn btn-primary" onclick="openCreateTeamModal()"><i class="fas fa-plus"></i> Crear Nuevo Equipo</button>
+      <div class="topbar-right">
+        <div class="search-top">
+          <i class="fas fa-search"></i>
+          <input type="text" id="search-teams-input" placeholder="Buscar equipo o agente..." oninput="filterTeamsView(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')"/>
+          <kbd>⌘K</kbd>
+        </div>
+        <button class="btn-new-team" onclick="openCreateTeamModal()"><i class="fas fa-plus"></i> Nuevo equipo</button>
+        <button class="icon-btn" title="Notificaciones"><i class="fas fa-bell"></i></button>
+        <button class="icon-btn" title="Ayuda"><i class="fas fa-question-circle"></i></button>
+        <div class="user-av-top" id="top-user-av" title="Mi perfil">??</div>
       </div>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-strip" id="stats-strip">
-      <div class="stat-card"><div class="stat-lbl">Total</div><div class="stat-val" id="st-total">—</div></div>
-      <div class="stat-card"><div class="stat-lbl">Administradores</div><div class="stat-val gold" id="st-admin">—</div></div>
-      <div class="stat-card"><div class="stat-lbl">Supervisores</div><div class="stat-val blue" id="st-sup">—</div></div>
-      <div class="stat-card"><div class="stat-lbl">Agentes</div><div class="stat-val green" id="st-agent">—</div></div>
-      <div class="stat-card"><div class="stat-lbl">Backoffice</div><div class="stat-val purple" id="st-bo">—</div></div>
+    <!-- Tabs (con padding) -->
+    <div style="padding:16px 28px 0">
+      <div class="view-tabs">
+        <button class="view-tab active" id="tab-teams" onclick="switchView('teams')"><i class="fas fa-th-large"></i> Por Equipos</button>
+        <button class="view-tab" id="tab-list" onclick="switchView('list')"><i class="fas fa-list"></i> Lista Completa</button>
+      </div>
     </div>
 
-    <!-- View Tabs -->
-    <div class="view-tabs">
-      <button class="view-tab active" id="tab-teams" onclick="switchView('teams')"><i class="fas fa-users"></i> Por Equipos</button>
-      <button class="view-tab" id="tab-list" onclick="switchView('list')"><i class="fas fa-list"></i> Lista Completa</button>
-    </div>
-
-    <!-- Teams View -->
+    <!-- Teams View — flush, sin padding lateral -->
     <div id="view-teams">
-      <div id="teams-container"><div class="loader-wrap"><div class="spinner"></div><span>Cargando equipos...</span></div></div>
+      <div class="teams-layout">
+        <!-- Panel izquierdo: Sin equipo asignado (zona de drop) -->
+        <div class="unassigned-panel" id="unassigned-panel"
+          ondragover="_upDragOver(event)"
+          ondragleave="_upDragLeave(event)"
+          ondrop="_upDrop(event)">
+          <div class="up-header">
+            <div class="up-title">Sin equipo <span class="up-count" id="up-count">0</span></div>
+            <div class="up-hint">Arrastra a un equipo</div>
+          </div>
+          <div class="up-list" id="up-list">
+            <div class="up-empty"><i class="fas fa-check-circle"></i>Todos asignados</div>
+          </div>
+        </div>
+        <!-- Área de teams -->
+        <div class="teams-area">
+          <div id="teams-container"><div class="loader-wrap"><div class="spinner"></div><span>Cargando equipos...</span></div></div>
+        </div>
+      </div>
     </div>
 
-    <!-- List View -->
-    <div id="view-list" style="display:none">
+    <!-- List View (con padding) -->
+    <div id="view-list" style="display:none;padding:0 28px 60px">
       <div class="toolbar">
         <div class="search-box"><i class="fas fa-search"></i><input type="text" id="search-input" placeholder="Buscar usuario, nombre, equipo..." oninput="filterTable()"/></div>
         <select class="filter-role" id="filter-role" onchange="filterTable()">
@@ -242,6 +332,7 @@
           <option value="agente">Agente</option>
           <option value="lineas">Líneas</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="openModal('modal-create')"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>
       </div>
       <div id="table-container"><div class="loader-wrap"><div class="spinner"></div><span>Cargando usuarios...</span></div></div>
     </div>
@@ -309,7 +400,7 @@
       <div class="form-group" style="margin-bottom:10px">
         <label class="form-label">Nombre de usuario (login)</label>
         <input class="form-input" id="r-username" type="text" placeholder="Ej. maria.lopez" autocomplete="off"/>
-        <div class="form-hint">Cambia el nombre con el que inicia sesión. Deja igual si no deseas modificarlo.</div>
+        <div class="form-hint">Cambia el nombre con el que inicia sesión.</div>
       </div>
       <hr class="divider"/>
       <div class="form-row">
@@ -334,7 +425,7 @@
       <div class="form-group">
         <label class="form-label">Permisos que se asignarán</label>
         <div id="r-perms-preview" class="perm-chips" style="margin-top:4px"></div>
-        <div class="form-hint" style="margin-top:6px">Los permisos se actualizan automáticamente con el rol. Puedes ajustarlos después.</div>
+        <div class="form-hint" style="margin-top:6px">Los permisos se actualizan automáticamente con el rol.</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -348,7 +439,7 @@
 <div class="modal-overlay" id="modal-perms">
   <div class="modal wide">
     <div class="modal-head">
-      <div class="modal-title"><i class="fas fa-key" style="color:var(--gold);margin-right:8px"></i>Editar Permisos</div>
+      <div class="modal-title"><i class="fas fa-key" style="color:var(--amber);margin-right:8px"></i>Editar Permisos</div>
       <button class="modal-close" onclick="closeModal('modal-perms')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body" id="modal-perms-body"></div>
@@ -402,30 +493,6 @@
   </div>
 </div>
 
-<!-- ═══ MODAL: REASIGNAR AGENTE ═══ -->
-<div class="modal-overlay" id="modal-reassign">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title"><i class="fas fa-exchange-alt" style="color:var(--blue);margin-right:8px"></i>Reasignar Agente</div>
-      <button class="modal-close" onclick="closeModal('modal-reassign')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group"><label class="form-label">Agente</label><div id="ra-user-display" style="font-weight:700;font-size:.9rem;color:var(--ink);padding:6px 0"></div></div>
-      <hr class="divider"/>
-      <div class="form-group"><label class="form-label">Nuevo Equipo</label>
-        <select class="form-select" id="ra-team"><option value="">— Selecciona equipo —</option></select>
-      </div>
-      <div class="form-group"><label class="form-label">Nuevo Supervisor</label>
-        <select class="form-select" id="ra-supervisor"><option value="">— Sin cambio —</option></select>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modal-reassign')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveReassign()"><i class="fas fa-check"></i> Reasignar</button>
-    </div>
-  </div>
-</div>
-
 <!-- ═══ MODAL: AGREGAR AGENTE AL EQUIPO ═══ -->
 <div class="modal-overlay" id="modal-add-agent">
   <div class="modal">
@@ -434,7 +501,7 @@
       <button class="modal-close" onclick="closeModal('modal-add-agent')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
-      <div id="aa-team-display" style="font-size:.8rem;color:var(--ink2);margin-bottom:14px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"></div>
+      <div id="aa-team-display" style="font-size:.8rem;color:var(--ink2);margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)"></div>
       <div class="form-group"><label class="form-label">Selecciona el agente</label>
         <select class="form-select" id="aa-agent"><option value="">— Selecciona agente —</option></select>
       </div>
@@ -442,6 +509,51 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-agent')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveAddAgent()"><i class="fas fa-check"></i> Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ASIGNAR SUPERVISOR ═══ -->
+<div class="modal-overlay" id="modal-add-supervisor">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-user-tie" style="color:var(--blue);margin-right:8px"></i>Asignar Supervisor</div>
+      <button class="modal-close" onclick="closeModal('modal-add-supervisor')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="as-team-display" style="font-size:.8rem;color:var(--ink2);margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)"></div>
+      <div class="form-group"><label class="form-label">Selecciona el supervisor</label>
+        <select class="form-select" id="as-supervisor"><option value="">— Selecciona supervisor —</option></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-supervisor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAddSupervisor()"><i class="fas fa-check"></i> Asignar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ELIMINAR EQUIPO ═══ -->
+<div class="modal-overlay" id="modal-delete-team">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-trash" style="color:var(--red);margin-right:8px"></i>Eliminar Equipo</div>
+      <button class="modal-close" onclick="closeModal('modal-delete-team')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="danger-box">
+        <p>¿Estás seguro de eliminar el equipo <strong id="dt-team-name">—</strong>?</p>
+        <p style="margin-top:10px;font-size:.78rem"><strong id="dt-count" style="color:var(--red)">N miembros</strong> quedarán sin equipo ni supervisor asignado.</p>
+        <p style="margin-top:6px;font-size:.72rem;color:var(--ink3)">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="form-group" style="margin-top:16px;margin-bottom:0">
+        <label class="form-label">Escribe el nombre del equipo para confirmar</label>
+        <input class="form-input" id="dt-confirm-input" type="text" placeholder="Nombre del equipo..." autocomplete="off"/>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete-team')">Cancelar</button>
+      <button class="btn btn-danger" id="dt-confirm-btn" onclick="confirmDeleteTeam()" disabled><i class="fas fa-trash"></i> Eliminar</button>
     </div>
   </div>
 </div>
@@ -516,6 +628,16 @@ let _addAgentTeam='', _renamingTeam='';
 let _customTeams=[];
 let _currentView='teams';
 
+/* ── Color helpers ── */
+var _PALETTE=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#06b6d4','#84cc16','#f97316','#14b8a6','#a855f7'];
+function _hashColor(s){
+  var h=0;
+  for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0;
+  return _PALETTE[Math.abs(h)%_PALETTE.length];
+}
+function teamColor(name){ return _hashColor(String(name||'team')); }
+function userColor(name){ return _hashColor(String(name||'user')); }
+
 /* ── Helpers ── */
 function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
 function initials(s){ return String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'??'; }
@@ -525,7 +647,7 @@ function getRoleLabel(role){ const r=String(role||'').trim(); const map={'Admini
 function getPermLabel(key){ const p=ALL_PERMS.find(x=>x.key===key); return p?p.label:key; }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-function roleAvatarBg(role){ const r=String(role||'').toLowerCase(); if(r.includes('admin'))return 'rgba(196,154,0,.12)'; if(r.includes('back'))return 'rgba(124,58,237,.1)'; if(r.includes('supervisor'))return 'rgba(37,99,235,.1)'; if(r.includes('lineas'))return 'rgba(8,145,178,.1)'; return 'var(--surface2)'; }
+function roleAvatarBg(role){ const r=String(role||'').toLowerCase(); if(r.includes('admin'))return 'rgba(245,158,11,.15)'; if(r.includes('back'))return 'rgba(124,58,237,.12)'; if(r.includes('supervisor'))return 'rgba(79,70,229,.12)'; if(r.includes('lineas'))return 'rgba(8,145,178,.12)'; return '#e5e7eb'; }
 function timeAgo(d){ if(!d)return '—'; const diff=Date.now()-new Date(d).getTime(); if(isNaN(diff)||diff<0)return '—'; const mins=Math.floor(diff/60000); if(mins<60)return mins<=1?'Hace 1 min':`Hace ${mins} min`; const hrs=Math.floor(mins/60); if(hrs<24)return hrs===1?'Hace 1 hora':`Hace ${hrs} horas`; const days=Math.floor(hrs/24); if(days<30)return days===1?'Hace 1 día':`Hace ${days} días`; const months=Math.floor(days/30); if(months<12)return months===1?'Hace 1 mes':`Hace ${months} meses`; return Math.floor(months/12)===1?'Hace 1 año':`Hace ${Math.floor(months/12)} años`; }
 document.querySelectorAll('.modal-overlay').forEach(ov=>{ ov.addEventListener('click',e=>{ if(e.target===ov)ov.classList.remove('open'); }); });
 
@@ -539,35 +661,31 @@ function switchView(v){
   if(v==='list'&&_users.length) renderTable(_users);
 }
 
+/* ── Filter teams view ── */
+function filterTeamsView(q){
+  q=(q||'').toLowerCase().trim();
+  document.querySelectorAll('.tcard[data-team-search]').forEach(function(card){
+    var s=card.getAttribute('data-team-search')||'';
+    card.style.display=(!q||s.includes(q))?'':'none';
+  });
+}
+
 /* ── Load users ── */
 async function loadUsers(){
   const res=await AUTH.sf('/api/users/admin-list');
   if(!res||!res.ok){ document.getElementById('teams-container').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><span>Error al cargar usuarios</span></div>'; return; }
   const data=await res.json();
   _users=Array.isArray(data)?data:(data.users||data.data||[]);
-  renderStats();
   renderTeams();
   if(_currentView==='list') renderTable(_users);
 }
 
-/* ── Stats ── */
-function renderStats(){
-  document.getElementById('st-total').textContent=_users.length;
-  document.getElementById('st-admin').textContent=_users.filter(u=>isAdminRole(u.role)).length;
-  document.getElementById('st-sup').textContent=_users.filter(u=>String(u.role||'').toLowerCase().includes('supervisor')).length;
-  document.getElementById('st-agent').textContent=_users.filter(u=>['agente','vendedor','agent'].includes(String(u.role||'').toLowerCase())).length;
-  document.getElementById('st-bo').textContent=_users.filter(u=>String(u.role||'').toLowerCase().includes('backoffice')||String(u.role||'').toLowerCase().includes('back')).length;
-}
-
 /* ── Render Teams ── */
 function renderTeams(){
-  // Agrupar usuarios por team
   const teamMap={};
   const unassigned=[];
   _users.forEach(function(u){
     const roleLc=String(u.role||'').toLowerCase();
-    const isGlobal=roleLc.includes('admin')||roleLc.includes('backoffice');
-    if(isGlobal) return; // admins/backoffice van aparte
     const team=String(u.team||u.equipo||'').trim();
     if(!team){ unassigned.push(u); return; }
     if(!teamMap[team]) teamMap[team]={ supervisor:null, agents:[] };
@@ -575,12 +693,14 @@ function renderTeams(){
     else teamMap[team].agents.push(u);
   });
 
-  // Incluir custom teams vacíos
   _customTeams.forEach(function(t){ if(!teamMap[t]) teamMap[t]={ supervisor:null, agents:[] }; });
 
+  // Renderizar panel izquierdo
+  renderUnassigned(unassigned);
+
   const teamNames=Object.keys(teamMap).sort();
-  if(!teamNames.length && !unassigned.length){
-    document.getElementById('teams-container').innerHTML='<div class="empty"><div class="empty-icon">👥</div><span>No hay equipos configurados aún</span></div>';
+  if(!teamNames.length){
+    document.getElementById('teams-container').innerHTML='<div class="empty"><div class="empty-icon">👥</div><span>No hay equipos configurados aún.<br>Crea un equipo con el botón "+ Nuevo equipo".</span></div>';
     return;
   }
 
@@ -591,122 +711,156 @@ function renderTeams(){
   });
   html+='</div>';
 
-  // Admins y Backoffice
-  const globals=_users.filter(function(u){ const r=String(u.role||'').toLowerCase(); return r.includes('admin')||r.includes('backoffice'); });
-  if(globals.length){
-    html+='<div class="unassigned-section"><div class="unassigned-title">Administración &amp; Backoffice</div><div class="unassigned-grid">';
-    globals.forEach(function(u){
-      const name=u.name||u.username||'—';
-      html+=`<div class="unassigned-chip">
-        <div class="user-av" style="background:${roleAvatarBg(u.role)}">${initials(name)}</div>
-        <div>
-          <div style="font-size:.73rem;font-weight:700;color:var(--ink)">${capFirst(name)}</div>
-          <div style="font-size:.62rem;color:var(--ink3)">${getRoleLabel(u.role)}</div>
-        </div>
-        <div style="display:flex;gap:3px;margin-left:4px">
-          <button class="mbtn mbtn-gold" title="Cambiar contraseña" onclick="openPwdModal('${u.id||u._id}')"><i class="fas fa-lock"></i></button>
-          <button class="mbtn mbtn-blue" title="Editar perfil" onclick="openRoleModal('${u.id||u._id}')"><i class="fas fa-pen"></i></button>
-        </div>
-      </div>`;
-    });
-    html+='</div></div>';
-  }
-
-  // Sin equipo asignado
-  if(unassigned.length){
-    html+='<div class="unassigned-section"><div class="unassigned-title">Sin Equipo Asignado ('+unassigned.length+')</div><div class="unassigned-grid">';
-    unassigned.forEach(function(u){
-      const name=u.name||u.username||'—';
-      html+=`<div class="unassigned-chip">
-        <div class="user-av">${initials(name)}</div>
-        <div><div class="unassigned-chip-name">${capFirst(name)}</div><div style="font-size:.62rem;color:var(--ink3)">${getRoleLabel(u.role)}</div></div>
-        <div style="display:flex;gap:3px;margin-left:4px">
-          <button class="mbtn mbtn-blue" title="Asignar equipo" onclick="openRoleModal('${u.id||u._id}')"><i class="fas fa-pen"></i></button>
-          <button class="mbtn mbtn-red" title="Eliminar" onclick="openDeleteModal('${u.id||u._id}')"><i class="fas fa-trash"></i></button>
-        </div>
-      </div>`;
-    });
-    html+='</div></div>';
-  }
-
   document.getElementById('teams-container').innerHTML=html;
 }
 
+/* ── Render Unassigned panel ── */
+function renderUnassigned(unassigned){
+  var countEl=document.getElementById('up-count');
+  var listEl=document.getElementById('up-list');
+  if(!countEl||!listEl) return;
+
+  countEl.textContent=unassigned.length;
+
+  if(!unassigned.length){
+    listEl.innerHTML='<div class="up-empty"><i class="fas fa-check-circle"></i>Todos asignados</div>';
+    return;
+  }
+
+  listEl.innerHTML=unassigned.map(function(u){
+    var uid=u.id||u._id;
+    var name=u.name||u.username||'—';
+    var uCol=userColor(name);
+    return `<div class="up-item" draggable="true"
+      ondragstart="_dragStart(event,'${uid}')"
+      ondragend="_dragEnd(event)">
+      <div class="agent-av" style="background:${uCol};width:28px;height:28px;font-size:.6rem;flex-shrink:0">${initials(name)}</div>
+      <div class="up-item-info">
+        <div class="up-item-name" title="${capFirst(name)}">${capFirst(name)}</div>
+        <div class="up-item-role">${getRoleLabel(u.role)}</div>
+      </div>
+      <button class="up-item-btn" onclick="openRoleModal('${uid}')"><i class="fas fa-user-tag"></i></button>
+    </div>`;
+  }).join('');
+}
+
+/* ── Build team card ── */
 function buildTeamCard(teamName, supervisor, agents){
+  const tid='tc_'+teamName.replace(/[^a-zA-Z0-9]/g,'_');
+  const tCol=teamColor(teamName);
   const supId=supervisor?(supervisor.id||supervisor._id):'';
   const supName=supervisor?(supervisor.name||supervisor.username||'—'):'';
+  const agentCount=agents.length;
 
   const supHtml=supervisor
-    ?`<div class="sup-info"><span class="label">SUPERVISOR:</span><strong>${capFirst(supName)}</strong></div>
-      <div class="sup-actions">
-        <button class="mbtn mbtn-gold" onclick="openPwdModal('${supId}')"><i class="fas fa-key"></i> Reset Pass</button>
-        <button class="mbtn mbtn-blue" onclick="openRoleModal('${supId}')"><i class="fas fa-user-cog"></i> Perfil</button>
+    ?`<div class="sup-row">
+        <span class="sup-text">Supervisor: <strong>${capFirst(supName)}</strong></span>
+        <button class="sup-link" onclick="openRoleModal('${supId}')"><i class="fas fa-user-circle"></i> Ver perfil</button>
       </div>`
-    :`<div class="sup-info"><span class="no-sup">Sin supervisor asignado</span></div>`;
+    :`<div class="sup-row">
+        <span class="sup-text no-sup">Sin supervisor asignado</span>
+        <button class="sup-link" onclick="openAddSupervisorModal('${teamName}')"><i class="fas fa-user-plus"></i> Asignar supervisor</button>
+      </div>`;
 
-  const agentsHtml=agents.length
-    ?agents.map(function(a){
-        const aId=a.id||a._id;
-        const aName=a.name||a.username||'—';
-        return `<div class="agent-row">
-          <div class="agent-av">${initials(aName)}</div>
-          <div class="agent-name-lbl" title="${capFirst(aName)}">${capFirst(aName)}</div>
-          <div class="agent-acts">
-            <button class="mbtn mbtn-blue" onclick="openReassignModal('${aId}')"><i class="fas fa-exchange-alt"></i> Reasignar</button>
-            <button class="mbtn mbtn-gold" onclick="openPwdModal('${aId}')"><i class="fas fa-lock"></i> Reset</button>
-            <button class="mbtn mbtn-red" onclick="removeFromTeam('${aId}')"><i class="fas fa-times"></i> Quitar</button>
-          </div>
-        </div>`;
-      }).join('')
-    :'<div class="no-agents">Sin agentes asignados</div>';
+  const MAX=4;
+  const visible=agents.slice(0,MAX);
+  const hidden=agents.slice(MAX);
 
-  return `<div class="tcard">
+  function agentRow(a){
+    const aId=a.id||a._id;
+    const aName=a.name||a.username||'—';
+    const aCol=userColor(aName);
+    return `<div class="agent-row" draggable="true"
+      ondragstart="_dragStart(event,'${aId}')"
+      ondragend="_dragEnd(event)">
+      <div class="agent-av" style="background:${aCol}">${initials(aName)}</div>
+      <span class="agent-name-lbl" title="${capFirst(aName)}">${capFirst(aName)}</span>
+      <div class="agent-acts">
+        <button class="mbtn mbtn-reset" onclick="openPwdModal('${aId}')"><i class="fas fa-redo-alt"></i> Reset</button>
+        <button class="mbtn mbtn-quit" onclick="removeFromTeam('${aId}')"><i class="fas fa-times"></i> Quitar</button>
+      </div>
+    </div>`;
+  }
+
+  let agentsHtml='';
+  if(!agents.length){
+    agentsHtml='<div class="no-agents"><i class="fas fa-user-slash"></i>Sin agentes asignados</div>';
+  } else {
+    agentsHtml=visible.map(agentRow).join('');
+    if(hidden.length){
+      agentsHtml+=`<div id="${tid}_hidden" style="display:none">${hidden.map(agentRow).join('')}</div>
+      <button class="btn-see-more" id="${tid}_seebtn" onclick="toggleMore('${tid}',${hidden.length})">
+        Ver ${hidden.length} más <i class="fas fa-chevron-down"></i>
+      </button>`;
+    }
+  }
+
+  // Build search index string for filtering
+  const searchStr=(teamName+' '+(supervisor?supName:'')+' '+agents.map(a=>a.name||a.username||'').join(' ')).toLowerCase();
+
+  return `<div class="tcard" data-team-search="${searchStr}"
+    ondragover="_dragOver(event,this)"
+    ondragleave="_dragLeave(event,this)"
+    ondrop="_dragDrop(event,this,'${teamName.replace(/'/g,"\\'")}')">
     <div class="tcard-head">
-      <div class="tcard-name">Equipo: ${teamName}</div>
-      <button class="tcard-edit-btn" onclick="openRenameTeamModal('${teamName}')"><i class="fas fa-pencil-alt"></i> Editar Nombre</button>
+      <div class="tcard-icon" style="background:${tCol}"><i class="fas fa-users"></i></div>
+      <div class="tcard-info">
+        <div class="tcard-name">${teamName}</div>
+        <div class="tcard-count">${agentCount} agente${agentCount!==1?'s':''}</div>
+      </div>
+      <div style="position:relative;flex-shrink:0">
+        <button class="tcard-menu-btn" title="Opciones" onclick="_openTeamMenu(event,'${tid}')">
+          <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div class="team-dropdown" id="menu_${tid}">
+          <button class="team-dropdown-item" onclick="_closeAllMenus();openRenameTeamModal('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-pencil-alt" style="width:14px"></i> Renombrar equipo</button>
+          <div class="team-dropdown-sep"></div>
+          <button class="team-dropdown-item danger" onclick="_closeAllMenus();deleteTeam('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-trash" style="width:14px"></i> Eliminar equipo</button>
+        </div>
+      </div>
     </div>
-    <div class="tcard-body">
-      <div class="tcard-section-lbl">Estructura del Equipo</div>
-      <div class="sup-row">${supHtml}</div>
-      <div class="tcard-arrow">↓</div>
-      <div class="tcard-section-lbl">Agentes Asignados (${agents.length})</div>
-      <div class="agents-list">${agentsHtml}</div>
-      <button class="btn-add-agent" onclick="openAddAgentModal('${teamName}')"><i class="fas fa-plus"></i> Agregar Agente a este Equipo</button>
-    </div>
+    ${supHtml}
+    <div class="agents-header">Agentes asignados (${agentCount})</div>
+    <div class="agents-list">${agentsHtml}</div>
+    <div class="drop-hint"><i class="fas fa-arrows-alt"></i> Suelta aquí para mover al equipo</div>
+    <button class="btn-add-agent" onclick="openAddAgentModal('${teamName}')"><i class="fas fa-plus"></i> Agregar agente</button>
   </div>`;
 }
 
-/* ── Reassign agent ── */
-function openReassignModal(userId){
+function toggleMore(tid, hiddenCount){
+  var el=document.getElementById(tid+'_hidden');
+  var btn=document.getElementById(tid+'_seebtn');
+  if(!el)return;
+  var open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(btn) btn.innerHTML=open
+    ?'Ver '+hiddenCount+' más <i class="fas fa-chevron-down"></i>'
+    :'Ver menos <i class="fas fa-chevron-up"></i>';
+}
+
+/* ── Assign supervisor to team ── */
+var _assigningSupTeam='';
+function openAddSupervisorModal(teamName){
+  _assigningSupTeam=teamName;
+  document.getElementById('as-team-display').innerHTML='Asignar supervisor al equipo <strong>'+teamName+'</strong>';
+  var available=_users.filter(function(u){ return String(u.role||'').toLowerCase().includes('supervisor'); })
+    .sort(function(a,b){ return (a.name||a.username||'').localeCompare(b.name||b.username||''); });
+  var sel=document.getElementById('as-supervisor');
+  sel.innerHTML='<option value="">— Selecciona supervisor —</option>'+available.map(function(u){
+    return '<option value="'+(u.id||u._id)+'">'+capFirst(u.name||u.username)+' ('+(u.team||'sin equipo')+')</option>';
+  }).join('');
+  openModal('modal-add-supervisor');
+}
+async function saveAddSupervisor(){
+  var userId=document.getElementById('as-supervisor').value;
+  if(!userId){ toast('Selecciona un supervisor','err'); return; }
   var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
   if(!u) return;
-  _editingId=userId; _editingUsername=u.username;
-  document.getElementById('ra-user-display').innerHTML='<strong>'+capFirst(u.name||u.username)+'</strong> <span style="color:var(--ink3)">@'+u.username+'</span> — Equipo actual: <strong>'+(u.team||'Sin equipo')+'</strong>';
-  // Populate team select
-  var tSel=document.getElementById('ra-team');
-  tSel.innerHTML='<option value="">— Selecciona nuevo equipo —</option>'+_teams.map(function(t){ return '<option value="'+t.value+'">'+t.label+'</option>'; }).join('');
-  if(u.team) tSel.value=u.team;
-  // Populate supervisor select
-  var sSel=document.getElementById('ra-supervisor');
-  sSel.innerHTML='<option value="">— Sin cambio de supervisor —</option>'+_supervisors.map(function(s){ return '<option value="'+s.key+'">'+s.name+'</option>'; }).join('');
-  var userSup=String(u.supervisor||'').toUpperCase();
-  var matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key); });
-  if(matched) sSel.value=matched.key;
-  openModal('modal-reassign');
-}
-async function saveReassign(){
-  var newTeam=document.getElementById('ra-team').value.trim();
-  var newSup=document.getElementById('ra-supervisor').value.trim();
-  if(!newTeam){ toast('Selecciona un equipo','err'); return; }
-  var u=_users.find(function(x){ return String(x.id||x._id)===String(_editingId); });
-  var res=await AUTH.sf('/api/users/'+_editingId+'/role',{
-    method:'PUT',
-    body:JSON.stringify({ role:u?u.role:'Agente', team:newTeam, supervisor:newSup&&newSup!=='__none__'?newSup:'' })
-  });
+  var res=await AUTH.sf('/api/users/'+userId+'/role',{ method:'PUT', body:JSON.stringify({ role:u.role||'Supervisor', team:_assigningSupTeam, supervisor:'' }) });
   if(!res){ toast('Error de conexión','err'); return; }
   var data=await res.json();
-  if(res.ok&&data.success!==false){ toast('Agente reasignado a '+newTeam,'ok'); closeModal('modal-reassign'); loadUsers(); }
-  else toast(data.message||'Error al reasignar','err');
+  if(res.ok&&data.success!==false){ toast(capFirst(u.name||u.username)+' asignado como supervisor de '+_assigningSupTeam,'ok'); closeModal('modal-add-supervisor'); loadUsers(); }
+  else toast(data.message||'Error al asignar','err');
 }
 
 /* ── Remove from team ── */
@@ -714,10 +868,7 @@ async function removeFromTeam(userId){
   var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
   if(!u) return;
   if(!confirm('¿Quitar a '+capFirst(u.name||u.username)+' de su equipo?')) return;
-  var res=await AUTH.sf('/api/users/'+userId+'/role',{
-    method:'PUT',
-    body:JSON.stringify({ role:u.role||'Agente', team:'', supervisor:'' })
-  });
+  var res=await AUTH.sf('/api/users/'+userId+'/role',{ method:'PUT', body:JSON.stringify({ role:u.role||'Agente', team:'', supervisor:'' }) });
   if(!res){ toast('Error de conexión','err'); return; }
   var data=await res.json();
   if(res.ok&&data.success!==false){ toast('Agente quitado del equipo','ok'); loadUsers(); }
@@ -728,12 +879,9 @@ async function removeFromTeam(userId){
 function openAddAgentModal(teamName){
   _addAgentTeam=teamName;
   document.getElementById('aa-team-display').innerHTML='Agregar agente al equipo <strong>'+teamName+'</strong>';
-  // Show users without this team (or without any team)
   var available=_users.filter(function(u){
     var r=String(u.role||'').toLowerCase();
-    var hasAgentRole=r.includes('agente')||r.includes('agent')||r.includes('vendedor')||r.includes('lineas');
-    var notInTeam=String(u.team||'').trim()!==teamName;
-    return hasAgentRole&&notInTeam;
+    return (r.includes('agente')||r.includes('agent')||r.includes('vendedor')||r.includes('lineas'))&&String(u.team||'').trim()!==teamName;
   }).sort(function(a,b){ return (a.name||a.username||'').localeCompare(b.name||b.username||''); });
   var sel=document.getElementById('aa-agent');
   sel.innerHTML='<option value="">— Selecciona agente —</option>'+available.map(function(u){
@@ -746,10 +894,7 @@ async function saveAddAgent(){
   if(!userId){ toast('Selecciona un agente','err'); return; }
   var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
   if(!u) return;
-  var res=await AUTH.sf('/api/users/'+userId+'/role',{
-    method:'PUT',
-    body:JSON.stringify({ role:u.role||'Agente', team:_addAgentTeam, supervisor:u.supervisor||'' })
-  });
+  var res=await AUTH.sf('/api/users/'+userId+'/role',{ method:'PUT', body:JSON.stringify({ role:u.role||'Agente', team:_addAgentTeam, supervisor:u.supervisor||'' }) });
   if(!res){ toast('Error de conexión','err'); return; }
   var data=await res.json();
   if(res.ok&&data.success!==false){ toast(capFirst(u.name||u.username)+' agregado a '+_addAgentTeam,'ok'); closeModal('modal-add-agent'); loadUsers(); }
@@ -765,7 +910,7 @@ function openCreateTeamModal(){
 }
 function openRenameTeamModal(currentName){
   _renamingTeam=currentName;
-  document.getElementById('team-name-modal-title').innerHTML='<i class="fas fa-pencil-alt" style="color:var(--gold);margin-right:8px"></i>Renombrar Equipo';
+  document.getElementById('team-name-modal-title').innerHTML='<i class="fas fa-pencil-alt" style="color:var(--amber);margin-right:8px"></i>Renombrar Equipo';
   document.getElementById('team-name-input').value=currentName;
   openModal('modal-team-name');
 }
@@ -773,119 +918,78 @@ async function saveTeamName(){
   var newName=document.getElementById('team-name-input').value.trim().toUpperCase();
   if(!newName){ toast('Escribe un nombre de equipo','err'); return; }
   if(_renamingTeam){
-    // Renombrar: actualizar todos los usuarios de ese equipo
     var usersInTeam=_users.filter(function(u){ return String(u.team||'').trim()===_renamingTeam; });
     var ok=0;
     for(var i=0;i<usersInTeam.length;i++){
       var u=usersInTeam[i];
-      var res=await AUTH.sf('/api/users/'+(u.id||u._id)+'/role',{
-        method:'PUT',
-        body:JSON.stringify({ role:u.role||'Agente', team:newName, supervisor:u.supervisor||'' })
-      });
+      var res=await AUTH.sf('/api/users/'+(u.id||u._id)+'/role',{ method:'PUT', body:JSON.stringify({ role:u.role||'Agente', team:newName, supervisor:u.supervisor||'' }) });
       if(res&&res.ok) ok++;
     }
-    toast('Equipo renombrado a '+newName+' ('+ok+' usuarios actualizados)','ok');
+    toast('Equipo renombrado a '+newName+' ('+ok+' usuarios)','ok');
   } else {
-    // Crear equipo vacío — guardarlo en lista local
     if(!_customTeams.includes(newName)) _customTeams.push(newName);
-    toast('Equipo "'+newName+'" creado. Ahora agrega agentes.','ok');
+    toast('Equipo "'+newName+'" creado. Agrega agentes.','ok');
   }
   closeModal('modal-team-name');
   loadUsers();
 }
 
-/* ── Teams & Supervisors (para selects) ── */
+/* ── Teams & Supervisors (selects) ── */
 async function loadTeams(){
   try{
-    const [resT, resS] = await Promise.all([
+    const [resT, resS]=await Promise.all([
       AUTH.sf('/api/teams'),
       AUTH.sf('/api/teams/supervisors-list').catch(function(){ return null; })
     ]);
     if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
 
-    const canonicalTeams = [
-      { value:'TEAM LINEAS',    label:'TEAM LÍNEAS',    supervisorKey:'JONATHAN F', supervisorName:'Jonathan Figueroa', supervisor:'jonathan.figueroa' },
-      { value:'TEAM LUIS G',    label:'TEAM LUIS G',    supervisorKey:'LUIS G',     supervisorName:'Luis G',            supervisor:'luis.g' },
-      { value:'TEAM IRANIA',    label:'TEAM IRANIA',    supervisorKey:'IRANIA',     supervisorName:'Irania Serrano',    supervisor:'irania.serrano' },
-      { value:'TEAM ROBERTO',   label:'TEAM ROBERTO',   supervisorKey:'ROBERTO',    supervisorName:'Roberto Velasquez', supervisor:'roberto.velasquez' },
-      { value:'TEAM MARISOL',   label:'TEAM MARISOL',   supervisorKey:'MARISOL',    supervisorName:'Marisol Beltran',   supervisor:'marisol.beltran' },
-      { value:'TEAM PLEITEZ',   label:'TEAM PLEITEZ',   supervisorKey:'PLEITEZ',    supervisorName:'Bryan Pleitez',     supervisor:'bryan.pleitez' },
-      { value:'TEAM JOHANA',    label:'TEAM JOHANA',    supervisorKey:'JOHANA',     supervisorName:'Johana',            supervisor:'johana' },
-      { value:'Backoffice',     label:'Backoffice',     supervisorKey:null, supervisorName:null },
-      { value:'Administración', label:'Administración', supervisorKey:null, supervisorName:null },
+    const canonicalTeams=[
+      { value:'TEAM LINEAS JONATHAN', label:'TEAM LÍNEAS JONATHAN', supervisorKey:'JONATHAN F' },
+      { value:'TEAM LINEAS LUIS',     label:'TEAM LÍNEAS LUIS',     supervisorKey:'LUIS G' },
+      { value:'TEAM IRANIA',          label:'TEAM IRANIA',          supervisorKey:'IRANIA' },
+      { value:'TEAM ROBERTO',         label:'TEAM ROBERTO',         supervisorKey:'ROBERTO' },
+      { value:'TEAM MARISOL',         label:'TEAM MARISOL',         supervisorKey:'MARISOL' },
+      { value:'TEAM PLEITEZ',         label:'TEAM PLEITEZ',         supervisorKey:'PLEITEZ' },
+      { value:'TEAM JOHANA',          label:'TEAM JOHANA',          supervisorKey:'JOHANA' },
+      { value:'Backoffice',           label:'Backoffice',           supervisorKey:null },
+      { value:'Administración',       label:'Administración',       supervisorKey:null },
     ];
-
-    _teams = canonicalTeams.slice();
+    _teams=canonicalTeams.slice();
     if(resT&&resT.ok){
       try{
         const d=await resT.json();
         const apiTeams=Array.isArray(d.teams)?d.teams:[];
-        const seenVals=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
-        apiTeams.forEach(function(t){
-          if(t.value && !seenVals.has(String(t.value).toLowerCase())){
-            seenVals.add(String(t.value).toLowerCase());
-            _teams.push(t);
-          }
-        });
+        const seen=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
+        apiTeams.forEach(function(t){ if(t.value&&!seen.has(String(t.value).toLowerCase())){ seen.add(String(t.value).toLowerCase()); _teams.push(t); } });
       }catch(e){}
     }
-
-    if(Array.isArray(_supervisors) && _supervisors.length){
-      const seenVals2=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
-      _supervisors.forEach(function(s){
-        var tv=(s&&s.team)?String(s.team).trim():'';
-        if(!tv||seenVals2.has(tv.toLowerCase())) return;
-        seenVals2.add(tv.toLowerCase());
-        _teams.push({ value:tv, label:tv, supervisorKey:s.key||'', supervisorName:s.name||'', supervisor:s.username||'' });
-      });
-    }
-
-    if(!_supervisors.length){
-      const seen=new Set();
-      _teams.forEach(function(t){
-        if(t.supervisorKey&&!seen.has(t.supervisorKey)){
-          seen.add(t.supervisorKey);
-          _supervisors.push({ key:t.supervisorKey, name:t.supervisorName||t.supervisorKey, username:t.supervisor||'' });
-        }
-      });
+    if(Array.isArray(_supervisors)&&_supervisors.length){
+      const seen2=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
+      _supervisors.forEach(function(s){ var tv=s&&s.team?String(s.team).trim():''; if(!tv||seen2.has(tv.toLowerCase()))return; seen2.add(tv.toLowerCase()); _teams.push({ value:tv, label:tv, supervisorKey:s.key||'' }); });
     }
     if(!_supervisors.length){
-      _supervisors=[
-        { key:'JONATHAN F', name:'Jonathan Figueroa', username:'jonathan.figueroa' },
-        { key:'LUIS G',     name:'Luis G',            username:'luis.g' }
-      ];
+      const seen3=new Set();
+      _teams.forEach(function(t){ if(t.supervisorKey&&!seen3.has(t.supervisorKey)){ seen3.add(t.supervisorKey); _supervisors.push({ key:t.supervisorKey, name:t.supervisorName||t.supervisorKey, username:t.supervisor||'' }); } });
     }
+    if(!_supervisors.length) _supervisors=[{ key:'JONATHAN F', name:'Jonathan Figueroa', username:'jonathan.figueroa' },{ key:'LUIS G', name:'Luis G', username:'luis.g' }];
 
     ['c-supervisor','r-supervisor'].forEach(function(id){
-      var sel=document.getElementById(id);
-      if(!sel)return;
+      var sel=document.getElementById(id); if(!sel)return;
       sel.innerHTML='<option value="">— Selecciona supervisor —</option>';
-      _supervisors.forEach(function(s){
-        var opt=document.createElement('option');
-        opt.value=s.key; opt.textContent=s.name;
-        sel.appendChild(opt);
-      });
-      var none=document.createElement('option');
-      none.value='__none__'; none.textContent='Sin supervisor (Backoffice / Admin)';
-      sel.appendChild(none);
+      _supervisors.forEach(function(s){ var opt=document.createElement('option'); opt.value=s.key; opt.textContent=s.name; sel.appendChild(opt); });
+      var none=document.createElement('option'); none.value='__none__'; none.textContent='Sin supervisor (Backoffice / Admin)'; sel.appendChild(none);
     });
-
     ['c','r'].forEach(function(p){ onSupervisorChange(p); });
   }catch(e){ console.error('[loadTeams]',e); }
 }
 
 function onSupervisorChange(prefix){
-  var teamSel=document.getElementById(prefix+'-team');
-  if(!teamSel)return;
+  var teamSel=document.getElementById(prefix+'-team'); if(!teamSel)return;
   if(!_teams.length){ teamSel.innerHTML='<option value="">Sin equipos disponibles</option>'; return; }
-  var currentVal=teamSel.value;
+  var cur=teamSel.value;
   teamSel.innerHTML='<option value="">— Selecciona equipo —</option>';
-  _teams.forEach(function(t){
-    var opt=document.createElement('option');
-    opt.value=t.value; opt.textContent=t.label;
-    teamSel.appendChild(opt);
-  });
-  if(currentVal) teamSel.value=currentVal;
+  _teams.forEach(function(t){ var opt=document.createElement('option'); opt.value=t.value; opt.textContent=t.label; teamSel.appendChild(opt); });
+  if(cur) teamSel.value=cur;
 }
 
 /* ── Table view ── */
@@ -893,12 +997,11 @@ function renderTable(users){
   if(!users.length){ document.getElementById('table-container').innerHTML='<div class="empty"><div class="empty-icon">👥</div><span>Sin usuarios para mostrar</span></div>'; return; }
   const rows=users.map(u=>{
     const savedPerms=Array.isArray(u.permissions)?u.permissions:[];
-    const derivedPerms=savedPerms.length?savedPerms:(ROLE_PERMS[u.role]||ROLE_PERMS[(u.role||'').trim()]||[]);
+    const derivedPerms=savedPerms.length?savedPerms:(ROLE_PERMS[u.role]||[]);
     const perms=derivedPerms; const visiblePerms=perms.slice(0,3);
     const extra=perms.length>3?`<span class="perm-chip">+${perms.length-3}</span>`:'';
     const chipsHtml=visiblePerms.map(p=>`<span class="perm-chip active">${getPermLabel(p)}</span>`).join('')+(perms.length?extra:'<span style="color:var(--ink3);font-size:.7rem">—</span>');
-    const displayName=u.name||u.username||'—';
-    const team=u.team||'—';
+    const displayName=u.name||u.username||'—'; const team=u.team||'—';
     const ava=`<div class="user-av" style="background:${roleAvatarBg(u.role)}">${initials(displayName)}</div>`;
     return `<tr data-id="${u.id||u._id}" data-search="${String(displayName+' '+u.username+' '+team+' '+u.role).toLowerCase()}">
       <td><div class="user-cell">${ava}<div><div style="font-weight:700;color:var(--ink);font-size:.82rem">${capFirst(displayName)}</div><div style="font-size:.68rem;color:var(--ink3);font-family:var(--fm)">@${u.username||'—'}</div></div></div></td>
@@ -934,7 +1037,6 @@ function buildPermsGrid(containerId, checkedKeys){
         <span class="perm-item-label">${p.label}</span></label>`).join('')}
     </div></div>`).join('');
 }
-
 function onRoleChange(prefix){
   const role=document.getElementById(prefix+'-role').value;
   const perms=ROLE_PERMS[role]||[];
@@ -950,23 +1052,14 @@ async function createUser(){
   const name=document.getElementById('c-name').value.trim();
   const team=document.getElementById('c-team').value.trim();
   const supervisorKey=document.getElementById('c-supervisor').value.trim();
-  const supObj=_supervisors.find(function(s){return s.key===supervisorKey;});
-  const supervisor=supObj?supObj.name:(supervisorKey==='__none__'?'':supervisorKey);
   if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
   if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
   const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
-  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor: supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
+  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
   if(!res){ toast('Error de conexión','err'); return; }
   const data=await res.json();
-  if(res.ok&&data.success!==false){
-    toast('Usuario creado correctamente','ok');
-    closeModal('modal-create');
-    ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; });
-    document.getElementById('c-role').value='';
-    document.getElementById('c-supervisor').value='';
-    buildPermsGrid('c-perms-grid',[]);
-    loadUsers();
-  } else toast(data.message||'Error al crear usuario','err');
+  if(res.ok&&data.success!==false){ toast('Usuario creado correctamente','ok'); closeModal('modal-create'); ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; }); document.getElementById('c-role').value=''; buildPermsGrid('c-perms-grid',[]); loadUsers(); }
+  else toast(data.message||'Error al crear usuario','err');
 }
 
 /* ── Edit role modal ── */
@@ -988,10 +1081,7 @@ function openRoleModal(userId){
       var currentTeam=u.team||u.equipo||'';
       setTimeout(function(){
         if(currentTeam){
-          if(!teamSel.querySelector('option[value="'+currentTeam+'"]')){
-            var extra=document.createElement('option'); extra.value=currentTeam; extra.textContent=currentTeam;
-            teamSel.appendChild(extra);
-          }
+          if(!teamSel.querySelector('option[value="'+currentTeam+'"]')){ var extra=document.createElement('option'); extra.value=currentTeam; extra.textContent=currentTeam; teamSel.appendChild(extra); }
           teamSel.value=currentTeam;
         }
       },60);
@@ -1000,7 +1090,6 @@ function openRoleModal(userId){
   onRoleChange('r');
   openModal('modal-role');
 }
-
 async function saveRole(){
   var role=document.getElementById('r-role').value;
   var team=document.getElementById('r-team').value.trim();
@@ -1011,16 +1100,12 @@ async function saveRole(){
   if(!role){ toast('Selecciona un rol','err'); return; }
   if(newUsername&&newUsername.length<3){ toast('El usuario debe tener al menos 3 caracteres','err'); return; }
   var supervisor=supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'';
-  var res=await AUTH.sf('/api/users/'+_editingId+'/role',{
-    method:'PUT', body:JSON.stringify({ role:role, team:team, supervisor:supervisor })
-  });
+  var res=await AUTH.sf('/api/users/'+_editingId+'/role',{ method:'PUT', body:JSON.stringify({ role, team, supervisor }) });
   if(!res){ toast('Error de conexión','err'); return; }
   var data=await res.json();
   if(!res.ok||data.success===false){ toast(data.message||'Error al actualizar rol','err'); return; }
   if(newUsername&&newUsername!==_editingUsername){
-    var res2=await AUTH.sf('/api/users/'+_editingId+'/credentials',{
-      method:'PUT', body:JSON.stringify({ username:newUsername })
-    });
+    var res2=await AUTH.sf('/api/users/'+_editingId+'/credentials',{ method:'PUT', body:JSON.stringify({ username:newUsername }) });
     if(!res2){ toast('Perfil guardado, error al cambiar usuario','warn'); closeModal('modal-role'); loadUsers(); return; }
     var data2=await res2.json();
     if(!res2.ok||data2.success===false){ toast(data2.message||'Error al cambiar nombre de usuario','err'); closeModal('modal-role'); loadUsers(); return; }
@@ -1063,13 +1148,137 @@ async function confirmDelete(){ const res=await AUTH.sf(`/api/users/${_editingId
 (function init(){
   if(!AUTH.check())return;
   const user=AUTH.getUser();
+  // Set top avatar
+  var av=document.getElementById('top-user-av');
+  if(av){ var n=user.name||user.username||'??'; av.textContent=n.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]||''; }).join('').toUpperCase()||'??'; }
   if(!isAdminRole(user.role)){
     document.querySelector('.main').innerHTML=`<div class="empty" style="height:70vh"><div class="empty-icon" style="font-size:3rem">🔒</div><span style="font-size:1rem;font-weight:700">Acceso restringido</span><span>Solo los administradores pueden ver esta página</span></div>`;
     return;
   }
+  // Forzar búsqueda vacía al cargar (evita autofill/bfcache del browser)
+  var si=document.getElementById('search-teams-input');
+  if(si){ si.value=''; si.setAttribute('readonly',''); setTimeout(function(){ si.removeAttribute('readonly'); },200); }
   loadUsers();
   loadTeams();
 })();
+
+/* ══ TEAM KEBAB MENU ═══════════════════════════════════════════════ */
+function _openTeamMenu(e, tid){
+  e.stopPropagation();
+  var dropdown=document.getElementById('menu_'+tid);
+  if(!dropdown) return;
+  var isOpen=dropdown.classList.contains('open');
+  _closeAllMenus();
+  if(!isOpen) dropdown.classList.add('open');
+}
+function _closeAllMenus(){
+  document.querySelectorAll('.team-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+}
+document.addEventListener('click', function(){ _closeAllMenus(); });
+
+/* ── Delete team (modal) ── */
+var _deletingTeam='';
+function deleteTeam(teamName){
+  _deletingTeam=teamName;
+  var usersInTeam=_users.filter(function(u){ return String(u.team||'').trim()===teamName; });
+  document.getElementById('dt-team-name').textContent=teamName;
+  document.getElementById('dt-count').textContent=usersInTeam.length+' miembro(s)';
+  var inp=document.getElementById('dt-confirm-input');
+  inp.value='';
+  document.getElementById('dt-confirm-btn').disabled=true;
+  inp.oninput=function(){
+    document.getElementById('dt-confirm-btn').disabled=inp.value.trim().toUpperCase()!==teamName.toUpperCase();
+  };
+  openModal('modal-delete-team');
+}
+async function confirmDeleteTeam(){
+  var inp=document.getElementById('dt-confirm-input');
+  if(inp.value.trim().toUpperCase()!==_deletingTeam.toUpperCase()){ toast('El nombre no coincide','err'); return; }
+  closeModal('modal-delete-team');
+  var usersInTeam=_users.filter(function(u){ return String(u.team||'').trim()===_deletingTeam; });
+  var ok=0;
+  for(var i=0;i<usersInTeam.length;i++){
+    var u=usersInTeam[i];
+    var res=await AUTH.sf('/api/users/'+(u.id||u._id)+'/role',{
+      method:'PUT',
+      body:JSON.stringify({ role:u.role||'Agente', team:'', supervisor:'' })
+    });
+    if(res&&res.ok) ok++;
+  }
+  _customTeams=_customTeams.filter(function(t){ return t!==_deletingTeam; });
+  toast('Equipo "'+_deletingTeam+'" eliminado — '+ok+' usuario(s) sin equipo','ok');
+  _deletingTeam='';
+  loadUsers();
+}
+
+/* ══ DRAG & DROP ══════════════════════════════════════════════════ */
+var _ddUserId=null;
+function _dragStart(e,userId){ _ddUserId=userId; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(userId)); setTimeout(function(){ e.target.classList.add('is-dragging'); },0); }
+function _dragEnd(e){ e.target.classList.remove('is-dragging'); document.querySelectorAll('.tcard.drop-target').forEach(function(c){ c.classList.remove('drop-target'); }); }
+function _dragOver(e,card){ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(!card.classList.contains('drop-target')) card.classList.add('drop-target'); }
+function _dragLeave(e,card){ if(!card.contains(e.relatedTarget)) card.classList.remove('drop-target'); }
+async function _dragDrop(e,card,teamName){
+  e.preventDefault();
+  card.classList.remove('drop-target');
+  var userId=e.dataTransfer.getData('text/plain')||_ddUserId;
+  _ddUserId=null;
+  if(!userId) return;
+  var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
+  if(!u){ toast('Usuario no encontrado','err'); return; }
+  if(String(u.team||'').trim()===teamName){ toast(capFirst(u.name||u.username)+' ya está en este equipo','warn'); return; }
+  var teamData=_teams.find(function(t){ return t.value===teamName; });
+  var newSupervisor=(teamData&&teamData.supervisorKey)?teamData.supervisorKey:'';
+  var res=await AUTH.sf('/api/users/'+(u.id||u._id)+'/role',{ method:'PUT', body:JSON.stringify({ role:u.role||'Agente', team:teamName, supervisor:newSupervisor }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  var data=await res.json();
+  if(res.ok&&data.success!==false){ toast('✓ '+capFirst(u.name||u.username)+' → '+teamName+(newSupervisor?' (Sup: '+newSupervisor+')':''),'ok'); loadUsers(); }
+  else toast(data.message||'Error al mover agente','err');
+}
+
+/* ── Drop en panel Sin Equipo (quita del team) ── */
+function _upDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  document.getElementById('unassigned-panel').classList.add('drop-target');
+}
+function _upDragLeave(e){
+  var panel=document.getElementById('unassigned-panel');
+  if(!panel.contains(e.relatedTarget)) panel.classList.remove('drop-target');
+}
+async function _upDrop(e){
+  e.preventDefault();
+  var panel=document.getElementById('unassigned-panel');
+  panel.classList.remove('drop-target');
+  var userId=e.dataTransfer.getData('text/plain')||_ddUserId;
+  _ddUserId=null;
+  if(!userId) return;
+  var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
+  if(!u){ toast('Usuario no encontrado','err'); return; }
+  if(!String(u.team||'').trim()){ toast(capFirst(u.name||u.username)+' ya está sin equipo','warn'); return; }
+  var res=await AUTH.sf('/api/users/'+(u.id||u._id)+'/role',{
+    method:'PUT',
+    body:JSON.stringify({ role:u.role||'Agente', team:'', supervisor:'' })
+  });
+  if(!res){ toast('Error de conexión','err'); return; }
+  var data=await res.json();
+  if(res.ok&&data.success!==false){ toast(capFirst(u.name||u.username)+' removido del equipo','ok'); loadUsers(); }
+  else toast(data.message||'Error','err');
+}
+
+/* ── Limpiar buscador si el browser restaura desde caché ── */
+window.addEventListener('pageshow', function(){
+  var si=document.getElementById('search-teams-input');
+  if(si&&si.value){ si.value=''; filterTeamsView(''); }
+});
+
+/* ── Keyboard shortcut ⌘K ── */
+document.addEventListener('keydown',function(e){
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+    e.preventDefault();
+    var inp=document.getElementById('search-teams-input');
+    if(inp){ inp.focus(); inp.select(); }
+  }
+});
 </script>
 </body>
 </html>
