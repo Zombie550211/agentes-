@@ -30,9 +30,9 @@ def _cache_invalidate():
 router = APIRouter(tags=["Lineas"])
 
 TEAMS = {
-    "TEAM LINEAS":    {"supervisor": "jonathan.figueroa", "supervisorKey": "JONATHAN F",
+    "TEAM LINEAS JONATHAN": {"supervisor": "jonathan.figueroa", "supervisorKey": "JONATHAN F",
                        "agents": ["VICTOR HURTADO","EDWARD RAMIREZ","CRISTIAN RIVERA","ANDREA ARDON","OSCAR RIVERA","MELANIE HURTADO","DENNIS VASQUEZ"]},
-    "TEAM LUIS G":    {"supervisor": "luis.g",            "supervisorKey": "LUIS G",
+    "TEAM LINEAS LUIS":     {"supervisor": "luis.g",            "supervisorKey": "LUIS G",
                        "agents": ["DANIEL DEL CID","FERNANDO BELTRAN","KARLA RODRIGUEZ","JOCELYN REYES","JONATHAN GARCIA","NANCY LOPEZ","TATIANA GIRON","CESAR CLAROS","KARLA PONCE","MANUEL FLORES"]},
     "TEAM IRANIA S":  {"supervisor": "irania.serrano",    "supervisorKey": "IRANIA S",
                        "agents": ["JOSUE RENDEROS","TATIANA AYALA","GISELLE DIAZ","MIGUEL NUNEZ","ROXANA MARTINEZ"]},
@@ -399,6 +399,14 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         target_agent = body.agenteAsignado
     target_col_name = _normalize_col_name(target_agent)
 
+    # Determinar nombre del team según supervisor
+    if "jonathan" in supervisor_val:
+        team_name = "TEAM LINEAS JONATHAN"
+    elif "luis" in supervisor_val:
+        team_name = "TEAM LINEAS LUIS"
+    else:
+        team_name = "TEAM LINEAS"
+
     servicios = [str(s) for s in (body.servicios or [])]
     payload_lineas_st = body.lineas_status if isinstance(body.lineas_status, dict) else {}
     payload_lines     = body.lines or []
@@ -428,13 +436,14 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
                  agente, agente_nombre, agente_asignado, lineas_status, lines_data,
                  fuente, imagen_url, created_at, updated_at)
             VALUES
-                (:col, 'TEAM LINEAS', :nc, :tp, :nuc,
+                (:col, :team_name, :nc, :tp, :nuc,
                  :ap, :pin, :dir, :svc, :dv, :di,
                  :st, :cl, :tel, :merc, :sup,
                  :ag, :ag, :aga, :lst, :ldat,
                  'CRM', :img, :now, :now)
         """), {
-            "col":  target_col_name,
+            "col":       target_col_name,
+            "team_name": team_name,
             "nc":   body.nombre_cliente.strip().upper(),
             "tp":   re.sub(r"\D+", "", body.telefono_principal),
             "nuc":  str(body.numero_cuenta).strip(),
@@ -490,6 +499,7 @@ class LineasTeamUpdateBody(BaseModel):
     dia_venta:          Optional[str] = None
     dia_instalacion:    Optional[str] = None
     imagen_url:         Optional[str] = None
+    supervisor:         Optional[str] = None
     line_index:         Optional[int] = None
     line_telefono:      Optional[str] = None
     line_servicio:      Optional[str] = None
@@ -527,6 +537,14 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         sets.append("dia_instalacion = :di"); params["di"] = _normalize_date(body.dia_instalacion)
     if body.imagen_url is not None:
         sets.append("imagen_url = :img"); params["img"] = body.imagen_url or None
+    if body.supervisor is not None and body.supervisor.strip():
+        # Normalizar a clave corta: "JONATHAN F" o "LUIS G"
+        sup_clean = body.supervisor.strip().upper()
+        if "JONATHAN" in sup_clean:
+            sup_clean = "JONATHAN F"
+        elif "LUIS" in sup_clean:
+            sup_clean = "LUIS G"
+        sets.append("supervisor = :sup"); params["sup"] = sup_clean
 
     if body.line_index is not None:
         li = int(body.line_index)
