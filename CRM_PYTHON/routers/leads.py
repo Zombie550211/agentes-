@@ -216,6 +216,14 @@ def _parse_date_str(s: str) -> Optional[str]:
 @router.post("/api/leads")
 async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     now = datetime.utcnow()
+    # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
+    if not body.supervisor:
+        if _is_supervisor(user):
+            # El propio supervisor crea el lead → él ES el supervisor del lead
+            sup_val = (user.get("name") or "").strip() or (user.get("username") or "").strip()
+        else:
+            sup_val = (user.get("supervisor") or "").strip() or (user.get("supervisorKey") or "").strip()
+        body = body.model_copy(update={"supervisor": sup_val})
     servicios_json = json.dumps(
         body.servicios if isinstance(body.servicios, list) else ([body.servicios] if body.servicios else [])
     )
@@ -257,7 +265,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             "pts": puntaje_val,
             "dv":  _parse_date_str(body.dia_venta),
             "di":  _parse_date_str(body.dia_instalacion),
-            "sup": body.supervisor or user.get("supervisor", ""),
+            "sup": body.supervisor or "",
             "ag":  body.agente or user.get("username", ""),
             "agn": body.agente or user.get("username", ""),
             "img": body.imagen_url or None,
@@ -952,7 +960,7 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
     # Find agent in users table
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT username FROM users
+            SELECT username, supervisor FROM users
             WHERE LOWER(username) = LOWER(:ag) OR LOWER(name) = LOWER(:ag)
             LIMIT 1
         """), {"ag": target_agent})
@@ -961,7 +969,8 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
     if not agent_row:
         raise HTTPException(404, "Agente no encontrado en el sistema")
 
-    agent_username = agent_row["username"]
+    agent_username  = agent_row["username"]
+    agent_supervisor = agent_row.get("supervisor") or ""
     col_name = f"costumers_{agent_username.replace('.','_').replace(' ','_')}"
     now = datetime.utcnow()
     servicios = request_data.get("servicios")
@@ -970,9 +979,9 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
         r = await s.execute(text("""
             INSERT INTO leads
               (nombre_cliente, telefono_principal, status, agente, agente_nombre,
-               servicios, mercado, source_collection, created_by, created_at, updated_at)
+               servicios, mercado, supervisor, source_collection, created_by, created_at, updated_at)
             VALUES
-              (:nc, :tp, :st, :ag, :agn, :srv, :mer, :src, :by, :now, :now)
+              (:nc, :tp, :st, :ag, :agn, :srv, :mer, :sup, :src, :by, :now, :now)
         """), {
             "nc":  request_data.get("nombre_cliente", ""),
             "tp":  request_data.get("telefono_principal", ""),
@@ -981,6 +990,7 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
             "agn": agent_username,
             "srv": json.dumps(servicios) if isinstance(servicios, list) else json.dumps([servicios] if servicios else []),
             "mer": request_data.get("mercado", ""),
+            "sup": agent_supervisor,
             "src": col_name,
             "by":  user.get("username"),
             "now": now,

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestión Multimedia - CRM</title>
-  <link rel="stylesheet" href="css/theme.css?v=20251124f">
+  <link rel="stylesheet" href="/css/theme.css?v=20251124f">
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -13,18 +13,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/sidebar-shared.css?v=20251124f">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20251124f">
   
   <!-- Scripts -->
-  <script src="js/fetch-interceptor.js"></script>
-  <script src="agentes/js/auth-check.js"></script>
+  <script src="/js/fetch-interceptor.js"></script>
+  <script src="/agentes/js/auth-check.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   
   <!-- Sistema de Inactividad -->
-  <script src="js/crm-config.js"></script>
-  <script src="js/inactivity-manager.js"></script>
-  <script src="js/crm-init.js"></script>
+  <script src="/js/crm-config.js"></script>
+  <script src="/js/inactivity-manager.js"></script>
+  <script src="/js/crm-init.js"></script>
   
   <style>
     * {
@@ -556,9 +556,9 @@
   </div>
 
   <!-- Scripts de sidebar unificado -->
-  <script src="js/auth-logout.js"></script>
-  <script src="js/user-info-updater.js"></script>
-  <script src="js/sidebar-loader.js"></script>
+  <script src="/js/auth-logout.js"></script>
+  <script src="/js/user-info-updater.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
 
   <script>
     // ========== PRECALENTAMIENTO DE MULTIMEDIA (FAST PATH) ==========
@@ -779,15 +779,21 @@
       `).join('');
     }
 
+    function _resolveMediaUrl(u) {
+      if (!u) return '';
+      if (u.startsWith('http://') || u.startsWith('https://')) return u;
+      return u.startsWith('/') ? u : '/' + u;
+    }
+
     function renderMediaPreview(file) {
       const type = getFileType(file.type);
-      
+      const url = _resolveMediaUrl(file.url);
       if (type === 'image' || type === 'gif') {
-        return `<img src="${file.url}" alt="${file.name}">`;
+        return `<img src="${url}" alt="${file.name}">`;
       } else if (type === 'video') {
-        return `<video src="${file.url}" muted></video>`;
+        return `<video src="${url}" muted></video>`;
       }
-      
+
       return `<i class="fas fa-file" style="font-size: 3rem; color: #cbd5e0;"></i>`;
     }
 
@@ -844,9 +850,9 @@
       
       const type = getFileType(file.type);
       if (type === 'image' || type === 'gif') {
-        modalBody.innerHTML = `<img src="${file.url}" class="modal-media" alt="${file.name}">`;
+        modalBody.innerHTML = `<img src="${_resolveMediaUrl(file.url)}" class="modal-media" alt="${file.name}">`;
       } else if (type === 'video') {
-        modalBody.innerHTML = `<video src="${file.url}" class="modal-media" controls></video>`;
+        modalBody.innerHTML = `<video src="${_resolveMediaUrl(file.url)}" class="modal-media" controls></video>`;
       }
 
       modal.style.display = 'block';

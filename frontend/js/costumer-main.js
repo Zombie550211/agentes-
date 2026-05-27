@@ -150,8 +150,8 @@
         _raw:            it,
         _es_colchon:     !!(it&&it._es_colchon),
         nombre_cliente:  pick(['nombre_cliente','clientName','nombre'])||'SIN NOMBRE',
-        telefono:        pick(['telefono','telefono_principal','phone','telefonoPrincipal']),
-        telefono_alt:    pick(['telefono_alt','telefono_alterno','altPhone','telefonoAlterno']),
+        telefono:        pick(['telefono_principal','telefono','phone','telefonoPrincipal']),
+        telefono_alt:    pick(['telefono_alt','telefono_alterno','telefono','altPhone','telefonoAlterno']),
         numero_cuenta:   pick(['numero_cuenta','no_cuenta','accountNumber','cuenta']),
         autopago:        formatAutopago(pick(['autopago','autoPago','autopay','auto_pay'])),
         direccion:       pick(['direccion','address','direccion_cliente']),
@@ -1081,10 +1081,11 @@
     }
 
     var updates={
-      nombre_cliente:  g('nombre'),
-      telefono:        g('tel'),
-      telefono_alterno:g('tel-alt'),
-      telefono_alt:    g('tel-alt'),
+      nombre_cliente:      g('nombre'),
+      telefono_principal:  g('tel'),
+      telefono:            g('tel'),
+      telefono_alterno:    g('tel-alt'),
+      telefono_alt:        g('tel-alt'),
       numero_cuenta:   g('cuenta'),
       direccion:       g('dir'),
       zip_code:        g('zip'),
@@ -1158,10 +1159,11 @@
     if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido en BD — recarga la tabla','error');return;}
     const _v=function(id){var v=getVal(id);return(v===null||v===undefined)?'':String(v).trim();};
     const _all={
-      nombre_cliente:  _v('edit-nombre'),
-      telefono:        _v('edit-telefono'),
-      telefono_alt:    _v('edit-telefono-alt'),
-      telefono_alterno:_v('edit-telefono-alt'),
+      nombre_cliente:     _v('edit-nombre'),
+      telefono_principal: _v('edit-telefono'),
+      telefono:           _v('edit-telefono'),
+      telefono_alt:       _v('edit-telefono-alt'),
+      telefono_alterno:   _v('edit-telefono-alt'),
       numero_cuenta:   _v('edit-cuenta'),
       direccion:       _v('edit-direccion'),
       zip_code:        _v('edit-zip'),
@@ -1363,7 +1365,7 @@
   function renderCuadTotales(){const el=document.getElementById('cuadratura-totales');if(!el)return;const all=_cuadData.all;const totManual=all.filter(function(r){return r.tipo!=='extra';}).reduce(function(s,r){return s+(r.puntajeManual||0);},0);const totCRMMatchados=all.filter(function(r){return r.tipo!=='extra'&&r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const totCRMReal=all.filter(function(r){return r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const diff=parseFloat((totManual-totCRMMatchados).toFixed(2));const diffColor=diff===0?'var(--go)':diff>0?'var(--warn)':'var(--stop)';el.innerHTML='<span>Manual: <b>'+totManual.toFixed(2)+' pts</b></span><span>CRM (matchados): <b>'+totCRMMatchados.toFixed(2)+' pts</b></span>'+(totCRMReal!==totCRMMatchados?'<span style="color:var(--info)">CRM total: <b>'+totCRMReal.toFixed(2)+' pts</b></span>':'')+'<span style="color:'+diffColor+'">Diferencia: <b>'+(diff>0?'+':'')+diff.toFixed(2)+' pts</b></span>';}
 
   // ── PHONE NUMBERS CUADRATURA ──
-  function normalizePhoneNumber(phone){var cleaned=String(phone||'').replace(/\D/g,'');if(cleaned.length>10){cleaned=cleaned.slice(-10);}return cleaned;}
+  function normalizePhoneNumber(phone){var cleaned=String(phone||'').replace(/\D/g,'');if(cleaned.length>10){cleaned=cleaned.slice(-10);}if(/^0+$/.test(cleaned))return '';return cleaned;}
   window.switchCuadMode=function(mode){document.querySelectorAll('[id^="cuad-mode-"]').forEach(function(el){el.style.display='none';});document.querySelectorAll('.cuad-mode-tab').forEach(function(btn){btn.classList.remove('is-active');});const modeEl=document.getElementById('cuad-mode-'+mode);if(modeEl)modeEl.style.display='block';const modeBtn=document.getElementById('cuad-tab-'+mode);if(modeBtn)modeBtn.classList.add('is-active');if(mode==='telefonos'){limpiarCuadraturaTelefonos();updateCuadraturaPhonesFilterInfo();document.getElementById('btnEjecutarCuadratura').style.display='none';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}else{limpiarCuadratura();document.getElementById('btnEjecutarCuadratura').style.display='';document.getElementById('btnEjecutarCuadraturaTelefonos').style.display='none';document.getElementById('btn-cuadratura-limpiar').style.display='none';document.getElementById('btn-cuadratura-limpiar-phones').style.display='none';}};
   window.ejecutarCuadraturaTelefonos=function(){
     const ta=document.getElementById('cuadraturaPhoneInput');

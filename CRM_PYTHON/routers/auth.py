@@ -117,6 +117,7 @@ def _make_token(user: dict) -> str:
     payload = {
         "id":         str(user.get("_id") or user.get("id")),
         "username":   user.get("username", ""),
+        "name":       user.get("name", "") or user.get("username", ""),
         "role":       user.get("role", ""),
         "team":       user.get("team", ""),
         "supervisor": user.get("supervisor", ""),
@@ -248,9 +249,11 @@ async def verify_server(request: Request):
 
     doc = await _find_user_by_username(decoded["username"])
     if doc:
-        if doc.get("name"):       user_data["name"]       = doc["name"]
+        # name: siempre incluir (fallback a username si no hay nombre)
+        user_data["name"]       = doc.get("name") or doc.get("username") or decoded.get("username", "")
         if doc.get("team"):       user_data["team"]       = doc["team"]
         if doc.get("role"):       user_data["role"]       = doc["role"]
+        if doc.get("supervisor"): user_data["supervisor"] = doc["supervisor"]
         if doc.get("avatar_url"): user_data["avatarUrl"]  = doc["avatar_url"]
 
     return {"success": True, "authenticated": True, "user": user_data}

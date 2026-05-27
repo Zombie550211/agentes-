@@ -331,7 +331,7 @@
             if (!elem || typeof elem.querySelector !== 'function') return;
             if (elem.querySelector('a[href*="Reglas.html"]') || elem.querySelector('a[href*="Reglas y Puntajes"]')) return;
             var target = elem.querySelector('ul.menu') || elem.querySelector('.nav-content') || elem;
-            var anchorHtml = '<a href="/Reglas.html" class="btn btn-sidebar" title="Reglas y Puntajes"><i class="fas fa-book"></i><span class="menu-label">Reglas y Puntajes</span></a>';
+            var anchorHtml = '<a href="/residencial/reglas.html" class="btn btn-sidebar" title="Reglas y Puntajes"><i class="fas fa-book"></i><span class="menu-label">Reglas y Puntajes</span></a>';
             if (target && target.tagName && target.tagName.toLowerCase() === 'ul') {
               target.insertAdjacentHTML('beforeend', '<li>' + anchorHtml + '</li>');
             } else if (target) {
@@ -369,11 +369,11 @@
         if (firstMenu && firstMenu.querySelectorAll('li').length === 0) {
           console.warn('⚠️ Sidebar sin items tras render. Inyectando menú de agente por fallback.');
           const items = [
-            { icon:'fa-home', text:'Inicio', href:'\/inicio.html' },
-            { icon:'fa-user-plus', text:'Nuevo Lead', href:'\/lead.html' },
-            { icon:'fa-users', text:'Lista de Clientes', href:'\/Costumer.html' },
-            { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/Ranking y Promociones.html' },
-            { icon:'fa-chart-bar', text:'Estadísticas', href:'\/Estadisticas.html' }
+            { icon:'fa-home', text:'Inicio', href:'\/residencial\/inicio.html' },
+            { icon:'fa-user-plus', text:'Nuevo Lead', href:'\/residencial\/formulario-registro.html' },
+            { icon:'fa-users', text:'Lista de Clientes', href:'\/residencial\/costumer.html' },
+            { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/residencial\/ranking.html' },
+            { icon:'fa-chart-bar', text:'Estadísticas', href:'\/residencial\/estadisticas.html' }
           ];
             firstMenu.innerHTML = items.map(it => `
               <li>
@@ -747,34 +747,34 @@
     const allRoles = ['admin', 'supervisor', 'agente', 'backoffice'];
     const adminBackofficeRoles = ['admin', 'backoffice'];
     const menuItemsOrder = [
-      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/inicio.html', roles: allRoles },
-      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: 'Costumer.html', roles: allRoles },
-      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: 'Ranking y Promociones.html', roles: allRoles },
-      { key: 'premios', icon: 'fa-award', text: 'Premios', href: 'Premios.html', roles: allRoles },
-      { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: 'TEAM LINEAS/COSTUMER-LINEAS.html', roles: adminBackofficeRoles },
-      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: 'TEAM LINEAS/ESTADISTICAS-LINEAS.html', roles: allRoles },
-      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: 'rankingAgente.html', roles: allRoles },
-      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: 'Estadisticas.html', roles: allRoles },
-      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: 'Comisiones.html', roles: allRoles },
-      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: 'El semaforo.html', roles: allRoles },
-      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: 'llamadas y ventas por team.html', roles: adminBackofficeRoles },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: 'facturacion.html', roles: adminBackofficeRoles },
+      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/residencial/inicio.html', roles: allRoles },
+      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/residencial/costumer.html', roles: allRoles },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html', roles: allRoles },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/residencial/premios.html', roles: allRoles },
+      { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: '/lineas/costumer.html', roles: adminBackofficeRoles },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', roles: allRoles },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: '/residencial/ranking-agente.html', roles: allRoles },
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html', roles: allRoles },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html', roles: allRoles },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html', roles: allRoles },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', roles: adminBackofficeRoles },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: 'index.html', roles: allRoles },
-      { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: 'empleado-del-mes.html', roles: allRoles },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: 'Tabla de puntaje.html', roles: allRoles },
-      { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: 'multimedia.html', roles: allRoles },
-      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: 'Reglas.html', roles: allRoles },
-      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: 'crear-cuenta.html', roles: allRoles },
-      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: 'chat.html', roles: allRoles }
+      { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html', roles: allRoles },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: '/residencial/tabla-puntaje.html', roles: allRoles },
+      { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: '/residencial/multimedia.html', roles: allRoles },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html', roles: allRoles },
+      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: '/crear-cuenta.html', roles: allRoles },
+      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html', roles: allRoles }
     ];
 
     // Redirigir a páginas específicas de Team Líneas si corresponde
     if (ctx && ctx.isLineas) {
       menuItemsOrder.forEach(item => {
-        if (item.key === 'lead') item.href = '/TEAM LINEAS/LEAD-LINEAS.html';
-        if (item.key === 'costumer') item.href = '/TEAM LINEAS/COSTUMER-LINEAS.html';
-        if (item.key === 'ranking') item.href = '/TEAM LINEAS/RANKING-LINEAS.html';
-        if (item.key === 'estadisticas') item.href = '../Estadisticas.html';
+        if (item.key === 'lead') item.href = '/lineas/lead.html';
+        if (item.key === 'costumer') item.href = '/lineas/costumer.html';
+        if (item.key === 'ranking') item.href = '/lineas/ranking.html';
+        if (item.key === 'estadisticas') item.href = '/residencial/estadisticas.html';
       });
     }
 
@@ -804,13 +804,13 @@
       const agentKeys = ['inicio','lead','costumer','ranking','estadisticas','comisiones'];
       // Mapeo manual para fallback
       const fallbackMap = {
-          'inicio': { href: '/inicio.html', icon: 'fa-home', text: 'Inicio' },
-          'lead': { href: 'lead.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
-          'costumer': { href: 'Costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
-          'ranking': { href: 'Ranking y Promociones.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
-          'rankings': { href: 'rankingAgente.html', icon: 'fa-chart-line', text: 'Rankings' },
-          'estadisticas': { href: 'Estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
-          'comisiones': { href: 'Comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
+          'inicio': { href: '/residencial/inicio.html', icon: 'fa-home', text: 'Inicio' },
+          'lead': { href: '/residencial/formulario-registro.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
+          'costumer': { href: '/residencial/costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
+          'ranking': { href: '/residencial/ranking.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
+          'rankings': { href: '/residencial/ranking-agente.html', icon: 'fa-chart-line', text: 'Rankings' },
+          'estadisticas': { href: '/residencial/estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
+          'comisiones': { href: '/residencial/comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
       };
       
       for (const key of agentKeys) {
@@ -835,40 +835,40 @@
     
     // Sección 1: Principal (sin título) - Inicio, Formulario, Lead, Nuevo Lead, Lista de Clientes
     const principalItems = [
-      { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/inicio.html' },
-      { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/formulario-registro.html' },
-      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/Costumer.html', hasSubmenu: true }
+      { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/residencial/inicio.html' },
+      { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/residencial/formulario-registro.html' },
+      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/residencial/costumer.html', hasSubmenu: true }
     ];
     
     // Sección 2: Estadísticas
     const estadisticasItems = [
-      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/Estadisticas.html' },
-      { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/Rankings.html' },
-      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/Ranking y Promociones.html' },
-      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/historial-agentes.html', adminOnly: true },
-      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/Reglas.html' },
-      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/Premios.html' },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/facturacion.html' },
-      { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/Comisiones.html' },
-      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/El semaforo.html' }
+      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html' },
+      { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
+      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
+      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/residencial/historial-agentes.html', adminOnly: true },
+      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html' },
+      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/residencial/premios.html' },
+      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html' },
+      { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/residencial/comisiones.html' },
+      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' }
     ];
     
     // Sección 3: Administración
     const administracionItems = [
-      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/llamadas y ventas por team.html', adminOnly: true },
-      { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/empleado-del-mes.html' },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/Tabla de puntaje.html' },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
+      { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html' },
+      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html' },
       { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
       { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html' }
     ];
 
     // Sección 4: Servicios Móviles
     const movilesItems = [
-      { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/TEAM LINEAS/INICIO-LINEAS.html' },
-      { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/TEAM LINEAS/LEAD-LINEAS.html' },
-      { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/TEAM LINEAS/COSTUMER-LINEAS.html' },
-      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/TEAM LINEAS/ESTADISTICAS-LINEAS.html' },
-      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/TEAM LINEAS/RANKING-LINEAS.html' }
+      { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/lineas/inicio.html' },
+      { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lineas/lead.html' },
+      { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
+      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
+      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' }
     ];
 
     const teams = [
@@ -1070,7 +1070,7 @@
       </div>
       <h3>Navegación</h3>
       <ul class="menu">
-        <li><a href="/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
+        <li><a href="/residencial/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>
         <li><a href="#" class="btn btn-sidebar btn-logout" data-logout-button><i class="fas fa-sign-out-alt"></i><span class="menu-label">Cerrar Sesión</span></a></li>
       </ul>
     `;
@@ -1686,20 +1686,20 @@
   // We map the visible label to the actual page and force navigation.
   (function setupAdminLocalSidebarButtonNav(){
     const LABEL_TO_HREF = {
-      'inicio': '/inicio.html',
-      'formulario': '/formulario-registro.html',
-      'lead': '/lead.html',
-      'nuevo lead': '/nuevo-lead.html',
-      'lista de clientes': '/Costumer.html',
-      'ranking y promociones': '/Ranking y Promociones.html',
-      'estadisticas': '/Estadisticas.html',
-      'estadísticas': '/Estadisticas.html',
-      'facturacion': '/facturacion.html',
-      'facturación': '/facturacion.html',
-      'empleado del mes': '/empleado-del-mes.html',
-      'tabla de puntaje': '/Tabla de puntaje.html',
-      'multimedia': '/multimedia.html',
-      'reglas y puntajes': '/Reglas.html',
+      'inicio': '/residencial/inicio.html',
+      'formulario': '/residencial/formulario-registro.html',
+      'lead': '/residencial/formulario-registro.html',
+      'nuevo lead': '/residencial/formulario-registro.html',
+      'lista de clientes': '/residencial/costumer.html',
+      'ranking y promociones': '/residencial/ranking.html',
+      'estadisticas': '/residencial/estadisticas.html',
+      'estadísticas': '/residencial/estadisticas.html',
+      'facturacion': '/residencial/facturacion.html',
+      'facturación': '/residencial/facturacion.html',
+      'empleado del mes': '/residencial/empleado-mes.html',
+      'tabla de puntaje': '/residencial/tabla-puntaje.html',
+      'multimedia': '/residencial/multimedia.html',
+      'reglas y puntajes': '/residencial/reglas.html',
       'crear cuenta': '/crear-cuenta.html'
     };
     function getMappedHrefFromLabel(text){

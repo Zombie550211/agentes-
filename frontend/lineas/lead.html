@@ -16,8 +16,8 @@
         const isBackoffice = role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'bo' || role === 'b.o' || role === 'b:o' || role === 'b-o';
         const isRolIcon = role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon';
         const ok = isTeamLineas || isAdmin || isBackoffice || isRolIcon;
-        if(!ok){ window.location.replace('/inicio.html'); }
-      }catch(e){ window.location.replace('/inicio.html'); }
+        if(!ok){ window.location.replace('/login.html'); }
+      }catch(e){ window.location.replace('/login.html'); }
     })();
   </script>
   <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
@@ -401,7 +401,7 @@
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                   <span style="font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:.05em;">Click o arrastra una imagen</span>
                 </div>
-                <img id="ll-img-preview" src="" alt="preview" style="
+                <img id="ll-img-preview" src="/" alt="preview" style="
                   display:none; width:100%; height:100%; object-fit:cover; position:absolute; inset:0;
                 " onclick="event.stopPropagation();_llImgLightbox()" title="Click para ampliar"/>
                 <div id="ll-img-hint" style="
@@ -484,7 +484,7 @@
       if (!src) return;
       var overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-      overlay.innerHTML = '<img src="'+src+'" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);">';
+      overlay.innerHTML = '<img src="/'+src+'" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);">';
       overlay.onclick = function(){ document.body.removeChild(overlay); };
       document.body.appendChild(overlay);
     }
@@ -696,8 +696,10 @@
         var status = getToggleValue('status') || 'pending';
         var defaultLineStatus = status.toLowerCase() === 'pending' ? 'PENDING' : status.toUpperCase();
 
+        var _cleanTel = function(v){ var d=(v||'').replace(/\D+/g,''); return /^0+$/.test(d)?'':d; };
+
         for (var i = 1; i <= n; i++) {
-          var v = (document.getElementById('tel_'+i).value||'').replace(/\D+/g,'');
+          var v = _cleanTel(document.getElementById('tel_'+i).value);
           var s = (document.getElementById('svc_'+i)||{}).value || 'WIRELESS';
           telefonos.push(v);
           servicios.push(s);
@@ -706,7 +708,7 @@
 
         var payload = {
           nombre_cliente: document.getElementById('nombre_cliente').value,
-          telefono_principal: (document.getElementById('telefono_principal').value||'').replace(/\D+/g,''),
+          telefono_principal: _cleanTel(document.getElementById('telefono_principal').value),
           numero_cuenta: document.getElementById('numero_cuenta').value,
           autopay: getToggleValue('autopay') || 'si',
           pin_seguridad: document.getElementById('pin_seguridad').value,
