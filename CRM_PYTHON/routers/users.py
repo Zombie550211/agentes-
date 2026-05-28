@@ -22,6 +22,8 @@ ROLE_PERMS = {
     "vendedor":               ["read:own","write:own"],
     "Lineas-Agentes":         ["read:own:lineas","write:own:lineas","form:lineas"],
     "Supervisor Team Lineas": ["read:team:lineas","write:team:lineas","manage:lineas"],
+    "Rol_icon":               ["read:all","write:all","export:data"],
+    "rol_icon":               ["read:all","write:all","export:data"],
 }
 
 ALLOWED_ROLES = [
@@ -30,6 +32,7 @@ ALLOWED_ROLES = [
     "vendedor","usuario","Agente","agente","agent",
     "Backoffice","backoffice","back office","Back Office","back_office","bo","BO","b.o","b:o",
     "Lineas-Agentes","lineas-agentes","Lineas Agentes","lineas agentes",
+    "Rol_icon","rol_icon","ROL_ICON","Rol-icon","rol-icon","ROL-ICON","rolicon","RolIcon",
 ]
 
 # Set normalizado para chequeo rápido case-insensitive

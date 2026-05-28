@@ -10,26 +10,40 @@
   function isTeamLineasUser() {
     try {
       const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      const username = (userData.username || '').toLowerCase();
-      const role = (userData.role || '').toLowerCase();
-      const team = (userData.team || '').toLowerCase();
-      
-      if (role === 'teamlineas' || role === 'lineas-agentes' || role === 'supervisor team lineas') {
+      // Normalizar: quitar acentos + minúsculas (ej: "Líneas" → "lineas")
+      const _norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+      const username = _norm(userData.username);
+      const role     = _norm(userData.role);
+      const team     = _norm(userData.team);
+
+      // Roles explícitos de líneas
+      if (role === 'teamlineas' || role === 'lineas-agentes' || role === 'lineas agentes' ||
+          role === 'supervisor team lineas' || role === 'supervisor lineas') {
         return true;
       }
-      
+
+      // Supervisor con equipo de líneas
       if (role === 'supervisor' && team.includes('lineas')) {
         return true;
       }
-      
-      if (team.includes('lineas')) { 
+
+      // Equipo contiene "lineas" (ya normalizado, sin acento)
+      if (team.includes('lineas')) {
         return true;
       }
-       
+
+      // Username empieza con "lineas-"
       if (username.startsWith('lineas-')) {
         return true;
       }
-      
+
+      // Agentes de Team Líneas con rol genérico (sin 'lineas' en rol/equipo)
+      const _lineasUsers = ['dennis vasquez','dennisvasquez','melany hurtado','melanyhurtado'];
+      const _normName = _norm(userData.name || '') || username;
+      if (_lineasUsers.some(function(n){ return _normName.includes(n) || username.includes(n.replace(' ','')); })) {
+        return true;
+      }
+
       return false;
     } catch (e) {
       return false;

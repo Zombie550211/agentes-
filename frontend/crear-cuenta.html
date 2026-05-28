@@ -380,6 +380,7 @@
             <option value="">— Selecciona —</option>
             <option value="Administrador">Administrador</option>
             <option value="Backoffice">Backoffice</option>
+            <option value="Rol_icon">Rol Icon</option>
             <option value="Supervisor">Supervisor</option>
             <option value="Agente">Agente</option>
             <option value="Supervisor Team Lineas">Supervisor Team Líneas</option>
@@ -454,6 +455,7 @@
           <select class="form-select" id="r-role" onchange="onRoleChange('r')">
             <option value="Administrador">Administrador</option>
             <option value="Backoffice">Backoffice</option>
+            <option value="Rol_icon">Rol Icon</option>
             <option value="Supervisor">Supervisor</option>
             <option value="Agente">Agente</option>
             <option value="Supervisor Team Lineas">Supervisor Team Líneas</option>
@@ -805,7 +807,7 @@ function toast(msg,type='ok'){ document.querySelectorAll('.toast').forEach(t=>t.
 function initials(s){ return String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'??'; }
 function capFirst(s){ return String(s||'').trim().split(/\s+/).map(w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'').join(' '); }
 function getRoleClass(role){ const r=String(role||'').toLowerCase(); if(r.includes('admin'))return 'role-admin'; if(r.includes('backoffice')||r.includes('back'))return 'role-backoffice'; if(r.includes('supervisor'))return 'role-supervisor'; if(r.includes('agente')||r.includes('vendedor')||r.includes('agent'))return 'role-agente'; if(r.includes('lineas'))return 'role-lineas'; return 'role-other'; }
-function getRoleLabel(role){ const r=String(role||'').trim(); const map={'Administrador':'Administrador','administrador':'Administrador','admin':'Admin','Backoffice':'Backoffice','backoffice':'Backoffice','Supervisor':'Supervisor','supervisor':'Supervisor','Agente':'Agente','agente':'Agente','vendedor':'Agente','Supervisor Team Lineas':'Sup. Líneas','Lineas-Agentes':'Líneas Agente'}; return map[r]||r||'—'; }
+function getRoleLabel(role){ const r=String(role||'').trim(); const map={'Administrador':'Administrador','administrador':'Administrador','admin':'Admin','Backoffice':'Backoffice','backoffice':'Backoffice','Rol_icon':'Rol Icon','rol_icon':'Rol Icon','ROL_ICON':'Rol Icon','Rol-icon':'Rol Icon','Supervisor':'Supervisor','supervisor':'Supervisor','Agente':'Agente','agente':'Agente','vendedor':'Agente','Supervisor Team Lineas':'Sup. Líneas','Lineas-Agentes':'Líneas Agente'}; return map[r]||r||'—'; }
 function getPermLabel(key){ const p=ALL_PERMS.find(x=>x.key===key); return p?p.label:key; }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -1387,7 +1389,19 @@ function openRoleModal(userId){
   _editingId=String(userId); _editingUsername=u.username;
   document.getElementById('r-user-display').textContent=(u.name||u.username)+' (@'+u.username+')';
   document.getElementById('r-username').value=u.username||'';
-  document.getElementById('r-role').value=u.role||'Agente';
+  // Normalizar rol al valor exacto del dropdown (especialmente Rol_icon con distintas capitalizaciones)
+  var _normalizeRoleVal = function(r){
+    var rL=(r||'').toLowerCase().replace(/[-_ ]/g,'');
+    if(rL==='rolicon'||rL==='rol_icon'||rL==='rolicon') return 'Rol_icon';
+    if(rL==='administrador'||rL==='admin') return 'Administrador';
+    if(rL==='backoffice'||rL==='bo')       return 'Backoffice';
+    if(rL==='supervisor')                  return 'Supervisor';
+    if(rL==='supervisorteamlineas')        return 'Supervisor Team Lineas';
+    if(rL==='lineasagentes')               return 'Lineas-Agentes';
+    if(rL==='agente'||rL==='agente'||rL==='vendedor') return 'Agente';
+    return r; // devolver tal cual si no coincide con nada
+  };
+  document.getElementById('r-role').value=_normalizeRoleVal(u.role)||'Agente';
   var supSel=document.getElementById('r-supervisor');
   if(supSel){
     var userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
