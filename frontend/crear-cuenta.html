@@ -1406,11 +1406,40 @@ function openRoleModal(userId){
     }
   }
   onRoleChange('r');
+
+  // Para supervisores: pre-seleccionar el team encargado actual del usuario
+  var isSup = (u.role==='Supervisor'||u.role==='Supervisor Team Lineas');
+  if(isSup){
+    var teamEncSel = document.getElementById('r-team-encargado');
+    if(teamEncSel){
+      var currentTeam = u.team||u.equipo||'';
+      // Intentar seleccionar el valor exacto; si no existe como opción, agregar una temporal
+      if(currentTeam){
+        if(!teamEncSel.querySelector('option[value="'+currentTeam+'"]')){
+          var opt=document.createElement('option');
+          opt.value=currentTeam; opt.textContent=currentTeam;
+          teamEncSel.appendChild(opt);
+        }
+        teamEncSel.value=currentTeam;
+      } else {
+        teamEncSel.value='';
+      }
+    }
+  }
+
+  // Limpiar campos de contraseña al abrir
+  document.getElementById('r-new-pwd').value='';
+  document.getElementById('r-confirm-pwd').value='';
+
   openModal('modal-role');
 }
 async function saveRole(){
   var role=document.getElementById('r-role').value;
-  var team=document.getElementById('r-team').value.trim();
+  var isSup=(role==='Supervisor'||role==='Supervisor Team Lineas');
+  // Para supervisores usar r-team-encargado; para agentes/otros usar r-team
+  var team=isSup
+    ? document.getElementById('r-team-encargado').value.trim()
+    : document.getElementById('r-team').value.trim();
   var supEl=document.getElementById('r-supervisor');
   var supervisorKey=supEl?supEl.value.trim():'';
   var usernameEl=document.getElementById('r-username');
