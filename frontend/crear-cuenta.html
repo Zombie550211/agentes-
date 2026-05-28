@@ -366,12 +366,38 @@
           </select>
         </div>
       </div>
-      <div class="form-row">
+      <!-- Fila para Agentes: Supervisor + Equipo -->
+      <div class="form-row" id="c-agent-row">
         <div class="form-group"><label class="form-label">Supervisor</label>
           <select class="form-select" id="c-supervisor" onchange="onSupervisorChange('c')"><option value="">— Selecciona supervisor —</option></select>
         </div>
         <div class="form-group"><label class="form-label">Equipo</label>
           <select class="form-select" id="c-team"><option value="">— Selecciona equipo —</option></select>
+        </div>
+      </div>
+      <!-- Fila para Supervisores: Team encargado -->
+      <div class="form-row" id="c-supervisor-row" style="display:none">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Team encargado <span style="color:var(--red)">*</span></label>
+          <select class="form-select" id="c-team-encargado">
+            <option value="">— Selecciona el team que supervisa —</option>
+            <optgroup label="Administrativa y Backoffice">
+              <option value="Administración">Administración</option>
+              <option value="Backoffice">Backoffice</option>
+            </optgroup>
+            <optgroup label="Servicios Residenciales">
+              <option value="TEAM IRANIA SERRANO">Equipo Irania Serrano</option>
+              <option value="TEAM ROBERTO VELASQUEZ">Equipo Roberto Velasquez</option>
+              <option value="TEAM RANDAL MARTINEZ">Equipo Randal Martinez</option>
+              <option value="TEAM GUADALUPE SANTANA">Equipo Guadalupe Santana</option>
+              <option value="TEAM MARISOL BELTRAN">Equipo Marisol Beltran</option>
+            </optgroup>
+            <optgroup label="Líneas Móviles">
+              <option value="TEAM LINEAS JONATHAN">Equipo Jonathan Figueroa</option>
+              <option value="TEAM LINEAS LUIS">Equipo Luis Gutierrez</option>
+            </optgroup>
+          </select>
+          <div class="form-hint" style="margin-top:4px">El supervisor quedará asignado como encargado de este equipo.</div>
         </div>
       </div>
       <div class="perm-section-title">Permisos del usuario</div>
@@ -414,13 +440,38 @@
             <option value="Lineas-Agentes">Líneas Agentes</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Supervisor</label>
+        <!-- Supervisor field — solo visible para Agentes/Lineas-Agentes -->
+        <div class="form-group" id="r-supervisor-wrap"><label class="form-label">Supervisor</label>
           <select class="form-select" id="r-supervisor" onchange="onSupervisorChange('r')"><option value="">— Selecciona supervisor —</option></select>
         </div>
       </div>
-      <div class="form-group">
+      <!-- Equipo — para Agentes/Backoffice/Admin -->
+      <div class="form-group" id="r-team-wrap">
         <label class="form-label">Equipo</label>
         <select class="form-select" id="r-team" style="margin-bottom:4px"><option value="">— Selecciona equipo —</option></select>
+      </div>
+      <!-- Team encargado — solo visible para Supervisores -->
+      <div class="form-group" id="r-supervisor-team-wrap" style="display:none">
+        <label class="form-label">Team encargado <span style="color:var(--red)">*</span></label>
+        <select class="form-select" id="r-team-encargado">
+          <option value="">— Selecciona el team que supervisa —</option>
+          <optgroup label="Administrativa y Backoffice">
+            <option value="Administración">Administración</option>
+            <option value="Backoffice">Backoffice</option>
+          </optgroup>
+          <optgroup label="Servicios Residenciales">
+            <option value="TEAM IRANIA SERRANO">Equipo Irania Serrano</option>
+            <option value="TEAM ROBERTO VELASQUEZ">Equipo Roberto Velasquez</option>
+            <option value="TEAM RANDAL MARTINEZ">Equipo Randal Martinez</option>
+            <option value="TEAM GUADALUPE SANTANA">Equipo Guadalupe Santana</option>
+            <option value="TEAM MARISOL BELTRAN">Equipo Marisol Beltran</option>
+          </optgroup>
+          <optgroup label="Líneas Móviles">
+            <option value="TEAM LINEAS JONATHAN">Equipo Jonathan Figueroa</option>
+            <option value="TEAM LINEAS LUIS">Equipo Luis Gutierrez</option>
+          </optgroup>
+        </select>
+        <div class="form-hint" style="margin-top:4px">El supervisor quedará asignado como encargado de este equipo.</div>
       </div>
       <div class="form-group">
         <label class="form-label">Permisos que se asignarán</label>
@@ -1042,6 +1093,33 @@ function onRoleChange(prefix){
   const perms=ROLE_PERMS[role]||[];
   if(prefix==='r') document.getElementById('r-perms-preview').innerHTML=perms.map(p=>`<span class="perm-chip active">${getPermLabel(p)}</span>`).join('')||'<span style="color:var(--ink3);font-size:.7rem">Sin permisos base</span>';
   if(prefix==='c') buildPermsGrid('c-perms-grid',perms);
+
+  const isSup = role==='Supervisor'||role==='Supervisor Team Lineas';
+
+  // Formulario crear usuario
+  if(prefix==='c'){
+    const agentRow=document.getElementById('c-agent-row');
+    const supRow=document.getElementById('c-supervisor-row');
+    if(agentRow) agentRow.style.display=isSup?'none':'';
+    if(supRow)   supRow.style.display=isSup?'':'none';
+    if(isSup){
+      // Pre-seleccionar la sección de líneas si el rol es Supervisor Team Lineas
+      const sel=document.getElementById('c-team-encargado');
+      if(sel&&role==='Supervisor Team Lineas'&&!sel.value){
+        // Dejar que el usuario elija, solo hacer scroll al optgroup de Líneas
+      }
+    }
+  }
+
+  // Modal editar perfil
+  if(prefix==='r'){
+    const supWrap=document.getElementById('r-supervisor-wrap');
+    const teamWrap=document.getElementById('r-team-wrap');
+    const supTeamWrap=document.getElementById('r-supervisor-team-wrap');
+    if(supWrap)    supWrap.style.display=isSup?'none':'';
+    if(teamWrap)   teamWrap.style.display=isSup?'none':'';
+    if(supTeamWrap) supTeamWrap.style.display=isSup?'':'none';
+  }
 }
 
 /* ── Create user ── */
@@ -1050,16 +1128,29 @@ async function createUser(){
   const password=document.getElementById('c-password').value;
   const role=document.getElementById('c-role').value;
   const name=document.getElementById('c-name').value.trim();
-  const team=document.getElementById('c-team').value.trim();
-  const supervisorKey=document.getElementById('c-supervisor').value.trim();
+  const isSup=role==='Supervisor'||role==='Supervisor Team Lineas';
+  // Si es supervisor, el team viene del campo "team encargado"; si es agente, del dropdown normal
+  const team=isSup
+    ? document.getElementById('c-team-encargado').value.trim()
+    : document.getElementById('c-team').value.trim();
+  const supervisorKey=isSup?'':document.getElementById('c-supervisor').value.trim();
   if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
   if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
+  if(isSup&&!team){ toast('Selecciona el team que supervisará','err'); return; }
   const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
-  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
+  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
   if(!res){ toast('Error de conexión','err'); return; }
   const data=await res.json();
-  if(res.ok&&data.success!==false){ toast('Usuario creado correctamente','ok'); closeModal('modal-create'); ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; }); document.getElementById('c-role').value=''; buildPermsGrid('c-perms-grid',[]); loadUsers(); }
-  else toast(data.message||'Error al crear usuario','err');
+  if(res.ok&&data.success!==false){
+    toast('Usuario creado correctamente','ok');
+    closeModal('modal-create');
+    ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('c-role').value='';
+    document.getElementById('c-team-encargado').value='';
+    buildPermsGrid('c-perms-grid',[]);
+    onRoleChange('c');
+    loadUsers();
+  } else toast(data.message||'Error al crear usuario','err');
 }
 
 /* ── Edit role modal ── */
