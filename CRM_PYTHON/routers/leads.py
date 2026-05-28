@@ -5,7 +5,7 @@ from sqlalchemy import text
 from deps import current_user, require_roles
 from datetime import datetime
 from typing import Optional, List, Any, Dict
-import re, unicodedata, time, json, calendar
+import re, unicodedata, time, json, calendar, traceback
 
 router = APIRouter(tags=["Leads"])
 

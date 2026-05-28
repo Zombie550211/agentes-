@@ -8,6 +8,7 @@ from typing import Optional
 import datetime as _dt
 import cloudinary
 import cloudinary.uploader
+import traceback
 import os
 
 router = APIRouter(tags=["Files"])
@@ -48,68 +49,80 @@ async def upload_file(
     leadId: Optional[str] = Form(None),
     user:   dict = Depends(current_user),
 ):
-    data = await file.read()
-    if len(data) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Archivo demasiado grande (max 50 MB)")
+    try:
+        data = await file.read()
+        if len(data) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "Archivo demasiado grande (max 50 MB)")
 
-    mimetype  = file.content_type or "application/octet-stream"
-    file_type = _classify(mimetype)
-    ts        = int(_dt.datetime.utcnow().timestamp() * 1000)
-    orig      = file.filename or "file"
-    upby      = user.get("username") or "unknown"
-    now       = _dt.datetime.utcnow()
+        mimetype  = file.content_type or "application/octet-stream"
+        file_type = _classify(mimetype)
+        ts        = int(_dt.datetime.utcnow().timestamp() * 1000)
+        orig      = file.filename or "file"
+        upby      = user.get("username") or "unknown"
+        now       = _dt.datetime.utcnow()
 
-    if _USE_CLOUDINARY and file_type == "image":
-        # Subir a Cloudinary — URL pública permanente (run_in_executor para no bloquear el loop)
-        import asyncio as _aio
-        result = await _aio.get_event_loop().run_in_executor(
-            None,
-            lambda: cloudinary.uploader.upload(
-                data,
-                folder        = "crm_leads",
-                public_id     = f"{ts}-{Path(orig).stem}",
-                resource_type = "image",
-                overwrite     = True,
-            )
-        )
-        file_url  = result["secure_url"]
-        filename  = result["public_id"]
-        file_path = file_url  # guardamos la URL completa
-    else:
-        # Fallback: disco local
-        filename  = f"{ts}-{orig}"
-        dest      = _FILES_DIR / filename
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        with open(dest, "wb") as f:
-            f.write(data)
-        file_path = f"/uploads/files/{filename}"
-        file_url  = file_path
+        cld_ok = False
+        if _USE_CLOUDINARY and file_type == "image":
+            try:
+                import asyncio as _aio
+                result = await _aio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: cloudinary.uploader.upload(
+                        data,
+                        folder        = "crm_leads",
+                        public_id     = f"{ts}-{Path(orig).stem}",
+                        resource_type = "image",
+                        overwrite     = True,
+                    )
+                )
+                file_url  = result["secure_url"]
+                filename  = result["public_id"]
+                file_path = file_url
+                cld_ok    = True
+            except Exception as cld_err:
+                print(f"[files/upload] Cloudinary falló, usando disco local: {cld_err}")
 
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            INSERT INTO note_files
-              (filename, original_name, content_type, file_type, file_size, file_path, lead_id, uploaded_by, uploaded_at)
-            VALUES (:fn, :orig, :ct, :ft, :fs, :fp, :lid, :by, :now)
-        """), {
-            "fn":   filename, "orig": orig,     "ct":  mimetype,
-            "ft":   file_type, "fs": len(data), "fp":  file_path,
-            "lid":  leadId or None, "by": upby, "now": now,
-        })
-        new_id = r.lastrowid
-        await s.commit()
+        if not cld_ok:
+            # Fallback: disco local
+            filename  = f"{ts}-{orig}"
+            dest      = _FILES_DIR / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(data)
+            file_path = f"/uploads/files/{filename}"
+            file_url  = file_path
 
-    return {
-        "success": True,
-        "data": {
-            "fileId":       str(new_id),
-            "filename":     filename,
-            "originalName": orig,
-            "contentType":  mimetype,
-            "fileType":     file_type,
-            "size":         len(data),
-            "url":          file_url,
-        },
-    }
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                INSERT INTO note_files
+                  (filename, original_name, content_type, file_type, file_size, file_path, lead_id, uploaded_by, uploaded_at)
+                VALUES (:fn, :orig, :ct, :ft, :fs, :fp, :lid, :by, :now)
+            """), {
+                "fn":   filename, "orig": orig,     "ct":  mimetype,
+                "ft":   file_type, "fs": len(data), "fp":  file_path,
+                "lid":  leadId or None, "by": upby, "now": now,
+            })
+            new_id = r.lastrowid
+            await s.commit()
+
+        return {
+            "success": True,
+            "data": {
+                "fileId":       str(new_id),
+                "filename":     filename,
+                "originalName": orig,
+                "contentType":  mimetype,
+                "fileType":     file_type,
+                "size":         len(data),
+                "url":          file_url,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[files/upload] ERROR: {e}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"Error subiendo archivo: {str(e)}")
 
 
 # ── GET /api/files/:id ────────────────────────────────────────
