@@ -77,7 +77,8 @@
     .team-dropdown-sep{height:1px;background:var(--border);margin:3px 0}
 
     /* Supervisor row */
-    .sup-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:14px}
+    .sup-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px}
+    .backup-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:rgba(245,158,11,.05);border:1px dashed rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px}
     .sup-text{font-size:.73rem;color:var(--ink3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .sup-text strong{color:var(--ink2);font-weight:600}
     .no-sup{font-style:italic}
@@ -111,9 +112,16 @@
     /* No agents */
     .no-agents{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;color:var(--ink4);font-size:.72rem;text-align:center;gap:6px}
 
-    /* See more */
-    .btn-see-more{width:100%;background:transparent;border:none;color:var(--blue);font-size:.7rem;font-weight:700;cursor:pointer;padding:5px 8px;border-radius:6px;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:4px;transition:background .1s;margin-top:2px}
-    .btn-see-more:hover{background:rgba(79,70,229,.06)}
+    /* Lista de agentes con scroll interno */
+    .agents-list-wrap{
+      max-height:220px;
+      overflow-y:auto;
+      overflow-x:hidden;
+      margin-bottom:2px;
+      /* scrollbar invisible */
+      scrollbar-width:none;
+    }
+    .agents-list-wrap::-webkit-scrollbar{display:none}
 
     /* Drop hint */
     .drop-hint{display:none;text-align:center;font-size:.68rem;color:var(--blue);font-weight:700;padding:8px;border:1.5px dashed var(--blue);border-radius:8px;margin:8px 0;background:rgba(79,70,229,.04)}
@@ -161,6 +169,13 @@
     .up-empty{padding:24px 16px;text-align:center;color:var(--ink4);font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:6px}
     .up-empty i{font-size:1.5rem;opacity:.25}
     .unassigned-panel.drop-target{background:rgba(79,70,229,.04)!important;outline:2px dashed var(--blue);outline-offset:-3px}
+    /* Buscador dentro del panel sin-equipo */
+    .up-search{padding:8px 10px;position:sticky;top:56px;background:var(--surface);z-index:9;border-bottom:1px solid var(--border)}
+    .up-search-wrap{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;transition:border-color .15s}
+    .up-search-wrap:focus-within{border-color:var(--blue)}
+    .up-search-wrap i{font-size:.65rem;color:var(--ink4)}
+    .up-search-wrap input{border:none;background:transparent;font-size:.72rem;color:var(--ink);outline:none;width:100%;font-family:var(--f)}
+    .up-search-wrap input::placeholder{color:var(--ink4)}
 
     /* Teams area — columna derecha */
     .teams-area{flex:1;padding:20px 24px 60px;min-width:0}
@@ -309,6 +324,12 @@
             <div class="up-title">Sin equipo <span class="up-count" id="up-count">0</span></div>
             <div class="up-hint">Arrastra a un equipo</div>
           </div>
+          <div class="up-search">
+            <div class="up-search-wrap">
+              <i class="fas fa-search"></i>
+              <input type="text" id="up-search-input" placeholder="Buscar agente..." oninput="filterUnassigned(this.value)" autocomplete="off"/>
+            </div>
+          </div>
           <div class="up-list" id="up-list">
             <div class="up-empty"><i class="fas fa-check-circle"></i>Todos asignados</div>
           </div>
@@ -381,9 +402,8 @@
           <label class="form-label">Team encargado <span style="color:var(--red)">*</span></label>
           <select class="form-select" id="c-team-encargado">
             <option value="">— Selecciona el team que supervisa —</option>
-            <optgroup label="Administrativa y Backoffice">
+            <optgroup label="Administrativa">
               <option value="Administración">Administración</option>
-              <option value="Backoffice">Backoffice</option>
             </optgroup>
             <optgroup label="Servicios Residenciales">
               <option value="TEAM IRANIA SERRANO">Equipo Irania Serrano</option>
@@ -455,9 +475,8 @@
         <label class="form-label">Team encargado <span style="color:var(--red)">*</span></label>
         <select class="form-select" id="r-team-encargado">
           <option value="">— Selecciona el team que supervisa —</option>
-          <optgroup label="Administrativa y Backoffice">
+          <optgroup label="Administrativa">
             <option value="Administración">Administración</option>
-            <option value="Backoffice">Backoffice</option>
           </optgroup>
           <optgroup label="Servicios Residenciales">
             <option value="TEAM IRANIA SERRANO">Equipo Irania Serrano</option>
@@ -477,6 +496,25 @@
         <label class="form-label">Permisos que se asignarán</label>
         <div id="r-perms-preview" class="perm-chips" style="margin-top:4px"></div>
         <div class="form-hint" style="margin-top:6px">Los permisos se actualizan automáticamente con el rol.</div>
+      </div>
+
+      <!-- Restablecer contraseña (opcional) -->
+      <hr class="divider" style="margin:16px 0 14px"/>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">
+          <i class="fas fa-lock" style="margin-right:5px;color:var(--ink4)"></i>Restablecer contraseña
+        </div>
+        <span style="font-size:.67rem;color:var(--ink4)">Opcional — déjalo vacío para no cambiar</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Nueva contraseña</label>
+          <input class="form-input" id="r-new-pwd" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password"/>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Confirmar contraseña</label>
+          <input class="form-input" id="r-confirm-pwd" type="password" placeholder="Repite la contraseña" autocomplete="new-password"/>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -611,17 +649,90 @@
 
 <!-- ═══ MODAL: CREAR/RENOMBRAR EQUIPO ═══ -->
 <div class="modal-overlay" id="modal-team-name">
-  <div class="modal">
+  <div class="modal" style="max-width:480px">
     <div class="modal-head">
       <div class="modal-title" id="team-name-modal-title"><i class="fas fa-users" style="color:var(--blue);margin-right:8px"></i>Crear Equipo</div>
       <button class="modal-close" onclick="closeModal('modal-team-name')"><i class="fas fa-times"></i></button>
     </div>
-    <div class="modal-body">
-      <div class="form-group"><label class="form-label">Nombre del equipo</label><input class="form-input" id="team-name-input" type="text" placeholder="Ej. TEAM CARLOS"/></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Nombre del equipo -->
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-weight:600;margin-bottom:6px;display:block">
+          <i class="fas fa-tag" style="color:var(--blue);margin-right:6px"></i>Nombre del equipo
+        </label>
+        <input class="form-input" id="team-name-input" type="text" placeholder="Ej. TEAM CARLOS" style="width:100%"/>
+      </div>
+
+      <!-- Supervisor del equipo (solo al crear) -->
+      <div class="form-group" id="team-supervisor-row" style="display:none;margin:0">
+        <label class="form-label" style="font-weight:600;margin-bottom:6px;display:block">
+          <i class="fas fa-user-tie" style="color:#8b5cf6;margin-right:6px"></i>Supervisor del equipo
+        </label>
+        <select class="form-input" id="team-supervisor-input" style="cursor:pointer;width:100%">
+          <option value="">— Sin supervisor asignado —</option>
+        </select>
+      </div>
+
+      <!-- Sección / Team (solo al crear) -->
+      <div class="form-group" id="team-section-row" style="display:none;margin:0">
+        <label class="form-label" style="font-weight:600;margin-bottom:6px;display:block">
+          <i class="fas fa-layer-group" style="color:#f59e0b;margin-right:6px"></i>Sección del equipo
+        </label>
+        <select class="form-input" id="team-section-input" style="cursor:pointer;width:100%">
+          <option value="">— Selecciona sección —</option>
+
+          <optgroup label="━━  Administrativa">
+            <option value="Administración" style="color:#6366f1;font-weight:600">🏢 Administración</option>
+          </optgroup>
+
+          <optgroup label="━━  BackOffice">
+            <option value="TEAM BACKOFFICE"    style="color:#0ea5e9;font-weight:600">📋 Team B.O</option>
+            <option value="TEAM MONITOREO"     style="color:#0ea5e9;font-weight:600">🖥️ Team Monitoreo</option>
+            <option value="TEAM ICON"          style="color:#0ea5e9;font-weight:600">⚡ Team ICON</option>
+            <option value="TEAM BAMO"          style="color:#0ea5e9;font-weight:600">🔷 Team BAMO</option>
+          </optgroup>
+
+          <optgroup label="━━  Servicios Residenciales">
+            <option value="TEAM IRANIA SERRANO"      style="color:#10b981;font-weight:600">🟢 Team Irania</option>
+            <option value="TEAM ROBERTO VELASQUEZ"   style="color:#10b981;font-weight:600">🟢 Team Roberto</option>
+            <option value="TEAM RANDAL MARTINEZ"     style="color:#10b981;font-weight:600">🟢 Team Randal</option>
+            <option value="TEAM MARISOL BELTRAN"     style="color:#10b981;font-weight:600">🟢 Team Marisol</option>
+            <option value="TEAM GUADALUPE SANTANA"   style="color:#10b981;font-weight:600">🟢 Team Santana</option>
+          </optgroup>
+
+          <optgroup label="━━  Líneas Móviles">
+            <option value="TEAM LINEAS JONATHAN"  style="color:#f97316;font-weight:600">📱 Team Jonathan</option>
+            <option value="TEAM LINEAS LUIS"       style="color:#f97316;font-weight:600">📱 Team Luis</option>
+          </optgroup>
+        </select>
+      </div>
+
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-team-name')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveTeamName()"><i class="fas fa-check"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backup del supervisor -->
+<div id="modal-backup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:14px;padding:28px 24px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-weight:800;font-size:.95rem;color:var(--ink);display:flex;align-items:center;gap:8px">
+        <i class="fas fa-exchange-alt" style="color:#b45309"></i> Backup del Supervisor
+      </div>
+      <button onclick="closeBackupModal()" style="background:none;border:none;cursor:pointer;color:var(--ink4);font-size:1rem"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="font-size:.75rem;color:var(--ink4);margin-bottom:14px">
+      El backup es el agente que cubre al supervisor cuando no está disponible. Solo es informativo, no cambia permisos.
+    </div>
+    <label style="font-size:.72rem;font-weight:700;color:var(--ink3);display:block;margin-bottom:6px">Selecciona el agente backup</label>
+    <select id="backup-agent-select" class="form-select" style="width:100%;margin-bottom:20px"></select>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeBackupModal()" class="btn btn-ghost">Cancelar</button>
+      <button onclick="saveBackup()" class="btn btn-primary" style="background:#b45309;border-color:#b45309"><i class="fas fa-check"></i> Guardar</button>
     </div>
   </div>
 </div>
@@ -731,6 +842,9 @@ async function loadUsers(){
   if(_currentView==='list') renderTable(_users);
 }
 
+// Teams que NO deben mostrarse como tarjeta (eliminados del UI)
+const _HIDDEN_TEAMS = ['backoffice'];
+
 /* ── Render Teams ── */
 function renderTeams(){
   const teamMap={};
@@ -739,6 +853,8 @@ function renderTeams(){
     const roleLc=String(u.role||'').toLowerCase();
     const team=String(u.team||u.equipo||'').trim();
     if(!team){ unassigned.push(u); return; }
+    // Ignorar teams eliminados del UI (los usuarios van a "Sin equipo" localmente)
+    if(_HIDDEN_TEAMS.includes(team.toLowerCase())){ unassigned.push(u); return; }
     if(!teamMap[team]) teamMap[team]={ supervisor:null, agents:[] };
     if(roleLc.includes('supervisor')) teamMap[team].supervisor=u;
     else teamMap[team].agents.push(u);
@@ -766,19 +882,30 @@ function renderTeams(){
 }
 
 /* ── Render Unassigned panel ── */
+var _unassignedAll = []; // copia completa para el buscador
+
 function renderUnassigned(unassigned){
   var countEl=document.getElementById('up-count');
   var listEl=document.getElementById('up-list');
+  var searchIn=document.getElementById('up-search-input');
   if(!countEl||!listEl) return;
 
+  _unassignedAll = unassigned;
   countEl.textContent=unassigned.length;
+  // Limpiar buscador al recargar
+  if(searchIn) searchIn.value='';
 
-  if(!unassigned.length){
+  _renderUnassignedItems(unassigned);
+}
+
+function _renderUnassignedItems(list){
+  var listEl=document.getElementById('up-list');
+  if(!listEl) return;
+  if(!list.length){
     listEl.innerHTML='<div class="up-empty"><i class="fas fa-check-circle"></i>Todos asignados</div>';
     return;
   }
-
-  listEl.innerHTML=unassigned.map(function(u){
+  listEl.innerHTML=list.map(function(u){
     var uid=u.id||u._id;
     var name=u.name||u.username||'—';
     var uCol=userColor(name);
@@ -795,6 +922,48 @@ function renderUnassigned(unassigned){
   }).join('');
 }
 
+function filterUnassigned(q){
+  if(!q.trim()){
+    _renderUnassignedItems(_unassignedAll);
+    return;
+  }
+  var ql=q.toLowerCase().trim();
+  var filtered=_unassignedAll.filter(function(u){
+    var name=(u.name||u.username||'').toLowerCase();
+    var role=(u.role||'').toLowerCase();
+    return name.includes(ql)||role.includes(ql);
+  });
+  _renderUnassignedItems(filtered);
+}
+
+/* ── Backup helpers (localStorage, no toca la BD) ── */
+function _backupKey(teamName){ return 'team_backup__'+teamName; }
+function getTeamBackup(teamName){ return localStorage.getItem(_backupKey(teamName))||''; }
+function setTeamBackup(teamName, name){ if(name) localStorage.setItem(_backupKey(teamName),name); else localStorage.removeItem(_backupKey(teamName)); }
+
+var _backupTeamTarget='';
+function openBackupModal(teamName, agents){
+  _backupTeamTarget=teamName;
+  var sel=document.getElementById('backup-agent-select');
+  var cur=getTeamBackup(teamName);
+  sel.innerHTML='<option value="">— Sin backup —</option>';
+  agents.forEach(function(a){
+    var n=a.name||a.username||'';
+    var opt=document.createElement('option');
+    opt.value=n; opt.textContent=capFirst(n);
+    if(n===cur) opt.selected=true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('modal-backup').style.display='flex';
+}
+function closeBackupModal(){ document.getElementById('modal-backup').style.display='none'; }
+function saveBackup(){
+  var val=document.getElementById('backup-agent-select').value;
+  setTeamBackup(_backupTeamTarget, val);
+  closeBackupModal();
+  loadUsers();
+}
+
 /* ── Build team card ── */
 function buildTeamCard(teamName, supervisor, agents){
   const tid='tc_'+teamName.replace(/[^a-zA-Z0-9]/g,'_');
@@ -802,6 +971,7 @@ function buildTeamCard(teamName, supervisor, agents){
   const supId=supervisor?(supervisor.id||supervisor._id):'';
   const supName=supervisor?(supervisor.name||supervisor.username||'—'):'';
   const agentCount=agents.length;
+  const backupName=getTeamBackup(teamName);
 
   const supHtml=supervisor
     ?`<div class="sup-row">
@@ -813,9 +983,16 @@ function buildTeamCard(teamName, supervisor, agents){
         <button class="sup-link" onclick="openAddSupervisorModal('${teamName}')"><i class="fas fa-user-plus"></i> Asignar supervisor</button>
       </div>`;
 
-  const MAX=4;
-  const visible=agents.slice(0,MAX);
-  const hidden=agents.slice(MAX);
+  const agentsJson=JSON.stringify(agents.map(function(a){ return {name:a.name||a.username||''}; })).replace(/'/g,"\\'");
+  const backupHtml=backupName
+    ?`<div class="backup-row">
+        <span class="sup-text">🔁 Backup: <strong>${capFirst(backupName)}</strong></span>
+        <button class="sup-link" style="color:#b45309" onclick='openBackupModal("${teamName.replace(/"/g,'&quot;')}",${agentsJson})'><i class="fas fa-exchange-alt"></i> Cambiar</button>
+      </div>`
+    :`<div class="backup-row">
+        <span class="sup-text" style="color:#b45309;opacity:.75">Sin backup asignado</span>
+        <button class="sup-link" style="color:#b45309" onclick='openBackupModal("${teamName.replace(/"/g,'&quot;')}",${agentsJson})'><i class="fas fa-user-plus"></i> Asignar backup</button>
+      </div>`;
 
   function agentRow(a){
     const aId=a.id||a._id;
@@ -837,13 +1014,7 @@ function buildTeamCard(teamName, supervisor, agents){
   if(!agents.length){
     agentsHtml='<div class="no-agents"><i class="fas fa-user-slash"></i>Sin agentes asignados</div>';
   } else {
-    agentsHtml=visible.map(agentRow).join('');
-    if(hidden.length){
-      agentsHtml+=`<div id="${tid}_hidden" style="display:none">${hidden.map(agentRow).join('')}</div>
-      <button class="btn-see-more" id="${tid}_seebtn" onclick="toggleMore('${tid}',${hidden.length})">
-        Ver ${hidden.length} más <i class="fas fa-chevron-down"></i>
-      </button>`;
-    }
+    agentsHtml=agents.map(agentRow).join('');
   }
 
   // Build search index string for filtering
@@ -871,10 +1042,12 @@ function buildTeamCard(teamName, supervisor, agents){
       </div>
     </div>
     ${supHtml}
+    ${backupHtml}
     <div class="agents-header">Agentes asignados (${agentCount})</div>
-    <div class="agents-list">${agentsHtml}</div>
+    <div class="agents-list-wrap">
+      <div class="agents-list">${agentsHtml}</div>
+    </div>
     <div class="drop-hint"><i class="fas fa-arrows-alt"></i> Suelta aquí para mover al equipo</div>
-    <button class="btn-add-agent" onclick="openAddAgentModal('${teamName}')"><i class="fas fa-plus"></i> Agregar agente</button>
   </div>`;
 }
 
@@ -953,16 +1126,46 @@ async function saveAddAgent(){
 }
 
 /* ── Create / Rename team ── */
+function _buildSupervisorOptions(selectEl, selectedVal){
+  // Filtra usuarios con rol Supervisor de la lista cargada
+  var supervisorRoles = ['supervisor','supervisor team lineas'];
+  var sups = (_users||[]).filter(function(u){
+    return supervisorRoles.includes(String(u.role||'').toLowerCase().trim());
+  });
+  // Limpia y reconstruye las opciones
+  selectEl.innerHTML = '<option value="">— Sin supervisor asignado —</option>';
+  sups.forEach(function(u){
+    var display = (u.name||'').trim() || (u.username||'').trim();
+    var val     = u.username || u.id || u._id;
+    var opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = display + ' (' + (u.role||'') + ')';
+    if(selectedVal && (val===selectedVal || display===selectedVal)) opt.selected=true;
+    selectEl.appendChild(opt);
+  });
+}
+
 function openCreateTeamModal(){
   _renamingTeam='';
   document.getElementById('team-name-modal-title').innerHTML='<i class="fas fa-users" style="color:var(--blue);margin-right:8px"></i>Crear Nuevo Equipo';
   document.getElementById('team-name-input').value='';
+  // Mostrar y poblar selector de supervisor
+  var supRow = document.getElementById('team-supervisor-row');
+  var supSel = document.getElementById('team-supervisor-input');
+  supRow.style.display = 'block';
+  _buildSupervisorOptions(supSel, '');
+  // Mostrar selector de sección y resetear
+  document.getElementById('team-section-row').style.display = 'block';
+  document.getElementById('team-section-input').value = '';
   openModal('modal-team-name');
 }
 function openRenameTeamModal(currentName){
   _renamingTeam=currentName;
   document.getElementById('team-name-modal-title').innerHTML='<i class="fas fa-pencil-alt" style="color:var(--amber);margin-right:8px"></i>Renombrar Equipo';
   document.getElementById('team-name-input').value=currentName;
+  // Ocultar campos extra al renombrar
+  document.getElementById('team-supervisor-row').style.display='none';
+  document.getElementById('team-section-row').style.display='none';
   openModal('modal-team-name');
 }
 async function saveTeamName(){
@@ -978,8 +1181,33 @@ async function saveTeamName(){
     }
     toast('Equipo renombrado a '+newName+' ('+ok+' usuarios)','ok');
   } else {
-    if(!_customTeams.includes(newName)) _customTeams.push(newName);
-    toast('Equipo "'+newName+'" creado. Agrega agentes.','ok');
+    var selSup     = document.getElementById('team-supervisor-input');
+    var selSection = document.getElementById('team-section-input');
+    var supUsername = selSup     ? selSup.value.trim()     : '';
+    var sectionVal  = selSection ? selSection.value.trim() : '';
+    // El team real que se guarda en la BD es el valor de la sección (si se eligió),
+    // o el nombre escrito en mayúsculas como fallback
+    var teamDbVal = sectionVal || newName;
+    // Registrar el equipo localmente
+    if(!_customTeams.includes(teamDbVal)) _customTeams.push(teamDbVal);
+    // Si se eligió supervisor, asignarle este team
+    if(supUsername){
+      var supUser = (_users||[]).find(function(u){ return (u.username||u.id||u._id)===supUsername; });
+      if(supUser){
+        var res=await AUTH.sf('/api/users/'+(supUser.id||supUser._id)+'/role',{
+          method:'PUT',
+          body:JSON.stringify({ role:supUser.role||'Supervisor', team:teamDbVal, supervisor:supUser.supervisor||'' })
+        });
+        var supDisplay=(supUser.name||supUser.username||supUsername);
+        var secLabel = sectionVal ? (' · '+sectionVal) : '';
+        if(res&&res.ok) toast('Equipo "'+newName+'"'+secLabel+' creado · Supervisor: '+supDisplay,'ok');
+        else toast('Equipo "'+newName+'" creado (error al asignar supervisor)','warn');
+      } else {
+        toast('Equipo "'+newName+'" creado. Agrega agentes.','ok');
+      }
+    } else {
+      toast('Equipo "'+newName+'" creado. Agrega agentes.','ok');
+    }
   }
   closeModal('modal-team-name');
   loadUsers();
@@ -1002,7 +1230,6 @@ async function loadTeams(){
       { value:'TEAM MARISOL',         label:'TEAM MARISOL',         supervisorKey:'MARISOL' },
       { value:'TEAM PLEITEZ',         label:'TEAM PLEITEZ',         supervisorKey:'PLEITEZ' },
       { value:'TEAM JOHANA',          label:'TEAM JOHANA',          supervisorKey:'JOHANA' },
-      { value:'Backoffice',           label:'Backoffice',           supervisorKey:null },
       { value:'Administración',       label:'Administración',       supervisorKey:null },
     ];
     _teams=canonicalTeams.slice();
@@ -1188,13 +1415,25 @@ async function saveRole(){
   var supervisorKey=supEl?supEl.value.trim():'';
   var usernameEl=document.getElementById('r-username');
   var newUsername=usernameEl?(usernameEl.value.trim()):'';
+  var newPwd=(document.getElementById('r-new-pwd').value||'').trim();
+  var confirmPwd=(document.getElementById('r-confirm-pwd').value||'').trim();
+
   if(!role){ toast('Selecciona un rol','err'); return; }
   if(newUsername&&newUsername.length<3){ toast('El usuario debe tener al menos 3 caracteres','err'); return; }
+
+  // Validar contraseña si se llenó
+  if(newPwd){
+    if(newPwd.length<8){ toast('La contraseña debe tener mínimo 8 caracteres','err'); return; }
+    if(newPwd!==confirmPwd){ toast('Las contraseñas no coinciden','err'); return; }
+  }
+
   var supervisor=supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'';
   var res=await AUTH.sf('/api/users/'+_editingId+'/role',{ method:'PUT', body:JSON.stringify({ role, team, supervisor }) });
   if(!res){ toast('Error de conexión','err'); return; }
   var data=await res.json();
   if(!res.ok||data.success===false){ toast(data.message||'Error al actualizar rol','err'); return; }
+
+  // Cambiar nombre de usuario si se modificó
   if(newUsername&&newUsername!==_editingUsername){
     var res2=await AUTH.sf('/api/users/'+_editingId+'/credentials',{ method:'PUT', body:JSON.stringify({ username:newUsername }) });
     if(!res2){ toast('Perfil guardado, error al cambiar usuario','warn'); closeModal('modal-role'); loadUsers(); return; }
@@ -1202,7 +1441,21 @@ async function saveRole(){
     if(!res2.ok||data2.success===false){ toast(data2.message||'Error al cambiar nombre de usuario','err'); closeModal('modal-role'); loadUsers(); return; }
     _editingUsername=newUsername;
   }
-  toast('Usuario actualizado correctamente','ok');
+
+  // Cambiar contraseña si se llenó
+  if(newPwd){
+    var res3=await AUTH.sf('/api/auth/reset-password',{ method:'POST', body:JSON.stringify({ username:_editingUsername, newPassword:newPwd }) });
+    if(!res3){ toast('Perfil guardado, error al cambiar contraseña','warn'); closeModal('modal-role'); loadUsers(); return; }
+    var data3=await res3.json();
+    if(!res3.ok||data3.success===false){ toast(data3.message||'Error al cambiar contraseña','err'); closeModal('modal-role'); loadUsers(); return; }
+    toast('Usuario y contraseña actualizados correctamente','ok');
+  } else {
+    toast('Usuario actualizado correctamente','ok');
+  }
+
+  // Limpiar campos de contraseña
+  document.getElementById('r-new-pwd').value='';
+  document.getElementById('r-confirm-pwd').value='';
   closeModal('modal-role');
   loadUsers();
 }
