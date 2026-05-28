@@ -6,6 +6,24 @@
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>CRM · Clientes</title>
+  <!-- Guard: redirigir usuarios de Líneas a su sección -->
+  <script>
+    (function guardLineas(){
+      try{
+        var u = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
+        var _n = function(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); };
+        var role = _n(u.role), team = _n(u.team), uname = _n(u.username||'');
+        var _lineasUsers = ['dennis vasquez','dennisvasquez','melany hurtado','melanyhurtado'];
+        var displayName = _n(u.name || u.displayName || '');
+        var isLineas = role==='lineas-agentes' || role==='lineas agentes' || role==='teamlineas' ||
+                       role==='supervisor team lineas' || role==='supervisor lineas' ||
+                       (role==='supervisor' && team.includes('lineas')) ||
+                       team.includes('lineas') || uname.startsWith('lineas-') ||
+                       _lineasUsers.some(function(n){ return displayName.includes(n) || uname.includes(n.replace(' ','')); });
+        if(isLineas){ window.location.replace('/lineas/costumer.html'); }
+      }catch(e){}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/images/favicon.png">
 

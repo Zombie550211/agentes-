@@ -606,8 +606,18 @@
   const uteam = String(user.team || '').toLowerCase();
   const udisplayName = String(user.name || user.displayName || '').toLowerCase();
   // Supervisores conocidos de Team Líneas
-  const supervisoresLineas = ['jonathan f', 'luis g', 'jonathan figueroa', 'luis gutierrez'];
-  const isLineas = /lineas/.test(uteam) || /teamlineas/.test(urole) || /lineas/.test(urole) || uname.startsWith('lineas-') || supervisoresLineas.some(s => udisplayName.includes(s) || uname.includes(s.replace(' ', '')));
+  // Usuarios conocidos de Team Líneas (supervisores + agentes sin rol explícito de líneas)
+  const usuariosLineas = [
+    'jonathan f', 'luis g', 'jonathan figueroa', 'luis gutierrez',
+    'dennis vasquez', 'dennisvasquez',
+    'melany hurtado', 'melanyhurtado',
+  ];
+  // Normalizar sin acentos para comparar "Líneas" == "lineas"
+  const _normSidebar = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+  const uteamN = _normSidebar(uteam);
+  const uroleN = _normSidebar(urole);
+  const isLineas = /lineas/.test(uteamN) || /teamlineas/.test(uroleN) || /lineas/.test(uroleN) || uname.startsWith('lineas-') ||
+    usuariosLineas.some(s => udisplayName.includes(s) || uname.includes(s.replace(' ', '').replace('-','')));
 
     const avatarInfo = resolveAvatar(user);
     const avatarUrl = avatarInfo.url;
@@ -1036,8 +1046,8 @@
     const r = (roleRaw == null ? '' : String(roleRaw)).trim().toLowerCase();
     const r2 = r.replace(/\s+/g, '_').replace(/-+/g, '_');
     if (!r) return 'agente';
-    // equivalentes de agente
-    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales'].includes(r)) return 'agente';
+    // equivalentes de agente (incluyendo roles de líneas)
+    if (['agente','agent','agents','agentes','usuario','user','seller','vendedor','sales','lineas-agentes','lineas agentes','teamlineas'].includes(r)) return 'agente';
     // equivalentes de supervisor
     if (['supervisor','supervisora','supervisores','supervisor team lineas','supervisor lineas'].includes(r)) return 'supervisor';
     // equivalentes de admin
