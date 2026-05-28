@@ -60,13 +60,17 @@ async def upload_file(
     now       = _dt.datetime.utcnow()
 
     if _USE_CLOUDINARY and file_type == "image":
-        # Subir a Cloudinary — URL pública permanente
-        result = cloudinary.uploader.upload(
-            data,
-            folder      = "crm_leads",
-            public_id   = f"{ts}-{Path(orig).stem}",
-            resource_type = "image",
-            overwrite   = True,
+        # Subir a Cloudinary — URL pública permanente (run_in_executor para no bloquear el loop)
+        import asyncio as _aio
+        result = await _aio.get_event_loop().run_in_executor(
+            None,
+            lambda: cloudinary.uploader.upload(
+                data,
+                folder        = "crm_leads",
+                public_id     = f"{ts}-{Path(orig).stem}",
+                resource_type = "image",
+                overwrite     = True,
+            )
         )
         file_url  = result["secure_url"]
         filename  = result["public_id"]

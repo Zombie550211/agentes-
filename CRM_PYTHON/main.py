@@ -42,6 +42,19 @@ UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
 _MIGRATIONS = [
+    # Crear tabla note_files si no existe (necesaria para subida de archivos)
+    """CREATE TABLE IF NOT EXISTS note_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        filename VARCHAR(500) NOT NULL,
+        original_name VARCHAR(500),
+        content_type VARCHAR(200),
+        file_type VARCHAR(50),
+        file_size INT,
+        file_path VARCHAR(1000),
+        lead_id VARCHAR(100),
+        uploaded_by VARCHAR(200),
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""",
     "ALTER TABLE lineas_clientes ADD COLUMN IF NOT EXISTS imagen_url VARCHAR(500) NULL AFTER fuente",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS sistema VARCHAR(100) NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS riesgo VARCHAR(50) NULL",
@@ -229,11 +242,12 @@ app.include_router(avatars_router.router)
 app.include_router(misc_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
-# Orden: de más específico a más general
-app.mount("/images",     StaticFiles(directory=str(FRONTEND_DIR / "images")),  name="images")
-app.mount("/css",        StaticFiles(directory=str(FRONTEND_DIR / "css")),     name="css")
-app.mount("/js",         StaticFiles(directory=str(FRONTEND_DIR / "js")),      name="js")
-app.mount("/vendor",     StaticFiles(directory=str(FRONTEND_DIR / "vendor")),  name="vendor")
+# Condicionales: no crashea si el directorio no existe (ej. en Render sin frontend)
+_static_dirs = {"images": "images", "css": "css", "js": "js", "vendor": "vendor"}
+for _name, _rel in _static_dirs.items():
+    _d = FRONTEND_DIR / _rel
+    if _d.exists():
+        app.mount(f"/{_name}", StaticFiles(directory=str(_d)), name=_name)
 
 if UPLOADS_DIR.exists():
     app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")

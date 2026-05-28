@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, FileResponse
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
@@ -93,6 +93,26 @@ async def _process_avatar(data: bytes, mimetype: str) -> tuple[bytes, str, str, 
 
     details["bytesAfter"] = len(data)
     return data, mimetype or "image/png", _infer_ext(mimetype), details, None
+
+
+# ── GET /uploads/avatars/:filename — con fallback SVG ─────────
+# Esta ruta se registra ANTES que el mount estático /uploads en main.py,
+# así que toma prioridad y devuelve SVG si el archivo no existe en disco.
+@router.get("/uploads/avatars/{filename}")
+async def serve_avatar_upload(filename: str):
+    path = _AVATAR_DIR / filename
+    if path.is_file():
+        ext  = path.suffix.lower().lstrip(".")
+        mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
+        return FileResponse(str(path), media_type=mime,
+                            headers={"Cache-Control": "private, max-age=86400"})
+    # Avatar no existe en disco (deploy nuevo) — devuelve SVG placeholder
+    return Response(
+        content=_SVG_FALLBACK.encode(),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 # ── POST /api/users/me/avatar ─────────────────────────────────
