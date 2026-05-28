@@ -1,7 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
+    gcc \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -9,8 +13,9 @@ WORKDIR /app
 COPY CRM_PYTHON/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY CRM_PYTHON/ .
 
-EXPOSE 8000
+# HuggingFace Spaces requiere puerto 7860
+EXPOSE 7860
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "CRM_PYTHON"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]
