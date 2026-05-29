@@ -5,10 +5,27 @@
  */
 
 /* ══════════════════════════════════════════
-   VARIABLES GLOBALES (inicio.html + otras)
+   VARIABLES GLOBALES — cubren TODAS las páginas del CRM
+   que usan el sistema de variables --surface / --ink / --bg
 ══════════════════════════════════════════ */
 body.dark-theme {
-  --bg:      #0d1420;
+  /* ── Paleta de superficie (crear-cuenta, chat, comisiones, etc.) ── */
+  --bg:        #0f172a;
+  --surface:   #1e293b;
+  --border:    #334155;
+  --border2:   #253351;
+  --ink:       #e2e8f0;
+  --ink2:      #94a3b8;
+  --ink3:      #64748b;
+  --ink4:      #475569;
+
+  /* ── Colores semánticos atenuados ── */
+  --blue-dim:  rgba(79,70,229,.16);
+  --green-dim: rgba(16,185,129,.12);
+  --red-dim:   rgba(239,68,68,.12);
+  --amber-dim: rgba(245,158,11,.12);
+
+  /* ── Variables de inicio.html / glassmorphism ── */
   --glass:   rgba(20, 36, 64, 0.72);
   --glass-b: rgba(20, 36, 64, 0.90);
   --text:    #e2e8f0;
@@ -16,7 +33,7 @@ body.dark-theme {
   --t3:      #64748b;
   --gold:    #c9972a;
 
-  /* theme.css overrides */
+  /* ── theme.css overrides ── */
   --card-background:  #1e293b;
   --text-primary:     #e2e8f0;
   --text-secondary:   #94a3b8;
@@ -317,3 +334,115 @@ body.dark-theme .bg-light  {
   background: #1e293b !important;
   border-color: #334155 !important;
 }
+
+/* ══════════════════════════════════════════
+   CREAR-CUENTA.HTML — Master-Detail Layout
+   (también aplica a cualquier página que
+    reutilice .md-nav / .md-detail / .tcard)
+══════════════════════════════════════════ */
+
+/* Layout principal */
+body.dark-theme .md-layout      { background: #0f172a !important; }
+body.dark-theme .md-nav         { background: #1e293b !important; border-right-color: rgba(99,102,241,.22) !important; box-shadow: 4px 0 22px rgba(0,0,0,.4) !important; }
+body.dark-theme .md-detail      { background: #0f172a !important; }
+body.dark-theme .md-detail-inner{ background: #0f172a !important; }
+
+/* Header del nav */
+body.dark-theme .md-nav-header  { border-bottom-color: var(--border) !important; }
+body.dark-theme .md-nav-title   { color: var(--ink) !important; }
+body.dark-theme .md-nav-search  { border-bottom-color: var(--border) !important; background: transparent !important; }
+body.dark-theme .md-nav-search input { color: var(--ink) !important; background: transparent !important; }
+
+/* Items de nav */
+body.dark-theme .md-nav-item    { color: var(--ink2) !important; }
+body.dark-theme .md-nav-item:hover { background: var(--blue-dim) !important; }
+body.dark-theme .md-nav-item.active { background: var(--blue-dim) !important; border-color: rgba(79,70,229,.3) !important; }
+body.dark-theme .md-nav-name    { color: var(--ink) !important; }
+body.dark-theme .md-nav-item.active .md-nav-name { color: #818cf8 !important; }
+body.dark-theme .md-nav-count   { color: var(--ink4) !important; }
+body.dark-theme .md-nav-icon    { filter: brightness(.9); }
+
+/* Detail head */
+body.dark-theme .md-detail-head          { border-bottom-color: var(--border) !important; }
+body.dark-theme .md-detail-title-label   { color: var(--ink3) !important; }
+body.dark-theme .md-detail-team-name     { color: var(--ink) !important; }
+body.dark-theme .md-detail-option-btn    { background: var(--surface) !important; color: var(--ink2) !important; border-color: var(--border2) !important; }
+body.dark-theme .md-detail-option-btn:hover { background: var(--bg) !important; color: var(--ink) !important; }
+body.dark-theme .md-detail-option-btn.danger:hover { background: var(--red-dim) !important; color: #f87171 !important; }
+
+/* Hero (supervisor / backup) */
+body.dark-theme .md-hero-section    { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark-theme .md-hero-sep::before{ background: var(--border) !important; }
+body.dark-theme .md-hero-name       { color: var(--ink) !important; }
+body.dark-theme .md-hero-role       { color: var(--ink3) !important; }
+body.dark-theme .md-hero-sub        { color: var(--ink4) !important; }
+
+/* Agents list */
+body.dark-theme .md-agents-head     { border-bottom-color: var(--border) !important; }
+body.dark-theme .md-agents-title    { color: var(--ink2) !important; }
+body.dark-theme .md-agents-count    { background: var(--blue-dim) !important; color: #818cf8 !important; }
+body.dark-theme .md-agent-row       { border-bottom-color: var(--border) !important; }
+body.dark-theme .md-agent-row:hover { background: var(--blue-dim) !important; }
+body.dark-theme .md-agent-name      { color: var(--ink) !important; }
+body.dark-theme .md-agent-role      { color: var(--ink4) !important; }
+body.dark-theme .md-add-btn         { background: var(--blue-dim) !important; color: #818cf8 !important; border-color: rgba(99,102,241,.25) !important; }
+body.dark-theme .md-add-btn:hover   { background: rgba(79,70,229,.22) !important; }
+
+/* Action pills (Activo / Perfil / Reset / Quitar) */
+body.dark-theme .md-pill-activo   { background: rgba(16,185,129,.14) !important; color: #34d399 !important; border-color: rgba(16,185,129,.25) !important; }
+body.dark-theme .md-pill-perfil   { background: var(--blue-dim) !important; color: #818cf8 !important; border-color: rgba(99,102,241,.25) !important; }
+body.dark-theme .md-pill-reset    { background: var(--amber-dim) !important; color: #fbbf24 !important; border-color: rgba(245,158,11,.25) !important; }
+body.dark-theme .md-pill-quit     { background: var(--red-dim) !important; color: #f87171 !important; border-color: rgba(239,68,68,.25) !important; }
+
+/* Status badges nav */
+body.dark-theme .md-status-badge.md-status-activo { background: rgba(16,185,129,.12) !important; color: #34d399 !important; border-color: rgba(16,185,129,.2) !important; }
+
+/* Icon buttons (toggle, add) */
+body.dark-theme .md-icon-btn       { background: var(--surface) !important; border-color: var(--border2) !important; color: var(--ink3) !important; }
+body.dark-theme .md-icon-btn:hover { background: var(--bg) !important; color: var(--ink) !important; }
+body.dark-theme .md-icon-btn.active{ background: var(--blue-dim) !important; color: #818cf8 !important; border-color: rgba(79,70,229,.3) !important; }
+
+/* Empty state */
+body.dark-theme .md-empty-state    { color: var(--ink4) !important; }
+body.dark-theme .md-empty-title    { color: var(--ink2) !important; }
+
+/* Assign mode cards (tcard) */
+body.dark-theme .tcard             { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark-theme .tcard:hover       { box-shadow: 0 4px 20px rgba(0,0,0,.35) !important; }
+body.dark-theme .tcard-name        { color: var(--ink) !important; }
+body.dark-theme .tcard-count       { color: var(--ink3) !important; }
+body.dark-theme .agents-list-wrap  { scrollbar-color: var(--border2) transparent; }
+body.dark-theme .agent-row         { border-bottom-color: var(--border) !important; }
+body.dark-theme .agent-row:hover   { background: var(--blue-dim) !important; }
+body.dark-theme .agent-name-lbl    { color: var(--ink2) !important; }
+body.dark-theme .no-agents         { color: var(--ink4) !important; border-color: var(--border2) !important; }
+body.dark-theme .drop-hint         { color: #818cf8 !important; }
+
+/* Mini header bar (tabs + avatar) */
+body.dark-theme .view-tab          { background: var(--surface) !important; color: var(--ink2) !important; border-color: var(--border2) !important; }
+body.dark-theme .view-tab.active   { background: #4f46e5 !important; color: #fff !important; border-color: #4f46e5 !important; }
+body.dark-theme .view-tab:hover:not(.active) { background: var(--bg) !important; color: var(--ink) !important; }
+
+/* Quick-add bar */
+body.dark-theme .quick-add-bar     { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark-theme .quick-add-bar input { color: var(--ink) !important; }
+
+/* Tabla (lista completa) */
+body.dark-theme .table-wrap        { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark-theme .ptable thead tr   { background: var(--bg) !important; }
+body.dark-theme .ptable thead th   { color: var(--ink3) !important; border-bottom-color: var(--border) !important; }
+body.dark-theme .ptable tbody td   { border-bottom-color: var(--border) !important; color: var(--ink2) !important; }
+body.dark-theme .ptable tbody tr:hover td { background: var(--blue-dim) !important; }
+
+/* ══════════════════════════════════════════
+   CHAT.HTML
+══════════════════════════════════════════ */
+body.dark-theme .chat-layout,
+body.dark-theme .chat-sidebar,
+body.dark-theme .chat-main         { background: var(--bg) !important; }
+body.dark-theme .chat-header,
+body.dark-theme .chat-footer       { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark-theme .chat-message-bubble { background: var(--surface) !important; color: var(--ink) !important; }
+body.dark-theme .chat-contact-item { border-color: var(--border) !important; }
+body.dark-theme .chat-contact-item:hover { background: var(--blue-dim) !important; }
+body.dark-theme .chat-input        { background: var(--surface) !important; border-color: var(--border) !important; color: var(--ink) !important; }
