@@ -267,7 +267,7 @@
 
       // Cargar el nuevo CSS moderno
       const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-modern.css"]');
-      const desiredHref = '/css/sidebar-modern.css?v=20260218';
+      const desiredHref = '/css/sidebar-modern.css?v=20260528';
       if (!existing) {
         const link = DOC.createElement('link');
         link.rel = 'stylesheet';
@@ -276,7 +276,7 @@
       } else {
         try {
           const href = String(existing.getAttribute('href') || '');
-          if (!href.includes('v=20260218')) {
+          if (!href.includes('v=20260528')) {
             existing.setAttribute('href', desiredHref);
           }
         } catch (_) { /* ignore */ }
@@ -669,9 +669,10 @@
       </div>
 
       <div class="sidebar-footer">
-        <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Cambiar tema">
+        <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Activar/desactivar modo oscuro">
           <i class="fas fa-moon"></i>
-          <span class="item-label" id="theme-switcher-label">Modo Oscuro</span>
+          <span class="item-label">Modo Oscuro</span>
+          <span class="sb-toggle-track" id="sb-toggle-track"><span class="sb-toggle-thumb"></span></span>
         </button>
         <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
@@ -1625,34 +1626,27 @@
 
   // Función para configurar el interruptor de tema
   function setupThemeSwitcher() {
-    const themeSwitcherBtn = document.getElementById('theme-switcher-btn');
-    if (!themeSwitcherBtn) return;
+    const btn = document.getElementById('theme-switcher-btn');
+    if (!btn) return;
 
     const body = document.body;
-    const icon = themeSwitcherBtn.querySelector('i');
 
-    // Función para aplicar el tema
-    const labelEl = document.getElementById('theme-switcher-label');
     const applyTheme = (theme) => {
+      const trackEl = document.getElementById('sb-toggle-track');
       if (theme === 'dark') {
         body.classList.add('dark-theme');
-        if (icon) { icon.className = 'fas fa-sun'; }
-        if (labelEl) labelEl.textContent = 'Modo Claro';
-        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo claro';
+        if (trackEl) trackEl.classList.add('on');
       } else {
         body.classList.remove('dark-theme');
-        if (icon) { icon.className = 'fas fa-moon'; }
-        if (labelEl) labelEl.textContent = 'Modo Oscuro';
-        if (themeSwitcherBtn) themeSwitcherBtn.title = 'Cambiar a modo oscuro';
+        if (trackEl) trackEl.classList.remove('on');
       }
     };
 
-    // Cargar el tema guardado al iniciar
+    // Tema predeterminado: claro (light) a menos que el usuario haya elegido oscuro
     const savedTheme = localStorage.getItem('theme') || 'light';
     applyTheme(savedTheme);
 
-    // Evento de clic para cambiar el tema
-    themeSwitcherBtn.addEventListener('click', () => {
+    btn.addEventListener('click', () => {
       const isDark = body.classList.contains('dark-theme');
       const newTheme = isDark ? 'light' : 'dark';
       localStorage.setItem('theme', newTheme);

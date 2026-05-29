@@ -525,6 +525,45 @@ body.dark-theme {
 .sidebar .logout:hover i,
 .sidebar .btn-logout:hover i { background: rgba(239,68,68,.20) !important; color: var(--sb-red) !important; }
 
+/* ── Toggle switch "Modo Oscuro" ── */
+.sidebar .theme-switcher {
+  /* El label ya tiene flex:1, el toggle va al extremo derecho */
+}
+.sidebar .theme-switcher .item-label {
+  flex: 1;
+  pointer-events: none;
+}
+.sidebar .sb-toggle-track {
+  width: 40px;
+  min-width: 40px;
+  height: 23px;
+  border-radius: 12px;
+  background: var(--sb-border);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background .22s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;   /* el clic lo captura el <button> padre */
+}
+.sidebar .sb-toggle-track.on {
+  background: var(--sb-accent);
+}
+.sidebar .sb-toggle-thumb {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,.28);
+  position: absolute;
+  left: 3px;
+  transition: transform .22s cubic-bezier(.16,1,.3,1);
+}
+.sidebar .sb-toggle-track.on .sb-toggle-thumb {
+  transform: translateX(17px);
+}
+
 /* Quote */
 .sidebar .sidebar-footer-quote,
 .sidebar .sidebar-quote {
