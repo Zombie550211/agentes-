@@ -669,11 +669,29 @@
       </div>
 
       <div class="sidebar-footer">
-        <button type="button" class="footer-action theme-switcher" id="theme-switcher-btn" title="Activar/desactivar modo oscuro">
-          <i class="fas fa-moon"></i>
-          <span class="item-label">Modo Oscuro</span>
-          <span class="sb-toggle-track" id="sb-toggle-track"><span class="sb-toggle-thumb"></span></span>
-        </button>
+        <div class="footer-action theme-switcher-wrap">
+          <i class="fas fa-moon theme-icon-collapsed" id="theme-icon-collapsed" title="Cambiar tema"></i>
+          <label class="theme-switch" id="theme-switcher-label" title="Activar/desactivar modo oscuro">
+            <input type="checkbox" class="theme-switch__checkbox" id="theme-switch-checkbox">
+            <div class="theme-switch__container">
+              <div class="theme-switch__clouds"></div>
+              <div class="theme-switch__stars-container">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 55" fill="none">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M135.831 3.00688C135.055 3.85027 134.111 4.29946 133 4.35447C134.111 4.40948 135.055 4.85867 135.831 5.70206C136.607 6.54545 136.996 7.55309 136.996 8.72498C136.996 7.55309 137.385 6.54545 138.161 5.70206C138.937 4.85867 139.881 4.40948 140.992 4.35447C139.881 4.29946 138.937 3.85027 138.161 3.00688C137.385 2.16348 136.996 1.15585 136.996 -0.0160522C136.996 1.15585 136.607 2.16348 135.831 3.00688ZM123.637 9.31813C121.852 9.31813 120.397 10.7732 120.397 12.5581C120.397 10.7732 118.942 9.31813 117.156 9.31813C118.942 9.31813 120.397 7.86303 120.397 6.07812C120.397 7.86303 121.852 9.31813 123.637 9.31813ZM6.95905 4.35447C8.07005 4.29946 9.01397 3.85027 9.78985 3.00688C10.5657 2.16348 10.9547 1.15585 10.9547 -0.0160522C10.9547 1.15585 11.3437 2.16348 12.1196 3.00688C12.8955 3.85027 13.8394 4.29946 14.9504 4.35447C13.8394 4.40948 12.8955 4.85867 12.1196 5.70206C11.3437 6.54545 10.9547 7.55309 10.9547 8.72498C10.9547 7.55309 10.5657 6.54545 9.78985 5.70206C9.01397 4.85867 8.07005 4.40948 6.95905 4.35447ZM0 27.0004C1.78491 27.0004 3.23997 25.5453 3.23997 23.7604C3.23997 25.5453 4.69503 27.0004 6.47994 27.0004C4.69503 27.0004 3.23997 28.4555 3.23997 30.2404C3.23997 28.4555 1.78491 27.0004 0 27.0004Z" fill="currentColor"></path>
+                </svg>
+              </div>
+              <div class="theme-switch__circle-container">
+                <div class="theme-switch__sun-moon-container">
+                  <div class="theme-switch__moon">
+                    <div class="theme-switch__spot"></div>
+                    <div class="theme-switch__spot"></div>
+                    <div class="theme-switch__spot"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </label>
+        </div>
         <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
           <span class="item-label">Cerrar Sesión</span>
@@ -1626,32 +1644,41 @@
 
   // Función para configurar el interruptor de tema
   function setupThemeSwitcher() {
-    const btn = document.getElementById('theme-switcher-btn');
-    if (!btn) return;
+    const checkbox = document.getElementById('theme-switch-checkbox');
+    if (!checkbox) return;
 
     const body = document.body;
 
     const applyTheme = (theme) => {
-      const trackEl = document.getElementById('sb-toggle-track');
+      const iconEl = document.getElementById('theme-icon-collapsed');
       if (theme === 'dark') {
         body.classList.add('dark-theme');
-        if (trackEl) trackEl.classList.add('on');
+        checkbox.checked = true;
+        if (iconEl) iconEl.className = 'fas fa-moon theme-icon-collapsed';
       } else {
         body.classList.remove('dark-theme');
-        if (trackEl) trackEl.classList.remove('on');
+        checkbox.checked = false;
+        if (iconEl) iconEl.className = 'fas fa-sun theme-icon-collapsed';
       }
     };
 
-    // Tema predeterminado: claro (light) a menos que el usuario haya elegido oscuro
     const savedTheme = localStorage.getItem('theme') || 'light';
     applyTheme(savedTheme);
 
-    btn.addEventListener('click', () => {
-      const isDark = body.classList.contains('dark-theme');
-      const newTheme = isDark ? 'light' : 'dark';
+    checkbox.addEventListener('change', () => {
+      const newTheme = checkbox.checked ? 'dark' : 'light';
       localStorage.setItem('theme', newTheme);
       applyTheme(newTheme);
     });
+
+    const iconEl = document.getElementById('theme-icon-collapsed');
+    if (iconEl) {
+      iconEl.addEventListener('click', () => {
+        const newTheme = body.classList.contains('dark-theme') ? 'light' : 'dark';
+        localStorage.setItem('theme', newTheme);
+        applyTheme(newTheme);
+      });
+    }
   }
 
   // Cargar sidebar inmediatamente
@@ -1768,6 +1795,7 @@
     s.async = true;
     document.head.appendChild(s);
   })();
+
 
 
 })();
