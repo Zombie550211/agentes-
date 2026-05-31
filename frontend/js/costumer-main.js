@@ -845,13 +845,14 @@
   /* ── INLINE ROW EXPAND / EDIT ── */
   var _expandedRowId=null;
   var _inlineImgFile=null;
+  var _inlineImgRemoved=false;
 
   window.toggleRowExpand=function(lid){
     // Cierra cualquier fila ya abierta
     var existing=document.querySelector('.inline-edit-row');
     if(existing){
       existing.remove();
-      if(_expandedRowId===String(lid)){_expandedRowId=null;_inlineImgFile=null;return;}
+      if(_expandedRowId===String(lid)){_expandedRowId=null;_inlineImgFile=null;_inlineImgRemoved=false;return;}
     }
     _expandedRowId=String(lid);
     _inlineImgFile=null;
@@ -1054,6 +1055,7 @@
 
   window._ileRemoveImg=function(lid){
     _inlineImgFile=null;
+    _inlineImgRemoved=true;
     var zone=document.getElementById('ile-img-zone-'+lid);
     if(!zone)return;
     zone.innerHTML=
@@ -1069,14 +1071,14 @@
     var btn=document.getElementById('ile-save-'+lid);
     if(btn){btn.disabled=true;btn.textContent='⏳ Guardando…';}
 
-    var imgUrl=lead.imagen_url||'';
+    var imgUrl=_inlineImgRemoved?'':( lead.imagen_url||'');
     if(_inlineImgFile){
       try{
         if(btn)btn.textContent='⏳ Subiendo imagen…';
         var fd=new FormData();fd.append('file',_inlineImgFile);
         var token=(localStorage.getItem('token')||'').trim();
         var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:token?{'Authorization':'Bearer '+token}:{},body:fd});
-        if(upRes.ok){var upData=await upRes.json();imgUrl=(upData.data&&upData.data.url)||'';}
+        if(upRes.ok){var upData=await upRes.json();var newUrl=(upData.data&&upData.data.url)||'';if(newUrl)imgUrl=newUrl;}
       }catch(_){}
     }
 
@@ -1112,7 +1114,7 @@
       showToast('Guardado ✓','ok');
       var existing=document.querySelector('.inline-edit-row');
       if(existing)existing.remove();
-      _expandedRowId=null;_inlineImgFile=null;
+      _expandedRowId=null;_inlineImgFile=null;_inlineImgRemoved=false;
       applyFilters();
     }else{
       showToast('No se pudo guardar','error');
@@ -1144,7 +1146,7 @@
       showToast('Imagen guardada ✓','ok');
       var existing=document.querySelector('.inline-edit-row');
       if(existing)existing.remove();
-      _expandedRowId=null; _inlineImgFile=null;
+      _expandedRowId=null; _inlineImgFile=null; _inlineImgRemoved=false;
       applyFilters();
     }catch(e){
       showToast('Error: '+e.message,'error');
@@ -1462,18 +1464,14 @@
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
   /* ── LOADER HTML ── */
-  function getLoaderTR(label){
-    label = label || 'CARGANDO';
-    const txt = label.toUpperCase();
-    return '<tr><td colspan="19"><div class="crm-loader-wrap">'
-      + '<div class="loader">'
-      + ['<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>',
-         '<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>',
-         '<span>'+txt+'</span>','<span>'+txt+'</span>','<span>'+txt+'</span>']
-        .map(function(s){ return '<div class="text">'+s+'</div>'; }).join('')
-      + '<div class="line"></div>'
-      + '</div>'
-      + '</div></td></tr>';
+  const ASTRO_HTML = '<div class="box-of-star1"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star2"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div>';
+
+  function getLoaderTR(){
+    return '<tr><td colspan="19"><div class="crm-loader-wrap">' + ASTRO_HTML + '</div></td></tr>';
   }
 
   /* ── INIT ── */
