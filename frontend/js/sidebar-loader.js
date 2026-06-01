@@ -275,7 +275,7 @@
 
       // Cargar el nuevo CSS moderno (sin hacer downgrade si ya hay una versión más reciente)
       const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-modern.css"]');
-      const desiredHref = '/css/sidebar-modern.css?v=20260601';
+      const desiredHref = '/css/sidebar-modern.css?v=20260601b';
       if (!existing) {
         const link = DOC.createElement('link');
         link.rel = 'stylesheet';
