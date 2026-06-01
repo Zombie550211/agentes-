@@ -78,6 +78,7 @@ def _serialize(u: dict) -> dict:
         "supervisor":  u.get("supervisor"),
         "avatar_url":  u.get("avatar_url"),
         "permissions": u.get("permissions") if isinstance(u.get("permissions"), list) else [],
+        "active":      int(u.get("active", 1)),
         "created_at":  str(u.get("created_at") or ""),
     }
 
@@ -91,10 +92,106 @@ class UpdateRoleBody(BaseModel):
 class UpdateCredentialsBody(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
+    name: Optional[str] = None
+
+
+class SuspendBody(BaseModel):
+    active: bool
 
 
 class UpdatePermissionsBody(BaseModel):
     permissions: List[str]
+
+
+class MergeUsersBody(BaseModel):
+    primary_id: str
+    secondary_id: str
+
+
+@router.post("/merge")
+async def merge_users(body: MergeUsersBody, user: dict = Depends(current_user)):
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "No autorizado para unificar usuarios")
+    if body.primary_id == body.secondary_id:
+        raise HTTPException(400, "No puedes unificar un usuario consigo mismo")
+
+    async with AsyncSessionLocal() as s:
+        r1 = await s.execute(text("SELECT id, username, name, aliases FROM users WHERE id = :id"), {"id": body.primary_id})
+        primary = r1.mappings().first()
+        r2 = await s.execute(text("SELECT id, username, name FROM users WHERE id = :id"), {"id": body.secondary_id})
+        secondary = r2.mappings().first()
+
+        if not primary or not secondary:
+            raise HTTPException(404, "Usuario no encontrado")
+
+        pu  = primary["username"]
+        su  = secondary["username"]
+        pname = primary["name"] or pu
+
+        updates = [
+            # leads
+            ("UPDATE leads SET agente=:pu, agente_nombre=:pname WHERE agente=:su",    True),
+            ("UPDATE leads SET usuario=:pu WHERE usuario=:su",                         False),
+            ("UPDATE leads SET created_by=:pu WHERE created_by=:su",                  False),
+            ("UPDATE leads SET updated_by=:pu WHERE updated_by=:su",                  False),
+            # lineas_clientes
+            ("UPDATE lineas_clientes SET agente=:pu, agente_nombre=:pname WHERE agente=:su", True),
+            ("UPDATE lineas_clientes SET agente_asignado=:pu WHERE agente_asignado=:su",     False),
+            # lineas_internal
+            ("UPDATE lineas_internal SET agente=:pu, agente_nombre=:pname WHERE agente=:su", True),
+            ("UPDATE lineas_internal SET created_by=:pu WHERE created_by=:su",              False),
+            ("UPDATE lineas_internal SET registered_by=:pu WHERE registered_by=:su",        False),
+            # pre_leads
+            ("UPDATE pre_leads SET agente_username=:pu, agente_name=:pname WHERE agente_username=:su", True),
+            # activities
+            ("UPDATE activities SET actor_username=:pu WHERE actor_username=:su",     False),
+            # messages
+            ("UPDATE messages SET from_user=:pu, from_name=:pname WHERE from_user=:su", True),
+            ("UPDATE messages SET to_user=:pu, to_name=:pname WHERE to_user=:su",      True),
+            # lead_comments
+            ("UPDATE lead_comments SET autor=:pu WHERE autor=:su",                    False),
+            # note_files
+            ("UPDATE note_files SET uploaded_by=:pu WHERE uploaded_by=:su",           False),
+            # media_files
+            ("UPDATE media_files SET uploaded_by=:pu WHERE uploaded_by=:su",          False),
+            # facturacion
+            ("UPDATE facturacion SET created_by=:pu WHERE created_by=:su",            False),
+            ("UPDATE facturacion SET updated_by=:pu WHERE updated_by=:su",            False),
+            ("UPDATE facturacion_lineas SET created_by=:pu WHERE created_by=:su",     False),
+            ("UPDATE facturacion_lineas SET updated_by=:pu WHERE updated_by=:su",     False),
+        ]
+
+        for sql, needs_name in updates:
+            params = {"pu": pu, "su": su}
+            if needs_name:
+                params["pname"] = pname
+            await s.execute(text(sql), params)
+
+        # Guardar el username secundario como alias del primario
+        try:
+            existing = json.loads(primary.get("aliases") or "[]")
+            if not isinstance(existing, list):
+                existing = []
+        except Exception:
+            existing = []
+        if su not in existing:
+            existing.append(su)
+        await s.execute(
+            text("UPDATE users SET aliases=:aliases WHERE id=:id"),
+            {"aliases": json.dumps(existing), "id": body.primary_id}
+        )
+
+        # Desactivar usuario secundario
+        await s.execute(
+            text("UPDATE users SET active=0 WHERE id=:id"),
+            {"id": body.secondary_id}
+        )
+        await s.commit()
+
+    return {
+        "success": True,
+        "message": f"'{su}' unificado con '{pu}'. El usuario duplicado fue desactivado."
+    }
 
 
 @router.get("/admin-list")
@@ -102,7 +199,7 @@ async def admin_list(user: dict = Depends(current_user)):
     if not _is_admin_or_bo(user):
         raise HTTPException(403, "No autorizado para listar usuarios")
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, created_at FROM users ORDER BY username"))
+        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active, created_at FROM users ORDER BY username"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sanitized = [_serialize(u) for u in users]
     return {"success": True, "users": sanitized, "agents": sanitized}
@@ -159,8 +256,8 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
 async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
         raise HTTPException(403, "No autorizado para actualizar credenciales")
-    if not body.username and not body.password:
-        raise HTTPException(400, "Se requiere username o password")
+    if not body.username and not body.password and not body.name:
+        raise HTTPException(400, "Se requiere username, password o name")
 
     try:
         uid = int(user_id)
@@ -175,6 +272,10 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
 
         set_parts = ["updated_at = :now"]
         params: dict = {"now": datetime.utcnow(), "id": uid}
+
+        if body.name is not None:
+            set_parts.append("name = :name")
+            params["name"] = body.name.strip()
 
         if body.username:
             dup = await s.execute(text("SELECT id FROM users WHERE username = :u AND id != :id LIMIT 1"), {"u": body.username, "id": uid})
@@ -217,6 +318,34 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
             raise HTTPException(404, "Usuario no encontrado")
 
     return {"success": True, "message": "Permisos actualizados", "permissions": body.permissions}
+
+
+@router.put("/{user_id}/suspend")
+async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(current_user)):
+    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+        raise HTTPException(403, "No autorizado")
+
+    my_id = str(user.get("id") or user.get("_id") or "")
+    if my_id and my_id == user_id:
+        raise HTTPException(400, "No puedes suspender tu propia cuenta")
+
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        if not r.first():
+            raise HTTPException(404, "Usuario no encontrado")
+        await s.execute(
+            text("UPDATE users SET active = :active, updated_at = :now WHERE id = :id"),
+            {"active": 1 if body.active else 0, "now": datetime.utcnow(), "id": uid},
+        )
+        await s.commit()
+
+    estado = "activado" if body.active else "suspendido"
+    return {"success": True, "message": f"Usuario {estado} correctamente", "active": int(body.active)}
 
 
 @router.delete("/{user_id}")

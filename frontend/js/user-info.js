@@ -41,7 +41,7 @@
       const user = userData.user || userData;
 
       try {
-        const displayName = (user?.name || user?.fullName || user?.displayName || user?.username || '').toString().trim() || 'Usuario';
+        const displayName = (user?.username || user?.name || user?.fullName || user?.displayName || '').toString().trim() || 'Usuario';
         const roleText = (user?.role || user?.rol || '').toString().trim() || 'Rol';
         const roleMap = {
           admin: 'Administrador',

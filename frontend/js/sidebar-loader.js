@@ -265,25 +265,26 @@
       const DOC = document;
       if (!DOC || !DOC.head) return;
 
-      // Cargar el nuevo CSS moderno
+      // Cargar sidebar-shared.css si no está presente
+      if (!DOC.querySelector('link[rel="stylesheet"][href*="sidebar-shared.css"]')) {
+        const sharedLink = DOC.createElement('link');
+        sharedLink.rel = 'stylesheet';
+        sharedLink.href = '/css/sidebar-shared.css?v=20260529b';
+        DOC.head.insertBefore(sharedLink, DOC.head.firstChild);
+      }
+
+      // Cargar el nuevo CSS moderno (sin hacer downgrade si ya hay una versión más reciente)
       const existing = DOC.querySelector('link[rel="stylesheet"][href*="sidebar-modern.css"]');
-      const desiredHref = '/css/sidebar-modern.css?v=20260528';
+      const desiredHref = '/css/sidebar-modern.css?v=20260601';
       if (!existing) {
         const link = DOC.createElement('link');
         link.rel = 'stylesheet';
         link.href = desiredHref;
         DOC.head.appendChild(link);
-      } else {
-        try {
-          const href = String(existing.getAttribute('href') || '');
-          if (!href.includes('v=20260528')) {
-            existing.setAttribute('href', desiredHref);
-          }
-        } catch (_) { /* ignore */ }
       }
 
       // Cargar dark-mode.css global
-      const darkModeHref = '/css/dark-mode.css?v=20260405';
+      const darkModeHref = '/css/dark-mode.css?v=20260601';
       if (!DOC.querySelector('link[rel="stylesheet"][href*="dark-mode.css"]')) {
         const dmLink = DOC.createElement('link');
         dmLink.rel = 'stylesheet';
@@ -715,7 +716,7 @@
   }
 
   function getDisplayName(user) {
-    const candidates = [user?.fullName, user?.name, user?.nombre, user?.displayName, user?.username, user?.email];
+    const candidates = [user?.username, user?.fullName, user?.name, user?.nombre, user?.displayName, user?.email];
     for (const candidate of candidates) {
       const value = (candidate == null ? '' : String(candidate)).trim();
       if (value) return value;
