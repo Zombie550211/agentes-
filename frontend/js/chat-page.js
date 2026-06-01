@@ -533,7 +533,7 @@
     toRecipients.push(user);
     const tag = document.createElement('span');
     tag.className = 'to-tag';
-    tag.innerHTML = `${escapeHtml(user.name || user.username)}<button data-u="${user.username}">✕</button>`;
+    tag.innerHTML = `${escapeHtml(user.username || user.name)}<button data-u="${user.username}">✕</button>`;
     tag.querySelector('button').addEventListener('click', () => {
       toRecipients = toRecipients.filter(r => r.username !== user.username);
       tag.remove();
