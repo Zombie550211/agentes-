@@ -217,8 +217,8 @@ async def agents_list(user: dict = Depends(current_user)):
 async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
         raise HTTPException(403, "No autorizado para actualizar usuarios")
-    if body.role.lower() not in _ALLOWED_ROLES_LOWER:
-        raise HTTPException(400, f"Rol no permitido: '{body.role}'")
+    if not body.role.strip():
+        raise HTTPException(400, "El rol no puede estar vacío")
 
     try:
         uid = int(user_id)
