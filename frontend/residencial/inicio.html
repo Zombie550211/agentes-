@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/css/responsive-sidebar.css">
 <link rel="stylesheet" href="/css/responsive-components.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js"></script>
 <script src="/js/fetch-interceptor.js" defer></script>
 <script src="/js/logout-handler.js" defer></script>
 <script src="/js/user-info.js" defer></script>
@@ -76,12 +77,10 @@ body {
 
 /* ── Shell ── */
 /* sidebar-loader.js injects a sidebar — we account for it */
-:root { --sidebar-w: 56px; } /* collapsed sidebar default */
-
 .main-content {
   position: fixed;
   top: 0;
-  left: var(--sidebar-w);
+  left: 0;
   right: 0;
   bottom: 0;
   overflow: hidden;
@@ -732,14 +731,11 @@ body.dark-theme .p-av        { border-color: rgba(30,50,80,0.80) !important; }
   <!-- BOTTOM ROW -->
   <div class="bot-row">
 
-    <!-- Bar chart -->
-    <div class="gpanel">
-      <div class="ph"><i class="fas fa-box"></i><span class="ph-title">Productos vendidos este mes</span><a href="/residencial/estadisticas.html" class="ph-link">Ver detalle →</a></div>
-      <div class="pb">
-        <div class="chart-area">
-          <div class="bar-area" id="bars"></div>
-          <div class="bar-labels" id="blbs"></div>
-        </div>
+    <!-- ApexCharts — Ventas mensuales -->
+    <div class="gpanel" style="overflow:visible">
+      <div class="ph"><i class="fas fa-chart-line" style="color:#818cf8"></i><span class="ph-title">Ventas mensuales</span><a href="/residencial/estadisticas.html" class="ph-link">Ver detalle →</a></div>
+      <div class="pb" style="padding:0 4px 8px;flex:1;min-height:0;display:flex;flex-direction:column">
+        <div id="apex-monthly-sales" style="flex:1;min-height:0;width:100%"></div>
       </div>
     </div>
 
@@ -1278,105 +1274,149 @@ function createTeamsChartFromData(teamsData) {
   }
 }
 
-function createProductsChartFromData(productsData) {
-  try {
-    let labels = [], counts = [];
+/* ── legacy stub (mantiene compatibilidad con dashboardData.chartProductos) ── */
+function createProductsChartFromData() { /* reemplazado por ApexCharts */ }
 
-    if (productsData && !Array.isArray(productsData) && Array.isArray(productsData.labels)) {
-      labels = productsData.labels;
-      counts = productsData.data || [];
-    } else if (Array.isArray(productsData)) {
-      labels = productsData.map(p => p.servicio || p.nombre || p.name || '—');
-      counts = productsData.map(p => p.count || p.total || 0);
-    }
-    
-    const colors = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0d9488', '#db2777'];
-    
-    const mx = Math.max(...counts.map(Number), 1);
-    document.getElementById('bars').innerHTML = counts.map((count, i) =>
-      `<div class="bw"><div class="bval">${count}</div><div class="bbar" style="height:${Math.round((Number(count)/mx)*100)}px;background:linear-gradient(180deg,${colors[i]}cc,${colors[i]}44)"></div></div>`
-    ).join('');
-    
-    document.getElementById('blbs').innerHTML = labels.map(label =>
-      `<div class="bw"><div class="blbl">${label}</div></div>`
-    ).join('');
-    
-    console.log('✅ Gráfico de productos creado');
-  } catch (e) {
-    console.error('[INICIO] Error en products chart:', e);
+/* ══════════════════════════════════════════
+   APEX CHARTS — Ventas mensuales
+══════════════════════════════════════════ */
+let _apexMonthlySalesChart = null;
+
+function _buildApexOptions(categories, seriesData) {
+  const isDark = document.body.classList.contains('dark-theme');
+  const textColor  = isDark ? '#94a3b8' : '#64748b';
+  const gridColor  = isDark ? 'rgba(148,163,184,.10)' : 'rgba(100,116,139,.08)';
+  const tooltipBg  = isDark ? '#1e293b' : '#ffffff';
+  const tooltipTxt = isDark ? '#e2e8f0' : '#1e293b';
+  const lineColor  = isDark ? '#818cf8' : '#6366f1';
+  const dotColor   = isDark ? '#c7d2fe' : '#4f46e5';
+  const gradHex    = isDark ? '#818cf8' : '#6366f1';
+
+  return {
+    series: [{ name: 'Ventas', data: seriesData }],
+    chart: {
+      type: 'area',
+      height: '100%',
+      background: 'transparent',
+      toolbar: { show: false },
+      animations: { enabled: true, easing: 'easeinout', speed: 700 }
+    },
+    stroke: { curve: 'smooth', width: 3, colors: [lineColor] },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.55,
+        opacityTo: 0.02,
+        stops: [0, 95]
+      }
+    },
+    colors: [gradHex],
+    markers: {
+      size: 4,
+      colors: [dotColor],
+      strokeColors: tooltipBg,
+      strokeWidth: 2,
+      hover: { size: 7 }
+    },
+    xaxis: {
+      categories,
+      labels: {
+        style: { colors: textColor, fontSize: '10px', fontFamily: "'Plus Jakarta Sans', sans-serif" }
+      },
+      axisBorder: { show: false },
+      axisTicks:  { show: false }
+    },
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      labels: {
+        style: { colors: textColor, fontSize: '10px', fontFamily: "'Plus Jakarta Sans', sans-serif" },
+        formatter: v => Math.round(v)
+      }
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } },
+      padding: { top: 0, right: 8, bottom: 0, left: 4 }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light',
+      style: { fontSize: '12px', fontFamily: "'Plus Jakarta Sans', sans-serif" },
+      custom({ series, seriesIndex, dataPointIndex, w }) {
+        const val = series[seriesIndex][dataPointIndex];
+        const cat = w.globals.labels[dataPointIndex];
+        return '<div style="background:' + tooltipBg + ';color:' + tooltipTxt + ';padding:8px 13px;border-radius:10px;border:1px solid rgba(99,102,241,.25);box-shadow:0 8px 24px rgba(0,0,0,.18);font-family:\'Plus Jakarta Sans\',sans-serif;font-size:12px">'
+          + '<div style="font-size:10px;font-weight:600;color:' + lineColor + ';letter-spacing:.05em;margin-bottom:2px">' + cat + '</div>'
+          + '<div style="font-size:16px;font-weight:800">' + val + ' <span style="font-size:10px;font-weight:500;opacity:.7">ventas</span></div>'
+          + '</div>';
+      }
+    },
+    dataLabels: { enabled: false },
+    legend: { show: false }
+  };
+}
+
+function renderMonthlySalesChart(seriesData, categories) {
+  const el = document.getElementById('apex-monthly-sales');
+  if (!el || typeof ApexCharts === 'undefined') return;
+
+  if (!document.getElementById('apex-glow-style')) {
+    const s = document.createElement('style');
+    s.id = 'apex-glow-style';
+    s.textContent = '#apex-monthly-sales .apexcharts-area-series .apexcharts-series path{filter:drop-shadow(0 0 6px rgba(99,102,241,.60))} #apex-monthly-sales .apexcharts-marker{filter:drop-shadow(0 0 4px rgba(99,102,241,.80))}';
+    document.head.appendChild(s);
   }
+
+  if (_apexMonthlySalesChart) {
+    _apexMonthlySalesChart.updateOptions(_buildApexOptions(categories, seriesData), true, true);
+    return;
+  }
+  _apexMonthlySalesChart = new ApexCharts(el, _buildApexOptions(categories, seriesData));
+  _apexMonthlySalesChart.render();
 }
 
 async function loadProductsFromAPI() {
-  try {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const startStr = fmt(monthStart);
-    const endStr = fmt(monthEnd);
-    
-    console.log('[INICIO] Cargando productos vendidos:', { startStr, endStr });
-    
-    const res = await fetch(`/api/leads?fechaInicio=${startStr}&fechaFin=${endStr}&limit=5000`, { credentials: 'include' });
-    if (!res.ok) throw new Error('Error fetching leads');
-    
-    const json = await res.json();
-    const leads = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (Array.isArray(json.leads) ? json.leads : []));
-    
-    const normalizeProduct = (val) => {
-      let k = String(val || '').trim();
-      if (!k) return 'SIN PRODUCTO';
-      try { k = k.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
-      k = k.replace(/[-_]/g, ' ');
-      k = k.replace(/\s+/g, ' ').trim().toUpperCase();
-      k = k.replace(/&/g, '');
-      k = k.replace(/\bXFINTY\b/g, 'XFINITY');
-      k = k.replace(/\bAT\s*T\b/g, 'ATT');
-      k = k.replace(/\bAT\s+T\b/g, 'ATT');
-      k = k.replace(/\bATT\s+AIR\b/g, 'AIR');
-      k = k.replace(/\bXFINITY\s+500\s*PLUS\b/g, 'XFINITY 500 PLUS');
-      k = k.replace(/\bINTERNET\s+EARTHLINK\b/g, 'INTERNET EARTHLINK');
-      // Separar productos compuestos ATT
-      if (k.includes('ATT 300-500') || k.includes('ATT 300 500')) {
-        return 'ATT 300';
-      }
-      if (k.includes('ATT 500') && !k.includes('ATT 300-500') && !k.includes('ATT 300 500')) {
-        return 'ATT 500';
-      }
-      // Separar XFINITY por velocidad
-      if (k.includes('XFINITY 1G') || k.includes('XFINITY 1000')) {
-        return 'XFINITY 1G';
-      }
-      if (k.includes('XFINITY 500') && !k.includes('XFINITY 500 PLUS')) {
-        return 'XFINITY 500';
-      }
-      if (k.includes('XFINITY 300')) {
-        return 'XFINITY 300';
-      }
-      return k || 'SIN PRODUCTO';
-    };
+  const fmt = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const now  = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const yearEnd   = new Date(now.getFullYear(), 11, 31);
+  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const monthlyCounts = new Array(12).fill(0);
 
-    const counts = {};
+  try {
+    const res = await fetch('/api/leads?fechaInicio=' + fmt(yearStart) + '&fechaFin=' + fmt(yearEnd) + '&limit=9999', { credentials: 'include' });
+    if (!res.ok) throw new Error('api error');
+    const json  = await res.json();
+    const leads = Array.isArray(json) ? json : (json.data || json.leads || []);
     leads.forEach(l => {
-      const prod = l.servicios_texto || l.tipo_servicios || l.tipo_servicio || l.servicios || l.producto || l.service || l.servicio || 'SIN PRODUCTO';
-      const key = normalizeProduct(prod);
-      counts[key] = (counts[key] || 0) + 1;
+      const raw = l.dia_venta || l.created_at || l.fecha_contratacion || '';
+      if (!raw) return;
+      const d = new Date(raw);
+      if (!isNaN(d) && d.getFullYear() === now.getFullYear()) monthlyCounts[d.getMonth()]++;
     });
-    
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    const productsData = {
-      labels: entries.map(e => e[0]),
-      data: entries.map(e => e[1])
-    };
-    
-    console.log('[INICIO] Productos cargados:', productsData);
-    createProductsChartFromData(productsData);
   } catch (e) {
-    console.warn('[INICIO] Error loading products:', e);
+    console.warn('[INICIO] Monthly chart — sin datos:', e);
   }
+
+  const currentMonth = now.getMonth();
+  renderMonthlySalesChart(
+    monthlyCounts.slice(0, currentMonth + 1),
+    MONTHS.slice(0, currentMonth + 1)
+  );
 }
+
+/* Re-renderizar al cambiar tema */
+document.addEventListener('themeChanged', () => {
+  if (_apexMonthlySalesChart) {
+    const cfg = _apexMonthlySalesChart.w.config;
+    _apexMonthlySalesChart.updateOptions(
+      _buildApexOptions(cfg.xaxis.categories, cfg.series[0].data), true, true
+    );
+  }
+});
 
 async function loadSemaforoFromAPI() {
   try {
