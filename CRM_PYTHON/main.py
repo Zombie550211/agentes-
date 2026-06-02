@@ -66,6 +66,7 @@ _MIGRATIONS = [
     "ALTER TABLE leads ADD COLUMN notas JSON NULL",
     "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1",
     "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL",
+    "ALTER TABLE employees_month MODIFY COLUMN period_date VARCHAR(100)",
     """CREATE TABLE IF NOT EXISTS employees_month (
         id INT AUTO_INCREMENT PRIMARY KEY,
         employee VARCHAR(20) NOT NULL UNIQUE,

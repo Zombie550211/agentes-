@@ -1063,7 +1063,10 @@ $('modalSaveBtn').addEventListener('click', async () => {
     Loader.show('Guardando datos…');
 
     // 2. Save employee data
-    const payload = { employee: emp, name, description, imageUrl, imageData: imageUrl, date: new Date().toLocaleDateString('es-ES') };
+    const _now = new Date();
+    const _meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const _period = _meses[_now.getMonth()] + ' ' + _now.getFullYear();
+    const payload = { employee: emp, name, description, imageUrl, imageData: imageUrl, date: _period };
     const saveRes = await fetch('/api/employees-of-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
 
     if (!saveRes.ok) {
