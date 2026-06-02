@@ -1661,6 +1661,7 @@
         checkbox.checked = false;
         if (iconEl) iconEl.className = 'fas fa-sun theme-icon-collapsed';
       }
+      try { document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } })); } catch (_) {}
     };
 
     const savedTheme = localStorage.getItem('theme') || 'light';
