@@ -25,14 +25,14 @@
       
       if (!response.ok) {
         console.warn('No autenticado. Redirigiendo al login...');
-        window.location.href = 'index.html';
+        window.location.href = '/login.html';
         return false;
       }
       
       const data = await response.json();
       if (!data.authenticated) {
         console.warn('No autenticado. Redirigiendo al login...');
-        window.location.href = 'index.html';
+        window.location.href = '/login.html';
         return false;
       }
       

@@ -6,32 +6,16 @@ from deps import current_user
 from pathlib import Path
 from typing import Optional
 import datetime as _dt
-import cloudinary
-import cloudinary.uploader
 import traceback
-import os
+import io
 
 router = APIRouter(tags=["Files"])
 
-# Configurar Cloudinary desde variables de entorno
-cloudinary.config(
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", ""),
-    api_key    = os.getenv("CLOUDINARY_API_KEY", ""),
-    api_secret = os.getenv("CLOUDINARY_API_SECRET", ""),
-    secure     = True,
-)
-
-# Directorio local como fallback si Cloudinary no está configurado
 _FILES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "files"
 _FILES_DIR.mkdir(parents=True, exist_ok=True)
 
-_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-
-_USE_CLOUDINARY = bool(
-    os.getenv("CLOUDINARY_CLOUD_NAME") and
-    os.getenv("CLOUDINARY_API_KEY") and
-    os.getenv("CLOUDINARY_API_SECRET")
-)
+_MAX_IMAGE_BYTES   = 10 * 1024 * 1024   # 10 MB para imágenes en BD
+_MAX_UPLOAD_BYTES  = 50 * 1024 * 1024   # 50 MB para archivos generales
 
 
 def _classify(mimetype: str) -> str:
@@ -61,55 +45,63 @@ async def upload_file(
         upby      = user.get("username") or "unknown"
         now       = _dt.datetime.utcnow()
 
-        cld_ok = False
-        if _USE_CLOUDINARY and file_type == "image":
-            try:
-                import asyncio as _aio
-                result = await _aio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: cloudinary.uploader.upload(
-                        data,
-                        folder        = "crm_leads",
-                        public_id     = f"{ts}-{Path(orig).stem}",
-                        resource_type = "image",
-                        overwrite     = True,
-                    )
-                )
-                file_url  = result["secure_url"]
-                filename  = result["public_id"]
-                file_path = file_url
-                cld_ok    = True
-            except Exception as cld_err:
-                print(f"[files/upload] Cloudinary falló, usando disco local: {cld_err}")
+        if file_type == "image":
+            if len(data) > _MAX_IMAGE_BYTES:
+                raise HTTPException(413, "Imagen demasiado grande (max 10 MB)")
 
-        if not cld_ok:
-            # Fallback: disco local
-            filename  = f"{ts}-{orig}"
-            dest      = _FILES_DIR / filename
+            # Guardar binario en la BD — permanente, sobrevive deploys
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("""
+                    INSERT INTO note_files
+                      (filename, original_name, content_type, file_type, file_size,
+                       file_path, content, lead_id, uploaded_by, uploaded_at)
+                    VALUES (:fn, :orig, :ct, :ft, :fs, :fp, :content, :lid, :by, :now)
+                """), {
+                    "fn":      orig,
+                    "orig":    orig,
+                    "ct":      mimetype,
+                    "ft":      file_type,
+                    "fs":      len(data),
+                    "fp":      None,           # no hay path en disco
+                    "content": data,
+                    "lid":     leadId or None,
+                    "by":      upby,
+                    "now":     now,
+                })
+                new_id = r.lastrowid
+                await s.commit()
+
+            file_url = f"/api/files/{new_id}/image"
+
+        else:
+            # PDFs, audio, video → disco local
+            filename = f"{ts}-{orig}"
+            dest     = _FILES_DIR / filename
             dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "wb") as f:
                 f.write(data)
             file_path = f"/uploads/files/{filename}"
             file_url  = file_path
 
-        async with AsyncSessionLocal() as s:
-            r = await s.execute(text("""
-                INSERT INTO note_files
-                  (filename, original_name, content_type, file_type, file_size, file_path, lead_id, uploaded_by, uploaded_at)
-                VALUES (:fn, :orig, :ct, :ft, :fs, :fp, :lid, :by, :now)
-            """), {
-                "fn":   filename, "orig": orig,     "ct":  mimetype,
-                "ft":   file_type, "fs": len(data), "fp":  file_path,
-                "lid":  leadId or None, "by": upby, "now": now,
-            })
-            new_id = r.lastrowid
-            await s.commit()
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("""
+                    INSERT INTO note_files
+                      (filename, original_name, content_type, file_type, file_size,
+                       file_path, content, lead_id, uploaded_by, uploaded_at)
+                    VALUES (:fn, :orig, :ct, :ft, :fs, :fp, NULL, :lid, :by, :now)
+                """), {
+                    "fn":   filename, "orig": orig,    "ct":  mimetype,
+                    "ft":   file_type, "fs": len(data), "fp": file_path,
+                    "lid":  leadId or None, "by": upby, "now": now,
+                })
+                new_id = r.lastrowid
+                await s.commit()
 
         return {
             "success": True,
             "data": {
                 "fileId":       str(new_id),
-                "filename":     filename,
+                "filename":     orig,
                 "originalName": orig,
                 "contentType":  mimetype,
                 "fileType":     file_type,
@@ -120,9 +112,58 @@ async def upload_file(
     except HTTPException:
         raise
     except Exception as e:
-        tb = traceback.format_exc()
-        print(f"[files/upload] ERROR: {e}\n{tb}")
+        print(f"[files/upload] ERROR: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error subiendo archivo: {str(e)}")
+
+
+# ── GET /api/files/:id/image — sirve imagen desde BD ─────────
+@router.get("/api/files/{file_id}/image")
+async def serve_image(file_id: str):
+    try:
+        fid = int(file_id)
+    except ValueError:
+        raise HTTPException(400, "ID inválido")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(
+            text("SELECT content, content_type, file_path FROM note_files WHERE id = :id"),
+            {"id": fid}
+        )
+        row = r.mappings().first()
+
+    if not row:
+        raise HTTPException(404, "Imagen no encontrada")
+
+    # Imagen guardada en BD (nuevo sistema)
+    if row["content"]:
+        content_type = row["content_type"] or "image/jpeg"
+        data = bytes(row["content"])
+        return Response(
+            content=data,
+            media_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Content-Length": str(len(data)),
+            },
+        )
+
+    # Imagen antigua en Cloudinary o disco → redirigir
+    file_path = row["file_path"] or ""
+    if file_path.startswith("http://") or file_path.startswith("https://"):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=file_path)
+
+    if file_path:
+        disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
+        if disk_path.exists():
+            data = disk_path.read_bytes()
+            return Response(
+                content=data,
+                media_type=row["content_type"] or "image/jpeg",
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+
+    raise HTTPException(404, "Imagen no disponible")
 
 
 # ── GET /api/files/:id ────────────────────────────────────────
@@ -142,17 +183,20 @@ async def serve_file(file_id: str, request: Request):
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
 
+    # Si es imagen con content en BD → redirigir al endpoint correcto
+    if row["content"] and (row["content_type"] or "").startswith("image/"):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/api/files/{fid}/image")
+
     file_path    = row["file_path"] or ""
     content_type = row["content_type"] or "application/octet-stream"
     filename     = row["filename"] or ""
     file_size    = int(row["file_size"] or 0)
 
-    # Si es URL de Cloudinary redirigir directo
     if file_path.startswith("http://") or file_path.startswith("https://"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=file_path)
 
-    # Archivo local
     disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
     if not disk_path.exists():
         raise HTTPException(404, "Archivo no encontrado en disco")
@@ -215,10 +259,20 @@ async def download_file(file_id: str):
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
 
-    file_path    = row["file_path"] or ""
     content_type = row["content_type"] or "application/octet-stream"
     orig_name    = row["original_name"] or row["filename"] or "file"
-    file_size    = int(row["file_size"] or 0)
+
+    # Imagen en BD
+    if row["content"]:
+        data = bytes(row["content"])
+        return Response(
+            content=data,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{orig_name}"'},
+        )
+
+    file_path = row["file_path"] or ""
+    file_size = int(row["file_size"] or 0)
 
     if file_path.startswith("http://") or file_path.startswith("https://"):
         from fastapi.responses import RedirectResponse
@@ -264,15 +318,8 @@ async def delete_file(file_id: str, user: dict = Depends(current_user)):
 
         file_path = row["file_path"] or ""
 
-        # Borrar de Cloudinary si aplica
-        if _USE_CLOUDINARY and (file_path.startswith("http://") or file_path.startswith("https://")):
-            try:
-                pub_id = row["filename"] or ""
-                if pub_id:
-                    cloudinary.uploader.destroy(pub_id, resource_type="image")
-            except Exception:
-                pass
-        else:
+        # Si había archivo en disco, borrarlo
+        if file_path and not file_path.startswith("http"):
             disk_path = _FILES_DIR.parent.parent / file_path.lstrip("/")
             if disk_path.exists():
                 disk_path.unlink(missing_ok=True)

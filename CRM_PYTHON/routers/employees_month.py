@@ -34,7 +34,7 @@ class EmployeeBody(BaseModel):
     date: Optional[str] = None
 
 
-@router.get("/")
+@router.get("")
 async def get_employees():
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT * FROM employees_month ORDER BY updated_at DESC"))
@@ -57,7 +57,7 @@ async def migrate_cloudinary(user: dict = Depends(require_roles(*ADMIN_ROLES))):
     return {"success": False, "message": "Migración Cloudinary no implementada en Python aún"}
 
 
-@router.post("/")
+@router.post("")
 async def upsert_employee(body: EmployeeBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     if body.employee not in VALID_EMPLOYEES:
         raise HTTPException(400, 'Parámetro "employee" inválido (first|second)')

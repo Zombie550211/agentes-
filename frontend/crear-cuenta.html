@@ -1255,16 +1255,18 @@
 <script>
 /* ── AUTH ── */
 const AUTH=(function(){
-  function getToken(){ return localStorage.getItem('token')||sessionStorage.getItem('token')||null; }
   function getUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; } }
   function redirectLogin(){ window.location.replace('/login.html'); }
-  function check(){ const t=getToken(); if(!t){ redirectLogin(); return null; } return t; }
+  function check(){ return true; } // auth por cookie httpOnly — el servidor valida
   async function sf(url,opts){
-    const t=check(); if(!t) return null;
-    const headers=Object.assign({'Authorization':'Bearer '+t,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
-    try{ const res=await fetch(url,Object.assign({},opts,{headers})); if(res.status===401){ redirectLogin(); return null; } return res; }catch(e){ return null; }
+    const headers=Object.assign({'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
+    try{
+      const res=await fetch(url,Object.assign({credentials:'include'},opts,{headers}));
+      if(res.status===401){ redirectLogin(); return null; }
+      return res;
+    }catch(e){ return null; }
   }
-  return { getToken, getUser, check, sf, redirectLogin };
+  return { getUser, check, sf, redirectLogin };
 })();
 
 function isAdminRole(role){ const r=String(role||'').toLowerCase(); return ['admin','administrador','administrator','administrativo'].some(x=>r===x||r.includes(x)); }

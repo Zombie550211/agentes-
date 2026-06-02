@@ -48,7 +48,7 @@ COMPONENTS   = BASE_DIR / "components"
 # Las migraciones de datos (UPDATE masivos) se movieron a CRM_PYTHON/scripts/data_migrations.py
 # y ya fueron ejecutadas. No corren en cada arranque.
 _MIGRATIONS = [
-    """CREATE TABLE IF NOT EXISTS note_files (
+    """CREATE TABLE note_files (
         id INT AUTO_INCREMENT PRIMARY KEY,
         filename VARCHAR(500) NOT NULL,
         original_name VARCHAR(500),
@@ -60,11 +60,21 @@ _MIGRATIONS = [
         uploaded_by VARCHAR(200),
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )""",
-    "ALTER TABLE lineas_clientes ADD COLUMN IF NOT EXISTS imagen_url VARCHAR(500) NULL AFTER fuente",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS sistema VARCHAR(100) NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS riesgo VARCHAR(50) NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS notas JSON NULL",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS active TINYINT(1) NOT NULL DEFAULT 1",
+    "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente",
+    "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL",
+    "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL",
+    "ALTER TABLE leads ADD COLUMN notas JSON NULL",
+    "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1",
+    "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL",
+    """CREATE TABLE IF NOT EXISTS employees_month (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee VARCHAR(20) NOT NULL UNIQUE,
+        name VARCHAR(200) NOT NULL DEFAULT '',
+        description TEXT,
+        image_url TEXT,
+        period_date VARCHAR(50),
+        updated_at DATETIME
+    )""",
 ]
 
 async def _fix_api_file_urls():

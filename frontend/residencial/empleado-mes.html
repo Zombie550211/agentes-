@@ -623,6 +623,7 @@
   <div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
   <div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
   <div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div>
+  <p id="loaderMsg" style="position:absolute;bottom:18%;color:rgba(255,255,255,0.7);font-size:13px;letter-spacing:1px;text-align:center;width:100%;">Cargando…</p>
 </div>
 
 <!-- ── PAGE ───────────────────────────────────────────────────── -->
@@ -772,7 +773,7 @@ const $ = id => document.getElementById(id);
 // Loader
 const Loader = {
   show(msg = 'Cargando…') {
-    $('loaderMsg').textContent = msg;
+    const el = $('loaderMsg'); if (el) el.textContent = msg;
     $('loaderOverlay').classList.add('open');
   },
   hide() { $('loaderOverlay').classList.remove('open'); }
@@ -1048,15 +1049,15 @@ $('modalSaveBtn').addEventListener('click', async () => {
     formData.append('file', file);
     formData.append('category', 'employees-of-month');
 
-    const upRes = await fetch('/api/upload', { method: 'POST', body: formData, headers: { 'x-media-category': 'employees-of-month' }, credentials: 'include' });
+    const upRes = await fetch('/api/files/upload', { method: 'POST', body: formData, credentials: 'include' });
     if (!upRes.ok) {
       let msg = 'Error al subir imagen';
-      try { const e = await upRes.json(); msg = e.message || msg; } catch (_) {}
+      try { const e = await upRes.json(); msg = e.detail || e.message || msg; } catch (_) {}
       throw new Error(msg);
     }
 
     const upJson = await upRes.json();
-    const imageUrl = upJson?.file?.url || upJson?.imageUrl;
+    const imageUrl = upJson?.data?.url || upJson?.url || upJson?.imageUrl;
     if (!imageUrl) throw new Error('No se recibió URL de la imagen');
 
     Loader.show('Guardando datos…');
@@ -1066,8 +1067,9 @@ $('modalSaveBtn').addEventListener('click', async () => {
     const saveRes = await fetch('/api/employees-of-month', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
 
     if (!saveRes.ok) {
-      const e = await saveRes.json();
-      throw new Error(e.message || 'Error al guardar');
+      let msg = 'Error al guardar';
+      try { const e = await saveRes.json(); msg = e.detail || e.message || msg; } catch (_) {}
+      throw new Error(msg);
     }
 
     showToast('Empleado guardado correctamente', 'success');

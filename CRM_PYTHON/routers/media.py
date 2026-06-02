@@ -97,29 +97,34 @@ async def upload_media(
     mimetype = file.content_type or "application/octet-stream"
     is_image = mimetype.startswith("image/")
 
-    if _USE_CLOUDINARY and is_image:
-        result   = cloudinary.uploader.upload(
-            data,
-            folder        = f"crm_media/{safe_cat}",
-            public_id     = f"{safe_cat}_{ts}",
-            resource_type = "image",
-            overwrite     = True,
-        )
-        url      = result["secure_url"]
-        filename = result["public_id"]
+    # Imágenes → siempre a BD (permanente, sobrevive deploys)
+    if is_image:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                INSERT INTO note_files
+                  (filename, original_name, content_type, file_type, file_size,
+                   file_path, content, lead_id, uploaded_by, uploaded_at)
+                VALUES (:fn, :orig, :ct, 'image', :fs, NULL, :content, NULL, :by, :now)
+            """), {
+                "fn": origname, "orig": origname, "ct": mimetype,
+                "fs": len(data), "content": data, "by": upby, "now": now,
+            })
+            new_id = r.lastrowid
+            await s.commit()
+        url = f"/api/files/{new_id}/image"
+        filename = origname
     else:
         dest = _UPLOADS_DIR / filename
         with open(dest, "wb") as f:
             f.write(data)
         url = f"/uploads/media/{filename}"
-
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            INSERT INTO media_files (file_name, file_type, file_size, file_path, category, uploaded_by, upload_date)
-            VALUES (:fn, :ft, :fs, :fp, :cat, :by, :now)
-        """), {"fn": origname, "ft": mimetype, "fs": len(data), "fp": url, "cat": cat, "by": upby, "now": now})
-        new_id = r.lastrowid
-        await s.commit()
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                INSERT INTO media_files (file_name, file_type, file_size, file_path, category, uploaded_by, upload_date)
+                VALUES (:fn, :ft, :fs, :fp, :cat, :by, :now)
+            """), {"fn": origname, "ft": mimetype, "fs": len(data), "fp": url, "cat": cat, "by": upby, "now": now})
+            new_id = r.lastrowid
+            await s.commit()
 
     return {"success": True, "url": url, "id": str(new_id), "filename": filename, "category": cat}
 
