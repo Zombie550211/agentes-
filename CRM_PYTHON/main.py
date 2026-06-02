@@ -11,6 +11,8 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 from pathlib import Path
 import os
@@ -18,6 +20,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from limiter import limiter
 from database_mysql import init_mysql, close_mysql, engine
 from sqlalchemy import text as _sa_text
 from routers import auth as auth_router
@@ -41,8 +44,10 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
+# Solo migraciones estructurales (DDL) — idempotentes, seguras en cada arranque.
+# Las migraciones de datos (UPDATE masivos) se movieron a CRM_PYTHON/scripts/data_migrations.py
+# y ya fueron ejecutadas. No corren en cada arranque.
 _MIGRATIONS = [
-    # Crear tabla note_files si no existe (necesaria para subida de archivos)
     """CREATE TABLE IF NOT EXISTS note_files (
         id INT AUTO_INCREMENT PRIMARY KEY,
         filename VARCHAR(500) NOT NULL,
@@ -59,93 +64,7 @@ _MIGRATIONS = [
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS sistema VARCHAR(100) NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS riesgo VARCHAR(50) NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS notas JSON NULL",
-    """UPDATE leads SET sistema = CASE
-        WHEN servicios LIKE '%VIDEO DIRECTV%'     THEN 'SARA'
-        WHEN servicios LIKE '%ATT 300%'           THEN 'SARA'
-        WHEN servicios LIKE '%ATT 500%'           THEN 'SARA'
-        WHEN servicios LIKE '%ATT 1G%'            THEN 'SARA'
-        WHEN servicios LIKE '%ATT 100%'           THEN 'SARA'
-        WHEN servicios LIKE '%ATT 50%'            THEN 'SARA'
-        WHEN servicios LIKE '%ATT 18%'            THEN 'SARA'
-        WHEN servicios LIKE '%ATT AIR%'           THEN 'SARA'
-        WHEN servicios LIKE '%AIR%'               THEN 'SARA'
-        WHEN servicios LIKE '%SPECTRUM%'          THEN 'SARA'
-        WHEN servicios LIKE '%FRONTIER%'          THEN 'SARA'
-        WHEN servicios LIKE '%CONSOLIDATED%'      THEN 'SARA'
-        WHEN servicios LIKE '%BRIGHTSPEED%'       THEN 'SARA'
-        WHEN servicios LIKE '%EARTHLINK%'         THEN 'SARA'
-        WHEN servicios LIKE '%ZIPLY%'             THEN 'SARA'
-        WHEN servicios LIKE '%OPTIMUM%'           THEN 'SARA'
-        WHEN servicios LIKE '%ALTAFIBER%'         THEN 'SARA'
-        WHEN servicios LIKE '%WINDSTREAM%'        THEN 'SARA'
-        WHEN servicios LIKE '%CENTURYLINK%'       THEN 'SARA'
-        WHEN servicios LIKE '%METRONET%'          THEN 'SARA'
-        WHEN servicios LIKE '%HAWAIIAN%'          THEN 'SARA'
-        WHEN servicios LIKE '%WOW%'               THEN 'SARA'
-        WHEN servicios LIKE '%XFINITY%'           THEN 'N/A'
-        WHEN servicios LIKE '%HUGHESNET%'         THEN 'CHUZO'
-        WHEN servicios LIKE '%VIASAT%'            THEN 'CHUZO'
-        WHEN servicios LIKE '%VIVINT%'            THEN 'CHUZO'
-        WHEN servicios LIKE '%MOBILITY%'          THEN 'CHUZO'
-        ELSE sistema
-    END
-    WHERE (sistema IS NULL OR sistema = '')
-      AND servicios IS NOT NULL AND servicios != '' AND servicios != '[]'""",
-    "UPDATE leads SET autopago = 1 WHERE autopago IS NULL",
-    # Normalizar riesgo: valores en español → inglés estándar
-    """UPDATE leads SET riesgo = CASE
-        WHEN LOWER(TRIM(riesgo)) IN ('bajo','low')    THEN 'LOW'
-        WHEN LOWER(TRIM(riesgo)) IN ('medio','medium') THEN 'MEDIUM'
-        WHEN LOWER(TRIM(riesgo)) IN ('alto','high')   THEN 'HIGH'
-        WHEN LOWER(TRIM(riesgo)) IN ('n/a','na')      THEN 'N/A'
-        ELSE riesgo
-    END
-    WHERE riesgo IS NOT NULL AND TRIM(riesgo) != ''""",
-    # Normalizar team en lineas_clientes según supervisor
-    """UPDATE lineas_clientes
-       SET team = 'TEAM LINEAS JONATHAN'
-       WHERE UPPER(TRIM(COALESCE(supervisor,''))) LIKE 'JONATHAN%'""",
-    """UPDATE lineas_clientes
-       SET team = 'TEAM LINEAS LUIS'
-       WHERE UPPER(TRIM(COALESCE(supervisor,''))) LIKE 'LUIS%'""",
-    # Backfill supervisor en leads históricos con supervisor vacío,
-    # tomando el supervisor asignado en el perfil del agente.
-    """UPDATE leads l
-       INNER JOIN users u
-         ON (   LOWER(TRIM(l.agente_nombre)) = LOWER(TRIM(u.username))
-             OR LOWER(TRIM(l.agente))        = LOWER(TRIM(u.username))
-             OR LOWER(TRIM(l.created_by))    = LOWER(TRIM(u.username))
-            )
-       SET l.supervisor = u.supervisor
-       WHERE (l.supervisor IS NULL OR TRIM(l.supervisor) = '')
-         AND u.supervisor IS NOT NULL AND TRIM(u.supervisor) != ''""",
-    # Backfill supervisor en lineas_clientes desde columna team (si ya estaba seteada)
-    """UPDATE lineas_clientes
-       SET supervisor = CASE
-         WHEN UPPER(TRIM(COALESCE(team,''))) LIKE '%LUIS%'     THEN 'LUIS G'
-         WHEN UPPER(TRIM(COALESCE(team,''))) LIKE '%JONATHAN%' THEN 'JONATHAN F'
-         ELSE supervisor
-       END
-       WHERE (supervisor IS NULL OR TRIM(supervisor) = '')
-         AND COALESCE(TRIM(team),'') != ''""",
-    # Backfill supervisor en lineas_clientes desde perfil del agente en users
-    """UPDATE lineas_clientes lc
-       INNER JOIN users u
-         ON (   LOWER(TRIM(lc.agente))          = LOWER(TRIM(u.username))
-             OR LOWER(TRIM(lc.agente_nombre))   = LOWER(TRIM(u.username))
-             OR LOWER(TRIM(lc.agente_asignado)) = LOWER(TRIM(u.username))
-             OR LOWER(TRIM(lc.agente))          = LOWER(TRIM(u.name))
-             OR LOWER(TRIM(lc.agente_nombre))   = LOWER(TRIM(u.name))
-             OR LOWER(TRIM(lc.agente_asignado)) = LOWER(TRIM(u.name))
-            )
-       SET lc.supervisor = CASE
-         WHEN LOWER(TRIM(COALESCE(u.team,''))) LIKE '%lineas luis%'
-              OR LOWER(TRIM(COALESCE(u.supervisor,''))) LIKE '%luis%' THEN 'LUIS G'
-         WHEN LOWER(TRIM(COALESCE(u.team,''))) LIKE '%lineas jonathan%'
-              OR LOWER(TRIM(COALESCE(u.supervisor,''))) LIKE '%jonathan%' THEN 'JONATHAN F'
-         ELSE lc.supervisor
-       END
-       WHERE (lc.supervisor IS NULL OR TRIM(lc.supervisor) = '')""",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS active TINYINT(1) NOT NULL DEFAULT 1",
 ]
 
 async def _fix_api_file_urls():
@@ -202,6 +121,9 @@ app = FastAPI(
     docs_url="/py-docs",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ─────────────────────────────────────────────────────────
 _CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]

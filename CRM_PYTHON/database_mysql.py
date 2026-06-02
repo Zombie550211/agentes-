@@ -20,9 +20,17 @@ _use_ssl = os.getenv("MYSQL_SSL", "").lower() in ("1", "true", "yes") or (
 
 _connect_args: dict = {}
 if _use_ssl:
-    _ssl_ctx = ssl.create_default_context()
-    _ssl_ctx.check_hostname = False
-    _ssl_ctx.verify_mode   = ssl.CERT_NONE  # sin verificar CA (acepta cualquier cert)
+    _ssl_ca = os.getenv("MYSQL_SSL_CA")  # ruta al CA cert de Aiven (descargable desde Aiven Console)
+    _ssl_ctx = ssl.create_default_context(cafile=_ssl_ca if _ssl_ca else None)
+    if _ssl_ca:
+        _ssl_ctx.verify_mode   = ssl.CERT_REQUIRED
+        _ssl_ctx.check_hostname = True
+    else:
+        # Sin CA cert configurado: acepta el cert pero advierte
+        _ssl_ctx.check_hostname = False
+        _ssl_ctx.verify_mode   = ssl.CERT_NONE
+        print("[AVISO SSL] MYSQL_SSL_CA no configurado — verificación de certificado desactivada. "
+              "Descarga el CA cert desde Aiven Console y configura MYSQL_SSL_CA=/ruta/ca.pem")
     _connect_args["ssl"] = _ssl_ctx
 
 engine = create_async_engine(

@@ -12,31 +12,19 @@
   window.fetch = function(...args) {
     let [url, config] = args;
 
-    // Inicializar config si no existe
     if (!config) {
       config = {};
     }
 
-    // Inicializar headers si no existen
-    if (!config.headers) {
-      config.headers = {};
+    // Asegurar que las cookies de sesión (httpOnly) se envíen siempre
+    if (!config.credentials) {
+      config.credentials = 'include';
     }
 
-    // Agregar token si existe y no está ya presente
-    const token = localStorage.getItem('token');
-    if (token && !config.headers['Authorization']) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    // Llamar al fetch original con los argumentos modificados
     return originalFetch(url, config)
       .then(response => {
-        // Si la respuesta es 401 (No autorizado), redirigir al login
         if (response.status === 401) {
-          console.warn('Token inválido o expirado. Redirigiendo al login...');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          // Redirigir a la raíz del sitio
+          console.warn('Sesión expirada. Redirigiendo al login...');
           window.location.href = '/login.html';
         }
         return response;

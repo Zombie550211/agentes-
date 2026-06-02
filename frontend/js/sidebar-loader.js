@@ -220,6 +220,7 @@
       if (/register/.test(path)) return 'crearcuenta';
       if (/chat\.html?$/.test(path)) return 'chat';
       if (/reset-password/.test(path)) return 'inicio';
+      if (/\/lineas\/inicio/.test(path)) return 'inicio-lineas';
       if (/inicio/.test(path) || /index\.html?$/.test(path)) return 'inicio';
     } catch (e) {
       console.warn('No se pudo inferir data-active automáticamente', e);
