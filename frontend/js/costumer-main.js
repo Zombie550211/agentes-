@@ -22,30 +22,26 @@
     seguimiento: { emoji:'📌', label:'Seguimiento', cls:'seguimiento' },
   };
 
-  /* ── AUTH ── */
+  /* ── AUTH — cookie httpOnly, sin localStorage token ── */
   const AUTH = (function () {
-    const TOKEN_KEY='token', USER_KEY='crm_user', LS_STAMP_KEY='crm_token_ts', SESSION_MAX_MS=12*60*60*1000;
-    function getToken() { return localStorage.getItem(TOKEN_KEY)||sessionStorage.getItem(TOKEN_KEY)||null; }
-    function getTimestamp() { return parseInt(localStorage.getItem(LS_STAMP_KEY)||sessionStorage.getItem(LS_STAMP_KEY)||'0',10); }
-    function isExpiredClientSide() { const ts=getTimestamp(); if(!ts) return false; return (Date.now()-ts)>SESSION_MAX_MS; }
-    function clearSession() { [TOKEN_KEY,USER_KEY,LS_STAMP_KEY].forEach(function(k){ localStorage.removeItem(k); sessionStorage.removeItem(k); }); }
+    const USER_KEY='crm_user';
+    function clearSession() { localStorage.removeItem(USER_KEY); sessionStorage.removeItem(USER_KEY); }
     function redirectToLogin(reason) { clearSession(); sessionStorage.setItem('crm_redirect_after_login',window.location.pathname+window.location.search); window.location.replace('/login.html'+(reason?'?reason='+encodeURIComponent(reason):'')); }
-    function check() { const token=getToken(); if(!token){redirectToLogin('no_session');return null;} if(isExpiredClientSide()){redirectToLogin('expired');return null;} return token; }
-    function authHeaders(extra) { const token=check(); if(!token) return null; return Object.assign({'Authorization':'Bearer '+token,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},extra||{}); }
+    function check() { return 'cookie'; }
+    function authHeaders(extra) { return Object.assign({'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},extra||{}); }
     async function secureFetch(url,options) {
-      const token=check(); if(!token) return null;
-      const headers=authHeaders((options||{}).headers); if(!headers) return null;
       try {
-        const res=await fetch(url,Object.assign({},options,{headers}));
+        const headers=authHeaders((options||{}).headers);
+        const res=await fetch(url,Object.assign({},options,{credentials:'include',headers}));
         if(res.status===401){clearSession();showToast('Tu sesión ha expirado. Redirigiendo…','error');setTimeout(function(){redirectToLogin('token_rejected');},1200);return null;}
         if(res.status===403){showToast('No tienes permisos para realizar esta acción','error');return null;}
         return res;
       } catch(err){console.error('[AUTH] Error de red:',err);showToast('Error de conexión. Verifica tu red.','error');return null;}
     }
     async function verifySession() {
-      const token=getToken(); if(!token) return false;
-      try{const res=await fetch('/api/auth/verify',{headers:{'Authorization':'Bearer '+token,'X-Requested-With':'XMLHttpRequest'}});if(res.status===404)return !!token;return res.ok;}catch(_){return !!token;}
+      try{const res=await fetch('/api/auth/verify-server',{credentials:'include'});if(!res.ok)return false;const d=await res.json();return !!d.authenticated;}catch(_){return false;}
     }
+    function getToken() { return null; }
     return {getToken,check,authHeaders,secureFetch,clearSession,redirectToLogin,verifySession};
   })();
 
@@ -1076,8 +1072,8 @@
       try{
         if(btn)btn.textContent='⏳ Subiendo imagen…';
         var fd=new FormData();fd.append('file',_inlineImgFile);
-        var token=(localStorage.getItem('token')||'').trim();
-        var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:token?{'Authorization':'Bearer '+token}:{},body:fd});
+        var token='';
+        var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:{},body:fd});
         if(upRes.ok){var upData=await upRes.json();var newUrl=(upData.data&&upData.data.url)||'';if(newUrl)imgUrl=newUrl;}
       }catch(_){}
     }
@@ -1129,8 +1125,8 @@
     if(btn){btn.disabled=true;btn.textContent='⏳ Subiendo…';}
     try{
       var fd=new FormData(); fd.append('file',_inlineImgFile);
-      var token=(localStorage.getItem('token')||'').trim();
-      var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:token?{'Authorization':'Bearer '+token}:{},body:fd});
+      var token='';
+      var upRes=await fetch('/api/files/upload',{method:'POST',credentials:'include',headers:{},body:fd});
       if(!upRes.ok) throw new Error('Error al subir archivo');
       var upData=await upRes.json();
       var imgUrl=(upData.data&&upData.data.url)||upData.file_path||upData.url||'';
@@ -1138,7 +1134,7 @@
       // Actualizar solo imagen_url en el lead
       var endpoint = tipo==='lineas' ? '/api/lineas-team/update' : '/api/leads/'+lid;
       var body = tipo==='lineas' ? JSON.stringify({id:lid,imagen_url:imgUrl}) : JSON.stringify({imagen_url:imgUrl});
-      var res=await fetch(endpoint,{method:'PUT',credentials:'include',headers:Object.assign({'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{}),body:body});
+      var res=await fetch(endpoint,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:body});
       if(!res.ok) throw new Error('Error al guardar');
       // Actualizar dato local
       var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
@@ -1480,13 +1476,12 @@
     const tbody=document.getElementById('costumer-tbody');
     if(tbody)tbody.innerHTML=getLoaderTR();
     // Paralelizar: verificar sesión, cargar teams y filtros al mismo tiempo
-    const [valid, , , apiMonths] = await Promise.all([
-      AUTH.verifySession(),
+    const [, , , apiMonths] = await Promise.all([
       loadTeams(),
       fetchUsersForFilters().catch(function(){}),
-      fetchMonthsForFilters().catch(function(){})
+      fetchMonthsForFilters().catch(function(){}),
+      Promise.resolve()
     ]);
-    if(!valid){showToast('Sesión no válida. Redirigiendo…','error');setTimeout(function(){AUTH.redirectToLogin('invalid');},1200);return;}
     // Pre-poblar el dropdown de meses con todos los disponibles en BD
     if(Array.isArray(apiMonths)&&apiMonths.length){
       apiMonths.forEach(function(m){if(m&&/^\d{4}-\d{2}$/.test(m))__allAvailableMonths.add(m);});
