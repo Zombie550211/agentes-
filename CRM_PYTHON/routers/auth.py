@@ -6,6 +6,8 @@ from jose import jwt, JWTError
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from pathlib import Path
+from limiter import limiter
+from audit import log_login_ok, log_login_fail, log_logout, log_password_reset_request, log_password_reset_ok
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
@@ -13,9 +15,12 @@ from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-JWT_SECRET  = os.getenv("JWT_SECRET", "tu_clave_secreta_super_segura")
+JWT_SECRET  = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET no configurado. Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
+
 JWT_ALGO    = "HS256"
-JWT_EXPIRES = 7 * 24 * 3600
+JWT_EXPIRES = 30 * 60  # 30 minutos — sesión expira por inactividad
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 
 def _hash_pwd(plain: str) -> str:
@@ -160,9 +165,10 @@ def _set_token_cookie(response: Response, token: str):
         httponly=True,
         secure=IS_PROD,
         samesite="none" if IS_PROD else "lax",
-        max_age=24 * 3600,
+        max_age=JWT_EXPIRES,
         path="/",
     )
+
 
 async def current_user(request: Request) -> dict:
     token = _get_token(request)
@@ -185,12 +191,19 @@ ADMIN_ROLES = ("Administrador", "admin", "administrador", "Administrativo")
 # ── RUTAS ────────────────────────────────────────────────────────
 
 @router.post("/login")
-async def login(body: LoginBody, response: Response):
+@limiter.limit("3/minute")
+async def login(request: Request, body: LoginBody, response: Response):
+    ip = request.client.host if request.client else "unknown"
     variants = _username_variants(body.username)
     user = await _find_user_by_variants(variants)
     if not user or not _verify_pwd(body.password, user.get("password", "")):
+        log_login_fail(body.username, ip)
         raise HTTPException(401, "Credenciales inválidas")
+    if int(user.get("active", 1)) == 0:
+        log_login_fail(body.username, ip)
+        raise HTTPException(403, "Cuenta suspendida. Contacta al administrador.")
 
+    log_login_ok(user.get("username", ""), ip)
     token = _make_token(user)
     _set_token_cookie(response, token)
     return {
@@ -208,8 +221,15 @@ async def login(body: LoginBody, response: Response):
     }
 
 
+
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    token = _get_token(request)
+    if token:
+        decoded = _decode_token(token)
+        if decoded:
+            ip = request.client.host if request.client else "unknown"
+            log_logout(decoded.get("username", ""), ip)
     response.delete_cookie("token", path="/", samesite="none" if IS_PROD else "lax")
     return {"success": True, "message": "Sesión cerrada exitosamente"}
 
@@ -291,18 +311,18 @@ EMAIL_FROM  = os.getenv("EMAIL_FROM", EMAIL_USER)
 
 
 def _send_email(to: str, subject: str, html: str):
+    if not SMTP_HOST:
+        raise RuntimeError(
+            "SMTP no configurado. Agrega SMTP_HOST, SMTP_PORT, EMAIL_USER y EMAIL_PASS en .env"
+        )
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = EMAIL_FROM
     msg["To"]      = to
     msg.attach(MIMEText(html, "html"))
     try:
-        if SMTP_HOST:
-            srv = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-            if not SMTP_SECURE:
-                srv.starttls()
-        else:
-            srv = smtplib.SMTP("smtp.gmail.com", 587)
+        srv = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        if not SMTP_SECURE:
             srv.starttls()
         if EMAIL_USER and EMAIL_PASS:
             srv.login(EMAIL_USER, EMAIL_PASS)
@@ -433,7 +453,8 @@ def _mask_email(email: str) -> str:
 
 
 @router.post("/forgot-password")
-async def forgot_password(body: ForgotPasswordBody):
+@limiter.limit("5/minute")
+async def forgot_password(request: Request, body: ForgotPasswordBody):
     username = body.username.strip()
     if not username or len(username) < 3:
         return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}
@@ -492,6 +513,8 @@ async def forgot_password(body: ForgotPasswordBody):
 </table>
 </body></html>"""
 
+    ip = request.client.host if request.client else "unknown"
+    log_password_reset_request(username, ip)
     try:
         _send_email(row["email"], "Código de verificación — Restablecer contraseña", html)
     except Exception:
@@ -502,7 +525,8 @@ async def forgot_password(body: ForgotPasswordBody):
 
 
 @router.post("/verify-reset-code")
-async def verify_reset_code(body: VerifyCodeBody):
+@limiter.limit("10/minute")
+async def verify_reset_code(request: Request, body: VerifyCodeBody):
     username = body.username.strip()
     code     = body.code.strip()
     if not username or not code or not re.match(r"^\d{6}$", code):
@@ -564,7 +588,8 @@ async def verify_reset_code(body: VerifyCodeBody):
 
 
 @router.post("/reset-password")
-async def reset_password(body: ResetPasswordBody, request: Request):
+@limiter.limit("5/minute")
+async def reset_password(request: Request, body: ResetPasswordBody):
     username     = body.username.strip()
     new_password = body.newPassword
 
@@ -616,6 +641,8 @@ async def reset_password(body: ResetPasswordBody, request: Request):
                 WHERE username = :u
             """), {"h": hashed, "u": username})
             await s.commit()
+        ip = request.client.host if request.client else "unknown"
+        log_password_reset_ok(username, ip)
         return {"success": True, "message": "Contraseña actualizada exitosamente."}
 
     # Admin reset flow

@@ -2,7 +2,10 @@ from fastapi import Request, HTTPException, Depends
 from jose import jwt, JWTError
 import os
 
-JWT_SECRET = os.getenv("JWT_SECRET", "tu_clave_secreta_super_segura")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET no configurado en variables de entorno. "
+                       "Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
 JWT_ALGO   = "HS256"
 
 def _get_token(request: Request) -> str | None:
