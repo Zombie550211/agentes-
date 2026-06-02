@@ -147,7 +147,7 @@ async def mis_leads(user: dict = Depends(current_user)):
     return {"success": True, "leads": leads}
 
 
-@router.get("/")
+@router.get("")
 async def list_pre_leads(user: dict = Depends(current_user)):
     if not _is_procesamiento(user.get("role", "")):
         raise HTTPException(403, "Acceso denegado")

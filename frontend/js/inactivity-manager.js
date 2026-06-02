@@ -14,12 +14,11 @@
 
   // Función para cerrar sesión
   function logout() {
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('username');
     localStorage.removeItem('role');
     alert('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.');
-    window.location.href = 'index.html';
+    window.location.href = '/login.html';
   }
 
   // Función para mostrar advertencia
