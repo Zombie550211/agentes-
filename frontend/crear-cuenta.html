@@ -2229,34 +2229,14 @@ async function loadTeams(){
     ]);
     if(resS&&resS.ok){ try{ const d=await resS.json(); _supervisors=Array.isArray(d.supervisors)?d.supervisors:[]; }catch(e){} }
 
-    const canonicalTeams=[
-      { value:'TEAM LINEAS JONATHAN', label:'TEAM LÍNEAS JONATHAN', supervisorKey:'JONATHAN F' },
-      { value:'TEAM LINEAS LUIS',     label:'TEAM LÍNEAS LUIS',     supervisorKey:'LUIS G' },
-      { value:'TEAM IRANIA',          label:'TEAM IRANIA',          supervisorKey:'IRANIA' },
-      { value:'TEAM ROBERTO',         label:'TEAM ROBERTO',         supervisorKey:'ROBERTO' },
-      { value:'TEAM MARISOL',         label:'TEAM MARISOL',         supervisorKey:'MARISOL' },
-      { value:'TEAM PLEITEZ',         label:'TEAM PLEITEZ',         supervisorKey:'PLEITEZ' },
-      { value:'TEAM JOHANA',          label:'TEAM JOHANA',          supervisorKey:'JOHANA' },
-      { value:'Administración',       label:'Administración',       supervisorKey:null },
-    ];
-    _teams=canonicalTeams.slice();
+    // Teams vienen exclusivamente de la BD (página de permisos es la fuente de verdad)
+    _teams=[];
     if(resT&&resT.ok){
       try{
         const d=await resT.json();
-        const apiTeams=Array.isArray(d.teams)?d.teams:[];
-        const seen=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
-        apiTeams.forEach(function(t){ if(t.value&&!seen.has(String(t.value).toLowerCase())){ seen.add(String(t.value).toLowerCase()); _teams.push(t); } });
+        _teams=Array.isArray(d.teams)?d.teams:[];
       }catch(e){}
     }
-    if(Array.isArray(_supervisors)&&_supervisors.length){
-      const seen2=new Set(_teams.map(function(t){ return String(t.value||'').toLowerCase(); }));
-      _supervisors.forEach(function(s){ var tv=s&&s.team?String(s.team).trim():''; if(!tv||seen2.has(tv.toLowerCase()))return; seen2.add(tv.toLowerCase()); _teams.push({ value:tv, label:tv, supervisorKey:s.key||'' }); });
-    }
-    if(!_supervisors.length){
-      const seen3=new Set();
-      _teams.forEach(function(t){ if(t.supervisorKey&&!seen3.has(t.supervisorKey)){ seen3.add(t.supervisorKey); _supervisors.push({ key:t.supervisorKey, name:t.supervisorName||t.supervisorKey, username:t.supervisor||'' }); } });
-    }
-    if(!_supervisors.length) _supervisors=[{ key:'JONATHAN F', name:'Jonathan Figueroa', username:'jonathan.figueroa' },{ key:'LUIS G', name:'Luis G', username:'luis.g' }];
 
     ['c-supervisor','r-supervisor'].forEach(function(id){
       var sel=document.getElementById(id); if(!sel)return;

@@ -10,29 +10,15 @@ router = APIRouter(tags=["Teams"])
 @router.get("/api/teams")
 async def list_teams(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
+        # Todos los teams únicos registrados en la BD — fuente de verdad: página de permisos
         r = await s.execute(text("""
-            SELECT username, name, team, role FROM users
-            WHERE LOWER(role) LIKE '%supervisor%'
+            SELECT DISTINCT TRIM(team) AS team FROM users
+            WHERE team IS NOT NULL AND TRIM(team) != ''
             ORDER BY team
         """))
-        supervisors = r.mappings().all()
+        rows = r.mappings().all()
 
-    teams = []
-    seen = set()
-    for s_row in supervisors:
-        team_val = (s_row.get("team") or "").strip()
-        if not team_val or team_val in seen:
-            continue
-        seen.add(team_val)
-        sup_name = (s_row.get("name") or s_row.get("username") or "").strip()
-        teams.append({
-            "value":          team_val,
-            "label":          team_val,
-            "supervisor":     s_row.get("username", ""),
-            "supervisorName": sup_name,
-        })
-
-    teams.sort(key=lambda t: t["value"])
+    teams = [{"value": row["team"], "label": row["team"]} for row in rows if row["team"]]
     return {"success": True, "teams": teams}
 
 
