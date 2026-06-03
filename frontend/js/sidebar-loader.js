@@ -564,7 +564,16 @@
         // ignore parse errors and continue to server probe
       }
 
-      // Intentar obtener del servidor usando cookies (método actual del sistema)
+      // Si inicio.html ya inició el prefetch, reusar esa Promise sin llamada extra
+      if (window.__homeDataPromise) {
+        try {
+          const hd = await window.__homeDataPromise;
+          if (hd && hd.user) return hd.user;
+        } catch (_) {}
+      }
+      if (window.__homeData && window.__homeData.user) return window.__homeData.user;
+
+      // Fallback para páginas sin prefetch
       const response = await fetch('/api/auth/verify-server', {
         method: 'GET',
         credentials: 'include'
@@ -1665,7 +1674,7 @@
       try { document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } })); } catch (_) {}
     };
 
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     applyTheme(savedTheme);
 
     checkbox.addEventListener('change', () => {
