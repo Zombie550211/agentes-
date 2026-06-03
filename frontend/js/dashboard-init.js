@@ -30,6 +30,19 @@ class DashboardInitManager {
    * PASO 1: Cargar todos los datos del dashboard en UNA sola petición
    */
   async initDashboard() {
+    // Si inicio.html ya cargó los datos, no repetir la llamada
+    if (window.__homeDataPromise) {
+      try {
+        this.data = await window.__homeDataPromise;
+        if (this.data) { this.emit('dashboardInitialized', this.data); return this.data; }
+      } catch (_) {}
+    }
+    if (window.__homeData) {
+      this.data = window.__homeData;
+      this.emit('dashboardInitialized', this.data);
+      return this.data;
+    }
+
     try {
       // 1. Petición al nuevo endpoint /api/init-dashboard
       const response = await fetch('/api/init-dashboard', {

@@ -16,30 +16,26 @@
       return true;
     }
     
-    // Verificar autenticación usando cookies (método actual del sistema)
+    // Si inicio.html ya inició el prefetch, reusar esa Promise sin llamada extra
+    if (window.__homeDataPromise) {
+      try {
+        const hd = await window.__homeDataPromise;
+        if (hd && hd.user) return true;
+      } catch (_) {}
+    }
+    if (window.__homeData && window.__homeData.user) return true;
+
+    // Fallback para páginas sin prefetch
     try {
       const response = await fetch('/api/auth/verify-server', {
         method: 'GET',
         credentials: 'include'
       });
-      
-      if (!response.ok) {
-        console.warn('No autenticado. Redirigiendo al login...');
-        window.location.href = '/login.html';
-        return false;
-      }
-      
+      if (!response.ok) { window.location.href = '/login.html'; return false; }
       const data = await response.json();
-      if (!data.authenticated) {
-        console.warn('No autenticado. Redirigiendo al login...');
-        window.location.href = '/login.html';
-        return false;
-      }
-      
+      if (!data.authenticated) { window.location.href = '/login.html'; return false; }
       return true;
     } catch (error) {
-      console.error('Error verificando autenticación:', error);
-      // No redirigir en caso de error de red, permitir que la página cargue
       return true;
     }
   }
