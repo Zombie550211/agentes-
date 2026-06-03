@@ -717,12 +717,10 @@ window.addEventListener('facturacionPreheated', (event) => {
     const cachedFacturacion = tryLoadFromPrecachedFacturacion();
     if (cachedFacturacion) window.__precachedFacturacionData = cachedFacturacion.data;
 
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch('/api/auth/verify', { headers, credentials: 'include' });
+    const res = await fetch('/api/auth/verify-server', { credentials: 'include' });
     if (!res.ok) throw new Error('No autenticado');
     const data = await res.json();
+    if (!data.authenticated) { window.location.replace('/login.html'); return; }
     const role = (data?.user?.role || '').toLowerCase();
     if (!['admin','administrador'].includes(role)) {
       alert('Acceso denegado: solo administradores.');
@@ -847,10 +845,7 @@ function applyAlejandroVisibility() {
 async function fetchFacturacionMes(mes, ano) {
   try {
     const url = `/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`;
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res  = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+    const res  = await fetch(url, { method: 'GET', credentials: 'include' });
     const data = await res.json().catch(() => null);
     let arr = [];
     if (data?.ok && Array.isArray(data.data))          arr = data.data;
@@ -1090,12 +1085,9 @@ async function guardarTodoFacturacion() {
     const campos = campos17;
 
     if (campos.some(v => v !== "")) {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/api/facturacion', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ fecha, campos })
       });
@@ -1128,10 +1120,7 @@ let grafica;
 async function actualizarGrafica() {
   try {
     const ano   = parseInt(filtroAno.value, 10);
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const resp  = await fetch(`/api/facturacion/anual/${ano}`, { headers, credentials: 'include' });
+    const resp  = await fetch(`/api/facturacion/anual/${ano}`, { credentials: 'include' });
     let totalesPorMes = Array(12).fill(0);
     if (resp.ok) {
       const data = await resp.json().catch(() => null);

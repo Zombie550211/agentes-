@@ -94,6 +94,7 @@ async def get_mensual(anio: int, mes: int, user: dict = Depends(require_roles(*A
     return {"ok": True, "data": [{"fecha": d.get("fecha"), "campos": _campos_from_row(d)} for d in docs]}
 
 
+@router.post("")
 @router.post("/")
 async def save_facturacion(body: FacturacionBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     parsed = _parse_fecha(body.fecha)
