@@ -106,6 +106,14 @@
     cbRemember.checked = !cbRemember.checked;
     syncCheck();
   });
+
+  // Pre-llenar usuario guardado si existía
+  var _savedUsername = localStorage.getItem('crm_remember_username');
+  if (_savedUsername) {
+    var _uInput = document.getElementById('username');
+    if (_uInput) _uInput.value = _savedUsername;
+    cbRemember.checked = true;
+  }
   syncCheck();
 
   /* ── Panel switcher login ↔ forgot ── */
@@ -474,7 +482,16 @@
         supervisor:  data.user && data.user.supervisor,
         permissions: (data.user && data.user.permissions) || []
       };
-      sessionStorage.setItem('user', JSON.stringify(userInfo));
+      var _remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
+      if (_remember) {
+        localStorage.setItem('crm_remember_username', username);
+        localStorage.setItem('user', JSON.stringify(userInfo));
+        sessionStorage.removeItem('user');
+      } else {
+        localStorage.removeItem('crm_remember_username');
+        localStorage.removeItem('user');
+        sessionStorage.setItem('user', JSON.stringify(userInfo));
+      }
 
       // Determinar destino según rol/equipo
       if (!getParam('redirect')) {
@@ -486,6 +503,7 @@
       }
 
       showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', '¡Acceso concedido! Redirigiendo…', 'success');
+      sessionStorage.setItem('show_welcome', '1');
       preheatPages();
       setTimeout(function () { window.location.replace(redirectUrl); }, 500);
 
