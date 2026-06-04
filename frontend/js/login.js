@@ -95,6 +95,24 @@
   var cbRemember = document.getElementById('rememberMe');
   var checkVis   = document.getElementById('checkVis');
 
+  // Helpers de cookie (más compatibles que localStorage en todos los navegadores)
+  function setCookie(name, value, days) {
+    var expires = '';
+    if (days) {
+      var d = new Date();
+      d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+      expires = '; expires=' + d.toUTCString();
+    }
+    document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+  }
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+  function deleteCookie(name) {
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
+  }
+
   function syncCheck() {
     var on = cbRemember.checked;
     checkVis.style.background  = on ? 'var(--accent)' : '';
@@ -107,8 +125,8 @@
     syncCheck();
   });
 
-  // Pre-llenar usuario guardado si existía
-  var _savedUsername = localStorage.getItem('crm_remember_username');
+  // Pre-llenar usuario si estaba guardado en cookie
+  var _savedUsername = getCookie('crm_remember_username');
   if (_savedUsername) {
     var _uInput = document.getElementById('username');
     if (_uInput) _uInput.value = _savedUsername;
@@ -484,12 +502,12 @@
       };
       var _remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
       if (_remember) {
-        localStorage.setItem('crm_remember_username', username);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        sessionStorage.removeItem('user');
+        setCookie('crm_remember_username', username, 30); // 30 días
+        try { localStorage.setItem('user', JSON.stringify(userInfo)); } catch(_) {}
+        sessionStorage.setItem('user', JSON.stringify(userInfo));
       } else {
-        localStorage.removeItem('crm_remember_username');
-        localStorage.removeItem('user');
+        deleteCookie('crm_remember_username');
+        try { localStorage.removeItem('user'); } catch(_) {}
         sessionStorage.setItem('user', JSON.stringify(userInfo));
       }
 
