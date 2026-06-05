@@ -2,72 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
-from pydantic import BaseModel
-from typing import Optional
-import re, unicodedata
-from datetime import datetime
+import re
 
 router = APIRouter(tags=["Teams"])
-
-
-def _norm(s: str) -> str:
-    try:
-        return unicodedata.normalize("NFD", str(s or "")).encode("ascii","ignore").decode().lower().strip()
-    except Exception:
-        return str(s or "").lower().strip()
-
-
-# ── GET /api/teams/renames ──────────────────────────────────────────
-@router.get("/api/teams/renames")
-async def get_renames(user: dict = Depends(current_user)):
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            SELECT id, old_name, new_name,
-                   DATE_FORMAT(changed_at, '%Y-%m-%d') AS changed_at,
-                   created_by
-            FROM team_renames ORDER BY changed_at ASC
-        """))
-        rows = r.mappings().all()
-    return {"success": True, "renames": [dict(row) for row in rows]}
-
-
-class RenameIn(BaseModel):
-    old_name:   str
-    new_name:   str
-    changed_at: str           # YYYY-MM-DD
-    created_by: Optional[str] = None
-
-
-# ── POST /api/teams/rename  (solo admin/backoffice) ─────────────────
-@router.post("/api/teams/rename")
-async def add_rename(body: RenameIn, user: dict = Depends(current_user)):
-    role = _norm(user.get("role", ""))
-    if not any(r in role for r in ("admin", "backoffice")):
-        raise HTTPException(403, "Solo administradores pueden registrar renombres de equipo")
-    try:
-        dt = datetime.strptime(body.changed_at, "%Y-%m-%d")
-    except ValueError:
-        raise HTTPException(400, "changed_at debe ser YYYY-MM-DD")
-    async with AsyncSessionLocal() as s:
-        await s.execute(text("""
-            INSERT INTO team_renames (old_name, new_name, changed_at, created_by)
-            VALUES (:old, :new, :dt, :by)
-        """), {"old": body.old_name.strip(), "new": body.new_name.strip(),
-               "dt": dt, "by": body.created_by or user.get("username")})
-        await s.commit()
-    return {"success": True, "message": f"Rename registrado: {body.old_name} → {body.new_name} desde {body.changed_at}"}
-
-
-# ── DELETE /api/teams/rename/{id}  (solo admin) ──────────────────────
-@router.delete("/api/teams/rename/{rename_id}")
-async def delete_rename(rename_id: int, user: dict = Depends(current_user)):
-    role = _norm(user.get("role", ""))
-    if not any(r in role for r in ("admin",)):
-        raise HTTPException(403, "Solo administradores")
-    async with AsyncSessionLocal() as s:
-        await s.execute(text("DELETE FROM team_renames WHERE id = :id"), {"id": rename_id})
-        await s.commit()
-    return {"success": True}
 
 
 @router.get("/api/teams")

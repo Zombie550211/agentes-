@@ -1,18 +1,12 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from typing import Optional
 import datetime as _dt
-import re, json, calendar, asyncio
-from geocoder import geocode_and_save
+import re, json, calendar
 
 router = APIRouter(tags=["Misc"])
-
-
-@router.get("/api/test-nuevo-endpoint")
-async def test_nuevo():
-    return {"ok": True, "msg": "ruta nueva funciona"}
 
 _ADMIN_ROLES = {"admin", "administrador", "administrator", "administrativo"}
 _BO_ROLES    = {"backoffice", "bo"}
@@ -377,119 +371,3 @@ async def rename_att_air(user: dict = Depends(current_user)):
         await s.commit()
         modified = r.rowcount
     return {"success": True, "results": {"leads": {"matched": modified, "modified": modified}}}
-
-
-# ── POST /api/admin/geocode-leads ─────────────────────────────────
-@router.post("/api/admin/geocode-leads")
-async def geocode_leads_bulk(background_tasks: BackgroundTasks, user: dict = Depends(current_user)):
-    """Geocodifica en batch todos los leads con dirección sin coordenadas."""
-    if not _is_admin(_role_lower(user)):
-        raise HTTPException(403, "No autorizado")
-
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            SELECT id, direccion FROM leads
-            WHERE direccion IS NOT NULL AND TRIM(direccion) != ''
-              AND lat IS NULL
-            LIMIT 500
-        """))
-        rows = r.mappings().all()
-
-    total = len(rows)
-    if total == 0:
-        return {"success": True, "message": "No hay leads pendientes de geocodificar", "total": 0}
-
-    async def _run_batch():
-        ok = 0
-        for row in rows:
-            await geocode_and_save(row["id"], row["direccion"])
-            await asyncio.sleep(0.15)  # respetar 1 req/s del Census API
-            ok += 1
-        import logging
-        logging.getLogger(__name__).info("[geocode-batch] %d/%d geocodificados", ok, total)
-
-    background_tasks.add_task(_run_batch)
-    return {"success": True, "message": f"Geocodificando {total} leads en background...", "total": total}
-
-
-# ── GET /api/debug/leads-sample ── TEMPORAL, solo admin ──────────
-@router.get("/api/debug/leads-sample")
-async def debug_leads(user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
-        raise HTTPException(403, "No autorizado")
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            SELECT id, status, dia_venta, DATE(created_at) as created_day,
-                   COALESCE(dia_venta, DATE(created_at)) as fecha_efectiva,
-                   agente_nombre, puntaje
-            FROM leads
-            ORDER BY created_at DESC
-            LIMIT 20
-        """))
-        rows = [dict(row) for row in r.mappings().all()]
-        # Convertir fechas a string
-        for row in rows:
-            for k, v in row.items():
-                if hasattr(v, 'isoformat'):
-                    row[k] = str(v)
-    return {"leads": rows}
-
-
-# ── GET /api/lineas/team-stats ──────────────────────────────────────────
-@router.get("/api/stats/lineas-equipos")
-async def lineas_team_stats(
-    month: Optional[str] = None,
-    user: dict = Depends(current_user),
-):
-    now = _dt.datetime.utcnow()
-    if month and re.match(r"^\d{4}-\d{2}$", month):
-        yr, mo = map(int, month.split("-"))
-    else:
-        yr, mo = now.year, now.month
-
-    _, last_day = calendar.monthrange(yr, mo)
-    mes_ini = f"{yr}-{mo:02d}-01"
-    mes_fin = f"{yr}-{mo:02d}-{last_day:02d}"
-    hoy     = now.strftime("%Y-%m-%d")
-
-    # Obtener supervisores Team Lineas desde users
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            SELECT username, name, team FROM users
-            WHERE LOWER(role) LIKE '%supervisor team lineas%'
-               OR LOWER(role) LIKE '%supervisor%lineas%'
-            ORDER BY name
-        """))
-        supervisors = [dict(row) for row in r.mappings().all()]
-
-    if not supervisors:
-        supervisors = [
-            {"username": "jonathan.figueroa", "name": "TEAM LINEAS JONATHAN", "team": "TEAM LINEAS JONATHAN"},
-            {"username": "luis.g",            "name": "TEAM LINEAS LUIS",     "team": "TEAM LINEAS LUIS"},
-        ]
-
-    teams_out = []
-    for sup in supervisors:
-        sup_u    = str(sup.get("username") or "").lower()
-        team_lbl = str(sup.get("team") or sup.get("name") or sup_u).upper()
-        sup_like = f"%{sup_u.replace('.', ' ')}%"
-
-        async with AsyncSessionLocal() as s:
-            r = await s.execute(text("""
-                SELECT
-                  SUM(CASE WHEN dia_venta BETWEEN :ini AND :fin THEN 1 ELSE 0 END) AS mes,
-                  SUM(CASE WHEN DATE(dia_venta) = :hoy             THEN 1 ELSE 0 END) AS hoy
-                FROM lineas_clientes
-                WHERE (LOWER(TRIM(supervisor)) = :sup OR LOWER(TRIM(supervisor)) LIKE :sup_like)
-                  AND LOWER(TRIM(COALESCE(status,''))) NOT IN
-                      ('cancelled','cancelado','cancelada','cancel')
-            """), {"ini": mes_ini, "fin": mes_fin, "hoy": hoy, "sup": sup_u, "sup_like": sup_like})
-            row = r.mappings().first()
-
-        teams_out.append({
-            "team": team_lbl,
-            "mes":  int(row["mes"]  or 0) if row else 0,
-            "hoy":  int(row["hoy"]  or 0) if row else 0,
-        })
-
-    return {"success": True, "teams": teams_out, "month": f"{yr}-{mo:02d}"}

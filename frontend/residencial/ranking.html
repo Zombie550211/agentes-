@@ -1911,7 +1911,7 @@
   </style>
   <style>
     /* Card principal con fondo Spline */
-    .ranking-main-card{width:calc(100% - 40px)!important;max-width:1600px!important;border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:20px 0;display:flex!important;flex-direction:column;gap:20px;position:relative!important;overflow:hidden;height:500px!important;min-height:500px!important;max-height:500px!important;flex-shrink:0!important;background:url('/images/fondo.png') center/100% auto no-repeat;background-color:#07091a}
+    .ranking-main-card{width:calc(100% - 40px)!important;max-width:1600px!important;border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:20px 0;display:flex!important;flex-direction:column;gap:20px;position:relative!important;overflow:hidden;height:500px!important;min-height:500px!important;max-height:500px!important;flex-shrink:0!important;background:#0a0e2a}
     #spline-container{overflow:hidden}
     #spline-container::before,#spline-container::after{content:'';position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;animation:orb-drift 12s ease-in-out infinite alternate;will-change:transform}
     #spline-container::before{width:55%;height:90%;top:-20%;left:-10%;background:radial-gradient(circle,#6366f1 0%,#4338ca 40%,transparent 70%)}
@@ -1926,10 +1926,11 @@
       flex:0 0 36%;min-width:0;
       display:flex;flex-direction:column;justify-content:center;
       gap:18px;padding:36px 32px;
-      background:transparent;
-      border:none;
-      box-shadow:none;
-      position:relative;
+      background:linear-gradient(145deg,#1a1060 0%,#0f0a3a 60%,#1e1070 100%);
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,0.08);
+      box-shadow:0 12px 40px rgba(0,0,0,0.35);
+      position:relative;overflow:hidden;
     }
     .motiv-card::before{
       content:'';position:absolute;inset:0;
@@ -1961,103 +1962,6 @@
     }
     @media(max-width:900px){.ranking-top-row{flex-direction:column}.motiv-card{flex:unset;min-height:220px;}}
   </style>
-  <style>
-    /* ── CONTENEDOR LISTA ──────────────────────────────────────────────── */
-    .ranking-panel, .ranking-content { background:transparent!important; border:none!important; box-shadow:none!important; padding:0!important; margin:0!important; border-radius:0!important; backdrop-filter:none!important; }
-    .other-ranks { padding: 0 20px 20px!important; }
-    .other-ranks-header h3 { font-family:'Outfit',sans-serif!important; font-size:.85rem!important; font-weight:800!important; text-transform:uppercase!important; letter-spacing:.06em!important; }
-    .rank-list, #rank-list-dynamic { display:flex!important; flex-direction:column!important; gap:8px!important; padding:0!important; }
-
-    /* ── ITEM (oscuro por defecto) ──────────────────────────────────────── */
-    #rank-list-dynamic .rank-item {
-      display:flex!important; align-items:center!important; gap:14px!important;
-      padding:14px 18px!important; border-radius:14px!important; margin:0!important;
-      border:1px solid rgba(255,255,255,.07)!important;
-      background:#131929!important;
-      box-shadow:none!important; transform:none!important;
-      transition:background .15s!important;
-    }
-    #rank-list-dynamic .rank-item:hover { background:#1a2236!important; transform:none!important; }
-
-    /* número */
-    #rank-list-dynamic .rank-item .rank-number {
-      font-size:1.15rem!important; font-weight:900!important;
-      color:rgba(255,255,255,.22)!important; min-width:30px!important;
-      text-align:center!important; flex-shrink:0!important;
-      background:none!important; border:none!important; box-shadow:none!important;
-      width:auto!important; height:auto!important; border-radius:0!important;
-      padding:0!important;
-    }
-
-    /* avatar */
-    #rank-list-dynamic .rank-item .agent-info { flex:1!important; display:flex!important; align-items:center!important; gap:12px!important; min-width:0!important; }
-    #rank-list-dynamic .rank-item .agent-avatar {
-      width:46px!important; height:46px!important; border-radius:12px!important;
-      flex-shrink:0!important; display:flex!important; align-items:center!important; justify-content:center!important;
-      font-size:1rem!important; color:#fff!important; box-shadow:none!important;
-    }
-    #rank-list-dynamic .rank-item .agent-avatar i { font-size:.9rem!important; }
-
-    /* nombre */
-    #rank-list-dynamic .rank-item .agent-details { min-width:0!important; }
-    #rank-list-dynamic .rank-item .agent-details h4 {
-      font-size:.85rem!important; font-weight:700!important; color:#fff!important;
-      text-transform:uppercase!important; white-space:nowrap!important;
-      overflow:hidden!important; text-overflow:ellipsis!important; margin:0!important;
-    }
-    #rank-list-dynamic .rank-item .agent-details p {
-      font-size:.63rem!important; color:rgba(255,255,255,.32)!important; margin:2px 0 0!important;
-    }
-    #rank-list-dynamic .rank-item .agent-details p:empty::before { content:'Clasificación General'; }
-
-    /* stats */
-    #rank-list-dynamic .rank-item .agent-stats {
-      display:flex!important; align-items:center!important; gap:0!important;
-      flex-shrink:0!important; flex-direction:row!important;
-    }
-    /* ventas → VOLUMEN (primero) */
-    #rank-list-dynamic .rank-item .agent-stats .sales {
-      order:1!important; display:flex!important; flex-direction:column!important; align-items:flex-end!important;
-      padding-right:20px!important; border-right:1px solid rgba(255,255,255,.1)!important;
-      font-size:.92rem!important; font-weight:800!important; color:#c084fc!important;
-    }
-    #rank-list-dynamic .rank-item .agent-stats .sales::before {
-      content:'VOLUMEN'!important; font-size:.52rem!important; font-weight:700!important;
-      color:rgba(255,255,255,.32)!important; letter-spacing:.1em!important;
-      display:block!important; margin-bottom:2px!important;
-    }
-    /* puntos → RENDIMIENTO (segundo) */
-    #rank-list-dynamic .rank-item .agent-stats .points {
-      order:2!important; display:flex!important; flex-direction:column!important; align-items:flex-end!important;
-      padding-left:20px!important; font-size:.92rem!important; font-weight:800!important;
-      color:#f1f5f9!important; background:none!important;
-      -webkit-text-fill-color:#f1f5f9!important; background-clip:unset!important;
-      -webkit-background-clip:unset!important;
-    }
-    #rank-list-dynamic .rank-item .agent-stats .points::before {
-      content:'RENDIMIENTO'!important; font-size:.52rem!important; font-weight:700!important;
-      color:rgba(255,255,255,.32)!important; letter-spacing:.1em!important;
-      display:block!important; margin-bottom:2px!important;
-    }
-
-    /* ── TEMA CLARO ─────────────────────────────────────────────────────── */
-    body:not(.dark-theme) .other-ranks-header h3 { color:#1e1b4b!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item {
-      background:#ffffff!important; border:1px solid #e8ecf4!important;
-    }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item:hover { background:#f4f6fa!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .rank-number { color:#c0c8e0!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-details h4 { color:#1e1b4b!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-details p { color:#9ca3af!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .sales {
-      color:#7c3aed!important; border-right-color:#e8ecf4!important;
-    }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .sales::before,
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .points::before { color:#9ca3af!important; }
-    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .points {
-      color:#1e1b4b!important; -webkit-text-fill-color:#1e1b4b!important;
-    }
-  </style>
 </head>
 <body>
   <div class="layout">
@@ -2067,32 +1971,66 @@
 
       <!-- Card principal con fondo morado -->
       <div class="ranking-main-card">
-        <div id="spline-container" style="display:none"></div>
+        <div id="spline-container" style="position:absolute;inset:0;width:100%;height:100%;z-index:0;"></div>
+        <div class="spline-watermark-cover"></div>
 
-        <div class="ranking-top-row">
-          <!-- Texto motivacional -->
-          <div class="motiv-card">
-            <div class="motiv-divider"></div>
-            <div class="motiv-heading">¡Sigue subiendo<br>en el <span>ranking!</span></div>
-            <div class="motiv-body">
-              Cada venta te acerca al primer lugar.<br>
-              Demuestra tu potencial, supera tus metas<br>
-              y conviértete en el mejor agente del mes.
+      <!-- Top: Promociones (izquierda) + Podio (derecha) -->
+      <div class="ranking-top-row">
+
+        <!-- Card motivacional -->
+        <div class="motiv-card">
+          <div class="motiv-divider"></div>
+          <div class="motiv-heading">¡Sigue subiendo<br>en el <span>ranking!</span></div>
+          <div class="motiv-body">
+            Cada venta te acerca al primer lugar.<br>
+            Demuestra tu potencial, supera tus metas<br>
+            y conviértete en el mejor agente del mes.
+          </div>
+        </div>
+
+        <!-- Podio + Astronautas -->
+        <div class="ranking-podium-final">
+          <img src="/images/podio.png" alt="Podio Ranking" class="ranking-base-image">
+          <div class="astronauts-overlay">
+            <!-- Segundo Lugar -->
+            <div class="astronaut-position second-pos">
+              <div class="astronaut-wrapper">
+                <img src="/images/segundo lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge">2</div>
+              </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score">0</div>
+              </div>
+            </div>
+
+            <!-- Primer Lugar -->
+            <div class="astronaut-position first-pos">
+              <div class="astronaut-wrapper winner">
+                <img src="/images/primer lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge gold">1</div>
+              </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score winner">0</div>
+              </div>
+            </div>
+
+            <!-- Tercer Lugar -->
+            <div class="astronaut-position third-pos">
+              <div class="astronaut-wrapper">
+                <img src="/images/tercer lugar.png" class="astronaut-image" alt="" />
+                <div class="position-badge">3</div>
+              </div>
+              <div class="astronaut-info">
+                <div class="astronaut-name">—</div>
+                <div class="astronaut-score">0</div>
+              </div>
             </div>
           </div>
-          <!-- Podium image -->
-          <div class="ranking-podium-final" style="flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:420px">
-            <img src="/images/podium.png" alt="Podio" style="height:460px;width:auto;object-fit:contain;object-position:bottom center">
-          </div>
         </div>
 
-        <!-- Elementos ocultos requeridos por JS -->
-        <div style="display:none">
-          <div class="first-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div><img class="astronaut-image" src="" alt=""></div>
-          <div class="second-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div><img class="astronaut-image" src="" alt=""></div>
-          <div class="third-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div><img class="astronaut-image" src="" alt=""></div>
-          <div class="circular-podium"></div>
-        </div>
+      </div>
 
       </div><!-- /ranking-main-card -->
 

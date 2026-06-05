@@ -1,321 +1,1264 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rankings del Mes — CRM</title>
-  <link rel="icon" type="image/png" href="/images/favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b">
-  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
-  <script src="/js/fetch-interceptor.js" defer></script>
-  <script src="/js/logout-handler.js" defer></script>
-  <script src="/js/user-info.js" defer></script>
-  <script src="/js/sidebar-loader.js" defer></script>
-  <script src="/js/crm-config.js" defer></script>
-  <script src="/js/inactivity-manager.js" defer></script>
-  <script src="/js/crm-init.js" defer></script>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;background:#f0f4f8}
-    body{color:#0f172a}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rankings — Dashboard</title>
 
-    :root{
-      --bg:#f0f4f8;--card:#fff;--bdr:#e2e8f0;--bdr-soft:#f1f5f9;
-      --t1:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
-      --blue:#3b82f6;--blue-d:#2563eb;--blue-s:rgba(59,130,246,.08);
-      --purple:#8b5cf6;--purple-s:rgba(139,92,246,.08);
-      --amber:#f59e0b;--amber-s:rgba(245,158,11,.08);
-      --green:#22c55e;--red:#ef4444;
-      --sh:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.03);
-      --sh-md:0 4px 16px rgba(0,0,0,.08);
-    }
-    body.dark-theme{
-      --bg:#0b0f19;--card:rgba(17,24,39,.5);--bdr:rgba(255,255,255,.06);--bdr-soft:rgba(255,255,255,.03);
-      --t1:#f1f5f9;--t2:#cbd5e1;--t3:#64748b;--t4:#475569;
-      --sh:0 4px 20px rgba(0,0,0,.4);
-    }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    .layout{display:flex;height:100vh;overflow:hidden}
-    .sidebar{flex:0 0 auto}
-    .main-content{flex:1;overflow-y:auto;min-width:0;height:100vh;padding:20px 28px;display:flex;flex-direction:column;gap:16px;background:var(--bg)}
+<script src="/js/fetch-interceptor.js"  onerror="void 0"></script>
+<script src="/js/logout-handler.js"     onerror="void 0"></script>
+<script src="/js/user-info.js"          onerror="void 0"></script>
+<script src="/js/crm-config.js"         onerror="void 0"></script>
+<script src="/js/inactivity-manager.js" onerror="void 0"></script>
+<script src="/js/crm-init.js"           onerror="void 0"></script>
+<script src="/js/sidebar-loader.js"     onerror="void 0"></script>
 
-    @keyframes dropIn{0%{opacity:0;transform:translateY(-40px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
-    .drop{opacity:0;animation:dropIn .5s cubic-bezier(.22,1,.36,1) both}
+<style>
+:root {
+  --bg:        #f7f8fc;
+  --bg-inner:  #ffffff;
+  --bg-muted:  #f1f2f8;
 
-    /* HEADER */
-    .rk-header{background:var(--card);border:1px solid var(--bdr);border-radius:18px;padding:18px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:var(--sh)}
-    .rk-title-wrap{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
-    .rk-icon-wrap{width:48px;height:48px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(245,158,11,.35);flex-shrink:0}
-    .rk-icon-wrap i{color:#fff;font-size:1.2rem}
-    .rk-title{font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;color:var(--t1);letter-spacing:.03em}
-    .rk-sub{font-size:.68rem;color:var(--t3);margin-top:2px}
+  --sb-from:   #4338ca;
+  --sb-to:     #6d28d9;
 
-    .rk-tabs{display:flex;gap:6px;flex-wrap:wrap}
-    .rk-tab{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:10px;border:1.5px solid var(--bdr);background:transparent;color:var(--t3);font-size:.76rem;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .18s;white-space:nowrap}
-    .rk-tab:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-s)}
-    .rk-tab.active{background:var(--blue-d);border-color:var(--blue-d);color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.30)}
-    .rk-tab i{font-size:.8rem}
+  --ind:       #4f46e5;
+  --ind-light: #eef2ff;
+  --ind-mid:   #818cf8;
+  --ind-dark:  #3730a3;
 
-    .rk-month{display:flex;align-items:center;border:1.5px solid var(--bdr);border-radius:12px;overflow:hidden;background:var(--card)}
-    .rk-nav-btn{width:32px;height:36px;border:none;border-right:1px solid var(--bdr);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);transition:all .15s;font-size:.75rem}
-    .rk-nav-btn:last-child{border-right:none;border-left:1px solid var(--bdr)}
-    .rk-nav-btn:hover{background:var(--blue-s);color:var(--blue-d)}
-    .rk-month-label{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:.78rem;font-weight:700;color:var(--t1);white-space:nowrap;min-width:130px}
-    .rk-month-label i{color:var(--t3);font-size:.75rem}
-    #rank-period-label{font-size:.78rem;font-weight:700;color:var(--t1)}
+  --coral:     #f97316;
+  --coral-lt:  #fff7ed;
+  --coral-mid: #fdba74;
 
-    /* KPIs */
-    .rk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-    .rk-kpi{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);transition:transform .2s,box-shadow .2s}
-    .rk-kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
-    .rk-kpi-icon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
-    .rk-kpi-label{font-size:.58rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em}
-    .rk-kpi-val{font-size:1.7rem;font-weight:900;line-height:1.1;letter-spacing:-.02em;margin:3px 0}
-    .rk-kpi-sub{font-size:.62rem;color:var(--t4);font-weight:500}
+  --green:     #10b981;
+  --green-lt:  #d1fae5;
+  --rose:      #f43f5e;
+  --rose-lt:   #ffe4e6;
+  --sky:       #0ea5e9;
+  --sky-lt:    #e0f2fe;
+  --amber:     #f59e0b;
+  --amber-lt:  #fef3c7;
 
-    /* TABLE */
-    .rk-table-card{background:var(--card);border:1px solid var(--bdr);border-radius:18px;box-shadow:var(--sh);overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
-    .rk-table-top{padding:16px 22px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
-    .rk-table-title{font-family:'Cinzel',serif;font-size:.95rem;font-weight:700;color:var(--t1);letter-spacing:.03em;display:flex;align-items:center;gap:8px}
-    .rk-table-sub{font-size:.66rem;color:var(--t3);margin-top:2px}
+  --t1: #1e1b4b;
+  --t2: #4b5563;
+  --t3: #9ca3af;
 
-    .rk-toggle{display:flex;background:var(--bdr-soft);border-radius:10px;padding:3px;border:1px solid var(--bdr)}
-    .rk-toggle-btn{padding:6px 16px;border-radius:8px;border:none;background:transparent;font-size:.74rem;font-weight:600;color:var(--t3);cursor:pointer;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:5px;transition:all .18s}
-    .rk-toggle-btn.active{background:var(--card);color:var(--blue-d);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  --bd:  #e5e7f0;
+  --bd2: #d1d5e8;
 
-    .rk-thead{display:grid;grid-template-columns:60px 1fr 90px 90px 90px 160px;padding:10px 22px;border-bottom:1px solid var(--bdr-soft);background:var(--bdr-soft)}
-    .rk-thead span{font-size:.62rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em}
-    .rk-thead span:not(:first-child){text-align:center}
-    .rk-thead span:last-child{text-align:right;padding-right:4px}
+  --fd: 'Syne',    sans-serif;
+  --fb: 'DM Sans', sans-serif;
 
-    #rank-list-dynamic{overflow-y:auto;flex:1;min-height:0}
-    #rank-list-dynamic::-webkit-scrollbar{width:4px}
-    #rank-list-dynamic::-webkit-scrollbar-thumb{background:rgba(0,0,0,.08);border-radius:4px}
+  --r1: 8px; --r2: 12px; --r3: 16px; --r4: 24px;
 
-    .rank-item{display:grid;grid-template-columns:60px 1fr 90px 90px 90px 160px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--bdr-soft);transition:background .12s}
-    .rank-item:last-child{border-bottom:none}
-    .rank-item:hover{background:var(--bdr-soft)}
+  --s1: 0 1px 3px rgba(79,70,229,.06), 0 1px 2px rgba(0,0,0,.04);
+  --s2: 0 4px 16px rgba(79,70,229,.1), 0 1px 4px rgba(0,0,0,.04);
+  --s3: 0 8px 32px rgba(79,70,229,.14),0 2px 8px rgba(0,0,0,.06);
+  --s4: 0 16px 48px rgba(79,70,229,.18),0 4px 12px rgba(0,0,0,.08);
 
-    .rank-number{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;border:1.5px solid var(--bdr);color:var(--t3);background:var(--bdr-soft)}
-    .rank-number.pos-1{background:#fff7ed;color:#ea580c;border-color:#fed7aa;font-weight:900}
-    .rank-number.pos-2{background:#f8fafc;color:#64748b;border-color:#e2e8f0}
-    .rank-number.pos-3{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0}
+  --ease: cubic-bezier(.4,0,.2,1);
+  --dur:  200ms;
 
-    .agent-info{display:flex;align-items:center;gap:10px;min-width:0}
-    .agent-avatar{width:36px;height:36px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}
-    .agent-avatar img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block}
-    .agent-details h4{font-size:.8rem;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .agent-details p{font-size:.65rem;color:var(--t3);margin-top:1px}
+  --ext-sidebar-w: 60px;
+}
 
-    .rk-cell{text-align:center;font-size:.85rem;font-weight:600;color:var(--t2)}
-    .rk-cell.muted{color:var(--t4)}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--fb);
+  background: var(--bg);
+  color: var(--t1);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
 
-    .agent-stats{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-    .points{font-size:.85rem;font-weight:700;color:var(--blue-d)}
-    .rk-bar-wrap{width:100%;height:5px;background:var(--bdr);border-radius:99px;overflow:hidden}
-    .rk-bar{height:100%;border-radius:99px;background:#1e293b;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
-    .rk-bar.top{background:linear-gradient(90deg,#2563eb,#3b82f6)}
+.layout {
+  display: flex;
+  min-height: 100vh;
+  margin-left: var(--ext-sidebar-w);
+}
 
-    .rk-loading{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--t3);font-size:.85rem;gap:10px}
-    .rk-spinner{width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--blue-d);border-radius:50%;animation:spin .7s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 236px; min-width: 236px;
+  background: linear-gradient(175deg, var(--sb-from) 0%, var(--sb-to) 100%);
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+  overflow: hidden; flex-shrink: 0;
+  box-shadow: 4px 0 24px rgba(67,56,202,.25);
+}
+.sidebar::before {
+  content: '';
+  position: absolute; top: -60px; right: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: rgba(255,255,255,.06); pointer-events: none;
+}
+.sidebar::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--coral), var(--coral-mid));
+}
 
-    body.dark-theme .rk-header,body.dark-theme .rk-kpi,body.dark-theme .rk-table-card{background:var(--card);border-color:var(--bdr)}
-    body.dark-theme .rk-toggle-btn.active{box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.sb-brand { padding: 26px 18px 20px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.sb-brand-row { display: flex; align-items: center; gap: 11px; }
+.sb-emblem {
+  width: 38px; height: 38px;
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+  border-radius: var(--r2); display: flex; align-items: center; justify-content: center;
+  font-size: .95rem; color: #fff; flex-shrink: 0;
+}
+.sb-name { font-family: var(--fd); font-size: 1.05rem; font-weight: 700; color: #fff; line-height: 1.1; }
+.sb-sub  { font-size: .6rem; color: rgba(255,255,255,.5); letter-spacing: .14em; text-transform: uppercase; margin-top: 2px; }
 
-    @media(max-width:1100px){.rk-kpis{grid-template-columns:repeat(3,1fr)}}
-    @media(max-width:780px){
-      .rk-kpis{grid-template-columns:repeat(2,1fr)}
-      .rk-header{flex-direction:column;align-items:flex-start}
-      .rk-thead,.rank-item{grid-template-columns:50px 1fr 70px 120px}
-      .rk-thead span:nth-child(3),.rk-thead span:nth-child(4),
-      .rank-item .rk-cell:nth-child(3),.rank-item .rk-cell:nth-child(4){display:none}
-    }
-  </style>
+.sb-nav { padding: 10px 8px; flex: 1; overflow-y: auto; }
+.sb-group { font-size: .58rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.4); padding: 10px 10px 5px; margin-top: 4px; }
+.sb-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 11px; border-radius: var(--r1);
+  color: rgba(255,255,255,.6); font-size: .8rem; font-weight: 400;
+  text-decoration: none; cursor: pointer; margin-bottom: 1px; position: relative;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.sb-link i { width: 16px; text-align: center; font-size: .77rem; flex-shrink: 0; }
+.sb-link:hover { background: rgba(255,255,255,.1); color: #fff; }
+.sb-link.active { background: rgba(255,255,255,.18); color: #fff; font-weight: 600; }
+.sb-link.active::before {
+  content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--coral-mid);
+}
+
+.sb-foot { padding: 10px 8px 16px; border-top: 1px solid rgba(255,255,255,.1); }
+.sb-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: var(--r2);
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+}
+.sb-av { width: 32px; height: 32px; border-radius: 50%; background: var(--coral); display: flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+.sb-uname { font-size: .78rem; font-weight: 600; color: #fff; }
+.sb-urole  { font-size: .62rem; color: rgba(255,255,255,.5); margin-top: 1px; }
+
+/* ── MAIN ── */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  background: var(--bg-inner); border-bottom: 1px solid var(--bd);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50; box-shadow: var(--s1); flex-shrink: 0;
+}
+.tb-left { display: flex; align-items: center; gap: 12px; }
+.bc      { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--t3); }
+.bc-cur  { color: var(--t2); font-weight: 500; }
+.bc-sep  { color: var(--bd2); }
+.tb-div  { width: 1px; height: 22px; background: var(--bd); }
+.tb-title{ font-family: var(--fd); font-size: 1.2rem; font-weight: 700; color: var(--t1); }
+.tb-right{ display: flex; align-items: center; gap: 8px; }
+
+.ctrl-wrap  { display: flex; align-items: center; gap: 7px; }
+.ctrl-lbl   { font-size: .7rem; font-weight: 500; color: var(--t3); white-space: nowrap; }
+.ctrl-month {
+  background: var(--bg); border: 1.5px solid var(--bd);
+  color: var(--t1); border-radius: var(--r1);
+  padding: 5px 10px; height: 34px;
+  font-family: var(--fb); font-size: .77rem; cursor: pointer; outline: none;
+  transition: border-color var(--dur) var(--ease);
+}
+.ctrl-month:focus { border-color: var(--ind); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: var(--r1); font-family: var(--fb); font-size: .79rem; font-weight: 600; cursor: pointer; border: none; transition: all var(--dur) var(--ease); white-space: nowrap; }
+.btn-ind { background: var(--ind); color: #fff; box-shadow: 0 2px 8px rgba(79,70,229,.3); }
+.btn-ind:hover { background: var(--ind-dark); box-shadow: 0 4px 14px rgba(79,70,229,.4); transform: translateY(-1px); }
+.btn-ind:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--green-lt); border: 1px solid rgba(16,185,129,.3); border-radius: 99px; font-size: .67rem; font-weight: 700; color: var(--green); letter-spacing: .05em; text-transform: uppercase; }
+.live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s ease infinite; }
+
+.content { flex: 1; padding: 28px 32px 44px; display: flex; flex-direction: column; gap: 22px; }
+
+.page-hdr { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.page-hdr-eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ind-mid); margin-bottom: 6px; }
+.page-hdr-title { font-family: var(--fd); font-size: 2rem; font-weight: 800; color: var(--t1); letter-spacing: -.02em; line-height: 1; }
+.page-hdr-title span { color: var(--coral); }
+.page-hdr-sub { font-size: .8rem; color: var(--t3); margin-top: 6px; }
+
+.tabs-nav {
+  display: flex; gap: 0;
+  background: var(--bg-inner); border: 1.5px solid var(--bd);
+  border-radius: var(--r2); overflow: hidden; box-shadow: var(--s1);
+}
+.tab-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 22px; font-family: var(--fb); font-size: .8rem; font-weight: 500;
+  color: var(--t3); background: transparent; border: none;
+  border-right: 1.5px solid var(--bd);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+  white-space: nowrap; position: relative; flex: 1;
+}
+.tab-btn:last-child { border-right: none; }
+.tab-btn i { font-size: .77rem; }
+.tab-btn:hover { background: var(--ind-light); color: var(--ind); }
+.tab-btn.is-active { background: var(--ind-light); color: var(--ind-dark); font-weight: 700; }
+.tab-btn.is-active::after {
+  content: ''; position: absolute; bottom: 0; left: 16px; right: 16px;
+  height: 3px; background: var(--ind); border-radius: 3px 3px 0 0;
+}
+
+.tab-panel { display: none; }
+.tab-panel.is-active { display: flex; flex-direction: column; gap: 20px; animation: slideIn .3s var(--ease) both; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 14px; }
+
+.kpi-tile {
+  background: var(--bg-inner); border: 1.5px solid var(--bd);
+  border-radius: var(--r3); padding: 20px 20px 16px;
+  box-shadow: var(--s1); transition: all var(--dur) var(--ease);
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 10px;
+}
+.kpi-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: var(--r3) 0 0 var(--r3); }
+.kpi-tile::after  { content: ''; position: absolute; top: -24px; right: -24px; width: 80px; height: 80px; border-radius: 50%; opacity: .06; }
+.kpi-tile.k1::before { background: linear-gradient(180deg, var(--ind),   var(--ind-mid)); } .kpi-tile.k1::after { background: var(--ind); }
+.kpi-tile.k2::before { background: linear-gradient(180deg, var(--coral), var(--coral-mid)); } .kpi-tile.k2::after { background: var(--coral); }
+.kpi-tile.k3::before { background: linear-gradient(180deg, var(--sky),   #7dd3fc); }          .kpi-tile.k3::after { background: var(--sky); }
+.kpi-tile.k4::before { background: linear-gradient(180deg, var(--green), #6ee7b7); }          .kpi-tile.k4::after { background: var(--green); }
+.kpi-tile:hover { box-shadow: var(--s2); transform: translateY(-3px); border-color: var(--bd2); }
+
+.kpi-top  { display: flex; align-items: center; justify-content: space-between; }
+.kpi-ic   { width: 36px; height: 36px; border-radius: var(--r1); display: flex; align-items: center; justify-content: center; font-size: .85rem; }
+.ki1 { background: var(--ind-light); color: var(--ind); }
+.ki2 { background: var(--coral-lt);  color: var(--coral); }
+.ki3 { background: var(--sky-lt);    color: var(--sky); }
+.ki4 { background: var(--green-lt);  color: var(--green); }
+
+.kpi-badge { font-size: .63rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; letter-spacing: .04em; }
+.kb1 { background: var(--ind-light); color: var(--ind-dark); border: 1px solid rgba(79,70,229,.2); }
+.kb2 { background: var(--coral-lt);  color: var(--coral);    border: 1px solid rgba(249,115,22,.2); }
+.kb3 { background: var(--sky-lt);    color: var(--sky);      border: 1px solid rgba(14,165,233,.2); }
+.kb4 { background: var(--green-lt);  color: var(--green);    border: 1px solid rgba(16,185,129,.2); }
+
+.kpi-val  { font-family: var(--fd); font-size: 2rem; font-weight: 800; color: var(--t1); letter-spacing: -.04em; line-height: 1; }
+.kpi-name { font-size: .74rem; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-pts  { font-size: .67rem; color: var(--t3); }
+.kpi-pts strong { color: var(--ind); font-weight: 700; }
+.kpi-colchon { font-size: .67rem; color: var(--amber); font-weight: 600; }
+
+.kpi-prog { height: 3px; background: var(--bg-muted); border-radius: 99px; overflow: hidden; margin-top: 2px; }
+.kpi-prog-bar { height: 100%; border-radius: 99px; transition: width 1.1s cubic-bezier(.22,1,.36,1); }
+.kpb1 { background: linear-gradient(90deg, var(--ind-dark), var(--ind-mid)); }
+.kpb2 { background: linear-gradient(90deg, var(--coral), var(--coral-mid)); }
+.kpb3 { background: linear-gradient(90deg, var(--sky), #7dd3fc); }
+.kpb4 { background: linear-gradient(90deg, var(--green), #6ee7b7); }
+
+.panel-shell { background: var(--bg-inner); border: 1.5px solid var(--bd); border-radius: var(--r3); box-shadow: var(--s1); overflow: hidden; }
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1.5px solid var(--bd); background: var(--bg); flex-wrap: wrap; gap: 12px; }
+.panel-head-title { font-family: var(--fd); font-size: 1rem; font-weight: 700; color: var(--t1); }
+.panel-head-sub   { font-size: .72rem; color: var(--t3); margin-top: 3px; }
+.panel-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel-meta       { font-size: .71rem; color: var(--t3); }
+
+.segmented { display: flex; gap: 3px; background: var(--bg-muted); border: 1.5px solid var(--bd); border-radius: var(--r1); padding: 3px; }
+.seg-btn { padding: 5px 14px; border-radius: 6px; font-family: var(--fb); font-size: .74rem; font-weight: 500; color: var(--t3); background: transparent; border: none; cursor: pointer; transition: all var(--dur) var(--ease); }
+.seg-btn:hover { color: var(--t1); background: rgba(79,70,229,.07); }
+.seg-btn.is-active { background: var(--ind); color: #fff; box-shadow: 0 2px 6px rgba(79,70,229,.28); }
+
+.rank-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.rank-table thead tr { background: var(--bg); border-bottom: 2px solid var(--bd); }
+.rank-table th { padding: 10px 16px; font-size: .59rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--t3); text-align: left; white-space: nowrap; }
+.rank-table th.num { text-align: right; }
+.rank-table tbody tr { border-bottom: 1px solid var(--bd); transition: background var(--dur) var(--ease); }
+.rank-table tbody tr:last-child { border-bottom: none; }
+.rank-table tbody tr:hover { background: var(--ind-light); }
+.rank-table tbody tr.row-1 { border-left: 3px solid var(--ind); }
+.rank-table tbody tr.row-2 { border-left: 3px solid var(--coral); }
+.rank-table tbody tr.row-3 { border-left: 3px solid var(--sky); }
+.rank-table td { padding: 11px 16px; color: var(--t2); vertical-align: middle; }
+.rank-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.rn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: .73rem; font-weight: 700; font-family: var(--fd); }
+.rn1 { background: var(--ind);       color: #fff; box-shadow: 0 2px 6px rgba(79,70,229,.35); }
+.rn2 { background: var(--coral);     color: #fff; box-shadow: 0 2px 6px rgba(249,115,22,.35); }
+.rn3 { background: var(--sky);       color: #fff; box-shadow: 0 2px 6px rgba(14,165,233,.3); }
+.rnn { background: var(--bg-muted);  color: var(--t3); }
+
+.agent-cell { display: flex; align-items: center; gap: 10px; }
+.agent-av { width: 32px; height: 32px; border-radius: 50%; background: var(--ind-light); display: flex; align-items: center; justify-content: center; font-size: .68rem; font-weight: 700; color: var(--ind); flex-shrink: 0; border: 2px solid var(--bd); }
+.agent-av.av1 { background: var(--ind);   color: #fff; border-color: var(--ind);   box-shadow: 0 2px 6px rgba(79,70,229,.3); }
+.agent-av.av2 { background: var(--coral); color: #fff; border-color: var(--coral); box-shadow: 0 2px 6px rgba(249,115,22,.3); }
+.agent-av.av3 { background: var(--sky);   color: #fff; border-color: var(--sky);   box-shadow: 0 2px 6px rgba(14,165,233,.25); }
+.agent-name { font-size: .82rem; font-weight: 600; color: var(--t1); }
+.agent-team { font-size: .67rem; color: var(--t3); margin-top: 1px; }
+
+.v-sales { font-weight: 600; color: var(--t1); }
+.v-colchon { font-weight: 600; color: var(--amber); }
+.v-total { font-family: var(--fd); font-weight: 700; color: var(--ind); }
+.v-pts   { font-family: var(--fd); font-weight: 700; color: var(--ind); }
+.v-att   { font-weight: 600; color: var(--sky); }
+.v-fr    { font-weight: 600; color: var(--coral); }
+
+.load-row td { padding: 52px 20px; text-align: center; color: var(--t3); font-size: .8rem; }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--bd); border-top-color: var(--ind); border-radius: 50%; animation: spin .65s linear infinite; vertical-align: middle; margin-right: 8px; }
+
+.table-empty { display: none; padding: 48px 24px; text-align: center; color: var(--t3); font-size: .82rem; line-height: 1.7; border-top: 1px solid var(--bd); }
+.table-empty.visible { display: block; }
+.empty-ic { font-size: 2rem; color: var(--bd2); display: block; margin-bottom: 12px; }
+
+.toast { position: fixed; top: 20px; right: 20px; padding: 12px 16px; border-radius: var(--r2); font-size: .78rem; font-weight: 500; box-shadow: var(--s4); z-index: 2000; display: flex; align-items: center; gap: 8px; transform: translateX(calc(100% + 24px)); transition: transform .28s var(--ease); max-width: 300px; background: var(--bg-inner); border: 1.5px solid var(--bd); color: var(--t1); }
+.toast.show { transform: translateX(0); }
+.toast.ok  { border-left: 4px solid var(--green); } .toast.ok i  { color: var(--green); }
+.toast.err { border-left: 4px solid var(--rose);  } .toast.err i { color: var(--rose); }
+
+.mob-top { display: none; background: linear-gradient(90deg, var(--sb-from), var(--sb-to)); padding: 12px 16px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+
+/* Colchon badge en tabla */
+.colchon-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: .6rem; font-weight: 700; padding: 2px 7px;
+  background: var(--amber-lt); color: var(--amber);
+  border: 1px solid rgba(245,158,11,.3); border-radius: 99px;
+  margin-left: 6px; vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+  .sidebar, .topbar { display: none; }
+  .mob-top { display: flex; }
+  .layout { margin-left: 0; }
+  .content { padding: 16px 14px 30px; }
+  .tabs-nav { flex-direction: column; }
+  .tab-btn { border-right: none; border-bottom: 1.5px solid var(--bd); }
+  .tab-btn:last-child { border-bottom: none; }
+  .tab-btn.is-active::after { top: 0; bottom: 0; left: 0; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .panel-head { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px)  { .kpi-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 99px; }
+
+@keyframes rise    { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+@keyframes pulse   { 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+@keyframes spin    { to { transform:rotate(360deg); } }
+
+/* ── DARK MODE ── */
+body.dark-theme {
+  --bg:        #0f172a;
+  --bg-inner:  #1e293b;
+  --bg-muted:  #162032;
+  --t1:        #e2e8f0;
+  --t2:        #94a3b8;
+  --t3:        #64748b;
+  --bd:        #334155;
+  --bd2:       #475569;
+  --ind-light: rgba(79,70,229,0.15);
+  --coral-lt:  rgba(249,115,22,0.12);
+  --green-lt:  rgba(16,185,129,0.12);
+  --rose-lt:   rgba(244,63,94,0.12);
+  --sky-lt:    rgba(14,165,233,0.12);
+  --amber-lt:  rgba(245,158,11,0.12);
+}
+</style>
 </head>
-<body>
-<div class="layout">
-  <nav class="sidebar sidebar-inicio" data-active="ranking"></nav>
-  <main class="main-content">
+<body data-active="rankings">
 
-    <div class="rk-header drop" style="animation-delay:.05s">
-      <div class="rk-title-wrap">
-        <div class="rk-icon-wrap"><i class="fas fa-trophy"></i></div>
-        <div>
-          <div class="rk-title">Rankings del Mes</div>
-          <div class="rk-sub">Monitoreo de desempeño operativo y comercial en tiempo real</div>
-        </div>
-      </div>
-      <div class="rk-tabs">
-        <button class="rk-tab active" data-mode="puntaje"><i class="fas fa-bolt"></i> Ranking de Activación</button>
-        <button class="rk-tab" data-mode="ventas"><i class="fas fa-chart-line"></i> Ranking de Ventas</button>
-        <button class="rk-tab" data-mode="att"><i class="fas fa-signal"></i> Ranking AT&T / Frontier</button>
-      </div>
-      <div class="rk-month">
-        <button class="rk-nav-btn" id="rank-prev"><i class="fas fa-chevron-left"></i></button>
-        <div class="rk-month-label">
-          <i class="fas fa-calendar-alt"></i>
-          <span id="rank-period-label">—</span>
-        </div>
-        <button class="rk-nav-btn" id="rank-next"><i class="fas fa-chevron-right"></i></button>
-      </div>
-    </div>
-
-    <div class="rk-kpis drop" style="animation-delay:.15s">
-      <div class="rk-kpi">
-        <div class="rk-kpi-icon" style="background:#eff6ff"><i class="fas fa-users" style="color:#3b82f6"></i></div>
-        <div><div class="rk-kpi-label">Agentes Activos</div><div class="rk-kpi-val" id="kpi-agentes" style="color:#0f172a">—</div><div class="rk-kpi-sub">Este mes</div></div>
-      </div>
-      <div class="rk-kpi">
-        <div class="rk-kpi-icon" style="background:#f0fdf4"><i class="fas fa-bullseye" style="color:#16a34a"></i></div>
-        <div><div class="rk-kpi-label">Puntaje Total</div><div class="rk-kpi-val" id="kpi-puntos" style="color:#16a34a">—</div><div class="rk-kpi-sub">Suma de puntos</div></div>
-      </div>
-      <div class="rk-kpi">
-        <div class="rk-kpi-icon" style="background:#faf5ff"><i class="fas fa-arrow-trend-up" style="color:#9333ea"></i></div>
-        <div><div class="rk-kpi-label">Ventas Totales</div><div class="rk-kpi-val" id="kpi-ventas" style="color:#9333ea">—</div><div class="rk-kpi-sub">Este mes</div></div>
-      </div>
-      <div class="rk-kpi">
-        <div class="rk-kpi-icon" style="background:#fffbeb"><i class="fas fa-bed" style="color:#d97706"></i></div>
-        <div><div class="rk-kpi-label">Colchón Total</div><div class="rk-kpi-val" id="kpi-colchon" style="color:#d97706">—</div><div class="rk-kpi-sub">Disponibles</div></div>
-      </div>
-    </div>
-
-    <div class="rk-table-card drop" style="animation-delay:.28s">
-      <div class="rk-table-top">
-        <div>
-          <div class="rk-table-title"><i class="fas fa-list-ol" style="color:var(--blue-d)"></i> Tabla de Posiciones</div>
-          <div class="rk-table-sub">Ordenado por puntaje neto del período seleccionado</div>
-        </div>
-        <div class="rk-toggle">
-          <button class="rk-toggle-btn active" id="btn-view-agente"><i class="fas fa-user"></i> Agente</button>
-          <button class="rk-toggle-btn" id="btn-view-team"><i class="fas fa-users"></i> Team</button>
-        </div>
-      </div>
-      <div class="rk-thead">
-        <span>#</span><span style="text-align:left">Agente</span>
-        <span>Ventas</span><span>Colchón</span><span>Total</span><span>Puntos</span>
-      </div>
-      <div id="rank-list-dynamic">
-        <div class="rk-loading"><div class="rk-spinner"></div> Cargando ranking…</div>
-      </div>
-    </div>
-
-  </main>
+<div class="mob-top">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="sb-emblem" style="width:30px;height:30px;font-size:.82rem;"><i class="fas fa-trophy"></i></div>
+    <span style="font-family:var(--fd);color:#fff;font-size:.95rem;font-weight:700;">Rankings</span>
+  </div>
+  <div class="live-badge"><span class="live-dot"></span>En vivo</div>
 </div>
 
-<div style="display:none">
-  <div class="first-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
-  <div class="second-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
-  <div class="third-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
-  <div id="fullRankingModal"></div><div id="btn-open-full-ranking"></div><div id="btn-toggle-force-all"></div>
-  <table id="full-rank-table"><tbody></tbody></table>
-  <span id="welcome-message"></span><span id="welcome-user-name"></span><span id="welcome-user-role"></span>
-  <span id="user-name"></span><span id="user-role"></span>
-  <span id="sidebar-user-sales"></span><span id="sidebar-user-points"></span><span id="sidebar-user-team"></span>
-  <div id="roleBar"></div>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" data-active="rankings">
+    <div class="sb-brand">
+      <div class="sb-brand-row">
+        <div class="sb-emblem"><i class="fas fa-chart-line"></i></div>
+        <div>
+          <div class="sb-name">Analytics Pro</div>
+          <div class="sb-sub">Gestión de ventas</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-group">Principal</div>
+      <a class="sb-link" href="#"><i class="fas fa-home"></i> Inicio</a>
+      <a class="sb-link" href="/residencial/estadisticas.html"><i class="fas fa-chart-line"></i> Estadísticas</a>
+      <a class="sb-link" href="#"><i class="fas fa-users"></i> Equipos</a>
+      <a class="sb-link" href="#"><i class="fas fa-handshake"></i> Ventas</a>
+      <div class="sb-group">Operaciones</div>
+      <a class="sb-link" href="#"><i class="fas fa-file-alt"></i> Reportes</a>
+      <a class="sb-link active" href="#"><i class="fas fa-trophy"></i> Rankings</a>
+      <a class="sb-link" href="#"><i class="fas fa-tasks"></i> Leads</a>
+      <a class="sb-link" href="#"><i class="fas fa-network-wired"></i> Líneas</a>
+      <div class="sb-group">Sistema</div>
+      <a class="sb-link" href="#"><i class="fas fa-cog"></i> Configuración</a>
+      <a class="sb-link" href="/login.html" id="nav-logout"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-av" id="sidebar-avatar">US</div>
+        <div>
+          <div class="sb-uname" id="sidebar-username">Usuario</div>
+          <div class="sb-urole"  id="sidebar-role">Agente</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-left">
+        <nav class="bc">
+          <span>Panel</span>
+          <span class="bc-sep"><i class="fas fa-chevron-right" style="font-size:.55rem;"></i></span>
+          <span class="bc-cur">Rankings</span>
+        </nav>
+        <div class="tb-div"></div>
+        <h1 class="tb-title">Rankings</h1>
+      </div>
+      <div class="tb-right">
+        <div class="ctrl-wrap">
+          <span class="ctrl-lbl">Mes:</span>
+          <input id="rankMonth" type="month" class="ctrl-month" />
+        </div>
+        <button id="rankRefresh" class="btn btn-ind" type="button">
+          <i class="fas fa-rotate"></i> Actualizar
+        </button>
+      </div>
+    </header>
+
+    <div class="content" style="animation:rise .42s var(--ease) both;">
+
+      <div class="page-hdr">
+        <div>
+          <div class="page-hdr-eyebrow"><i class="fas fa-trophy"></i>&nbsp; Tabla de posiciones</div>
+          <h2 class="page-hdr-title">Rankings <span>del mes</span></h2>
+          <p class="page-hdr-sub">Desempeño por mes y categoría.</p>
+        </div>
+        <div class="live-badge"><span class="live-dot"></span>Tiempo real</div>
+      </div>
+
+      <nav class="rankings-tabs tabs-nav" aria-label="Ranking tabs">
+        <button class="tab-btn is-active" type="button" data-tab="activation">
+          <i class="fas fa-bolt"></i>
+          <span>Ranking de Activación</span>
+        </button>
+        <button class="tab-btn" type="button" data-tab="sales">
+          <i class="fas fa-cart-shopping"></i>
+          <span>Ranking de Ventas</span>
+        </button>
+        <button class="tab-btn" type="button" data-tab="att">
+          <i class="fas fa-signal"></i>
+          <span>Ranking AT&amp;T / Frontier</span>
+        </button>
+      </nav>
+
+      <section class="tab-panels">
+
+        <!-- ACTIVACIÓN -->
+        <article class="tab-panel is-active" id="panel-activation" data-panel="activation">
+          <div class="kpi-grid" id="kpi-activation"></div>
+          <div class="panel-shell">
+            <div class="panel-head">
+              <div>
+                <div class="panel-head-title">Activación</div>
+                <div class="panel-head-sub">Ventas del mes + colchones. Ordenado por total.</div>
+              </div>
+              <div class="panel-head-right">
+                <div class="segmented" id="activationScope">
+                  <button class="seg-btn is-active" type="button" data-scope="agent">Agente</button>
+                  <button class="seg-btn" type="button" data-scope="team">Team</button>
+                </div>
+                <div class="panel-meta" id="meta-activation"></div>
+              </div>
+            </div>
+            <table class="rank-table" id="table-activation">
+              <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Agente</th>
+                  <th class="num">Ventas</th>
+                  <th class="num">Colchón</th>
+                  <th class="num">Total</th>
+                  <th class="num">Puntos</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-activation">
+                <tr class="load-row" id="loading-activation">
+                  <td colspan="6"><span class="spinner"></span>Cargando ranking...</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="table-empty" id="empty-activation">
+              <span class="empty-ic"><i class="fas fa-trophy"></i></span>
+              No hay datos disponibles para el período seleccionado.
+            </div>
+          </div>
+        </article>
+
+        <!-- VENTAS -->
+        <article class="tab-panel" id="panel-sales" data-panel="sales">
+          <div class="kpi-grid" id="kpi-sales"></div>
+          <div class="panel-shell">
+            <div class="panel-head">
+              <div>
+                <div class="panel-head-title">Ventas</div>
+                <div class="panel-head-sub">Solo ventas del mes (sin colchones). Ordenado por puntos.</div>
+              </div>
+              <div class="panel-head-right">
+                <div class="panel-meta" id="meta-sales"></div>
+              </div>
+            </div>
+            <table class="rank-table" id="table-sales">
+              <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Agente</th>
+                  <th class="num">Ventas</th>
+                  <th class="num">Puntos</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-sales">
+                <tr class="load-row" id="loading-sales">
+                  <td colspan="4"><span class="spinner"></span>Cargando ranking...</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="table-empty" id="empty-sales">
+              <span class="empty-ic"><i class="fas fa-cart-shopping"></i></span>
+              No hay datos de ventas para el período seleccionado.
+            </div>
+          </div>
+        </article>
+
+        <!-- AT&T / FRONTIER -->
+        <article class="tab-panel" id="panel-att" data-panel="att">
+          <div class="kpi-grid" id="kpi-att"></div>
+          <div class="panel-shell">
+            <div class="panel-head">
+              <div>
+                <div class="panel-head-title">AT&amp;T / Frontier</div>
+                <div class="panel-head-sub">Ranking basado en servicios AT&amp;T y Frontier del mes.</div>
+              </div>
+              <div class="panel-head-right">
+                <div class="panel-meta" id="meta-att"></div>
+              </div>
+            </div>
+            <table class="rank-table" id="table-att">
+              <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Agente</th>
+                  <th class="num">AT&amp;T</th>
+                  <th class="num">Frontier</th>
+                  <th class="num">Total</th>
+                  <th class="num">Puntos</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-att">
+                <tr class="load-row" id="loading-att">
+                  <td colspan="6"><span class="spinner"></span>Cargando ranking...</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="table-empty" id="empty-att">
+              <span class="empty-ic"><i class="fas fa-signal"></i></span>
+              No hay datos de AT&amp;T / Frontier para el período seleccionado.
+            </div>
+          </div>
+        </article>
+
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="fas fa-check-circle"></i>
+  <span id="toast-msg"></span>
 </div>
 
 <script>
-(function(){
-  'use strict';
-  (function(){var t=localStorage.getItem('theme')||localStorage.getItem('crm_theme')||'';if(t==='dark'||document.cookie.includes('theme=dark'))document.body.classList.add('dark-theme');})();
+'use strict';
 
-  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  var now=new Date(),curY=now.getFullYear(),curM=now.getMonth();
-  var _data=[],_mode='puntaje',_view='agente';
+/* ══════════════════════════════════════════════
+   AUTH
+══════════════════════════════════════════════ */
+function checkAuth() {
+  var u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+  if (!u) { window.location.href = '/login.html'; return false; }
+  try {
+    var n = u.username || u.name || 'Usuario';
+    var r = u.role || 'Agente';
+    document.getElementById('sidebar-username').textContent = n;
+    document.getElementById('sidebar-role').textContent     = r;
+    document.getElementById('sidebar-avatar').textContent   =
+      n.split(' ').map(function(w){ return w[0]; }).slice(0,2).join('').toUpperCase();
+  } catch(e) {}
+  return true;
+}
 
-  function fmt(v){var n=Number(v||0);return n%1===0?n.toString():n.toFixed(2);}
-  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-  var PAL=['#6366f1','#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#14b8a6','#db2777'];
-  function avatarColor(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0x7fffffff;return PAL[h%PAL.length];}
-  function initials(n){return(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
-  function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
-  function updateLabel(){var el=document.getElementById('rank-period-label');if(el)el.textContent=MONTHS[curM]+' '+curY;}
-  function getScore(a){if(_mode==='ventas')return Number(a.ventas||0);if(_mode==='att')return Number(a.ventas_att||a.att||a.ventas||0);return Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);}
+async function fetchWithAuth(url, opts) {
+  opts = opts || {};
+  if (!checkAuth()) return null;
+  var h = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+  try {
+    var u  = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+    var tk = (u && u.token) || localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (tk) h['Authorization'] = 'Bearer ' + tk;
+  } catch(e) {}
+  var res = await fetch(url, Object.assign({}, opts, {
+    headers: Object.assign({}, h, opts.headers || {}),
+    credentials: 'include'
+  }));
+  if (res.status === 401) { window.location.href = '/login.html'; return null; }
+  return res;
+}
 
-  async function load(){
-    var lastDay=new Date(curY,curM+1,0).getDate();
-    var dts=curY+'-'+String(curM+1).padStart(2,'0')+'-01';
-    var dte=curY+'-'+String(curM+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
-    var base='/api/ranking?fechaInicio='+dts+'&fechaFin='+dte+'&limit=200';
-    try{
-      if(_mode==='att'){
-        var [r1,r2]=await Promise.all([fetch(base+'&servicio=AT%26T',{credentials:'include'}),fetch(base+'&servicio=FRONTIER',{credentials:'include'})]);
-        var [j1,j2]=await Promise.all([r1.json(),r2.json()]);
-        var parse=function(j){return Array.isArray(j)?j:Array.isArray(j.ranking)?j.ranking:(j.data&&Array.isArray(j.data.ranking))?j.data.ranking:[];};
-        var merged={};
-        parse(j1).concat(parse(j2)).forEach(function(a){var k=a.nombreNormalizado||a.nombre||'?';if(!merged[k]){merged[k]=Object.assign({},a,{ventas:0,puntos:0,sumPuntaje:0});}merged[k].ventas+=Number(a.ventas||0);merged[k].puntos+=Number(a.puntos||a.sumPuntaje||0);merged[k].sumPuntaje+=Number(a.sumPuntaje||a.puntos||0);});
-        _data=Object.values(merged).sort(function(a,b){return b.puntos-a.puntos;});
-        _data.forEach(function(a,i){a.position=i+1;});
-      }else{
-        var res=await fetch(base,{credentials:'include'});
-        if(!res.ok)throw new Error(res.status);
-        var j=await res.json();
-        _data=Array.isArray(j)?j:Array.isArray(j.ranking)?j.ranking:Array.isArray(j.agents)?j.agents:(j.data&&Array.isArray(j.data.ranking))?j.data.ranking:[];
-      }
-    }catch(e){console.warn('[ranking]',e);_data=[];}
-    render();
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function parseNumber(v) {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  var n = parseFloat(String(v).trim().replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+// Normaliza el nombre del supervisor/team a un nombre de team consistente
+function normalizeTeamName(raw) {
+  var s = String(raw || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!s) return 'Sin equipo';
+  if (s.includes('JOHANA') || s.includes('JOHANNA'))    return 'Johana';
+  if (s.includes('IRANIA') || s.includes('SERRANO'))    return 'Irania';
+  if (s.includes('MARISOL') || s.includes('BELTRAN'))   return 'Marisol';
+  if (s.includes('ROBERTO') || s.includes('VELASQUEZ')) return 'Roberto';
+  if (s.includes('BRYAN') || s.includes('PLEITEZ'))     return 'Pleitez';
+  if (s.includes('JONATHAN'))                           return 'Jonathan F';
+  if (s.includes('LUIS G') || s.includes('LUIS_G'))     return 'Luis G';
+  return s.charAt(0) + s.slice(1).toLowerCase();
+}
+
+function normalizeKey(name) {
+  try {
+    return String(name || '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  } catch(e) {
+    return String(name || '').toUpperCase().trim();
+  }
+}
+
+function getMonth() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+var _toastTimer = null;
+function showToast(msg, type) {
+  var el  = document.getElementById('toast');
+  var txt = document.getElementById('toast-msg');
+  var ic  = el.querySelector('i');
+  el.className = 'toast ' + (type || 'ok');
+  ic.className = type === 'err' ? 'fas fa-times-circle' : 'fas fa-check-circle';
+  txt.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 3200);
+}
+
+/* ══════════════════════════════════════════════
+   STATUS HELPERS
+══════════════════════════════════════════════ */
+var STATUS_COMPLETED_SET = new Set([
+  'completed','active','completado','activo','activa',
+  'vendido','cerrado','cerrada','venta cerrada'
+]);
+
+function normalizeStatus(raw) {
+  var s = String(raw || '').trim().toLowerCase();
+  if (!s) return 'pending';
+  if (STATUS_COMPLETED_SET.has(s)) return 'completed';
+  if (s === 'pending' || s === 'pendiente' || s === 'pendientes') return 'pending';
+  if (s === 'cancelled' || s === 'canceled' || s.includes('cancel')) return 'cancelled';
+  if (s === 'hold' || s.includes('hold')) return 'hold';
+  if (s === 'reserva' || s.includes('reser')) return 'reserva';
+  if (s.includes('resched') || s.includes('reagend') || s.includes('reprogram')) return 'rescheduled';
+  if (s.includes('complet') || s.includes('activ') || s.includes('cerr') || s.includes('vend')) return 'completed';
+  return 'pending';
+}
+
+function isCompleted(raw) { return normalizeStatus(raw) === 'completed'; }
+
+/* ══════════════════════════════════════════════
+   COLCHÓN DETECTION
+   Una venta es colchón cuando:
+   - dia_venta está en un mes DIFERENTE al targetYM
+   - dia_instalacion está en el targetYM
+   - status es completed o pending
+══════════════════════════════════════════════ */
+function isColchon(lead, targetYM) {
+  // Detecta SOLO el patrón de fechas (dia_venta != targetYM, dia_instalacion = targetYM)
+  // El status NO importa para detectar — se valida aparte para CONTAR
+  try {
+    var dv = String(lead.dia_venta       || lead.diaVenta       || '').slice(0, 7);
+    var di = String(lead.dia_instalacion || lead.diaInstalacion || '').slice(0, 7);
+    if (!dv || !di) return false;
+    return dv !== targetYM && di === targetYM;
+  } catch(e) { return false; }
+}
+
+/* Detecta servicios AT&T / Frontier */
+function detectServices(lead) {
+  var fields = [
+    lead.servicios, lead.tipo_servicios, lead.servicios_texto,
+    lead.tipo_servicio, lead.producto_contratado, lead.producto, ''
+  ];
+  var arr = [];
+  fields.forEach(function(f) {
+    if (!f) return;
+    if (Array.isArray(f)) arr = arr.concat(f);
+    else arr = arr.concat(String(f).split(/[,;\/]/));
+  });
+  var isATT      = false;
+  var isFrontier = false;
+  arr.forEach(function(s) {
+    var up = String(s).toUpperCase().trim();
+    // Detectar AT&T: att-air, ATT AIR, AIR, AT&T AIR, AT&T, ATT
+    if (/AT&?T/.test(up) || up.includes('ATT') || up.includes('AT-T') || up.replace(/-/g,' ').includes('ATT') || up === 'AIR') {
+      isATT = true;
+    }
+    if (up.includes('FRONTIER')) isFrontier = true;
+  });
+  return { isATT: isATT, isFrontier: isFrontier };
+}
+
+/* ══════════════════════════════════════════════
+   FETCH LEADS
+   Usa targetMonth=YYYY-MM para que el backend
+   filtre precisamente: ventas del mes +
+   colchones (dia_instalacion en el mes).
+   El backend maneja ambos casos sin necesitar
+   el rango completo del año.
+══════════════════════════════════════════════ */
+async function fetchLeadsForMonth(ym) {
+  try {
+    var res = await fetchWithAuth(
+      '/api/rankings-leads?targetMonth=' + ym + '&limit=2000&scope=ranking'
+    );
+    if (!res || !res.ok) return [];
+    var j = await res.json();
+    if (Array.isArray(j))       return j;
+    if (Array.isArray(j.data))  return j.data;
+    if (Array.isArray(j.leads)) return j.leads;
+    return [];
+  } catch(e) {
+    return [];
+  }
+}
+
+/* ══════════════════════════════════════════════
+   AGGREGATE BY AGENT
+   FIX completo:
+   - Cuenta ventasMes: completed + dia_venta en targetYM
+   - Cuenta colchon:   completed/pending + dv≠targetYM + di=targetYM
+   - Ignora reserva, cancelled, hold, rescheduled
+   - Acumula puntos para AMBOS (ventas + colchones)
+══════════════════════════════════════════════ */
+function aggregateByAgent(leads, ym) {
+  var targetYM = ym || getMonth();
+  var map = {};
+
+  leads.forEach(function(l) {
+    var st  = normalizeStatus(l.status);
+
+    // Ignorar statuses que nunca cuentan en ningún ranking
+    if (st === 'cancelled' || st === 'hold' || st === 'rescheduled' || st === 'reserva' || st === 'oficina') return;
+
+    var dv  = String(l.dia_venta       || l.diaVenta       || '').slice(0, 7);
+    var di  = String(l.dia_instalacion || l.diaInstalacion || '').slice(0, 7);
+
+    // isVentaMes: cualquier status válido con dia_venta en el mes
+    // (pending y completed cuentan para Ranking Ventas y AT&T)
+    var isVentaMes     = dv === targetYM;
+
+    // isVentaCompletada: solo completed — para Ranking Activación
+    var isVentaCompletada = isCompleted(l.status) && dv === targetYM;
+
+    // ¿Es colchón? patrón de fechas + SOLO cuenta si completed
+    var esPatronColchon = isColchon(l, targetYM);
+    var isColchonValido = esPatronColchon && isCompleted(l.status); // solo completed cuenta
+
+    // Si no tiene ningún criterio válido, ignorar
+    if (!isVentaMes && !isColchonValido) return;
+
+    // Nombre del agente — intentar varios campos
+    var rawName = String(
+      l.agenteNombre || l.agente || l.createdBy ||
+      l.registeredBy || l.usuario || l.vendedor || ''
+    ).trim()
+     .replace(/\./g, ' ')   // ABIGAIL.BERNAL → ABIGAIL BERNAL
+     .replace(/\s+/g, ' ')  // espacios múltiples → uno solo
+     .trim() || 'Sin nombre';
+
+    // Capitalizar nombre para mostrar
+    // Capitalizar correctamente cada palabra
+    var displayName = rawName.trim().split(/\s+/)
+      .map(function(w){ return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ''; })
+      .join(' ');
+
+    var key  = normalizeKey(rawName);
+    var team = normalizeTeamName(
+      l.supervisor || l.equipo || l.team || l.grupo || ''
+    );
+    var pts  = parseNumber(l.puntaje || l.score || l.puntos || 0);
+    var svc  = detectServices(l);
+
+    if (!map[key]) {
+      map[key] = {
+        name:         displayName,
+        team:         team,
+        ventasMes:    0,   // todos los status válidos (para Ranking Ventas/AT&T)
+        ventasComp:   0,   // solo completed (para Ranking Activación)
+        puntosVentas: 0,   // puntos de ventasMes (todos los status)
+        colchon:      0,
+        total:        0,
+        puntos:       0,
+        att:          0,
+        frontier:     0
+      };
+    }
+
+    // Actualizar team si está vacío
+    if (!map[key].team && team) map[key].team = team;
+
+    // ventasMes = TODOS los status válidos (para Ranking Ventas y AT&T)
+    if (isVentaMes)         { map[key].ventasMes++;  map[key].puntosVentas += pts; }
+    // ventasCompletadas = solo completed (para Ranking Activación)
+    if (isVentaCompletada)  { map[key].ventasComp++; map[key].puntos += pts; }
+    if (isColchonValido)    { map[key].colchon++;     map[key].puntos += pts; }
+
+    map[key].total = map[key].ventasComp + map[key].colchon;
+
+    // AT&T y Frontier cuentan todos los status válidos del mes
+    if (isVentaMes && svc.isATT)      map[key].att++;
+    if (isVentaMes && svc.isFrontier) map[key].frontier++;
+  });
+
+  return Object.values(map);
+}
+
+/* ══════════════════════════════════════════════
+   AGGREGATE BY TEAM
+══════════════════════════════════════════════ */
+function aggregateByTeam(agentRows) {
+  var map = {};
+  agentRows.forEach(function(r) {
+    var key = normalizeKey(r.team || 'Sin equipo');
+    if (!map[key]) map[key] = {
+      name: r.team || 'Sin equipo', team: r.team || 'Sin equipo',
+      ventasMes:0, ventasComp:0, puntosVentas:0, colchon:0, total:0, puntos:0, att:0, frontier:0
+    };
+    map[key].ventasMes    += r.ventasMes;
+    map[key].ventasComp   += r.ventasComp || 0;
+    map[key].puntosVentas += r.puntosVentas || 0;
+    map[key].colchon   += r.colchon;
+    map[key].total     += r.total;
+    map[key].puntos    += r.puntos;
+    map[key].att       += r.att;
+    map[key].frontier  += r.frontier;
+  });
+  return Object.values(map);
+}
+
+/* ══════════════════════════════════════════════
+   RENDER HELPERS
+══════════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function initials(name) {
+  return String(name || '?').trim().split(/\s+/)
+    .map(function(w){ return w[0] || ''; }).slice(0,2).join('').toUpperCase() || '?';
+}
+
+function rnClass(i) {
+  if (i === 1) return 'rn rn1';
+  if (i === 2) return 'rn rn2';
+  if (i === 3) return 'rn rn3';
+  return 'rn rnn';
+}
+function avClass(i) {
+  if (i === 1) return 'agent-av av1';
+  if (i === 2) return 'agent-av av2';
+  if (i === 3) return 'agent-av av3';
+  return 'agent-av';
+}
+function rowClass(i) {
+  return i <= 3 ? 'row-' + i : '';
+}
+
+function setLoading(tbodyId, colCount) {
+  var tbody = document.getElementById(tbodyId);
+  if (tbody) tbody.innerHTML =
+    '<tr class="load-row"><td colspan="' + colCount +
+    '"><span class="spinner"></span>Cargando...</td></tr>';
+}
+
+/* ══════════════════════════════════════════════
+   LOAD ACTIVATION
+══════════════════════════════════════════════ */
+var _activationRows  = [];
+var _activationScope = 'agent';
+var _activationYM    = '';
+var _leadsCache      = {};   // cache: ym -> leads array (evita 3 fetches por tab)
+
+// Fetch con cache — si ya tenemos los leads del mes, no vuelve a pedir
+async function fetchLeadsForMonthCached(ym) {
+  if (_leadsCache[ym]) return _leadsCache[ym];
+  var leads = await fetchLeadsForMonth(ym);
+  _leadsCache[ym] = leads;
+  return leads;
+}
+
+// Limpiar cache cuando cambia el mes
+function clearLeadsCache() { _leadsCache = {}; }
+
+async function loadActivation(ym) {
+  _activationYM = ym;
+  setLoading('tbody-activation', 6);
+  document.getElementById('empty-activation').classList.remove('visible');
+  document.getElementById('kpi-activation').innerHTML  = '';
+  document.getElementById('meta-activation').textContent = '';
+
+  var leads     = await fetchLeadsForMonthCached(ym);
+  var agentRows = aggregateByAgent(leads, ym);
+  _activationRows = agentRows;
+  renderActivation(_activationScope, ym, agentRows);
+}
+
+function renderActivation(scope, ym, agentRows) {
+  var rows;
+  if (scope === 'team') {
+    rows = aggregateByTeam(agentRows).sort(function(a,b){
+      return b.total - a.total || b.puntos - a.puntos;
+    });
+  } else {
+    rows = agentRows
+      .filter(function(r){ return r.ventasComp > 0 || r.colchon > 0; })
+      .slice().sort(function(a,b){
+        return b.total - a.total || b.puntos - a.puntos;
+      });
   }
 
-  function render(){updateKpis();renderList();}
+  var tbody   = document.getElementById('tbody-activation');
+  var kpiGrid = document.getElementById('kpi-activation');
+  var meta    = document.getElementById('meta-activation');
+  var empty   = document.getElementById('empty-activation');
+  empty.classList.remove('visible');
 
-  function updateKpis(){
-    var totalPts=_data.reduce(function(s,a){return s+Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);},0);
-    var totalV=_data.reduce(function(s,a){return s+Number(a.ventas||0);},0);
-    var totalC=_data.reduce(function(s,a){return s+Number(a.colchon||a.colchón||0);},0);
-    set('kpi-agentes',_data.length);set('kpi-puntos',totalPts.toFixed(2));set('kpi-ventas',totalV);set('kpi-colchon',totalC);
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    empty.classList.add('visible');
+    return;
   }
 
-  function renderList(){
-    var container=document.getElementById('rank-list-dynamic');
-    if(!container)return;
-    var items;
-    if(_view==='team'){
-      var teams={};
-      _data.forEach(function(a){var t=(a.team||a.equipo||a.supervisor||'Sin equipo').trim();if(!teams[t])teams[t]={name:t,ventas:0,pts:0,colchon:0,agents:0};teams[t].ventas+=Number(a.ventas||0);teams[t].pts+=Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);teams[t].colchon+=Number(a.colchon||a.colchón||0);teams[t].agents++;});
-      items=Object.values(teams).sort(function(a,b){return b.pts-a.pts;});
-    }else{items=_data.slice().sort(function(a,b){return getScore(b)-getScore(a);});}
-    if(!items.length){container.innerHTML='<div class="rk-loading"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:.25"></i><span style="margin-left:8px">Sin datos para este período</span></div>';return;}
-    var maxScore=_view==='team'?items[0].pts:getScore(items[0])||1;
-    var html=items.map(function(a,i){
-      var pos=i+1;
-      var posClass=pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':'';
-      var name=_view==='team'?esc(a.name):(esc(a.nombre||a.name||a.agenteNombre||a.agente||'—'));
-      var sup=_view==='team'?(a.agents+' agentes'):(esc(a.supervisor||a.cargo||a.team||''));
-      var ventas=_view==='team'?a.ventas:Number(a.ventas||0);
-      var colchon=_view==='team'?a.colchon:Number(a.colchon||a.colchón||0);
-      var total=ventas+(colchon||0);
-      var score=_view==='team'?a.pts:getScore(a);
-      var barW=Math.round((score/maxScore)*100);
-      var color=avatarColor(name);var ini=initials(name);
-      var avatar='<div class="agent-avatar" style="background:'+color+'">'+ini+'</div>';
-      if(a.avatar_url||a.avatarUrl){avatar='<div class="agent-avatar" style="background:'+color+'"><img src="'+(a.avatar_url||a.avatarUrl)+'" onerror="this.parentNode.innerHTML=\''+ini+'\'"></div>';}
-      return '<div class="rank-item">'+
-        '<div class="rank-number '+posClass+'">'+String(pos).padStart(2,'0')+'</div>'+
-        '<div class="agent-info">'+avatar+'<div class="agent-details"><h4>'+name+'</h4>'+(sup?'<p>'+sup+'</p>':'')+'</div></div>'+
-        '<div class="rk-cell">'+ventas+'</div>'+
-        '<div class="rk-cell '+(colchon?'':'muted')+'">'+(colchon?'<i class="fas fa-bed" style="font-size:.7rem;margin-right:3px;color:var(--amber)"></i>'+colchon:'—')+'</div>'+
-        '<div class="rk-cell" style="font-weight:700;color:var(--t1)">'+total+'</div>'+
-        '<div class="agent-stats"><span class="points" style="'+(pos===1?'color:#2563eb;':'')+'">'+fmt(score)+' <span style="font-size:.6rem;font-weight:500;color:var(--t3)">pts</span></span>'+
-        '<div class="rk-bar-wrap"><div class="rk-bar'+(pos===1?' top':'')+'" style="width:'+barW+'%"></div></div></div>'+
-      '</div>';
-    }).join('');
-    container.innerHTML=html;
-  }
+  var totalVentas  = rows.reduce(function(s,r){ return s + (r.ventasComp||0); }, 0);
+  var totalColchon = rows.reduce(function(s,r){ return s + r.colchon;   }, 0);
+  meta.textContent = rows.length + ' ' + (scope === 'team' ? 'equipos' : 'agentes') +
+    ' · ' + totalVentas + ' ventas · ' + totalColchon + ' colchones';
 
-  document.getElementById('rank-prev').addEventListener('click',function(){curM--;if(curM<0){curM=11;curY--;}updateLabel();load();});
-  document.getElementById('rank-next').addEventListener('click',function(){curM++;if(curM>11){curM=0;curY++;}updateLabel();load();});
-  document.querySelectorAll('.rk-tab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('.rk-tab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');_mode=btn.dataset.mode||'puntaje';load();});});
-  document.getElementById('btn-view-agente').addEventListener('click',function(){_view='agente';this.classList.add('active');document.getElementById('btn-view-team').classList.remove('active');render();});
-  document.getElementById('btn-view-team').addEventListener('click',function(){_view='team';this.classList.add('active');document.getElementById('btn-view-agente').classList.remove('active');render();});
+  var kC  = ['k1','k2','k3','k4'];
+  var kiC = ['ki1','ki2','ki3','ki4'];
+  var kbC = ['kb1','kb2','kb3','kb4'];
+  var kpC = ['kpb1','kpb2','kpb3','kpb4'];
+  var maxTotal = rows[0].total || 1;
 
-  updateLabel();load();
-  document.addEventListener('themeChanged',function(){localStorage.setItem('theme',document.body.classList.contains('dark-theme')?'dark':'light');});
-})();
+  kpiGrid.innerHTML = rows.slice(0, 4).map(function(r, i) {
+    var pct = Math.round((r.total / maxTotal) * 100);
+    var colchonLine = r.colchon > 0
+      ? '<div class="kpi-colchon">🛏 ' + r.colchon + ' colchón' + (r.colchon > 1 ? 'es' : '') + '</div>'
+      : '';
+    return [
+      '<div class="kpi-tile ' + kC[i] + '">',
+      '<div class="kpi-top">',
+      '  <div class="kpi-ic ' + kiC[i] + '"><i class="fas fa-trophy"></i></div>',
+      '  <span class="kpi-badge ' + kbC[i] + '">#' + (i+1) + '</span>',
+      '</div>',
+      '<div class="kpi-val">' + r.total + '</div>',
+      '<div class="kpi-name">' + escHtml(r.name) + '</div>',
+      '<div class="kpi-pts"><strong>' + r.puntos.toFixed(2) + '</strong> pts &nbsp;·&nbsp; ' + (r.ventasComp||0) + ' ventas</div>',
+      colchonLine,
+      '<div class="kpi-prog"><div class="kpi-prog-bar ' + kpC[i] + '" style="width:' + pct + '%"></div></div>',
+      '</div>'
+    ].join('');
+  }).join('');
+
+  tbody.innerHTML = rows.map(function(r, i) {
+    var pos = i + 1;
+    return [
+      '<tr class="' + rowClass(pos) + '">',
+      '<td><span class="' + rnClass(pos) + '">' + pos + '</span></td>',
+      '<td><div class="agent-cell">',
+      '  <div class="' + avClass(pos) + '">' + initials(r.name) + '</div>',
+      '  <div>',
+      '    <div class="agent-name">' + escHtml(r.name) + '</div>',
+      '    <div class="agent-team">' + escHtml(r.team || '—') + '</div>',
+      '  </div>',
+      '</div></td>',
+      '<td class="num v-sales">' + (r.ventasComp||0) + '</td>',
+      '<td class="num v-colchon">' + (r.colchon > 0 ? '🛏 ' + r.colchon : '—') + '</td>',
+      '<td class="num v-total">' + r.total + '</td>',
+      '<td class="num v-pts">' + r.puntos.toFixed(2) + '</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   LOAD SALES (sin colchones)
+══════════════════════════════════════════════ */
+async function loadSales(ym) {
+  setLoading('tbody-sales', 4);
+  document.getElementById('empty-sales').classList.remove('visible');
+  document.getElementById('kpi-sales').innerHTML    = '';
+  document.getElementById('meta-sales').textContent = '';
+
+  var leads     = await fetchLeadsForMonthCached(ym);
+  var agentRows = aggregateByAgent(leads, ym);
+
+  // Ranking Ventas: todos los status válidos (pending + completed)
+  var rows = agentRows
+    .filter(function(r){ return r.ventasMes > 0; })
+    .sort(function(a,b){ return b.ventasMes - a.ventasMes || b.puntosVentas - a.puntosVentas; });
+
+  var tbody   = document.getElementById('tbody-sales');
+  var kpiGrid = document.getElementById('kpi-sales');
+  var meta    = document.getElementById('meta-sales');
+  var empty   = document.getElementById('empty-sales');
+  empty.classList.remove('visible');
+
+  if (!rows.length) { tbody.innerHTML = ''; empty.classList.add('visible'); return; }
+
+  var totalVentas = rows.reduce(function(s,r){ return s + r.ventasMes; }, 0);
+  var totalPuntos = rows.reduce(function(s,r){ return s + (r.puntosVentas||0); }, 0);
+  meta.textContent = rows.length + ' agentes · ' + totalVentas + ' ventas · ' + totalPuntos.toFixed(2) + ' pts';
+
+  var maxPts = rows[0].ventasMes || 1;
+  var kC  = ['k1','k2','k3','k4'];
+  var kiC = ['ki1','ki2','ki3','ki4'];
+  var kbC = ['kb1','kb2','kb3','kb4'];
+  var kpC = ['kpb1','kpb2','kpb3','kpb4'];
+
+  kpiGrid.innerHTML = rows.slice(0, 4).map(function(r, i) {
+    var pct = Math.round((r.ventasMes / maxPts) * 100);
+    return [
+      '<div class="kpi-tile ' + kC[i] + '">',
+      '<div class="kpi-top">',
+      '  <div class="kpi-ic ' + kiC[i] + '"><i class="fas fa-cart-shopping"></i></div>',
+      '  <span class="kpi-badge ' + kbC[i] + '">#' + (i+1) + '</span>',
+      '</div>',
+      '<div class="kpi-val">' + r.ventasMes + '</div>',
+      '<div class="kpi-name">' + escHtml(r.name) + '</div>',
+      '<div class="kpi-pts"><strong>' + (r.puntosVentas||0).toFixed(2) + '</strong> pts &nbsp;·&nbsp; ' + escHtml(r.team || '—') + '</div>',
+      '<div class="kpi-prog"><div class="kpi-prog-bar ' + kpC[i] + '" style="width:' + pct + '%"></div></div>',
+      '</div>'
+    ].join('');
+  }).join('');
+
+  tbody.innerHTML = rows.map(function(r, i) {
+    var pos = i + 1;
+    return [
+      '<tr class="' + rowClass(pos) + '">',
+      '<td><span class="' + rnClass(pos) + '">' + pos + '</span></td>',
+      '<td><div class="agent-cell">',
+      '  <div class="' + avClass(pos) + '">' + initials(r.name) + '</div>',
+      '  <div>',
+      '    <div class="agent-name">' + escHtml(r.name) + '</div>',
+      '    <div class="agent-team">' + escHtml(r.team || '—') + '</div>',
+      '  </div>',
+      '</div></td>',
+      '<td class="num v-sales">' + r.ventasMes + '</td>',
+      '<td class="num v-pts">' + (r.puntosVentas||0).toFixed(2) + '</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   LOAD AT&T / FRONTIER
+══════════════════════════════════════════════ */
+async function loadATT(ym) {
+  setLoading('tbody-att', 6);
+  document.getElementById('empty-att').classList.remove('visible');
+  document.getElementById('kpi-att').innerHTML    = '';
+  document.getElementById('meta-att').textContent = '';
+
+  var leads     = await fetchLeadsForMonthCached(ym);
+  var agentRows = aggregateByAgent(leads, ym);
+
+  var rows = agentRows
+    .filter(function(r){ return r.att > 0 || r.frontier > 0; })
+    .sort(function(a,b){
+      return (b.att + b.frontier) - (a.att + a.frontier) || b.puntos - a.puntos;
+    });
+
+  var tbody   = document.getElementById('tbody-att');
+  var kpiGrid = document.getElementById('kpi-att');
+  var meta    = document.getElementById('meta-att');
+  var empty   = document.getElementById('empty-att');
+  empty.classList.remove('visible');
+
+  if (!rows.length) { tbody.innerHTML = ''; empty.classList.add('visible'); return; }
+
+  var totalATT      = rows.reduce(function(s,r){ return s + r.att;      }, 0);
+  var totalFrontier = rows.reduce(function(s,r){ return s + r.frontier; }, 0);
+  meta.textContent = rows.length + ' agentes · ' + totalATT + ' AT&T · ' + totalFrontier + ' Frontier';
+
+  var maxTotal = (rows[0].att + rows[0].frontier) || 1;
+  var kC  = ['k1','k2','k3','k4'];
+  var kiC = ['ki1','ki2','ki3','ki4'];
+  var kbC = ['kb1','kb2','kb3','kb4'];
+  var kpC = ['kpb1','kpb2','kpb3','kpb4'];
+
+  kpiGrid.innerHTML = rows.slice(0, 4).map(function(r, i) {
+    var tot = r.att + r.frontier;
+    var pct = Math.round((tot / maxTotal) * 100);
+    return [
+      '<div class="kpi-tile ' + kC[i] + '">',
+      '<div class="kpi-top">',
+      '  <div class="kpi-ic ' + kiC[i] + '"><i class="fas fa-signal"></i></div>',
+      '  <span class="kpi-badge ' + kbC[i] + '">#' + (i+1) + '</span>',
+      '</div>',
+      '<div class="kpi-val">' + tot + '</div>',
+      '<div class="kpi-name">' + escHtml(r.name) + '</div>',
+      '<div class="kpi-pts"><strong>' + r.att + '</strong> AT&T &nbsp;·&nbsp; <strong>' + r.frontier + '</strong> Frontier</div>',
+      '<div class="kpi-prog"><div class="kpi-prog-bar ' + kpC[i] + '" style="width:' + pct + '%"></div></div>',
+      '</div>'
+    ].join('');
+  }).join('');
+
+  tbody.innerHTML = rows.map(function(r, i) {
+    var pos = i + 1;
+    var tot = r.att + r.frontier;
+    return [
+      '<tr class="' + rowClass(pos) + '">',
+      '<td><span class="' + rnClass(pos) + '">' + pos + '</span></td>',
+      '<td><div class="agent-cell">',
+      '  <div class="' + avClass(pos) + '">' + initials(r.name) + '</div>',
+      '  <div>',
+      '    <div class="agent-name">' + escHtml(r.name) + '</div>',
+      '    <div class="agent-team">' + escHtml(r.team || '—') + '</div>',
+      '  </div>',
+      '</div></td>',
+      '<td class="num v-att">' + r.att + '</td>',
+      '<td class="num v-fr">' + r.frontier + '</td>',
+      '<td class="num v-total">' + tot + '</td>',
+      '<td class="num v-pts">' + r.puntos.toFixed(2) + '</td>',
+      '</tr>'
+    ].join('');
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════ */
+var _activeTab = 'activation';
+var _tabLoaded = {};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){
+    b.classList.toggle('is-active', b.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(function(p){
+    p.classList.toggle('is-active', p.dataset.panel === tab);
+  });
+  _activeTab = tab;
+  // Siempre cargar — usa cache si ya tiene los leads, es instantáneo
+  _tabLoaded[tab] = true;
+  loadTab(tab, currentYM());
+}
+
+function currentYM() {
+  return document.getElementById('rankMonth').value || getMonth();
+}
+
+function loadTab(tab, ym) {
+  if (tab === 'activation') return loadActivation(ym);
+  if (tab === 'sales')      return loadSales(ym);
+  if (tab === 'att')        return loadATT(ym);
+}
+
+function loadAll(ym) {
+  clearLeadsCache();  // nuevo mes = limpiar cache
+  _tabLoaded = {};
+  _tabLoaded[_activeTab] = true;
+  loadTab(_activeTab, ym);
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  checkAuth();
+
+  var monthInput = document.getElementById('rankMonth');
+  monthInput.value = getMonth();
+
+  document.getElementById('rankRefresh').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px;margin:0;"></span> Cargando...';
+    loadAll(currentYM());
+    setTimeout(function(){
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-rotate"></i> Actualizar';
+      showToast('Rankings actualizados', 'ok');
+    }, 1800);
+  });
+
+  monthInput.addEventListener('change', function() {
+    loadAll(this.value);
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
+  });
+
+  document.getElementById('activationScope').addEventListener('click', function(e) {
+    var btn = e.target.closest('.seg-btn');
+    if (!btn) return;
+    document.querySelectorAll('#activationScope .seg-btn').forEach(function(b){
+      b.classList.remove('is-active');
+    });
+    btn.classList.add('is-active');
+    _activationScope = btn.dataset.scope;
+    renderActivation(_activationScope, _activationYM || currentYM(), _activationRows);
+  });
+
+  loadAll(getMonth());
+});
+
 </script>
 </body>
 </html>

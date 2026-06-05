@@ -544,57 +544,28 @@
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
-    else{tbody.innerHTML=paged.map(function(lead,_ri){
+    if(!paged.length){tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
+    else{tbody.innerHTML=paged.map(function(lead){
       const lid=String(lead._id),isCol=!!lead._es_colchon_route,rowClass=isCol?' class="row-colchon"':'';
-      const rowAnim='animation:rowFall .75s cubic-bezier(.16,1,.3,1) both;animation-delay:'+(_ri*0.06)+'s;';
-      const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
-      const ptsColor=pts===null?'var(--ink-4)':pts>=1?'var(--go)':pts>=0.5?'var(--warn)':'var(--stop)';
-      const svcBadge=lead.tipo_servicio?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:var(--sheet-3);border:1px solid var(--line-1);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;">'+escHTML(lead.tipo_servicio)+'</span>':'';
-      const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:var(--info-bg);border:1px solid var(--info-ln);border-radius:var(--rf);padding:2px 9px;color:var(--info);white-space:nowrap;">'+escHTML(lead.sistema)+(lead.riesgo&&lead.riesgo!=='N/A'&&lead.riesgo!==''?' ('+escHTML(lead.riesgo)+')':'')+'</span>':'';
-      return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' style="'+rowAnim+'">'+
-        // Col 1: Agente / Cliente
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.69rem;color:var(--ink-3);font-weight:500;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;">'+escHTML(lead.agente||'—')+'</div>'+
-          '<div style="display:flex;align-items:center;gap:4px;">'+
-            (isCol?'<span title="Venta colchón" style="font-size:.75rem;flex-shrink:0;">🛏</span>':'')+
-            '<span style="font-weight:700;color:var(--ink-1);font-size:.84rem;line-height:1.3;">'+escHTML(lead.nombre_cliente)+'</span>'+
-            (_hasUnreadNotes(lead)?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--a);flex-shrink:0;box-shadow:0 0 0 2px var(--a-bg);" title="Nota sin leer"></span>':'')+
-          '</div>'+
-        '</td>'+
-        // Col 2: Contacto / Dirección
-        '<td style="padding:10px 14px;">'+
-          (lead.telefono?'<div style="font-weight:600;font-size:.82rem;font-family:var(--f-mono);color:var(--ink-1);">'+escHTML(normalizePhoneNumber(lead.telefono))+'</div>':'')+
-          (lead.telefono_alt?'<div style="font-size:.75rem;font-family:var(--f-mono);color:var(--ink-3);">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</div>':'')+
-          (lead.direccion?'<div style="font-size:.71rem;color:var(--ink-4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHTML(lead.direccion)+'">'+escHTML(lead.direccion)+'</div>':'')+
-        '</td>'+
-        // Col 3: Servicio & Sistema (+ No. Cuenta)
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.69rem;color:var(--ink-4);font-family:var(--f-mono);margin-bottom:4px;">ACC: '+escHTML(lead.numero_cuenta||'—')+'</div>'+
-          '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+svcBadge+sisBadge+'</div>'+
-          (lead.motivo_llamada?'<div style="font-size:.71rem;color:var(--ink-3);">Motivo: <strong style="color:var(--ink-2);">'+escHTML(lead.motivo_llamada)+'</strong></div>':'')+
-        '</td>'+
-        // Col 4: Logística
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.78rem;color:var(--ink-2);white-space:nowrap;"><span style="color:var(--ink-4);font-size:.67rem;">Venta  </span>'+escHTML(fmtDate(lead.dia_venta))+'</div>'+
-          '<div style="font-size:.78rem;color:var(--ink-2);margin-top:4px;white-space:nowrap;"><span style="color:var(--ink-4);font-size:.67rem;">Inst     </span>'+escHTML(fmtDate(lead.dia_instalacion))+'</div>'+
-        '</td>'+
-        // Col 5: Estatus
+      const imgCell='<td style="padding:4px 8px;text-align:center;">'+
+        (lead.imagen_url
+          ?'<img src="'+escHTML(lead.imagen_url)+'" alt="img" style="display:block;width:34px;height:34px;object-fit:cover;border-radius:4px;cursor:zoom-in;border:1px solid var(--line-1);margin:0 auto 4px;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(lead.imagen_url)+'\')" title="Ver imagen">'
+          :'<span style="display:block;color:var(--ink-4);font-size:.7rem;margin-bottom:4px;">—</span>'
+        )+
+        '<button class="rab delete-btn" onclick="event.stopPropagation();deleteLead(\''+lid+'\')" style="width:auto;padding:0 7px;font-size:.68rem;background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.3);" aria-label="Eliminar">✕</button>'+
+        '</td>';
+      return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' onclick="toggleRowExpand(\''+lid+'\')" style="cursor:pointer;">'+
+        '<td style="padding:12px 14px 12px 18px;font-weight:600;color:var(--ink-1);">'+(isCol?'<span title="Venta colchón" style="margin-right:4px;font-size:.8rem;">🛏</span>':'')+escHTML(lead.nombre_cliente)+(_hasUnreadNotes(lead)?'<span class="unread-note-dot" title="Nota nueva sin leer" aria-label="Nota sin leer" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--a);margin-left:7px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 2px var(--a-bg);"></span>':'')+'</td>'+
+        cell(lead.telefono?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono))+'</span>':'—')+
+        cell(lead.telefono_alt?'<span class="mono">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</span>':'—')+
+        cell('<span class="mono">'+escHTML(lead.numero_cuenta)+'</span>')+
+        cell(escHTML(lead.autopago))+cell(escHTML(lead.direccion))+cell(escHTML(lead.tipo_servicio))+cell(escHTML(lead.sistema))+cell(escHTML(lead.riesgo))+
+        cell(fmtDate(lead.dia_venta))+cell(fmtDate(lead.dia_instalacion))+
         '<td class="status-td">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
-        // Col 6: Métricas / Sup
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-weight:700;font-size:.88rem;font-family:var(--f-mono);color:'+ptsColor+';">'+(pts!==null?escHTML(String(lead.puntaje))+' pts':'— pts')+'</div>'+
-          '<div style="font-size:.73rem;color:var(--ink-3);margin-top:3px;">Sup: '+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
-        '</td>'+
-        // Col 7: Acción
-        '<td style="padding:8px 14px;white-space:nowrap;">'+
-          '<div style="display:inline-flex;gap:6px;">'+
-            '<button onclick="toggleRowExpand(\''+lid+'\')" title="Editar" style="width:30px;height:30px;border-radius:var(--r2);border:1px solid var(--line-1);background:var(--sheet);color:var(--a);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" aria-label="Editar">'+
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
-            '</button>'+
-            '<button onclick="event.stopPropagation();deleteLead(\''+lid+'\')" title="Eliminar" style="width:30px;height:30px;border-radius:var(--r2);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.88rem;" aria-label="Eliminar">✕</button>'+
-          '</div>'+
-        '</td>'+
+        cell(escHTML(lead.servicios))+cell(escHTML(lead.mercado))+cell(escHTML(fmtSupervisor(lead.supervisor)))+cell(escHTML(lead.motivo_llamada))+
+        cell('<span class="mono">'+escHTML(lead.zip_code)+'</span>')+
+        cell(lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?'<span style="font-family:var(--f-mono);font-size:.72rem;background:var(--sheet-2);border:1px solid var(--line-1);border-radius:var(--r1);padding:2px 6px;'+(parseFloat(lead.puntaje)>=1?'color:var(--go)':parseFloat(lead.puntaje)>=0.5?'color:var(--warn)':'color:var(--stop)')+'">'+escHTML(String(lead.puntaje))+'</span>':'—')+
+        imgCell+
         '</tr>';
     }).join('');}
     window._openCostumerImgLightbox=function(src){
@@ -604,7 +575,7 @@
       ov.onclick=function(){document.body.removeChild(ov);};
       document.body.appendChild(ov);
     };
-    const countEl=document.getElementById('recuentoCount');if(countEl){countEl.value=total;countEl.textContent=total+' Registros Totales';}
+    const countEl=document.getElementById('recuentoCount');if(countEl)countEl.value=total;
     const puntajeTotal=__filteredLeads.reduce(function(sum,lead){
       const raw=lead._raw||{};
       const candidates=[lead.puntaje,raw.puntaje,raw.score,raw.puntos,raw.Puntaje,raw.Score,raw.Puntos];
@@ -793,7 +764,7 @@
         if(!noEditBanner){
           noEditBanner=document.createElement('div');
           noEditBanner.className='no-edit-banner';
-          noEditBanner.style.cssText='background:var(--warn-bg);border:1px solid var(--warn-ln);border-radius:8px;padding:8px 14px;font-size:.74rem;color:var(--warn);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
+          noEditBanner.style.cssText='background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;';
           noEditBanner.innerHTML='<span>🔒</span> Solo Administradores y Backoffice pueden editar esta información.';
           const body=modal.querySelector('.modal-body');
           if(body)body.insertBefore(noEditBanner,body.firstChild);
@@ -867,29 +838,25 @@
     });
   })();
 
-  /* ── MODAL EDICIÓN CLIENTE ── */
+  /* ── INLINE ROW EXPAND / EDIT ── */
   var _expandedRowId=null;
   var _inlineImgFile=null;
   var _inlineImgRemoved=false;
 
-  window.closeEditModal=function(){
-    var m=document.getElementById('editClienteModal');
-    if(m)m.style.display='none';
-    document.body.style.overflow='';
-    _expandedRowId=null;_inlineImgFile=null;_inlineImgRemoved=false;
-  };
-
   window.toggleRowExpand=function(lid){
-    var modal=document.getElementById('editClienteModal');
-    if(modal&&modal.style.display==='flex'&&_expandedRowId===String(lid)){window.closeEditModal();return;}
-    if(modal&&modal.style.display==='flex'){window.closeEditModal();}
+    // Cierra cualquier fila ya abierta
+    var existing=document.querySelector('.inline-edit-row');
+    if(existing){
+      existing.remove();
+      if(_expandedRowId===String(lid)){_expandedRowId=null;_inlineImgFile=null;_inlineImgRemoved=false;return;}
+    }
     _expandedRowId=String(lid);
     _inlineImgFile=null;
-    _inlineImgRemoved=false;
 
     var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
     if(!lead)return;
     var row=document.querySelector('tr[data-id="'+lid+'"]');
+    if(!row)return;
 
     // Marcar notas como vistas y quitar el puntito de la fila
     _setNoteSeen(lid);
@@ -924,159 +891,109 @@
 
     var svcCurrent=Array.isArray(lead.servicios)?lead.servicios[0]:lead.servicios||'';
 
-    // ── Helpers modal ──
-    var phoneIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 5.59 5.59l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>';
-    function _mSec(icon,title,body,accent){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;'+(accent?'border-left:3px solid '+accent+';padding-left:19px;':'')+'">'+'<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'+icon+'</span><span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">'+title+'</span></div>'+body+'</div>';}
-    function _mField(lbl,id,val,type,lIcon){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><div style="position:relative;">'+(lIcon?'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;">'+lIcon+'</span>':'')+'<input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:9px '+(lIcon?'10px 9px 32px':'12px')+';border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'"></div></div>';}
-    function _mSel(lbl,id,opts){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
-    function selOpt(vals,cur){return vals.map(function(v){var vv=Array.isArray(v)?v[0]:v,lbl=Array.isArray(v)?v[1]:v;return'<option value="'+escHTML(vv)+'"'+(String(cur||'').toLowerCase()===String(vv).toLowerCase()?' selected':'')+'>'+escHTML(lbl)+'</option>';}).join('');}
-
-    // Imagen: thumbnail si existe, zona upload si no
-    var imgDisplayHtml;
-    if(imgSrc){
-      var _fn=escHTML(imgSrc.split('/').pop().split('?')[0])||'imagen.png';
-      imgDisplayHtml=
-        '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet-2);">'+
-          '<div style="width:46px;height:46px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--line-1);display:flex;align-items:center;justify-content:center;background:var(--sheet);">'+
-            '<img src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Ver imagen">'+
-          '</div>'+
-          '<div style="flex:1;min-width:0;">'+
-            '<div style="font-size:.82rem;font-weight:600;color:var(--ink-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_fn+'</div>'+
-            '<div style="font-size:.72rem;color:var(--a);cursor:pointer;margin-top:2px;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')">Click para ampliar</div>'+
-          '</div>'+
-          (canEdit?'<button type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="padding:6px 14px;border:1px solid var(--line-1);border-radius:6px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);flex-shrink:0;white-space:nowrap;">Cambiar</button>':'')+
-        '</div>'+
-        '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
-    } else {
-      imgDisplayHtml=imgZoneHtml;
-    }
-
     var html=
-      // ── Cabecera ──
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
-        '<div style="display:flex;align-items:center;gap:14px;">'+
-          '<div style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+      '<td colspan="19" style="padding:0;background:#F4F6FB;border-bottom:3px solid var(--a);">'+
+      '<div style="padding:20px 24px 24px;box-sizing:border-box;width:100%;overflow:hidden;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'+
+        '<div style="display:flex;align-items:center;gap:12px;">'+
+          '<div style="width:44px;height:44px;background:var(--a-bg);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
           '</div>'+
           '<div>'+
-            '<div style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
-            '<div style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
+            '<div style="font-size:1.05rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
+            '<div style="font-size:.78rem;color:var(--ink-3);">Modifica la información del cliente</div>'+
           '</div>'+
         '</div>'+
-        '<div style="display:flex;align-items:center;gap:10px;">'+
-          '<button type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
-          (canEdit?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'+
-            ' Guardar cambios</button>'
-          :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
-        '</div>'+
+        '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="width:32px;height:32px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet);cursor:pointer;color:var(--ink-3);font-size:1rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;">✕</button>'+
       '</div>'+
-      (!canEdit?'<div style="background:var(--warn-bg);border-bottom:1px solid var(--warn-ln);padding:9px 28px;font-size:.76rem;color:var(--warn);font-weight:600;display:flex;align-items:center;gap:8px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+      (!canEdit?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:.74rem;color:#92400e;font-weight:600;margin-bottom:16px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+      '<div style="display:grid;grid-template-columns:1fr minmax(0,300px);gap:16px;align-items:start;width:100%;">'+
 
-      // ── Cuerpo 2 columnas ──
-      '<div style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
-
-        // Columna izquierda
-        '<div style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
-            '<div style="margin-bottom:12px;">'+_mField('Nombre cliente','nombre',lead.nombre_cliente,'text','')+'</div>'+
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
-              _mField('Teléfono principal','tel',lead.telefono,'tel',phoneIcon)+
-              _mField('Teléfono alterno','tel-alt',lead.telefono_alt,'tel',phoneIcon)+
-            '</div>',
-            'var(--a)')+
-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>','Información de cuenta',
+        '<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">'+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
+            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'+
+              iField('Nombre cliente','nombre',lead.nombre_cliente,'text','person')+
+              iField('Teléfono principal','tel',lead.telefono,'tel','phone')+
+              iField('Teléfono alterno','tel-alt',lead.telefono_alt,'tel','phone')+
+            '</div>')+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>','Información de cuenta',
             '<div style="display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:10px;">'+
-              _mField('No. cuenta','cuenta',lead.numero_cuenta,'text','')+
-              _mSel('Autopago','autopago','<option value="">—</option>'+selOpt([['Si','Si'],['No','No']],lead.autopago))+
-              _mField('Dirección','dir',lead.direccion,'text','')+
-              _mField('ZIP code','zip',lead.zip_code,'text','')+
-            '</div>',
-            'var(--a)')+
-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','Detalles del servicio',
-            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
-              _mSel('Tipo servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio))+
-              '<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+svcOptions+'</select></div>'+
-              _mSel('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema))+
-              _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo))+
-            '</div>',
-            '#f59e0b')+
-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y Gestión',
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
-              _mSel('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
-              _mSel('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado))+
+              iField('No. cuenta','cuenta',lead.numero_cuenta,'text','card')+
+              sField('Autopago','autopago','<option value="">—</option>'+selOpt([['SI','SI'],['NO','NO']],lead.autopago))+
+              iField('Dirección','dir',lead.direccion,'text','location')+
+              iField('ZIP code','zip',lead.zip_code,'text','location')+
+            '</div>')+
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">'+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>','Detalles del servicio',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Tipo servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio))+
+                '<div><label style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;display:block;margin-bottom:4px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:7px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+svcOptions+'</select></div>'+
+              '</div>')+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Sistema y riesgo',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema))+
+                sField('Riesgo','riesgo','<option value="">—</option>'+selOpt(['LOW','MEDIUM','HIGH','N/A'],lead.riesgo))+
+              '</div>')+
+            _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y mercado',
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+                sField('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
+                sField('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado))+
+              '</div>')+
+          '</div>'+
+          _sec('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>','Fechas y puntaje',
+            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">'+
+              iField('Dia venta','dv',lead.dia_venta,'date','calendar')+
+              iField('Dia instalación','di',lead.dia_instalacion,'date','calendar')+
+              iField('Puntaje','pts',lead.puntaje,'number','')+
             '</div>'+
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
-              _mSel('Supervisor','sup','<option value="">—</option>'+selOpt([['Irania Serrano','IRANIA'],['Roberto Velasquez','ROBERTO'],['Marisol Beltran','MARISOL'],['Bryan Pleitez','PLEITEZ'],['Johana','JOHANA']],lead.supervisor))+
-              _mSel('Agente','agente','<option value="">— Agente —</option>')+
-            '</div>'+
-            _mSel('Motivo llamada','motivo','<option value="">—</option>'+selOpt(['BILL ALTO','PROBLEMAS DE INTERNET','ADQUIRIR SERVICIOS','MUDANZA','CANCELAR SERVICIOS','PAGAR BILL','ATENCION AL CLIENTE'],lead.motivo_llamada)),
-            'var(--a)')+
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+
+              sField('Supervisor','sup','<option value="">—</option>'+selOpt([['Irania Serrano','IRANIA'],['Roberto Velasquez','ROBERTO'],['Marisol Beltran','MARISOL'],['Bryan Pleitez','PLEITEZ'],['Johana','JOHANA']],lead.supervisor))+
+              sField('Agente','agente','<option value="">— Agente —</option>')+
+              sField('Motivo llamada','motivo','<option value="">—</option>'+selOpt(['BILL ALTO','PROBLEMAS DE INTERNET','ADQUIRIR SERVICIOS','MUDANZA','CANCELAR SERVICIOS','PAGAR BILL','ATENCION AL CLIENTE'],lead.motivo_llamada))+
+            '</div>')+
+          '<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding-top:4px;">'+
+            '<button type="button" onclick="toggleRowExpand(\''+lid+'\')" style="padding:9px 28px;border:1.5px solid var(--line-2);border-radius:24px;background:var(--sheet);font-size:.83rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
+            (canEdit
+              ?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 28px;border:none;border-radius:24px;background:var(--a);color:#fff;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar cambios</button>'
+              :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 28px;border:none;border-radius:24px;background:var(--a);color:#fff;font-size:.83rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
+          '</div>'+
         '</div>'+
 
-        // Columna derecha
-        '<div style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>','Logística & Métricas',
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'+
-              _mField('Dia venta','dv',lead.dia_venta,'date','')+
-              _mField('Dia instalación','di',lead.dia_instalacion,'date','')+
-            '</div>'+
-            '<div style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">SUPERVISOR / AGENTE:</span>'+
-                '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+(lead.agente?' / '+escHTML(lead.agente):'')+'</span>'+
-              '</div>'+
-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">MOTIVO LLAMADA:</span>'+
-                '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(lead.motivo_llamada||'—')+'</span>'+
-              '</div>'+
-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">'+
-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">PUNTAJE AUTOMÁTICO:</span>'+
-                '<input type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
-              '</div>'+
-            '</div>',
-            'var(--a)')+
-
-          // Notas
-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+        '<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">'+
+          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:16px;min-width:0;">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
-              '<div style="display:flex;align-items:center;gap:8px;">'+
-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
-                '<span id="notes-count-badge" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
+              '<div style="display:flex;align-items:center;gap:7px;font-size:.88rem;font-weight:700;color:var(--ink-1);">'+
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'+
+                'Notas <span id="notes-count-badge" style="background:var(--a-bg);color:var(--a);font-size:.63rem;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:4px;">0</span>'+
               '</div>'+
-              '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.78rem;font-weight:700;color:var(--a);background:transparent;border:none;cursor:pointer;">+ Agregar nota</button>'+
+              '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.72rem;font-weight:700;color:var(--a);background:var(--a-bg);border:1px solid var(--a-line);border-radius:8px;padding:4px 10px;cursor:pointer;">+ Agregar nota</button>'+
             '</div>'+
-            '<div id="ile-note-wrap-'+lid+'" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
+            '<div id="ile-note-wrap-'+lid+'" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:10px;padding:10px;background:var(--sheet);">'+
               '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
-              '<textarea id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
+              '<textarea id="new-note-input" rows="4" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;"></textarea>'+
               '<div style="display:flex;align-items:center;gap:7px;">'+
-                '<select id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
-                '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:5px 14px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
+                '<select id="note-type-select" style="flex:1;min-width:0;padding:5px 6px;border:1px solid var(--line-1);border-radius:7px;font-size:.75rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
+                '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:6px 14px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:.75rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
               '</div>'+
             '</div>'+
-            '<div id="notes-list" style="max-height:200px;overflow-y:auto;scrollbar-width:thin;"></div>'+
+            '<div id="notes-list" style="height:240px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;"></div>'+
           '</div>'+
-
-          // Captura o Contrato
-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
-              '<div style="display:flex;align-items:center;gap:8px;">'+
-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
-              '</div>'+
-              (imgSrc?'<span style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
-            '</div>'+
-            imgDisplayHtml+
+          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:16px;min-width:0;">'+
+            '<div style="display:flex;align-items:center;gap:7px;font-size:.88rem;font-weight:700;color:var(--ink-1);margin-bottom:12px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> Imagen</div>'+
+            imgZoneHtml+
+            (canEdit?'<button type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="width:100%;margin-top:10px;padding:8px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> Cambiar imagen</button>':'')+
           '</div>'+
         '</div>'+
-      '</div>';
 
-    // Mostrar modal
-    var content=document.getElementById('editClienteContent');
-    if(content)content.innerHTML=html;
-    var modalEl=document.getElementById('editClienteModal');
-    if(modalEl){modalEl.style.display='flex';document.body.style.overflow='hidden';}
+      '</div>'+
+      '</div>'+
+      '</td>';
+
+    var expandTr=document.createElement('tr');
+    expandTr.className='inline-edit-row';
+    expandTr.setAttribute('data-edit-id',lid);
+    expandTr.innerHTML=html;
+    row.parentNode.insertBefore(expandTr,row.nextSibling);
 
     // Set select values after inserting into DOM
     var svcSel=document.getElementById('ile-svc-'+lid);
@@ -1112,6 +1029,7 @@
     renderNotesPanel(lid);
     var _noteTA=document.getElementById('new-note-input');
     if(_noteTA){_noteTA.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();window.addNoteToLead();}});}
+    expandTr.scrollIntoView({behavior:'smooth',block:'nearest'});
   };
 
   window._ileFileSelect=function(e,lid){
@@ -1190,7 +1108,9 @@
       Object.assign(lead,updates);
       lead.imagen_url=imgUrl;
       showToast('Guardado ✓','ok');
-      window.closeEditModal();
+      var existing=document.querySelector('.inline-edit-row');
+      if(existing)existing.remove();
+      _expandedRowId=null;_inlineImgFile=null;_inlineImgRemoved=false;
       applyFilters();
     }else{
       showToast('No se pudo guardar','error');
@@ -1220,7 +1140,9 @@
       var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
       if(lead) lead.imagen_url=imgUrl;
       showToast('Imagen guardada ✓','ok');
-      window.closeEditModal();
+      var existing=document.querySelector('.inline-edit-row');
+      if(existing)existing.remove();
+      _expandedRowId=null; _inlineImgFile=null; _inlineImgRemoved=false;
       applyFilters();
     }catch(e){
       showToast('Error: '+e.message,'error');
@@ -1387,7 +1309,7 @@
       '</div>';
     }).join('');
   }
-  window.addNoteToLead=async function(){const leadId=_expandedRowId||getVal('edit-lead-id'),text=(document.getElementById('new-note-input')?document.getElementById('new-note-input').value:'').trim(),type=getVal('note-type-select')||'general',author=getCurrentUserName(),btn=document.getElementById('btn-add-note');if(!leadId){showToast('No hay cliente seleccionado','error');return;}if(!text){showToast('Escribe algo antes de guardar','error');return;}const note={id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),text,type,author,createdAt:new Date().toISOString(),attachments:[]};const key=String(leadId);if(!NOTES_STORE[key])NOTES_STORE[key]=[];NOTES_STORE[key].push(note);const ta=document.getElementById('new-note-input');if(ta){ta.value='';ta.dispatchEvent(new Event('input'));}await renderNotesPanel(leadId);showToast('Nota agregada ✓','ok');showCRMNotif('nota',{cliente:getVal('edit-nombre')||leadId,actor:author,detalle:text.slice(0,90)+(text.length>90?'…':'')});if(btn)btn.disabled=true;await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});if(btn)btn.disabled=false;};
+  window.addNoteToLead=async function(){const leadId=getVal('edit-lead-id'),text=(document.getElementById('new-note-input')?document.getElementById('new-note-input').value:'').trim(),type=getVal('note-type-select')||'general',author=getCurrentUserName(),btn=document.getElementById('btn-add-note');if(!leadId){showToast('No hay cliente seleccionado','error');return;}if(!text){showToast('Escribe algo antes de guardar','error');return;}const note={id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),text,type,author,createdAt:new Date().toISOString(),attachments:[]};const key=String(leadId);if(!NOTES_STORE[key])NOTES_STORE[key]=[];NOTES_STORE[key].push(note);const ta=document.getElementById('new-note-input');if(ta){ta.value='';ta.dispatchEvent(new Event('input'));}await renderNotesPanel(leadId);showToast('Nota agregada ✓','ok');showCRMNotif('nota',{cliente:getVal('edit-nombre')||leadId,actor:author,detalle:text.slice(0,90)+(text.length>90?'…':'')});if(btn)btn.disabled=true;await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({notas:NOTES_STORE[key]})}).catch(function(){});if(btn)btn.disabled=false;};
   window.deleteNote=async function(leadId,noteId){
     const key=String(leadId);
     if(!NOTES_STORE[key])return;
@@ -1537,112 +1459,44 @@
   /* ── SCROLLBAR MIRROR ── */
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
+  /* ── LOADER HTML ── */
+  const ASTRO_HTML = '<div class="box-of-star1"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star2"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>'
+    + '<div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div>';
+
   function getLoaderTR(){
-    return '<tr><td colspan="7" style="padding:48px 0;text-align:center;">'
-      + '<div style="display:inline-flex;gap:7px;align-items:center;">'
-      + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:0s;"></span>'
-      + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:.18s;"></span>'
-      + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:.36s;"></span>'
-      + '</div></td></tr>';
-  }
-
-  /* ── BOOTSTRAP CACHE (stale-while-revalidate) ── */
-  var _BS_KEY='crm_bs_v1';
-  var _BS_TTL=2*60*1000; // 2 minutos — suficiente para que sea "fresco"
-  function _bsSave(data){try{localStorage.setItem(_BS_KEY,JSON.stringify({ts:Date.now(),data:data}));}catch(_){}}
-  function _bsLoad(){try{var r=localStorage.getItem(_BS_KEY);if(!r)return null;var p=JSON.parse(r);if(Date.now()-p.ts>_BS_TTL)return null;return p.data;}catch(_){return null;}}
-
-  /* ── BOOTSTRAP (1 llamada = leads + teams + agents + months) ── */
-  async function fetchBootstrap(monthParam){
-    var m=monthParam!==undefined?monthParam:getVal('monthFilter');
-    var qs='';
-    if(m==='__all')qs='?allData=true';
-    else if(m)qs='?month='+encodeURIComponent(m);
-    var res=await AUTH.secureFetch('/api/leads/bootstrap'+qs);
-    if(!res||!res.ok)return null;
-    try{return await res.json();}catch(_){return null;}
-  }
-
-  function _applyBootstrapFilters(data){
-    // Inicializar variables internas que el JS usa para normalización
-    _teams = data.teams||[];
-    __usersFromAPI = data.agents||[];
-    // Poblar liberar-agente-select
-    var liberarSel=document.getElementById('liberar-agente-select');
-    if(liberarSel&&__usersFromAPI.length){
-      var getName=function(u){return(u.name||u.username||'').trim();};
-      var prev=liberarSel.value;
-      liberarSel.innerHTML='<option value="">-- Selecciona agente --</option>';
-      __usersFromAPI.filter(function(u){var r=String(u.role||'').toLowerCase();return r.includes('agente')||r.includes('vendedor')||r.includes('agent');})
-        .sort(function(a,b){return getName(a).localeCompare(getName(b));})
-        .forEach(function(u){var n=getName(u);if(!n)return;var o=document.createElement('option');o.value=n;o.textContent=n;liberarSel.appendChild(o);});
-      if(prev)liberarSel.value=prev;
-    }
-    // Teams
-    var teams=data.teams||[];
-    var tSel=document.getElementById('teamFilter');
-    if(tSel&&teams.length){
-      var cur=tSel.value;
-      tSel.innerHTML='<option value="">Todos</option>';
-      teams.forEach(function(t){var o=document.createElement('option');o.value=t;o.textContent=t;if(t===cur)o.selected=true;tSel.appendChild(o);});
-    }
-    // Agents
-    var agents=(data.agents||[]).filter(function(a){var r=String(a.role||'').toLowerCase();return r.includes('agente')||r.includes('agent')||r.includes('vendedor');});
-    var aSel=document.getElementById('agentFilter');
-    if(aSel&&agents.length){
-      var cur=aSel.value;
-      aSel.innerHTML='<option value="">Todos</option>';
-      agents.forEach(function(a){var n=a.name||a.username||'';var o=document.createElement('option');o.value=n;o.textContent=n;if(n===cur)o.selected=true;aSel.appendChild(o);});
-    }
-    // Months
-    var months=data.months||[];
-    if(months.length){
-      months.forEach(function(m){if(m&&/^\d{4}-\d{2}$/.test(m))__allAvailableMonths.add(m);});
-      var mEl=document.getElementById('monthFilter');
-      if(mEl){
-        var _mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-        var cur=mEl.value;
-        mEl.innerHTML='<option value="">Todos</option>';
-        Array.from(__allAvailableMonths).sort().reverse().forEach(function(m){
-          var o=document.createElement('option');var p=m.split('-');
-          o.value=m;o.textContent=_mn[parseInt(p[1],10)-1]+' '+p[0];if(m===cur)o.selected=true;mEl.appendChild(o);
-        });
-      }
-    }
+    return '<tr><td colspan="19"><div class="crm-loader-wrap">' + ASTRO_HTML + '</div></td></tr>';
   }
 
   /* ── INIT ── */
   async function loadInitialData(){
     if(!AUTH.check())return;
-
-    // ── Paso 1: mostrar caché al instante (0 ms) ──
-    var cached=_bsLoad();
-    if(cached&&cached.success){
-      _applyBootstrapFilters(cached);
-      window.renderCostumerTable(cached.leads||[]);
-    }
-
-    // ── Paso 2: fetch fresco en background ──
-    var data=await fetchBootstrap();
-    if(data&&data.success){
-      _bsSave(data);
-      // Solo re-renderizar si los datos cambiaron respecto al caché
-      var freshLeads=data.leads||[];
-      var cachedLeads=cached&&cached.leads||[];
-      var changed=freshLeads.length!==cachedLeads.length||
-        (freshLeads.length>0&&(freshLeads[0]._id!==(cachedLeads[0]||{})._id||freshLeads[freshLeads.length-1]._id!==(cachedLeads[cachedLeads.length-1]||{})._id));
-      if(changed||!cached){
-        _applyBootstrapFilters(data);
-        window.renderCostumerTable(freshLeads);
+    const tbody=document.getElementById('costumer-tbody');
+    if(tbody)tbody.innerHTML=getLoaderTR();
+    // Paralelizar: verificar sesión, cargar teams y filtros al mismo tiempo
+    const [, , , apiMonths] = await Promise.all([
+      loadTeams(),
+      fetchUsersForFilters().catch(function(){}),
+      fetchMonthsForFilters().catch(function(){}),
+      Promise.resolve()
+    ]);
+    // Pre-poblar el dropdown de meses con todos los disponibles en BD
+    if(Array.isArray(apiMonths)&&apiMonths.length){
+      apiMonths.forEach(function(m){if(m&&/^\d{4}-\d{2}$/.test(m))__allAvailableMonths.add(m);});
+      var _mEl=document.getElementById('monthFilter');
+      if(_mEl){
+        var _mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        _mEl.innerHTML='<option value="">Todos</option>';
+        Array.from(__allAvailableMonths).sort().reverse().forEach(function(m){
+          var o=document.createElement('option');var p=m.split('-');
+          o.value=m;o.textContent=_mn[parseInt(p[1],10)-1]+' '+p[0];_mEl.appendChild(o);
+        });
       }
-    }else if(!cached){
-      // Solo si NO hay caché y bootstrap falló: fallback individual
-      console.warn('[CRM] bootstrap falló, fallback a llamadas individuales');
-      await Promise.all([loadTeams(),fetchUsersForFilters().catch(function(){})]);
-      var leads=await fetchLeads();
-      window.renderCostumerTable(leads);
     }
-
+    const leads=await fetchLeads();
+    window.renderCostumerTable(leads);
     setInterval(async function(){const ok=await AUTH.verifySession();if(!ok){showToast('Tu sesión ha expirado','error');setTimeout(function(){AUTH.redirectToLogin('session_timeout');},1500);}},30*60*1000);
   }
 
@@ -1692,7 +1546,7 @@
       var cfg = TYPE_CFG[tipo] || TYPE_CFG.info;
       var card = document.createElement('div');
       card.style.cssText = [
-        'pointer-events:all;width:320px;background:var(--sheet);border-radius:14px;',
+        'pointer-events:all;width:320px;background:#fff;border-radius:14px;',
         'box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;',
         'display:flex;flex-direction:column;',
         'transform:translateX(360px);transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .35s;opacity:0;',
@@ -1806,7 +1660,7 @@
 
     const searchEl=document.getElementById('costumer-search');if(searchEl)searchEl.addEventListener('input',applyFiltersDebounced);
     const refreshBtn=document.getElementById('refresh-table');
-    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';const data=await fetchBootstrap();if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
+    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';const m=getVal('monthFilter');const leads=await fetchLeads(m===''?'':m||undefined);window.renderCostumerTable(leads);refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
     document.querySelectorAll('#quickStatusChips .stab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('#quickStatusChips .stab').forEach(function(b){b.classList.remove('is-active');});btn.classList.add('is-active');activeStatusTab=btn.dataset.status||'all';currentPage=1;applyFiltersDebounced();});});
     const pagePrev=document.getElementById('pagePrev'),pageNext=document.getElementById('pageNext');
     if(pagePrev)pagePrev.addEventListener('click',function(){if(currentPage>1){currentPage--;renderTableRows();}});
@@ -1822,8 +1676,11 @@
       const m=this.value;
       // Cuando se elige "Todos", desactivar el límite de 2 meses para mostrar todo
       if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
-      const data=await fetchBootstrap(m===''?'__all':m);
-      if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
+      const tbody=document.getElementById('costumer-tbody');
+      if(tbody)tbody.innerHTML=getLoaderTR();
+      // m='' → "Todos" (pasa '' para noAutoMonth), m='YYYY-MM' → mes específico
+      const leads=await fetchLeads(m==='' ? '' : m);
+      window.renderCostumerTable(leads);
     });
     ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
@@ -1865,7 +1722,7 @@
         var overlay=document.createElement('div');
         overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
         overlay.innerHTML=[
-          '<div style="background:var(--sheet);border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:system-ui,sans-serif;">',
+          '<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:system-ui,sans-serif;">',
             '<div style="background:linear-gradient(135deg,#6C47FF,#a855f7);padding:28px 28px 20px;color:#fff;text-align:center;">',
               '<div style="font-size:2.5rem;margin-bottom:8px;">🔔</div>',
               '<div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">Sistema de Notificaciones</div>',
