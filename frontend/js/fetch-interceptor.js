@@ -5,27 +5,36 @@
 (function() {
   'use strict';
 
-  // Guardar la función fetch original
   const originalFetch = window.fetch;
 
-  // Sobrescribir fetch
+  // No redirigir si ya estamos en el login u otras páginas públicas
+  const publicPaths = ['/login.html', '/index.html', '/register.html', '/reset-password.html'];
+  if (publicPaths.some(p => window.location.pathname.endsWith(p)) || window.location.pathname === '/') return;
+
+  let _redirecting = false;
+
+  async function handleUnauthorized() {
+    if (_redirecting) return;
+    try {
+      const r = await originalFetch('/api/auth/verify-server', { credentials: 'include' });
+      const d = r.ok ? await r.json() : { authenticated: false };
+      if (!d.authenticated) {
+        _redirecting = true;
+        console.warn('Sesión inválida. Redirigiendo al login...');
+        window.location.href = '/login.html';
+      }
+    } catch (_) {}
+  }
+
   window.fetch = function(...args) {
     let [url, config] = args;
-
-    if (!config) {
-      config = {};
-    }
-
-    // Asegurar que las cookies de sesión (httpOnly) se envíen siempre
-    if (!config.credentials) {
-      config.credentials = 'include';
-    }
+    if (!config) config = {};
+    if (!config.credentials) config.credentials = 'include';
 
     return originalFetch(url, config)
       .then(response => {
         if (response.status === 401) {
-          console.warn('Sesión expirada. Redirigiendo al login...');
-          window.location.href = '/login.html';
+          handleUnauthorized();
         }
         return response;
       })
